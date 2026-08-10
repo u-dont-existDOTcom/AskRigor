@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": 403,
+    "message": "provider-secret-comments-disabled",
+    "errors": [
+      { "reason": "commentsDisabled", "message": "provider-secret-comments-disabled" }
+    ]
+  }
+}

@@ -18,9 +18,14 @@ import {
   searchClinicalTrials,
   searchEuropePmc,
   searchPubmed,
+  getYoutubeComments,
   getYoutubeVideo,
   searchYoutube,
+  searchYoutubeComments,
+  youtubeCommentDataSchema,
+  youtubeCommentFailureDataSchema,
   youtubeSearchRecordListSchema,
+  youtubeVideoIdSchema,
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema
 } from "@askrigor/sources";
@@ -229,7 +234,7 @@ const crossrefCandidateSchema = z.object({
 const doiResolutionEnvelopeSchema = z.object({
   provider: z.literal("crossref"),
   record_type: z.literal("doi_resolution"),
-  primary_identifier: z.string().optional(),
+  primary_identifier: youtubeVideoIdSchema.optional(),
   retrieved_at: z.string(),
   query: z.object({ citation: z.string(), rows: z.literal(5) }).strict().optional(),
   source_identity: sourceIdentitySchema,
@@ -284,7 +289,7 @@ const youtubeSearchEnvelopeSchema = z.object({
   provider: z.literal("youtube"),
   record_type: z.literal("youtube_search_result"),
   retrieved_at: z.string(),
-  query: z.object({ query: z.string() }).strict().optional(),
+  query: z.object({ query: z.string().min(1).max(5_000) }).strict().optional(),
   source_identity: sourceIdentitySchema,
   pagination: paginationSchema,
   access_status: accessStatusSchema,
@@ -304,6 +309,42 @@ const youtubeVideoEnvelopeSchema = z.object({
   limitations: z.array(z.string()),
   error: errorSchema.optional(),
   data: youtubeVideoSchema
+}).strict();
+const youtubeCommentBaseInputSchema = z.object({
+  video_id_or_url: z.string().min(1).max(2_048).describe(
+    "Supported YouTube video ID, youtu.be URL, youtube.com watch URL, or YouTube Shorts URL."
+  ),
+  include_replies: z.boolean().default(true).describe(
+    "Fetch every independently paginated API-visible reply; defaults to true."
+  ),
+  cursor: z.string().min(1).max(4_096).optional().describe(
+    "Opaque YouTube commentThreads page token at which retrieval begins."
+  )
+}).strict();
+const youtubeCommentSearchInputSchema = youtubeCommentBaseInputSchema.extend({
+  query: z.string().trim().min(1).max(5_000).describe(
+    "Nonempty YouTube comment-thread searchTerms query."
+  )
+}).strict();
+const youtubeCommentDataUnionSchema = z.union([
+  youtubeCommentDataSchema,
+  youtubeCommentFailureDataSchema
+]);
+const youtubeCommentEnvelopeSchema = z.object({
+  provider: z.literal("youtube"),
+  record_type: z.literal("youtube_comments"),
+  primary_identifier: z.string().optional(),
+  retrieved_at: z.string(),
+  query: z.object({ query: z.string() }).strict().optional(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  raw_metadata: z.object({
+    api_visible_top_level_comments: z.number().int().nonnegative()
+  }).strict().optional(),
+  error: errorSchema.optional(),
+  data: youtubeCommentDataUnionSchema
 }).strict();
 
 const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
@@ -676,6 +717,67 @@ export function registerTools(server: McpServer): void {
       }
     }
   );
+
+  server.registerTool(
+    "get_youtube_comments",
+    {
+      description:
+        "Retrieve all API-visible YouTube top-level comments and, by default, every independently paginated reply with explicit completeness accounting; no medical conclusions are generated.",
+      inputSchema: youtubeCommentBaseInputSchema,
+      outputSchema: youtubeCommentEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ video_id_or_url, include_replies, cursor }) => {
+      try {
+        const result = await getYoutubeComments({
+          video: video_id_or_url,
+          includeReplies: include_replies,
+          ...(cursor === undefined ? {} : { cursor })
+        }, youtubeConfig());
+        return youtubeToolResult(
+          `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
+          result
+        );
+      } catch (_error) {
+        const result = youtubeCommentsFailure();
+        return youtubeToolResult(
+          "YouTube comment retrieval returned 0 comment/reply record(s); access status error.",
+          result
+        );
+      }
+    }
+  );
+
+  server.registerTool(
+    "search_youtube_comments",
+    {
+      description:
+        "Retrieve a query-bounded API-visible YouTube comment-thread subset and independently paginate replies with explicit partial coverage; no medical conclusions are generated.",
+      inputSchema: youtubeCommentSearchInputSchema,
+      outputSchema: youtubeCommentEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ video_id_or_url, query, include_replies, cursor }) => {
+      try {
+        const result = await searchYoutubeComments({
+          video: video_id_or_url,
+          query,
+          includeReplies: include_replies,
+          ...(cursor === undefined ? {} : { cursor })
+        }, youtubeConfig());
+        return youtubeToolResult(
+          `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
+          result
+        );
+      } catch (_error) {
+        const result = youtubeCommentsFailure(query);
+        return youtubeToolResult(
+          "YouTube targeted comment retrieval returned 0 comment/reply record(s); access status error.",
+          result
+        );
+      }
+    }
+  );
 }
 
 async function verifyIntegrity(
@@ -905,6 +1007,21 @@ function youtubeVideoFailure() {
     provider: "youtube",
     recordType: "youtube_video",
     pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: "error",
+    code: "youtube_tool_failed",
+    message: "YouTube operation failed",
+    retryable: false,
+    data: {}
+  });
+}
+
+function youtubeCommentsFailure(query?: string) {
+  return errorEnvelope({
+    provider: "youtube",
+    recordType: "youtube_comments",
+    ...(query === undefined ? {} : { query: { query } }),
+    pagination: { page_size: 100, exhausted: false },
     returned: 0,
     accessStatus: "error",
     code: "youtube_tool_failed",

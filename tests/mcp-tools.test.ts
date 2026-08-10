@@ -26,7 +26,9 @@ const TOOL_NAMES = [
   "resolve_doi",
   "check_retraction_status",
   "search_youtube",
-  "get_youtube_video"
+  "get_youtube_video",
+  "get_youtube_comments",
+  "search_youtube_comments"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -49,7 +51,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the twelve read-only retrieval tools", async () => {
+  it("registers exactly the fourteen read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -247,6 +249,229 @@ describe("AskRigor MCP tools", () => {
         data: { video_id: "XpZHKGGCK-o", duration: "PT12M34S", privacy_status: "public" }
       });
       expect(JSON.stringify([search, video])).not.toContain("mcp-youtube-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("publishes strict, source-aligned retrieval-only YouTube comment schemas", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const getComments = tools.find(({ name }) => name === "get_youtube_comments");
+      const searchComments = tools.find(({ name }) => name === "search_youtube_comments");
+
+      expect(getComments).toMatchObject({
+        description: "Retrieve all API-visible YouTube top-level comments and, by default, every independently paginated reply with explicit completeness accounting; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["video_id_or_url"],
+          additionalProperties: false,
+          properties: {
+            video_id_or_url: { type: "string", minLength: 1, maxLength: 2048 },
+            include_replies: { type: "boolean", default: true },
+            cursor: { type: "string", minLength: 1, maxLength: 4096 }
+          }
+        },
+        outputSchema: { type: "object" }
+      });
+      expect(searchComments).toMatchObject({
+        description: "Retrieve a query-bounded API-visible YouTube comment-thread subset and independently paginate replies with explicit partial coverage; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["video_id_or_url", "query"],
+          additionalProperties: false,
+          properties: {
+            video_id_or_url: { type: "string", minLength: 1, maxLength: 2048 },
+            query: { type: "string", minLength: 1, maxLength: 5000 },
+            include_replies: { type: "boolean", default: true },
+            cursor: { type: "string", minLength: 1, maxLength: 4096 }
+          }
+        },
+        outputSchema: { type: "object" }
+      });
+
+      for (const tool of [getComments!, searchComments!]) {
+        const commentData = tool.outputSchema.properties.data.anyOf[0];
+        expect(commentData).toMatchObject({
+          type: "object",
+          required: ["comments", "manifest"],
+          additionalProperties: false
+        });
+        expect(commentData.properties.comments.items).toMatchObject({
+          type: "object",
+          required: [
+            "video_id", "comment_id", "parent_id", "top_level_comment_id",
+            "is_reply", "text", "like_count", "published_at", "updated_at"
+          ],
+          additionalProperties: false
+        });
+        expect(commentData.properties.manifest).toMatchObject({
+          type: "object",
+          required: [
+            "video_id", "top_level_comments_retrieved", "expected_replies",
+            "replies_retrieved", "total_comments_and_replies",
+            "reply_count_mismatches", "pages", "extraction_coverage"
+          ],
+          additionalProperties: false
+        });
+      }
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns a complete reconciled YouTube comment manifest through MCP", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      mcpCompleteCommentResponse(new URL(String(input)))
+    ));
+
+    try {
+      const result = await client.callTool({
+        name: "get_youtube_comments",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube comment retrieval returned 6 comment/reply record(s); access status api_visible_complete."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_comments",
+        access_status: "api_visible_complete",
+        data: {
+          manifest: {
+            expected_replies: 4,
+            replies_retrieved: 4,
+            reply_count_mismatches: [],
+            extraction_coverage: "api_visible_complete"
+          }
+        }
+      });
+      expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("returns targeted YouTube comment search as query-bounded partial without isError", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/commentThreads")
+        ? new Response(await youtubeFixture("comment-threads-query.json"), { status: 200 })
+        : new Response(await youtubeFixture("comments-query-parent.json"), { status: 200 });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "search_youtube_comments",
+        arguments: { video_id_or_url: "XpZHKGGCK-o", query: "recorded episode" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube targeted comment retrieval returned 2 comment/reply record(s); access status partial."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        query: { query: "recorded episode" },
+        access_status: "partial",
+        data: { manifest: { extraction_coverage: "partial" } }
+      });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("returns deterministic comments-disabled and missing-key MCP errors", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+
+    try {
+      delete process.env.YOUTUBE_API_KEY;
+      const missingKey = await client.callTool({
+        name: "get_youtube_comments",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+      expect(missingKey.isError).toBe(true);
+      expect(missingKey.content).toEqual([{
+        type: "text",
+        text: "YouTube comment retrieval returned 0 comment/reply record(s); access status inaccessible."
+      }]);
+      expect(missingKey.structuredContent).toMatchObject({
+        access_status: "inaccessible",
+        error: { code: "youtube_api_key_missing" },
+        data: {}
+      });
+
+      process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(
+        await youtubeFixture("error-comments-disabled.json"), { status: 403 }
+      )));
+      const disabled = await client.callTool({
+        name: "get_youtube_comments",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+      expect(disabled.isError).toBe(true);
+      expect(disabled.content).toEqual([{
+        type: "text",
+        text: "YouTube comment retrieval returned 0 comment/reply record(s); access status comments_disabled."
+      }]);
+      expect(disabled.structuredContent).toMatchObject({
+        access_status: "comments_disabled",
+        error: { code: "youtube_comments_disabled", message: "YouTube comments are disabled" }
+      });
+      expect(JSON.stringify(disabled)).not.toContain("provider-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("marks a mid-pagination YouTube MCP failure partial and never leaks raw provider details", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/comments") && url.searchParams.has("pageToken")) {
+        return new Response(await youtubeFixture("error-access-denied.json"), { status: 403 });
+      }
+      return mcpCompleteCommentResponse(url);
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "get_youtube_comments",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube comment retrieval returned 5 comment/reply record(s); access status partial."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        access_status: "partial",
+        error: { code: "youtube_access_denied", message: "YouTube access denied" },
+        data: { manifest: { extraction_coverage: "partial" } }
+      });
+      expect(JSON.stringify(result)).not.toContain("provider-secret-mid-pagination");
+      expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
@@ -1173,4 +1398,22 @@ async function abortPartialMcpPost(url: URL): Promise<void> {
       }
     });
   });
+}
+
+async function mcpCompleteCommentResponse(url: URL): Promise<Response> {
+  if (url.pathname.endsWith("/commentThreads")) {
+    return new Response(await youtubeFixture(
+      url.searchParams.get("pageToken") === "thread-page-2"
+        ? "comment-threads-page-2.json"
+        : "comment-threads-page-1.json"
+    ), { status: 200 });
+  }
+  if (url.searchParams.get("parentId") === "UgxTop00000000000000002") {
+    return new Response(await youtubeFixture("comments-top-2-page-1.json"), { status: 200 });
+  }
+  return new Response(await youtubeFixture(
+    url.searchParams.get("pageToken") === "reply-top-1-page-2"
+      ? "comments-top-1-page-2.json"
+      : "comments-top-1-page-1.json"
+  ), { status: 200 });
 }

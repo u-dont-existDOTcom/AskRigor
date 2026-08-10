@@ -11,6 +11,9 @@ import { fetchJson, UpstreamHttpError } from "./http.js";
 const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3";
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
+const DEFAULT_COMMENT_PAGE_SIZE = 100;
+const MAX_COMMENT_PAGE_SIZE = 100;
+const REPLY_PAGE_SIZE = 100;
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const VIDEO_NOT_VISIBLE_LIMITATION =
   "YouTube returned no API-visible video for this identifier; it may be deleted, private, restricted, or otherwise unavailable.";
@@ -26,6 +29,7 @@ export const youtubeLiveStateSchema = z.enum(["none", "live", "upcoming"]);
 export const youtubePrivacyStatusSchema = z.enum(["public", "private", "unlisted"]);
 const channelIdSchema = z.string().regex(/^UC[A-Za-z0-9_-]{22}$/);
 const apiKeySchema = z.string().trim().min(1).max(500);
+const providerIdentifierSchema = z.string().min(1).max(512);
 const searchInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000),
   pageSize: z.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
@@ -79,6 +83,60 @@ const videosResponseSchema = z.object({
   prevPageToken: z.string().min(1).max(4_096).optional(),
   items: z.array(videoItemSchema).max(1)
 }).passthrough();
+const commentInputSchema = z.object({
+  video: z.string().min(1).max(2_048),
+  includeReplies: z.boolean().optional(),
+  pageSize: z.number().int().min(1).max(MAX_COMMENT_PAGE_SIZE).optional(),
+  cursor: z.string().min(1).max(4_096).optional()
+}).strict();
+const targetedCommentInputSchema = commentInputSchema.extend({
+  query: z.string().trim().min(1).max(5_000)
+}).strict();
+const authorChannelIdSchema = z.object({ value: channelIdSchema }).passthrough();
+const providerCommentSnippetSchema = z.object({
+  parentId: providerIdentifierSchema.optional(),
+  videoId: youtubeVideoIdSchema.optional(),
+  textDisplay: z.string().max(1_000_000),
+  textOriginal: z.string().max(1_000_000).optional(),
+  authorDisplayName: z.string().max(10_000).optional(),
+  authorChannelId: authorChannelIdSchema.optional(),
+  likeCount: z.number().int().nonnegative(),
+  publishedAt: youtubeTimestampSchema,
+  updatedAt: youtubeTimestampSchema
+}).passthrough();
+const providerCommentSchema = z.object({
+  kind: z.literal("youtube#comment"),
+  id: providerIdentifierSchema,
+  snippet: providerCommentSnippetSchema
+}).passthrough();
+const commentThreadSchema = z.object({
+  kind: z.literal("youtube#commentThread"),
+  id: providerIdentifierSchema,
+  snippet: z.object({
+    videoId: youtubeVideoIdSchema,
+    topLevelComment: providerCommentSchema,
+    totalReplyCount: z.number().int().nonnegative()
+  }).passthrough(),
+  replies: z.object({
+    comments: z.array(providerCommentSchema).max(MAX_COMMENT_PAGE_SIZE)
+  }).passthrough().optional()
+}).passthrough();
+const commentPageInfoSchema = z.object({
+  totalResults: z.number().int().nonnegative(),
+  resultsPerPage: z.number().int().min(0).max(MAX_COMMENT_PAGE_SIZE)
+}).passthrough();
+const commentThreadsResponseSchema = z.object({
+  kind: z.literal("youtube#commentThreadListResponse"),
+  pageInfo: commentPageInfoSchema,
+  nextPageToken: z.string().min(1).max(4_096).optional(),
+  items: z.array(commentThreadSchema).max(MAX_COMMENT_PAGE_SIZE)
+}).passthrough();
+const commentsResponseSchema = z.object({
+  kind: z.literal("youtube#commentListResponse"),
+  pageInfo: commentPageInfoSchema,
+  nextPageToken: z.string().min(1).max(4_096).optional(),
+  items: z.array(providerCommentSchema).max(MAX_COMMENT_PAGE_SIZE)
+}).passthrough();
 
 export interface YoutubeConfig { apiKey: string; }
 export interface SearchYoutubeInput { query: string; pageSize?: number; cursor?: string; }
@@ -101,6 +159,47 @@ export interface YoutubeVideo {
   live_broadcast_content?: string;
   embeddable?: boolean;
   privacy_status?: string;
+}
+export interface GetYoutubeCommentsInput {
+  video: string;
+  includeReplies?: boolean;
+  pageSize?: number;
+  cursor?: string;
+}
+export interface SearchYoutubeCommentsInput extends GetYoutubeCommentsInput {
+  query: string;
+}
+export interface YoutubeComment {
+  video_id: string;
+  comment_id: string;
+  parent_id: string | null;
+  top_level_comment_id: string;
+  is_reply: boolean;
+  author_channel_id?: string;
+  author_display_name?: string;
+  text: string;
+  like_count: number;
+  published_at: string;
+  updated_at: string;
+}
+export interface YoutubeReplyCountMismatch {
+  parent_comment_id: string;
+  expected: number;
+  retrieved: number;
+}
+export interface YoutubeCommentManifest {
+  video_id: string;
+  top_level_comments_retrieved: number;
+  expected_replies: number;
+  replies_retrieved: number;
+  total_comments_and_replies: number;
+  reply_count_mismatches: YoutubeReplyCountMismatch[];
+  pages: { comment_threads: number; replies: number };
+  extraction_coverage: "api_visible_complete" | "partial";
+}
+export interface YoutubeCommentData {
+  comments: YoutubeComment[];
+  manifest: YoutubeCommentManifest;
 }
 
 export const youtubeSearchRecordSchema = z.object({
@@ -130,6 +229,42 @@ export const youtubeVideoDataSchema = z.object({
   privacy_status: youtubePrivacyStatusSchema.optional()
 }).strict();
 export const youtubeVideoFailureDataSchema = z.object({}).strict();
+export const youtubeCommentSchema = z.object({
+  video_id: youtubeVideoIdSchema,
+  comment_id: providerIdentifierSchema,
+  parent_id: providerIdentifierSchema.nullable(),
+  top_level_comment_id: providerIdentifierSchema,
+  is_reply: z.boolean(),
+  author_channel_id: channelIdSchema.optional(),
+  author_display_name: z.string().max(10_000).optional(),
+  text: z.string().max(1_000_000),
+  like_count: z.number().int().nonnegative(),
+  published_at: youtubeTimestampSchema,
+  updated_at: youtubeTimestampSchema
+}).strict();
+export const youtubeReplyCountMismatchSchema = z.object({
+  parent_comment_id: providerIdentifierSchema,
+  expected: z.number().int().nonnegative(),
+  retrieved: z.number().int().nonnegative()
+}).strict();
+export const youtubeCommentManifestSchema = z.object({
+  video_id: youtubeVideoIdSchema,
+  top_level_comments_retrieved: z.number().int().nonnegative(),
+  expected_replies: z.number().int().nonnegative(),
+  replies_retrieved: z.number().int().nonnegative(),
+  total_comments_and_replies: z.number().int().nonnegative(),
+  reply_count_mismatches: z.array(youtubeReplyCountMismatchSchema),
+  pages: z.object({
+    comment_threads: z.number().int().nonnegative(),
+    replies: z.number().int().nonnegative()
+  }).strict(),
+  extraction_coverage: z.enum(["api_visible_complete", "partial"])
+}).strict();
+export const youtubeCommentDataSchema = z.object({
+  comments: z.array(youtubeCommentSchema),
+  manifest: youtubeCommentManifestSchema
+}).strict();
+export const youtubeCommentFailureDataSchema = z.object({}).strict();
 
 export const parseYoutubeVideoId = (input: string): string | undefined => {
   if (typeof input !== "string") return undefined;
@@ -228,6 +363,526 @@ export const getYoutubeVideo = async (
   }
 };
 
+export const getYoutubeComments = async (
+  input: GetYoutubeCommentsInput,
+  config: YoutubeConfig
+): Promise<ProvenanceEnvelope<YoutubeCommentData | Record<string, never>>> => {
+  const parsedConfig = apiKeySchema.safeParse(config.apiKey);
+  if (!parsedConfig.success) return commentPreflightError("youtube_api_key_missing");
+  const parsedInput = commentInputSchema.safeParse(input);
+  if (!parsedInput.success) return commentPreflightError("youtube_comments_input_invalid");
+  const videoId = parseYoutubeVideoId(parsedInput.data.video);
+  if (videoId === undefined) return commentPreflightError("youtube_video_id_invalid");
+
+  return retrieveYoutubeComments({
+    videoId,
+    includeReplies: parsedInput.data.includeReplies ?? true,
+    pageSize: parsedInput.data.pageSize ?? DEFAULT_COMMENT_PAGE_SIZE,
+    cursor: parsedInput.data.cursor,
+    apiKey: parsedConfig.data
+  });
+};
+
+export const searchYoutubeComments = async (
+  input: SearchYoutubeCommentsInput,
+  config: YoutubeConfig
+): Promise<ProvenanceEnvelope<YoutubeCommentData | Record<string, never>>> => {
+  const parsedConfig = apiKeySchema.safeParse(config.apiKey);
+  if (!parsedConfig.success) return commentPreflightError("youtube_api_key_missing");
+  const parsedInput = targetedCommentInputSchema.safeParse(input);
+  if (!parsedInput.success) return commentPreflightError("youtube_comments_input_invalid");
+  const videoId = parseYoutubeVideoId(parsedInput.data.video);
+  if (videoId === undefined) return commentPreflightError("youtube_video_id_invalid");
+
+  return retrieveYoutubeComments({
+    videoId,
+    includeReplies: parsedInput.data.includeReplies ?? true,
+    pageSize: parsedInput.data.pageSize ?? DEFAULT_COMMENT_PAGE_SIZE,
+    cursor: parsedInput.data.cursor,
+    query: parsedInput.data.query,
+    apiKey: parsedConfig.data
+  });
+};
+
+interface CommentRetrievalOptions {
+  videoId: string;
+  includeReplies: boolean;
+  pageSize: number;
+  cursor?: string;
+  query?: string;
+  apiKey: string;
+}
+
+interface CommentThreadState {
+  topLevelId: string;
+  expectedReplies: number;
+  fetchedReplyIds: Set<string>;
+  observedReplyTotal?: number;
+  repliesExhausted: boolean;
+}
+
+interface CommentRetrievalState {
+  options: CommentRetrievalOptions;
+  comments: YoutubeComment[];
+  commentsById: Map<string, YoutubeComment>;
+  embeddedReplyIds: Set<string>;
+  threadIds: Set<string>;
+  topLevelIds: Set<string>;
+  threads: CommentThreadState[];
+  pages: { commentThreads: number; replies: number };
+  topLevelTotal?: number;
+  topLevelExhausted: boolean;
+}
+
+const retrieveYoutubeComments = async (
+  options: CommentRetrievalOptions
+): Promise<ProvenanceEnvelope<YoutubeCommentData>> => {
+  const state: CommentRetrievalState = {
+    options,
+    comments: [],
+    commentsById: new Map(),
+    embeddedReplyIds: new Set(),
+    threadIds: new Set(),
+    topLevelIds: new Set(),
+    threads: [],
+    pages: { commentThreads: 0, replies: 0 },
+    topLevelExhausted: false
+  };
+
+  try {
+    await collectCommentThreads(state);
+  } catch (error) {
+    return commentRetrievalError(state, error, [commentThreadFailureLimitation(error)]);
+  }
+
+  if (options.includeReplies) {
+    for (const thread of state.threads) {
+      if (thread.expectedReplies === 0) continue;
+      try {
+        await collectReplies(state, thread);
+      } catch (error) {
+        return commentRetrievalError(state, error, [replyFailureLimitation(error)]);
+      }
+    }
+  }
+
+  return completeCommentResult(state);
+};
+
+const collectCommentThreads = async (state: CommentRetrievalState): Promise<void> => {
+  let pageToken = state.options.cursor;
+  const seenTokens = new Set<string>(pageToken === undefined ? [] : [pageToken]);
+
+  while (true) {
+    state.pages.commentThreads += 1;
+    const url = new URL(`${YOUTUBE_API_URL}/commentThreads`);
+    url.searchParams.set("part", "snippet,replies");
+    url.searchParams.set("videoId", state.options.videoId);
+    url.searchParams.set("maxResults", String(state.options.pageSize));
+    url.searchParams.set("textFormat", "plainText");
+    url.searchParams.set("order", "time");
+    if (pageToken !== undefined) url.searchParams.set("pageToken", pageToken);
+    if (state.options.query !== undefined) url.searchParams.set("searchTerms", state.options.query);
+    url.searchParams.set("key", state.options.apiKey);
+
+    const parsed = commentThreadsResponseSchema.safeParse(await fetchJson(url.toString()));
+    if (!parsed.success) throw responseError("YouTube returned an invalid commentThreads response.");
+    const response = parsed.data;
+    validateCommentThreadPage(response, state);
+    state.topLevelTotal ??= response.pageInfo.totalResults;
+
+    for (const item of response.items) addCommentThread(state, item);
+
+    const nextToken = response.nextPageToken;
+    if (nextToken === undefined) {
+      state.topLevelExhausted = true;
+      if (
+        state.options.cursor === undefined &&
+        state.threads.length !== state.topLevelTotal
+      ) {
+        throw responseError("YouTube commentThreads results did not reconcile with pageInfo.totalResults.");
+      }
+      return;
+    }
+    if (seenTokens.has(nextToken)) {
+      throw responseError("YouTube commentThreads pagination returned a repeated page token.");
+    }
+    if (state.threads.length >= response.pageInfo.totalResults) {
+      throw responseError("YouTube commentThreads pagination was inconsistent with pageInfo.totalResults.");
+    }
+    seenTokens.add(nextToken);
+    pageToken = nextToken;
+  }
+};
+
+const validateCommentThreadPage = (
+  response: z.infer<typeof commentThreadsResponseSchema>,
+  state: CommentRetrievalState
+): void => {
+  if (
+    response.pageInfo.resultsPerPage !== response.items.length ||
+    response.items.length > state.options.pageSize ||
+    (state.topLevelTotal !== undefined && response.pageInfo.totalResults !== state.topLevelTotal) ||
+    (response.pageInfo.totalResults === 0 && (response.items.length !== 0 || response.nextPageToken !== undefined)) ||
+    response.items.length > response.pageInfo.totalResults ||
+    (state.options.cursor === undefined && state.threads.length + response.items.length > response.pageInfo.totalResults)
+  ) {
+    throw responseError("YouTube commentThreads pageInfo and result counts were inconsistent.");
+  }
+};
+
+const addCommentThread = (
+  state: CommentRetrievalState,
+  item: z.infer<typeof commentThreadSchema>
+): void => {
+  const topLevel = item.snippet.topLevelComment;
+  if (
+    item.snippet.videoId !== state.options.videoId ||
+    topLevel.snippet.videoId !== state.options.videoId ||
+    topLevel.snippet.parentId !== undefined
+  ) {
+    throw responseError("YouTube returned a comment thread that did not correlate to the requested video.");
+  }
+  if (state.threadIds.has(item.id) || state.topLevelIds.has(topLevel.id) || state.commentsById.has(topLevel.id)) {
+    throw responseError("YouTube returned a duplicate thread or top-level comment identifier.");
+  }
+
+  const embedded = item.replies?.comments ?? [];
+  if (embedded.length > item.snippet.totalReplyCount) {
+    throw responseError("YouTube embedded more replies than the thread totalReplyCount declared.");
+  }
+
+  state.threadIds.add(item.id);
+  state.topLevelIds.add(topLevel.id);
+  addUniqueComment(state, normalizeComment(topLevel, state.options.videoId, topLevel.id, false));
+  const thread: CommentThreadState = {
+    topLevelId: topLevel.id,
+    expectedReplies: item.snippet.totalReplyCount,
+    fetchedReplyIds: new Set(),
+    repliesExhausted: item.snippet.totalReplyCount === 0
+  };
+  state.threads.push(thread);
+
+  for (const reply of embedded) {
+    validateReplyCorrelation(reply, state.options.videoId, topLevel.id);
+    if (state.embeddedReplyIds.has(reply.id) || state.commentsById.has(reply.id)) {
+      throw responseError("YouTube returned a duplicate embedded reply identifier.");
+    }
+    state.embeddedReplyIds.add(reply.id);
+    if (state.options.includeReplies) {
+      addUniqueComment(state, normalizeComment(reply, state.options.videoId, topLevel.id, true));
+    }
+  }
+};
+
+const collectReplies = async (
+  state: CommentRetrievalState,
+  thread: CommentThreadState
+): Promise<void> => {
+  let pageToken: string | undefined;
+  const seenTokens = new Set<string>();
+
+  while (true) {
+    state.pages.replies += 1;
+    const url = new URL(`${YOUTUBE_API_URL}/comments`);
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("parentId", thread.topLevelId);
+    url.searchParams.set("maxResults", String(REPLY_PAGE_SIZE));
+    url.searchParams.set("textFormat", "plainText");
+    if (pageToken !== undefined) url.searchParams.set("pageToken", pageToken);
+    url.searchParams.set("key", state.options.apiKey);
+
+    const parsed = commentsResponseSchema.safeParse(await fetchJson(url.toString()));
+    if (!parsed.success) throw responseError("YouTube returned an invalid comments response.");
+    const response = parsed.data;
+    validateReplyPage(response, thread);
+    thread.observedReplyTotal ??= response.pageInfo.totalResults;
+
+    for (const reply of response.items) {
+      validateReplyCorrelation(reply, state.options.videoId, thread.topLevelId);
+      if (thread.fetchedReplyIds.has(reply.id)) {
+        throw responseError("YouTube returned a duplicate reply identifier across comments pages.");
+      }
+      thread.fetchedReplyIds.add(reply.id);
+      mergeFetchedReply(state, normalizeComment(reply, state.options.videoId, thread.topLevelId, true));
+    }
+
+    const nextToken = response.nextPageToken;
+    if (nextToken === undefined) {
+      if (thread.fetchedReplyIds.size !== response.pageInfo.totalResults) {
+        throw responseError("YouTube comments results did not reconcile with pageInfo.totalResults.");
+      }
+      thread.repliesExhausted = true;
+      return;
+    }
+    if (seenTokens.has(nextToken) || nextToken === pageToken) {
+      throw responseError("YouTube replies pagination returned a repeated page token.");
+    }
+    if (thread.fetchedReplyIds.size >= response.pageInfo.totalResults) {
+      throw responseError("YouTube replies pagination was inconsistent with pageInfo.totalResults.");
+    }
+    seenTokens.add(nextToken);
+    pageToken = nextToken;
+  }
+};
+
+const validateReplyPage = (
+  response: z.infer<typeof commentsResponseSchema>,
+  thread: CommentThreadState
+): void => {
+  if (
+    response.pageInfo.resultsPerPage !== response.items.length ||
+    response.items.length > REPLY_PAGE_SIZE ||
+    (thread.observedReplyTotal !== undefined && response.pageInfo.totalResults !== thread.observedReplyTotal) ||
+    (response.pageInfo.totalResults === 0 && (response.items.length !== 0 || response.nextPageToken !== undefined)) ||
+    response.items.length > response.pageInfo.totalResults ||
+    thread.fetchedReplyIds.size + response.items.length > response.pageInfo.totalResults
+  ) {
+    throw responseError("YouTube comments pageInfo and result counts were inconsistent.");
+  }
+};
+
+const validateReplyCorrelation = (
+  reply: z.infer<typeof providerCommentSchema>,
+  videoId: string,
+  parentId: string
+): void => {
+  if (
+    reply.snippet.parentId !== parentId ||
+    (reply.snippet.videoId !== undefined && reply.snippet.videoId !== videoId)
+  ) {
+    throw responseError("YouTube returned a reply that did not correlate to its requested parent comment.");
+  }
+};
+
+const normalizeComment = (
+  item: z.infer<typeof providerCommentSchema>,
+  videoId: string,
+  topLevelId: string,
+  isReply: boolean
+): YoutubeComment => ({
+  video_id: videoId,
+  comment_id: item.id,
+  parent_id: isReply ? topLevelId : null,
+  top_level_comment_id: topLevelId,
+  is_reply: isReply,
+  ...(item.snippet.authorChannelId === undefined
+    ? {}
+    : { author_channel_id: item.snippet.authorChannelId.value }),
+  ...(item.snippet.authorDisplayName === undefined
+    ? {}
+    : { author_display_name: item.snippet.authorDisplayName }),
+  text: item.snippet.textDisplay,
+  like_count: item.snippet.likeCount,
+  published_at: item.snippet.publishedAt,
+  updated_at: item.snippet.updatedAt
+});
+
+const addUniqueComment = (state: CommentRetrievalState, comment: YoutubeComment): void => {
+  if (state.commentsById.has(comment.comment_id)) {
+    throw responseError("YouTube returned a duplicate comment identifier.");
+  }
+  state.commentsById.set(comment.comment_id, comment);
+  state.comments.push(comment);
+};
+
+const mergeFetchedReply = (state: CommentRetrievalState, comment: YoutubeComment): void => {
+  const existing = state.commentsById.get(comment.comment_id);
+  if (existing === undefined) {
+    addUniqueComment(state, comment);
+    return;
+  }
+  if (!state.embeddedReplyIds.has(comment.comment_id) || !commentsEqual(existing, comment)) {
+    throw responseError("YouTube returned a duplicate comment identifier with inconsistent metadata.");
+  }
+};
+
+const commentsEqual = (left: YoutubeComment, right: YoutubeComment): boolean =>
+  JSON.stringify(left) === JSON.stringify(right);
+
+const completeCommentResult = (
+  state: CommentRetrievalState
+): ProvenanceEnvelope<YoutubeCommentData> => {
+  const mismatches = replyCountMismatches(state);
+  const limitations = logicalCommentLimitations(state, mismatches);
+  const extractionCoverage = limitations.length === 0
+    ? "api_visible_complete"
+    : "partial";
+  const data = commentData(state, mismatches, extractionCoverage);
+  const replyPaginationComplete = state.options.includeReplies
+    ? state.threads.every((thread) => thread.expectedReplies === 0 || thread.repliesExhausted)
+    : state.threads.every((thread) => thread.expectedReplies === 0);
+
+  return okEnvelope({
+    provider: "youtube",
+    recordType: "youtube_comments",
+    primaryIdentifier: state.options.videoId,
+    ...(state.options.query === undefined ? {} : { query: { query: state.options.query } }),
+    sourceIdentity: { canonical_url: `https://www.youtube.com/watch?v=${state.options.videoId}` },
+    pagination: {
+      ...(state.options.cursor === undefined ? {} : { cursor: state.options.cursor }),
+      page_size: state.options.pageSize,
+      exhausted: state.topLevelExhausted && replyPaginationComplete && mismatches.length === 0
+    },
+    returned: state.comments.length,
+    accessStatus: extractionCoverage,
+    limitations,
+    ...rawTopLevelMetadata(state),
+    data
+  });
+};
+
+const commentRetrievalError = (
+  state: CommentRetrievalState,
+  error: unknown,
+  limitations: string[]
+): ProvenanceEnvelope<YoutubeCommentData> => {
+  const code = youtubeFailure(error, "comments");
+  const details = failureDetails(code);
+  const mismatches = replyCountMismatches(state);
+  const data = commentData(state, mismatches, "partial");
+  const hasSuccessfulPage = state.topLevelTotal !== undefined || state.threads.some(
+    (thread) => thread.observedReplyTotal !== undefined
+  );
+  const status = hasSuccessfulPage ? "partial" : details.accessStatus;
+  const http = httpStatus(error);
+
+  return errorEnvelope({
+    provider: "youtube",
+    recordType: "youtube_comments",
+    primaryIdentifier: state.options.videoId,
+    ...(state.options.query === undefined ? {} : { query: { query: state.options.query } }),
+    sourceIdentity: { canonical_url: `https://www.youtube.com/watch?v=${state.options.videoId}` },
+    pagination: {
+      ...(state.options.cursor === undefined ? {} : { cursor: state.options.cursor }),
+      page_size: state.options.pageSize,
+      exhausted: false
+    },
+    returned: state.comments.length,
+    accessStatus: status,
+    limitations: uniqueStrings([
+      ...logicalCommentLimitations(state, mismatches),
+      ...limitations,
+      ...(details.limitations ?? [])
+    ]),
+    ...rawTopLevelMetadata(state),
+    code,
+    message: details.message,
+    ...(details.httpStatus === undefined
+      ? (http === undefined ? {} : { httpStatus: http })
+      : { httpStatus: details.httpStatus }),
+    retryable: details.retryable,
+    data
+  }) as ProvenanceEnvelope<YoutubeCommentData>;
+};
+
+const commentPreflightError = (
+  code: YoutubeFailureCode
+): ProvenanceEnvelope<Record<string, never>> => {
+  const details = failureDetails(code);
+  return errorEnvelope({
+    provider: "youtube",
+    recordType: "youtube_comments",
+    pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: details.accessStatus,
+    limitations: details.limitations ?? [],
+    code,
+    message: details.message,
+    retryable: details.retryable,
+    data: {}
+  }) as ProvenanceEnvelope<Record<string, never>>;
+};
+
+const commentData = (
+  state: CommentRetrievalState,
+  mismatches: YoutubeReplyCountMismatch[],
+  extractionCoverage: YoutubeCommentManifest["extraction_coverage"]
+): YoutubeCommentData => {
+  const repliesRetrieved = state.comments.filter((comment) => comment.is_reply).length;
+  return {
+    comments: state.comments,
+    manifest: {
+      video_id: state.options.videoId,
+      top_level_comments_retrieved: state.threads.length,
+      expected_replies: state.threads.reduce((sum, thread) => sum + thread.expectedReplies, 0),
+      replies_retrieved: repliesRetrieved,
+      total_comments_and_replies: state.comments.length,
+      reply_count_mismatches: mismatches,
+      pages: {
+        comment_threads: state.pages.commentThreads,
+        replies: state.pages.replies
+      },
+      extraction_coverage: extractionCoverage
+    }
+  };
+};
+
+const replyCountMismatches = (state: CommentRetrievalState): YoutubeReplyCountMismatch[] =>
+  state.threads.flatMap((thread) => {
+    if (thread.expectedReplies === 0) return [];
+    const returnedForParent = state.comments.filter(
+      (comment) => comment.is_reply && comment.parent_id === thread.topLevelId
+    ).length;
+    const independentlyRetrieved = thread.fetchedReplyIds.size;
+    const reconciled = state.options.includeReplies &&
+      thread.repliesExhausted &&
+      thread.observedReplyTotal === thread.expectedReplies &&
+      independentlyRetrieved === thread.expectedReplies &&
+      returnedForParent === thread.expectedReplies;
+    return reconciled ? [] : [{
+      parent_comment_id: thread.topLevelId,
+      expected: thread.expectedReplies,
+      retrieved: state.options.includeReplies
+        ? (independentlyRetrieved === thread.expectedReplies
+          ? returnedForParent
+          : independentlyRetrieved)
+        : 0
+    }];
+  });
+
+const logicalCommentLimitations = (
+  state: CommentRetrievalState,
+  mismatches: YoutubeReplyCountMismatch[]
+): string[] => {
+  const expectedReplies = state.threads.reduce((sum, thread) => sum + thread.expectedReplies, 0);
+  return [
+    ...(state.options.query === undefined ? [] : [
+      "YouTube searchTerms constrained top-level comment threads to a query-bounded subset; this is not the complete video comment corpus."
+    ]),
+    ...(state.options.cursor === undefined ? [] : [
+      "Retrieval began from a noninitial commentThreads page token, so earlier API-visible comments were not covered."
+    ]),
+    ...(!state.options.includeReplies && expectedReplies > 0 ? [
+      `Reply retrieval was disabled while API thread metadata reported ${expectedReplies} expected reply/replies.`
+    ] : []),
+    ...(mismatches.length === 0 ? [] : [
+      `Reply counts did not reconcile for ${mismatches.length} top-level comment(s).`
+    ])
+  ];
+};
+
+const rawTopLevelMetadata = (state: CommentRetrievalState): {
+  rawMetadata?: { api_visible_top_level_comments: number };
+} => state.topLevelTotal === undefined
+  ? {}
+  : { rawMetadata: { api_visible_top_level_comments: state.topLevelTotal } };
+
+const commentThreadFailureLimitation = (error: unknown): string =>
+  error instanceof YoutubeResponseError
+    ? error.limitation
+    : "YouTube top-level comment retrieval stopped before every API-visible page could be exhausted.";
+
+const replyFailureLimitation = (error: unknown): string =>
+  error instanceof YoutubeResponseError
+    ? error.limitation
+    : "YouTube reply retrieval stopped before every expected reply corpus could be exhausted.";
+
+const responseError = (limitation: string): YoutubeResponseError =>
+  new YoutubeResponseError(limitation);
+
+const uniqueStrings = (values: string[]): string[] => [...new Set(values)];
+
 const normalizeSearchRecord = (item: z.infer<typeof searchItemSchema>): YoutubeSearchRecord => ({
   video_id: item.id.videoId,
   ...(item.snippet.channelId === undefined ? {} : { channel_id: item.snippet.channelId }),
@@ -275,6 +930,8 @@ const isCoherentVideoResponse = (
 
 type YoutubeFailureCode =
   | "youtube_api_key_missing"
+  | "youtube_comments_input_invalid"
+  | "youtube_comments_disabled"
   | "youtube_search_input_invalid"
   | "youtube_video_id_invalid"
   | "youtube_response_invalid"
@@ -285,12 +942,13 @@ type YoutubeFailureCode =
   | "youtube_upstream_unavailable"
   | "youtube_request_failed";
 
-const youtubeFailure = (error: unknown, operation: "search" | "video"): YoutubeFailureCode => {
+const youtubeFailure = (error: unknown, operation: "search" | "video" | "comments"): YoutubeFailureCode => {
   if (error instanceof YoutubeResponseError || (error instanceof Error && error.message === "Invalid upstream JSON response")) {
     return "youtube_response_invalid";
   }
   const status = httpStatus(error);
-  if (status === 404 && operation === "video" && upstreamReason(error) === "videoNotFound") return "youtube_video_not_found";
+  if (operation === "comments" && upstreamReason(error) === "commentsDisabled") return "youtube_comments_disabled";
+  if (status === 404 && operation !== "search" && upstreamReason(error) === "videoNotFound") return "youtube_video_not_found";
   if (status === 429 || upstreamReason(error) === "quotaExceeded") return "youtube_rate_limited";
   if (status === 401 || status === 403) return "youtube_access_denied";
   if (status !== undefined && status >= 500) return "youtube_upstream_unavailable";
@@ -301,6 +959,8 @@ const failureDetails = (code: YoutubeFailureCode): {
   accessStatus: AccessStatus; message: string; retryable: boolean; httpStatus?: number; limitations?: string[];
 } => {
   if (code === "youtube_api_key_missing") return { accessStatus: "inaccessible", message: "YouTube API key is not configured", retryable: false, limitations: ["YouTube retrieval cannot run until the server-side API key is configured."] };
+  if (code === "youtube_comments_input_invalid") return { accessStatus: "error", message: "YouTube comments input is invalid", retryable: false };
+  if (code === "youtube_comments_disabled") return { accessStatus: "comments_disabled", message: "YouTube comments are disabled", retryable: false, httpStatus: 403 };
   if (code === "youtube_search_input_invalid") return { accessStatus: "error", message: "YouTube search input is invalid", retryable: false };
   if (code === "youtube_video_id_invalid") return { accessStatus: "error", message: "YouTube video identifier is invalid", retryable: false };
   if (code === "youtube_response_invalid") return { accessStatus: "error", message: "YouTube response was invalid", retryable: false };
@@ -379,4 +1039,8 @@ const statistics = (value: z.infer<typeof videoItemSchema>["statistics"]): Parti
     ...(value?.commentCount === undefined ? {} : { comment_count: value.commentCount })
   } };
 };
-class YoutubeResponseError extends Error {}
+class YoutubeResponseError extends Error {
+  constructor(readonly limitation = "YouTube response was invalid") {
+    super("YouTube response was invalid");
+  }
+}

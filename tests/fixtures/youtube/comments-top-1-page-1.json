@@ -1,0 +1,32 @@
+{
+  "kind": "youtube#commentListResponse",
+  "nextPageToken": "reply-top-1-page-2",
+  "pageInfo": { "totalResults": 3, "resultsPerPage": 2 },
+  "items": [
+    {
+      "kind": "youtube#comment",
+      "id": "UgxReply0000000000000001",
+      "snippet": {
+        "parentId": "UgxTop00000000000000001",
+        "textDisplay": "Embedded reply one",
+        "textOriginal": "Embedded reply one",
+        "authorDisplayName": "Recorded Reply Author One",
+        "likeCount": 1,
+        "publishedAt": "2025-02-01T11:00:00Z",
+        "updatedAt": "2025-02-01T11:00:00Z"
+      }
+    },
+    {
+      "kind": "youtube#comment",
+      "id": "UgxReply0000000000000002",
+      "snippet": {
+        "parentId": "UgxTop00000000000000001",
+        "textDisplay": "Separate reply two",
+        "authorDisplayName": "Recorded Reply Author Two",
+        "likeCount": 2,
+        "publishedAt": "2025-02-01T12:00:00Z",
+        "updatedAt": "2025-02-01T12:00:00Z"
+      }
+    }
+  ]
+}

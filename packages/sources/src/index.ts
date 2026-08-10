@@ -40,9 +40,15 @@ export {
   type RetractionStatusData
 } from "./crossref.js";
 export {
+  getYoutubeComments,
   getYoutubeVideo,
   parseYoutubeVideoId,
   searchYoutube,
+  searchYoutubeComments,
+  youtubeCommentDataSchema,
+  youtubeCommentFailureDataSchema,
+  youtubeCommentManifestSchema,
+  youtubeCommentSchema,
   youtubeCountSchema,
   youtubeDurationSchema,
   youtubeLiveStateSchema,
@@ -53,8 +59,14 @@ export {
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
   youtubeVideoIdSchema,
+  type GetYoutubeCommentsInput,
+  type SearchYoutubeCommentsInput,
   type SearchYoutubeInput,
+  type YoutubeComment,
+  type YoutubeCommentData,
+  type YoutubeCommentManifest,
   type YoutubeConfig,
+  type YoutubeReplyCountMismatch,
   type YoutubeSearchRecord,
   type YoutubeVideo
 } from "./youtube.js";
