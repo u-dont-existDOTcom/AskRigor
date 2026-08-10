@@ -16,6 +16,7 @@ const MAX_COMMENT_PAGE_SIZE = 100;
 const REPLY_PAGE_SIZE = 100;
 const COMMENT_REQUEST_TIMEOUT_MS = 20_000;
 const textEncoder = new TextEncoder();
+export const MIN_YOUTUBE_COMMENT_OUTPUT_BYTES = 512;
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const VIDEO_NOT_VISIBLE_LIMITATION =
   "YouTube returned no API-visible video for this identifier; it may be deleted, private, restricted, or otherwise unavailable.";
@@ -100,7 +101,7 @@ const commentRetrievalBudgetsSchema = z.object({
   maxReplyPages: z.number().int().positive(),
   maxThreads: z.number().int().positive(),
   maxComments: z.number().int().positive(),
-  maxNormalizedOutputBytes: z.number().int().positive(),
+  maxNormalizedOutputBytes: z.number().int().min(MIN_YOUTUBE_COMMENT_OUTPUT_BYTES),
   maxTextBytes: z.number().int().positive(),
   maxElapsedMs: z.number().int().positive()
 }).strict();
@@ -655,29 +656,46 @@ interface CommentFailureOutcome {
   limitations: string[];
 }
 
-interface CommentSelection {
+interface CommentSelectionSummary {
+  commentCount: number;
   comments: YoutubeComment[];
   threads: number;
   expectedReplies: number;
   repliesRetrieved: number;
+  mismatchCount: number;
   mismatches: YoutubeReplyCountMismatch[];
   textBytes: number;
+  commentArrayPayloadBytes: number;
+  mismatchArrayPayloadBytes: number;
+}
+
+type CommentPrefixSummary = Omit<CommentSelectionSummary, "comments" | "mismatches">;
+
+interface SizedCommentPrefix {
+  summary: CommentPrefixSummary;
+  bytes: number;
+}
+
+interface CommentFinalizationPreparation {
+  comments: YoutubeComment[];
+  mismatches: YoutubeReplyCountMismatch[];
+  prefixes: CommentPrefixSummary[];
+  safeClockPrefix?: SizedCommentPrefix;
+  safeElapsedPrefix?: SizedCommentPrefix;
 }
 
 const retrieveYoutubeComments = async (
   options: CommentRetrievalOptions,
   runtime: YoutubeCommentRetrievalRuntime
 ): Promise<ProvenanceEnvelope<YoutubeCommentData | Record<string, never>>> => {
+  const retrievedAt = new Date().toISOString();
   let budgets: YoutubeCommentRetrievalBudgets | undefined;
   try {
     budgets = parseCommentRetrievalBudgets(runtime);
   } catch {
     return commentPreflightError("youtube_comments_runtime_invalid");
   }
-  if (
-    budgets === undefined ||
-    budgets.maxNormalizedOutputBytes < minimumCommentOutputBudget(options)
-  ) {
+  if (budgets === undefined) {
     return commentPreflightError("youtube_comments_runtime_invalid");
   }
 
@@ -685,7 +703,7 @@ const retrieveYoutubeComments = async (
   try {
     accounting = createCommentBudgetAccounting(budgets, runtime);
   } catch (error) {
-    return initialCommentRetrievalError(options, error);
+    return boundedInitialCommentRetrievalError(options, error, budgets, retrievedAt);
   }
 
   const state: CommentRetrievalState = {
@@ -703,8 +721,12 @@ const retrieveYoutubeComments = async (
     repliesRetrieved: 0,
     activeMismatches: [],
     mismatchIndexes: new Map(),
-    retrievedAt: new Date().toISOString()
+    retrievedAt
   };
+
+  if (!minimumCommentEnvelopesFit(state)) {
+    return commentPreflightError("youtube_comments_runtime_invalid");
+  }
 
   let operation: CommentOperation = "commentThreads.list";
   try {
@@ -1163,21 +1185,21 @@ const commentsEqual = (left: YoutubeComment, right: YoutubeComment): boolean =>
 
 const finalizeCommentResult = (
   state: CommentRetrievalState,
-  outcome?: CommentFailureOutcome,
-  checkClock = true
-): ProvenanceEnvelope<YoutubeCommentData> => {
+  outcome?: CommentFailureOutcome
+): ProvenanceEnvelope<YoutubeCommentData | Record<string, never>> => {
+  const preparation = emptyCommentFinalizationPreparation();
   try {
-    if (checkClock) checkpointCommentFinalization(state);
-    const fullSelection = fullCommentSelection(state);
-    const full = measureCommentEnvelope(
-      state,
-      fullSelection,
-      outcome,
-      checkClock
-    );
-    if (full.bytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
-      state.accounting.normalizedOutputBytes = full.bytes;
-      return full.envelope;
+    prepareCommentFinalization(state, preparation);
+    const fullSummary = preparation.prefixes.at(-1) ?? emptyCommentPrefixSummary();
+    const fullBytes = measureCommentEnvelopeBytes(state, fullSummary, outcome);
+    assertCommentBudgetElapsed(state.accounting);
+    if (fullBytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
+      return emitMeasuredCommentEnvelope(
+        state,
+        materializeFullCommentSelection(state, fullSummary),
+        outcome,
+        fullBytes
+      );
     }
 
     const outputError = new YoutubeCommentBudgetError("normalized_output_bytes");
@@ -1189,127 +1211,261 @@ const finalizeCommentResult = (
         outputError.limitation
       ])
     };
-    let low = 0;
-    let high = state.threads.length;
-    let best = measureCommentEnvelope(
-      state,
-      selectCommentThreadPrefix(state, 0, checkClock),
-      boundedOutcome,
-      checkClock
+    let selected = sizedCommentPrefix(
+      emptyCommentPrefixSummary(),
+      measureCommentEnvelopeBytes(state, emptyCommentPrefixSummary(), boundedOutcome)
     );
-    while (low <= high) {
-      if (checkClock) assertCommentBudgetElapsed(state.accounting);
-      const middle = Math.floor((low + high) / 2);
-      const candidate = measureCommentEnvelope(
-        state,
-        selectCommentThreadPrefix(state, middle, checkClock),
-        boundedOutcome,
-        checkClock
-      );
-      if (candidate.bytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
-        best = candidate;
-        low = middle + 1;
-      } else {
-        high = middle - 1;
-      }
+    for (const prefix of preparation.prefixes) {
+      assertCommentBudgetElapsed(state.accounting);
+      const bytes = measureCommentEnvelopeBytes(state, prefix, boundedOutcome);
+      assertCommentBudgetElapsed(state.accounting);
+      if (bytes > state.accounting.budgets.maxNormalizedOutputBytes) break;
+      selected = sizedCommentPrefix(prefix, bytes);
     }
-    if (best.bytes > state.accounting.budgets.maxNormalizedOutputBytes) {
-      return commentPreflightError("youtube_comments_runtime_invalid") as unknown as ProvenanceEnvelope<YoutubeCommentData>;
+    if (selected.bytes > state.accounting.budgets.maxNormalizedOutputBytes) {
+      return commentPreflightError("youtube_comments_runtime_invalid");
     }
-    state.accounting.normalizedOutputBytes = best.bytes;
-    return best.envelope;
+    return emitMeasuredCommentEnvelope(
+      state,
+      materializePreparedCommentSelection(preparation, selected.summary),
+      boundedOutcome,
+      selected.bytes
+    );
   } catch (error) {
-    if (checkClock && isCommentClockOrElapsedError(error)) {
-      return finalizeCommentResult(state, {
-        error,
-        operation: outcome?.operation ?? "comments.list",
-        limitations: [budgetOrFallbackLimitation(
-          error,
-          "YouTube comment retrieval clock was invalid."
-        )]
-      }, false);
+    if (isCommentClockOrElapsedError(error)) {
+      return emitEmergencyCommentEnvelope(state, preparation, error, outcome?.operation);
     }
-    if (checkClock) {
-      return finalizeCommentResult(state, {
-        error,
-        operation: outcome?.operation ?? "comments.list",
-        limitations: ["YouTube comment result finalization failed safely."]
-      }, false);
-    }
-    return initialCommentRetrievalError(state.options, error);
+    return commentPreflightError("youtube_comments_runtime_invalid");
   }
 };
 
-const checkpointCommentFinalization = (state: CommentRetrievalState): void => {
-  assertCommentBudgetElapsed(state.accounting);
-  for (const _thread of state.threads) assertCommentBudgetElapsed(state.accounting);
-  for (const _comment of state.comments) assertCommentBudgetElapsed(state.accounting);
-};
-
-const fullCommentSelection = (state: CommentRetrievalState): CommentSelection => ({
-  comments: state.comments,
-  threads: state.threads.length,
-  expectedReplies: state.expectedReplies,
-  repliesRetrieved: state.repliesRetrieved,
-  mismatches: state.activeMismatches,
-  textBytes: state.accounting.normalizedTextBytes
+const emptyCommentPrefixSummary = (): CommentPrefixSummary => ({
+  commentCount: 0,
+  threads: 0,
+  expectedReplies: 0,
+  repliesRetrieved: 0,
+  mismatchCount: 0,
+  textBytes: 0,
+  commentArrayPayloadBytes: 0,
+  mismatchArrayPayloadBytes: 0
 });
 
-const selectCommentThreadPrefix = (
+const emptyCommentFinalizationPreparation = (): CommentFinalizationPreparation => ({
+  comments: [],
+  mismatches: [],
+  prefixes: []
+});
+
+const sizedCommentPrefix = (
+  summary: CommentPrefixSummary,
+  bytes: number
+): SizedCommentPrefix => ({ summary, bytes });
+
+const prepareCommentFinalization = (
   state: CommentRetrievalState,
-  count: number,
-  checkClock: boolean
-): CommentSelection => {
-  const comments: YoutubeComment[] = [];
-  const mismatches: YoutubeReplyCountMismatch[] = [];
-  let expectedReplies = 0;
-  let repliesRetrieved = 0;
-  let textBytes = 0;
-  for (let index = 0; index < count; index += 1) {
-    if (checkClock) assertCommentBudgetElapsed(state.accounting);
-    const thread = state.threads[index]!;
-    expectedReplies += thread.expectedReplies;
-    repliesRetrieved += thread.returnedReplyCount;
-    textBytes += thread.textBytes;
-    if (thread.mismatch !== undefined) mismatches.push(thread.mismatch);
+  preparation: CommentFinalizationPreparation
+): void => {
+  let summary = emptyCommentPrefixSummary();
+  recordEmergencySafePrefix(state, preparation, summary);
+  for (const thread of state.threads) {
+    assertCommentBudgetElapsed(state.accounting);
+    const next = { ...summary };
+    next.threads += 1;
+    next.expectedReplies += thread.expectedReplies;
+    next.repliesRetrieved += thread.returnedReplyCount;
+    next.textBytes += thread.textBytes;
     for (const comment of thread.comments) {
-      if (checkClock) assertCommentBudgetElapsed(state.accounting);
-      comments.push(comment);
+      next.commentArrayPayloadBytes = appendSerializedArrayItem(
+        next.commentArrayPayloadBytes,
+        next.commentCount,
+        comment
+      );
+      next.commentCount += 1;
+      preparation.comments.push(comment);
+      assertCommentBudgetElapsed(state.accounting);
     }
+    if (thread.mismatch !== undefined) {
+      next.mismatchArrayPayloadBytes = appendSerializedArrayItem(
+        next.mismatchArrayPayloadBytes,
+        next.mismatchCount,
+        thread.mismatch
+      );
+      next.mismatchCount += 1;
+      preparation.mismatches.push(thread.mismatch);
+    }
+    recordEmergencySafePrefix(state, preparation, next);
+    preparation.prefixes.push(next);
+    summary = next;
   }
-  return { comments, threads: count, expectedReplies, repliesRetrieved, mismatches, textBytes };
 };
 
-const measureCommentEnvelope = (
+const appendSerializedArrayItem = (
+  payloadBytes: number,
+  itemCount: number,
+  item: unknown
+): number => payloadBytes + (itemCount === 0 ? 0 : 1) + jsonUtf8Bytes(item);
+
+const recordEmergencySafePrefix = (
   state: CommentRetrievalState,
-  selection: CommentSelection,
-  outcome: CommentFailureOutcome | undefined,
-  checkClock: boolean
-): { envelope: ProvenanceEnvelope<YoutubeCommentData>; bytes: number } => {
-  let normalizedOutputBytes = 0;
-  let envelope = buildCommentEnvelope(state, selection, outcome, normalizedOutputBytes);
-  for (let iteration = 0; iteration < 8; iteration += 1) {
-    if (checkClock) assertCommentBudgetElapsed(state.accounting);
-    const bytes = textEncoder.encode(JSON.stringify(envelope)).byteLength;
-    if (checkClock) assertCommentBudgetElapsed(state.accounting);
-    if (bytes === normalizedOutputBytes) return { envelope, bytes };
-    normalizedOutputBytes = bytes;
-    envelope = buildCommentEnvelope(state, selection, outcome, normalizedOutputBytes);
+  preparation: CommentFinalizationPreparation,
+  summary: CommentPrefixSummary
+): void => {
+  const clockError = new YoutubeCommentClockError();
+  const elapsedError = new YoutubeCommentBudgetError("elapsed_ms");
+  const clockOutcome = commentFailureOutcome(clockError, "comments.list");
+  const elapsedOutcome = commentFailureOutcome(elapsedError, "comments.list");
+  const clockBytes = measureCommentEmergencyEnvelopeBytes(state, summary, clockOutcome);
+  const elapsedBytes = measureCommentEmergencyEnvelopeBytes(state, summary, elapsedOutcome);
+  if (clockBytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
+    preparation.safeClockPrefix = sizedCommentPrefix(summary, clockBytes);
   }
-  const bytes = textEncoder.encode(JSON.stringify(envelope)).byteLength;
-  return { envelope, bytes };
+  if (elapsedBytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
+    preparation.safeElapsedPrefix = sizedCommentPrefix(summary, elapsedBytes);
+  }
+  assertCommentBudgetElapsed(state.accounting);
+};
+
+const measureCommentEmergencyEnvelopeBytes = (
+  state: CommentRetrievalState,
+  summary: CommentPrefixSummary,
+  outcome: CommentFailureOutcome
+): number => {
+  const elapsedMs = state.accounting.elapsedMs;
+  state.accounting.elapsedMs = Number.MAX_VALUE;
+  try {
+    return measureCommentEnvelopeBytes(state, summary, outcome);
+  } finally {
+    state.accounting.elapsedMs = elapsedMs;
+  }
+};
+
+const measureCommentEnvelopeBytes = (
+  state: CommentRetrievalState,
+  summary: CommentPrefixSummary,
+  outcome?: CommentFailureOutcome
+): number => {
+  let normalizedOutputBytes = 0;
+  for (let iteration = 0; iteration < 8; iteration += 1) {
+    const envelope = buildCommentEnvelope(
+      state,
+      materializeEmptyCommentSelection(summary),
+      outcome,
+      normalizedOutputBytes
+    );
+    const bytes = jsonUtf8Bytes(envelope) +
+      summary.commentArrayPayloadBytes +
+      summary.mismatchArrayPayloadBytes;
+    if (bytes === normalizedOutputBytes) return bytes;
+    normalizedOutputBytes = bytes;
+  }
+  throw responseError("YouTube comment output byte accounting did not converge.");
+};
+
+const materializeEmptyCommentSelection = (
+  summary: CommentPrefixSummary
+): CommentSelectionSummary => ({ ...summary, comments: [], mismatches: [] });
+
+const materializeFullCommentSelection = (
+  state: CommentRetrievalState,
+  summary: CommentPrefixSummary
+): CommentSelectionSummary => ({
+  ...summary,
+  comments: state.comments,
+  mismatches: state.activeMismatches
+});
+
+const materializePreparedCommentSelection = (
+  preparation: CommentFinalizationPreparation,
+  summary: CommentPrefixSummary
+): CommentSelectionSummary => ({
+  ...summary,
+  comments: preparation.comments.slice(0, summary.commentCount),
+  mismatches: preparation.mismatches.slice(0, summary.mismatchCount)
+});
+
+const emitMeasuredCommentEnvelope = (
+  state: CommentRetrievalState,
+  selection: CommentSelectionSummary,
+  outcome: CommentFailureOutcome | undefined,
+  expectedBytes: number
+): ProvenanceEnvelope<YoutubeCommentData> => {
+  assertCommentBudgetElapsed(state.accounting);
+  const envelope = buildCommentEnvelope(state, selection, outcome, expectedBytes);
+  const bytes = jsonUtf8Bytes(envelope);
+  assertCommentBudgetElapsed(state.accounting);
+  if (
+    bytes !== expectedBytes ||
+    bytes > state.accounting.budgets.maxNormalizedOutputBytes
+  ) {
+    throw responseError("YouTube comment output byte accounting was inconsistent.");
+  }
+  state.accounting.normalizedOutputBytes = bytes;
+  return envelope;
+};
+
+const emitEmergencyCommentEnvelope = (
+  state: CommentRetrievalState,
+  preparation: CommentFinalizationPreparation,
+  error: unknown,
+  operation: CommentOperation = "comments.list"
+): ProvenanceEnvelope<YoutubeCommentData | Record<string, never>> => {
+  const outcome = commentFailureOutcome(error, operation);
+  const sized = error instanceof YoutubeCommentClockError
+    ? preparation.safeClockPrefix
+    : preparation.safeElapsedPrefix;
+  if (sized === undefined) {
+    return commentPreflightError("youtube_comments_runtime_invalid");
+  }
+  const selection = materializePreparedCommentSelection(preparation, sized.summary);
+  const expectedBytes = measureCommentEnvelopeBytes(state, sized.summary, outcome);
+  const envelope = buildCommentEnvelope(state, selection, outcome, expectedBytes);
+  const bytes = jsonUtf8Bytes(envelope);
+  if (
+    bytes !== expectedBytes ||
+    bytes > state.accounting.budgets.maxNormalizedOutputBytes
+  ) {
+    return commentPreflightError("youtube_comments_runtime_invalid");
+  }
+  state.accounting.normalizedOutputBytes = bytes;
+  return envelope;
+};
+
+const commentFailureOutcome = (
+  error: unknown,
+  operation: CommentOperation
+): CommentFailureOutcome => ({
+  error,
+  operation,
+  limitations: [budgetOrFallbackLimitation(
+    error,
+    "YouTube comment retrieval clock was invalid."
+  )]
+});
+
+const minimumCommentEnvelopesFit = (state: CommentRetrievalState): boolean => {
+  const summary = emptyCommentPrefixSummary();
+  const errors: unknown[] = [
+    new YoutubeCommentClockError(),
+    new YoutubeCommentBudgetError("elapsed_ms"),
+    new YoutubeCommentBudgetError("normalized_output_bytes")
+  ];
+  return errors.every((error) => measureCommentEnvelopeBytes(
+    state,
+    summary,
+    commentFailureOutcome(error, "comments.list")
+  ) <= state.accounting.budgets.maxNormalizedOutputBytes);
 };
 
 const buildCommentEnvelope = (
   state: CommentRetrievalState,
-  selection: CommentSelection,
+  selection: CommentSelectionSummary,
   outcome: CommentFailureOutcome | undefined,
   normalizedOutputBytes: number
 ): ProvenanceEnvelope<YoutubeCommentData> => {
   const logicalLimitations = logicalCommentLimitations(
     state.options,
     selection.expectedReplies,
-    selection.mismatches
+    selection.mismatchCount
   );
   const isFailure = outcome !== undefined;
   const extractionCoverage = !isFailure && logicalLimitations.length === 0
@@ -1328,10 +1484,12 @@ const buildCommentEnvelope = (
       page_size: state.options.pageSize,
       exhausted: !isFailure &&
         state.topLevelExhausted &&
-        state.activeMismatches.length === 0
+        selection.mismatchCount === 0
     },
-    returned: selection.comments.length,
-    rawMetadata: commentRawMetadata(state, selection, normalizedOutputBytes),
+    returned: selection.commentCount,
+    ...(omitCommentRawMetadata(state, outcome)
+      ? {}
+      : { rawMetadata: commentRawMetadata(state, selection, normalizedOutputBytes) }),
     data
   };
   if (!isFailure) {
@@ -1346,8 +1504,7 @@ const buildCommentEnvelope = (
   const details = failureDetails(code);
   const successfulPage = state.pages.commentThreads > 0 || state.pages.replies > 0;
   const status = successfulPage ||
-    outcome.error instanceof YoutubeCommentBudgetError ||
-    outcome.error instanceof YoutubeCommentClockError
+    outcome.error instanceof YoutubeCommentBudgetError
     ? "partial"
     : details.accessStatus;
   const http = httpStatus(outcome.error);
@@ -1373,7 +1530,7 @@ const commentPreflightError = (
   code: YoutubeFailureCode
 ): ProvenanceEnvelope<Record<string, never>> => {
   const details = failureDetails(code);
-  return errorEnvelope({
+  const envelope = errorEnvelope({
     provider: "youtube",
     recordType: "youtube_comments",
     pagination: { exhausted: false },
@@ -1385,11 +1542,26 @@ const commentPreflightError = (
     retryable: details.retryable,
     data: {}
   }) as ProvenanceEnvelope<Record<string, never>>;
+  if (jsonUtf8Bytes(envelope) <= MIN_YOUTUBE_COMMENT_OUTPUT_BYTES) return envelope;
+  return fixedCommentConfigurationError();
 };
+
+const fixedCommentConfigurationError = (): ProvenanceEnvelope<Record<string, never>> =>
+  errorEnvelope({
+    provider: "youtube",
+    recordType: "youtube_comments",
+    pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: "error",
+    code: "youtube_comments_runtime_invalid",
+    message: "YouTube comments runtime configuration is invalid",
+    retryable: false,
+    data: {}
+  }) as ProvenanceEnvelope<Record<string, never>>;
 
 const commentData = (
   state: CommentRetrievalState,
-  selection: CommentSelection,
+  selection: CommentSelectionSummary,
   extractionCoverage: YoutubeCommentManifest["extraction_coverage"]
 ): YoutubeCommentData => {
   return {
@@ -1399,7 +1571,7 @@ const commentData = (
       top_level_comments_retrieved: selection.threads,
       expected_replies: selection.expectedReplies,
       replies_retrieved: selection.repliesRetrieved,
-      total_comments_and_replies: selection.comments.length,
+      total_comments_and_replies: selection.commentCount,
       reply_count_mismatches: selection.mismatches,
       pages: {
         comment_threads: state.pages.commentThreads,
@@ -1413,7 +1585,7 @@ const commentData = (
 const logicalCommentLimitations = (
   options: CommentRetrievalOptions,
   expectedReplies: number,
-  mismatches: YoutubeReplyCountMismatch[]
+  mismatchCount: number
 ): string[] => {
   return [
     ...(options.query === undefined ? [] : [
@@ -1425,15 +1597,15 @@ const logicalCommentLimitations = (
     ...(!options.includeReplies && expectedReplies > 0 ? [
       `Reply retrieval was disabled while API thread metadata reported ${expectedReplies} expected reply/replies.`
     ] : []),
-    ...(mismatches.length === 0 ? [] : [
-      `Reply counts did not reconcile for ${mismatches.length} top-level comment(s).`
+    ...(mismatchCount === 0 ? [] : [
+      `Reply counts did not reconcile for ${mismatchCount} top-level comment(s).`
     ])
   ];
 };
 
 const commentRawMetadata = (
   state: CommentRetrievalState,
-  selection: CommentSelection,
+  selection: CommentSelectionSummary,
   normalizedOutputBytes: number
 ): {
   api_visible_top_level_comments?: number;
@@ -1451,12 +1623,29 @@ const commentRawMetadata = (
   elapsed_ms: state.accounting.elapsedMs
 });
 
-const minimumCommentOutputBudget = (options: CommentRetrievalOptions): number =>
-  2_048 + textEncoder.encode(`${options.query ?? ""}${options.cursor ?? ""}`).byteLength;
+const omitCommentRawMetadata = (
+  state: CommentRetrievalState,
+  outcome: CommentFailureOutcome | undefined
+): boolean => outcome?.error instanceof YoutubeCommentClockError &&
+  state.pages.commentThreads === 0 &&
+  state.pages.replies === 0 &&
+  state.comments.length === 0;
 
-const initialCommentRetrievalError = (
+const boundedInitialCommentRetrievalError = (
   options: CommentRetrievalOptions,
-  error: unknown
+  error: unknown,
+  budgets: YoutubeCommentRetrievalBudgets,
+  retrievedAt: string
+): ProvenanceEnvelope<YoutubeCommentData | Record<string, never>> => {
+  const envelope = buildInitialCommentRetrievalError(options, error, retrievedAt);
+  if (jsonUtf8Bytes(envelope) <= budgets.maxNormalizedOutputBytes) return envelope;
+  return commentPreflightError("youtube_comments_runtime_invalid");
+};
+
+const buildInitialCommentRetrievalError = (
+  options: CommentRetrievalOptions,
+  error: unknown,
+  retrievedAt: string
 ): ProvenanceEnvelope<YoutubeCommentData> => {
   const code = youtubeFailure(error, "commentThreads.list");
   const details = failureDetails(code);
@@ -1464,7 +1653,7 @@ const initialCommentRetrievalError = (
     provider: "youtube",
     recordType: "youtube_comments",
     primaryIdentifier: options.videoId,
-    retrievedAt: new Date().toISOString(),
+    retrievedAt,
     ...(options.query === undefined ? {} : { query: { query: options.query } }),
     sourceIdentity: { canonical_url: `https://www.youtube.com/watch?v=${options.videoId}` },
     pagination: {
@@ -1475,7 +1664,7 @@ const initialCommentRetrievalError = (
     returned: 0,
     accessStatus: details.accessStatus,
     limitations: uniqueStrings([
-      ...logicalCommentLimitations(options, 0, []),
+      ...logicalCommentLimitations(options, 0, 0),
       ...(error instanceof YoutubeCommentClockError ? [error.limitation] : []),
       ...(details.limitations ?? [])
     ]),
@@ -1525,6 +1714,12 @@ const responseError = (limitation: string): YoutubeResponseError =>
   new YoutubeResponseError(limitation);
 
 const uniqueStrings = (values: string[]): string[] => [...new Set(values)];
+
+const jsonUtf8Bytes = (value: unknown): number => {
+  const serialized = JSON.stringify(value);
+  if (serialized === undefined) throw responseError("YouTube comment output was not serializable.");
+  return textEncoder.encode(serialized).byteLength;
+};
 
 const normalizeSearchRecord = (item: z.infer<typeof searchItemSchema>): YoutubeSearchRecord => ({
   video_id: item.id.videoId,

@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getYoutubeComments,
   getYoutubeVideo,
+  MIN_YOUTUBE_COMMENT_OUTPUT_BYTES,
   parseYoutubeVideoId,
   searchYoutube,
   searchYoutubeComments
@@ -1104,6 +1105,8 @@ describe("YouTube comment retrieval budgets", () => {
       error: { code: "youtube_comments_runtime_invalid" },
       data: {}
     });
+    expect(Buffer.byteLength(JSON.stringify(result), "utf8"))
+      .toBeLessThanOrEqual(MIN_YOUTUBE_COMMENT_OUTPUT_BYTES);
   });
 
   it("bounds the complete serialized envelope and retains only coherent whole thread groups", async () => {
@@ -1169,6 +1172,53 @@ describe("YouTube comment retrieval budgets", () => {
     });
   });
 
+  it("uses exact JSON UTF-8 size for a 5k control-character targeted query before work", async () => {
+    const upstream = vi.fn(async () => new Response(
+      await fixture("comment-threads-empty.json"), { status: 200 }
+    ));
+    vi.stubGlobal("fetch", upstream);
+    const maxOutputBytes = 8_000;
+
+    const result = await searchYoutubeComments(
+      { video: "XpZHKGGCK-o", query: "\0".repeat(5_000) },
+      youtubeConfig,
+      budgetRuntime({ maxNormalizedOutputBytes: maxOutputBytes })
+    );
+
+    expect(upstream).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_comments_runtime_invalid" },
+      data: {}
+    });
+    expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(maxOutputBytes);
+    expect(JSON.stringify(result)).not.toContain("\\u0000");
+  });
+
+  it("uses exact JSON UTF-8 size for an escaping opaque cursor before work", async () => {
+    const upstream = vi.fn(async () => new Response(
+      await fixture("comment-threads-empty.json"), { status: 200 }
+    ));
+    vi.stubGlobal("fetch", upstream);
+    const cursor = "\0\"\\\b\f\n\r\t".repeat(512);
+    const maxOutputBytes = 8_000;
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o", cursor },
+      youtubeConfig,
+      budgetRuntime({ maxNormalizedOutputBytes: maxOutputBytes })
+    );
+
+    expect(upstream).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_comments_runtime_invalid" },
+      data: {}
+    });
+    expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(maxOutputBytes);
+    expect(JSON.stringify(result)).not.toContain("page_size");
+  });
+
   it("bounds elapsed work after a provider response and before page allocation", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(
       await fixture("comment-threads-page-1.json"), { status: 200 }
@@ -1224,19 +1274,76 @@ describe("YouTube comment retrieval budgets", () => {
       data: {
         comments: expect.arrayContaining([
           expect.objectContaining({ comment_id: "UgxTopSynthetic000000000001" }),
-          expect.objectContaining({ comment_id: "UgxTopSynthetic000000000030" })
+          expect.objectContaining({ comment_id: "UgxTopSynthetic000000000002" })
         ]),
         manifest: {
-          top_level_comments_retrieved: 30,
+          top_level_comments_retrieved: 2,
           expected_replies: 0,
           replies_retrieved: 0,
-          total_comments_and_replies: 30,
+          total_comments_and_replies: 2,
           reply_count_mismatches: [],
           pages: { comment_threads: 1, replies: 0 },
           extraction_coverage: "partial"
         }
       }
     });
+  });
+
+  it("uses a linear number of clock checkpoints while selecting an output-bounded prefix", async () => {
+    const response = await syntheticThreadPage(100);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(response)));
+    let clockReads = 0;
+    const now = () => {
+      clockReads += 1;
+      return 0;
+    };
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxNormalizedOutputBytes: 8_000 }, now)
+    );
+
+    expect(result.error?.code).toBe("youtube_comment_budget_normalized_output_bytes");
+    expect(clockReads).toBeLessThanOrEqual(600);
+  });
+
+  it("preserves an already sized whole-thread prefix when elapsed work expires during output trimming", async () => {
+    const response = await syntheticThreadPage(100);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(response)));
+    let clockReads = 0;
+    const now = () => {
+      clockReads += 1;
+      return clockReads >= 520 ? 101 : 0;
+    };
+    const maxOutputBytes = 8_000;
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({
+        maxElapsedMs: 100,
+        maxNormalizedOutputBytes: maxOutputBytes
+      }, now)
+    );
+
+    expect(clockReads).toBe(520);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_elapsed_ms" },
+      raw_metadata: { elapsed_ms: 101 },
+      data: {
+        manifest: {
+          extraction_coverage: "partial",
+          pages: { comment_threads: 1, replies: 0 }
+        }
+      }
+    });
+    expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(maxOutputBytes);
+    if (!("comments" in result.data)) throw new Error("Expected a bounded partial corpus");
+    expect(result.data.comments.length).toBeGreaterThan(0);
+    expect(result.data.comments.length).toBeLessThan(100);
+    expect(result.data.manifest.top_level_comments_retrieved).toBe(result.data.comments.length);
   });
 });
 
@@ -1245,10 +1352,13 @@ describe("YouTube comment clock validation", () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
 
+    const maxOutputBytes = 2_048;
     const result = await getYoutubeComments(
       { video: "XpZHKGGCK-o" },
       youtubeConfig,
-      budgetRuntime({}, () => { throw new Error("clock-secret"); })
+      budgetRuntime({ maxNormalizedOutputBytes: maxOutputBytes }, () => {
+        throw new Error("clock-secret");
+      })
     );
 
     expect(upstream).not.toHaveBeenCalled();
@@ -1261,6 +1371,7 @@ describe("YouTube comment clock validation", () => {
       }
     });
     expect(JSON.stringify(result)).not.toContain("clock-secret");
+    expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(maxOutputBytes);
   });
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, -1])(
@@ -1312,7 +1423,7 @@ describe("YouTube comment clock validation", () => {
     });
   });
 
-  it("contains a throwing clock after a valid page without losing collected data", async () => {
+  it("contains a throwing clock after a valid page in a bounded partial envelope", async () => {
     const response = await syntheticThreadPage(1);
     vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(response)));
     let reads = 0;
@@ -1332,16 +1443,67 @@ describe("YouTube comment clock validation", () => {
       access_status: "partial",
       error: { code: "youtube_comment_clock_invalid" },
       data: {
-        comments: [expect.objectContaining({ comment_id: "UgxTopSynthetic000000000001" })],
+        comments: [],
         manifest: {
-          top_level_comments_retrieved: 1,
-          total_comments_and_replies: 1,
+          top_level_comments_retrieved: 0,
+          total_comments_and_replies: 0,
           pages: { comment_threads: 1, replies: 0 },
           extraction_coverage: "partial"
         }
       }
     });
     expect(JSON.stringify(result)).not.toContain("later-clock-secret");
+  });
+
+  it.each([
+    ["throwing", () => {
+      let reads = 0;
+      return () => {
+        reads += 1;
+        if (reads === 2) throw new Error("pre-provider-clock-secret");
+        return 10;
+      };
+    }],
+    ["NaN", () => {
+      let reads = 0;
+      return () => (++reads === 1 ? 10 : Number.NaN);
+    }],
+    ["Infinity", () => {
+      let reads = 0;
+      return () => (++reads === 1 ? 10 : Number.POSITIVE_INFINITY);
+    }],
+    ["backward", () => {
+      let reads = 0;
+      return () => (++reads === 1 ? 10 : 9);
+    }]
+  ])("classifies a %s second clock read as an initial zero-work error", async (_name, clockFactory) => {
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const maxOutputBytes = 2_048;
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxNormalizedOutputBytes: maxOutputBytes }, clockFactory())
+    );
+
+    expect(upstream).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_comment_clock_invalid" },
+      data: {
+        comments: [],
+        manifest: {
+          top_level_comments_retrieved: 0,
+          total_comments_and_replies: 0,
+          pages: { comment_threads: 0, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+    expect(result.raw_metadata).toBeUndefined();
+    expect(Buffer.byteLength(JSON.stringify(result), "utf8")).toBeLessThanOrEqual(maxOutputBytes);
+    expect(JSON.stringify(result)).not.toContain("pre-provider-clock-secret");
   });
 });
 
