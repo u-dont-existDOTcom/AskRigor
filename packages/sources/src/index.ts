@@ -39,3 +39,12 @@ export {
   type RetractionStatus,
   type RetractionStatusData
 } from "./crossref.js";
+export {
+  getYoutubeVideo,
+  parseYoutubeVideoId,
+  searchYoutube,
+  type SearchYoutubeInput,
+  type YoutubeConfig,
+  type YoutubeSearchRecord,
+  type YoutubeVideo
+} from "./youtube.js";

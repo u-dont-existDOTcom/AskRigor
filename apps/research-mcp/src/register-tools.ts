@@ -17,7 +17,9 @@ import {
   resolveDoi,
   searchClinicalTrials,
   searchEuropePmc,
-  searchPubmed
+  searchPubmed,
+  getYoutubeVideo,
+  searchYoutube
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -261,6 +263,64 @@ const retractionStatusEnvelopeSchema = z.object({
     evidence: z.array(retractionEvidenceSchema),
     sources_checked: z.tuple([z.literal("crossref")])
   }).strict()
+}).strict();
+const youtubeSearchInputSchema = z.object({
+  query: z.string().trim().min(1).max(5_000).describe("YouTube video search query."),
+  page_size: z.number().int().min(1).max(50).optional().describe(
+    "Requested video results per page; allowed range is 1 through 50."
+  ),
+  cursor: z.string().min(1).max(4_096).optional().describe(
+    "Opaque YouTube page token returned by a previous search."
+  )
+}).strict();
+const youtubeSearchRecordSchema = z.object({
+  video_id: z.string().regex(/^[A-Za-z0-9_-]{11}$/),
+  channel_id: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  published_at: z.string().optional()
+}).strict();
+const youtubeVideoSchema = z.object({
+  video_id: z.string().regex(/^[A-Za-z0-9_-]{11}$/).optional(),
+  channel_id: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  published_at: z.string().optional(),
+  duration: z.string().optional(),
+  statistics: z.object({
+    view_count: z.string().optional(),
+    like_count: z.string().optional(),
+    comment_count: z.string().optional()
+  }).strict().optional(),
+  tags: z.array(z.string()).optional(),
+  live_broadcast_content: z.string().optional(),
+  embeddable: z.boolean().optional(),
+  privacy_status: z.string().optional()
+}).strict();
+const youtubeSearchEnvelopeSchema = z.object({
+  provider: z.literal("youtube"),
+  record_type: z.literal("youtube_search_result"),
+  retrieved_at: z.string(),
+  query: z.object({ query: z.string() }).strict().optional(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  raw_metadata: z.object({ total_results: z.number().int().nonnegative() }).strict().optional(),
+  error: errorSchema.optional(),
+  data: z.array(youtubeSearchRecordSchema)
+}).strict();
+const youtubeVideoEnvelopeSchema = z.object({
+  provider: z.literal("youtube"),
+  record_type: z.literal("youtube_video"),
+  primary_identifier: z.string().optional(),
+  retrieved_at: z.string(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  error: errorSchema.optional(),
+  data: youtubeVideoSchema
 }).strict();
 
 const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
@@ -575,6 +635,64 @@ export function registerTools(server: McpServer): void {
       }
     }
   );
+
+  server.registerTool(
+    "search_youtube",
+    {
+      description:
+        "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
+      inputSchema: youtubeSearchInputSchema,
+      outputSchema: youtubeSearchEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ query, page_size, cursor }) => {
+      try {
+        const result = await searchYoutube({
+          query,
+          ...(page_size === undefined ? {} : { pageSize: page_size }),
+          ...(cursor === undefined ? {} : { cursor })
+        }, youtubeConfig());
+        return youtubeToolResult(
+          `YouTube search returned ${result.pagination.returned} video record(s); access status ${result.access_status}.`,
+          result
+        );
+      } catch (_error) {
+        return youtubeToolResult(
+          "YouTube search returned 0 video record(s); access status error.",
+          youtubeSearchFailure(query, page_size, cursor)
+        );
+      }
+    }
+  );
+
+  server.registerTool(
+    "get_youtube_video",
+    {
+      description:
+        "Retrieve one API-visible YouTube video by supported ID or URL without interpreting its content or making medical conclusions.",
+      inputSchema: z.object({
+        video_id_or_url: z.string().min(1).max(2_048).describe(
+          "Supported YouTube video ID, youtu.be URL, youtube.com watch URL, or YouTube Shorts URL."
+        )
+      }).strict(),
+      outputSchema: youtubeVideoEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ video_id_or_url }) => {
+      try {
+        const result = await getYoutubeVideo(video_id_or_url, youtubeConfig());
+        return youtubeToolResult(
+          `YouTube video retrieval finished with access status ${result.access_status}.`,
+          result
+        );
+      } catch (_error) {
+        return youtubeToolResult(
+          "YouTube video retrieval finished with access status error.",
+          youtubeVideoFailure()
+        );
+      }
+    }
+  );
 }
 
 async function verifyIntegrity(
@@ -598,6 +716,10 @@ function ncbiConfig() {
 
 function crossrefConfig() {
   return { mailto: process.env.CROSSREF_MAILTO ?? "" };
+}
+
+function youtubeConfig() {
+  return { apiKey: process.env.YOUTUBE_API_KEY ?? "" };
 }
 
 function pubmedToolResult(
@@ -759,6 +881,54 @@ function crossrefToolResult(
     structuredContent: { ...structuredContent },
     ...(structuredContent.error === undefined ? {} : { isError: true })
   };
+}
+
+function youtubeToolResult(
+  text: string,
+  structuredContent: object & { error?: unknown }
+): CallToolResult {
+  return {
+    content: [{ type: "text", text }],
+    structuredContent: { ...structuredContent },
+    ...(structuredContent.error === undefined ? {} : { isError: true })
+  };
+}
+
+function youtubeSearchFailure(
+  query: string,
+  pageSize: number | undefined,
+  cursor: string | undefined
+) {
+  return errorEnvelope({
+    provider: "youtube",
+    recordType: "youtube_search_result",
+    query: { query },
+    pagination: {
+      ...(cursor === undefined ? {} : { cursor }),
+      page_size: pageSize ?? 20,
+      exhausted: false
+    },
+    returned: 0,
+    accessStatus: "error",
+    code: "youtube_tool_failed",
+    message: "YouTube operation failed",
+    retryable: false,
+    data: []
+  });
+}
+
+function youtubeVideoFailure() {
+  return errorEnvelope({
+    provider: "youtube",
+    recordType: "youtube_video",
+    pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: "error",
+    code: "youtube_tool_failed",
+    message: "YouTube operation failed",
+    retryable: false,
+    data: {}
+  });
 }
 
 function crossrefResolveFailure() {

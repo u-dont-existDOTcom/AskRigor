@@ -24,7 +24,9 @@ const TOOL_NAMES = [
   "search_clinical_trials",
   "fetch_clinical_trial",
   "resolve_doi",
-  "check_retraction_status"
+  "check_retraction_status",
+  "search_youtube",
+  "get_youtube_video"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -45,7 +47,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the ten read-only retrieval tools", async () => {
+  it("registers exactly the twelve read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -59,6 +61,77 @@ describe("AskRigor MCP tools", () => {
         inputSchema.type === "object" && outputSchema?.type === "object"
       )).toBe(true);
     } finally {
+      await server.close();
+    }
+  });
+
+  it("publishes strict, retrieval-only YouTube discovery schemas", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const search = tools.find(({ name }) => name === "search_youtube");
+      const video = tools.find(({ name }) => name === "get_youtube_video");
+
+      expect(search).toMatchObject({
+        description: "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["query"],
+          additionalProperties: false,
+          properties: {
+            query: { type: "string", minLength: 1, maxLength: 5000 },
+            page_size: { type: "integer", minimum: 1, maximum: 50 },
+            cursor: { type: "string", minLength: 1, maxLength: 4096 }
+          }
+        },
+        outputSchema: { type: "object" }
+      });
+      expect(video).toMatchObject({
+        description: "Retrieve one API-visible YouTube video by supported ID or URL without interpreting its content or making medical conclusions.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["video_id_or_url"],
+          additionalProperties: false,
+          properties: { video_id_or_url: { type: "string", minLength: 1, maxLength: 2048 } }
+        },
+        outputSchema: { type: "object" }
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns a deterministic missing-key YouTube MCP error before an upstream request", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    delete process.env.YOUTUBE_API_KEY;
+
+    try {
+      const result = await client.callTool({
+        name: "search_youtube",
+        arguments: { query: "recorded subject" }
+      });
+
+      expect(upstream).not.toHaveBeenCalled();
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube search returned 0 video record(s); access status inaccessible."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_search_result",
+        access_status: "inaccessible",
+        error: { code: "youtube_api_key_missing", message: "YouTube API key is not configured" },
+        data: []
+      });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
     }
   });

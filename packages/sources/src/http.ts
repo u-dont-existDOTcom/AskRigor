@@ -12,6 +12,17 @@ const MAX_RETRIES = 4;
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
 const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 
+export class UpstreamHttpError extends Error {
+  public readonly status: number;
+  public readonly reason: string | undefined;
+
+  constructor(status: number, reason?: string) {
+    super(`Upstream request failed with status ${status}`);
+    this.status = status;
+    this.reason = reason;
+  }
+}
+
 export interface UpstreamFetchOptions
   extends Omit<RequestInit, "redirect" | "signal"> {
   timeoutMs?: number;
@@ -110,6 +121,26 @@ const responseText = async (response: Response): Promise<string> => {
   return new TextDecoder().decode(body);
 };
 
+const providerErrorReason = (body: string): string | undefined => {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    if (typeof parsed !== "object" || parsed === null) return undefined;
+    const error = (parsed as Record<string, unknown>).error;
+    if (typeof error !== "object" || error === null) return undefined;
+    const record = error as Record<string, unknown>;
+    const direct = record.reason;
+    if (typeof direct === "string" && direct.length <= 100) return direct;
+    const errors = record.errors;
+    if (!Array.isArray(errors) || errors.length === 0) return undefined;
+    const reason = errors[0] && typeof errors[0] === "object" && errors[0] !== null
+      ? (errors[0] as Record<string, unknown>).reason
+      : undefined;
+    return typeof reason === "string" && reason.length <= 100 ? reason : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export const fetchText = async (
   url: string,
   { timeoutMs, maxRetries, ...init }: UpstreamFetchOptions = {},
@@ -132,7 +163,13 @@ export const fetchText = async (
     }
 
     if (!response.ok) {
-      throw new Error(`Upstream request failed with status ${response.status}`);
+      let reason: string | undefined;
+      try {
+        reason = providerErrorReason(await responseText(response));
+      } catch {
+        await response.body?.cancel();
+      }
+      throw new UpstreamHttpError(response.status, reason);
     }
 
     return responseText(response);
