@@ -1,5 +1,6 @@
 {
   "status": "ok",
+  "message-type": "work",
   "message": {
     "DOI": "10.5555/mixed.markers",
     "title": ["Recorded work with conflicting markers"],

@@ -100,7 +100,9 @@ describe("AskRigor MCP tools", () => {
 
   it("returns a conservative retraction envelope as an MCP error when Crossref fails", async () => {
     const { client, server } = await createInMemoryClient();
+    const previous = process.env.CROSSREF_MAILTO;
     vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 503 })));
+    process.env.CROSSREF_MAILTO = "maintainer@example.test";
 
     try {
       const result = await client.callTool({
@@ -122,6 +124,54 @@ describe("AskRigor MCP tools", () => {
       });
       expect(JSON.stringify(result)).not.toContain("provider-secret");
     } finally {
+      restoreEnvironment("CROSSREF_MAILTO", previous);
+      await server.close();
+    }
+  });
+
+  it("requires CROSSREF_MAILTO and sends it only to Crossref", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.CROSSREF_MAILTO;
+    const requests: Array<{ url: URL; userAgent: string | null }> = [];
+    const body = await readFile(new URL("fixtures/crossref/work-no-marker.json", import.meta.url), "utf8");
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      requests.push({ url: new URL(String(input)), userAgent: new Headers(init?.headers).get("user-agent") });
+      return new Response(body, { status: 200 });
+    }));
+    process.env.CROSSREF_MAILTO = "mcp-maintainer@example.test";
+
+    try {
+      const result = await client.callTool({ name: "check_retraction_status", arguments: { identifier: "10.5555/no.marker" } });
+      expect(result.isError).not.toBe(true);
+      expect(requests).toEqual([{
+        url: expect.objectContaining({ pathname: "/works/10.5555%2Fno.marker" }),
+        userAgent: "askrigor-research/0.1.0 (mailto:mcp-maintainer@example.test)"
+      }]);
+      expect(requests[0]!.url.searchParams.get("mailto")).toBe("mcp-maintainer@example.test");
+      expect(JSON.stringify(result)).not.toContain("mcp-maintainer@example.test");
+    } finally {
+      restoreEnvironment("CROSSREF_MAILTO", previous);
+      await server.close();
+    }
+  });
+
+  it("returns a structured Crossref error without a request when CROSSREF_MAILTO is absent", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.CROSSREF_MAILTO;
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    delete process.env.CROSSREF_MAILTO;
+
+    try {
+      const result = await client.callTool({ name: "check_retraction_status", arguments: { identifier: "10.5555/no.marker" } });
+      expect(upstream).not.toHaveBeenCalled();
+      expect(result.isError).toBe(true);
+      expect(result.structuredContent).toMatchObject({
+        data: { status: "unknown", evidence: [] },
+        error: { code: "crossref_configuration_invalid" }
+      });
+    } finally {
+      restoreEnvironment("CROSSREF_MAILTO", previous);
       await server.close();
     }
   });

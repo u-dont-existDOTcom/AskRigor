@@ -9,6 +9,7 @@ import {
 
 const fixture = (name: string) =>
   readFile(new URL(`fixtures/crossref/${name}`, import.meta.url), "utf8");
+const crossrefConfig = { mailto: "maintainer@example.test" };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -25,11 +26,12 @@ describe("Crossref DOI and retraction retrieval", () => {
       return new Response(body, { status: 200 });
     }));
 
-    const result = await checkRetractionStatus("https://doi.org/10.1021/AM300292V");
+    const result = await checkRetractionStatus("https://doi.org/10.1021/AM300292V", crossrefConfig);
 
     expect(requests).toHaveLength(1);
     expect(requests[0]!.pathname).toBe("/works/10.1021%2Fam300292v");
-    expect(userAgents).toEqual(["askrigor-research/0.1.0"]);
+    expect(requests[0]!.searchParams.get("mailto")).toBe("maintainer@example.test");
+    expect(userAgents).toEqual(["askrigor-research/0.1.0 (mailto:maintainer@example.test)"]);
     expect(result).toMatchObject({
       provider: "crossref",
       record_type: "retraction_status",
@@ -40,10 +42,10 @@ describe("Crossref DOI and retraction retrieval", () => {
         status: "retracted",
         evidence: [{
           type: "retracted",
-          doi: "10.1021/am300292v.ret",
+          doi: "10.1021/acsami.9b11759",
           date: "2024-03-04",
           source: "retraction-watch",
-          raw_label: "Retraction"
+          raw_label: "updated-by | inbound | Retraction"
         }]
       }
     });
@@ -55,7 +57,7 @@ describe("Crossref DOI and retraction retrieval", () => {
       { status: 200 }
     )));
 
-    const result = await checkRetractionStatus("doi:10.5555/NO.MARKER");
+    const result = await checkRetractionStatus("doi:10.5555/NO.MARKER", crossrefConfig);
 
     expect(result.data).toEqual({
       doi: "10.5555/no.marker",
@@ -65,7 +67,7 @@ describe("Crossref DOI and retraction retrieval", () => {
     });
     expect(result.error).toBeUndefined();
     expect(result.limitations).toContain(
-      "No retraction, expression-of-concern, correction, or update marker was present in the successful Crossref metadata response; this does not prove unretracted status everywhere."
+      "No inbound retraction, expression-of-concern, correction, or update marker was present in the successful Crossref metadata response; this does not prove unretracted status everywhere."
     );
   });
 
@@ -75,7 +77,7 @@ describe("Crossref DOI and retraction retrieval", () => {
       { status: 200 }
     )));
 
-    const result = await checkRetractionStatus("10.5555/mixed.markers");
+    const result = await checkRetractionStatus("10.5555/mixed.markers", crossrefConfig);
 
     expect(result.data.status).toBe("retracted");
     expect(result.data.evidence).toEqual([
@@ -84,21 +86,21 @@ describe("Crossref DOI and retraction retrieval", () => {
         doi: "10.5555/mixed.correction",
         date: "2021-02-03",
         source: "publisher",
-        raw_label: "Correction"
+        raw_label: "update-to | outbound | Correction"
       },
       {
         type: "expression_of_concern",
         doi: "10.5555/mixed.concern",
         date: "2022-03-04",
         source: "publisher",
-        raw_label: "Expression of concern"
+        raw_label: "updated-by | inbound | Expression of concern"
       },
       {
         type: "retracted",
         doi: "10.5555/mixed.retraction",
         date: "2023-04-05",
         source: "retraction-watch",
-        raw_label: "is-retracted-by"
+        raw_label: "is-retracted-by | inbound"
       }
     ]);
   });
@@ -106,7 +108,7 @@ describe("Crossref DOI and retraction retrieval", () => {
   it("returns unknown when a successful HTTP response does not contain a valid Crossref work", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{\"status\":\"ok\"}", { status: 200 })));
 
-    const result = await checkRetractionStatus("10.5555/malformed.response");
+    const result = await checkRetractionStatus("10.5555/malformed.response", crossrefConfig);
 
     expect(result).toMatchObject({
       access_status: "error",
@@ -120,7 +122,7 @@ describe("Crossref DOI and retraction retrieval", () => {
       message: { DOI: "10.5555/other.work" }
     }), { status: 200 })));
 
-    const result = await checkRetractionStatus("10.5555/requested.work");
+    const result = await checkRetractionStatus("10.5555/requested.work", crossrefConfig);
 
     expect(result).toMatchObject({
       access_status: "error",
@@ -132,7 +134,7 @@ describe("Crossref DOI and retraction retrieval", () => {
   it("returns unknown rather than negative evidence when Crossref retrieval fails", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("upstream-secret", { status: 503 })));
 
-    const result = await checkRetractionStatus("10.0000/unresolvable");
+    const result = await checkRetractionStatus("10.0000/unresolvable", crossrefConfig);
 
     expect(result).toMatchObject({
       access_status: "error",
@@ -150,7 +152,7 @@ describe("Crossref DOI and retraction retrieval", () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
 
-    const result = await checkRetractionStatus("https://invalid.example/10.5555/not-allowed");
+    const result = await checkRetractionStatus("https://invalid.example/10.5555/not-allowed", crossrefConfig);
 
     expect(upstream).not.toHaveBeenCalled();
     expect(result).toMatchObject({
@@ -165,7 +167,7 @@ describe("Crossref DOI and retraction retrieval", () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
 
-    const result = await checkRetractionStatus("https://doi.org/10.5555/%");
+    const result = await checkRetractionStatus("https://doi.org/10.5555/%", crossrefConfig);
 
     expect(upstream).not.toHaveBeenCalled();
     expect(result).toMatchObject({
@@ -177,15 +179,15 @@ describe("Crossref DOI and retraction retrieval", () => {
 
   it("resolves a canonical DOI through the encoded works endpoint", async () => {
     const body = await fixture("work-no-marker.json");
-    const requests: URL[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
-      requests.push(new URL(String(input)));
+    const requests: Array<{ url: URL; userAgent: string | null }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      requests.push({ url: new URL(String(input)), userAgent: new Headers(init?.headers).get("user-agent") });
       return new Response(body, { status: 200 });
     }));
 
-    const result = await resolveDoi(" DOI:10.5555/NO.MARKER ");
+    const result = await resolveDoi(" DOI:10.5555/NO.MARKER ", crossrefConfig);
 
-    expect(requests[0]!.pathname).toBe("/works/10.5555%2Fno.marker");
+    expect(requests[0]!.url.pathname).toBe("/works/10.5555%2Fno.marker");
     expect(result.data).toMatchObject({
       resolved_doi: "10.5555/no.marker",
       candidates: [{ doi: "10.5555/no.marker", title: "Recorded work without an update marker" }]
@@ -194,18 +196,20 @@ describe("Crossref DOI and retraction retrieval", () => {
 
   it("uses exactly five bibliographic candidates and resolves only an exact title, author, and year match", async () => {
     const body = await fixture("citation-candidates.json");
-    const requests: URL[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
-      requests.push(new URL(String(input)));
+    const requests: Array<{ url: URL; userAgent: string | null }> = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      requests.push({ url: new URL(String(input)), userAgent: new Headers(init?.headers).get("user-agent") });
       return new Response(body, { status: 200 });
     }));
 
-    const result = await resolveDoi("Smith J. A fixture study of Crossref matching. Journal. 2024.");
+    const result = await resolveDoi("Smith J. A fixture study of Crossref matching. Journal. 2024.", crossrefConfig);
 
-    expect(Object.fromEntries(requests[0]!.searchParams)).toMatchObject({
+    expect(Object.fromEntries(requests[0]!.url.searchParams)).toMatchObject({
       "query.bibliographic": "Smith J. A fixture study of Crossref matching. Journal. 2024.",
-      rows: "5"
+      rows: "5",
+      mailto: "maintainer@example.test"
     });
+    expect(requests[0]!.userAgent).toBe("askrigor-research/0.1.0 (mailto:maintainer@example.test)");
     expect(result.data).toMatchObject({
       resolved_doi: "10.5555/exact.fixture",
       candidates: [
@@ -221,10 +225,119 @@ describe("Crossref DOI and retraction retrieval", () => {
       { status: 200 }
     )));
 
-    const result = await resolveDoi("Brown Q. An unrelated paper. Journal. 2019.");
+    const result = await resolveDoi("Brown Q. An unrelated paper. Journal. 2019.", crossrefConfig);
 
     expect(result.access_status).toBe("metadata_only");
     expect(result.data.resolved_doi).toBeNull();
     expect(result.data.candidates).toHaveLength(2);
+  });
+
+  it.each([
+    ["missing status", { "message-type": "work", message: { DOI: "10.5555/envelope.test" } }],
+    ["non-success status", { status: "queued", "message-type": "work", message: { DOI: "10.5555/envelope.test" } }],
+    ["wrong single-work message type", { status: "ok", "message-type": "work-list", message: { DOI: "10.5555/envelope.test" } }]
+  ])("returns unknown for a %s single-work envelope", async (_name, response) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), { status: 200 })));
+    const result = await checkRetractionStatus("10.5555/envelope.test", crossrefConfig);
+    expect(result).toMatchObject({ data: { status: "unknown", evidence: [] }, error: { code: "crossref_response_invalid" } });
+  });
+
+  it.each([
+    ["update-to", { "update-to": [{ DOI: 12 }] }],
+    ["update-to DOI", { "update-to": [{ DOI: "not-a-doi", type: "correction" }] }],
+    ["updated-by", { "updated-by": [{ type: "retraction" }] }],
+    ["relation", { relation: { "is-retracted-by": [{ DOI: 12 }] } }]
+  ])("returns unknown when a present %s marker container is malformed", async (_name, marker) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      status: "ok", "message-type": "work", message: { DOI: "10.5555/marker.test", ...marker }
+    }), { status: 200 })));
+    const result = await checkRetractionStatus("10.5555/marker.test", crossrefConfig);
+    expect(result).toMatchObject({ data: { status: "unknown", evidence: [] }, error: { code: "crossref_response_invalid" } });
+  });
+
+  it("does not apply an outbound notice update-to marker to the notice itself", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(await fixture("work-notice-outbound.json"), { status: 200 })));
+    const result = await checkRetractionStatus("10.1021/acsami.9b11759", crossrefConfig);
+    expect(result.data).toMatchObject({
+      status: "no_retraction_record_found",
+      evidence: [{
+        type: "retracted",
+        doi: "10.1021/am300292v",
+        raw_label: "update-to | outbound | Retraction"
+      }]
+    });
+  });
+
+  it.each([
+    ["missing status", { "message-type": "work-list", message: { "total-results": 0, items: [] } }],
+    ["non-success status", { status: "queued", "message-type": "work-list", message: { "total-results": 0, items: [] } }],
+    ["wrong citation message type", { status: "ok", "message-type": "work", message: { "total-results": 0, items: [] } }],
+    ["missing total-results", { status: "ok", "message-type": "work-list", message: { items: [] } }]
+  ])("rejects a %s citation envelope", async (_name, response) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), { status: 200 })));
+    const result = await resolveDoi("Smith J. A citation. Journal. 2024.", crossrefConfig);
+    expect(result).toMatchObject({ access_status: "error", error: { code: "crossref_response_invalid" } });
+  });
+
+  it("rejects a malformed returned citation candidate instead of silently filtering it", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      status: "ok", "message-type": "work-list", message: {
+        "total-results": 2,
+        items: [
+          { DOI: "10.5555/exact.fixture", title: ["A fixture study of crossref matching"], author: [{ family: "Smith" }], issued: { "date-parts": [[2024]] } },
+          { DOI: 12, title: ["Malformed candidate"], author: [{ family: "Smith" }], issued: { "date-parts": [[2024]] } }
+        ]
+      }
+    }), { status: 200 })));
+    const result = await resolveDoi("Smith J. A fixture study of Crossref matching. Journal. 2024.", crossrefConfig);
+    expect(result).toMatchObject({ access_status: "error", data: { resolved_doi: null, candidates: [] }, error: { code: "crossref_response_invalid" } });
+  });
+
+  it("does not auto-resolve a hidden citation tie between two otherwise matching candidates", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      status: "ok", "message-type": "work-list", message: {
+        "total-results": 2,
+        items: [
+          { DOI: "10.5555/tie.one", title: ["A fixture study of crossref matching"], author: [{ family: "Smith" }], issued: { "date-parts": [[2024]] } },
+          { DOI: "10.5555/tie.two", title: ["A fixture study of crossref matching"], author: [{ family: "Smith" }], issued: { "date-parts": [[2024]] } }
+        ]
+      }
+    }), { status: 200 })));
+    const result = await resolveDoi("Smith J. A fixture study of Crossref matching. Journal. 2024.", crossrefConfig);
+    expect(result.data).toMatchObject({ resolved_doi: null, candidates: [{ doi: "10.5555/tie.one" }, { doi: "10.5555/tie.two" }] });
+  });
+
+  it("rejects a citation response whose total-results is smaller than returned items", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      status: "ok", "message-type": "work-list", message: {
+        "total-results": 1,
+        items: [
+          { DOI: "10.5555/total.one" },
+          { DOI: "10.5555/total.two" }
+        ]
+      }
+    }), { status: 200 })));
+    const result = await resolveDoi("Smith J. A citation. Journal. 2024.", crossrefConfig);
+    expect(result).toMatchObject({ access_status: "error", error: { code: "crossref_response_invalid" } });
+  });
+
+  it("reports a bounded, non-exhausted partial citation page when Crossref has more than five matches", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(await fixture("citation-many-results.json"), { status: 200 })));
+    const result = await resolveDoi("Smith J. Candidate one. Journal. 2024.", crossrefConfig);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      pagination: { page_size: 5, returned: 5, exhausted: false },
+      raw_metadata: { total_results: 8 }
+    });
+    expect(result.limitations).toContain("Crossref returned only the top 5 of 8 bibliographic candidates; additional candidates were not retrieved.");
+  });
+
+  it("returns a conservative configuration failure without an anonymous request or configuration leak", async () => {
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const result = await checkRetractionStatus("10.5555/no.config", { mailto: "not an email" });
+    expect(upstream).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ data: { status: "unknown", evidence: [] }, error: { code: "crossref_configuration_invalid" } });
+    expect(JSON.stringify(result)).not.toContain("not an email");
   });
 });

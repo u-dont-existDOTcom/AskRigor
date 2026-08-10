@@ -1,0 +1,15 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message": {
+    "DOI": "10.1021/acsami.9b11759",
+    "title": ["Retraction notice"],
+    "update-to": [{
+      "DOI": "10.1021/am300292v",
+      "type": "retraction",
+      "updated": {"date-parts": [[2019, 8, 20]]},
+      "source": "publisher",
+      "label": "Retraction"
+    }]
+  }
+}

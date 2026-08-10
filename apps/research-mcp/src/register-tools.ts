@@ -231,6 +231,7 @@ const doiResolutionEnvelopeSchema = z.object({
   pagination: paginationSchema,
   access_status: accessStatusSchema,
   limitations: z.array(z.string()),
+  raw_metadata: z.object({ total_results: z.number().int().nonnegative() }).strict().optional(),
   error: errorSchema.optional(),
   data: z.object({
     resolved_doi: z.string().nullable(),
@@ -532,7 +533,7 @@ export function registerTools(server: McpServer): void {
     },
     async ({ doi_or_citation }) => {
       try {
-        const result = await resolveDoi(doi_or_citation);
+        const result = await resolveDoi(doi_or_citation, crossrefConfig());
         return crossrefToolResult(
           `Crossref DOI resolution finished with access status ${result.access_status}.`,
           result
@@ -561,7 +562,7 @@ export function registerTools(server: McpServer): void {
     },
     async ({ identifier }) => {
       try {
-        const result = await checkRetractionStatus(identifier);
+        const result = await checkRetractionStatus(identifier, crossrefConfig());
         return crossrefToolResult(
           `Crossref retraction-status lookup finished with status ${result.data.status}; access status ${result.access_status}.`,
           result
@@ -593,6 +594,10 @@ function ncbiConfig() {
       ? {}
       : { apiKey: process.env.NCBI_API_KEY })
   };
+}
+
+function crossrefConfig() {
+  return { mailto: process.env.CROSSREF_MAILTO ?? "" };
 }
 
 function pubmedToolResult(

@@ -1,0 +1,14 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message": {
+    "total-results": 8,
+    "items": [
+      {"DOI":"10.5555/candidate.1","title":["Candidate one"],"author":[{"family":"Smith"}],"issued":{"date-parts":[[2024]]}},
+      {"DOI":"10.5555/candidate.2","title":["Candidate two"],"author":[{"family":"Smith"}],"issued":{"date-parts":[[2024]]}},
+      {"DOI":"10.5555/candidate.3","title":["Candidate three"],"author":[{"family":"Smith"}],"issued":{"date-parts":[[2024]]}},
+      {"DOI":"10.5555/candidate.4","title":["Candidate four"],"author":[{"family":"Smith"}],"issued":{"date-parts":[[2024]]}},
+      {"DOI":"10.5555/candidate.5","title":["Candidate five"],"author":[{"family":"Smith"}],"issued":{"date-parts":[[2024]]}}
+    ]
+  }
+}

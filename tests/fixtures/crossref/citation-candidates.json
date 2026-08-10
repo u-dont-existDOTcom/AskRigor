@@ -3,6 +3,7 @@
   "message-type": "work-list",
   "message": {
     "total-results": 2,
+    "total-results": 2,
     "items": [
       {
         "DOI": "10.5555/exact.fixture",
