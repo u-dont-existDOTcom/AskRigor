@@ -33,6 +33,12 @@ describe("bounded upstream HTTP", () => {
     ).rejects.toThrow("Upstream URL must not include credentials");
   });
 
+  it("sanitizes malformed upstream URL errors", async () => {
+    await expect(
+      fetchText("https://api.crossref.org:99999/works?key=super-secret"),
+    ).rejects.toThrow("Invalid upstream URL");
+  });
+
   it("returns decoded JSON after one retryable server response", async () => {
     const fetch = mockFetch(
       new Response("temporarily unavailable", { status: 503 }),
@@ -73,6 +79,16 @@ describe("bounded upstream HTTP", () => {
       "Upstream request failed with status 400",
     );
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("sanitizes malformed upstream JSON errors", async () => {
+    globalThis.fetch = mockFetch(
+      new Response("not-json-super-secret", { status: 200 }),
+    ) as typeof globalThis.fetch;
+
+    await expect(fetchJson("https://api.crossref.org/works")).rejects.toThrow(
+      "Invalid upstream JSON response",
+    );
   });
 
   it("rejects a declared response body above 10 MB before decoding it", async () => {
@@ -116,6 +132,23 @@ describe("bounded upstream HTTP", () => {
       fetchText("https://api.crossref.org/works", { timeoutMs: 1 }),
     ).rejects.toMatchObject({ name: "TimeoutError" });
   });
+
+  it("cancels a retry response and stops during backoff when the timeout elapses", async () => {
+    let bodyCanceled = false;
+    const body = new ReadableStream<Uint8Array>({
+      cancel() {
+        bodyCanceled = true;
+      },
+    });
+    const fetch = mockFetch(new Response(body, { status: 503 }));
+    globalThis.fetch = fetch as typeof globalThis.fetch;
+
+    await expect(
+      fetchText("https://api.crossref.org/works", { timeoutMs: 1 }),
+    ).rejects.toMatchObject({ name: "TimeoutError" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(bodyCanceled).toBe(true);
+  });
 });
 
 describe("opaque cursors", () => {
@@ -129,7 +162,13 @@ describe("opaque cursors", () => {
     });
   });
 
-  it("rejects a cursor with non-base64url characters", () => {
-    expect(() => decodeCursor("not+json")).toThrow("Invalid cursor encoding");
+  it("sanitizes cursor encoding errors", () => {
+    expect(() => decodeCursor("not+json")).toThrow(/^Invalid cursor$/);
+  });
+
+  it("sanitizes malformed decoded cursor JSON errors", () => {
+    expect(() => decodeCursor("bm90LWpzb24tc3VwZXItc2VjcmV0")).toThrow(
+      "Invalid cursor",
+    );
   });
 });

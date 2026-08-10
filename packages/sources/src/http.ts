@@ -18,7 +18,13 @@ export interface UpstreamFetchOptions
 }
 
 const validateUpstreamUrl = (value: string): URL => {
-  const url = new URL(value);
+  let url: URL;
+
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Invalid upstream URL");
+  }
 
   if (url.protocol !== "https:") {
     throw new Error("Upstream URL must use HTTPS");
@@ -37,8 +43,24 @@ const validateUpstreamUrl = (value: string): URL => {
 
 const retryDelay = (retry: number): number => Math.min(250 * 2 ** retry, 4_000);
 
-const sleep = (milliseconds: number): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, milliseconds));
+const sleep = (milliseconds: number, signal: AbortSignal): Promise<void> => {
+  if (signal.aborted) {
+    return Promise.reject(signal.reason);
+  }
+
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+};
 
 const responseText = async (response: Response): Promise<string> => {
   const contentLength = response.headers.get("content-length");
@@ -102,7 +124,8 @@ export const fetchText = async (
     });
 
     if (RETRYABLE_STATUSES.has(response.status) && retry < MAX_RETRIES) {
-      await sleep(retryDelay(retry));
+      await response.body?.cancel();
+      await sleep(retryDelay(retry), signal);
       continue;
     }
 
@@ -119,4 +142,12 @@ export const fetchText = async (
 export const fetchJson = async <T = unknown>(
   url: string,
   options?: UpstreamFetchOptions,
-): Promise<T> => JSON.parse(await fetchText(url, options)) as T;
+): Promise<T> => {
+  const text = await fetchText(url, options);
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("Invalid upstream JSON response");
+  }
+};

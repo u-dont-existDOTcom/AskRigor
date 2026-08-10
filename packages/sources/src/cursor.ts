@@ -35,5 +35,10 @@ export const encodeCursor = (value: unknown): string => {
   return encodeBase64Url(json);
 };
 
-export const decodeCursor = <T>(cursor: string): T =>
-  JSON.parse(decodeBase64Url(cursor)) as T;
+export const decodeCursor = <T>(cursor: string): T => {
+  try {
+    return JSON.parse(decodeBase64Url(cursor)) as T;
+  } catch {
+    throw new Error("Invalid cursor");
+  }
+};
