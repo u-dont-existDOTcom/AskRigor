@@ -27,6 +27,7 @@ export interface UpstreamFetchOptions
   extends Omit<RequestInit, "redirect" | "signal"> {
   timeoutMs?: number;
   maxRetries?: 0;
+  beforeAttempt?: () => void;
 }
 
 const validateUpstreamUrl = (value: string): URL => {
@@ -143,13 +144,14 @@ const providerErrorReason = (body: string): string | undefined => {
 
 export const fetchText = async (
   url: string,
-  { timeoutMs, maxRetries, ...init }: UpstreamFetchOptions = {},
+  { timeoutMs, maxRetries, beforeAttempt, ...init }: UpstreamFetchOptions = {},
 ): Promise<string> => {
   const upstreamUrl = validateUpstreamUrl(url);
   const signal = AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS);
   const retryLimit = maxRetries === 0 ? 0 : MAX_RETRIES;
 
   for (let retry = 0; retry <= retryLimit; retry += 1) {
+    beforeAttempt?.();
     const response = await fetch(upstreamUrl, {
       ...init,
       redirect: "error",

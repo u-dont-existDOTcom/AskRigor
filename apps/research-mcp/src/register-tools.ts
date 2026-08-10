@@ -25,7 +25,6 @@ import {
   youtubeCommentDataSchema,
   youtubeCommentFailureDataSchema,
   youtubeSearchRecordListSchema,
-  youtubeVideoIdSchema,
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema
 } from "@askrigor/sources";
@@ -234,7 +233,7 @@ const crossrefCandidateSchema = z.object({
 const doiResolutionEnvelopeSchema = z.object({
   provider: z.literal("crossref"),
   record_type: z.literal("doi_resolution"),
-  primary_identifier: youtubeVideoIdSchema.optional(),
+  primary_identifier: z.string().trim().min(1).max(2_048).optional(),
   retrieved_at: z.string(),
   query: z.object({ citation: z.string(), rows: z.literal(5) }).strict().optional(),
   source_identity: sourceIdentitySchema,
@@ -341,7 +340,11 @@ const youtubeCommentEnvelopeSchema = z.object({
   access_status: accessStatusSchema,
   limitations: z.array(z.string()),
   raw_metadata: z.object({
-    api_visible_top_level_comments: z.number().int().nonnegative()
+    api_visible_top_level_comments: z.number().int().nonnegative().optional(),
+    provider_request_attempts: z.number().int().nonnegative(),
+    normalized_output_bytes: z.number().int().nonnegative(),
+    normalized_text_bytes: z.number().int().nonnegative(),
+    elapsed_ms: z.number().nonnegative()
   }).strict().optional(),
   error: errorSchema.optional(),
   data: youtubeCommentDataUnionSchema

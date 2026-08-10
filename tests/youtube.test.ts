@@ -699,7 +699,9 @@ describe("YouTube API-visible comment corpus retrieval", () => {
 
     expect(result).toMatchObject({
       access_status: accessStatus,
-      error: { code, message, http_status: httpStatus }
+      error: { code, message, http_status: httpStatus },
+      raw_metadata: { provider_request_attempts: 1 },
+      data: { manifest: { pages: { comment_threads: 0, replies: 0 } } }
     });
     expect(result.access_status).not.toBe("api_visible_complete");
     expect(JSON.stringify(result)).not.toContain("provider-secret");
@@ -727,6 +729,7 @@ describe("YouTube API-visible comment corpus retrieval", () => {
         manifest: {
           top_level_comments_retrieved: 2,
           expected_replies: 4,
+          pages: { comment_threads: 2, replies: 1 },
           extraction_coverage: "partial"
         }
       }
@@ -844,7 +847,819 @@ describe("YouTube API-visible comment corpus retrieval", () => {
     expect(result).toMatchObject({
       access_status: "error",
       error: { code: "youtube_response_invalid" },
-      data: { comments: [], manifest: { extraction_coverage: "partial" } }
+      raw_metadata: { provider_request_attempts: 1 },
+      data: {
+        comments: [],
+        manifest: {
+          pages: { comment_threads: 0, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+  });
+});
+
+describe("YouTube comment retrieval budgets", () => {
+  it("stops a unique-token top-level workload at the successful-page budget", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      const page = url.searchParams.get("pageToken") === null
+        ? 1
+        : Number(url.searchParams.get("pageToken")!.replace("unique-page-", ""));
+      return new Response(JSON.stringify(await uniqueThreadPage(page)), { status: 200 });
+    }));
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxCommentThreadPages: 2 })
+    );
+
+    expect(requests).toHaveLength(2);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      pagination: { returned: 2, exhausted: false },
+      error: {
+        code: "youtube_comment_budget_comment_thread_pages",
+        message: "YouTube comment retrieval budget reached: comment_thread_pages",
+        retryable: false
+      },
+      raw_metadata: { provider_request_attempts: 2 },
+      data: {
+        manifest: {
+          top_level_comments_retrieved: 2,
+          total_comments_and_replies: 2,
+          pages: { comment_threads: 2, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+    expect(result.limitations).toContain(
+      "YouTube comment retrieval stopped after reaching the comment_thread_pages budget."
+    );
+  });
+
+  it("bounds total provider request attempts independently of page tokens", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxProviderRequestAttempts: 1 })
+    );
+
+    expect(requests).toHaveLength(1);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_provider_request_attempts" },
+      raw_metadata: { provider_request_attempts: 1 },
+      data: {
+        manifest: {
+          top_level_comments_retrieved: 1,
+          expected_replies: 3,
+          replies_retrieved: 1,
+          total_comments_and_replies: 2,
+          pages: { comment_threads: 1, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+    expect(result.limitations).toContain(
+      "YouTube comment retrieval stopped after reaching the provider_request_attempts budget."
+    );
+  });
+
+  it("counts and bounds every retry as a provider request attempt", async () => {
+    vi.useFakeTimers();
+    const body = await fixture("error-quota-exceeded.json");
+    const upstream = vi.fn(async () => new Response(body, { status: 429 }));
+    vi.stubGlobal("fetch", upstream);
+
+    const pending = getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxProviderRequestAttempts: 1 })
+    );
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(upstream).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_provider_request_attempts" },
+      raw_metadata: { provider_request_attempts: 1 },
+      data: { manifest: { pages: { comment_threads: 0, replies: 0 } } }
+    });
+  });
+
+  it("bounds independent reply-page fanout and keeps mismatches explicit", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxReplyPages: 1 })
+    );
+
+    expect(requests).toHaveLength(3);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_reply_pages" },
+      raw_metadata: { provider_request_attempts: 3 },
+      data: {
+        manifest: {
+          top_level_comments_retrieved: 2,
+          expected_replies: 4,
+          replies_retrieved: 3,
+          total_comments_and_replies: 5,
+          reply_count_mismatches: [
+            { parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 2 },
+            { parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 0 }
+          ],
+          pages: { comment_threads: 2, replies: 1 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+  });
+
+  it("bounds thread fanout before allocating another thread", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      completeCommentResponse(new URL(String(input)))
+    ));
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxThreads: 1 })
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_threads" },
+      raw_metadata: { provider_request_attempts: 2 },
+      data: {
+        manifest: {
+          top_level_comments_retrieved: 1,
+          expected_replies: 3,
+          replies_retrieved: 1,
+          total_comments_and_replies: 2,
+          pages: { comment_threads: 2, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+  });
+
+  it("bounds the total normalized comment count before allocation", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      completeCommentResponse(new URL(String(input)))
+    ));
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxComments: 2 })
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_comments" },
+      data: {
+        comments: expect.arrayContaining([
+          expect.objectContaining({ comment_id: "UgxTop00000000000000001" }),
+          expect.objectContaining({ comment_id: "UgxReply0000000000000001" })
+        ]),
+        manifest: {
+          top_level_comments_retrieved: 1,
+          replies_retrieved: 1,
+          total_comments_and_replies: 2,
+          pages: { comment_threads: 2, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+  });
+
+  it("bounds aggregate normalized text bytes before allocating the next comment", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      completeCommentResponse(new URL(String(input)))
+    ));
+    const firstTextBytes = Buffer.byteLength("First top-level comment", "utf8");
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxTextBytes: firstTextBytes })
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_text_bytes" },
+      raw_metadata: { normalized_text_bytes: firstTextBytes },
+      data: {
+        comments: [expect.objectContaining({ comment_id: "UgxTop00000000000000001" })],
+        manifest: {
+          top_level_comments_retrieved: 1,
+          expected_replies: 3,
+          replies_retrieved: 0,
+          total_comments_and_replies: 1,
+          extraction_coverage: "partial"
+        }
+      }
+    });
+  });
+
+  it("bounds aggregate normalized output bytes before the first allocation", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) =>
+      completeCommentResponse(new URL(String(input)))
+    ));
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxNormalizedOutputBytes: 1 })
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_normalized_output_bytes" },
+      raw_metadata: { normalized_output_bytes: 0 },
+      data: {
+        comments: [],
+        manifest: {
+          top_level_comments_retrieved: 0,
+          total_comments_and_replies: 0,
+          pages: { comment_threads: 1, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+  });
+
+  it("bounds elapsed work after a provider response and before page allocation", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      await fixture("comment-threads-page-1.json"), { status: 200 }
+    )));
+    const now = vi.fn()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0)
+      .mockReturnValue(11);
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({ maxElapsedMs: 10 }, now)
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_elapsed_ms" },
+      raw_metadata: { provider_request_attempts: 1, elapsed_ms: 11 },
+      data: {
+        comments: [],
+        manifest: {
+          top_level_comments_retrieved: 0,
+          total_comments_and_replies: 0,
+          pages: { comment_threads: 0, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+  });
+});
+
+describe("YouTube operation-aware comment failures", () => {
+  it("maps an initial forbidden commentThreads failure to inaccessible with zero successful pages", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      await fixture("error-access-denied.json"), { status: 403 }
+    )));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "inaccessible",
+      error: { code: "youtube_access_denied", message: "YouTube access denied", http_status: 403 },
+      raw_metadata: { provider_request_attempts: 1 },
+      data: { manifest: { pages: { comment_threads: 0, replies: 0 } } }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
+  it("maps an initial HTTP 429 to rate_limited after bounded HTTP retries", async () => {
+    vi.useFakeTimers();
+    const body = await fixture("error-quota-exceeded.json");
+    const upstream = vi.fn(async () => new Response(body, { status: 429 }));
+    vi.stubGlobal("fetch", upstream);
+
+    const pending = getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(upstream).toHaveBeenCalledTimes(5);
+    expect(result).toMatchObject({
+      access_status: "rate_limited",
+      error: { code: "youtube_rate_limited", message: "YouTube rate limit reached", http_status: 429 },
+      raw_metadata: { provider_request_attempts: 5 },
+      data: { manifest: { pages: { comment_threads: 0, replies: 0 } } }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
+  it("maps comments.list commentNotFound to a sanitized partial parent-comment failure", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/comments")) {
+        return new Response(await fixture("error-comment-not-found.json"), { status: 404 });
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: {
+        code: "youtube_parent_comment_not_found",
+        message: "YouTube parent comment was not found",
+        http_status: 404
+      },
+      raw_metadata: { provider_request_attempts: 3 },
+      data: {
+        manifest: {
+          top_level_comments_retrieved: 2,
+          replies_retrieved: 2,
+          total_comments_and_replies: 4,
+          pages: { comment_threads: 2, replies: 0 },
+          extraction_coverage: "partial"
+        }
+      }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret-comment-not-found");
+  });
+
+  it.each([
+    ["commentsDisabled", "error-comments-disabled.json", 403],
+    ["videoNotFound", "error-video-not-found.json", 404]
+  ])("does not map wrong-operation comments.list %s as a thread-level state", async (
+    _reason,
+    fixtureName,
+    status
+  ) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/comments")) {
+        return new Response(await fixture(fixtureName), { status });
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_request_failed", message: "YouTube request failed", http_status: status },
+      data: { manifest: { pages: { comment_threads: 2, replies: 0 }, extraction_coverage: "partial" } }
+    });
+    expect(result.access_status).not.toBe("comments_disabled");
+    expect(result.access_status).not.toBe("not_found");
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
+  it("does not map wrong-operation commentThreads commentNotFound as a video state", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      await fixture("error-comment-not-found.json"), { status: 404 }
+    )));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_request_failed", message: "YouTube request failed", http_status: 404 },
+      data: { manifest: { pages: { comment_threads: 0, replies: 0 } } }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret-comment-not-found");
+  });
+});
+
+describe("YouTube comment response guard isolation", () => {
+  it("detects a reply-token cycle after two successful reply pages", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (
+        url.pathname.endsWith("/comments") &&
+        url.searchParams.get("pageToken") === "reply-top-1-page-2"
+      ) {
+        const response = await mutableFixture("comments-top-1-page-2.json");
+        response.nextPageToken = "reply-top-1-page-2";
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: [
+        "UgxTop00000000000000001", "UgxReply0000000000000001",
+        "UgxTop00000000000000002", "UgxReply0000000000000004",
+        "UgxReply0000000000000002", "UgxReply0000000000000003"
+      ],
+      manifest: manifestFixture({
+        repliesRetrieved: 4,
+        total: 6,
+        mismatches: [
+          { parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 3 },
+          { parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 0 }
+        ],
+        commentThreadPages: 2,
+        replyPages: 2
+      }),
+      limitation: "YouTube replies pagination returned a repeated page token."
+    });
+  });
+
+  it.each([
+    ["thread", (item: Record<string, unknown>) => { item.id = "UgxThread000000000000001"; }],
+    ["top-level comment", (item: Record<string, unknown>) => {
+      const snippet = item.snippet as Record<string, unknown>;
+      (snippet.topLevelComment as Record<string, unknown>).id = "UgxTop00000000000000001";
+    }]
+  ])("rejects a duplicate %s ID on a later top-level page", async (_name, mutate) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/commentThreads") && url.searchParams.has("pageToken")) {
+        const response = await mutableFixture("comment-threads-page-2.json");
+        mutate((response.items as Record<string, unknown>[])[0]!);
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: ["UgxTop00000000000000001", "UgxReply0000000000000001"],
+      manifest: manifestFixture({
+        topLevels: 1,
+        expectedReplies: 3,
+        repliesRetrieved: 1,
+        total: 2,
+        mismatches: [{ parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 0 }],
+        commentThreadPages: 2,
+        replyPages: 0
+      }),
+      limitation: "YouTube returned a duplicate thread or top-level comment identifier."
+    });
+  });
+
+  it("rejects a duplicate reply ID across separate comments.list pages", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/comments") && url.searchParams.has("pageToken")) {
+        const response = await mutableFixture("comments-top-1-page-2.json");
+        ((response.items as Record<string, unknown>[])[0]!).id = "UgxReply0000000000000002";
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: [
+        "UgxTop00000000000000001", "UgxReply0000000000000001",
+        "UgxTop00000000000000002", "UgxReply0000000000000004",
+        "UgxReply0000000000000002"
+      ],
+      manifest: manifestFixture({
+        repliesRetrieved: 3,
+        total: 5,
+        mismatches: [
+          { parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 2 },
+          { parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 0 }
+        ],
+        commentThreadPages: 2,
+        replyPages: 2
+      }),
+      limitation: "YouTube returned a duplicate reply identifier across comments pages."
+    });
+  });
+
+  it("rejects a reply ID reused under a different parent", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.searchParams.get("parentId") === "UgxTop00000000000000002") {
+        const response = await mutableFixture("comments-top-2-page-1.json");
+        ((response.items as Record<string, unknown>[])[0]!).id = "UgxReply0000000000000003";
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: [
+        "UgxTop00000000000000001", "UgxReply0000000000000001",
+        "UgxTop00000000000000002", "UgxReply0000000000000004",
+        "UgxReply0000000000000002", "UgxReply0000000000000003"
+      ],
+      manifest: manifestFixture({
+        repliesRetrieved: 4,
+        total: 6,
+        mismatches: [{ parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 1 }],
+        commentThreadPages: 2,
+        replyPages: 3
+      }),
+      limitation: "YouTube returned a duplicate comment identifier with inconsistent metadata."
+    });
+  });
+
+  it.each([
+    ["thread video", (item: Record<string, unknown>) => {
+      (item.snippet as Record<string, unknown>).videoId = "dQw4w9WgXcQ";
+    }],
+    ["top-level comment video", (item: Record<string, unknown>) => {
+      const snippet = item.snippet as Record<string, unknown>;
+      const top = snippet.topLevelComment as Record<string, unknown>;
+      (top.snippet as Record<string, unknown>).videoId = "dQw4w9WgXcQ";
+    }]
+  ])("rejects a wrong %s correlation", async (_name, mutate) => {
+    const response = await mutableFixture("comment-threads-page-1.json");
+    mutate((response.items as Record<string, unknown>[])[0]!);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(response)));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: [],
+      manifest: manifestFixture({
+        topLevels: 0,
+        expectedReplies: 0,
+        repliesRetrieved: 0,
+        total: 0,
+        mismatches: [],
+        commentThreadPages: 1,
+        replyPages: 0
+      }),
+      limitation: "YouTube returned a comment thread that did not correlate to the requested video."
+    });
+  });
+
+  it("rejects an embedded reply with the wrong parent after preserving its top-level comment", async () => {
+    const response = await mutableFixture("comment-threads-page-1.json");
+    const item = (response.items as Record<string, unknown>[])[0]!;
+    const embedded = ((item.replies as Record<string, unknown>).comments as Record<string, unknown>[])[0]!;
+    (embedded.snippet as Record<string, unknown>).parentId = "UgxTopWrong0000000000001";
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(response)));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: ["UgxTop00000000000000001"],
+      manifest: manifestFixture({
+        topLevels: 1,
+        expectedReplies: 3,
+        repliesRetrieved: 0,
+        total: 1,
+        mismatches: [{ parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 0 }],
+        commentThreadPages: 1,
+        replyPages: 0
+      }),
+      limitation: "YouTube returned a reply that did not correlate to its requested parent comment."
+    });
+  });
+
+  it.each([
+    ["parent", (snippet: Record<string, unknown>) => { snippet.parentId = "UgxTopWrong0000000000001"; }],
+    ["video", (snippet: Record<string, unknown>) => { snippet.videoId = "dQw4w9WgXcQ"; }]
+  ])("rejects a separately fetched reply with the wrong %s", async (_name, mutate) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (
+        url.pathname.endsWith("/comments") &&
+        url.searchParams.get("parentId") === "UgxTop00000000000000001" &&
+        !url.searchParams.has("pageToken")
+      ) {
+        const response = await mutableFixture("comments-top-1-page-1.json");
+        const second = (response.items as Record<string, unknown>[])[1]!;
+        mutate(second.snippet as Record<string, unknown>);
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: [
+        "UgxTop00000000000000001", "UgxReply0000000000000001",
+        "UgxTop00000000000000002", "UgxReply0000000000000004"
+      ],
+      manifest: manifestFixture({
+        repliesRetrieved: 2,
+        total: 4,
+        mismatches: [
+          { parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 1 },
+          { parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 0 }
+        ],
+        commentThreadPages: 2,
+        replyPages: 1
+      }),
+      limitation: "YouTube returned a reply that did not correlate to its requested parent comment."
+    });
+  });
+
+  it("rejects a changing top-level totalResults without counting the invalid page", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/commentThreads") && url.searchParams.has("pageToken")) {
+        const response = await mutableFixture("comment-threads-page-2.json");
+        (response.pageInfo as Record<string, unknown>).totalResults = 3;
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: ["UgxTop00000000000000001", "UgxReply0000000000000001"],
+      manifest: manifestFixture({
+        topLevels: 1,
+        expectedReplies: 3,
+        repliesRetrieved: 1,
+        total: 2,
+        mismatches: [{ parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 0 }],
+        commentThreadPages: 1,
+        replyPages: 0
+      }),
+      limitation: "YouTube commentThreads pageInfo and result counts were inconsistent."
+    });
+  });
+
+  it("rejects a changing reply totalResults without counting the invalid page", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/comments") && url.searchParams.has("pageToken")) {
+        const response = await mutableFixture("comments-top-1-page-2.json");
+        (response.pageInfo as Record<string, unknown>).totalResults = 2;
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: [
+        "UgxTop00000000000000001", "UgxReply0000000000000001",
+        "UgxTop00000000000000002", "UgxReply0000000000000004",
+        "UgxReply0000000000000002"
+      ],
+      manifest: manifestFixture({
+        repliesRetrieved: 3,
+        total: 5,
+        mismatches: [
+          { parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 2 },
+          { parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 0 }
+        ],
+        commentThreadPages: 2,
+        replyPages: 1
+      }),
+      limitation: "YouTube comments pageInfo and result counts were inconsistent."
+    });
+  });
+
+  it.each([
+    ["top-level resultsPerPage", "comment-threads-page-1.json", (response: Record<string, unknown>) => {
+      (response.pageInfo as Record<string, unknown>).resultsPerPage = 0;
+    }, "YouTube commentThreads pageInfo and result counts were inconsistent."],
+    ["top-level terminal total", "comment-threads-page-1.json", (response: Record<string, unknown>) => {
+      delete response.nextPageToken;
+    }, "YouTube commentThreads results did not reconcile with pageInfo.totalResults."]
+  ])("keeps incoherent %s explicit", async (_name, fixtureName, mutate, limitation) => {
+    const response = await mutableFixture(fixtureName);
+    mutate(response);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(response)));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    if (_name === "top-level resultsPerPage") {
+      expectFailureCorpus(result, {
+        commentIds: [],
+        manifest: manifestFixture({
+          topLevels: 0, expectedReplies: 0, repliesRetrieved: 0, total: 0,
+          mismatches: [], commentThreadPages: 0, replyPages: 0
+        }),
+        limitation,
+        accessStatus: "error"
+      });
+    } else {
+      expectFailureCorpus(result, {
+        commentIds: ["UgxTop00000000000000001", "UgxReply0000000000000001"],
+        manifest: manifestFixture({
+          topLevels: 1, expectedReplies: 3, repliesRetrieved: 1, total: 2,
+          mismatches: [{ parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 0 }],
+          commentThreadPages: 1, replyPages: 0
+        }),
+        limitation
+      });
+    }
+  });
+
+  it.each([
+    ["resultsPerPage", (response: Record<string, unknown>) => {
+      (response.pageInfo as Record<string, unknown>).resultsPerPage = 1;
+    }, "YouTube comments pageInfo and result counts were inconsistent.", 0],
+    ["terminal count", (response: Record<string, unknown>) => {
+      delete response.nextPageToken;
+    }, "YouTube comments results did not reconcile with pageInfo.totalResults.", 1]
+  ])("keeps incoherent reply %s explicit", async (_name, mutate, limitation, replyPages) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (
+        url.pathname.endsWith("/comments") &&
+        url.searchParams.get("parentId") === "UgxTop00000000000000001" &&
+        !url.searchParams.has("pageToken")
+      ) {
+        const response = await mutableFixture("comments-top-1-page-1.json");
+        mutate(response);
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+    const includesReplyTwo = replyPages === 1;
+    expectFailureCorpus(result, {
+      commentIds: [
+        "UgxTop00000000000000001", "UgxReply0000000000000001",
+        "UgxTop00000000000000002", "UgxReply0000000000000004",
+        ...(includesReplyTwo ? ["UgxReply0000000000000002"] : [])
+      ],
+      manifest: manifestFixture({
+        repliesRetrieved: includesReplyTwo ? 3 : 2,
+        total: includesReplyTwo ? 5 : 4,
+        mismatches: [
+          { parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: includesReplyTwo ? 2 : 0 },
+          { parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 0 }
+        ],
+        commentThreadPages: 2,
+        replyPages
+      }),
+      limitation
+    });
+  });
+
+  it.each([
+    ["response", (response: Record<string, unknown>) => { response.kind = "youtube#playlistListResponse"; }],
+    ["item", (response: Record<string, unknown>) => {
+      ((response.items as Record<string, unknown>[])[0]!).kind = "youtube#video";
+    }]
+  ])("rejects a wrong comments.list %s kind without counting the page", async (_name, mutate) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/comments")) {
+        const response = await mutableFixture("comments-top-1-page-1.json");
+        mutate(response);
+        return jsonResponse(response);
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expectFailureCorpus(result, {
+      commentIds: [
+        "UgxTop00000000000000001", "UgxReply0000000000000001",
+        "UgxTop00000000000000002", "UgxReply0000000000000004"
+      ],
+      manifest: manifestFixture({
+        repliesRetrieved: 2,
+        total: 4,
+        mismatches: [
+          { parent_comment_id: "UgxTop00000000000000001", expected: 3, retrieved: 0 },
+          { parent_comment_id: "UgxTop00000000000000002", expected: 1, retrieved: 0 }
+        ],
+        commentThreadPages: 2,
+        replyPages: 0
+      }),
+      limitation: "YouTube returned an invalid comments response."
     });
   });
 });
@@ -865,4 +1680,90 @@ async function completeCommentResponse(url: URL): Promise<Response> {
     ? "comments-top-1-page-2.json"
     : "comments-top-1-page-1.json";
   return new Response(await fixture(name), { status: 200 });
+}
+
+function budgetRuntime(
+  budgets: Record<string, number>,
+  now?: () => number
+): { budgets: Record<string, number>; now?: () => number } {
+  return { budgets, ...(now === undefined ? {} : { now }) };
+}
+
+async function uniqueThreadPage(page: number): Promise<Record<string, unknown>> {
+  const response = JSON.parse(await fixture("comment-threads-page-1.json")) as {
+    nextPageToken?: string;
+    pageInfo: { totalResults: number; resultsPerPage: number };
+    items: Array<{
+      id: string;
+      snippet: {
+        topLevelComment: { id: string; snippet: { textDisplay: string; textOriginal?: string } };
+        totalReplyCount: number;
+      };
+      replies?: unknown;
+    }>;
+  };
+  response.nextPageToken = `unique-page-${page + 1}`;
+  response.pageInfo = { totalResults: 100, resultsPerPage: 1 };
+  response.items[0]!.id = `UgxThreadBudget${String(page).padStart(9, "0")}`;
+  response.items[0]!.snippet.topLevelComment.id = `UgxTopBudget${String(page).padStart(12, "0")}`;
+  response.items[0]!.snippet.topLevelComment.snippet.textDisplay = `Budget comment ${page}`;
+  response.items[0]!.snippet.topLevelComment.snippet.textOriginal = `Budget comment ${page}`;
+  response.items[0]!.snippet.totalReplyCount = 0;
+  delete response.items[0]!.replies;
+  return response as Record<string, unknown>;
+}
+
+async function mutableFixture(name: string): Promise<Record<string, unknown>> {
+  return JSON.parse(await fixture(name)) as Record<string, unknown>;
+}
+
+function jsonResponse(value: unknown): Response {
+  return new Response(JSON.stringify(value), { status: 200 });
+}
+
+function manifestFixture({
+  topLevels = 2,
+  expectedReplies = 4,
+  repliesRetrieved,
+  total,
+  mismatches,
+  commentThreadPages,
+  replyPages
+}: {
+  topLevels?: number;
+  expectedReplies?: number;
+  repliesRetrieved: number;
+  total: number;
+  mismatches: Array<{ parent_comment_id: string; expected: number; retrieved: number }>;
+  commentThreadPages: number;
+  replyPages: number;
+}) {
+  return {
+    video_id: "XpZHKGGCK-o",
+    top_level_comments_retrieved: topLevels,
+    expected_replies: expectedReplies,
+    replies_retrieved: repliesRetrieved,
+    total_comments_and_replies: total,
+    reply_count_mismatches: mismatches,
+    pages: { comment_threads: commentThreadPages, replies: replyPages },
+    extraction_coverage: "partial"
+  };
+}
+
+function expectFailureCorpus(
+  result: Awaited<ReturnType<typeof getYoutubeComments>>,
+  expected: {
+    commentIds: string[];
+    manifest: ReturnType<typeof manifestFixture>;
+    limitation: string;
+    accessStatus?: "partial" | "error";
+  }
+): void {
+  expect(result.access_status).toBe(expected.accessStatus ?? "partial");
+  expect(result.access_status).not.toBe("api_visible_complete");
+  expect(result.error).toMatchObject({ code: "youtube_response_invalid" });
+  expect(result.limitations).toContain(expected.limitation);
+  if (!("comments" in result.data)) throw new Error("Expected a comment corpus");
+  expect(result.data.comments.map(({ comment_id }) => comment_id)).toEqual(expected.commentIds);
+  expect(result.data.manifest).toEqual(expected.manifest);
 }

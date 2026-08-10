@@ -513,6 +513,43 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("returns a valid structured DOI resolution through the real in-memory MCP boundary", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.CROSSREF_MAILTO;
+    const body = await readFile(new URL(
+      "fixtures/crossref/work-no-marker.json",
+      import.meta.url
+    ), "utf8");
+    process.env.CROSSREF_MAILTO = "mcp-maintainer@example.test";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    try {
+      const result = await client.callTool({
+        name: "resolve_doi",
+        arguments: { doi_or_citation: "10.5555/no.marker" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "Crossref DOI resolution finished with access status metadata_only."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "crossref",
+        record_type: "doi_resolution",
+        primary_identifier: "10.5555/no.marker",
+        access_status: "metadata_only",
+        data: {
+          resolved_doi: "10.5555/no.marker",
+          candidates: [{ doi: "10.5555/no.marker" }]
+        }
+      });
+    } finally {
+      restoreEnvironment("CROSSREF_MAILTO", previous);
+      await server.close();
+    }
+  });
+
   it("returns a conservative retraction envelope as an MCP error when Crossref fails", async () => {
     const { client, server } = await createInMemoryClient();
     const previous = process.env.CROSSREF_MAILTO;
