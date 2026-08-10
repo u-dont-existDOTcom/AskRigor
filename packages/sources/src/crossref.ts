@@ -127,11 +127,14 @@ export async function resolveDoi(doiOrCitation: string, config: CrossrefConfig):
     const response = workListResponseSchema.safeParse(await crossrefFetchJson(url.toString(), parsedConfig.data));
     if (!response.success) throw new CrossrefResponseError();
     const { items, totalResults } = { items: response.data.message.items, totalResults: response.data.message["total-results"] };
-    if (totalResults < items.length || items.some((item) => normalizeDoi(item.DOI) === undefined)) throw new CrossrefResponseError();
+    if (
+      items.length !== Math.min(totalResults, CITATION_ROWS) ||
+      items.some((item) => normalizeDoi(item.DOI) === undefined)
+    ) throw new CrossrefResponseError();
     const candidates = items.map(candidateFromMessage);
     const matches = candidates.filter((candidate) => citationMatches(candidate, parseCitation(input.citation)));
-    const exhausted = totalResults === items.length;
-    const partial = !exhausted;
+    const partial = totalResults > CITATION_ROWS;
+    const exhausted = !partial;
     return okEnvelope({
       provider: "crossref", recordType: "doi_resolution",
       query: { citation: input.citation, rows: CITATION_ROWS },
@@ -139,7 +142,7 @@ export async function resolveDoi(doiOrCitation: string, config: CrossrefConfig):
       limitations: partial ? [`Crossref returned only the top ${items.length} of ${totalResults} bibliographic candidates; additional candidates were not retrieved.`] : [],
       rawMetadata: { total_results: totalResults },
       pagination: { page_size: CITATION_ROWS, exhausted }, returned: candidates.length,
-      data: { resolved_doi: matches.length === 1 ? matches[0]!.doi : null, candidates }
+      data: { resolved_doi: !partial && matches.length === 1 ? matches[0]!.doi : null, candidates }
     });
   } catch (error) {
     return resolveErrorEnvelope(crossrefFailure(error));

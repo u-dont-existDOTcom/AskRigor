@@ -119,7 +119,21 @@ describe("Crossref DOI and retraction retrieval", () => {
 
   it("returns unknown rather than accepting ambiguous metadata for another DOI", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
-      message: { DOI: "10.5555/other.work" }
+      status: "ok",
+      "message-type": "work",
+      message: {
+        DOI: "10.5555/other.work",
+        title: ["A valid but mismatched Crossref record"],
+        author: [{ family: "Example" }],
+        issued: { "date-parts": [[2024]] },
+        "updated-by": [{
+          DOI: "10.5555/other.notice",
+          type: "retraction",
+          updated: { "date-parts": [[2024, 2, 3]] },
+          source: "publisher",
+          label: "Retraction"
+        }]
+      }
     }), { status: 200 })));
 
     const result = await checkRetractionStatus("10.5555/requested.work", crossrefConfig);
@@ -321,6 +335,28 @@ describe("Crossref DOI and retraction retrieval", () => {
     expect(result).toMatchObject({ access_status: "error", error: { code: "crossref_response_invalid" } });
   });
 
+  it.each([
+    [4, ["10.5555/short.four.1", "10.5555/short.four.2"]],
+    [8, ["10.5555/short.eight.1", "10.5555/short.eight.2", "10.5555/short.eight.3"]]
+  ])("rejects an internally short work-list with total-results %i", async (totalResults, dois) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      status: "ok",
+      "message-type": "work-list",
+      message: {
+        "total-results": totalResults,
+        items: dois.map((DOI) => ({ DOI }))
+      }
+    }), { status: 200 })));
+
+    const result = await resolveDoi("Smith J. A citation. Journal. 2024.", crossrefConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      data: { resolved_doi: null, candidates: [] },
+      error: { code: "crossref_response_invalid" }
+    });
+  });
+
   it("reports a bounded, non-exhausted partial citation page when Crossref has more than five matches", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(await fixture("citation-many-results.json"), { status: 200 })));
     const result = await resolveDoi("Smith J. Candidate one. Journal. 2024.", crossrefConfig);
@@ -330,6 +366,7 @@ describe("Crossref DOI and retraction retrieval", () => {
       raw_metadata: { total_results: 8 }
     });
     expect(result.limitations).toContain("Crossref returned only the top 5 of 8 bibliographic candidates; additional candidates were not retrieved.");
+    expect(result.data.resolved_doi).toBeNull();
   });
 
   it("returns a conservative configuration failure without an anonymous request or configuration leak", async () => {
