@@ -674,6 +674,7 @@ type CommentPrefixSummary = Omit<CommentSelectionSummary, "comments" | "mismatch
 interface SizedCommentPrefix {
   summary: CommentPrefixSummary;
   bytes: number;
+  elapsedMs: number;
 }
 
 interface CommentFinalizationPreparation {
@@ -1191,14 +1192,16 @@ const finalizeCommentResult = (
   try {
     prepareCommentFinalization(state, preparation);
     const fullSummary = preparation.prefixes.at(-1) ?? emptyCommentPrefixSummary();
-    const fullBytes = measureCommentEnvelopeBytes(state, fullSummary, outcome);
+    const fullElapsedMs = state.accounting.elapsedMs;
+    const fullBytes = measureCommentEnvelopeBytes(state, fullSummary, outcome, fullElapsedMs);
     assertCommentBudgetElapsed(state.accounting);
     if (fullBytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
       return emitMeasuredCommentEnvelope(
         state,
         materializeFullCommentSelection(state, fullSummary),
         outcome,
-        fullBytes
+        fullBytes,
+        fullElapsedMs
       );
     }
 
@@ -1211,16 +1214,20 @@ const finalizeCommentResult = (
         outputError.limitation
       ])
     };
+    const emptySummary = emptyCommentPrefixSummary();
+    const emptyElapsedMs = state.accounting.elapsedMs;
     let selected = sizedCommentPrefix(
-      emptyCommentPrefixSummary(),
-      measureCommentEnvelopeBytes(state, emptyCommentPrefixSummary(), boundedOutcome)
+      emptySummary,
+      measureCommentEnvelopeBytes(state, emptySummary, boundedOutcome, emptyElapsedMs),
+      emptyElapsedMs
     );
     for (const prefix of preparation.prefixes) {
       assertCommentBudgetElapsed(state.accounting);
-      const bytes = measureCommentEnvelopeBytes(state, prefix, boundedOutcome);
+      const elapsedMs = state.accounting.elapsedMs;
+      const bytes = measureCommentEnvelopeBytes(state, prefix, boundedOutcome, elapsedMs);
       assertCommentBudgetElapsed(state.accounting);
       if (bytes > state.accounting.budgets.maxNormalizedOutputBytes) break;
-      selected = sizedCommentPrefix(prefix, bytes);
+      selected = sizedCommentPrefix(prefix, bytes, elapsedMs);
     }
     if (selected.bytes > state.accounting.budgets.maxNormalizedOutputBytes) {
       return commentPreflightError("youtube_comments_runtime_invalid");
@@ -1229,7 +1236,8 @@ const finalizeCommentResult = (
       state,
       materializePreparedCommentSelection(preparation, selected.summary),
       boundedOutcome,
-      selected.bytes
+      selected.bytes,
+      selected.elapsedMs
     );
   } catch (error) {
     if (isCommentClockOrElapsedError(error)) {
@@ -1258,8 +1266,9 @@ const emptyCommentFinalizationPreparation = (): CommentFinalizationPreparation =
 
 const sizedCommentPrefix = (
   summary: CommentPrefixSummary,
-  bytes: number
-): SizedCommentPrefix => ({ summary, bytes });
+  bytes: number,
+  elapsedMs: number
+): SizedCommentPrefix => ({ summary, bytes, elapsedMs });
 
 const prepareCommentFinalization = (
   state: CommentRetrievalState,
@@ -1317,10 +1326,10 @@ const recordEmergencySafePrefix = (
   const clockBytes = measureCommentEmergencyEnvelopeBytes(state, summary, clockOutcome);
   const elapsedBytes = measureCommentEmergencyEnvelopeBytes(state, summary, elapsedOutcome);
   if (clockBytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
-    preparation.safeClockPrefix = sizedCommentPrefix(summary, clockBytes);
+    preparation.safeClockPrefix = sizedCommentPrefix(summary, clockBytes, Number.MAX_VALUE);
   }
   if (elapsedBytes <= state.accounting.budgets.maxNormalizedOutputBytes) {
-    preparation.safeElapsedPrefix = sizedCommentPrefix(summary, elapsedBytes);
+    preparation.safeElapsedPrefix = sizedCommentPrefix(summary, elapsedBytes, Number.MAX_VALUE);
   }
   assertCommentBudgetElapsed(state.accounting);
 };
@@ -1330,19 +1339,14 @@ const measureCommentEmergencyEnvelopeBytes = (
   summary: CommentPrefixSummary,
   outcome: CommentFailureOutcome
 ): number => {
-  const elapsedMs = state.accounting.elapsedMs;
-  state.accounting.elapsedMs = Number.MAX_VALUE;
-  try {
-    return measureCommentEnvelopeBytes(state, summary, outcome);
-  } finally {
-    state.accounting.elapsedMs = elapsedMs;
-  }
+  return measureCommentEnvelopeBytes(state, summary, outcome, Number.MAX_VALUE);
 };
 
 const measureCommentEnvelopeBytes = (
   state: CommentRetrievalState,
   summary: CommentPrefixSummary,
-  outcome?: CommentFailureOutcome
+  outcome: CommentFailureOutcome | undefined,
+  elapsedMs: number
 ): number => {
   let normalizedOutputBytes = 0;
   for (let iteration = 0; iteration < 8; iteration += 1) {
@@ -1350,7 +1354,8 @@ const measureCommentEnvelopeBytes = (
       state,
       materializeEmptyCommentSelection(summary),
       outcome,
-      normalizedOutputBytes
+      normalizedOutputBytes,
+      elapsedMs
     );
     const bytes = jsonUtf8Bytes(envelope) +
       summary.commentArrayPayloadBytes +
@@ -1387,10 +1392,11 @@ const emitMeasuredCommentEnvelope = (
   state: CommentRetrievalState,
   selection: CommentSelectionSummary,
   outcome: CommentFailureOutcome | undefined,
-  expectedBytes: number
+  expectedBytes: number,
+  elapsedMs: number
 ): ProvenanceEnvelope<YoutubeCommentData> => {
   assertCommentBudgetElapsed(state.accounting);
-  const envelope = buildCommentEnvelope(state, selection, outcome, expectedBytes);
+  const envelope = buildCommentEnvelope(state, selection, outcome, expectedBytes, elapsedMs);
   const bytes = jsonUtf8Bytes(envelope);
   assertCommentBudgetElapsed(state.accounting);
   if (
@@ -1417,8 +1423,9 @@ const emitEmergencyCommentEnvelope = (
     return commentPreflightError("youtube_comments_runtime_invalid");
   }
   const selection = materializePreparedCommentSelection(preparation, sized.summary);
-  const expectedBytes = measureCommentEnvelopeBytes(state, sized.summary, outcome);
-  const envelope = buildCommentEnvelope(state, selection, outcome, expectedBytes);
+  const elapsedMs = state.accounting.elapsedMs;
+  const expectedBytes = measureCommentEnvelopeBytes(state, sized.summary, outcome, elapsedMs);
+  const envelope = buildCommentEnvelope(state, selection, outcome, expectedBytes, elapsedMs);
   const bytes = jsonUtf8Bytes(envelope);
   if (
     bytes !== expectedBytes ||
@@ -1452,7 +1459,8 @@ const minimumCommentEnvelopesFit = (state: CommentRetrievalState): boolean => {
   return errors.every((error) => measureCommentEnvelopeBytes(
     state,
     summary,
-    commentFailureOutcome(error, "comments.list")
+    commentFailureOutcome(error, "comments.list"),
+    state.accounting.elapsedMs
   ) <= state.accounting.budgets.maxNormalizedOutputBytes);
 };
 
@@ -1460,7 +1468,8 @@ const buildCommentEnvelope = (
   state: CommentRetrievalState,
   selection: CommentSelectionSummary,
   outcome: CommentFailureOutcome | undefined,
-  normalizedOutputBytes: number
+  normalizedOutputBytes: number,
+  elapsedMs: number
 ): ProvenanceEnvelope<YoutubeCommentData> => {
   const logicalLimitations = logicalCommentLimitations(
     state.options,
@@ -1489,7 +1498,7 @@ const buildCommentEnvelope = (
     returned: selection.commentCount,
     ...(omitCommentRawMetadata(state, outcome)
       ? {}
-      : { rawMetadata: commentRawMetadata(state, selection, normalizedOutputBytes) }),
+      : { rawMetadata: commentRawMetadata(state, selection, normalizedOutputBytes, elapsedMs) }),
     data
   };
   if (!isFailure) {
@@ -1606,7 +1615,8 @@ const logicalCommentLimitations = (
 const commentRawMetadata = (
   state: CommentRetrievalState,
   selection: CommentSelectionSummary,
-  normalizedOutputBytes: number
+  normalizedOutputBytes: number,
+  elapsedMs: number
 ): {
   api_visible_top_level_comments?: number;
   provider_request_attempts: number;
@@ -1620,7 +1630,7 @@ const commentRawMetadata = (
   provider_request_attempts: state.accounting.providerRequestAttempts,
   normalized_output_bytes: normalizedOutputBytes,
   normalized_text_bytes: selection.textBytes,
-  elapsed_ms: state.accounting.elapsedMs
+  elapsed_ms: elapsedMs
 });
 
 const omitCommentRawMetadata = (

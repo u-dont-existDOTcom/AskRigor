@@ -666,6 +666,48 @@ describe("YouTube API-visible comment corpus retrieval", () => {
     expect(result.error).toBeUndefined();
   });
 
+  it("keeps complete-envelope byte accounting exact across a non-expiring 9-to-10 ms clock transition", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      await fixture("comment-threads-empty.json"), { status: 200 }
+    )));
+    const clockValues: number[] = [];
+    const now = () => {
+      const read = clockValues.length + 1;
+      const value = read === 1 ? 0 : read < 10 ? 9 : 10;
+      clockValues.push(value);
+      return value;
+    };
+    const maxOutputBytes = 2_048;
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({
+        maxElapsedMs: 100,
+        maxNormalizedOutputBytes: maxOutputBytes
+      }, now)
+    );
+    const serializedBytes = Buffer.byteLength(JSON.stringify(result), "utf8");
+
+    expect(clockValues).toContain(9);
+    expect(clockValues).toContain(10);
+    expect(clockValues.every((value, index) => index === 0 || value >= clockValues[index - 1]!))
+      .toBe(true);
+    expect(result).toMatchObject({
+      access_status: "api_visible_complete",
+      raw_metadata: {
+        normalized_output_bytes: serializedBytes,
+        elapsed_ms: 9
+      },
+      data: {
+        comments: [],
+        manifest: { extraction_coverage: "api_visible_complete" }
+      }
+    });
+    expect(result.error).toBeUndefined();
+    expect(serializedBytes).toBeLessThanOrEqual(maxOutputBytes);
+  });
+
   it("returns the missing-key comments envelope before parsing or requesting upstream", async () => {
     const upstream = vi.fn();
     vi.stubGlobal("fetch", upstream);
@@ -1150,6 +1192,44 @@ describe("YouTube comment retrieval budgets", () => {
     }
     expect(result.data.manifest.total_comments_and_replies).toBe(result.data.comments.length);
     expect(result.data.manifest.top_level_comments_retrieved).toBe(topLevelIds.size);
+  });
+
+  it("keeps trimmed-envelope byte accounting exact across a non-expiring 9-to-10 ms clock transition", async () => {
+    const response = await syntheticThreadPage(100);
+    vi.stubGlobal("fetch", vi.fn(async () => jsonResponse(response)));
+    const clockValues: number[] = [];
+    const now = () => {
+      const read = clockValues.length + 1;
+      const value = read === 1 ? 0 : read < 550 ? 9 : 10;
+      clockValues.push(value);
+      return value;
+    };
+    const maxOutputBytes = 8_000;
+
+    const result = await getYoutubeComments(
+      { video: "XpZHKGGCK-o" },
+      youtubeConfig,
+      budgetRuntime({
+        maxElapsedMs: 100,
+        maxNormalizedOutputBytes: maxOutputBytes
+      }, now)
+    );
+    const serializedBytes = Buffer.byteLength(JSON.stringify(result), "utf8");
+
+    expect(clockValues).toContain(9);
+    expect(clockValues).toContain(10);
+    expect(clockValues.every((value, index) => index === 0 || value >= clockValues[index - 1]!))
+      .toBe(true);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      error: { code: "youtube_comment_budget_normalized_output_bytes" },
+      raw_metadata: {
+        normalized_output_bytes: serializedBytes,
+        elapsed_ms: 9
+      },
+      data: { manifest: { extraction_coverage: "partial" } }
+    });
+    expect(serializedBytes).toBeLessThanOrEqual(maxOutputBytes);
   });
 
   it("counts envelope and manifest overhead even for an empty corpus", async () => {
