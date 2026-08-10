@@ -50,6 +50,7 @@ const configSchema = z.object({
 const esearchResponseSchema = z.object({
   esearchresult: z.object({
     count: z.string().regex(/^\d+$/),
+    retmax: z.string().regex(/^\d+$/),
     retstart: z.string().regex(/^\d+$/),
     idlist: z.array(z.string().regex(/^[1-9]\d*$/))
   }).passthrough()
@@ -148,8 +149,13 @@ export const searchPubmed = async (
 
     const result = parsedResponse.data.esearchresult;
     const totalCount = Number(result.count);
+    const returnedRetmax = Number(result.retmax);
     const responseOffset = Number(result.retstart);
-    if (!Number.isSafeInteger(totalCount) || !Number.isSafeInteger(responseOffset)) {
+    if (
+      !Number.isSafeInteger(totalCount) ||
+      !Number.isSafeInteger(returnedRetmax) ||
+      !Number.isSafeInteger(responseOffset)
+    ) {
       throw new PubmedResponseError();
     }
 
@@ -158,6 +164,7 @@ export const searchPubmed = async (
     if (
       responseOffset !== retstart ||
       retstart > retrievableCount ||
+      returnedRetmax !== expectedReturned ||
       result.idlist.length !== expectedReturned
     ) {
       throw new PubmedResponseError();
@@ -432,13 +439,14 @@ const parsePubmedRecord = (
   }
   const articles = elementsAt(recordSet, "PubmedArticle");
   const bookArticles = elementsAt(recordSet, "PubmedBookArticle");
+  const entryCount = elementCount(recordSet);
   if (articles.length === 0 && bookArticles.length === 0) {
-    if (elementCount(recordSet) === 0) {
+    if (entryCount === 0) {
       return { kind: "not_found" };
     }
     throw new PubmedResponseError();
   }
-  if (articles.length + bookArticles.length !== 1) {
+  if (entryCount !== 1 || articles.length + bookArticles.length !== 1) {
     throw new PubmedResponseError();
   }
 

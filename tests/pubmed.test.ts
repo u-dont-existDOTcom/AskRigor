@@ -178,6 +178,26 @@ describe("PubMed ESearch", () => {
     });
   });
 
+  it.each([
+    ["esearch-missing-retmax.json", "omits retmax"],
+    ["esearch-nonnumeric-retmax.json", "returns a nonnumeric retmax"],
+    ["esearch-inconsistent-retmax.json", "returns a retmax inconsistent with the page"]
+  ])("returns an explicit error when ESearch %s", async (fixtureName) => {
+    const body = await fixture(fixtureName);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await searchPubmed({ query: "inconsistent retmax", pageSize: 1 }, NCBI);
+
+    expect(result.data).toEqual([]);
+    expect(result.access_status).toBe("error");
+    expect(result.pagination).toMatchObject({ returned: 0, exhausted: false });
+    expect(result.error).toEqual({
+      code: "pubmed_response_invalid",
+      message: "PubMed response was invalid",
+      retryable: false
+    });
+  });
+
   it("maps a final 429 to rate_limited instead of an empty complete result", async () => {
     vi.useFakeTimers();
     const body = await fixture("rate-limit.txt");
@@ -407,6 +427,21 @@ describe("PubMed EFetch", () => {
       retryable: false
     });
     expect(JSON.stringify(result)).not.toContain("record-token-123");
+  });
+
+  it("rejects a supported EFetch record accompanied by a provider error sibling", async () => {
+    const body = await fixture("efetch-mixed-provider-error.xml");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("56123456", NCBI);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error).toEqual({
+      code: "pubmed_response_invalid",
+      message: "PubMed response was invalid",
+      retryable: false
+    });
+    expect(JSON.stringify(result)).not.toContain("mixed-token-456");
   });
 
   it("rejects malformed PMIDs before fetch", async () => {
