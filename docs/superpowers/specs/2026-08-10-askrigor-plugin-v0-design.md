@@ -28,7 +28,7 @@ The skill remains the epistemic/research-orchestration layer. The MCP service is
    - Europe PMC adapter;
    - ClinicalTrials.gov adapter;
    - Crossref/DOI-resolution adapter;
-   - retraction-status lookup using an authoritative/traceable source where available;
+   - retraction-status lookup using configured authoritative/traceable sources, returning unknown when no supported source can establish status;
    - YouTube video discovery/metadata;
    - YouTube public comment + reply acquisition;
    - normalized provenance, pagination, deduplication, and access-status envelopes.
@@ -142,6 +142,8 @@ resolve_doi(doi_or_citation)
 check_retraction_status(identifier)
 ```
 
+`check_retraction_status` is an evidence lookup, not an inference engine. It checks only configured sources whose provenance can be returned. If those sources do not establish a status, it returns `unknown` with the sources checked; absence of a retraction hit must not be converted into an affirmative claim that the work is valid or unretracted everywhere.
+
 ### YouTube
 
 ```text
@@ -249,7 +251,7 @@ Rules:
 
 AskRigor can still produce a bounded answer when a layer is unavailable; the tool contract exists to let the skill say how incompleteness could affect confidence rather than falsely treating missing access as negative evidence.
 
-## 9. Secrets, privacy, and security
+## 9. Secrets, privacy, security, and abuse controls
 
 - v0 is read-only.
 - API keys and credentials come from deployment secrets/environment variables, never protocol files, tool output, or repository commits.
@@ -259,13 +261,14 @@ AskRigor can still produce a bounded answer when a layer is unavailable; the too
 - HTTP responses have size/time limits.
 - Logs redact credentials and avoid persisting raw health-comment corpora by default.
 - Public YouTube identities are retrieval metadata; persistence/profile-building is not part of v0.
+- Public/no-end-user-auth deployments still require server-side rate limiting, request-size limits, bounded provider pagination, concurrency limits, and a deployment kill switch to prevent quota exhaustion or abuse.
 - Before public launch, YouTube API policy/privacy handling receives a separate compliance review.
 
 ## 10. Authentication and deployment
 
 The ChatGPT-facing endpoint is a **remote MCP server** suitable for creation as a custom ChatGPT app. Local development may use a local MCP client or secure tunnel, but ChatGPT is not assumed to connect directly to localhost.
 
-v0 should support a deployment mode with no end-user authentication for public-data-only tools, while keeping the server architecture compatible with OAuth/API-key protection later. Provider credentials such as the YouTube Data API key stay server-side.
+v0 should support a deployment mode with no end-user authentication for public-data-only tools, while keeping the server architecture compatible with OAuth/API-key protection later. Public unauthenticated mode is a deployment option, not a public-launch entitlement: it must remain behind the abuse controls in Section 9 and may be replaced with lightweight authentication if live testing shows unacceptable quota/security exposure. Provider credentials such as the YouTube Data API key stay server-side.
 
 No hosting provider is selected in this design; deployment is intentionally adapter-neutral. The first implementation plan should choose the smallest remote Node deployment that supports streaming/HTTP MCP reliably and can be replaced later without changing tool contracts.
 
@@ -355,7 +358,7 @@ v0 is complete when:
 4. YouTube comment retrieval proves full API-visible top-level + reply reconciliation on a public test video;
 5. all tool results use the normalized provenance/access envelope;
 6. failures cannot masquerade as negative evidence;
-7. the four main end-to-end regression cases pass;
+7. all five end-to-end regression cases in Section 12 pass;
 8. a remote MCP endpoint can be scanned by ChatGPT Developer Mode;
 9. README documents local test, deployment, required secrets, and ChatGPT connection steps;
 10. no database/write action/UI is required to demonstrate useful AskRigor research retrieval.
