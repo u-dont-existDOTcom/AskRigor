@@ -1,0 +1,28 @@
+{
+  "status": "ok",
+  "message": {
+    "DOI": "10.5555/mixed.markers",
+    "title": ["Recorded work with conflicting markers"],
+    "update-to": [{
+      "DOI": "10.5555/mixed.correction",
+      "type": "correction",
+      "updated": {"date-parts": [[2021, 2, 3]]},
+      "source": "publisher",
+      "label": "Correction"
+    }],
+    "updated-by": [{
+      "DOI": "10.5555/mixed.concern",
+      "type": "expression-of-concern",
+      "updated": {"date-parts": [[2022, 3, 4]]},
+      "source": "publisher",
+      "label": "Expression of concern"
+    }],
+    "relation": {
+      "is-retracted-by": [{
+        "id": "10.5555/mixed.retraction",
+        "source": "retraction-watch",
+        "updated": {"date-parts": [[2023, 4, 5]]}
+      }]
+    }
+  }
+}

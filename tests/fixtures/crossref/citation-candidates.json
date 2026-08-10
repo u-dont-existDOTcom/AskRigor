@@ -1,0 +1,21 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message": {
+    "total-results": 2,
+    "items": [
+      {
+        "DOI": "10.5555/exact.fixture",
+        "title": ["A fixture study of crossref matching"],
+        "author": [{"family": "Smith", "given": "Jane"}],
+        "published-print": {"date-parts": [[2024, 1, 1]]}
+      },
+      {
+        "DOI": "10.5555/near.fixture",
+        "title": ["A different fixture study"],
+        "author": [{"family": "Jones", "given": "June"}],
+        "published-print": {"date-parts": [[2023, 1, 1]]}
+      }
+    ]
+  }
+}

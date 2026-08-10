@@ -13,6 +13,8 @@ import {
 import {
   fetchClinicalTrial,
   fetchPubmedRecord,
+  checkRetractionStatus,
+  resolveDoi,
   searchClinicalTrials,
   searchEuropePmc,
   searchPubmed
@@ -212,6 +214,52 @@ const clinicalTrialEnvelopeSchema = z.object({
   raw_metadata: clinicalTrialsRawMetadataSchema.optional(),
   error: errorSchema.optional(),
   data: clinicalTrialRecordSchema.or(z.object({}).strict())
+}).strict();
+const crossrefCandidateSchema = z.object({
+  doi: z.string(),
+  title: z.string().optional(),
+  first_author: z.string().optional(),
+  year: z.string().optional()
+}).strict();
+const doiResolutionEnvelopeSchema = z.object({
+  provider: z.literal("crossref"),
+  record_type: z.literal("doi_resolution"),
+  primary_identifier: z.string().optional(),
+  retrieved_at: z.string(),
+  query: z.object({ citation: z.string(), rows: z.literal(5) }).strict().optional(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  error: errorSchema.optional(),
+  data: z.object({
+    resolved_doi: z.string().nullable(),
+    candidates: z.array(crossrefCandidateSchema)
+  }).strict()
+}).strict();
+const retractionEvidenceSchema = z.object({
+  type: z.enum(["retracted", "expression_of_concern", "corrected_or_updated"]),
+  doi: z.string().nullable(),
+  date: z.string().nullable(),
+  source: z.string().nullable(),
+  raw_label: z.string()
+}).strict();
+const retractionStatusEnvelopeSchema = z.object({
+  provider: z.literal("crossref"),
+  record_type: z.literal("retraction_status"),
+  primary_identifier: z.string().optional(),
+  retrieved_at: z.string(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  error: errorSchema.optional(),
+  data: z.object({
+    doi: z.string().nullable(),
+    status: z.enum(["retracted", "expression_of_concern", "corrected_or_updated", "no_retraction_record_found", "unknown"]),
+    evidence: z.array(retractionEvidenceSchema),
+    sources_checked: z.tuple([z.literal("crossref")])
+  }).strict()
 }).strict();
 
 const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
@@ -468,6 +516,64 @@ export function registerTools(server: McpServer): void {
       }
     }
   );
+
+  server.registerTool(
+    "resolve_doi",
+    {
+      description:
+        "Resolve a DOI or bibliographic citation through Crossref metadata; no medical conclusions are generated.",
+      inputSchema: z.object({
+        doi_or_citation: z.string().trim().min(1).max(5_000).describe(
+          "DOI URL, doi: identifier, bare DOI, or bibliographic citation."
+        )
+      }).strict(),
+      outputSchema: doiResolutionEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ doi_or_citation }) => {
+      try {
+        const result = await resolveDoi(doi_or_citation);
+        return crossrefToolResult(
+          `Crossref DOI resolution finished with access status ${result.access_status}.`,
+          result
+        );
+      } catch (_error) {
+        return crossrefToolResult(
+          "Crossref DOI resolution failed; access status error.",
+          crossrefResolveFailure()
+        );
+      }
+    }
+  );
+
+  server.registerTool(
+    "check_retraction_status",
+    {
+      description:
+        "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
+      inputSchema: z.object({
+        identifier: z.string().trim().min(1).max(5_000).describe(
+          "DOI URL, doi: identifier, or bare DOI to inspect."
+        )
+      }).strict(),
+      outputSchema: retractionStatusEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ identifier }) => {
+      try {
+        const result = await checkRetractionStatus(identifier);
+        return crossrefToolResult(
+          `Crossref retraction-status lookup finished with status ${result.data.status}; access status ${result.access_status}.`,
+          result
+        );
+      } catch (_error) {
+        return crossrefToolResult(
+          "Crossref retraction-status lookup finished with status unknown; access status error.",
+          crossrefRetractionFailure()
+        );
+      }
+    }
+  );
 }
 
 async function verifyIntegrity(
@@ -636,6 +742,47 @@ function clinicalTrialFailure(nctId: string, _error: unknown) {
     message: "ClinicalTrials.gov operation failed",
     retryable: false,
     data: {}
+  });
+}
+
+function crossrefToolResult(
+  text: string,
+  structuredContent: object & { error?: unknown }
+): CallToolResult {
+  return {
+    content: [{ type: "text", text }],
+    structuredContent: { ...structuredContent },
+    ...(structuredContent.error === undefined ? {} : { isError: true })
+  };
+}
+
+function crossrefResolveFailure() {
+  return errorEnvelope({
+    provider: "crossref",
+    recordType: "doi_resolution",
+    pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: "error",
+    limitations: ["Crossref metadata was unavailable or could not be interpreted; DOI resolution remains unresolved."],
+    code: "crossref_tool_failed",
+    message: "Crossref DOI resolution failed",
+    retryable: false,
+    data: { resolved_doi: null, candidates: [] }
+  });
+}
+
+function crossrefRetractionFailure() {
+  return errorEnvelope({
+    provider: "crossref",
+    recordType: "retraction_status",
+    pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: "error",
+    limitations: ["Crossref metadata was unavailable or could not be interpreted; retraction state remains unknown."],
+    code: "crossref_tool_failed",
+    message: "Crossref retraction-status lookup failed",
+    retryable: false,
+    data: { doi: null, status: "unknown", evidence: [], sources_checked: ["crossref"] }
   });
 }
 

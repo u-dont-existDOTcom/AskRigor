@@ -22,7 +22,9 @@ const TOOL_NAMES = [
   "fetch_pubmed_record",
   "search_europe_pmc",
   "search_clinical_trials",
-  "fetch_clinical_trial"
+  "fetch_clinical_trial",
+  "resolve_doi",
+  "check_retraction_status"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -43,7 +45,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the eight read-only retrieval tools", async () => {
+  it("registers exactly the ten read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -56,6 +58,69 @@ describe("AskRigor MCP tools", () => {
       expect(tools.every(({ inputSchema, outputSchema }) =>
         inputSchema.type === "object" && outputSchema?.type === "object"
       )).toBe(true);
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("publishes strict, retrieval-only DOI and retraction schemas", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const resolve = tools.find(({ name }) => name === "resolve_doi");
+      const retraction = tools.find(({ name }) => name === "check_retraction_status");
+
+      expect(resolve).toMatchObject({
+        description: "Resolve a DOI or bibliographic citation through Crossref metadata; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["doi_or_citation"],
+          additionalProperties: false,
+          properties: { doi_or_citation: { type: "string", minLength: 1, maxLength: 5000 } }
+        },
+        outputSchema: { type: "object" }
+      });
+      expect(retraction).toMatchObject({
+        description: "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["identifier"],
+          additionalProperties: false,
+          properties: { identifier: { type: "string", minLength: 1, maxLength: 5000 } }
+        },
+        outputSchema: { type: "object" }
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns a conservative retraction envelope as an MCP error when Crossref fails", async () => {
+    const { client, server } = await createInMemoryClient();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 503 })));
+
+    try {
+      const result = await client.callTool({
+        name: "check_retraction_status",
+        arguments: { identifier: "10.0000/unresolvable" }
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "Crossref retraction-status lookup finished with status unknown; access status error."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "crossref",
+        record_type: "retraction_status",
+        access_status: "error",
+        data: { status: "unknown", evidence: [], sources_checked: ["crossref"] },
+        error: { code: "crossref_upstream_unavailable" }
+      });
+      expect(JSON.stringify(result)).not.toContain("provider-secret");
     } finally {
       await server.close();
     }

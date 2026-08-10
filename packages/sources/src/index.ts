@@ -30,3 +30,12 @@ export {
   type ClinicalTrialReference,
   type SearchClinicalTrialsInput
 } from "./clinical-trials.js";
+export {
+  checkRetractionStatus,
+  resolveDoi,
+  type CrossrefCandidate,
+  type ResolveDoiData,
+  type RetractionEvidence,
+  type RetractionStatus,
+  type RetractionStatusData
+} from "./crossref.js";
