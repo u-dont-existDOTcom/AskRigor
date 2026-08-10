@@ -103,8 +103,12 @@ export const searchPubmed = async (
   }
   const parsedConfig = parseConfig(config);
   const { query, dateRange, cursor } = parsedInput.data;
-  const pageSize = Math.min(parsedInput.data.pageSize ?? DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const requestedPageSize = Math.min(
+    parsedInput.data.pageSize ?? DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE
+  );
   const retstart = parseCursor(cursor);
+  const pageSize = Math.min(requestedPageSize, PUBMED_ESEARCH_LIMIT - retstart);
   const queryEnvelope = {
     query,
     ...(dateRange === undefined ? {} : { date_range: dateRange })
@@ -128,24 +132,40 @@ export const searchPubmed = async (
       url.searchParams.set("maxdate", dateRange.end.replaceAll("-", "/"));
     }
 
-    const parsedResponse = esearchResponseSchema.safeParse(
-      await fetchJson(url.toString())
-    );
+    let response: unknown;
+    try {
+      response = await fetchJson(url.toString());
+    } catch (error) {
+      if (error instanceof Error && error.message === "Invalid upstream JSON response") {
+        throw new PubmedResponseError();
+      }
+      throw error;
+    }
+    const parsedResponse = esearchResponseSchema.safeParse(response);
     if (!parsedResponse.success) {
-      throw new Error("Invalid PubMed ESearch response");
+      throw new PubmedResponseError();
     }
 
     const result = parsedResponse.data.esearchresult;
     const totalCount = Number(result.count);
     const responseOffset = Number(result.retstart);
     if (!Number.isSafeInteger(totalCount) || !Number.isSafeInteger(responseOffset)) {
-      throw new Error("Invalid PubMed ESearch response");
+      throw new PubmedResponseError();
+    }
+
+    const retrievableCount = Math.min(totalCount, PUBMED_ESEARCH_LIMIT);
+    const expectedReturned = Math.min(pageSize, retrievableCount - retstart);
+    if (
+      responseOffset !== retstart ||
+      retstart > retrievableCount ||
+      result.idlist.length !== expectedReturned
+    ) {
+      throw new PubmedResponseError();
     }
 
     const data = result.idlist.map((pmid) => ({ pmid }));
-    const retrievableCount = Math.min(totalCount, PUBMED_ESEARCH_LIMIT);
-    const nextOffset = responseOffset + data.length;
-    const exhausted = data.length === 0 || nextOffset >= retrievableCount;
+    const nextOffset = retstart + data.length;
+    const exhausted = nextOffset >= retrievableCount;
     const exceedsBoundary = totalCount > PUBMED_ESEARCH_LIMIT;
 
     return okEnvelope({
@@ -188,8 +208,8 @@ export const fetchPubmedRecord = async (
     url.searchParams.set("id", pmid);
     url.searchParams.set("retmode", "xml");
 
-    const record = parsePubmedRecord(await fetchText(url.toString()));
-    if (record === undefined || record.pmid !== pmid) {
+    const parsedRecord = parsePubmedRecord(await fetchText(url.toString()));
+    if (parsedRecord.kind === "not_found") {
       return errorEnvelope({
         provider: "pubmed",
         recordType: "pubmed_record",
@@ -207,6 +227,19 @@ export const fetchPubmedRecord = async (
         retryable: false,
         data: {}
       }) as ProvenanceEnvelope<PubmedRecord>;
+    }
+    const record = parsedRecord.record;
+    if (record.pmid !== pmid) {
+      return pubmedErrorEnvelope<PubmedRecord>(new PubmedRecordMismatchError(), {
+        recordType: "pubmed_record",
+        primaryIdentifier: pmid,
+        sourceIdentity: {
+          canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+        },
+        pagination: { exhausted: false },
+        limitations: [EFETCH_LIMITATION],
+        data: {}
+      });
     }
 
     return okEnvelope({
@@ -300,7 +333,13 @@ const pubmedErrorEnvelope = <T>(
   let message = "PubMed request failed";
   let retryable = false;
 
-  if (status === 429) {
+  if (error instanceof PubmedRecordMismatchError) {
+    code = "pubmed_record_mismatch";
+    message = "PubMed returned a different record";
+  } else if (error instanceof PubmedResponseError) {
+    code = "pubmed_response_invalid";
+    message = "PubMed response was invalid";
+  } else if (status === 429) {
     accessStatus = "rate_limited";
     code = "pubmed_rate_limited";
     message = "PubMed rate limit reached";
@@ -347,129 +386,276 @@ const httpStatus = (error: unknown): number | undefined => {
 
 type XmlNode = Record<string, unknown>;
 
-const parsePubmedRecord = (xml: string): PubmedRecord | undefined => {
+class PubmedResponseError extends Error {}
+
+class PubmedRecordMismatchError extends Error {}
+
+interface ParsedPubmedRecord {
+  kind: "record";
+  record: PubmedRecord;
+}
+
+interface PubmedRecordNotFound {
+  kind: "not_found";
+}
+
+interface XmlElement {
+  children: XmlNode[];
+  attributes: XmlNode;
+}
+
+const parsePubmedRecord = (
+  xml: string
+): ParsedPubmedRecord | PubmedRecordNotFound => {
   if (XMLValidator.validate(xml) !== true) {
-    throw new Error("Invalid PubMed EFetch response");
+    throw new PubmedResponseError();
   }
   const parsed = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@",
     textNodeName: "#text",
     parseTagValue: false,
-    trimValues: true,
-    processEntities: false
+    trimValues: false,
+    processEntities: false,
+    preserveOrder: true
   }).parse(xml) as unknown;
-  const article = objectAt(objectAt(parsed, "PubmedArticleSet"), "PubmedArticle");
-  if (article === undefined) {
-    return undefined;
-  }
-  const citation = objectAt(article, "MedlineCitation");
-  const articleData = objectAt(citation, "Article");
-  if (citation === undefined || articleData === undefined) {
-    return undefined;
-  }
-
-  const pmid = textAt(citation.PMID);
-  const title = textAt(articleData.ArticleTitle);
-  const journal = textAt(objectAt(articleData, "Journal")?.Title);
-  const abstract = parseAbstract(objectAt(articleData, "Abstract")?.AbstractText);
-  const authors = parseAuthors(objectAt(articleData, "AuthorList")?.Author);
-  const publicationTypes = valuesAt(
-    objectAt(articleData, "PublicationTypeList")?.PublicationType
-  );
-  const doi = parseDoi(
-    objectAt(objectAt(article, "PubmedData"), "ArticleIdList")?.ArticleId
-  );
-  const dates = parseDates(citation, articleData, objectAt(article, "PubmedData"));
-
-  return {
-    ...(pmid === undefined ? {} : { pmid }),
-    ...(title === undefined ? {} : { title }),
-    ...(abstract === undefined ? {} : { abstract }),
-    ...(journal === undefined ? {} : { journal }),
-    ...(dates.length === 0 ? {} : { dates }),
-    ...(authors.length === 0 ? {} : { authors }),
-    ...(doi === undefined ? {} : { doi }),
-    ...(publicationTypes.length === 0
-      ? {}
-      : { publication_types: publicationTypes })
+  const document = {
+    children: asArray(parsed).flatMap((node) => {
+      const value = object(node);
+      return value === undefined ? [] : [value];
+    }),
+    attributes: {}
   };
+  const recordSet = elementAt(document, "PubmedArticleSet");
+  if (recordSet === undefined) {
+    throw new PubmedResponseError();
+  }
+  const articles = elementsAt(recordSet, "PubmedArticle");
+  const bookArticles = elementsAt(recordSet, "PubmedBookArticle");
+  if (articles.length === 0 && bookArticles.length === 0) {
+    if (elementCount(recordSet) === 0) {
+      return { kind: "not_found" };
+    }
+    throw new PubmedResponseError();
+  }
+  if (articles.length + bookArticles.length !== 1) {
+    throw new PubmedResponseError();
+  }
+
+  return articles.length === 1
+    ? { kind: "record", record: parseArticleRecord(articles[0]!) }
+    : { kind: "record", record: parseBookRecord(bookArticles[0]!) };
 };
 
-const parseAbstract = (value: unknown): string | undefined => {
-  const sections = asArray(value).flatMap((section) => {
+const parseArticleRecord = (article: XmlElement): PubmedRecord => {
+  const citation = elementAt(article, "MedlineCitation");
+  const articleData = citation === undefined ? undefined : elementAt(citation, "Article");
+  if (citation === undefined || articleData === undefined) {
+    throw new PubmedResponseError();
+  }
+  const pubmedData = elementAt(article, "PubmedData");
+
+  const pmid = textAt(elementAt(citation, "PMID"));
+  const title = textAt(elementAt(articleData, "ArticleTitle"));
+  const journal = textAt(elementAt(elementAt(articleData, "Journal"), "Title"));
+  const abstract = parseAbstract(elementAt(articleData, "Abstract"));
+  const authors = parseAuthors(elementAt(articleData, "AuthorList"));
+  const publicationTypes = valuesAt(
+    elementAt(articleData, "PublicationTypeList"),
+    "PublicationType"
+  );
+  const doi = parseDoi([
+    ...articleIdsAt(pubmedData),
+    ...elementsAt(articleData, "ELocationID")
+  ]);
+  const dates = parseArticleDates(citation, articleData, pubmedData);
+
+  return recordFromFields({
+    pmid,
+    title,
+    abstract,
+    journal,
+    dates,
+    authors,
+    doi,
+    publicationTypes
+  });
+};
+
+const parseBookRecord = (bookArticle: XmlElement): PubmedRecord => {
+  const document = elementAt(bookArticle, "BookDocument");
+  if (document === undefined) {
+    throw new PubmedResponseError();
+  }
+  const book = elementAt(document, "Book");
+  if (book === undefined) {
+    throw new PubmedResponseError();
+  }
+  const pubmedData = elementAt(bookArticle, "PubmedBookData");
+  const pmid = textAt(elementAt(document, "PMID"));
+  const title = textAt(elementAt(document, "ArticleTitle"));
+  const abstract = parseAbstract(elementAt(document, "Abstract"));
+  const authors = parseAuthors(elementAt(document, "AuthorList"));
+  const publicationTypes = valuesAt(document, "PublicationType");
+  const doi = parseDoi([
+    ...articleIdsAt(document),
+    ...articleIdsAt(pubmedData),
+    ...elementsAt(book, "ELocationID")
+  ]);
+  const dates = parseBookDates(document, book, pubmedData);
+
+  return recordFromFields({
+    pmid,
+    title,
+    abstract,
+    dates,
+    authors,
+    doi,
+    publicationTypes
+  });
+};
+
+interface RecordFields {
+  pmid?: string;
+  title?: string;
+  abstract?: string;
+  journal?: string;
+  dates: PubmedRecordDate[];
+  authors: string[];
+  doi?: string;
+  publicationTypes: string[];
+}
+
+const recordFromFields = ({
+  pmid,
+  title,
+  abstract,
+  journal,
+  dates,
+  authors,
+  doi,
+  publicationTypes
+}: RecordFields): PubmedRecord => ({
+  ...(pmid === undefined ? {} : { pmid }),
+  ...(title === undefined ? {} : { title }),
+  ...(abstract === undefined ? {} : { abstract }),
+  ...(journal === undefined ? {} : { journal }),
+  ...(dates.length === 0 ? {} : { dates }),
+  ...(authors.length === 0 ? {} : { authors }),
+  ...(doi === undefined ? {} : { doi }),
+  ...(publicationTypes.length === 0 ? {} : { publication_types: publicationTypes })
+});
+
+const parseAbstract = (abstract: XmlElement | undefined): string | undefined => {
+  const sections = elementsAt(abstract, "AbstractText").flatMap((section) => {
     const text = textAt(section);
     if (text === undefined) {
       return [];
     }
-    const label = object(section)?.["@Label"];
-    return [typeof label === "string" && label.length > 0 ? `${label}: ${text}` : text];
+    const label = attributeAt(section, "@Label");
+    return [label === undefined ? text : `${label}: ${text}`];
   });
   return sections.length === 0 ? undefined : sections.join("\n");
 };
 
-const parseAuthors = (value: unknown): string[] => asArray(value).flatMap((author) => {
-  const authorNode = object(author);
-  if (authorNode === undefined) {
-    return [];
-  }
-  const collectiveName = textAt(authorNode.CollectiveName);
-  if (collectiveName !== undefined) {
-    return [collectiveName];
-  }
-  const foreName = textAt(authorNode.ForeName);
-  const lastName = textAt(authorNode.LastName);
-  const name = [foreName, lastName].filter((part) => part !== undefined).join(" ");
-  return name.length === 0 ? [] : [name];
-});
+const parseAuthors = (authorList: XmlElement | undefined): string[] =>
+  elementsAt(authorList, "Author").flatMap((author) => {
+    const collectiveName = textAt(elementAt(author, "CollectiveName"));
+    if (collectiveName !== undefined) {
+      return [collectiveName];
+    }
+    const foreName = textAt(elementAt(author, "ForeName"));
+    const lastName = textAt(elementAt(author, "LastName"));
+    const name = [foreName, lastName].filter((part) => part !== undefined).join(" ");
+    return name.length === 0 ? [] : [name];
+  });
 
-const parseDoi = (value: unknown): string | undefined => {
-  for (const id of asArray(value)) {
-    const idNode = object(id);
-    if (idNode?.["@IdType"] === "doi") {
-      return textAt(id);
+const articleIdsAt = (parent: XmlElement | undefined): XmlElement[] =>
+  elementsAt(elementAt(parent, "ArticleIdList"), "ArticleId");
+
+const parseDoi = (values: XmlElement[]): string | undefined => {
+  for (const value of values) {
+    if (
+      attributeAt(value, "@IdType") === "doi" ||
+      attributeAt(value, "@EIdType") === "doi"
+    ) {
+      return textAt(value);
     }
   }
   return undefined;
 };
 
-const parseDates = (
-  citation: XmlNode,
-  article: XmlNode,
-  pubmedData: XmlNode | undefined
+const parseArticleDates = (
+  citation: XmlElement,
+  article: XmlElement,
+  pubmedData: XmlElement | undefined
 ): PubmedRecordDate[] => {
   const dates: PubmedRecordDate[] = [];
-  addDate(dates, "completed", citation.DateCompleted);
-  addDate(dates, "revised", citation.DateRevised);
-  addDate(dates, "publication", objectAt(objectAt(article, "Journal"), "JournalIssue")?.PubDate);
+  addDate(dates, "completed", elementAt(citation, "DateCompleted"));
+  addDate(dates, "revised", elementAt(citation, "DateRevised"));
+  addDate(
+    dates,
+    "publication",
+    elementAt(elementAt(elementAt(article, "Journal"), "JournalIssue"), "PubDate")
+  );
 
-  for (const value of asArray(article.ArticleDate)) {
-    const dateType = object(value)?.["@DateType"];
-    if (typeof dateType === "string") {
+  for (const value of elementsAt(article, "ArticleDate")) {
+    const dateType = attributeAt(value, "@DateType");
+    if (dateType !== undefined) {
       addDate(dates, dateType.toLowerCase(), value);
     }
   }
-  for (const value of asArray(objectAt(pubmedData, "History")?.PubMedPubDate)) {
-    const status = object(value)?.["@PubStatus"];
-    if (typeof status === "string") {
-      addDate(dates, status, value);
-    }
-  }
+  addHistoryDates(dates, pubmedData);
   return dates;
 };
 
-const addDate = (dates: PubmedRecordDate[], type: string, value: unknown): void => {
-  const node = object(value);
-  const year = textAt(node?.Year);
+const parseBookDates = (
+  document: XmlElement,
+  book: XmlElement | undefined,
+  pubmedData: XmlElement | undefined
+): PubmedRecordDate[] => {
+  const dates: PubmedRecordDate[] = [];
+  addDate(dates, "revised", elementAt(document, "DateRevised"));
+  addDate(dates, "publication", elementAt(book, "PubDate"));
+  addHistoryDates(dates, pubmedData);
+  return dates;
+};
+
+const addHistoryDates = (
+  dates: PubmedRecordDate[],
+  pubmedData: XmlElement | undefined
+): void => {
+  for (const value of elementsAt(elementAt(pubmedData, "History"), "PubMedPubDate")) {
+    const status = attributeAt(value, "@PubStatus");
+    if (status !== undefined) {
+      addDate(dates, status, value);
+    }
+  }
+};
+
+const addDate = (
+  dates: PubmedRecordDate[],
+  type: string,
+  value: XmlElement | undefined
+): void => {
+  const medlineDate = textAt(elementAt(value, "MedlineDate"));
+  if (medlineDate !== undefined) {
+    dates.push({ type, value: medlineDate });
+    return;
+  }
+  const year = textAt(elementAt(value, "Year"));
   if (year === undefined) {
     return;
   }
-  const month = textAt(node?.Month);
-  const day = textAt(node?.Day);
-  const hour = textAt(node?.Hour);
-  const minute = textAt(node?.Minute);
+  const season = textAt(elementAt(value, "Season"));
+  const month = textAt(elementAt(value, "Month"));
+  const day = textAt(elementAt(value, "Day"));
+  const hour = textAt(elementAt(value, "Hour"));
+  const minute = textAt(elementAt(value, "Minute"));
   let normalized = year;
-  if (month !== undefined) {
+  if (season !== undefined) {
+    normalized += `-${season}`;
+  } else if (month !== undefined) {
     normalized += `-${month.padStart(2, "0")}`;
   }
   if (day !== undefined) {
@@ -481,13 +667,49 @@ const addDate = (dates: PubmedRecordDate[], type: string, value: unknown): void 
   dates.push({ type, value: normalized });
 };
 
-const valuesAt = (value: unknown): string[] => asArray(value).flatMap((item) => {
-  const text = textAt(item);
-  return text === undefined ? [] : [text];
-});
+const valuesAt = (parent: XmlElement | undefined, name: string): string[] =>
+  elementsAt(parent, name).flatMap((item) => {
+    const text = textAt(item);
+    return text === undefined ? [] : [text];
+  });
 
-const objectAt = (value: unknown, key: string): XmlNode | undefined =>
-  object(object(value)?.[key]);
+const elementAt = (
+  parent: XmlElement | undefined,
+  name: string
+): XmlElement | undefined => elementsAt(parent, name)[0];
+
+const elementsAt = (
+  parent: XmlElement | undefined,
+  name: string
+): XmlElement[] => {
+  if (parent === undefined) {
+    return [];
+  }
+  return parent.children.flatMap((node) => {
+    const values = object(node)?.[name];
+    if (!Array.isArray(values)) {
+      return [];
+    }
+    return [{
+      children: values.flatMap((value) => {
+        const child = object(value);
+        return child === undefined ? [] : [child];
+      }),
+      attributes: object(object(node)?.[":@"]) ?? {}
+    }];
+  });
+};
+
+const elementCount = (element: XmlElement): number =>
+  element.children.reduce((count, node) => {
+    const keys = Object.keys(node).filter((key) => key !== "#text" && key !== ":@");
+    return count + keys.length;
+  }, 0);
+
+const attributeAt = (element: XmlElement, name: string): string | undefined => {
+  const value = element.attributes[name];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+};
 
 const object = (value: unknown): XmlNode | undefined =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -497,10 +719,24 @@ const object = (value: unknown): XmlNode | undefined =>
 const asArray = (value: unknown): unknown[] =>
   value === undefined ? [] : Array.isArray(value) ? value : [value];
 
-const textAt = (value: unknown): string | undefined => {
-  if (typeof value === "string") {
-    return value.length === 0 ? undefined : value;
+const textAt = (element: XmlElement | undefined): string | undefined => {
+  if (element === undefined) {
+    return undefined;
   }
-  const text = object(value)?.["#text"];
-  return typeof text === "string" && text.length > 0 ? text : undefined;
+  const text = textContent(element.children).replace(/\s+/g, " ").trim();
+  return text.length === 0 ? undefined : text;
 };
+
+const textContent = (nodes: XmlNode[]): string =>
+  nodes.map((node) => Object.entries(node).map(([name, value]) => {
+    if (name === "#text") {
+      return typeof value === "string" ? value : "";
+    }
+    if (name === ":@" || !Array.isArray(value)) {
+      return "";
+    }
+    return textContent(value.flatMap((child) => {
+      const childNode = object(child);
+      return childNode === undefined ? [] : [childNode];
+    }));
+  }).join("")).join("");

@@ -3,7 +3,7 @@ import type {
   CallToolResult,
   ToolAnnotations
 } from "@modelcontextprotocol/sdk/types.js";
-import { ACCESS_STATUSES } from "@askrigor/contracts";
+import { ACCESS_STATUSES, errorEnvelope } from "@askrigor/contracts";
 import {
   getProtocolManifest,
   loadProtocol,
@@ -108,6 +108,10 @@ const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
   destructiveHint: false,
   openWorldHint: false
 };
+const DEFAULT_PUBMED_PAGE_SIZE = 20;
+const MAX_PUBMED_PAGE_SIZE = 100;
+const PUBMED_EFETCH_LIMITATION =
+  "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated.";
 
 export function registerTools(server: McpServer): void {
   server.registerTool(
@@ -224,12 +228,15 @@ export function registerTools(server: McpServer): void {
           },
           ncbiConfig()
         );
-        return successfulToolResult(
+        return pubmedToolResult(
           `PubMed search returned ${result.pagination.returned} PMID record(s); access status ${result.access_status}.`,
-          { ...result }
+          result
         );
-      } catch {
-        return pubmedToolErrorResult();
+      } catch (error) {
+        return pubmedToolResult(
+          "PubMed search retrieval failed; access status error.",
+          pubmedSearchFailure(query, date_range, page_size, cursor, error)
+        );
       }
     }
   );
@@ -248,12 +255,15 @@ export function registerTools(server: McpServer): void {
     async ({ pmid }) => {
       try {
         const result = await fetchPubmedRecord(pmid, ncbiConfig());
-        return successfulToolResult(
+        return pubmedToolResult(
           `PubMed record ${pmid} retrieval finished with access status ${result.access_status}.`,
-          { ...result }
+          result
         );
-      } catch {
-        return pubmedToolErrorResult();
+      } catch (error) {
+        return pubmedToolResult(
+          `PubMed record ${pmid} retrieval failed; access status error.`,
+          pubmedRecordFailure(pmid, error)
+        );
       }
     }
   );
@@ -278,9 +288,76 @@ function ncbiConfig() {
   };
 }
 
-function pubmedToolErrorResult(): CallToolResult {
+function pubmedToolResult(
+  text: string,
+  structuredContent: object & { error?: unknown }
+): CallToolResult {
   return {
-    content: [{ type: "text", text: "PubMed operation failed." }],
-    isError: true
+    content: [{ type: "text", text }],
+    structuredContent: { ...structuredContent },
+    ...(structuredContent.error === undefined ? {} : { isError: true })
   };
+}
+
+function pubmedSearchFailure(
+  query: string,
+  dateRange: { start: string; end: string } | undefined,
+  pageSize: number | undefined,
+  cursor: string | undefined,
+  error: unknown
+) {
+  return errorEnvelope({
+    provider: "pubmed",
+    recordType: "pubmed_search_result",
+    query: {
+      query,
+      ...(dateRange === undefined ? {} : { date_range: dateRange })
+    },
+    pagination: {
+      ...(cursor === undefined ? {} : { cursor }),
+      page_size: Math.min(pageSize ?? DEFAULT_PUBMED_PAGE_SIZE, MAX_PUBMED_PAGE_SIZE),
+      exhausted: false
+    },
+    returned: 0,
+    accessStatus: "error",
+    code: pubmedMcpFailureCode(error),
+    message: pubmedMcpFailureMessage(error),
+    retryable: false,
+    data: []
+  });
+}
+
+function pubmedRecordFailure(pmid: string, error: unknown) {
+  return errorEnvelope({
+    provider: "pubmed",
+    recordType: "pubmed_record",
+    primaryIdentifier: pmid,
+    sourceIdentity: {
+      canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+    },
+    pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: "error",
+    limitations: [PUBMED_EFETCH_LIMITATION],
+    code: pubmedMcpFailureCode(error),
+    message: pubmedMcpFailureMessage(error),
+    retryable: false,
+    data: {}
+  });
+}
+
+function pubmedMcpFailureCode(error: unknown): string {
+  return isPubmedConfigurationError(error)
+    ? "pubmed_configuration_failed"
+    : "pubmed_tool_failed";
+}
+
+function pubmedMcpFailureMessage(error: unknown): string {
+  return isPubmedConfigurationError(error)
+    ? "PubMed configuration failed"
+    : "PubMed operation failed";
+}
+
+function isPubmedConfigurationError(error: unknown): boolean {
+  return error instanceof Error && error.message === "Invalid PubMed configuration";
 }

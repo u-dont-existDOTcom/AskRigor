@@ -35,7 +35,7 @@ describe("PubMed ESearch", () => {
       {
         query: "example intervention[Title/Abstract]",
         dateRange: { start: "2024-01-02", end: "2025-03-04" },
-        pageSize: 250
+        pageSize: 2
       },
       NCBI
     );
@@ -46,7 +46,7 @@ describe("PubMed ESearch", () => {
     ]);
     expect(result.access_status).toBe("complete");
     expect(result.pagination).toMatchObject({
-      page_size: 100,
+      page_size: 2,
       returned: 2,
       exhausted: false
     });
@@ -64,7 +64,7 @@ describe("PubMed ESearch", () => {
       term: "example intervention[Title/Abstract]",
       retmode: "json",
       retstart: "0",
-      retmax: "100",
+      retmax: "2",
       tool: "askrigor-tests",
       email: "maintainer@example.test",
       api_key: "ncbi-secret-value",
@@ -75,8 +75,22 @@ describe("PubMed ESearch", () => {
     expect(JSON.stringify(result)).not.toContain("ncbi-secret-value");
   });
 
-  it("uses a validated cursor offset and returns complete exhausted empty search", async () => {
+  it("clamps a requested page to PubMed's per-request maximum", async () => {
     const body = await fixture("esearch-empty.json");
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(new URL(String(input)));
+      return new Response(body, { status: 200 });
+    }));
+
+    const result = await searchPubmed({ query: "no matches", pageSize: 250 }, NCBI);
+
+    expect(result.pagination).toMatchObject({ page_size: 100, returned: 0, exhausted: true });
+    expect(requests[0]!.searchParams.get("retmax")).toBe("100");
+  });
+
+  it("uses a validated cursor offset and returns complete exhausted empty search", async () => {
+    const body = await fixture("esearch-empty-at-7.json");
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       requests.push(new URL(String(input)));
@@ -124,6 +138,44 @@ describe("PubMed ESearch", () => {
     expect(result.limitations).toEqual([
       "PubMed ESearch exposes only the first 10,000 results for a query; refine the query to retrieve additional records."
     ]);
+  });
+
+  it("caps the final ESearch request at the first-10,000-record boundary", async () => {
+    const body = await fixture("esearch-boundary-last.json");
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      requests.push(new URL(String(input)));
+      return new Response(body, { status: 200 });
+    }));
+
+    const result = await searchPubmed(
+      { query: "broad indexed query", pageSize: 2, cursor: "eyJyZXRzdGFydCI6OTk5OX0" },
+      NCBI
+    );
+
+    expect(requests[0]!.searchParams.get("retmax")).toBe("1");
+    expect(result.pagination).toMatchObject({ page_size: 1, returned: 1, exhausted: true });
+    expect(result.pagination.next_cursor).toBeUndefined();
+  });
+
+  it.each([
+    ["esearch-invalid-retstart.json", "returns a different retstart"],
+    ["esearch-short-page.json", "claims matches but returns no IDs"],
+    ["esearch-overfull-page.json", "returns more IDs than requested"]
+  ])("returns an explicit error when ESearch %s", async (fixtureName) => {
+    const body = await fixture(fixtureName);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await searchPubmed({ query: "inconsistent result", pageSize: 1 }, NCBI);
+
+    expect(result.data).toEqual([]);
+    expect(result.access_status).toBe("error");
+    expect(result.pagination).toMatchObject({ returned: 0, exhausted: false });
+    expect(result.error).toEqual({
+      code: "pubmed_response_invalid",
+      message: "PubMed response was invalid",
+      retryable: false
+    });
   });
 
   it("maps a final 429 to rate_limited instead of an empty complete result", async () => {
@@ -241,6 +293,120 @@ describe("PubMed EFetch", () => {
       api_key: "ncbi-secret-value"
     });
     expect(JSON.stringify(result)).not.toContain("ncbi-secret-value");
+  });
+
+  it("normalizes a current-DTD PubmedBookArticle without fabricating journal metadata", async () => {
+    const body = await fixture("efetch-book-record.xml");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("50123456", NCBI);
+
+    expect(result.access_status).toBe("api_visible_complete");
+    expect(result.data).toEqual({
+      pmid: "50123456",
+      title: "Recorded book chapter",
+      abstract: "Recorded book abstract.",
+      dates: [
+        { type: "revised", value: "2025-02-03" },
+        { type: "publication", value: "2024-Winter" },
+        { type: "pubmed", value: "2025-02-04" }
+      ],
+      authors: ["Nia Okafor"],
+      doi: "10.1234/book.chapter",
+      publication_types: ["Review"]
+    });
+    expect(result.data).not.toHaveProperty("journal");
+  });
+
+  it("returns an explicit error for a malformed BookDocument", async () => {
+    const body = await fixture("efetch-malformed-book.xml");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("55123456", NCBI);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error).toEqual({
+      code: "pubmed_response_invalid",
+      message: "PubMed response was invalid",
+      retryable: false
+    });
+  });
+
+  it("preserves inline citation text, ELocationID DOI, season, and explicit absences", async () => {
+    const body = await fixture("efetch-inline-metadata.xml");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("51123456", NCBI);
+
+    expect(result.data).toEqual({
+      pmid: "51123456",
+      title: "Inline citation title",
+      abstract: "BACKGROUND: Before inline after.",
+      journal: "Journal of Inline Records",
+      dates: [{ type: "publication", value: "2024-Winter" }],
+      doi: "10.1234/location.only"
+    });
+    expect(result.data).not.toHaveProperty("authors");
+    expect(result.data).not.toHaveProperty("publication_types");
+  });
+
+  it("keeps an explicit MedlineDate rather than inventing a structured date", async () => {
+    const body = await fixture("efetch-medline-date.xml");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("52123456", NCBI);
+
+    expect(result.data.dates).toEqual([
+      { type: "publication", value: "1998 Dec-1999 Jan" }
+    ]);
+    expect(result.data).not.toHaveProperty("doi");
+  });
+
+  it("returns not_found only for a semantically empty PubmedArticleSet", async () => {
+    const body = await fixture("efetch-empty.xml");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("40123456", NCBI);
+
+    expect(result.access_status).toBe("not_found");
+    expect(result.error).toEqual({
+      code: "pubmed_record_not_found",
+      message: "PubMed record not found",
+      http_status: 404,
+      retryable: false
+    });
+  });
+
+  it("returns an explicit error when EFetch returns a different PMID", async () => {
+    const body = await fixture("efetch-mismatched.xml");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("40123456", NCBI);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error).toEqual({
+      code: "pubmed_record_mismatch",
+      message: "PubMed returned a different record",
+      retryable: false
+    });
+  });
+
+  it.each([
+    ["efetch-provider-error.xml", "provider error XML"],
+    ["efetch-unrecognized.xml", "a valid but unsupported PubMed XML shape"]
+  ])("returns an explicit error rather than not_found for %s", async (fixtureName) => {
+    const body = await fixture(fixtureName);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await fetchPubmedRecord("40123456", NCBI);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error).toEqual({
+      code: "pubmed_response_invalid",
+      message: "PubMed response was invalid",
+      retryable: false
+    });
+    expect(JSON.stringify(result)).not.toContain("record-token-123");
   });
 
   it("rejects malformed PMIDs before fetch", async () => {

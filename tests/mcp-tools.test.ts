@@ -142,6 +142,103 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("marks a normalized PubMed provider failure as an MCP tool error", async () => {
+    const { client, server } = await createInMemoryClient();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret-detail", {
+      status: 403
+    })));
+    const previous = {
+      tool: process.env.NCBI_TOOL,
+      email: process.env.NCBI_EMAIL,
+      apiKey: process.env.NCBI_API_KEY
+    };
+    process.env.NCBI_TOOL = "askrigor-mcp-tests";
+    process.env.NCBI_EMAIL = "maintainer@example.test";
+    process.env.NCBI_API_KEY = "mcp-secret-value";
+
+    try {
+      const result = await client.callTool({
+        name: "search_pubmed",
+        arguments: { query: "restricted citation" }
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "PubMed search returned 0 PMID record(s); access status inaccessible."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "pubmed",
+        record_type: "pubmed_search_result",
+        access_status: "inaccessible",
+        pagination: { returned: 0, exhausted: false },
+        error: {
+          code: "pubmed_access_denied",
+          message: "PubMed access denied",
+          http_status: 403,
+          retryable: false
+        },
+        data: []
+      });
+      expect(JSON.stringify(result)).not.toContain("mcp-secret-value");
+      expect(JSON.stringify(result)).not.toContain("provider-secret-detail");
+    } finally {
+      restoreEnvironment("NCBI_TOOL", previous.tool);
+      restoreEnvironment("NCBI_EMAIL", previous.email);
+      restoreEnvironment("NCBI_API_KEY", previous.apiKey);
+      await server.close();
+    }
+  });
+
+  it("normalizes configuration failures into deterministic PubMed error envelopes", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = {
+      tool: process.env.NCBI_TOOL,
+      email: process.env.NCBI_EMAIL,
+      apiKey: process.env.NCBI_API_KEY
+    };
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    process.env.NCBI_TOOL = "askrigor-mcp-tests";
+    delete process.env.NCBI_EMAIL;
+    delete process.env.NCBI_API_KEY;
+
+    try {
+      const result = await client.callTool({
+        name: "fetch_pubmed_record",
+        arguments: { pmid: "40123456" }
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "PubMed record 40123456 retrieval failed; access status error."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "pubmed",
+        record_type: "pubmed_record",
+        primary_identifier: "40123456",
+        access_status: "error",
+        pagination: { returned: 0, exhausted: false },
+        limitations: [
+          "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated."
+        ],
+        error: {
+          code: "pubmed_configuration_failed",
+          message: "PubMed configuration failed",
+          retryable: false
+        },
+        data: {}
+      });
+      expect(upstream).not.toHaveBeenCalled();
+    } finally {
+      restoreEnvironment("NCBI_TOOL", previous.tool);
+      restoreEnvironment("NCBI_EMAIL", previous.email);
+      restoreEnvironment("NCBI_API_KEY", previous.apiKey);
+      await server.close();
+    }
+  });
+
   it("returns the complete canonical protocol in structured content", async () => {
     const { client, server } = await createInMemoryClient();
     const canonicalText = await readFile(
