@@ -15,3 +15,9 @@ export {
   type PubmedSearchRecord,
   type SearchPubmedInput
 } from "./pubmed.js";
+export {
+  searchEuropePmc,
+  type EuropePmcDateRange,
+  type EuropePmcRecord,
+  type SearchEuropePmcInput
+} from "./europe-pmc.js";

@@ -10,7 +10,11 @@ import {
   verifyProtocolIntegrity,
   type ProtocolName
 } from "@askrigor/protocol";
-import { fetchPubmedRecord, searchPubmed } from "@askrigor/sources";
+import {
+  fetchPubmedRecord,
+  searchEuropePmc,
+  searchPubmed
+} from "@askrigor/sources";
 import { z } from "zod";
 
 import { protocolErrorResult, successfulToolResult } from "./tool-result.js";
@@ -102,6 +106,48 @@ const pubmedRecordEnvelopeSchema = z.object({
   error: errorSchema.optional(),
   data: pubmedRecordSchema
 }).strict();
+const searchEuropePmcInputSchema = z.object({
+  query: z.string().trim().min(1).max(5_000).describe("Europe PMC search query."),
+  date_range: dateRangeSchema.optional().describe(
+    "Inclusive publication-date range in YYYY-MM-DD format."
+  ),
+  page_size: z.number().int().min(1).max(100).optional().describe(
+    "Requested records per page; allowed range is 1 through 100."
+  ),
+  cursor: z.string().min(1).max(4_096).optional().describe(
+    "Opaque Europe PMC cursor returned by a previous search."
+  )
+}).strict();
+const europePmcRecordSchema = z.object({
+  source: z.string(),
+  id: z.string(),
+  pmid: z.string().optional(),
+  pmcid: z.string().optional(),
+  doi: z.string().optional(),
+  title: z.string().optional(),
+  authors: z.array(z.string()).optional(),
+  journal: z.string().optional(),
+  year: z.string().optional(),
+  cited_by: z.number().int().nonnegative().optional(),
+  is_open_access: z.boolean().optional(),
+  has_full_text: z.boolean().optional()
+}).strict();
+const europePmcSearchEnvelopeSchema = z.object({
+  provider: z.literal("europe_pmc"),
+  record_type: z.literal("europe_pmc_search_result"),
+  retrieved_at: z.string(),
+  query: z.object({
+    query: z.string(),
+    date_range: dateRangeSchema.optional()
+  }).strict(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  raw_metadata: z.object({ hit_count: z.number().int().nonnegative() }).strict().optional(),
+  error: errorSchema.optional(),
+  data: z.array(europePmcRecordSchema)
+}).strict();
 
 const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
   readOnlyHint: true,
@@ -110,6 +156,8 @@ const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
 };
 const DEFAULT_PUBMED_PAGE_SIZE = 20;
 const MAX_PUBMED_PAGE_SIZE = 100;
+const DEFAULT_EUROPE_PMC_PAGE_SIZE = 20;
+const MAX_EUROPE_PMC_PAGE_SIZE = 100;
 const PUBMED_EFETCH_LIMITATION =
   "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated.";
 
@@ -267,6 +315,36 @@ export function registerTools(server: McpServer): void {
       }
     }
   );
+
+  server.registerTool(
+    "search_europe_pmc",
+    {
+      description:
+        "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
+      inputSchema: searchEuropePmcInputSchema,
+      outputSchema: europePmcSearchEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ query, date_range, page_size, cursor }) => {
+      try {
+        const result = await searchEuropePmc({
+          query,
+          ...(date_range === undefined ? {} : { dateRange: date_range }),
+          ...(page_size === undefined ? {} : { pageSize: page_size }),
+          ...(cursor === undefined ? {} : { cursor })
+        });
+        return europePmcToolResult(
+          `Europe PMC search returned ${result.pagination.returned} record(s); access status ${result.access_status}.`,
+          result
+        );
+      } catch (error) {
+        return europePmcToolResult(
+          "Europe PMC search retrieval failed; access status error.",
+          europePmcSearchFailure(query, date_range, page_size, cursor, error)
+        );
+      }
+    }
+  );
 }
 
 async function verifyIntegrity(
@@ -289,6 +367,17 @@ function ncbiConfig() {
 }
 
 function pubmedToolResult(
+  text: string,
+  structuredContent: object & { error?: unknown }
+): CallToolResult {
+  return {
+    content: [{ type: "text", text }],
+    structuredContent: { ...structuredContent },
+    ...(structuredContent.error === undefined ? {} : { isError: true })
+  };
+}
+
+function europePmcToolResult(
   text: string,
   structuredContent: object & { error?: unknown }
 ): CallToolResult {
@@ -343,6 +432,37 @@ function pubmedRecordFailure(pmid: string, error: unknown) {
     message: pubmedMcpFailureMessage(error),
     retryable: false,
     data: {}
+  });
+}
+
+function europePmcSearchFailure(
+  query: string,
+  dateRange: { start: string; end: string } | undefined,
+  pageSize: number | undefined,
+  cursor: string | undefined,
+  _error: unknown
+) {
+  return errorEnvelope({
+    provider: "europe_pmc",
+    recordType: "europe_pmc_search_result",
+    query: {
+      query,
+      ...(dateRange === undefined ? {} : { date_range: dateRange })
+    },
+    pagination: {
+      ...(cursor === undefined ? {} : { cursor }),
+      page_size: Math.min(
+        pageSize ?? DEFAULT_EUROPE_PMC_PAGE_SIZE,
+        MAX_EUROPE_PMC_PAGE_SIZE
+      ),
+      exhausted: false
+    },
+    returned: 0,
+    accessStatus: "error",
+    code: "europe_pmc_tool_failed",
+    message: "Europe PMC operation failed",
+    retryable: false,
+    data: []
   });
 }
 

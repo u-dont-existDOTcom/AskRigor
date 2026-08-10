@@ -1,0 +1,11 @@
+{
+  "version": "6.9",
+  "hitCount": 1,
+  "nextCursorMark": "AoIIQGJhZC1yZXNwb25zZQ==",
+  "resultList": {
+    "result": [
+      { "source": "MED", "id": "40123456" },
+      { "source": "MED", "id": "40123457" }
+    ]
+  }
+}

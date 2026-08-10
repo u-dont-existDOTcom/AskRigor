@@ -18,7 +18,8 @@ const TOOL_NAMES = [
   "load_protocol",
   "verify_protocol_integrity",
   "search_pubmed",
-  "fetch_pubmed_record"
+  "fetch_pubmed_record",
+  "search_europe_pmc"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -35,7 +36,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the five read-only retrieval tools", async () => {
+  it("registers exactly the six read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -97,6 +98,39 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("publishes a bounded read-only Europe PMC search schema", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const search = tools.find(({ name }) => name === "search_europe_pmc");
+
+      expect(search).toMatchObject({
+        description:
+          "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["query"],
+          additionalProperties: false,
+          properties: {
+            query: { type: "string", minLength: 1 },
+            page_size: { type: "integer", minimum: 1, maximum: 100 },
+            cursor: { type: "string", minLength: 1 },
+            date_range: {
+              type: "object",
+              required: ["start", "end"],
+              additionalProperties: false
+            }
+          }
+        },
+        outputSchema: { type: "object" }
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
   it("returns deterministic structured PubMed search results without exposing the API key", async () => {
     const { client, server } = await createInMemoryClient();
     const body = await readFile(
@@ -138,6 +172,78 @@ describe("AskRigor MCP tools", () => {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);
       restoreEnvironment("NCBI_API_KEY", previous.apiKey);
+      await server.close();
+    }
+  });
+
+  it("returns a normalized Europe PMC envelope with provider identifiers and cursor", async () => {
+    const { client, server } = await createInMemoryClient();
+    const body = await readFile(
+      new URL("fixtures/europe-pmc/search-page-1.json", import.meta.url),
+      "utf8"
+    );
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    try {
+      const result = await client.callTool({
+        name: "search_europe_pmc",
+        arguments: { query: "example intervention", page_size: 2 }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "Europe PMC search returned 2 record(s); access status complete."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "europe_pmc",
+        record_type: "europe_pmc_search_result",
+        access_status: "complete",
+        pagination: {
+          next_cursor: "AoIIQHNhbXBsZS1uZXh0LWN1cnNvcg=="
+        },
+        data: [
+          { source: "MED", id: "40123456" },
+          { source: "PPR", id: "PPR987654" }
+        ]
+      });
+      expect(JSON.stringify(result)).not.toContain("https://www.ebi.ac.uk");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("marks Europe PMC provider failures as MCP tool errors", async () => {
+    const { client, server } = await createInMemoryClient();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider detail", {
+      status: 403
+    })));
+
+    try {
+      const result = await client.callTool({
+        name: "search_europe_pmc",
+        arguments: { query: "restricted record" }
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "Europe PMC search returned 0 record(s); access status inaccessible."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "europe_pmc",
+        record_type: "europe_pmc_search_result",
+        access_status: "inaccessible",
+        error: {
+          code: "europe_pmc_access_denied",
+          message: "Europe PMC access denied",
+          http_status: 403,
+          retryable: false
+        },
+        data: []
+      });
+      expect(JSON.stringify(result)).not.toContain("provider detail");
+    } finally {
       await server.close();
     }
   });

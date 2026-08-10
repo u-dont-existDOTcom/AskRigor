@@ -1,0 +1,35 @@
+{
+  "version": "6.9",
+  "hitCount": 3,
+  "nextCursorMark": "AoIIQHNhbXBsZS1uZXh0LWN1cnNvcg==",
+  "request": {
+    "queryString": "example intervention",
+    "resultType": "lite",
+    "cursorMark": "*",
+    "pageSize": 2,
+    "format": "json"
+  },
+  "resultList": {
+    "result": [
+      {
+        "source": "MED",
+        "id": "40123456",
+        "pmid": "40123456",
+        "pmcid": "PMC1234567",
+        "doi": "10.1234/recorded.example",
+        "title": "Recorded effects of an example intervention",
+        "authorString": "Amina Nguyen, Example Study Group",
+        "journalTitle": "Journal of Recorded Examples",
+        "pubYear": "2025",
+        "citedByCount": 12,
+        "isOpenAccess": "Y",
+        "hasFullText": "Y"
+      },
+      {
+        "source": "PPR",
+        "id": "PPR987654",
+        "title": "A provider record without optional identifiers"
+      }
+    ]
+  }
+}
