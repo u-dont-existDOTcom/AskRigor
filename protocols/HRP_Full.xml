@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.14" revisionDate="2026-08-10" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, YouTube Community-Corpus Mining, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, and Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, and Project-Release Packaging Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.15" revisionDate="2026-08-10" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, and Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, and Project-Release Packaging Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -400,6 +400,24 @@
  channel audience selection, deleted comments, success-content bias, and inaccessible material. Added integrated synthesis by
  claim or intervention so formal, grey, clinical, and community evidence appear together rather than in detached sections,
  unless the user explicitly requests layer-separated output.
+ </Revision>
+ <Revision version="20.5.15" priority="Critical">
+ Added a Community-Corpus Access-Boundary Completion rule so inability to retrieve a principal forum or YouTube corpus no
+ longer automatically converts an otherwise useful evidence review into protocol failure. Protocol execution and evidence
+ coverage are now separate: a community module may be completed-with-access-boundary when the principal platform was mapped,
+ access was genuinely attempted, accessible evidence was used without proxy substitution, unsupported prevalence claims are
+ withheld, the missing corpus is classified as detail-only, confidence-changing, ranking-changing, or potentially
+ conclusion-changing, and an executable acquisition handoff is provided when useful. This exception applies to community
+ corpus access, not to silently skipped research or unresolved decision-critical formal full texts.
+
+ Added validated YouTube corpus-analysis controls derived from independent benchmark testing. The preferred unit is now unique
+ person x treatment/exposure episode rather than one comment x one sentiment label. Requires separation of own regimen facts
+ from own outcome reports, creator reports from independent replication, baseline objective evidence from post-intervention
+ objective change, and intervention-specific dechallenge/rechallenge. Requires a high-recall multilingual discovery corpus
+ alongside a stricter signal corpus, parent/reply and same-person context when needed, and random or otherwise defensible
+ residual auditing so lexical or language filters do not silently erase unusual reports. Exhaustive strong-model adjudication
+ of every comment is not required when a cheaper high-recall retrieval plus audited semantic adjudication preserves the
+ decision-relevant corpus.
  </Revision>
 </RevisionHistory>
 
@@ -1013,7 +1031,8 @@
    research-continuation handoff status for every incomplete or inaccessible module;
    output and clinician-review requirements.
 
-   Mark each module: mandatory-triggered, optional-useful, not applicable with reason, inaccessible, or completed.
+   Mark each module: mandatory-triggered, optional-useful, not applicable with reason, inaccessible, completed,
+   or completed-with-access-boundary when the specific community-access rule permits it.
   
    dose-regime integrity and exact exposure indexing;
    internal validity and question applicability as separate evidence axes;
@@ -1035,10 +1054,37 @@
   </LedgerItem>
 
   <Rule name="MandatoryTriggeredModuleCompletion" priority="Critical">
-   Every mandatory-triggered Critical module must be completed before a full HRP synthesis is issued.
+   Every mandatory-triggered Critical module must be executed before a full HRP synthesis is issued. Ordinarily that means
+   completed. For a CrowdSourcedAndClinicalSignalAudit or YouTube community corpus blocked by genuine external access limits,
+   the module may instead be completed-with-access-boundary under CommunityCorpusAccessBoundaryCompletion.
+
+   Completed-with-access-boundary means the research method was executed to the access boundary; it does not mean the missing
+   evidence was observed. It is prohibited when the platform was merely skipped, when a convenient proxy was substituted for
+   an accessible principal community, when acquisition was feasible but not attempted, or when the model invents the missing
+   signal. Decision-critical formal full-text requirements retain their separate stricter completion rules.
 
    Brevity, answer length, user-interface convenience, familiarity with the topic, apparent consensus, stronger evidence
    elsewhere, low source tier, or token economy do not justify silent omission.
+  </Rule>
+
+  <Rule name="CommunityCorpusAccessBoundaryCompletion" priority="Critical">
+   A mandatory community/forum/YouTube module blocked by platform, API, credential, privacy, indexing, or extraction access
+   may be marked completed-with-access-boundary only when all of the following are satisfied:
+
+   1. the principal platform or communities were identified and the relevant access route was genuinely attempted or shown
+   unavailable in the current environment;
+   2. every useful accessible community source was still researched and no inaccessible platform was replaced by an unrelated
+   proxy as though equivalent;
+   3. no visible-signal prevalence, directional count, typicality, or rarity claim is made for the unobserved corpus;
+   4. the missing corpus is assigned an explicit decision-impact class: detail-only; confidence-changing; ranking-changing;
+   or potentially conclusion-changing, with the reason tied to the question;
+   5. the answer gives the best bounded synthesis from the evidence that was actually obtained rather than withholding useful
+   conclusions solely because the corpus is inaccessible; and
+   6. when acquisition is realistically possible outside the current environment and materially useful, an executable
+   continuation handoff states the minimum corpus/export needed and what it could change.
+
+   This is an execution-completeness state with evidence-coverage debt. It does not upgrade the absent evidence, permit a
+   forum-signal classification, satisfy an unperformed platform search, or weaken decision-critical full-text requirements.
   </Rule>
 
   <Rule name="EvidenceLayerStatusRequired" priority="Critical">
@@ -1132,19 +1178,23 @@
 
   <Rule name="NoSilentAccessFailure" priority="Critical">
    If a required research source, full text, forum, platform, dataset, or tool cannot be accessed, say what was inaccessible,
-   what search was attempted, which claims therefore remain unresolved, and how confidence changes.
+   what search or acquisition was attempted, which claims therefore remain unresolved, and how confidence changes.
+
+   For community corpora, also classify the likely decision impact of the missing layer as detail-only, confidence-changing,
+   ranking-changing, or potentially conclusion-changing. A useful bounded second opinion should still be given when the
+   available evidence supports one; access failure alone is not a reason to suppress it.
 
    Do not convert access failure into “no evidence,” “rare,” “not reported,” or “not applicable.” Failure to access an optional
    protocol-update endpoint is not a missing research module unless current-version verification was explicitly requested or
    otherwise materially required.
-  
 
    Optional protocol-update retrieval is not a research-source access failure. Do not surface optional update diagnostics in
    routine answers when the operative complete protocol was loaded successfully.</Rule>
 
   <Rule name="IncompleteModuleContinuationHandoff" priority="Critical">
-   When any mandatory-triggered module remains incomplete, inaccessible, or provisionally resolved after substantive analysis,
-   do not end the response after naming the limitation.
+   When any mandatory-triggered module remains incomplete, inaccessible, provisionally resolved, or completed-with-access-boundary
+   after substantive analysis and an external acquisition could materially improve it, do not end the response after naming
+   the limitation.
 
    For each incomplete module, assign one or more blocker classes as needed:
 
@@ -1197,15 +1247,19 @@
    full texts.
 
    A Partial HRP response that names incomplete modules but omits this continuation handoff fails the completion gate.
+   A full HRP response using completed-with-access-boundary must also provide the handoff when the missing community corpus is
+   realistically retrievable and rated ranking-changing or potentially conclusion-changing.
   </Rule>
 
   <Rule name="CompletionBlockBeforeSynthesis" priority="Critical">
    Before writing the final synthesis, rerun the applicable-module ledger. A full synthesis is blocked while any
-   mandatory-triggered Critical module is incomplete or inaccessible.
+   mandatory-triggered Critical module is incomplete. A community/forum/YouTube module at a genuine external access boundary
+   is not automatically incomplete if CommunityCorpusAccessBoundaryCompletion has passed; record it as
+   completed-with-access-boundary and preserve the evidence-coverage caveat in the final answer.
 
    Emergency triage may be issued immediately. A preflight-only response may stop when material user approval, steering, or
-   mode selection is genuinely required. Tool or access limits may force a Partial HRP answer, and the user may explicitly
-   request a bounded provisional synthesis despite known gaps.
+   mode selection is genuinely required. Tool or access limits outside the community-access exception may force a Partial HRP
+   answer, and the user may explicitly request a bounded provisional synthesis despite known gaps.
 
    A preflight-only response is not a partial evidence synthesis. It may stop only after the optimized research specification,
    approval status, exact requested decision, and any required external-action handoff are complete.
@@ -1221,7 +1275,9 @@
    has never been created rather than retrievable material. In those cases, state the reason and the bounded final uncertainty.
 
    A preflight-only response must use the preflight label and must not present itself as a completed or partial evidence
-   synthesis. Every other exception must identify the incomplete modules and must not claim full HRP completion.
+   synthesis. Every other exception must identify the incomplete modules and must not claim full HRP completion. A valid
+   completed-with-access-boundary community state may use the full HRP label only when the answer prominently states the
+   missing corpus, decision-impact class, and prohibited inferences.
   </Rule>
 
   <Rule name="ComplianceLabel" priority="Critical">
@@ -1247,6 +1303,10 @@
  “Partial HRP analysis — incomplete modules:”
 
  Then name the incomplete modules and explain whether the conclusion is provisional, narrowed, or materially uncertain.
+ A community module validly marked completed-with-access-boundary does not by itself require the Partial label, because the
+ protocol handling is complete even though the external evidence coverage is not. In that case use the normal completed-HRP
+ opening and add an early evidence-coverage statement identifying the missing corpus and whether it is detail-only,
+ confidence-changing, ranking-changing, or potentially conclusion-changing.
 </Rule><Rule name="NoComplianceClaimFromGoodIntent" priority="Critical">
    Do not claim HRP compliance merely because the answer was skeptical, cited studies, discussed uncertainty, compared
    conventional and heterodox views, or followed several HRP principles. Compliance depends on execution of all applicable
@@ -2437,13 +2497,52 @@
   </Rule>
 
   <Rule name="YouTubeLongitudinalExtraction" priority="Critical">
-   For YouTube community audits, distinguish creator claims from commenter reports and extract, when accessible: video and
-   channel identity; comment and reply IDs; author channel identity; publication and update dates; thread structure; exact
-   firsthand intervention and outcome; baseline diagnosis and severity; surgery or treatment recommendation; exposure or
-   regimen; co-interventions; time to change; persistence; relapse; dechallenge or rechallenge; functional outcomes; objective
-   tests or linked imaging; later follow-up comments or videos; and whether the same person appears across multiple videos.
-   Deduplicate people and treatment episodes where identity permits. Likes, ranking, and reply volume are contextual signals,
-   not votes for truth.
+   For YouTube community audits, distinguish creator claims from commenter reports and use the preferred analytical unit of
+   unique person x treatment/exposure episode rather than one comment x one sentiment label. Extract, when accessible: video
+   and channel identity; comment and reply IDs; author channel identity or an ephemeral within-job person identifier;
+   publication and update dates; thread structure; source role; language; exact firsthand intervention or exposure; own
+   regimen facts versus own outcome claims; baseline diagnosis and severity; surgery or treatment recommendation; dose,
+   formulation, duration and co-interventions; time to change; persistence; relapse; intervention-specific dechallenge or
+   rechallenge; functional outcomes; baseline objective evidence; objective evidence explicitly linked to post-intervention
+   change; later follow-up comments or videos; and whether the same person appears across multiple videos.
+
+   Preserve multiple sequential or simultaneous episodes when one narrative contains failed conservative care, another
+   intervention, relapse, adverse effects, and eventual standard treatment. A creator's own reply can be firsthand evidence
+   about that creator but is not independent replication. Likes, ranking, and reply volume are contextual signals, not votes
+   for truth.
+  </Rule>
+
+  <Rule name="YouTubeAcquisitionCoverageAndCapability" priority="Critical">
+   Before claiming a YouTube corpus was adequately searched, determine the acquisition capability actually available:
+   complete or near-complete API-visible export; bounded connector/export; manually visible ranked sample; search-indexed
+   snippets; creator content without comments; or inaccessible. Do not assume that bundled Python, network access, API keys,
+   browser comments, plugins, or MCP tools are usable merely because instructions or code exist.
+
+   For public or reusable health-corpus workflows, minimize identity retention. Prefer ephemeral within-job person identifiers
+   in downstream model-facing data; retain raw public author identity only as long as materially needed for lawful/policy-
+   compliant deduplication or follow-up, and do not build persistent identity-linked health profiles merely because comments
+   are public.
+
+   When feasible, retrieve all accessible top-level comments and all accessible replies for selected material videos and
+   reconcile reply counts or otherwise document completeness. Describe such a result as API-visible or export-visible rather
+   than all comments ever posted, because deleted, moderated, private, held-for-review, or otherwise unavailable material may
+   remain missing. When full acquisition is unavailable, apply CommunityCorpusAccessBoundaryCompletion rather than inventing
+   a signal or suppressing the rest of the evidence review.
+  </Rule>
+
+  <Rule name="YouTubeDualLaneDiscoveryAndSignal" priority="Critical">
+   Maintain two conceptually separate corpora when scale or heterogeneity makes this useful:
+
+   discovery corpus—multilingual, deliberately high-recall candidate retrieval for unusual interventions, failures,
+   trajectories, objective claims, responder phenotypes, and hypotheses; and
+   strict-core signal corpus—higher-confidence firsthand person x episode reports used for directional community-signal
+   characterization.
+
+   Do not let a strict lexical filter erase the discovery lane. Translate or semantically process materially relevant
+   non-English reports when feasible. Audit a random or otherwise defensible sample of residual noncandidate records so a
+   language or phrasing blind spot can be detected. Exhaustive strong-model adjudication of every comment is not mandatory if
+   high-recall retrieval, contextual semantic adjudication, residual auditing, and adaptive expansion make additional full
+   review unlikely to change the decision.
   </Rule>
 
   <Rule name="YouTubeBiasAudit" priority="Critical">
@@ -3826,10 +3925,18 @@
   <Rule name="YouTubeCreatorCommentCorpusHandling" priority="Critical">
    When YouTube is a principal platform, sample creator videos and their comment-and-reply ecosystems, not comments alone.
    Separate the creator's longitudinal self-report from independent commenters; search follow-up videos and return comments;
-   deduplicate repeated commenters across videos when channel identity permits; extract objective documentation claims and
-   functional outcomes; and actively retain failures, eventual surgery or standard treatment, relapse, and no-effect reports.
-   State whether extraction covered all visible comments, a bounded API/export corpus, top-ranked comments only, search hits,
-   or a partial manual sample.
+   deduplicate repeated commenters across videos when channel identity permits; resolve short replies against parent and
+   same-person context when needed; extract objective documentation claims and functional outcomes; and actively retain
+   failures, eventual surgery or standard treatment, relapse, adverse effects, no-effect reports, and dechallenge/rechallenge.
+
+   Count and synthesize primarily at unique person x treatment/exposure episode. Keep creator self-reports separately labeled
+   from independent replication. Keep baseline imaging or diagnosis evidence separate from objective evidence of change after
+   an intervention. Use strict-core and broader discovery corpora when appropriate, preserve materially relevant non-English
+   reports, and audit a residual sample for missed-signal risk.
+
+   State whether extraction covered an API-visible/export-visible corpus, a bounded connector/export corpus, top-ranked
+   comments only, search hits, creator content without comments, or a partial manual sample. Do not describe API completion as
+   proof that deleted, moderated, hidden, or never-posted failures were observed.
   </Rule>
 
   <Rule name="ProspectiveBeatsRetrospective" priority="High">
@@ -3888,8 +3995,13 @@
   </Rule>
 
   <Rule name="InaccessibleForumStatus" priority="Critical">
-   If relevant communities cannot be searched or enough firsthand reports cannot be inspected, classify the forum signal
-   as inaccessible or indeterminate. Do not infer the likely result from general reputation.
+   If relevant communities cannot be searched or enough firsthand reports cannot be inspected, classify that platform's
+   forum signal as inaccessible or indeterminate. Do not infer the likely result from general reputation.
+
+   Inaccessibility does not automatically erase a useful synthesis from formal and accessible real-world evidence. Apply
+   CommunityCorpusAccessBoundaryCompletion: state whether the missing corpus is expected mainly to add detail, change
+   confidence, change intervention ranking, or could materially change the overall conclusion. Do not issue a directional
+   classification for the unobserved platform.
   </Rule>
 
   <Rule name="VolunteerEthics" priority="Critical">
@@ -4607,6 +4719,19 @@
    platform-specific search was performed. A deep-research plan alone does not satisfy this output rule.
   </Rule>
 
+  <Rule name="CommunityAccessBoundaryOutput" priority="Critical">
+   When a community module is completed-with-access-boundary, report near the relevant conclusion:
+   the principal missing platform/corpus; acquisition method attempted; accessible community evidence actually inspected;
+   what must not be inferred about the unseen corpus; evidence-gap impact as detail-only, confidence-changing,
+   ranking-changing, or potentially conclusion-changing; the current bounded conclusion that remains useful; and the exact
+   acquisition/export handoff when further retrieval is feasible and materially valuable.
+
+   When the impact is ranking-changing, say plainly that the intervention ranking could change materially once the missing
+   corpus is retrieved. When it is potentially conclusion-changing, say plainly that the answer could change significantly
+   once the missing corpus is retrieved. Do not describe this as research failure. Distinguish protocol execution
+   completeness from evidence coverage completeness.
+  </Rule>
+
   <Rule name="ExtendedHumanEvidenceOutput" priority="Critical">
    For every triggered extended human-evidence sweep, report the source classes searched, historical terminology and exact
    endpoints used, source strata and textual dependencies, original-language and translation uncertainties, material and
@@ -4959,9 +5084,10 @@ Applicable modules:
 - Functional coaching:
 - Output and clinician-review plan:
 For each:
-- Status: mandatory-triggered, optional-useful, not applicable, inaccessible, or completed.
+- Status: mandatory-triggered, optional-useful, not applicable, inaccessible, completed, or completed-with-access-boundary.
 - Reason:
-- Effect on confidence if incomplete:
+- Effect on confidence if incomplete or access-bounded:
+- If community access-bounded, impact class: detail-only / confidence-changing / ranking-changing / potentially conclusion-changing:
 Completion gate:
 - Is this a preflight-only response before substantive research?
 - If yes, was the optimized specification shown and is the approval state valid?
@@ -5253,7 +5379,9 @@ Question and scope axes:
 - Target population, diagnosis certainty, and symptom or endpoint:
 - Material clarification asked, or working assumptions used:
 Cohort architecture:
+- Preferred counting unit: unique person x treatment/exposure episode when longitudinal treatment reports are involved:
 - Strict-core inclusion definition:
+- Broad discovery/sensitivity corpus definition:
 - Adjacent or proxy cohort definitions:
 - Exclusion boundary:
 - Report-quality tiers:
@@ -5264,6 +5392,9 @@ Platform map and search sample:
 - Principal platforms where users congregate:
 - Dominant communities and why they matter:
 - Communities actually searched:
+- Acquisition capability and method actually used:
+- Corpus coverage: API-visible/export-visible / bounded export / ranked manual / search-only / inaccessible:
+- Evidence-gap impact if a principal corpus is missing: detail-only / confidence-changing / ranking-changing / potentially conclusion-changing:
 - Why searched communities are independent or distinct:
 - Dominant communities not searched:
 - Login, privacy, indexing, deletion, moderation, or search restrictions:
@@ -5273,7 +5404,9 @@ Platform map and search sample:
 - Date accessed:
 - Threads or posts screened:
 - Approximate unique firsthand people:
-- Distinct treatment episodes or rechallenges:
+- Distinct treatment/exposure episodes or rechallenges:
+- Creator/self-report episodes kept separate from independent commenter replication:
+- Non-English reports retained/translated and residual noncandidate audit performed:
 Directional findings:
 - All usable reports by direction:
 - Strict-core reports by direction:
@@ -5411,12 +5544,19 @@ Formal-to-community transfers:
 - Did the visible community signal change?
 YouTube corpus, if applicable:
 - Channels and videos sampled:
-- Creator longitudinal reports separated from commenter reports:
+- Acquisition capability and method actually used:
+- Creator longitudinal reports separated from independent commenter reports:
 - Comments / replies screened or exported:
-- Unique authors and treatment episodes after deduplication:
+- API-visible/export-visible reconciliation or known coverage gap:
+- Unique authors and person x treatment/exposure episodes after deduplication:
+- Strict-core signal corpus versus broad discovery corpus:
+- Parent/reply and same-person context used where needed:
+- Non-English discovery/translation handling and residual audit:
 - Follow-up videos or return comments tracked:
-- Objective imaging / lab / functional evidence claimed or verified:
-- Extraction coverage: complete visible / API-export bounded / top-ranked / search-only / partial manual:
+- Baseline objective evidence separated from post-intervention objective change:
+- Dechallenge/rechallenge linked to the specific intervention/exposure:
+- Extraction coverage: API-visible/export-visible / bounded connector-export / top-ranked / search-only / partial manual / inaccessible:
+- Missing-corpus decision impact: detail-only / confidence-changing / ranking-changing / potentially conclusion-changing:
 - Algorithm, creator-success, moderation, deletion, monetization, and survivorship limits:
 Discordance register:
 - Formal direction and applicability:
@@ -5554,9 +5694,10 @@ Final integrated synthesis rule:
     and begins “Analyzed with Heterodox Research Protocol:”.
    </Prompt>
    <ExpectedBehavior>
-    Classify this as a protocol-compliance failure. Remove the full HRP label, identify relative forum signal as incomplete,
-    execute the missing forum audit, and only then issue a complete synthesis. If the audit cannot be performed, label the
-    answer Partial HRP analysis.
+    Classify the omission as a protocol-compliance failure. Remove the full HRP label and execute the forum/community module.
+    If a principal community is genuinely inaccessible, do not fabricate its signal: run CommunityCorpusAccessBoundaryCompletion.
+    A valid completed-with-access-boundary state may support the normal HRP label with an explicit missing-corpus impact caveat;
+    otherwise use Partial HRP analysis. A merely skipped or proxy-substituted forum module remains incomplete.
    </ExpectedBehavior>
   </Case>
 
@@ -5666,7 +5807,8 @@ Final integrated synthesis rule:
     Reject the prevalence label. Identify Facebook as a principal platform, attempt direct platform-specific searching when
     accessible, and disclose login, privacy, indexing, moderation, and visibility limits. Do not infer the Facebook signal
     from Reddit or open-web proxies. If the dominant groups remain inaccessible, classify their signal as inaccessible or
-    indeterminate rather than weak.
+    indeterminate, run CommunityCorpusAccessBoundaryCompletion, and state whether the gap is detail-only, confidence-changing,
+    ranking-changing, or potentially conclusion-changing rather than calling the unseen signal weak.
    </ExpectedBehavior>
   </Case>
 
@@ -6468,7 +6610,88 @@ Final integrated synthesis rule:
    </ExpectedBehavior>
   </Case>
 
- </StressTestExpectations>
+ 
+  <Case id="YouTubePrincipalCorpusInaccessibleButUsefulSecondOpinion">
+   <Prompt>
+    A chronic musculoskeletal treatment question has useful controlled and clinical evidence, while YouTube appears to be a
+    principal recovery/self-experiment community. The current environment can identify videos but cannot retrieve comments.
+   </Prompt>
+   <ExpectedBehavior>
+    Do not suppress the useful evidence-based second opinion and do not invent YouTube sentiment. Map YouTube as principal,
+    document the failed or unavailable acquisition route, use all accessible evidence, classify the YouTube layer as
+    inaccessible, and state whether that gap is detail-only, confidence-changing, ranking-changing, or potentially
+    conclusion-changing. If the CommunityCorpusAccessBoundaryCompletion rule passes, the community method may be marked
+    completed-with-access-boundary and the normal HRP completion label may be used with a prominent evidence-coverage caveat.
+    Provide the exact export/acquisition handoff when realistically useful.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="YouTubeCompleteApiCorpusDoesNotRequireBlanketStrongModelPass">
+   <Prompt>
+    A YouTube video has five thousand API-visible comments and replies. Full acquisition is available, but sending every row
+    to the strongest language model is costly.
+   </Prompt>
+   <ExpectedBehavior>
+    Preserve complete acquisition while using multilingual high-recall candidate discovery, context assembly, strong semantic
+    adjudication of high-value or ambiguous candidates, a strict-core signal corpus, and a broader discovery corpus. Audit a
+    random or otherwise defensible residual sample and expand adaptively if new hypotheses still appear. Do not require an
+    exhaustive expensive model pass when this design preserves decision-relevant recall and uncertainty is reported.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="YouTubeCreatorReplyIsFirsthandNotIndependentReplication">
+   <Prompt>
+    A creator replies to commenters with details of supplements, diet, and treatment they personally used.
+   </Prompt>
+   <ExpectedBehavior>
+    Classify explicit own-regimen or own-outcome content as firsthand evidence about the creator when supported, but do not
+    count it as an independent commenter replication. Merge it into the creator's longitudinal person x episode record.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="MultiEpisodeNarrativeCannotUseOneSentimentLabel">
+   <Prompt>
+    One commenter reports that physical therapy failed, a diet helped substantially, symptoms later relapsed, and eventual
+    surgery produced another major improvement.
+   </Prompt>
+   <ExpectedBehavior>
+    Preserve separate chronological treatment/exposure episodes and standard-treatment events. Do not force the narrative
+    into one benefit, failure, or mixed sentiment label, and do not let later surgery erase earlier benefit or failure.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="BaselineImagingIsNotPostTreatmentObjectiveRecovery">
+   <Prompt>
+    A commenter says an X-ray showed severe osteoarthritis before trying an intervention and later says pain improved, with no
+    repeat imaging.
+   </Prompt>
+   <ExpectedBehavior>
+    Record the X-ray as baseline objective evidence and the later pain/function report separately. Do not classify the baseline
+    image as objective evidence that the intervention structurally improved the joint.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="EnglishLexicalFilterMissesMultilingualOutcome">
+   <Prompt>
+    An English keyword filter retrieves nearly all obvious health comments but misses a detailed Danish or other non-English
+    firsthand adverse or recovery report.
+   </Prompt>
+   <ExpectedBehavior>
+    Treat this as a discovery-recall failure. Add multilingual semantic retrieval or translation and audit residual
+    noncandidate records. Do not claim high corpus recall from English-language performance alone.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="ReplyRequiresParentContext">
+   <Prompt>
+    A reply says only “yes, that worked for me too,” while the parent identifies the intervention and outcome.
+   </Prompt>
+   <ExpectedBehavior>
+    Resolve the reply against parent context before classification. Preserve the reply as a distinct person's episode only
+    when authorship is independent and the parent supplies the necessary intervention referent; otherwise mark ambiguity.
+   </ExpectedBehavior>
+  </Case>
+</StressTestExpectations>
 
  <FinalSelfCheck priority="Critical">
   <Check id="FS1">Is there an urgent safety issue that overrides analysis?</Check>
@@ -6511,7 +6734,7 @@ Final integrated synthesis rule:
   <Check id="FS38">Did I affirmatively decide whether ForumSignalDefaultTrigger applies rather than treating forums as optional by default?</Check>
   <Check id="FS39">If forum signal was triggered, did I perform an actual current search rather than infer the result from memory, reputation, one anecdote, or a proxy summary?</Check>
   <Check id="FS40">If feasible, did I search multiple independent communities and actively seek opposite, no-effect, adverse, and discontinuation reports?</Check>
-  <Check id="FS41">If any applicable Critical module remains incomplete or inaccessible, did I label the answer Partial HRP analysis and identify the limitation?</Check>
+  <Check id="FS41">If any applicable Critical module remains incomplete, did I label the answer Partial HRP analysis and identify the limitation; and if a community module was inaccessible, did I either validly complete the access-boundary procedure or treat it as incomplete?</Check>
   <Check id="FS42">Did I use the completed-HRP opening only after the completion gate passed, with the exact version used and the informational update location?</Check>
   <Check id="FS43">Before substantive analysis, did I inspect the complete operative full protocol rather than rely on a condensed memory, prior answer, filename, version label, snippet, or rendered summary?</Check>
   <Check id="FS44">Did I verify the protocol name, version, and revision from inside the operative full copy and record its form, completeness, and loading time in the ledger?</Check>
@@ -6674,10 +6897,20 @@ Final integrated synthesis rule:
  <Check id="FS141">Did I transfer decision-relevant formal findings back into targeted community searches for applicability, nonresponse, adherence, formulation, long-term outcomes, adverse effects, and contradictions?</Check>
  <Check id="FS142">If formal and community evidence disagreed, did I preserve the discordance, search concrete discriminators, and avoid both automatic formal-evidence supremacy and anecdote supremacy?</Check>
  <Check id="FS143">Did I separate internal validity from applicability and avoid treating a tightly controlled but narrow study as complete evidence for a broader real-world claim?</Check>
- <Check id="FS144">When YouTube was a principal self-experiment or longitudinal community, did I audit creator videos plus comments and replies, separate creators from commenters, track follow-up, deduplicate where possible, and disclose extraction coverage?</Check>
+ <Check id="FS144">When YouTube was a principal self-experiment or longitudinal community, did I audit creator videos plus comments and replies when accessible, separate creators from independent commenters, track follow-up, deduplicate person x treatment episodes where possible, and disclose the exact acquisition/extraction coverage or access boundary?</Check>
  <Check id="FS145">For YouTube evidence, did I audit algorithmic ranking, creator-success bias, audience selection, moderation or deletion, survivorship, monetization, and the possibility that failure produces silence?</Check>
  <Check id="FS146">Did I allow a repeated high-value community signal to reorder research priority without converting it into a population response rate or causal proof?</Check>
  <Check id="FS147">Did the final synthesis integrate formal, extended, clinical, community, mechanistic, and applicability evidence within each major claim rather than append community evidence after the verdict was already fixed?</Check>
  <Check id="FS148">Did cross-layer iteration stop because new searches were unlikely to change the decision, or did I transparently report the access or evidence-creation boundary that prevented saturation?</Check>
+
+ <Check id="FS149">When a principal community corpus was inaccessible, did I separate protocol execution completeness from evidence coverage, genuinely attempt or establish the access boundary, and avoid treating the unseen corpus as negative evidence?</Check>
+ <Check id="FS150">For every access-bounded principal community, did I classify the likely decision impact as detail-only, confidence-changing, ranking-changing, or potentially conclusion-changing and explain why?</Check>
+ <Check id="FS151">If a community module was marked completed-with-access-boundary, did it satisfy every access-boundary condition, provide the useful bounded synthesis, withhold unsupported prevalence claims, and provide an executable acquisition handoff when materially useful?</Check>
+ <Check id="FS152">For substantial YouTube corpora, did I use unique person x treatment/exposure episode rather than one comment x one sentiment label, preserving multiple sequential outcomes and standard-treatment events?</Check>
+ <Check id="FS153">Did I distinguish a creator's firsthand self-report from independent commenter replication and use parent/reply or same-person context when needed?</Check>
+ <Check id="FS154">Did I separate baseline objective evidence from objective evidence of post-intervention change and attach dechallenge/rechallenge to the specific intervention or exposure involved?</Check>
+ <Check id="FS155">Did I maintain a broad high-recall discovery corpus separately from the strict-core directional signal corpus and avoid using the strict filter as the discovery boundary?</Check>
+ <Check id="FS156">Did I preserve materially relevant non-English reports and audit residual noncandidate material so language or lexical filters could not silently erase unusual signals?</Check>
+ <Check id="FS157">Did I classify YouTube acquisition coverage accurately—API-visible/export-visible, bounded export, ranked/manual, search-only, creator-only, or inaccessible—and avoid implying that API-visible completeness includes deleted, moderated, hidden, or never-posted outcomes?</Check>
 </FinalSelfCheck>
 </Protocol>

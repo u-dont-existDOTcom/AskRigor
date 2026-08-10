@@ -16,9 +16,9 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "b94bda38e6f341f7e5691494643e656a10e9ced68438689ffd4b7614b487911c";
+  "a61181bb9325b84b542decf8795703f62bac880fa1e60bbeeb89051d874f61f0";
 const UNIVERSAL_SHA_256 =
-  "df324fd4900c0db26ad66b46a73986869aca8fbf05e524ecb525ad8ff5bd5cb3";
+  "1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -34,7 +34,7 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.14",
+      version: "20.5.15",
       revisionDate: "2026-08-10"
     });
   });
@@ -64,7 +64,7 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.10",
+      version: "20.5.11",
       revisionDate: "2026-08-07"
     });
   });
@@ -85,10 +85,22 @@ describe("canonical protocol loader", () => {
     });
   });
 
+  it("preserves every Universal 20.5.11 return-artifact closure gate", async () => {
+    const text = await loadProtocol("universal");
+
+    expect(text).toContain('<revision version="20.5.11" priority="Critical">');
+    expect(text).toContain("Added a domain-general Return-Artifact Closure and End-State Design rule.");
+    expect(text).toContain("12. Return-artifact closure:");
+    expect(text).toContain("13. End-state design before implementation:");
+    expect(text).toContain("14. End-to-end completion test:");
+    expect(text).toContain("Return-artifact closure check:");
+    expect(text).toContain("UPLOAD THIS FILE: /path/to/artifact");
+  });
+
   it("fails closed when required root attributes are absent", async () => {
     readFileMock.mockResolvedValueOnce(
       Buffer.from(
-        "<?xml version=\"1.0\"?><Protocol name=\"HRP\" version=\"20.5.14\" />"
+        "<?xml version=\"1.0\"?><Protocol name=\"HRP\" version=\"20.5.15\" />"
       )
     );
 
