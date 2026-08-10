@@ -22,6 +22,17 @@ describe("workspace bootstrap", () => {
     ).toBe("complete");
   });
 
+  it("derives returned from non-empty successful array data", () => {
+    expect(
+      okEnvelope({
+        provider: "pubmed",
+        recordType: "search",
+        data: [{ pmid: "1" }, { pmid: "2" }],
+        accessStatus: "complete",
+      }).pagination.returned,
+    ).toBe(2);
+  });
+
   it("preserves provider errors for failed empty access", () => {
     expect(
       errorEnvelope({

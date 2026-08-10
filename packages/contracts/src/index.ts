@@ -65,7 +65,15 @@ interface EnvelopeInput {
 
 export interface OkEnvelopeInput<T> extends EnvelopeInput {
   data: T;
+  returned: number;
 }
+
+export type ArrayOkEnvelopeInput<T extends readonly unknown[]> = Omit<
+  OkEnvelopeInput<T>,
+  "returned"
+> & {
+  returned?: number;
+};
 
 export interface ErrorEnvelopeInput<T> extends EnvelopeInput {
   code: string;
@@ -94,8 +102,19 @@ function baseEnvelope(
   };
 }
 
-export function okEnvelope<T>(input: OkEnvelopeInput<T>): ProvenanceEnvelope<T> {
-  return { ...baseEnvelope(input), data: input.data };
+export function okEnvelope<T extends readonly unknown[]>(
+  input: ArrayOkEnvelopeInput<T>,
+): ProvenanceEnvelope<T>;
+export function okEnvelope<T>(input: OkEnvelopeInput<T>): ProvenanceEnvelope<T>;
+export function okEnvelope<T>(
+  input: OkEnvelopeInput<T> | ArrayOkEnvelopeInput<readonly unknown[]>,
+): ProvenanceEnvelope<unknown> {
+  const returned = Array.isArray(input.data) ? input.data.length : input.returned;
+
+  return {
+    ...baseEnvelope({ ...input, returned }),
+    data: input.data,
+  };
 }
 
 export function errorEnvelope<T = unknown[]>(
