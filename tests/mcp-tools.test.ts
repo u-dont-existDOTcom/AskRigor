@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -158,6 +159,66 @@ describe("AskRigor Streamable HTTP server", () => {
     });
   });
 
+  it("rejects an unfinished chunked MCP POST as soon as it exceeds 1 MiB", async () => {
+    await withHttpServer(async (baseUrl) => {
+      const response = await sendOpenChunkedPost(
+        new URL("/mcp", baseUrl),
+        1_048_577
+      );
+
+      expect(response.status).toBe(413);
+      expect(response.body).toBe(
+        '{"jsonrpc":"2.0","error":{"code":-32000,"message":"Request body exceeds 1 MiB limit"},"id":null}'
+      );
+    });
+  });
+
+  it("returns a sanitized parse error for malformed MCP JSON", async () => {
+    await withHttpServer(async (baseUrl) => {
+      const response = await fetch(new URL("/mcp", baseUrl), {
+        method: "POST",
+        headers: {
+          accept: "application/json, text/event-stream",
+          "content-type": "application/json"
+        },
+        body: '{"secret":"do-not-echo"'
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.text()).toBe(
+        '{"jsonrpc":"2.0","error":{"code":-32700,"message":"Parse error: Invalid JSON"},"id":null}'
+      );
+    });
+  });
+
+  it("preserves SDK header validation before JSON parsing", async () => {
+    await withHttpServer(async (baseUrl) => {
+      const missingAccept = await fetch(new URL("/mcp", baseUrl), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: '{"secret":"do-not-echo"'
+      });
+      const wrongContentType = await fetch(new URL("/mcp", baseUrl), {
+        method: "POST",
+        headers: { accept: "application/json, text/event-stream" },
+        body: '{"secret":"do-not-echo"'
+      });
+
+      expect(missingAccept.status).toBe(406);
+      expect(await missingAccept.json()).toMatchObject({
+        error: {
+          message: "Not Acceptable: Client must accept both application/json and text/event-stream"
+        }
+      });
+      expect(wrongContentType.status).toBe(415);
+      expect(await wrongContentType.json()).toMatchObject({
+        error: {
+          message: "Unsupported Media Type: Content-Type must be application/json"
+        }
+      });
+    });
+  });
+
   it("delegates GET and DELETE semantics to the installed SDK transport", async () => {
     await withHttpServer(async (baseUrl) => {
       const getResponse = await fetch(new URL("/mcp", baseUrl));
@@ -214,4 +275,37 @@ async function withHttpServer(
       httpServer.close((error) => error ? reject(error) : resolve());
     });
   }
+}
+
+async function sendOpenChunkedPost(
+  url: URL,
+  byteLength: number
+): Promise<{ status: number | undefined; body: string }> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(url, {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json"
+      }
+    });
+
+    request.setTimeout(1_000, () => {
+      request.destroy(new Error("Timed out waiting for early HTTP response"));
+    });
+    request.once("error", reject);
+    request.once("response", (response) => {
+      let body = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk: string) => {
+        body += chunk;
+      });
+      response.once("end", () => {
+        request.destroy();
+        resolve({ status: response.statusCode, body });
+      });
+    });
+
+    request.write(Buffer.alloc(byteLength, 0x20));
+  });
 }
