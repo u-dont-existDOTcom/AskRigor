@@ -10,6 +10,8 @@
     "typecheck": "tsc -b --pretty false packages/contracts packages/protocol packages/sources apps/research-mcp",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:live": "ASKRIGOR_LIVE_TESTS=1 vitest run tests/live-smoke.test.ts",
+    "verify": "npm run typecheck && npm run test:run && npm run build",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
     "start:mcp": "node apps/research-mcp/dist/index.js"
   },
