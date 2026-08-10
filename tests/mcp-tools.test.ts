@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
+import type { IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -219,6 +220,31 @@ describe("AskRigor Streamable HTTP server", () => {
     });
   });
 
+  it("stays healthy after a client aborts a valid MCP POST before EOF", async () => {
+    await withHttpServer(
+      async (baseUrl) => {
+        await abortPartialMcpPost(new URL("/mcp", baseUrl));
+        await new Promise((resolve) => setTimeout(resolve, 25));
+
+        const response = await fetch(new URL("/healthz", baseUrl));
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({
+          status: "ok",
+          service: "askrigor-research",
+          version: "0.1.0"
+        });
+      },
+      (request) => {
+        request.once("aborted", () => {
+          const error = Object.assign(new Error("socket hang up"), {
+            code: "ECONNRESET"
+          });
+          request.emit("error", error);
+        });
+      }
+    );
+  });
+
   it("delegates GET and DELETE semantics to the installed SDK transport", async () => {
     await withHttpServer(async (baseUrl) => {
       const getResponse = await fetch(new URL("/mcp", baseUrl));
@@ -258,9 +284,13 @@ async function createInMemoryClient(): Promise<{
 }
 
 async function withHttpServer(
-  callback: (baseUrl: URL) => Promise<void>
+  callback: (baseUrl: URL) => Promise<void>,
+  observeRequest?: (request: IncomingMessage) => void
 ): Promise<void> {
   const httpServer = createAskRigorHttpServer();
+  if (observeRequest !== undefined) {
+    httpServer.on("request", observeRequest);
+  }
   await new Promise<void>((resolve, reject) => {
     httpServer.once("error", reject);
     httpServer.listen(0, "127.0.0.1", resolve);
@@ -307,5 +337,40 @@ async function sendOpenChunkedPost(
     });
 
     request.write(Buffer.alloc(byteLength, 0x20));
+  });
+}
+
+async function abortPartialMcpPost(url: URL): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(url, {
+      method: "POST",
+      headers: {
+        accept: "application/json, text/event-stream",
+        "content-type": "application/json"
+      }
+    });
+    const timeout = setTimeout(() => {
+      request.destroy();
+      reject(new Error("Timed out waiting for aborted client request to close"));
+    }, 1_000);
+    const finish = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+
+    request.once("error", finish);
+    request.once("close", finish);
+    request.once("socket", (socket) => {
+      const sendAndAbort = () => {
+        request.write('{"jsonrpc":"2.0","id":1');
+        setTimeout(() => request.destroy(), 25);
+      };
+
+      if (socket.connecting) {
+        socket.once("connect", sendAndAbort);
+      } else {
+        sendAndAbort();
+      }
+    });
   });
 }
