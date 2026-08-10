@@ -229,6 +229,56 @@ describe("ClinicalTrials.gov v2", () => {
     expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(2);
   });
 
+  it.each([
+    ["successful", 200, true],
+    ["failed", 503, false]
+  ])("starts the full freshness TTL when a delayed %s version request settles", async (
+    _kind,
+    versionStatus,
+    hasTimestamp
+  ) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2035-06-01T00:00:00Z"));
+    const [studyBody, versionBody] = await Promise.all([
+      fixture("study-NCT01234567.json"),
+      fixture("version.json")
+    ]);
+    const requests: URL[] = [];
+    let settleVersion: ((response: Response) => void) | undefined;
+    let versionStartedResolve: (() => void) | undefined;
+    const versionStarted = new Promise<void>((resolve) => {
+      versionStartedResolve = resolve;
+    });
+    vi.stubGlobal("fetch", vi.fn((input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      requests.push(request);
+      if (request.pathname !== "/api/v2/version") {
+        return Promise.resolve(new Response(studyBody, { status: 200 }));
+      }
+      if (requests.filter(({ pathname }) => pathname === "/api/v2/version").length > 1) {
+        return Promise.resolve(new Response(versionBody, { status: 200 }));
+      }
+      versionStartedResolve!();
+      return new Promise<Response>((resolve) => {
+        settleVersion = resolve;
+      });
+    }));
+
+    const firstRequest = fetchClinicalTrial("NCT01234567");
+    await versionStarted;
+    vi.advanceTimersByTime(5 * 60 * 1_000);
+    settleVersion!(new Response(versionStatus === 200 ? versionBody : "provider-secret", {
+      status: versionStatus
+    }));
+    const first = await firstRequest;
+
+    expect(first.raw_metadata === undefined).toBe(!hasTimestamp);
+    vi.advanceTimersByTime(15 * 60 * 1_000 - 1);
+    await fetchClinicalTrial("NCT01234567");
+
+    expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(1);
+  });
+
   it("uses only an explicit provider hasResults flag", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2035-01-01T00:00:00Z"));

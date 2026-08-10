@@ -276,7 +276,7 @@ const providerFreshness = async (): Promise<{ dataTimestamp?: string }> => {
         // Freshness metadata is supplementary and must not discard retrieved study data.
       }
       const cache = {
-        fetchedAt: now,
+        fetchedAt: Date.now(),
         ...(dataTimestamp === undefined ? {} : { dataTimestamp })
       };
       versionCache = cache;
