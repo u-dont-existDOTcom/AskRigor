@@ -1,0 +1,14 @@
+{
+  "header": {
+    "type": "esearch",
+    "version": "0.3"
+  },
+  "esearchresult": {
+    "count": "3",
+    "retmax": "2",
+    "retstart": "0",
+    "idlist": ["40123456", "39876543"],
+    "translationset": [],
+    "querytranslation": "example intervention[Title/Abstract]"
+  }
+}

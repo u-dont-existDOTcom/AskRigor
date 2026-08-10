@@ -1,0 +1,14 @@
+{
+  "header": {
+    "type": "esearch",
+    "version": "0.3"
+  },
+  "esearchresult": {
+    "count": "10001",
+    "retmax": "2",
+    "retstart": "9998",
+    "idlist": ["30000002", "30000001"],
+    "translationset": [],
+    "querytranslation": "broad indexed query"
+  }
+}

@@ -6,7 +6,7 @@ import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createAskRigorHttpServer,
@@ -16,7 +16,9 @@ import {
 const TOOL_NAMES = [
   "get_protocol_manifest",
   "load_protocol",
-  "verify_protocol_integrity"
+  "verify_protocol_integrity",
+  "search_pubmed",
+  "fetch_pubmed_record"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -28,11 +30,12 @@ const READ_ONLY_ANNOTATIONS = {
 const clients: Client[] = [];
 
 afterEach(async () => {
+  vi.unstubAllGlobals();
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
 
-describe("AskRigor protocol MCP tools", () => {
-  it("registers exactly the three read-only protocol tools", async () => {
+describe("AskRigor MCP tools", () => {
+  it("registers exactly the five read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -46,6 +49,95 @@ describe("AskRigor protocol MCP tools", () => {
         inputSchema.type === "object" && outputSchema?.type === "object"
       )).toBe(true);
     } finally {
+      await server.close();
+    }
+  });
+
+  it("publishes bounded PubMed input schemas and retrieval-only descriptions", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const search = tools.find(({ name }) => name === "search_pubmed")!;
+      const fetchRecord = tools.find(({ name }) => name === "fetch_pubmed_record")!;
+
+      expect(search.description).toBe(
+        "Search PubMed citations and return stable PMIDs with explicit pagination and access state; no medical conclusions are generated."
+      );
+      expect(search.inputSchema).toMatchObject({
+        type: "object",
+        required: ["query"],
+        additionalProperties: false,
+        properties: {
+          query: { type: "string", minLength: 1 },
+          page_size: { type: "integer", minimum: 1 },
+          cursor: { type: "string", minLength: 1 },
+          date_range: {
+            type: "object",
+            required: ["start", "end"],
+            additionalProperties: false
+          }
+        }
+      });
+      expect(fetchRecord.description).toBe(
+        "Retrieve one PubMed citation by PMID, preserving only metadata PubMed supplies and making no full-text or medical inference."
+      );
+      expect(fetchRecord.inputSchema).toMatchObject({
+        type: "object",
+        required: ["pmid"],
+        additionalProperties: false,
+        properties: {
+          pmid: { type: "string", pattern: "^[1-9]\\d{0,15}$" }
+        }
+      });
+      expect(search.outputSchema).toMatchObject({ type: "object" });
+      expect(fetchRecord.outputSchema).toMatchObject({ type: "object" });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns deterministic structured PubMed search results without exposing the API key", async () => {
+    const { client, server } = await createInMemoryClient();
+    const body = await readFile(
+      new URL("fixtures/pubmed/esearch-page-1.json", import.meta.url),
+      "utf8"
+    );
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+    const previous = {
+      tool: process.env.NCBI_TOOL,
+      email: process.env.NCBI_EMAIL,
+      apiKey: process.env.NCBI_API_KEY
+    };
+    process.env.NCBI_TOOL = "askrigor-mcp-tests";
+    process.env.NCBI_EMAIL = "maintainer@example.test";
+    process.env.NCBI_API_KEY = "mcp-secret-value";
+
+    try {
+      const result = await client.callTool({
+        name: "search_pubmed",
+        arguments: {
+          query: "example intervention[Title/Abstract]",
+          page_size: 2
+        }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "PubMed search returned 2 PMID record(s); access status complete."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "pubmed",
+        record_type: "pubmed_search_result",
+        access_status: "complete",
+        data: [{ pmid: "40123456" }, { pmid: "39876543" }]
+      });
+      expect(JSON.stringify(result)).not.toContain("mcp-secret-value");
+    } finally {
+      restoreEnvironment("NCBI_TOOL", previous.tool);
+      restoreEnvironment("NCBI_EMAIL", previous.email);
+      restoreEnvironment("NCBI_API_KEY", previous.apiKey);
       await server.close();
     }
   });
@@ -281,6 +373,14 @@ async function createInMemoryClient(): Promise<{
   await client.connect(clientTransport);
 
   return { client, server };
+}
+
+function restoreEnvironment(name: string, value: string | undefined): void {
+  if (value === undefined) {
+    delete process.env[name];
+  } else {
+    process.env[name] = value;
+  }
 }
 
 async function withHttpServer(
