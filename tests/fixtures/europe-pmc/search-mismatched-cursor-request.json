@@ -1,15 +1,17 @@
 {
   "version": "6.9",
   "hitCount": 3,
-  "nextCursorMark": "AoIIQGFkdmFuY2luZy1jdXJzb3I=",
+  "nextCursorMark": "AoIIQG5leHQtY3Vyc29y",
   "request": {
     "queryString": "paged records",
     "resultType": "lite",
-    "cursorMark": "AoIIQHNhbXBsZS1uZXh0LWN1cnNvcg==",
+    "cursorMark": "*",
     "pageSize": 20,
     "format": "json"
   },
   "resultList": {
-    "result": []
+    "result": [
+      { "source": "MED", "id": "40123456" }
+    ]
   }
 }

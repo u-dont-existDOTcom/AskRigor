@@ -69,7 +69,7 @@ describe("Europe PMC search", () => {
     });
   });
 
-  it("passes a returned Europe PMC cursor through unchanged", async () => {
+  it("preserves an advancing provider cursor on an empty custom-cursor page", async () => {
     const body = await fixture("search-empty.json");
     const cursor = "AoIIQHNhbXBsZS1uZXh0LWN1cnNvcg==";
     const requests: URL[] = [];
@@ -79,7 +79,7 @@ describe("Europe PMC search", () => {
     }));
 
     const result = await searchEuropePmc({
-      query: "no matching records",
+      query: "paged records",
       cursor
     });
 
@@ -89,13 +89,14 @@ describe("Europe PMC search", () => {
       cursor,
       page_size: 20,
       returned: 0,
-      exhausted: true
+      next_cursor: "AoIIQGFkdmFuY2luZy1jdXJzb3I=",
+      exhausted: false
     });
     expect(requests[0]!.searchParams.get("cursorMark")).toBe(cursor);
   });
 
   it("adds a validated inclusive publication-date range to the provider query", async () => {
-    const body = await fixture("search-empty.json");
+    const body = await fixture("search-date-range-empty.json");
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       requests.push(new URL(String(input)));
@@ -137,7 +138,7 @@ describe("Europe PMC search", () => {
   });
 
   it("returns a complete exhausted empty result rather than failed no evidence", async () => {
-    const body = await fixture("search-empty.json");
+    const body = await fixture("search-empty-initial.json");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
 
     const result = await searchEuropePmc({ query: "no matching records" });
@@ -145,6 +146,49 @@ describe("Europe PMC search", () => {
     expect(result.access_status).toBe("complete");
     expect(result.error).toBeUndefined();
     expect(result.pagination).toMatchObject({ returned: 0, exhausted: true });
+  });
+
+  it("rejects a provider response without a non-empty next cursor", async () => {
+    const body = await fixture("search-missing-cursor.json");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await searchEuropePmc({ query: "no matching records" });
+
+    expectInvalidEuropePmcResponse(result);
+  });
+
+  it.each([
+    [
+      "search-mismatched-cursor-request.json",
+      { query: "paged records", cursor: "AoIIQHNhbXBsZS1uZXh0LWN1cnNvcg==" }
+    ],
+    [
+      "search-mismatched-page-size-request.json",
+      { query: "example intervention", pageSize: 2 }
+    ],
+    [
+      "search-mismatched-query-request.json",
+      { query: "example intervention", pageSize: 2 }
+    ]
+  ])("rejects a provider response whose echoed request does not match (%s)", async (
+    fixtureName,
+    input
+  ) => {
+    const body = await fixture(fixtureName);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await searchEuropePmc(input);
+
+    expectInvalidEuropePmcResponse(result);
+  });
+
+  it("rejects an impossible initial page with hits but no records", async () => {
+    const body = await fixture("search-initial-false-empty.json");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await searchEuropePmc({ query: "false empty initial page" });
+
+    expectInvalidEuropePmcResponse(result);
   });
 
   it("returns an explicit error for a provider page inconsistent with its hit count", async () => {
@@ -189,3 +233,16 @@ describe("Europe PMC search", () => {
     expect(JSON.stringify(result)).not.toContain("quota detail");
   });
 });
+
+function expectInvalidEuropePmcResponse(result: Awaited<ReturnType<typeof searchEuropePmc>>): void {
+  expect(result).toMatchObject({
+    access_status: "error",
+    pagination: { returned: 0, exhausted: false },
+    error: {
+      code: "europe_pmc_response_invalid",
+      message: "Europe PMC response was invalid",
+      retryable: false
+    },
+    data: []
+  });
+}

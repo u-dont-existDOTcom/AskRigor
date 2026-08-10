@@ -43,7 +43,12 @@ const providerRecordSchema = z.object({
 }).passthrough();
 const searchResponseSchema = z.object({
   hitCount: z.number().int().nonnegative(),
-  nextCursorMark: z.string().min(1).optional(),
+  nextCursorMark: z.string().min(1),
+  request: z.object({
+    queryString: z.string(),
+    cursorMark: z.string().min(1),
+    pageSize: z.number().int().min(1)
+  }).passthrough(),
   resultList: z.object({
     result: z.array(providerRecordSchema)
   }).passthrough()
@@ -116,14 +121,20 @@ export const searchEuropePmc = async (
       throw new EuropePmcResponseError();
     }
 
-    const { hitCount, nextCursorMark, resultList } = parsedResponse.data;
+    const { hitCount, nextCursorMark, request, resultList } = parsedResponse.data;
     const data = resultList.result.map(normalizeRecord);
-    if (data.length > pageSize || data.length > hitCount) {
+    if (
+      request.queryString !== providerQuery ||
+      request.cursorMark !== cursorMark ||
+      request.pageSize !== pageSize ||
+      data.length > pageSize ||
+      data.length > hitCount ||
+      (cursorMark === "*" && hitCount > 0 && data.length === 0)
+    ) {
       throw new EuropePmcResponseError();
     }
 
-    const exhausted = data.length === 0 ||
-      nextCursorMark === undefined || nextCursorMark === cursorMark;
+    const exhausted = nextCursorMark === cursorMark;
 
     return okEnvelope({
       provider: "europe_pmc",
@@ -136,9 +147,7 @@ export const searchEuropePmc = async (
       rawMetadata: { hit_count: hitCount },
       pagination: {
         ...pagination,
-        ...(!exhausted && nextCursorMark !== undefined
-          ? { next_cursor: nextCursorMark }
-          : {}),
+        ...(!exhausted ? { next_cursor: nextCursorMark } : {}),
         exhausted
       },
       data
