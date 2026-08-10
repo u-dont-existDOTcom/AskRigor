@@ -17,6 +17,8 @@ import {
 
 const HRP_SHA_256 =
   "b94bda38e6f341f7e5691494643e656a10e9ced68438689ffd4b7614b487911c";
+const UNIVERSAL_SHA_256 =
+  "df324fd4900c0db26ad66b46a73986869aca8fbf05e524ecb525ad8ff5bd5cb3";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -59,6 +61,30 @@ describe("canonical protocol loader", () => {
     });
   });
 
+  it("derives the Universal manifest from its root attributes", async () => {
+    await expect(getProtocolManifest("universal")).resolves.toMatchObject({
+      name: "AskRigor.com universal saved instructions",
+      version: "20.5.10",
+      revisionDate: "2026-08-07"
+    });
+  });
+
+  it("returns the original Universal file text unchanged", async () => {
+    const original = await actualReadFile(
+      new URL("../protocols/Universal_Instructions.xml", import.meta.url),
+      "utf8"
+    );
+
+    await expect(loadProtocol("universal")).resolves.toBe(original);
+  });
+
+  it("accepts the published digest for the canonical Universal file", async () => {
+    await expect(verifyProtocolIntegrity("universal", UNIVERSAL_SHA_256)).resolves.toMatchObject({
+      name: "AskRigor.com universal saved instructions",
+      sha256: UNIVERSAL_SHA_256
+    });
+  });
+
   it("fails closed when required root attributes are absent", async () => {
     readFileMock.mockResolvedValueOnce(
       Buffer.from(
@@ -81,5 +107,11 @@ describe("canonical protocol loader", () => {
     readFileMock.mockRejectedValueOnce(new Error("permission denied"));
 
     await expect(loadProtocol("hrp")).rejects.toThrow("Unable to read protocol file");
+  });
+
+  it("fails closed when the canonical file is not valid UTF-8", async () => {
+    readFileMock.mockResolvedValueOnce(Buffer.from([0xc3, 0x28]));
+
+    await expect(loadProtocol("hrp")).rejects.toThrow("Protocol file is not valid UTF-8");
   });
 });
