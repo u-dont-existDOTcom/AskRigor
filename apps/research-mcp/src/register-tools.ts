@@ -20,10 +20,9 @@ import {
   searchPubmed,
   getYoutubeVideo,
   searchYoutube,
-  youtubeTimestampSchema,
+  youtubeSearchRecordListSchema,
   youtubeVideoDataSchema,
-  youtubeVideoFailureDataSchema,
-  youtubeVideoIdSchema
+  youtubeVideoFailureDataSchema
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -277,13 +276,6 @@ const youtubeSearchInputSchema = z.object({
     "Opaque YouTube page token returned by a previous search."
   )
 }).strict();
-const youtubeSearchRecordSchema = z.object({
-  video_id: youtubeVideoIdSchema,
-  channel_id: z.string().optional(),
-  title: z.string().optional(),
-  description: z.string().optional(),
-  published_at: youtubeTimestampSchema.optional()
-}).strict();
 const youtubeVideoSchema = z.union([
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema
@@ -299,7 +291,7 @@ const youtubeSearchEnvelopeSchema = z.object({
   limitations: z.array(z.string()),
   raw_metadata: z.object({ total_results: z.number().int().nonnegative() }).strict().optional(),
   error: errorSchema.optional(),
-  data: z.array(youtubeSearchRecordSchema)
+  data: youtubeSearchRecordListSchema
 }).strict();
 const youtubeVideoEnvelopeSchema = z.object({
   provider: z.literal("youtube"),

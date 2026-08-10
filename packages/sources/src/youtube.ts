@@ -75,6 +75,8 @@ const videoItemSchema = z.object({
 const videosResponseSchema = z.object({
   kind: z.literal("youtube#videoListResponse"),
   pageInfo: pageInfoSchema,
+  nextPageToken: z.string().min(1).max(4_096).optional(),
+  prevPageToken: z.string().min(1).max(4_096).optional(),
   items: z.array(videoItemSchema).max(1)
 }).passthrough();
 
@@ -100,6 +102,15 @@ export interface YoutubeVideo {
   embeddable?: boolean;
   privacy_status?: string;
 }
+
+export const youtubeSearchRecordSchema = z.object({
+  video_id: youtubeVideoIdSchema,
+  channel_id: channelIdSchema.optional(),
+  title: z.string().min(1).max(10_000).optional(),
+  description: z.string().max(100_000).optional(),
+  published_at: youtubeTimestampSchema.optional()
+}).strict();
+export const youtubeSearchRecordListSchema = z.array(youtubeSearchRecordSchema).max(MAX_PAGE_SIZE);
 
 export const youtubeVideoDataSchema = z.object({
   video_id: youtubeVideoIdSchema,
@@ -252,7 +263,8 @@ const isCoherentSearchResponse = (
 const isCoherentVideoResponse = (
   response: z.infer<typeof videosResponseSchema>,
   videoId: string
-): boolean => !("nextPageToken" in response)
+): boolean => response.nextPageToken === undefined
+  && response.prevPageToken === undefined
   && ((response.pageInfo.totalResults === 0
     && response.pageInfo.resultsPerPage === 0
     && response.items.length === 0)

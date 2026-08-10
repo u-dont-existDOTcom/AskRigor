@@ -47,6 +47,8 @@ export {
   youtubeDurationSchema,
   youtubeLiveStateSchema,
   youtubePrivacyStatusSchema,
+  youtubeSearchRecordListSchema,
+  youtubeSearchRecordSchema,
   youtubeTimestampSchema,
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,

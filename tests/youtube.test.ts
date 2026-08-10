@@ -187,6 +187,20 @@ describe("YouTube discovery", () => {
     });
   });
 
+  it("rejects a wrong top-level search resource kind with an otherwise valid result", async () => {
+    const response = JSON.parse(await fixture("search-page-1.json")) as Record<string, unknown>;
+    response.kind = "youtube#playlistListResponse";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), { status: 200 })));
+
+    const result = await searchYoutube({ query: "recorded subject", pageSize: 1 }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_response_invalid" },
+      data: []
+    });
+  });
+
   it.each([
     ["wrong search-result resource kind", {
       kind: "youtube#searchListResponse",
@@ -339,6 +353,26 @@ describe("YouTube discovery", () => {
     expect(result.limitations).toContain(
       "YouTube returned no API-visible video for this identifier; it may be deleted, private, restricted, or otherwise unavailable."
     );
+  });
+
+  it.each([
+    ["next-page token", (response: Record<string, unknown>) => { response.nextPageToken = "unexpected-next"; }],
+    ["previous-page token", (response: Record<string, unknown>) => { response.prevPageToken = "unexpected-previous"; }],
+    ["incoherent pageInfo total", (response: Record<string, unknown>) => { (response.pageInfo as Record<string, unknown>).totalResults = 2; }],
+    ["mismatched requested video ID", (response: Record<string, unknown>) => { (response.items as Array<Record<string, unknown>>)[0]!.id = "dQw4w9WgXcQ"; }],
+    ["wrong top-level video resource kind", (response: Record<string, unknown>) => { response.kind = "youtube#playlistListResponse"; }]
+  ])("rejects a videos.list response with an unexpected %s", async (_name, mutate) => {
+    const response = JSON.parse(await fixture("video-found.json")) as Record<string, unknown>;
+    mutate(response);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), { status: 200 })));
+
+    const result = await getYoutubeVideo("XpZHKGGCK-o", youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_response_invalid" },
+      data: {}
+    });
   });
 
   it.each([

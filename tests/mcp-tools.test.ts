@@ -101,7 +101,19 @@ describe("AskRigor MCP tools", () => {
         },
         outputSchema: { type: "object" }
       });
+      expect(search!.outputSchema.properties.data).toMatchObject({
+        type: "array",
+        maxItems: 50
+      });
+      expect(search!.outputSchema.properties.data.items).toMatchObject({
+        type: "object",
+        additionalProperties: false
+      });
       expect(search!.outputSchema.properties.data.items.properties).toMatchObject({
+        video_id: { type: "string", pattern: "^[A-Za-z0-9_-]{11}$" },
+        channel_id: { type: "string", pattern: "^UC[A-Za-z0-9_-]{22}$" },
+        title: { type: "string", minLength: 1, maxLength: 10000 },
+        description: { type: "string", maxLength: 100000 },
         published_at: { type: "string", pattern: expect.any(String) }
       });
       const videoDataVariants = video!.outputSchema.properties.data.anyOf;
@@ -111,6 +123,9 @@ describe("AskRigor MCP tools", () => {
         required: ["video_id"]
       });
       expect(videoDataVariants[0].properties.duration).toMatchObject({ type: "string", pattern: expect.any(String) });
+      expect(videoDataVariants[0].properties.video_id).toMatchObject({ pattern: "^[A-Za-z0-9_-]{11}$" });
+      expect(videoDataVariants[0].properties.statistics.properties.view_count).toMatchObject({ pattern: "^\\d+$" });
+      expect(videoDataVariants[0].properties.published_at).toMatchObject({ pattern: expect.any(String) });
       expect(videoDataVariants[0].properties.live_broadcast_content).toMatchObject({ enum: ["none", "live", "upcoming"] });
       expect(videoDataVariants[0].properties.privacy_status).toMatchObject({ enum: ["public", "private", "unlisted"] });
       expect(videoDataVariants[1]).toMatchObject({
