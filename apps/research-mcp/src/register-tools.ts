@@ -180,7 +180,7 @@ const clinicalTrialRecordSchema = z.object({
   enrollment: z.object({ count: z.number().int().nonnegative(), type: z.string().optional() }).strict().optional(),
   start_date: z.string().optional(),
   completion_date: z.string().optional(),
-  has_results: z.boolean(),
+  has_results: z.boolean().optional(),
   references: z.array(clinicalTrialReferenceSchema).optional(),
   last_update: z.string().optional()
 }).strict();

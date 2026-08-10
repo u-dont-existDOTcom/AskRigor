@@ -6,11 +6,13 @@ import {
   fetchClinicalTrial,
   searchClinicalTrials
 } from "../packages/sources/src/index.js";
+import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 
 const fixture = (name: string) =>
   readFile(new URL(`fixtures/clinical-trials/${name}`, import.meta.url), "utf8");
 
 afterEach(() => {
+  resetClinicalTrialsFreshnessCacheForTests();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -97,6 +99,7 @@ describe("ClinicalTrials.gov v2", () => {
 
   it("retains a valid trial when provider freshness retrieval fails", async () => {
     vi.useFakeTimers();
+    vi.setSystemTime(new Date("2030-01-01T00:00:00Z"));
     const studyBody = await fixture("study-NCT01234567.json");
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
@@ -119,10 +122,12 @@ describe("ClinicalTrials.gov v2", () => {
       "ClinicalTrials.gov provider freshness metadata was unavailable; study data was retrieved without a data timestamp."
     );
     expect(result.raw_metadata).toBeUndefined();
-    expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(5);
+    expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(1);
   });
 
   it("caches valid provider freshness metadata for fifteen minutes", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2031-01-01T00:00:00Z"));
     const [studyBody, versionBody] = await Promise.all([
       fixture("study-NCT01234567.json"),
       fixture("version.json")
@@ -141,6 +146,144 @@ describe("ClinicalTrials.gov v2", () => {
     await fetchClinicalTrial("NCT01234567");
 
     expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(1);
+  });
+
+  it("coalesces concurrent freshness refreshes into one version request", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2032-01-01T00:00:00Z"));
+    const [studyBody, versionBody] = await Promise.all([
+      fixture("study-NCT01234567.json"),
+      fixture("version.json")
+    ]);
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      requests.push(request);
+      return new Response(
+        request.pathname === "/api/v2/version" ? versionBody : studyBody,
+        { status: 200 }
+      );
+    }));
+
+    const results = await Promise.all([
+      fetchClinicalTrial("NCT01234567"),
+      fetchClinicalTrial("NCT01234567")
+    ]);
+
+    expect(results.map(({ access_status }) => access_status)).toEqual([
+      "api_visible_complete",
+      "api_visible_complete"
+    ]);
+    expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(1);
+  });
+
+  it("caches a failed freshness request for the full TTL without retrying it", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2033-01-01T00:00:00Z"));
+    const studyBody = await fixture("study-NCT01234567.json");
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      requests.push(request);
+      return new Response(request.pathname === "/api/v2/version" ? "provider-secret" : studyBody, {
+        status: request.pathname === "/api/v2/version" ? 503 : 200
+      });
+    }));
+
+    const first = fetchClinicalTrial("NCT01234567");
+    await vi.runAllTimersAsync();
+    const second = fetchClinicalTrial("NCT01234567");
+    await vi.runAllTimersAsync();
+    const results = await Promise.all([first, second]);
+
+    expect(results.map(({ access_status }) => access_status)).toEqual([
+      "api_visible_complete",
+      "api_visible_complete"
+    ]);
+    expect(results.every(({ raw_metadata }) => raw_metadata === undefined)).toBe(true);
+    expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(1);
+    expect(JSON.stringify(results)).not.toContain("provider-secret");
+  });
+
+  it("refreshes freshness metadata at the exact fifteen-minute expiry boundary", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2034-01-01T00:00:00Z"));
+    const [studyBody, versionBody] = await Promise.all([
+      fixture("study-NCT01234567.json"),
+      fixture("version.json")
+    ]);
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      requests.push(request);
+      return new Response(
+        request.pathname === "/api/v2/version" ? versionBody : studyBody,
+        { status: 200 }
+      );
+    }));
+
+    await fetchClinicalTrial("NCT01234567");
+    vi.advanceTimersByTime(15 * 60 * 1_000);
+    await fetchClinicalTrial("NCT01234567");
+
+    expect(requests.filter(({ pathname }) => pathname === "/api/v2/version")).toHaveLength(2);
+  });
+
+  it("uses only an explicit provider hasResults flag", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2035-01-01T00:00:00Z"));
+    const [searchBody, versionBody] = await Promise.all([
+      fixture("search-results-flags.json"),
+      fixture("version.json")
+    ]);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      return new Response(request.pathname === "/api/v2/version" ? versionBody : searchBody, {
+        status: 200
+      });
+    }));
+
+    const result = await searchClinicalTrials({ query: "results flags", pageSize: 3 });
+
+    expect(result.data).toEqual([
+      { nct_id: "NCT11111111", has_results: true },
+      { nct_id: "NCT22222222", has_results: false },
+      { nct_id: "NCT33333333" }
+    ]);
+  });
+
+  it.each([
+    ["malformed JSON", 200, "{provider-secret", "error", "clinical_trials_response_invalid", "ClinicalTrials.gov response was invalid", false],
+    ["rate limit", 429, "provider-secret", "rate_limited", "clinical_trials_rate_limited", "ClinicalTrials.gov rate limit reached", true],
+    ["unauthorized", 401, "provider-secret", "inaccessible", "clinical_trials_access_denied", "ClinicalTrials.gov access denied", false],
+    ["forbidden", 403, "provider-secret", "inaccessible", "clinical_trials_access_denied", "ClinicalTrials.gov access denied", false],
+    ["upstream failure", 503, "provider-secret", "error", "clinical_trials_upstream_unavailable", "ClinicalTrials.gov upstream service unavailable", true]
+  ])("maps %s to a sanitized explicit search envelope", async (
+    _name,
+    status,
+    body,
+    accessStatus,
+    code,
+    message,
+    retryable
+  ) => {
+    vi.useFakeTimers();
+    const upstream = vi.fn(async () => new Response(body, { status }));
+    vi.stubGlobal("fetch", upstream);
+
+    const pending = searchClinicalTrials({ query: "provider mapping" });
+    await vi.runAllTimersAsync();
+    const result = await pending;
+
+    expect(result).toMatchObject({
+      provider: "clinicaltrials_gov",
+      record_type: "clinical_trial_search_result",
+      access_status: accessStatus,
+      pagination: { page_size: 20, returned: 0, exhausted: false },
+      error: { code, message, ...(status === 200 ? {} : { http_status: status }), retryable },
+      data: []
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
   });
 
   it("rejects invalid search input and invalid NCT identifiers before fetch", async () => {

@@ -12,6 +12,7 @@ import {
   createAskRigorHttpServer,
   createAskRigorServer
 } from "../apps/research-mcp/src/server.js";
+import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 
 const TOOL_NAMES = [
   "get_protocol_manifest",
@@ -31,8 +32,12 @@ const READ_ONLY_ANNOTATIONS = {
 };
 
 const clients: Client[] = [];
+const clinicalFixture = (name: string) =>
+  readFile(new URL(`fixtures/clinical-trials/${name}`, import.meta.url), "utf8");
 
 afterEach(async () => {
+  resetClinicalTrialsFreshnessCacheForTests();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
@@ -384,6 +389,150 @@ describe("AskRigor MCP tools", () => {
       restoreEnvironment("NCBI_TOOL", previous.tool);
       restoreEnvironment("NCBI_EMAIL", previous.email);
       restoreEnvironment("NCBI_API_KEY", previous.apiKey);
+      await server.close();
+    }
+  });
+
+  it("returns a deterministic normalized ClinicalTrials.gov search result without provider URLs or bodies", async () => {
+    const { client, server } = await createInMemoryClient();
+    const [searchBody, versionBody] = await Promise.all([
+      clinicalFixture("search-page-1.json"),
+      clinicalFixture("version.json")
+    ]);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      return new Response(request.pathname === "/api/v2/version" ? versionBody : searchBody, {
+        status: 200
+      });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "search_clinical_trials",
+        arguments: { query: "example intervention", page_size: 1 }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "ClinicalTrials.gov search returned 1 study record(s); access status complete."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "clinicaltrials_gov",
+        record_type: "clinical_trial_search_result",
+        access_status: "complete",
+        pagination: { next_cursor: "provider-token+/opaque" },
+        data: [{ nct_id: "NCT01234567" }]
+      });
+      expect(JSON.stringify(result)).not.toContain("https://clinicaltrials.gov");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("marks a ClinicalTrials.gov not_found retrieval as an MCP tool error without leaking a provider body", async () => {
+    const { client, server } = await createInMemoryClient();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 404 })));
+
+    try {
+      const result = await client.callTool({
+        name: "fetch_clinical_trial",
+        arguments: { nct_id: "NCT99999999" }
+      });
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "ClinicalTrials.gov study NCT99999999 retrieval finished with access status not_found."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "clinicaltrials_gov",
+        record_type: "clinical_trial",
+        primary_identifier: "NCT99999999",
+        access_status: "not_found",
+        error: {
+          code: "clinical_trial_not_found",
+          message: "ClinicalTrials.gov study not found",
+          http_status: 404,
+          retryable: false
+        },
+        data: {}
+      });
+      expect(JSON.stringify(result)).not.toContain("provider-secret");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns a deterministic normalized ClinicalTrials.gov study retrieval result", async () => {
+    const { client, server } = await createInMemoryClient();
+    const [studyBody, versionBody] = await Promise.all([
+      clinicalFixture("study-NCT01234567.json"),
+      clinicalFixture("version.json")
+    ]);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const request = new URL(String(input));
+      return new Response(request.pathname === "/api/v2/version" ? versionBody : studyBody, {
+        status: 200
+      });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "fetch_clinical_trial",
+        arguments: { nct_id: "NCT01234567" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "ClinicalTrials.gov study NCT01234567 retrieval finished with access status api_visible_complete."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "clinicaltrials_gov",
+        record_type: "clinical_trial",
+        primary_identifier: "NCT01234567",
+        access_status: "api_visible_complete",
+        data: { nct_id: "NCT01234567" }
+      });
+      expect(JSON.stringify(result)).not.toContain("https://clinicaltrials.gov");
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("marks a ClinicalTrials.gov upstream failure as an MCP tool error", async () => {
+    const { client, server } = await createInMemoryClient();
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 503 })));
+
+    try {
+      const pending = client.callTool({
+        name: "search_clinical_trials",
+        arguments: { query: "upstream failure" }
+      });
+      await vi.runAllTimersAsync();
+      const result = await pending;
+
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "ClinicalTrials.gov search returned 0 study record(s); access status error."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "clinicaltrials_gov",
+        record_type: "clinical_trial_search_result",
+        access_status: "error",
+        error: {
+          code: "clinical_trials_upstream_unavailable",
+          message: "ClinicalTrials.gov upstream service unavailable",
+          http_status: 503,
+          retryable: true
+        },
+        data: []
+      });
+      expect(JSON.stringify(result)).not.toContain("provider-secret");
+    } finally {
       await server.close();
     }
   });

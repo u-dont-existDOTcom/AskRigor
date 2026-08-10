@@ -15,6 +15,7 @@ const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504]);
 export interface UpstreamFetchOptions
   extends Omit<RequestInit, "redirect" | "signal"> {
   timeoutMs?: number;
+  maxRetries?: 0;
 }
 
 const validateUpstreamUrl = (value: string): URL => {
@@ -111,19 +112,20 @@ const responseText = async (response: Response): Promise<string> => {
 
 export const fetchText = async (
   url: string,
-  { timeoutMs, ...init }: UpstreamFetchOptions = {},
+  { timeoutMs, maxRetries, ...init }: UpstreamFetchOptions = {},
 ): Promise<string> => {
   const upstreamUrl = validateUpstreamUrl(url);
   const signal = AbortSignal.timeout(timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const retryLimit = maxRetries === 0 ? 0 : MAX_RETRIES;
 
-  for (let retry = 0; retry <= MAX_RETRIES; retry += 1) {
+  for (let retry = 0; retry <= retryLimit; retry += 1) {
     const response = await fetch(upstreamUrl, {
       ...init,
       redirect: "error",
       signal,
     });
 
-    if (RETRYABLE_STATUSES.has(response.status) && retry < MAX_RETRIES) {
+    if (RETRYABLE_STATUSES.has(response.status) && retry < retryLimit) {
       await response.body?.cancel();
       await sleep(retryDelay(retry), signal);
       continue;

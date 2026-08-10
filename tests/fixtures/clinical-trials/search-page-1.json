@@ -1,6 +1,7 @@
 {
   "studies": [
     {
+      "hasResults": true,
       "protocolSection": {
         "identificationModule": {
           "nctId": "NCT01234567",

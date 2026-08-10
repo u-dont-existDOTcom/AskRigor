@@ -34,6 +34,7 @@ const referenceSchema = z.object({
   citation: z.string().min(1).optional()
 }).passthrough();
 const studySchema = z.object({
+  hasResults: z.boolean().optional(),
   protocolSection: z.object({
     identificationModule: z.object({
       nctId: nctIdSchema,
@@ -62,8 +63,7 @@ const studySchema = z.object({
     }).passthrough().optional(),
     armsInterventionsModule: z.object({ interventions: z.array(interventionSchema).optional() }).passthrough().optional(),
     referencesModule: z.object({ references: z.array(referenceSchema).optional() }).passthrough().optional()
-  }).passthrough(),
-  resultsSection: z.object({}).passthrough().optional()
+  }).passthrough()
 }).passthrough();
 const searchResponseSchema = z.object({
   studies: z.array(studySchema),
@@ -107,18 +107,23 @@ export interface ClinicalTrial {
   enrollment?: ClinicalTrialEnrollment;
   start_date?: string;
   completion_date?: string;
-  has_results: boolean;
+  has_results?: boolean;
   references?: ClinicalTrialReference[];
   last_update?: string;
 }
 
 interface VersionCache {
   fetchedAt: number;
-  fetchImplementation: typeof fetch;
   dataTimestamp?: string;
 }
 
 let versionCache: VersionCache | undefined;
+let versionRefresh: Promise<VersionCache> | undefined;
+
+export const resetClinicalTrialsFreshnessCacheForTests = (): void => {
+  versionCache = undefined;
+  versionRefresh = undefined;
+};
 
 export const searchClinicalTrials = async (
   input: SearchClinicalTrialsInput
@@ -253,30 +258,47 @@ const fetchClinicalTrialsJson = async (url: string): Promise<unknown> => {
 
 const providerFreshness = async (): Promise<{ dataTimestamp?: string }> => {
   const now = Date.now();
-  const currentFetch = globalThis.fetch;
-  if (
-    versionCache !== undefined &&
-    versionCache.fetchImplementation === currentFetch &&
-    now - versionCache.fetchedAt < VERSION_CACHE_MS
-  ) {
-    return { ...(versionCache.dataTimestamp === undefined ? {} : { dataTimestamp: versionCache.dataTimestamp }) };
+  if (versionCache !== undefined && now - versionCache.fetchedAt < VERSION_CACHE_MS) {
+    return freshnessResult(versionCache);
   }
 
-  let dataTimestamp: string | undefined;
-  try {
-    const response = versionResponseSchema.safeParse(await fetchClinicalTrialsJson(VERSION_URL));
-    if (response.success) {
-      dataTimestamp = response.data.dataTimestamp;
-    }
-  } catch {
-    // Freshness metadata is supplementary and must not discard retrieved study data.
+  if (versionRefresh === undefined) {
+    versionRefresh = (async (): Promise<VersionCache> => {
+      let dataTimestamp: string | undefined;
+      try {
+        const response = versionResponseSchema.safeParse(
+          await fetchJson(VERSION_URL, { maxRetries: 0 })
+        );
+        if (response.success) {
+          dataTimestamp = response.data.dataTimestamp;
+        }
+      } catch {
+        // Freshness metadata is supplementary and must not discard retrieved study data.
+      }
+      const cache = {
+        fetchedAt: now,
+        ...(dataTimestamp === undefined ? {} : { dataTimestamp })
+      };
+      versionCache = cache;
+      return cache;
+    })();
   }
-  versionCache = { fetchedAt: now, fetchImplementation: currentFetch, ...(dataTimestamp === undefined ? {} : { dataTimestamp }) };
-  return dataTimestamp === undefined ? {} : { dataTimestamp };
+
+  const refresh = versionRefresh;
+  try {
+    return freshnessResult(await refresh);
+  } finally {
+    if (versionRefresh === refresh) {
+      versionRefresh = undefined;
+    }
+  }
 };
 
+const freshnessResult = (cache: VersionCache): { dataTimestamp?: string } =>
+  cache.dataTimestamp === undefined ? {} : { dataTimestamp: cache.dataTimestamp };
+
 const normalizeStudy = (study: z.infer<typeof studySchema>): ClinicalTrial => {
-  const { protocolSection, resultsSection } = study;
+  const { protocolSection } = study;
   const identification = protocolSection.identificationModule;
   const status = protocolSection.statusModule;
   const design = protocolSection.designModule;
@@ -302,7 +324,7 @@ const normalizeStudy = (study: z.infer<typeof studySchema>): ClinicalTrial => {
       : { enrollment: normalizeEnrollment(design.enrollmentInfo) }),
     ...definedString("start_date", status?.startDateStruct?.date),
     ...definedString("completion_date", status?.completionDateStruct?.date),
-    has_results: resultsSection !== undefined,
+    ...(study.hasResults === undefined ? {} : { has_results: study.hasResults }),
     ...(references === undefined ? {} : { references: references.map(normalizeReference) }),
     ...definedString(
       "last_update",
