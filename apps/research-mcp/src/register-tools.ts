@@ -11,7 +11,9 @@ import {
   type ProtocolName
 } from "@askrigor/protocol";
 import {
+  fetchClinicalTrial,
   fetchPubmedRecord,
+  searchClinicalTrials,
   searchEuropePmc,
   searchPubmed
 } from "@askrigor/sources";
@@ -148,6 +150,69 @@ const europePmcSearchEnvelopeSchema = z.object({
   error: errorSchema.optional(),
   data: z.array(europePmcRecordSchema)
 }).strict();
+const searchClinicalTrialsInputSchema = z.object({
+  query: z.string().trim().min(1).max(5_000).describe("ClinicalTrials.gov search query."),
+  page_size: z.number().int().min(1).max(100).optional().describe(
+    "Requested studies per page; allowed range is 1 through 100."
+  ),
+  page_token: z.string().min(1).max(4_096).optional().describe(
+    "Provider page token returned by a previous ClinicalTrials.gov search."
+  )
+}).strict();
+const clinicalTrialInterventionSchema = z.object({
+  type: z.string().optional(),
+  name: z.string().optional()
+}).strict();
+const clinicalTrialReferenceSchema = z.object({
+  pmid: z.string().optional(),
+  type: z.string().optional(),
+  citation: z.string().optional()
+}).strict();
+const clinicalTrialRecordSchema = z.object({
+  nct_id: z.string().regex(/^NCT\d{8}$/),
+  title: z.string().optional(),
+  status: z.string().optional(),
+  study_type: z.string().optional(),
+  phases: z.array(z.string()).optional(),
+  conditions: z.array(z.string()).optional(),
+  interventions: z.array(clinicalTrialInterventionSchema).optional(),
+  sponsors: z.array(z.string()).optional(),
+  enrollment: z.object({ count: z.number().int().nonnegative(), type: z.string().optional() }).strict().optional(),
+  start_date: z.string().optional(),
+  completion_date: z.string().optional(),
+  has_results: z.boolean(),
+  references: z.array(clinicalTrialReferenceSchema).optional(),
+  last_update: z.string().optional()
+}).strict();
+const clinicalTrialsRawMetadataSchema = z.object({
+  data_timestamp: z.string()
+}).strict();
+const clinicalTrialsSearchEnvelopeSchema = z.object({
+  provider: z.literal("clinicaltrials_gov"),
+  record_type: z.literal("clinical_trial_search_result"),
+  retrieved_at: z.string(),
+  query: z.object({ query: z.string() }).strict(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  raw_metadata: clinicalTrialsRawMetadataSchema.optional(),
+  error: errorSchema.optional(),
+  data: z.array(clinicalTrialRecordSchema)
+}).strict();
+const clinicalTrialEnvelopeSchema = z.object({
+  provider: z.literal("clinicaltrials_gov"),
+  record_type: z.literal("clinical_trial"),
+  primary_identifier: z.string().regex(/^NCT\d{8}$/),
+  retrieved_at: z.string(),
+  source_identity: sourceIdentitySchema,
+  pagination: paginationSchema,
+  access_status: accessStatusSchema,
+  limitations: z.array(z.string()),
+  raw_metadata: clinicalTrialsRawMetadataSchema.optional(),
+  error: errorSchema.optional(),
+  data: clinicalTrialRecordSchema.or(z.object({}).strict())
+}).strict();
 
 const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
   readOnlyHint: true,
@@ -158,6 +223,8 @@ const DEFAULT_PUBMED_PAGE_SIZE = 20;
 const MAX_PUBMED_PAGE_SIZE = 100;
 const DEFAULT_EUROPE_PMC_PAGE_SIZE = 20;
 const MAX_EUROPE_PMC_PAGE_SIZE = 100;
+const DEFAULT_CLINICAL_TRIALS_PAGE_SIZE = 20;
+const MAX_CLINICAL_TRIALS_PAGE_SIZE = 100;
 const PUBMED_EFETCH_LIMITATION =
   "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated.";
 
@@ -345,6 +412,62 @@ export function registerTools(server: McpServer): void {
       }
     }
   );
+
+  server.registerTool(
+    "search_clinical_trials",
+    {
+      description:
+        "Search ClinicalTrials.gov studies with provider pagination and explicit access state; no medical conclusions are generated.",
+      inputSchema: searchClinicalTrialsInputSchema,
+      outputSchema: clinicalTrialsSearchEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ query, page_size, page_token }) => {
+      try {
+        const result = await searchClinicalTrials({
+          query,
+          ...(page_size === undefined ? {} : { pageSize: page_size }),
+          ...(page_token === undefined ? {} : { pageToken: page_token })
+        });
+        return clinicalTrialsToolResult(
+          `ClinicalTrials.gov search returned ${result.pagination.returned} study record(s); access status ${result.access_status}.`,
+          result
+        );
+      } catch (error) {
+        return clinicalTrialsToolResult(
+          "ClinicalTrials.gov search retrieval failed; access status error.",
+          clinicalTrialsSearchFailure(query, page_size, page_token, error)
+        );
+      }
+    }
+  );
+
+  server.registerTool(
+    "fetch_clinical_trial",
+    {
+      description:
+        "Retrieve one ClinicalTrials.gov study by NCT ID, preserving supplied metadata without medical inference.",
+      inputSchema: z.object({
+        nct_id: z.string().regex(/^NCT\d{8}$/).describe("ClinicalTrials.gov NCT identifier.")
+      }).strict(),
+      outputSchema: clinicalTrialEnvelopeSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async ({ nct_id }) => {
+      try {
+        const result = await fetchClinicalTrial(nct_id);
+        return clinicalTrialsToolResult(
+          `ClinicalTrials.gov study ${nct_id} retrieval finished with access status ${result.access_status}.`,
+          result
+        );
+      } catch (error) {
+        return clinicalTrialsToolResult(
+          `ClinicalTrials.gov study ${nct_id} retrieval failed; access status error.`,
+          clinicalTrialFailure(nct_id, error)
+        );
+      }
+    }
+  );
 }
 
 async function verifyIntegrity(
@@ -378,6 +501,17 @@ function pubmedToolResult(
 }
 
 function europePmcToolResult(
+  text: string,
+  structuredContent: object & { error?: unknown }
+): CallToolResult {
+  return {
+    content: [{ type: "text", text }],
+    structuredContent: { ...structuredContent },
+    ...(structuredContent.error === undefined ? {} : { isError: true })
+  };
+}
+
+function clinicalTrialsToolResult(
   text: string,
   structuredContent: object & { error?: unknown }
 ): CallToolResult {
@@ -463,6 +597,45 @@ function europePmcSearchFailure(
     message: "Europe PMC operation failed",
     retryable: false,
     data: []
+  });
+}
+
+function clinicalTrialsSearchFailure(
+  query: string,
+  pageSize: number | undefined,
+  pageToken: string | undefined,
+  _error: unknown
+) {
+  return errorEnvelope({
+    provider: "clinicaltrials_gov",
+    recordType: "clinical_trial_search_result",
+    query: { query },
+    pagination: {
+      ...(pageToken === undefined ? {} : { cursor: pageToken }),
+      page_size: Math.min(pageSize ?? DEFAULT_CLINICAL_TRIALS_PAGE_SIZE, MAX_CLINICAL_TRIALS_PAGE_SIZE),
+      exhausted: false
+    },
+    returned: 0,
+    accessStatus: "error",
+    code: "clinical_trials_tool_failed",
+    message: "ClinicalTrials.gov operation failed",
+    retryable: false,
+    data: []
+  });
+}
+
+function clinicalTrialFailure(nctId: string, _error: unknown) {
+  return errorEnvelope({
+    provider: "clinicaltrials_gov",
+    recordType: "clinical_trial",
+    primaryIdentifier: nctId,
+    pagination: { exhausted: false },
+    returned: 0,
+    accessStatus: "error",
+    code: "clinical_trials_tool_failed",
+    message: "ClinicalTrials.gov operation failed",
+    retryable: false,
+    data: {}
   });
 }
 

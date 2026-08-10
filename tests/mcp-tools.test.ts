@@ -19,7 +19,9 @@ const TOOL_NAMES = [
   "verify_protocol_integrity",
   "search_pubmed",
   "fetch_pubmed_record",
-  "search_europe_pmc"
+  "search_europe_pmc",
+  "search_clinical_trials",
+  "fetch_clinical_trial"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -36,7 +38,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the six read-only retrieval tools", async () => {
+  it("registers exactly the eight read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -123,6 +125,47 @@ describe("AskRigor MCP tools", () => {
               additionalProperties: false
             }
           }
+        },
+        outputSchema: { type: "object" }
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("publishes bounded ClinicalTrials.gov search and study retrieval schemas", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const search = tools.find(({ name }) => name === "search_clinical_trials");
+      const fetchStudy = tools.find(({ name }) => name === "fetch_clinical_trial");
+
+      expect(search).toMatchObject({
+        description:
+          "Search ClinicalTrials.gov studies with provider pagination and explicit access state; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["query"],
+          additionalProperties: false,
+          properties: {
+            query: { type: "string", minLength: 1 },
+            page_size: { type: "integer", minimum: 1, maximum: 100 },
+            page_token: { type: "string", minLength: 1 }
+          }
+        },
+        outputSchema: { type: "object" }
+      });
+      expect(fetchStudy).toMatchObject({
+        description:
+          "Retrieve one ClinicalTrials.gov study by NCT ID, preserving supplied metadata without medical inference.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["nct_id"],
+          additionalProperties: false,
+          properties: { nct_id: { type: "string", pattern: "^NCT\\d{8}$" } }
         },
         outputSchema: { type: "object" }
       });

@@ -21,3 +21,12 @@ export {
   type EuropePmcRecord,
   type SearchEuropePmcInput
 } from "./europe-pmc.js";
+export {
+  fetchClinicalTrial,
+  searchClinicalTrials,
+  type ClinicalTrial,
+  type ClinicalTrialEnrollment,
+  type ClinicalTrialIntervention,
+  type ClinicalTrialReference,
+  type SearchClinicalTrialsInput
+} from "./clinical-trials.js";
