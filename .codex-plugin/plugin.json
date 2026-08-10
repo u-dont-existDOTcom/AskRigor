@@ -1,0 +1,16 @@
+{
+  "name": "askrigor",
+  "version": "0.1.0",
+  "description": "Rigorous health and research workflows with deterministic scholarly and community-source retrieval.",
+  "repository": "https://github.com/u-dont-existDOTcom/AskRigor",
+  "keywords": ["research", "health", "evidence", "pubmed", "youtube"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AskRigor",
+    "shortDescription": "Evidence-first research with auditable source retrieval",
+    "developerName": "AskRigor",
+    "category": "Productivity",
+    "capabilities": ["Read"],
+    "websiteURL": "https://askrigor.com"
+  }
+}
