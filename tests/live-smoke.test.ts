@@ -6,7 +6,8 @@ import {
   resolveDoi,
   searchClinicalTrials,
   searchEuropePmc,
-  searchPubmed
+  searchPubmed,
+  type YoutubeCommentRetrievalRuntime
 } from "../packages/sources/src/index.js";
 
 const live = process.env.ASKRIGOR_LIVE_TESTS === "1";
@@ -15,6 +16,18 @@ const crossrefMailto = process.env.CROSSREF_MAILTO?.trim();
 const youtubeApiKey = process.env.YOUTUBE_API_KEY?.trim();
 const youtubeVideoId = process.env.ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID?.trim();
 const LIVE_TIMEOUT_MS = 30_000;
+const YOUTUBE_SMOKE_RUNTIME: YoutubeCommentRetrievalRuntime = {
+  budgets: {
+    maxProviderRequestAttempts: 30,
+    maxCommentThreadPages: 2,
+    maxReplyPages: 20,
+    maxThreads: 200,
+    maxComments: 500,
+    maxNormalizedOutputBytes: 2 * 1_024 * 1_024,
+    maxTextBytes: 1_024 * 1_024,
+    maxElapsedMs: 20_000
+  }
+};
 
 describe.runIf(live)("live provider smoke tests", () => {
   it.skipIf(ncbiEmail === undefined || ncbiEmail.length === 0)(
@@ -93,7 +106,7 @@ describe.runIf(live)("live provider smoke tests", () => {
       const comments = await getYoutubeComments({
         video: youtubeVideoId!,
         pageSize: 100
-      }, config);
+      }, config, YOUTUBE_SMOKE_RUNTIME);
 
       expect(comments.access_status).toBe("api_visible_complete");
       expect(comments.pagination.exhausted).toBe(true);

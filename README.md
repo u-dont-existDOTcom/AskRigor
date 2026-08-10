@@ -11,9 +11,11 @@ source adapters; it does not provide medical interpretation or treatment advice.
 - Run the deterministic fixture suite with `npm run test:run`
 - Run the release verification sequence with `npm run verify`
 
-The default test commands do not use the network or provider quota. They replay
-recorded fixtures and verify stable identifiers, explicit access states,
-pagination/reply reconciliation, and data-derived protocol manifests.
+The default test commands do not contact external providers or consume provider
+quota. They replay recorded fixtures and verify stable identifiers, explicit
+access states, pagination/reply reconciliation, and data-derived protocol
+manifests. MCP transport tests do bind a temporary localhost loopback server;
+that local socket is not external provider access.
 
 ## Opt-in live provider smoke tests
 
@@ -33,9 +35,16 @@ comment counts.
 - Crossref runs only when `CROSSREF_MAILTO` is present.
 - YouTube runs only when both `YOUTUBE_API_KEY` and
   `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` are present; otherwise it reports a clear
-  skip. Choose a bounded public video whose comments are enabled. When it runs,
-  the test requires API-visible page exhaustion and top-level/reply
-  reconciliation without asserting an exact comment count.
+  skip. Choose a deliberately bounded public video whose comments are enabled.
+  The adapter—not merely the Vitest timeout—is capped at 30 provider attempts,
+  2 top-level-comment pages, 20 independent reply pages, 200 top-level threads,
+  500 total comments/replies, 1 MiB of normalized text, 2 MiB of normalized
+  output, and 20 seconds elapsed. The surrounding test timeout is 30 seconds.
+  When it runs, the test requires API-visible page exhaustion and
+  top-level/reply reconciliation without asserting an exact changing count. If
+  the selected video exceeds a ceiling, becomes unavailable, or disables
+  comments, the smoke test fails truthfully; select a smaller fitting public
+  comments-enabled video rather than treating the partial result as complete.
 
 For example, after setting values in your shell or secret manager:
 
