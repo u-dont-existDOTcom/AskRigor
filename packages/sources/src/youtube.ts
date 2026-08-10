@@ -15,8 +15,16 @@ const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 const VIDEO_NOT_VISIBLE_LIMITATION =
   "YouTube returned no API-visible video for this identifier; it may be deleted, private, restricted, or otherwise unavailable.";
 
-const videoIdSchema = z.string().regex(VIDEO_ID_PATTERN);
-const channelIdSchema = z.string().min(1).max(200);
+const RFC3339_PATTERN = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d(?:\.\d+)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/;
+const ISO_DURATION_PATTERN = /^P(?=\d|T\d)(?:\d+D)?(?:T(?=\d)(?:\d+H)?(?:\d+M)?(?:\d+(?:\.\d+)?S)?)?$/;
+
+export const youtubeVideoIdSchema = z.string().regex(VIDEO_ID_PATTERN);
+export const youtubeTimestampSchema = z.string().regex(RFC3339_PATTERN).refine(isValidRfc3339);
+export const youtubeDurationSchema = z.string().regex(ISO_DURATION_PATTERN);
+export const youtubeCountSchema = z.string().regex(/^\d+$/);
+export const youtubeLiveStateSchema = z.enum(["none", "live", "upcoming"]);
+export const youtubePrivacyStatusSchema = z.enum(["public", "private", "unlisted"]);
+const channelIdSchema = z.string().regex(/^UC[A-Za-z0-9_-]{22}$/);
 const apiKeySchema = z.string().trim().min(1).max(500);
 const searchInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000),
@@ -24,23 +32,24 @@ const searchInputSchema = z.object({
   cursor: z.string().min(1).max(4_096).optional()
 }).strict();
 const snippetSchema = z.object({
-  publishedAt: z.string().datetime().optional(),
+  publishedAt: youtubeTimestampSchema.optional(),
   channelId: channelIdSchema.optional(),
-  title: z.string().max(10_000).optional(),
+  title: z.string().min(1).max(10_000).optional(),
   description: z.string().max(100_000).optional(),
-  tags: z.array(z.string().max(500)).optional(),
-  liveBroadcastContent: z.string().max(100).optional()
+  tags: z.array(z.string().min(1).max(500)).optional(),
+  liveBroadcastContent: youtubeLiveStateSchema.optional()
 }).passthrough();
 const searchItemSchema = z.object({
+  kind: z.literal("youtube#searchResult"),
   id: z.object({
     kind: z.literal("youtube#video"),
-    videoId: videoIdSchema
+    videoId: youtubeVideoIdSchema
   }).strict(),
   snippet: snippetSchema
 }).passthrough();
 const pageInfoSchema = z.object({
   totalResults: z.number().int().nonnegative(),
-  resultsPerPage: z.number().int().min(1).max(MAX_PAGE_SIZE)
+  resultsPerPage: z.number().int().min(0).max(MAX_PAGE_SIZE)
 }).passthrough();
 const searchResponseSchema = z.object({
   kind: z.literal("youtube#searchListResponse"),
@@ -49,17 +58,18 @@ const searchResponseSchema = z.object({
   items: z.array(searchItemSchema)
 }).passthrough();
 const videoItemSchema = z.object({
-  id: videoIdSchema,
+  kind: z.literal("youtube#video"),
+  id: youtubeVideoIdSchema,
   snippet: snippetSchema,
-  contentDetails: z.object({ duration: z.string().min(1).max(100).optional() }).passthrough().optional(),
+  contentDetails: z.object({ duration: youtubeDurationSchema.optional() }).passthrough().optional(),
   statistics: z.object({
-    viewCount: z.string().regex(/^\d+$/).optional(),
-    likeCount: z.string().regex(/^\d+$/).optional(),
-    commentCount: z.string().regex(/^\d+$/).optional()
+    viewCount: youtubeCountSchema.optional(),
+    likeCount: youtubeCountSchema.optional(),
+    commentCount: youtubeCountSchema.optional()
   }).passthrough().optional(),
   status: z.object({
     embeddable: z.boolean().optional(),
-    privacyStatus: z.string().min(1).max(100).optional()
+    privacyStatus: youtubePrivacyStatusSchema.optional()
   }).passthrough().optional()
 }).passthrough();
 const videosResponseSchema = z.object({
@@ -91,35 +101,34 @@ export interface YoutubeVideo {
   privacy_status?: string;
 }
 
+export const youtubeVideoDataSchema = z.object({
+  video_id: youtubeVideoIdSchema,
+  channel_id: channelIdSchema.optional(),
+  title: z.string().min(1).max(10_000).optional(),
+  description: z.string().max(100_000).optional(),
+  published_at: youtubeTimestampSchema.optional(),
+  duration: youtubeDurationSchema.optional(),
+  statistics: z.object({
+    view_count: youtubeCountSchema.optional(),
+    like_count: youtubeCountSchema.optional(),
+    comment_count: youtubeCountSchema.optional()
+  }).strict().optional(),
+  tags: z.array(z.string().min(1).max(500)).optional(),
+  live_broadcast_content: youtubeLiveStateSchema.optional(),
+  embeddable: z.boolean().optional(),
+  privacy_status: youtubePrivacyStatusSchema.optional()
+}).strict();
+export const youtubeVideoFailureDataSchema = z.object({}).strict();
+
 export const parseYoutubeVideoId = (input: string): string | undefined => {
   if (typeof input !== "string") return undefined;
   if (VIDEO_ID_PATTERN.test(input)) return input;
-  if (input.length === 0 || input.length > 2_048 || input.includes("%")) return undefined;
-
-  let url: URL;
-  try {
-    url = new URL(input);
-  } catch {
-    return undefined;
-  }
-  const authority = input.slice("https://".length).split(/[/?#]/, 1)[0] ?? "";
-  if (url.protocol !== "https:" || url.username || url.password || url.port || authority.includes(":")) return undefined;
-  if (input.includes("#")) return undefined;
-
-  if (url.hostname === "youtu.be") {
-    if (input.includes("?") || !/^\/[A-Za-z0-9_-]{11}$/.test(url.pathname)) return undefined;
-    return url.pathname.slice(1);
-  }
-  if (url.hostname !== "www.youtube.com") return undefined;
-  if (url.pathname === "/watch") {
-    if (url.searchParams.size !== 1 || url.searchParams.getAll("v").length !== 1) return undefined;
-    const id = url.searchParams.get("v");
-    return id !== null && VIDEO_ID_PATTERN.test(id) ? id : undefined;
-  }
-  if (/^\/shorts\/[A-Za-z0-9_-]{11}$/.test(url.pathname) && !input.includes("?")) {
-    return url.pathname.slice("/shorts/".length);
-  }
-  return undefined;
+  const youtuBe = /^https:\/\/youtu\.be\/([A-Za-z0-9_-]{11})$/.exec(input);
+  if (youtuBe !== null) return youtuBe[1];
+  const watch = /^https:\/\/www\.youtube\.com\/watch\?v=([A-Za-z0-9_-]{11})$/.exec(input);
+  if (watch !== null) return watch[1];
+  const shorts = /^https:\/\/www\.youtube\.com\/shorts\/([A-Za-z0-9_-]{11})$/.exec(input);
+  return shorts?.[1];
 };
 
 export const searchYoutube = async (
@@ -165,7 +174,7 @@ export const searchYoutube = async (
       data: records
     });
   } catch (error) {
-    return searchError(youtubeFailure(error), input, pagination, error);
+    return searchError(youtubeFailure(error, "search"), input, pagination, error);
   }
 };
 
@@ -184,12 +193,11 @@ export const getYoutubeVideo = async (
     url.searchParams.set("id", videoId);
     url.searchParams.set("key", parsedConfig.data);
     const parsedResponse = videosResponseSchema.safeParse(await fetchJson(url.toString()));
-    if (!parsedResponse.success || parsedResponse.data.pageInfo.resultsPerPage !== 1) {
+    if (!parsedResponse.success || !isCoherentVideoResponse(parsedResponse.data, videoId)) {
       throw new YoutubeResponseError();
     }
     if (parsedResponse.data.items.length === 0) return videoError("youtube_video_not_visible", videoId);
     const item = parsedResponse.data.items[0]!;
-    if (item.id !== videoId || parsedResponse.data.pageInfo.totalResults !== 1) throw new YoutubeResponseError();
     const video = normalizeVideo(item);
     return okEnvelope({
       provider: "youtube",
@@ -205,7 +213,7 @@ export const getYoutubeVideo = async (
       data: video
     });
   } catch (error) {
-    return videoError(youtubeFailure(error), videoId, error);
+    return videoError(youtubeFailure(error, "video"), videoId, error);
   }
 };
 
@@ -234,11 +242,24 @@ const isCoherentSearchResponse = (
   response: z.infer<typeof searchResponseSchema>,
   pageSize: number,
   cursor: string | undefined
-): boolean => response.pageInfo.resultsPerPage === pageSize
+): boolean => response.pageInfo.resultsPerPage === response.items.length
   && response.items.length <= pageSize
   && response.pageInfo.totalResults >= response.items.length
   && !(response.pageInfo.totalResults === 0 && response.nextPageToken !== undefined)
+  && !(response.nextPageToken !== undefined && response.pageInfo.totalResults <= response.items.length)
   && (response.nextPageToken === undefined || response.nextPageToken !== cursor);
+
+const isCoherentVideoResponse = (
+  response: z.infer<typeof videosResponseSchema>,
+  videoId: string
+): boolean => !("nextPageToken" in response)
+  && ((response.pageInfo.totalResults === 0
+    && response.pageInfo.resultsPerPage === 0
+    && response.items.length === 0)
+    || (response.pageInfo.totalResults === 1
+      && response.pageInfo.resultsPerPage === 1
+      && response.items.length === 1
+      && response.items[0]!.id === videoId));
 
 type YoutubeFailureCode =
   | "youtube_api_key_missing"
@@ -252,12 +273,12 @@ type YoutubeFailureCode =
   | "youtube_upstream_unavailable"
   | "youtube_request_failed";
 
-const youtubeFailure = (error: unknown): YoutubeFailureCode => {
+const youtubeFailure = (error: unknown, operation: "search" | "video"): YoutubeFailureCode => {
   if (error instanceof YoutubeResponseError || (error instanceof Error && error.message === "Invalid upstream JSON response")) {
     return "youtube_response_invalid";
   }
   const status = httpStatus(error);
-  if (status === 404) return "youtube_video_not_found";
+  if (status === 404 && operation === "video" && upstreamReason(error) === "videoNotFound") return "youtube_video_not_found";
   if (status === 429 || upstreamReason(error) === "quotaExceeded") return "youtube_rate_limited";
   if (status === 401 || status === 403) return "youtube_access_denied";
   if (status !== undefined && status >= 500) return "youtube_upstream_unavailable";
@@ -330,6 +351,14 @@ const httpStatus = (error: unknown): number | undefined => error instanceof Upst
   ? error.status
   : error instanceof Error ? Number(/^Upstream request failed with status (\d{3})$/.exec(error.message)?.[1]) || undefined : undefined;
 const upstreamReason = (error: unknown): string | undefined => error instanceof UpstreamHttpError ? error.reason : undefined;
+function isValidRfc3339(value: string): boolean {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T/.exec(value);
+  if (match === null) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
 const statistics = (value: z.infer<typeof videoItemSchema>["statistics"]): Partial<Pick<YoutubeVideo, "statistics">> => {
   if (value?.viewCount === undefined && value?.likeCount === undefined && value?.commentCount === undefined) return {};
   return { statistics: {

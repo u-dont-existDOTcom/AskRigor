@@ -19,7 +19,11 @@ import {
   searchEuropePmc,
   searchPubmed,
   getYoutubeVideo,
-  searchYoutube
+  searchYoutube,
+  youtubeTimestampSchema,
+  youtubeVideoDataSchema,
+  youtubeVideoFailureDataSchema,
+  youtubeVideoIdSchema
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -274,29 +278,16 @@ const youtubeSearchInputSchema = z.object({
   )
 }).strict();
 const youtubeSearchRecordSchema = z.object({
-  video_id: z.string().regex(/^[A-Za-z0-9_-]{11}$/),
+  video_id: youtubeVideoIdSchema,
   channel_id: z.string().optional(),
   title: z.string().optional(),
   description: z.string().optional(),
-  published_at: z.string().optional()
+  published_at: youtubeTimestampSchema.optional()
 }).strict();
-const youtubeVideoSchema = z.object({
-  video_id: z.string().regex(/^[A-Za-z0-9_-]{11}$/).optional(),
-  channel_id: z.string().optional(),
-  title: z.string().optional(),
-  description: z.string().optional(),
-  published_at: z.string().optional(),
-  duration: z.string().optional(),
-  statistics: z.object({
-    view_count: z.string().optional(),
-    like_count: z.string().optional(),
-    comment_count: z.string().optional()
-  }).strict().optional(),
-  tags: z.array(z.string()).optional(),
-  live_broadcast_content: z.string().optional(),
-  embeddable: z.boolean().optional(),
-  privacy_status: z.string().optional()
-}).strict();
+const youtubeVideoSchema = z.union([
+  youtubeVideoDataSchema,
+  youtubeVideoFailureDataSchema
+]);
 const youtubeSearchEnvelopeSchema = z.object({
   provider: z.literal("youtube"),
   record_type: z.literal("youtube_search_result"),

@@ -1,6 +1,6 @@
 {
   "kind": "youtube#searchListResponse",
   "etag": "fixture-empty-search",
-  "pageInfo": { "totalResults": 0, "resultsPerPage": 10 },
+  "pageInfo": { "totalResults": 0, "resultsPerPage": 0 },
   "items": []
 }

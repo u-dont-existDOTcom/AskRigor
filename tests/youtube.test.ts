@@ -40,6 +40,15 @@ describe("YouTube discovery", () => {
     "https://www.youtube.com:444/watch?v=XpZHKGGCK-o",
     "https://www.youtube.com/watch?v=XpZHKGGCK%2Do",
     "https://www.youtube.com/watch?v=%",
+    " https://www.youtube.com/watch?v=XpZHKGGCK-o",
+    "https://www.youtube.com/watch?v=XpZHKGGCK-o ",
+    "HTTPS://www.youtube.com/watch?v=XpZHKGGCK-o",
+    "https://WWW.YOUTUBE.COM/watch?v=XpZHKGGCK-o",
+    "https://www.youtube.com/watch?v=XpZHKGGCK-o&",
+    "https://www.youtube.com/watch?v=XpZHKGGCK-o#",
+    "https://www.youtube.com\\watch?v=XpZHKGGCK-o",
+    "https://youtu.be/XpZHKGGCK-o/../XpZHKGGCK-o",
+    "https://www.youtube.com:443/watch?v=XpZHKGGCK-o",
     "not-a-video-id"
   ])("rejects hostile or malformed video input %s", (input) => {
     expect(parseYoutubeVideoId(input)).toBeUndefined();
@@ -126,6 +135,42 @@ describe("YouTube discovery", () => {
     expect(result.error).toBeUndefined();
   });
 
+  it("accepts a provider-valid partial final search page below the requested maximum", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      await fixture("search-partial-final.json"), { status: 200 }
+    )));
+
+    const result = await searchYoutube({ query: "recorded subject", pageSize: 5 }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "complete",
+      pagination: { page_size: 5, returned: 1, exhausted: true },
+      raw_metadata: { total_results: 2 },
+      data: [{ video_id: "XpZHKGGCK-o", title: "Recorded final page video" }]
+    });
+  });
+
+  it("rejects an impossible search continuation token rather than reporting completeness", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      kind: "youtube#searchListResponse",
+      nextPageToken: "impossible-next-page",
+      pageInfo: { totalResults: 1, resultsPerPage: 1 },
+      items: [{
+        kind: "youtube#searchResult",
+        id: { kind: "youtube#video", videoId: "XpZHKGGCK-o" },
+        snippet: { publishedAt: "2025-01-02T03:04:05Z" }
+      }]
+    }), { status: 200 })));
+
+    const result = await searchYoutube({ query: "recorded subject", pageSize: 1 }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_response_invalid" },
+      data: []
+    });
+  });
+
   it("treats malformed search payloads as errors rather than complete results", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       kind: "youtube#searchListResponse",
@@ -142,6 +187,39 @@ describe("YouTube discovery", () => {
     });
   });
 
+  it.each([
+    ["wrong search-result resource kind", {
+      kind: "youtube#searchListResponse",
+      pageInfo: { totalResults: 1, resultsPerPage: 1 },
+      items: [{
+        kind: "youtube#searchResult",
+        id: { kind: "youtube#video", videoId: "XpZHKGGCK-o" },
+        snippet: { publishedAt: "2025-01-02T03:04:05Z" }
+      }]
+    }, "youtube#channel"],
+    ["malformed search timestamp", {
+      kind: "youtube#searchListResponse",
+      pageInfo: { totalResults: 1, resultsPerPage: 1 },
+      items: [{
+        kind: "youtube#searchResult",
+        id: { kind: "youtube#video", videoId: "XpZHKGGCK-o" },
+        snippet: { publishedAt: "not-a-timestamp" }
+      }]
+    }, undefined]
+  ])("rejects a %s rather than reporting a complete search", async (_name, base, wrongKind) => {
+    const response = structuredClone(base);
+    if (wrongKind !== undefined) response.items[0]!.kind = wrongKind;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), { status: 200 })));
+
+    const result = await searchYoutube({ query: "recorded subject" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_response_invalid" },
+      data: []
+    });
+  });
+
   it("maps a structured quota error to rate_limited without exposing provider text", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       error: { errors: [{ reason: "quotaExceeded", message: "provider-secret" }] }
@@ -152,6 +230,19 @@ describe("YouTube discovery", () => {
     expect(result).toMatchObject({
       access_status: "rate_limited",
       error: { code: "youtube_rate_limited", message: "YouTube rate limit reached", http_status: 403 }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
+  it("keeps a search 404 as a sanitized search failure rather than a video not-found result", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", { status: 404 })));
+
+    const result = await searchYoutube({ query: "recorded subject" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_request_failed", message: "YouTube request failed", http_status: 404 },
+      data: []
     });
     expect(JSON.stringify(result)).not.toContain("provider-secret");
   });
@@ -203,7 +294,9 @@ describe("YouTube discovery", () => {
   });
 
   it("marks a confirmed 404 video response as not_found", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response("missing", { status: 404 })));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      error: { errors: [{ reason: "videoNotFound", message: "provider-secret" }] }
+    }), { status: 404 })));
 
     const result = await getYoutubeVideo("XpZHKGGCK-o", youtubeConfig);
 
@@ -212,6 +305,23 @@ describe("YouTube discovery", () => {
       error: { code: "youtube_video_not_found", message: "YouTube video was not found", http_status: 404 },
       data: {}
     });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
+  it.each([
+    ["unstructured", "missing"],
+    ["malformed", "{not-json"]
+  ])("keeps a %s 404 video response as an explicit error", async (_name, body) => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 404 })));
+
+    const result = await getYoutubeVideo("XpZHKGGCK-o", youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_request_failed", message: "YouTube request failed", http_status: 404 },
+      data: {}
+    });
+    expect(JSON.stringify(result)).not.toContain(body);
   });
 
   it("does not pretend an empty API response proves a video is absent", async () => {
@@ -229,6 +339,27 @@ describe("YouTube discovery", () => {
     expect(result.limitations).toContain(
       "YouTube returned no API-visible video for this identifier; it may be deleted, private, restricted, or otherwise unavailable."
     );
+  });
+
+  it.each([
+    ["wrong video resource kind", (record: Record<string, unknown>) => { record.kind = "youtube#playlist"; }],
+    ["malformed video timestamp", (record: Record<string, unknown>) => { ((record.snippet as Record<string, unknown>).publishedAt) = "2025-99-99"; }],
+    ["malformed ISO duration", (record: Record<string, unknown>) => { ((record.contentDetails as Record<string, unknown>).duration) = "12 minutes"; }],
+    ["unknown live state", (record: Record<string, unknown>) => { ((record.snippet as Record<string, unknown>).liveBroadcastContent) = "later"; }],
+    ["unknown privacy state", (record: Record<string, unknown>) => { ((record.status as Record<string, unknown>).privacyStatus) = "friends"; }],
+    ["non-numeric statistics", (record: Record<string, unknown>) => { ((record.statistics as Record<string, unknown>).viewCount) = "1.5"; }]
+  ])("rejects a %s without normalizing a video", async (_name, mutate) => {
+    const response = JSON.parse(await fixture("video-found.json")) as { items: Record<string, unknown>[] };
+    mutate(response.items[0]!);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(response), { status: 200 })));
+
+    const result = await getYoutubeVideo("XpZHKGGCK-o", youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "error",
+      error: { code: "youtube_response_invalid" },
+      data: {}
+    });
   });
 
   it("returns an invalid-input envelope without an outbound request", async () => {

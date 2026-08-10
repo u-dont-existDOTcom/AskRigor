@@ -38,6 +38,8 @@ const READ_ONLY_ANNOTATIONS = {
 const clients: Client[] = [];
 const clinicalFixture = (name: string) =>
   readFile(new URL(`fixtures/clinical-trials/${name}`, import.meta.url), "utf8");
+const youtubeFixture = (name: string) =>
+  readFile(new URL(`fixtures/youtube/${name}`, import.meta.url), "utf8");
 
 afterEach(async () => {
   resetClinicalTrialsFreshnessCacheForTests();
@@ -99,6 +101,22 @@ describe("AskRigor MCP tools", () => {
         },
         outputSchema: { type: "object" }
       });
+      expect(search!.outputSchema.properties.data.items.properties).toMatchObject({
+        published_at: { type: "string", pattern: expect.any(String) }
+      });
+      const videoDataVariants = video!.outputSchema.properties.data.anyOf;
+      expect(videoDataVariants).toHaveLength(2);
+      expect(videoDataVariants[0]).toMatchObject({
+        type: "object",
+        required: ["video_id"]
+      });
+      expect(videoDataVariants[0].properties.duration).toMatchObject({ type: "string", pattern: expect.any(String) });
+      expect(videoDataVariants[0].properties.live_broadcast_content).toMatchObject({ enum: ["none", "live", "upcoming"] });
+      expect(videoDataVariants[0].properties.privacy_status).toMatchObject({ enum: ["public", "private", "unlisted"] });
+      expect(videoDataVariants[1]).toMatchObject({
+        type: "object",
+        additionalProperties: false
+      });
     } finally {
       await server.close();
     }
@@ -130,6 +148,90 @@ describe("AskRigor MCP tools", () => {
         error: { code: "youtube_api_key_missing", message: "YouTube API key is not configured" },
         data: []
       });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("returns the same deterministic missing-key envelope for YouTube video retrieval", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    delete process.env.YOUTUBE_API_KEY;
+
+    try {
+      const result = await client.callTool({
+        name: "get_youtube_video",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+
+      expect(upstream).not.toHaveBeenCalled();
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube video retrieval finished with access status inaccessible."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_video",
+        access_status: "inaccessible",
+        error: { code: "youtube_api_key_missing", message: "YouTube API key is not configured" },
+        data: {}
+      });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("returns deterministic structured YouTube search and video successes through MCP", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    const [searchBody, videoBody] = await Promise.all([
+      youtubeFixture("search-page-1.json"),
+      youtubeFixture("video-found.json")
+    ]);
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      return new Response(url.pathname.endsWith("/search") ? searchBody : videoBody, { status: 200 });
+    }));
+
+    try {
+      const search = await client.callTool({
+        name: "search_youtube",
+        arguments: { query: "recorded subject", page_size: 1 }
+      });
+      const video = await client.callTool({
+        name: "get_youtube_video",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+
+      expect(search.isError).not.toBe(true);
+      expect(search.content).toEqual([{
+        type: "text",
+        text: "YouTube search returned 1 video record(s); access status complete."
+      }]);
+      expect(search.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_search_result",
+        access_status: "complete",
+        data: [{ video_id: "XpZHKGGCK-o", published_at: "2025-01-02T03:04:05Z" }]
+      });
+      expect(video.isError).not.toBe(true);
+      expect(video.content).toEqual([{
+        type: "text",
+        text: "YouTube video retrieval finished with access status api_visible_complete."
+      }]);
+      expect(video.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_video",
+        access_status: "api_visible_complete",
+        data: { video_id: "XpZHKGGCK-o", duration: "PT12M34S", privacy_status: "public" }
+      });
+      expect(JSON.stringify([search, video])).not.toContain("mcp-youtube-secret");
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
