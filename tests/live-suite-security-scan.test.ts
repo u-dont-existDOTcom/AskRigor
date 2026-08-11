@@ -58,6 +58,13 @@ describe("live-suite output secret scan", () => {
     expect(dockerfile).toContain("RUN npm run build");
   });
 
+  it("marks the post-build packet as v4 and rejects reuse of the failed v3 stage", async () => {
+    const packet = await readFile(new URL("../docs/live-validation-v3.md", import.meta.url), "utf8");
+
+    expect(packet).toContain("live-suite-v4-${source_short}");
+    expect(packet).toContain("Do not reuse the failed v3 archive or remote stage");
+  });
+
   it("copies every npm workspace before installing dependencies", async () => {
     const dockerfile = await readFile(new URL("../Dockerfile.live-validation", import.meta.url), "utf8");
     const installIndex = dockerfile.indexOf("RUN npm ci --no-audit --no-fund");
@@ -112,7 +119,7 @@ describe("live-suite output secret scan", () => {
       expect(await readFile(join(evidenceDirectory, "provider-test.log"), "utf8"))
         .toBe("Test Files 1 passed (1)\nTests 5 passed (5)\n");
       expect(await readFile(join(evidenceDirectory, "status.txt"), "utf8"))
-        .toContain("Live suite v3 accepted");
+        .toContain("Live suite v4 accepted");
       expect(await readFile(join(evidenceDirectory, "provider-test.log.sha256"), "utf8"))
         .toContain("provider-test.log");
     } finally {
