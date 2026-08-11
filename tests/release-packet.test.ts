@@ -61,12 +61,11 @@ describe("AskRigor public-review packet", () => {
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
     expect(inventory.tools).toHaveLength(14);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "f52b3627acae229e6c6cd6a40e0b74f9b383b198efd18a165b21371a0fea2eb6"
+      "2697b21ca2f386ba69b983bfd1b97b42a4d6968995f9a381bb6d609be5b1c13c"
     );
 
     for (const tool of inventory.tools) {
       expect(tool).toMatchObject({
-        title: null,
         description: expect.any(String),
         inputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
         outputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
@@ -74,8 +73,14 @@ describe("AskRigor public-review packet", () => {
           readOnlyHint: true,
           destructiveHint: false,
           openWorldHint: false
-        }
+        },
+        execution: { taskSupport: "forbidden" }
       });
+      expect(tool.title).toBeUndefined();
+      expect(tool._meta).toBeUndefined();
+      expect(Object.keys(tool).filter((key) => tool[key] !== undefined).sort()).toEqual([
+        "annotations", "description", "execution", "inputSchema", "name", "outputSchema"
+      ]);
     }
   });
 
@@ -96,41 +101,62 @@ describe("AskRigor public-review packet", () => {
       expected_workflow.map(({ tool }) => tool)
     )).toEqual([
       ["get_protocol_manifest", "verify_protocol_integrity", "load_protocol"],
-      ["search_pubmed", "fetch_pubmed_record"],
-      ["search_clinical_trials", "check_retraction_status"],
-      ["get_youtube_video"],
+      ["fetch_pubmed_record"],
+      ["fetch_clinical_trial"],
+      ["check_retraction_status"],
       ["get_youtube_comments"]
     ]);
     expect(cases.positive[0].expected_workflow[0].arguments).toEqual({
-      protocol: "universal"
+      protocol: "hrp"
     });
     expect(cases.positive[1].expected_workflow[0].arguments).toEqual({
-      query: "example intervention",
-      page_size: 2
+      pmid: "13054692"
     });
-    expect(cases.positive[3].expected_workflow[0].arguments).toEqual({
-      video_id_or_url: "XpZHKGGCK-o"
+    expect(cases.positive[2].expected_workflow[0].arguments).toEqual({
+      nct_id: "NCT04280705"
     });
     expect(cases.positive[4].expected_workflow[0].arguments).toEqual({
-      video_id_or_url: "XpZHKGGCK-o",
+      video_id_or_url: "4x1fl67d_Ag",
       include_replies: true
     });
     expect(cases.negative.map(({ expected_workflow }) => expected_workflow[0].kind)).toEqual([
       "schema_rejection_before_provider_call",
-      "explicit_access_gap",
+      "explicit_not_found",
       "no_tool_call_for_unsupported_write_or_medical_action"
     ]);
+    expect(cases.negative[1].expected_workflow[0]).toMatchObject({
+      tool: "get_youtube_video",
+      arguments: { video_id_or_url: "00000000000" }
+    });
+    expect(JSON.stringify(cases)).not.toContain("local-recorded-fixture");
+    expect(JSON.stringify(cases)).not.toContain("comments_disabled");
+    const positiveYoutubeIds = cases.positive.flatMap(({ expected_workflow }) =>
+      expected_workflow.flatMap(({ tool, arguments: args }) =>
+        tool.includes("youtube") && typeof args.video_id_or_url === "string"
+          ? [args.video_id_or_url]
+          : []
+      )
+    );
+    const negativeYoutubeIds = cases.negative.flatMap(({ expected_workflow }) =>
+      expected_workflow.flatMap((step) => {
+        const args = step.arguments;
+        return typeof args?.video_id_or_url === "string" ? [args.video_id_or_url] : [];
+      })
+    );
+    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag"]);
+    expect(negativeYoutubeIds).toEqual(["00000000000"]);
+    expect(positiveYoutubeIds.some((id) => negativeYoutubeIds.includes(id))).toBe(false);
 
     for (const testCase of cases.positive) {
       expect(testCase).toMatchObject({
         id: expect.stringMatching(/^positive-\d+$/),
         prompt: expect.stringMatching(/^Use AskRigor to /),
-        fixture: { mode: "local-recorded-fixture", paths: expect.any(Array) },
+        fixture: { mode: "production-public-input", inputs: expect.any(Object) },
         expected_workflow: expect.any(Array),
         expected_result_shape: { required_fields: expect.any(Array) },
         no_state_change: true
       });
-      expect(testCase.fixture.paths).not.toHaveLength(0);
+      expect(Object.keys(testCase.fixture.inputs)).not.toHaveLength(0);
       expect(testCase.expected_workflow).not.toHaveLength(0);
       expect(testCase.expected_result_shape.required_fields).not.toHaveLength(0);
 
@@ -147,12 +173,12 @@ describe("AskRigor public-review packet", () => {
       expect(testCase).toMatchObject({
         id: expect.stringMatching(/^negative-\d+$/),
         prompt: expect.stringMatching(/^Use AskRigor to /),
-        fixture: { mode: "local-recorded-fixture", paths: expect.any(Array) },
+        fixture: { mode: "production-public-input", inputs: expect.any(Object) },
         expected_workflow: [{ kind: expect.any(String) }],
         expected_result_shape: { required_fields: expect.any(Array) },
         no_state_change: true
       });
-      expect(testCase.fixture.paths).not.toHaveLength(0);
+      expect(Object.keys(testCase.fixture.inputs)).not.toHaveLength(0);
       expect(testCase.expected_result_shape.required_fields).not.toHaveLength(0);
       expect(testCase.why_plugin_must_not_complete.length).toBeGreaterThan(20);
     }
@@ -170,8 +196,8 @@ describe("AskRigor public-review packet", () => {
 });
 
 interface Fixture {
-  mode: "local-recorded-fixture";
-  paths: string[];
+  mode: "production-public-input";
+  inputs: Record<string, unknown>;
 }
 
 interface ExpectedResultShape {
@@ -195,6 +221,7 @@ interface PositiveReviewCase {
 
 interface NegativeWorkflowStep {
   kind: string;
+  arguments?: Record<string, unknown>;
 }
 
 interface NegativeReviewCase {

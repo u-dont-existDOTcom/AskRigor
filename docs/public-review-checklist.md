@@ -8,8 +8,8 @@ and support URL findings in `docs/release-evidence-v0.1.0.md`.
 
 The complete reviewer inventory is generated directly from
 `createAskRigorServer()` through an in-memory MCP `tools/list` call. It
-contains all 14 exact tool names, **title absence** (`title: null` for every
-tool), descriptions, full advertised JSON-Schema Draft 7 input schemas, full
+contains all 14 exact tool names, **title absence** (no advertised `title`
+property for any tool), descriptions, full advertised JSON-Schema Draft 7 input schemas, full
 advertised JSON-Schema Draft 7 output schemas, and annotations. The committed
 generated artifact is `docs/tool-inventory-v0.1.0.json`; regenerate it with:
 
@@ -20,12 +20,19 @@ npx tsx scripts/generate-tool-inventory.mts
 The emitted inventory identifies itself as
 `MCP tools/list against createAskRigorServer()`, gives the intended production
 endpoint `https://mcp.askrigor.com/mcp`, and has the canonical compact-JSON
-SHA-256 `f52b3627acae229e6c6cd6a40e0b74f9b383b198efd18a165b21371a0fea2eb6`.
+SHA-256 `2697b21ca2f386ba69b983bfd1b97b42a4d6968995f9a381bb6d609be5b1c13c`.
 `tests/release-packet.test.ts` regenerates the full inventory, asserts all 14
 names/order, title absence, schema roots, annotations, exact checksum, and deep
 equality with the committed full JSON artifact. A metadata or schema change
 therefore requires an intentional inventory review, fresh Inspector/ChatGPT
 checks, deploy, and Scan Tools rescan.
+
+The generator returns the SDK's raw tool objects rather than a selected-field
+projection. Therefore every advertised `tools/list` field is retained in the
+JSON artifact, including each tool's `execution` object. The currently
+advertised `execution.taskSupport` is `forbidden` for every tool. Internal SDK
+properties with `undefined` values (including the absent `title` and `_meta`)
+do not serialize and are explicitly checked as absent by the packet test.
 
 All 14 generated entries advertise exactly:
 
@@ -78,18 +85,19 @@ confirmation and no tool may make a state change.
 validated case set:
 
 - five positive cases and three negative cases, with fixed IDs/counts;
-- literal user prompts, local recorded fixture paths, exact expected tool
+- literal user prompts, production-public input values, exact expected tool
   workflows/arguments, expected structured fields, and result-shape fields;
 - explicit no-state-change expectation for every case; and
 - a rationale for every negative case explaining why the plugin must not
   complete it.
 
-Use the referenced fixtures to reproduce the protocol, PubMed, clinical trial,
-Crossref/retraction, YouTube video, comment/reply, malformed-input,
-comments-disabled, and unsupported-write/medical boundaries locally. For public
-portal review, rerun the equivalent prompt against the production endpoint and
-record selected tools, arguments, result shape, errors, and confirmation/no-state
-outcome without exposing credentials or unapproved personal data.
+Each case instead declares a distinct, concrete production-public input—no
+repository fixture or internal context is required. Run its literal prompt
+against the production endpoint and record selected tools, arguments, result
+shape, errors, and confirmation/no-state outcome without exposing credentials
+or unapproved personal data. The positive YouTube target is `4x1fl67d_Ag`; the
+distinct negative target is `00000000000` and exercises explicit `not_found`,
+not unverified comments-disabled behavior.
 
 ## Submission execution gate
 

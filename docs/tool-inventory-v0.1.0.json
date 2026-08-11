@@ -4,7 +4,6 @@
   "tools": [
     {
       "name": "get_protocol_manifest",
-      "title": null,
       "description": "Return canonical protocol identity and SHA-256 metadata.",
       "inputSchema": {
         "type": "object",
@@ -96,11 +95,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "load_protocol",
-      "title": null,
       "description": "Load the complete, unmodified canonical protocol text.",
       "inputSchema": {
         "type": "object",
@@ -195,11 +196,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "verify_protocol_integrity",
-      "title": null,
       "description": "Validate canonical protocol structure and optionally match its SHA-256.",
       "inputSchema": {
         "type": "object",
@@ -299,11 +302,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "search_pubmed",
-      "title": null,
       "description": "Search PubMed citations and return stable PMIDs with explicit pagination and access state; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
@@ -535,11 +540,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "fetch_pubmed_record",
-      "title": null,
       "description": "Retrieve one PubMed citation by PMID, preserving only metadata PubMed supplies and making no full-text or medical inference.",
       "inputSchema": {
         "type": "object",
@@ -735,11 +742,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "search_europe_pmc",
-      "title": null,
       "description": "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
@@ -1010,11 +1019,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "search_clinical_trials",
-      "title": null,
       "description": "Search ClinicalTrials.gov studies with provider pagination and explicit access state; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
@@ -1297,11 +1308,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "fetch_clinical_trial",
-      "title": null,
       "description": "Retrieve one ClinicalTrials.gov study by NCT ID, preserving supplied metadata without medical inference.",
       "inputSchema": {
         "type": "object",
@@ -1569,11 +1582,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "resolve_doi",
-      "title": null,
       "description": "Resolve a DOI or bibliographic citation through Crossref metadata; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
@@ -1794,11 +1809,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "check_retraction_status",
-      "title": null,
       "description": "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
       "inputSchema": {
         "type": "object",
@@ -2040,11 +2057,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "search_youtube",
-      "title": null,
       "description": "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
@@ -2259,11 +2278,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "get_youtube_video",
-      "title": null,
       "description": "Retrieve one API-visible YouTube video by supported ID or URL without interpreting its content or making medical conclusions.",
       "inputSchema": {
         "type": "object",
@@ -2495,11 +2516,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "get_youtube_comments",
-      "title": null,
       "description": "Retrieve all API-visible YouTube top-level comments and, by default, every independently paginated reply with explicit completeness accounting; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
@@ -2891,11 +2914,13 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     },
     {
       "name": "search_youtube_comments",
-      "title": null,
       "description": "Retrieve a query-bounded API-visible YouTube comment-thread subset and independently paginate replies with explicit partial coverage; no medical conclusions are generated.",
       "inputSchema": {
         "type": "object",
@@ -3294,6 +3319,9 @@
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
       }
     }
   ]

@@ -13,12 +13,15 @@ export interface ToolInventory {
 }
 
 export interface ToolInventoryEntry {
+  [key: string]: unknown;
   name: string;
-  title: string | null;
-  description: string | undefined;
+  title?: undefined;
+  _meta?: undefined;
+  description: string;
   inputSchema: unknown;
   outputSchema: unknown;
   annotations: unknown;
+  execution: unknown;
 }
 
 export async function createToolInventory(): Promise<ToolInventory> {
@@ -34,14 +37,7 @@ export async function createToolInventory(): Promise<ToolInventory> {
     return {
       generated_from: "MCP tools/list against createAskRigorServer()",
       endpoint: "https://mcp.askrigor.com/mcp",
-      tools: tools.map(({ name, title, description, inputSchema, outputSchema, annotations }) => ({
-        name,
-        title: title ?? null,
-        description,
-        inputSchema,
-        outputSchema,
-        annotations
-      }))
+      tools: tools as unknown as ToolInventoryEntry[]
     };
   } finally {
     await client.close();
