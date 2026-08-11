@@ -16,6 +16,8 @@ verified publisher identity and accurately disclose the service's data handling.
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
+| Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
+| Fresh live-provider suite | `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`; source `9d1d751`. |
 | Package version | `0.1.0`; manifest retains no unverified privacy/terms/support URL. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -29,6 +31,8 @@ providers, or credentials and does not represent them as a new local run.
 | MCP metadata | Inspector discovered all 14 advertised tools and confirmed `readOnlyHint:true`, `destructiveHint:false`, and `openWorldHint:false`. |
 | Formal sources | Production Inspector passed protocol integrity, PubMed, Europe PMC, ClinicalTrials.gov, and Crossref/retraction cases with their expected access/failure semantics. |
 | YouTube | Production Inspector passed YouTube discovery and complete comment-plus-reply retrieval for the bounded public target, including reply-page reconciliation. |
+| Fresh public YouTube Inspector | Exit 0; all 15/15 expected outcomes matched: tools list plus valid, zero, empty, malformed discovery/video/comments, complete reply corpus, and targeted zero-result cases. |
+| Fresh live providers | The provider test process exited 0 and 5/5 passed, including PubMed, Crossref, and YouTube; the server-side secret scan found no match. The original wrapper exit 1 was a false-negative ANSI status-parser failure only, after the provider tests had passed. |
 | ChatGPT Developer Mode | End-to-end smoke passed protocol integrity, PubMed, and complete YouTube 2+1 replies through the deployed connector. No AskRigor write tools were exposed or called. |
 | ChatGPT release finding | A separate **routine-status presentation regression** occurred: ChatGPT narrated a stale update-check date/status despite Universal v20.5.11 and HRP v20.5.15 prohibiting routine update diagnostics. This is not a connector retrieval failure; it must be fixed or explicitly accepted before release-quality presentation is claimed. |
 
@@ -68,6 +72,9 @@ requirements.
 - Resolve the routine-status presentation regression, or document a deliberate
   product decision with fresh ChatGPT evidence before asserting presentation
   readiness.
+- Rerun the external live-suite wrapper with the ANSI-safe assertion after that
+  wrapper is updated. The provider evidence is green, but a fresh wrapper exit
+  0 is still required to close its separate orchestration status.
 
 ## Local release verification record
 
@@ -77,7 +84,19 @@ checks run only with safely available credentials; credentials are never printed
 | Command | Task 16 result |
 | --- | --- |
 | `npm ci` | Passed outside the restricted sandbox: 156 packages installed and 161 audited; npm reported 0 vulnerabilities. The sandboxed attempt was blocked by an `esbuild` postinstall `EPERM`. |
-| `npm run verify` | Passed outside the restricted sandbox: typecheck and build passed; Vitest reported 15 passed files, 1 skipped file, 319 passed tests, and 5 guarded live tests skipped. The sandboxed attempt failed only where loopback-server tests hit `listen EPERM` on `127.0.0.1`. |
-| `ASKRIGOR_LIVE_TESTS=1 npm run test:live` | Not run as a complete live matrix: `NCBI_EMAIL`, `CROSSREF_MAILTO`, `YOUTUBE_API_KEY`, and `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` were all absent (presence only was checked; no values were read or printed). This leaves PubMed, Crossref, and YouTube live coverage unrun; no provider credentials were accessed. |
+| `npm run verify` | Passed outside the restricted sandbox after the runner repair: typecheck and build passed; Vitest reported 16 passed files, 1 skipped file, 325 passed tests, and 5 guarded live tests skipped. The sandboxed attempt failed only where loopback-server tests hit `listen EPERM` on `127.0.0.1`. |
+| Credential-bound live suite | Recorded production evidence at `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`: provider process exit 0 and 5/5 passed, including PubMed, Crossref, and YouTube; server-side secret scan found no match. The wrapper exit 1 was solely an ANSI-grep false negative. This worktree did not access credentials or rerun the remote suite. |
 | `npm audit --omit=dev` | Passed outside the restricted sandbox: 0 production-dependency vulnerabilities. The sandbox could not resolve `registry.npmjs.org`. |
 | `npm outdated` | Exit 0 with no output; no outdated packages reported. No dependency upgrades were attempted. |
+
+## Live-runner status-parser repair
+
+`npm run test:live` now sets `NO_COLOR=1`, and
+`scripts/assert-live-suite-output.mts` independently strips ANSI escape
+sequences before requiring process exit 0, exactly one passing test file,
+exactly five passing tests, and zero skipped tests. Its CLI emits only a fixed
+success statement rather than the provider log. Unit coverage proves that an
+ANSI-split successful Vitest summary is accepted and that nonzero exits,
+skipped tests, failed test files, and a color-enabled package command are
+rejected. The repair does not turn the historical wrapper exit into a fresh
+wrapper run.

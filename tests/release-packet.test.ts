@@ -192,6 +192,11 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("Inspector");
     expect(document).toContain("PUBLIC SUBMISSION BLOCKED");
     expect(document).toContain("routine-status presentation regression");
+    expect(document).toContain("live-suite-20260811T172130Z-71611");
+    expect(document).toContain("5/5 passed");
+    expect(document).toContain("youtube-20260811T172256Z");
+    expect(document).toContain("15/15 expected outcomes");
+    expect(document).toContain("ANSI");
   });
 });
 
