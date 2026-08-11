@@ -1,6 +1,9 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
+
+import { createToolInventory } from "../scripts/generate-tool-inventory.mts";
 
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
@@ -22,25 +25,137 @@ const TOOL_NAMES = [
 ];
 
 describe("AskRigor public-review packet", () => {
-  it("keeps the privacy map explicit about public YouTube identity and comment data", async () => {
+  it("keeps the privacy map explicit about every protocol and retrieval response category", async () => {
     const document = await readFile(rootFile("docs/privacy-data-map.md"), "utf8");
 
-    expect(document).toContain("public YouTube author/channel IDs");
-    expect(document).toContain("comment text");
-    expect(document).toContain("not persistently stored");
-    expect(document).toContain("aggregate server logs");
+    for (const fragment of [
+      "complete canonical protocol text",
+      "manifest/integrity outputs",
+      "raw_metadata",
+      "structured provider error",
+      "primary/provider IDs",
+      "source URL/title/authors or channel",
+      "pagination",
+      "limitations",
+      "Public YouTube video metadata",
+      "public YouTube author/channel IDs",
+      "comment text",
+      "not persistently stored",
+      "aggregate server logs"
+    ]) {
+      expect(document).toContain(fragment);
+    }
   });
 
-  it("makes every advertised read-only tool reviewable and supplies the required test set", async () => {
-    const document = await readFile(rootFile("docs/public-review-checklist.md"), "utf8");
+  it("keeps the checked inventory byte-for-byte aligned with the source MCP tools/list output", async () => {
+    const inventory = await createToolInventory();
+    const committedInventory = JSON.parse(
+      await readFile(rootFile("docs/tool-inventory-v0.1.0.json"), "utf8")
+    );
 
-    for (const toolName of TOOL_NAMES) {
-      expect(document).toContain(`\`${toolName}\``);
+    expect(committedInventory).toEqual(inventory);
+    expect(inventory).toMatchObject({
+      generated_from: "MCP tools/list against createAskRigorServer()",
+      endpoint: "https://mcp.askrigor.com/mcp"
+    });
+    expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
+    expect(inventory.tools).toHaveLength(14);
+    expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
+      "f52b3627acae229e6c6cd6a40e0b74f9b383b198efd18a165b21371a0fea2eb6"
+    );
+
+    for (const tool of inventory.tools) {
+      expect(tool).toMatchObject({
+        title: null,
+        description: expect.any(String),
+        inputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
+        outputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          openWorldHint: false
+        }
+      });
     }
-    expect(document).toContain("`readOnlyHint: true`");
-    expect(document).toContain("Five positive test cases");
-    expect(document).toContain("Three negative test cases");
-    expect(document).toContain("no state change");
+  });
+
+  it("supplies five reproducible positive and three safe negative portal cases", async () => {
+    const cases = JSON.parse(
+      await readFile(rootFile("docs/public-review-cases-v0.1.0.json"), "utf8")
+    ) as { positive: PositiveReviewCase[]; negative: NegativeReviewCase[] };
+
+    expect(cases.positive).toHaveLength(5);
+    expect(cases.negative).toHaveLength(3);
+    expect(cases.positive.map(({ id }) => id)).toEqual([
+      "positive-1", "positive-2", "positive-3", "positive-4", "positive-5"
+    ]);
+    expect(cases.negative.map(({ id }) => id)).toEqual([
+      "negative-1", "negative-2", "negative-3"
+    ]);
+    expect(cases.positive.map(({ expected_workflow }) =>
+      expected_workflow.map(({ tool }) => tool)
+    )).toEqual([
+      ["get_protocol_manifest", "verify_protocol_integrity", "load_protocol"],
+      ["search_pubmed", "fetch_pubmed_record"],
+      ["search_clinical_trials", "check_retraction_status"],
+      ["get_youtube_video"],
+      ["get_youtube_comments"]
+    ]);
+    expect(cases.positive[0].expected_workflow[0].arguments).toEqual({
+      protocol: "universal"
+    });
+    expect(cases.positive[1].expected_workflow[0].arguments).toEqual({
+      query: "example intervention",
+      page_size: 2
+    });
+    expect(cases.positive[3].expected_workflow[0].arguments).toEqual({
+      video_id_or_url: "XpZHKGGCK-o"
+    });
+    expect(cases.positive[4].expected_workflow[0].arguments).toEqual({
+      video_id_or_url: "XpZHKGGCK-o",
+      include_replies: true
+    });
+    expect(cases.negative.map(({ expected_workflow }) => expected_workflow[0].kind)).toEqual([
+      "schema_rejection_before_provider_call",
+      "explicit_access_gap",
+      "no_tool_call_for_unsupported_write_or_medical_action"
+    ]);
+
+    for (const testCase of cases.positive) {
+      expect(testCase).toMatchObject({
+        id: expect.stringMatching(/^positive-\d+$/),
+        prompt: expect.stringMatching(/^Use AskRigor to /),
+        fixture: { mode: "local-recorded-fixture", paths: expect.any(Array) },
+        expected_workflow: expect.any(Array),
+        expected_result_shape: { required_fields: expect.any(Array) },
+        no_state_change: true
+      });
+      expect(testCase.fixture.paths).not.toHaveLength(0);
+      expect(testCase.expected_workflow).not.toHaveLength(0);
+      expect(testCase.expected_result_shape.required_fields).not.toHaveLength(0);
+
+      for (const step of testCase.expected_workflow) {
+        expect(step.tool).toEqual(expect.stringMatching(/^[a-z_]+$/));
+        expect(TOOL_NAMES).toContain(step.tool);
+        expect(step.arguments).toEqual(expect.any(Object));
+        expect(step.expected_structured_fields).toEqual(expect.any(Array));
+        expect(step.expected_structured_fields).not.toHaveLength(0);
+      }
+    }
+
+    for (const testCase of cases.negative) {
+      expect(testCase).toMatchObject({
+        id: expect.stringMatching(/^negative-\d+$/),
+        prompt: expect.stringMatching(/^Use AskRigor to /),
+        fixture: { mode: "local-recorded-fixture", paths: expect.any(Array) },
+        expected_workflow: [{ kind: expect.any(String) }],
+        expected_result_shape: { required_fields: expect.any(Array) },
+        no_state_change: true
+      });
+      expect(testCase.fixture.paths).not.toHaveLength(0);
+      expect(testCase.expected_result_shape.required_fields).not.toHaveLength(0);
+      expect(testCase.why_plugin_must_not_complete.length).toBeGreaterThan(20);
+    }
   });
 
   it("records the production endpoint, deployed revision, Inspector evidence, and legal submission block", async () => {
@@ -53,3 +168,41 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("routine-status presentation regression");
   });
 });
+
+interface Fixture {
+  mode: "local-recorded-fixture";
+  paths: string[];
+}
+
+interface ExpectedResultShape {
+  required_fields: string[];
+}
+
+interface PositiveWorkflowStep {
+  tool: string;
+  arguments: Record<string, unknown>;
+  expected_structured_fields: string[];
+}
+
+interface PositiveReviewCase {
+  id: string;
+  prompt: string;
+  fixture: Fixture;
+  expected_workflow: PositiveWorkflowStep[];
+  expected_result_shape: ExpectedResultShape;
+  no_state_change: boolean;
+}
+
+interface NegativeWorkflowStep {
+  kind: string;
+}
+
+interface NegativeReviewCase {
+  id: string;
+  prompt: string;
+  fixture: Fixture;
+  expected_workflow: NegativeWorkflowStep[];
+  expected_result_shape: ExpectedResultShape;
+  no_state_change: boolean;
+  why_plugin_must_not_complete: string;
+}
