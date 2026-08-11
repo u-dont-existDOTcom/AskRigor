@@ -205,6 +205,10 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("no evidence was published");
     expect(document).toContain(".vite-temp");
     expect(document).toContain("No provider request occurred");
+    expect(document).toContain("live-suite-v6-6a9d536b7845");
+    expect(document).toContain("Live suite v6 accepted");
+    expect(document).toContain("zero skipped");
+    expect(document).toContain("provider-test.log.sha256");
   });
 });
 

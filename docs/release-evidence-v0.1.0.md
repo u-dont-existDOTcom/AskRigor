@@ -124,3 +124,7 @@ value`. No raw log was exposed; the `--rm` container destroyed it, and no eviden
 ## v5 startup failure and v6 replacement
 
 The v5 scanner accepted and published a sanitized log, but Vitest exited before providers with `ENOENT` while creating `/app/node_modules/.vite-temp` under the read-only root filesystem. No provider request occurred. V6 adds a writable noexec/nosuid tmpfs at that exact Vite path. The v5 evidence checksum also used absolute `/evidence/provider-test.log`; v6 writes the checksum relative to its evidence directory so the host-side `sha256sum -c` command succeeds. Do not reuse the failed v5 archive or remote stage.
+
+## v6 remote integration evidence
+
+Controller-run remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845` is green. The archive checksum and clean image build passed; the server-side scanner accepted the log; and the ANSI-safe parser accepted process exit 0, exactly `Test Files 1 passed (1)`, exactly `Tests 5 passed (5)`, and zero skipped tests. The evidence-side relative checksum verified with `(cd evidence && sha256sum -c provider-test.log.sha256)`, and `status.txt` reported `Live suite v6 accepted`. This is recorded remote evidence; this worktree did not rerun providers or access runtime secrets.
