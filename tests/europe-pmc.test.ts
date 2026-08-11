@@ -148,11 +148,30 @@ describe("Europe PMC search", () => {
     expect(result.pagination).toMatchObject({ returned: 0, exhausted: true });
   });
 
-  it("rejects a provider response without a non-empty next cursor", async () => {
+  it("accepts the live Europe PMC zero-result shape without a next cursor", async () => {
+    const body = await fixture("search-live-zero-results.json");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
+
+    const result = await searchEuropePmc({
+      query: "askrigor-nonce-no-records-20260811",
+      pageSize: 1
+    });
+
+    expect(result).toMatchObject({
+      access_status: "complete",
+      raw_metadata: { hit_count: 0 },
+      pagination: { page_size: 1, returned: 0, exhausted: true },
+      data: []
+    });
+    expect(result.error).toBeUndefined();
+    expect(result.pagination).not.toHaveProperty("next_cursor");
+  });
+
+  it("rejects an initial provider page that omits the next cursor while hits remain", async () => {
     const body = await fixture("search-missing-cursor.json");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(body, { status: 200 })));
 
-    const result = await searchEuropePmc({ query: "no matching records" });
+    const result = await searchEuropePmc({ query: "no matching records", pageSize: 1 });
 
     expectInvalidEuropePmcResponse(result);
   });

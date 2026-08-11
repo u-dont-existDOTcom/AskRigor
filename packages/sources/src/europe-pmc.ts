@@ -43,7 +43,7 @@ const providerRecordSchema = z.object({
 }).passthrough();
 const searchResponseSchema = z.object({
   hitCount: z.number().int().nonnegative(),
-  nextCursorMark: z.string().min(1),
+  nextCursorMark: z.string().min(1).optional(),
   request: z.object({
     queryString: z.string(),
     cursorMark: z.string().min(1),
@@ -129,12 +129,13 @@ export const searchEuropePmc = async (
       request.pageSize !== pageSize ||
       data.length > pageSize ||
       data.length > hitCount ||
+      (cursorMark === "*" && nextCursorMark === undefined && data.length < hitCount) ||
       (cursorMark === "*" && hitCount > 0 && data.length === 0)
     ) {
       throw new EuropePmcResponseError();
     }
 
-    const exhausted = nextCursorMark === cursorMark;
+    const exhausted = nextCursorMark === undefined || nextCursorMark === cursorMark;
 
     return okEnvelope({
       provider: "europe_pmc",
@@ -147,7 +148,7 @@ export const searchEuropePmc = async (
       rawMetadata: { hit_count: hitCount },
       pagination: {
         ...pagination,
-        ...(!exhausted ? { next_cursor: nextCursorMark } : {}),
+        ...(!exhausted && nextCursorMark !== undefined ? { next_cursor: nextCursorMark } : {}),
         exhausted
       },
       data
