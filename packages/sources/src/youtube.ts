@@ -138,6 +138,9 @@ const commentPageInfoSchema = z.object({
   totalResults: z.number().int().nonnegative(),
   resultsPerPage: z.number().int().min(0).max(MAX_COMMENT_PAGE_SIZE)
 }).passthrough();
+const replyPageInfoSchema = commentPageInfoSchema.extend({
+  totalResults: z.number().int().nonnegative().optional()
+});
 const commentThreadsResponseSchema = z.object({
   kind: z.literal("youtube#commentThreadListResponse"),
   pageInfo: commentPageInfoSchema,
@@ -146,7 +149,7 @@ const commentThreadsResponseSchema = z.object({
 }).passthrough();
 const commentsResponseSchema = z.object({
   kind: z.literal("youtube#commentListResponse"),
-  pageInfo: commentPageInfoSchema,
+  pageInfo: replyPageInfoSchema,
   nextPageToken: z.string().min(1).max(4_096).optional(),
   items: z.array(providerCommentSchema).max(MAX_COMMENT_PAGE_SIZE)
 }).passthrough();
@@ -976,12 +979,15 @@ const validateReplyPage = (
   response: z.infer<typeof commentsResponseSchema>,
   thread: CommentThreadState
 ): void => {
+  const totalResults = response.pageInfo.totalResults;
   if (
     response.pageInfo.resultsPerPage < response.items.length ||
     response.pageInfo.resultsPerPage > REPLY_PAGE_SIZE ||
     response.items.length > REPLY_PAGE_SIZE ||
-    (response.pageInfo.totalResults === 0 && (response.items.length !== 0 || response.nextPageToken !== undefined)) ||
-    response.items.length > response.pageInfo.totalResults
+    (totalResults !== undefined && (
+      (totalResults === 0 && (response.items.length !== 0 || response.nextPageToken !== undefined)) ||
+      response.items.length > totalResults
+    ))
   ) {
     throw responseError("YouTube comments pageInfo and result counts were inconsistent.");
   }

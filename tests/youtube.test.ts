@@ -429,6 +429,38 @@ describe("YouTube discovery", () => {
 });
 
 describe("YouTube API-visible comment corpus retrieval", () => {
+  it("accepts a terminal comments.list page that omits totalResults and reconciles its embedded reply", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (
+        url.pathname.endsWith("/comments") &&
+        url.searchParams.get("parentId") === "UgxTop00000000000000002"
+      ) {
+        return new Response(
+          await fixture("comments-live-page-no-total.json"), { status: 200 }
+        );
+      }
+      return completeCommentResponse(url);
+    }));
+
+    const result = await getYoutubeComments({ video: "XpZHKGGCK-o" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "api_visible_complete",
+      pagination: { returned: 6, exhausted: true },
+      data: {
+        manifest: {
+          expected_replies: 4,
+          replies_retrieved: 4,
+          reply_count_mismatches: [],
+          pages: { comment_threads: 2, replies: 3 },
+          extraction_coverage: "api_visible_complete"
+        }
+      }
+    });
+    expect(result.error).toBeUndefined();
+  });
+
   it("treats current pageInfo resultsPerPage/totalResults as page metadata while following nextPageToken", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));
@@ -2118,6 +2150,9 @@ describe("YouTube comment response guard isolation", () => {
   it.each([
     ["resultsPerPage", (response: Record<string, unknown>) => {
       (response.pageInfo as Record<string, unknown>).resultsPerPage = 1;
+    }, "YouTube comments pageInfo and result counts were inconsistent.", 0],
+    ["present zero totalResults", (response: Record<string, unknown>) => {
+      (response.pageInfo as Record<string, unknown>).totalResults = 0;
     }, "YouTube comments pageInfo and result counts were inconsistent.", 0]
   ])("keeps incoherent reply %s explicit", async (_name, mutate, limitation, replyPages) => {
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
