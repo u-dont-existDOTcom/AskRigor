@@ -47,7 +47,10 @@ set -e
 # Do not expose raw provider output until the server-side scan accepts it.
 npx --no-install tsx scripts/scan-live-suite-log.mts --log "$raw_log"
 install -m 0600 "$raw_log" "$evidence_dir/provider-test.log"
-sha256sum "$evidence_dir/provider-test.log" >"$evidence_dir/provider-test.log.sha256"
+(
+  cd "$evidence_dir"
+  sha256sum provider-test.log >provider-test.log.sha256
+)
 
 # This tested parser removes ANSI escapes and fail-closes on exit, count, or skip gates.
 npx --no-install tsx scripts/assert-live-suite-output.mts \

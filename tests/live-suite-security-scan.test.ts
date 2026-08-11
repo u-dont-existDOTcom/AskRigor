@@ -65,13 +65,15 @@ describe("live-suite output secret scan", () => {
     expect(dockerfile).toContain("RUN npm run build");
   });
 
-  it("marks the post-scanner-failure packet as v5 and rejects reuse of the failed v4 stage", async () => {
+  it("marks the post-startup-failure packet as v6 and rejects reuse of the failed v5 stage", async () => {
     const packet = await readFile(new URL("../docs/live-validation-v3.md", import.meta.url), "utf8");
 
-    expect(packet).toContain("live-suite-v5-${source_short}");
+    expect(packet).toContain("live-suite-v6-${source_short}");
     expect(packet).toContain("Do not reuse the failed v3 archive or remote stage");
     expect(packet).toContain("Do not reuse the failed v4 archive or remote stage");
+    expect(packet).toContain("Do not reuse the failed v5 archive or remote stage");
     expect(packet).not.toContain("dst=/evidence,rw");
+    expect(packet).toContain("/app/node_modules/.vite-temp:rw,noexec,nosuid,size=64m");
   });
 
   it("copies every npm workspace before installing dependencies", async () => {
@@ -131,6 +133,15 @@ describe("live-suite output secret scan", () => {
         .toContain("Live suite v5 accepted");
       expect(await readFile(join(evidenceDirectory, "provider-test.log.sha256"), "utf8"))
         .toContain("provider-test.log");
+
+      const relocatedEvidenceDirectory = join(temporaryDirectory, "relocated-evidence");
+      await rename(evidenceDirectory, relocatedEvidenceDirectory);
+      const relocatedVerify = spawnSync("sha256sum", ["-c", "provider-test.log.sha256"], {
+        cwd: relocatedEvidenceDirectory,
+        encoding: "utf8"
+      });
+      expect(relocatedVerify.status, relocatedVerify.stderr).toBe(0);
+      expect(relocatedVerify.stdout).toContain("provider-test.log: OK");
     } finally {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }

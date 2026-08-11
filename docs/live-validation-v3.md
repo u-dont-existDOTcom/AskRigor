@@ -1,13 +1,13 @@
-# AskRigor v5 credential-safe live-validation packet
+# AskRigor v6 credential-safe live-validation packet
 
-This v5 packet supersedes the failed pre-provider v3 Docker build and the v4
-scanner false positive. The v3 build
+This v6 packet supersedes the failed pre-provider v3 Docker build, the v4
+scanner false positive, and the v5 read-only Vite startup failure. The v3 build
 failed at `npm run build` with `TS2307` workspace-resolution errors because the
 Dockerfile had run `npm ci` before copying its `apps` and `packages` workspaces.
 No provider request occurred. Do not reuse the failed v3 archive or remote stage.
 The v4 provider container ran, but its scanner failed closed before publishing
 evidence: nonsecret `NCBI_TOOL=askrigor` matched the npm banner
-`askrigor@0.1.0`. No raw log was exposed; `--rm` destroyed it. Do not reuse the failed v4 archive or remote stage. This packet is not live-test evidence and does not alter the
+`askrigor@0.1.0`. No raw log was exposed; `--rm` destroyed it. Do not reuse the failed v4 archive or remote stage. The v5 scanner accepted and published its sanitized log, but Vitest then exited before providers when it could not create `/app/node_modules/.vite-temp` on the read-only root filesystem. No provider request occurred. Do not reuse the failed v5 archive or remote stage. This packet is not live-test evidence and does not alter the
 public-submission blocker in `docs/release-evidence-v0.1.0.md`.
 
 ## Included controls
@@ -55,6 +55,10 @@ be repeated against the hashes below before the remote run:
    process, additional test files, skipped tests, or count changes.
 6. Inspect only post-scan evidence (`provider-test.log`, its SHA-256, and
    `status.txt`). Do not inspect raw temporary files or container environment.
+7. Confirm the run command has both the generic `/tmp` tmpfs and the writable
+   `/app/node_modules/.vite-temp` tmpfs required by Vitest under a read-only
+   root filesystem. Confirm the evidence checksum is emitted relative to the
+   evidence directory so a host-side `sha256sum -c` succeeds.
 
 ## Exact preparation, upload, and run commands
 
@@ -69,7 +73,7 @@ cd /path/to/askrigor-plugin-v0
 git status --porcelain
 source_commit="$(git rev-parse HEAD)"
 source_short="$(git rev-parse --short=12 HEAD)"
-archive="/tmp/askrigor-live-suite-v5-${source_short}.tar.gz"
+archive="/tmp/askrigor-live-suite-v6-${source_short}.tar.gz"
 ./scripts/create-live-suite-v3-archive.sh "$source_commit" "$archive"
 sha256sum Dockerfile.live-validation scripts/run-live-suite-v3.sh \
   scripts/assert-live-suite-output.mts scripts/scan-live-suite-log.mts
@@ -78,7 +82,7 @@ sha256sum Dockerfile.live-validation scripts/run-live-suite-v3.sh \
 Set the new remote stage path exactly as follows:
 
 ```bash
-readonly remote_stage="/root/askrigor-validation-stage/live-suite-v5-${source_short}"
+readonly remote_stage="/root/askrigor-validation-stage/live-suite-v6-${source_short}"
 ssh "$ASKRIGOR_VPS" "install -d -o root -g root -m 0700 '$remote_stage'"
 ssh "$ASKRIGOR_VPS" "install -d -o 1000 -g 1000 -m 0700 '$remote_stage/evidence'"
 scp "$archive" "${archive}.sha256" "$ASKRIGOR_VPS:${remote_stage}/"
@@ -94,15 +98,16 @@ YouTube/optional NCBI API keys stay only in the existing env file.
 ```bash
 set -Eeuo pipefail
 cd "$remote_stage"
-readonly archive_name="askrigor-live-suite-v5-${source_short}.tar.gz"
+readonly archive_name="askrigor-live-suite-v6-${source_short}.tar.gz"
 sha256sum -c "${archive_name}.sha256"
 mkdir source
 tar -xzf "$archive_name" -C source
 docker build --pull=false --file source/Dockerfile.live-validation \
-  --tag "askrigor-live-suite-v5:${source_short}" source
+  --tag "askrigor-live-suite-v6:${source_short}" source
 docker run --rm \
   --read-only \
   --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --tmpfs /app/node_modules/.vite-temp:rw,noexec,nosuid,size=64m \
   --cap-drop=ALL \
   --security-opt no-new-privileges \
   --pids-limit=128 \
@@ -116,7 +121,7 @@ docker run --rm \
   --env ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID \
   --env ASKRIGOR_LIVE_EVIDENCE_DIR=/evidence \
   --mount "type=bind,src=${remote_stage}/evidence,dst=/evidence" \
-  "askrigor-live-suite-v5:${source_short}"
+  "askrigor-live-suite-v6:${source_short}"
 sha256sum evidence/provider-test.log
 cat evidence/status.txt
 ```

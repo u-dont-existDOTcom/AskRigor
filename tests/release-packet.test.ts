@@ -203,6 +203,8 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("No provider request occurred");
     expect(document).toContain("askrigor@0.1.0");
     expect(document).toContain("no evidence was published");
+    expect(document).toContain(".vite-temp");
+    expect(document).toContain("No provider request occurred");
   });
 });
 
