@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { scanLiveSuiteLog } from "../scripts/scan-live-suite-log.mts";
@@ -33,6 +36,28 @@ describe("live-suite output secret scan", () => {
     }
   });
 
+  it("fails closed on an unconfigured generic Google API-key-shaped value", () => {
+    const leakedKey = `AIza${"a".repeat(35)}`;
+
+    expect(() => scanLiveSuiteLog({
+      output: `provider response included ${leakedKey}`,
+      environment: {}
+    })).toThrow("Live-suite output contains configured sensitive value");
+  });
+
+  it("fails closed on an API-key assignment label even when the value is unknown", () => {
+    expect(() => scanLiveSuiteLog({
+      output: "debug YOUTUBE_API_KEY=redacted",
+      environment: {}
+    })).toThrow("Live-suite output contains configured sensitive value");
+  });
+
+  it("requires the validation Dockerfile to build workspace dist artifacts", async () => {
+    const dockerfile = await readFile(new URL("../Dockerfile.live-validation", import.meta.url), "utf8");
+
+    expect(dockerfile).toContain("RUN npm run build");
+  });
+
   it("refuses to invoke live providers when required configuration is absent", () => {
     const runner = fileURLToPath(new URL("../scripts/run-live-suite-v3.sh", import.meta.url));
     const result = spawnSync("bash", [runner], {
@@ -44,5 +69,44 @@ describe("live-suite output secret scan", () => {
     expect(result.status).toBe(64);
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("required runtime configuration is absent");
+  });
+
+  it("writes post-scan evidence through the supplied evidence mount only", async () => {
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), "askrigor-live-suite-v3-test-"));
+    const fakeBin = join(temporaryDirectory, "bin");
+    const evidenceDirectory = join(temporaryDirectory, "evidence");
+    const fakeNpm = join(fakeBin, "npm");
+
+    try {
+      await mkdir(fakeBin, { recursive: true });
+      await mkdir(evidenceDirectory);
+      await writeFile(fakeNpm, "#!/usr/bin/env bash\nprintf 'Test Files 1 passed (1)\\nTests 5 passed (5)\\n'\n", { mode: 0o755 });
+
+      const runner = fileURLToPath(new URL("../scripts/run-live-suite-v3.sh", import.meta.url));
+      const result = spawnSync("bash", [runner], {
+        cwd: fileURLToPath(new URL("..", import.meta.url)),
+        env: {
+          PATH: `${fakeBin}:${process.env.PATH}`,
+          HOME: temporaryDirectory,
+          npm_config_cache: join(temporaryDirectory, "npm-cache"),
+          NCBI_EMAIL: "validation@example.test",
+          CROSSREF_MAILTO: "validation@example.test",
+          YOUTUBE_API_KEY: "test-youtube-api-key-not-a-secret",
+          ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID: "4x1fl67d_Ag",
+          ASKRIGOR_LIVE_EVIDENCE_DIR: evidenceDirectory
+        },
+        encoding: "utf8"
+      });
+
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(join(evidenceDirectory, "provider-test.log"), "utf8"))
+        .toBe("Test Files 1 passed (1)\nTests 5 passed (5)\n");
+      expect(await readFile(join(evidenceDirectory, "status.txt"), "utf8"))
+        .toContain("Live suite v3 accepted");
+      expect(await readFile(join(evidenceDirectory, "provider-test.log.sha256"), "utf8"))
+        .toContain("provider-test.log");
+    } finally {
+      await rm(temporaryDirectory, { force: true, recursive: true });
+    }
   });
 });

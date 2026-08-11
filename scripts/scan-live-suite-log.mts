@@ -11,6 +11,11 @@ export const SENSITIVE_RUNTIME_FIELDS = [
   "ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID"
 ] as const;
 
+const GENERIC_SENSITIVE_OUTPUT_PATTERNS = [
+  /AIza[0-9A-Za-z_-]{35}/,
+  /\b(?:YOUTUBE|NCBI)_API_KEY=/
+] as const;
+
 export interface LiveSuiteLogScanInput {
   output: string;
   environment: Record<string, string | undefined>;
@@ -21,7 +26,10 @@ export function scanLiveSuiteLog(input: LiveSuiteLogScanInput): void {
     .map((field) => input.environment[field]?.trim())
     .filter((value): value is string => value !== undefined && value.length > 0);
 
-  if (configuredValues.some((value) => input.output.includes(value))) {
+  if (
+    configuredValues.some((value) => input.output.includes(value)) ||
+    GENERIC_SENSITIVE_OUTPUT_PATTERNS.some((pattern) => pattern.test(input.output))
+  ) {
     throw new Error("Live-suite output contains configured sensitive value");
   }
 }

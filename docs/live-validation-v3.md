@@ -37,9 +37,10 @@ be repeated against the hashes below before the remote run:
 2. Confirm the remote stage path is new, owned `root:root`, and mode `0700`.
    The only container-writable location is its empty `evidence` child owned by
    UID/GID 1000 and mode `0700`.
-3. Confirm the server-side env file remains outside the stage, is `root:root`
-   mode `0600`, is passed only with Docker `--env-file`, and is never printed,
-   copied, uploaded, hashed as content, or included in an evidence archive.
+3. Confirm the existing server-side env file `/opt/askrigor/runtime.env` remains
+   outside the stage, is `root:root` mode `0600`, is passed only with Docker
+   `--env-file`, and is never printed, copied, uploaded, hashed as content, or
+   included in an evidence archive.
 4. Confirm `run-live-suite-v3.sh` runs the security scan before `install` copies
    `provider-test.log`; a scan failure exits without publishing that log. The
    scanner error is generic and never includes a matched value.
@@ -77,17 +78,20 @@ ssh "$ASKRIGOR_VPS" "install -d -o 1000 -g 1000 -m 0700 '$remote_stage/evidence'
 scp "$archive" "${archive}.sha256" "$ASKRIGOR_VPS:${remote_stage}/"
 ```
 
-On the remote host, prepare and run the isolated image. The root-owned runtime
-env file must already exist at `/root/askrigor/live-validation.env`, mode 0600;
-it contains `ASKRIGOR_LIVE_TESTS=1` plus required provider configuration and is
-not displayed by this procedure.
+On the remote host, prepare and run the isolated image. The existing root-owned
+runtime env file must remain at `/opt/askrigor/runtime.env`, mode 0600; do not
+copy or rewrite it. Before the command, export the three nonsecret values
+`NCBI_EMAIL`, `CROSSREF_MAILTO`, and `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` into the
+root shell without printing them. They are passed explicitly by name; the
+YouTube/optional NCBI API keys stay only in the existing env file.
 
 ```bash
 set -Eeuo pipefail
 cd "$remote_stage"
-sha256sum -c "$(basename "$archive").sha256"
+readonly archive_name="askrigor-live-suite-v3-${source_short}.tar.gz"
+sha256sum -c "${archive_name}.sha256"
 mkdir source
-tar -xzf "$(basename "$archive")" -C source
+tar -xzf "$archive_name" -C source
 docker build --pull=false --file source/Dockerfile.live-validation \
   --tag "askrigor-live-suite-v3:${source_short}" source
 docker run --rm \
@@ -99,7 +103,11 @@ docker run --rm \
   --memory=1g \
   --cpus=1 \
   --user=1000:1000 \
-  --env-file /root/askrigor/live-validation.env \
+  --env-file /opt/askrigor/runtime.env \
+  --env ASKRIGOR_LIVE_TESTS=1 \
+  --env NCBI_EMAIL \
+  --env CROSSREF_MAILTO \
+  --env ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID \
   --env ASKRIGOR_LIVE_EVIDENCE_DIR=/evidence \
   --mount "type=bind,src=${remote_stage}/evidence,dst=/evidence,rw" \
   "askrigor-live-suite-v3:${source_short}"
