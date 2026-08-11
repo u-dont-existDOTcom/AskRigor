@@ -10,6 +10,7 @@
     "typecheck": "tsc -b --pretty false packages/contracts packages/protocol packages/sources apps/research-mcp",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:site": "tsx scripts/validate-public-site.mts",
     "test:live": "NO_COLOR=1 ASKRIGOR_LIVE_TESTS=1 vitest run tests/live-smoke.test.ts",
     "verify": "npm run typecheck && npm run test:run && npm run build",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
