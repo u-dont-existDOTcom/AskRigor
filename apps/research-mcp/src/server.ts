@@ -12,10 +12,22 @@ import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js
 import {
   HEALTH_PAYLOAD,
   MAX_MCP_REQUEST_BYTES,
+  parseTrustedClientIpHeader,
+  PUBLIC_MCP_CONCURRENCY_LIMIT,
+  PUBLIC_RATE_LIMIT,
+  publicServerIsEnabled,
   SERVER_INSTRUCTIONS,
   SERVICE_NAME,
   SERVICE_VERSION
 } from "./config.js";
+import {
+  createConcurrencyLimiter,
+  createTokenBucketLimiter,
+  resolveClientIp,
+  type ConcurrencyLimiter,
+  type TokenBucketLimiter,
+  type TrustedClientIpHeader
+} from "./rate-limit.js";
 import { registerTools } from "./register-tools.js";
 
 export function createAskRigorServer(): McpServer {
@@ -27,7 +39,25 @@ export function createAskRigorServer(): McpServer {
   return server;
 }
 
-export function createAskRigorHttpServer(): HttpServer {
+export interface AskRigorHttpServerOptions {
+  publicServerEnabled?: boolean;
+  trustedClientIpHeader?: TrustedClientIpHeader;
+  rateLimiter?: TokenBucketLimiter;
+  concurrencyLimiter?: ConcurrencyLimiter;
+  createMcpServer?: () => McpServer;
+}
+
+export function createAskRigorHttpServer(
+  options: AskRigorHttpServerOptions = {}
+): HttpServer {
+  const publicServerEnabled = options.publicServerEnabled ?? publicServerIsEnabled();
+  const trustedClientIpHeader = options.trustedClientIpHeader ??
+    parseTrustedClientIpHeader();
+  const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(PUBLIC_RATE_LIMIT);
+  const concurrencyLimiter = options.concurrencyLimiter ??
+    createConcurrencyLimiter(PUBLIC_MCP_CONCURRENCY_LIMIT);
+  const createMcpServer = options.createMcpServer ?? createAskRigorServer;
+
   return createServer(async (request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
 
@@ -42,41 +72,61 @@ export function createAskRigorHttpServer(): HttpServer {
       return;
     }
 
-    let parsedBody: unknown;
-    if (request.method === "POST" && sdkAcceptsPostBody(request)) {
-      try {
-        parsedBody = await readBoundedJsonBody(request);
-      } catch (error) {
-        if (error instanceof RequestBodyTooLargeError) {
-          writeJsonRpcError(
-            response,
-            413,
-            -32000,
-            "Request body exceeds 1 MiB limit",
-            true
-          );
-          return;
-        }
-
-        writeJsonRpcError(response, 400, -32700, "Parse error: Invalid JSON");
-        return;
-      }
+    if (!publicServerEnabled) {
+      writeJsonRpcError(response, 503, -32000, "public_server_disabled", true);
+      return;
     }
 
-    const server = createAskRigorServer();
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: undefined
-    });
+    if (!rateLimiter.consume(resolveClientIp(request, trustedClientIpHeader))) {
+      writeJsonRpcError(response, 429, -32000, "rate_limit_exceeded", true);
+      return;
+    }
+
+    const releasePermit = concurrencyLimiter.tryAcquire();
+    if (releasePermit === undefined) {
+      writeJsonRpcError(response, 503, -32000, "concurrency_limit_exceeded", true);
+      return;
+    }
 
     try {
-      await server.connect(transport);
-      await transport.handleRequest(request, response, parsedBody);
-    } catch {
-      if (!response.headersSent) {
-        writeJsonRpcError(response, 500, -32603, "Internal server error");
+      let parsedBody: unknown;
+      if (request.method === "POST" && sdkAcceptsPostBody(request)) {
+        try {
+          parsedBody = await readBoundedJsonBody(request);
+        } catch (error) {
+          if (error instanceof RequestBodyTooLargeError) {
+            writeJsonRpcError(
+              response,
+              413,
+              -32000,
+              "Request body exceeds 1 MiB limit",
+              true
+            );
+            return;
+          }
+
+          writeJsonRpcError(response, 400, -32700, "Parse error: Invalid JSON");
+          return;
+        }
+      }
+
+      let server: McpServer | undefined;
+      try {
+        server = createMcpServer();
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: undefined
+        });
+        await server.connect(transport);
+        await transport.handleRequest(request, response, parsedBody);
+      } catch {
+        if (!response.headersSent) {
+          writeJsonRpcError(response, 500, -32603, "Internal server error");
+        }
+      } finally {
+        await server?.close();
       }
     } finally {
-      await server.close();
+      releasePermit();
     }
   });
 }

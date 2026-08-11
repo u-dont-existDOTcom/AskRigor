@@ -30,6 +30,7 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import { PUBLIC_TOOL_LIMITS } from "./config.js";
 import { protocolErrorResult, successfulToolResult } from "./tool-result.js";
 
 const protocolSchema = z.enum(["hrp", "universal"]);
@@ -59,7 +60,7 @@ const sourceIdentitySchema = z.object({
 const paginationSchema = z.object({
   cursor: z.string().optional(),
   next_cursor: z.string().optional(),
-  page_size: z.number().int().positive().max(100).optional(),
+  page_size: z.number().int().positive().max(PUBLIC_TOOL_LIMITS.maximumPaginationPageSize).optional(),
   returned: z.number().int().nonnegative(),
   exhausted: z.boolean().optional()
 }).strict();
@@ -69,8 +70,8 @@ const searchPubmedInputSchema = z.object({
   date_range: dateRangeSchema.optional().describe(
     "Inclusive publication-date range in YYYY-MM-DD format."
   ),
-  page_size: z.number().int().min(1).optional().describe(
-    "Requested records per page; values above 100 are clamped to 100."
+  page_size: z.number().int().min(1).max(PUBLIC_TOOL_LIMITS.pubmedPageSize).optional().describe(
+    "Requested records per page; allowed range is 1 through 100."
   ),
   cursor: z.string().min(1).max(4_096).optional().describe(
     "Opaque cursor returned by a previous PubMed search."
@@ -124,7 +125,7 @@ const searchEuropePmcInputSchema = z.object({
   date_range: dateRangeSchema.optional().describe(
     "Inclusive publication-date range in YYYY-MM-DD format."
   ),
-  page_size: z.number().int().min(1).max(100).optional().describe(
+  page_size: z.number().int().min(1).max(PUBLIC_TOOL_LIMITS.europePmcPageSize).optional().describe(
     "Requested records per page; allowed range is 1 through 100."
   ),
   cursor: z.string().min(1).max(4_096).optional().describe(
@@ -163,7 +164,7 @@ const europePmcSearchEnvelopeSchema = z.object({
 }).strict();
 const searchClinicalTrialsInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000).describe("ClinicalTrials.gov search query."),
-  page_size: z.number().int().min(1).max(100).optional().describe(
+  page_size: z.number().int().min(1).max(PUBLIC_TOOL_LIMITS.clinicalTrialsPageSize).optional().describe(
     "Requested studies per page; allowed range is 1 through 100."
   ),
   page_token: z.string().min(1).max(4_096).optional().describe(
@@ -273,7 +274,7 @@ const retractionStatusEnvelopeSchema = z.object({
 }).strict();
 const youtubeSearchInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000).describe("YouTube video search query."),
-  page_size: z.number().int().min(1).max(50).optional().describe(
+  page_size: z.number().int().min(1).max(PUBLIC_TOOL_LIMITS.youtubeSearchPageSize).optional().describe(
     "Requested video results per page; allowed range is 1 through 50."
   ),
   cursor: z.string().min(1).max(4_096).optional().describe(
@@ -736,7 +737,7 @@ export function registerTools(server: McpServer): void {
           video: video_id_or_url,
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
-        }, youtubeConfig());
+        }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
         return youtubeToolResult(
           `YouTube comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
           result
@@ -767,7 +768,7 @@ export function registerTools(server: McpServer): void {
           query,
           includeReplies: include_replies,
           ...(cursor === undefined ? {} : { cursor })
-        }, youtubeConfig());
+        }, youtubeConfig(), { budgets: youtubeCommentBudgets() });
         return youtubeToolResult(
           `YouTube targeted comment retrieval returned ${result.pagination.returned} comment/reply record(s); access status ${result.access_status}.`,
           result
@@ -808,6 +809,19 @@ function crossrefConfig() {
 
 function youtubeConfig() {
   return { apiKey: process.env.YOUTUBE_API_KEY ?? "" };
+}
+
+function youtubeCommentBudgets() {
+  return {
+    maxProviderRequestAttempts: PUBLIC_TOOL_LIMITS.youtubeCommentProviderRequestAttempts,
+    maxCommentThreadPages: PUBLIC_TOOL_LIMITS.youtubeCommentThreadPages,
+    maxReplyPages: PUBLIC_TOOL_LIMITS.youtubeReplyPages,
+    maxThreads: PUBLIC_TOOL_LIMITS.youtubeThreads,
+    maxComments: PUBLIC_TOOL_LIMITS.youtubeComments,
+    maxNormalizedOutputBytes: PUBLIC_TOOL_LIMITS.youtubeNormalizedOutputBytes,
+    maxTextBytes: PUBLIC_TOOL_LIMITS.youtubeTextBytes,
+    maxElapsedMs: PUBLIC_TOOL_LIMITS.youtubeElapsedMs
+  };
 }
 
 function pubmedToolResult(

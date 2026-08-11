@@ -645,7 +645,7 @@ describe("AskRigor MCP tools", () => {
         additionalProperties: false,
         properties: {
           query: { type: "string", minLength: 1 },
-          page_size: { type: "integer", minimum: 1 },
+          page_size: { type: "integer", minimum: 1, maximum: 100 },
           cursor: { type: "string", minLength: 1 },
           date_range: {
             type: "object",
@@ -1353,7 +1353,7 @@ async function withHttpServer(
   callback: (baseUrl: URL) => Promise<void>,
   observeRequest?: (request: IncomingMessage) => void
 ): Promise<void> {
-  const httpServer = createAskRigorHttpServer();
+  const httpServer = createAskRigorHttpServer({ publicServerEnabled: true });
   if (observeRequest !== undefined) {
     httpServer.on("request", observeRequest);
   }

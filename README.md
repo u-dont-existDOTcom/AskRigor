@@ -63,13 +63,68 @@ be set directly in the shell running the smoke test.
 ## Run the local MCP server
 
 ```sh
-npm run dev:mcp
+ASKRIGOR_PUBLIC_SERVER_ENABLED=true npm run dev:mcp
 ```
 
-The local HTTP transport serves `/mcp`; `/healthz` is available for a basic
-process check. Adapter responses preserve explicit states such as `complete`,
-`metadata_only`, `inaccessible`, `rate_limited`, and `error` instead of
-silently upgrading partial evidence.
+`/healthz` is always available for a basic process check. The public `/mcp`
+route is fail-closed: unless `ASKRIGOR_PUBLIC_SERVER_ENABLED` is exactly
+`true`, it returns `503 public_server_disabled` before reading a request body,
+running the limiter, or creating an MCP tool server.
+
+The MCP route has an in-memory token bucket allowing a burst of 60 HTTP
+requests per client IP and refilling at 60 requests per minute. It stores at
+most 10,000 client keys, lazily evicts keys idle for five minutes, and creates
+no cleanup timer. This is per-process abuse protection, not authentication or a
+distributed quota. `/healthz` is not throttled.
+
+At most 16 MCP HTTP requests run concurrently in one server process. Additional
+MCP requests receive `503 concurrency_limit_exceeded` before body parsing or
+tool creation, and the permit is released after completion, error, or abort.
+`/healthz` remains outside this concurrency cap.
+
+Forwarding headers are ignored by default; the normalized socket peer address
+is the rate-limit key. Set
+`ASKRIGOR_TRUSTED_CLIENT_IP_HEADER=cf-connecting-ip` only when a trusted
+Cloudflare proxy overwrites that header before traffic reaches this process.
+The server accepts exactly one syntactically valid IPv4 or IPv6 value. Blank,
+malformed, duplicate, array-shaped, or comma-separated values fall back to the
+socket peer. `Forwarded` and `X-Forwarded-For` are never trusted.
+
+Public tool ceilings are deterministic:
+
+| Retrieval operation | Ceiling per tool call |
+| --- | ---: |
+| PubMed, Europe PMC, ClinicalTrials.gov search page | 100 records |
+| YouTube video search page | 50 videos |
+| YouTube provider comment/reply page | 100 records |
+| YouTube top-level comment pages | 500 pages |
+| YouTube independently fetched reply pages | 750 pages |
+| YouTube total provider request attempts | 1,000 attempts |
+
+The YouTube page ceilings are separate so reply pagination remains independent
+from top-level comment pagination. Hitting a retrieval budget preserves an
+explicit partial/error access state and limitation; it is never reported as
+complete merely because a ceiling was reached. Adapter responses likewise
+preserve states such as `complete`, `metadata_only`, `inaccessible`,
+`rate_limited`, and `error` instead of silently upgrading partial evidence.
+
+## Build and run the production container
+
+The production image is a pinned Node.js 24.18.0 multi-stage build. Its runtime
+stage contains production dependencies, compiled workspaces, and canonical
+protocol files, and runs as the unprivileged `node` user.
+
+```sh
+docker build -t askrigor-research:0.1.0 .
+docker run --rm -p 3000:3000 \
+  -e ASKRIGOR_PUBLIC_SERVER_ENABLED=true \
+  askrigor-research:0.1.0
+```
+
+Do not bake provider credentials into the image. Supply them at runtime through
+your deployment platform's secret manager. Keep the public-server switch off
+until network access controls, transport security, monitoring, and provider
+credentials are ready.
 
 Protocol version and SHA-256 values are derived from the canonical XML bytes at
 runtime. Replacing a valid protocol file therefore updates its manifest without

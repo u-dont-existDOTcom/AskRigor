@@ -35,7 +35,7 @@ const dateRangeSchema = z.object({
 const searchInputSchema = z.object({
   query: z.string().trim().min(1).max(5_000),
   dateRange: dateRangeSchema.optional(),
-  pageSize: z.number().int().positive().optional(),
+  pageSize: z.number().int().positive().max(MAX_PAGE_SIZE).optional(),
   cursor: z.string().min(1).max(4_096).optional()
 }).strict();
 const cursorSchema = z.object({
@@ -104,10 +104,7 @@ export const searchPubmed = async (
   }
   const parsedConfig = parseConfig(config);
   const { query, dateRange, cursor } = parsedInput.data;
-  const requestedPageSize = Math.min(
-    parsedInput.data.pageSize ?? DEFAULT_PAGE_SIZE,
-    MAX_PAGE_SIZE
-  );
+  const requestedPageSize = parsedInput.data.pageSize ?? DEFAULT_PAGE_SIZE;
   const retstart = parseCursor(cursor);
   const pageSize = Math.min(requestedPageSize, PUBMED_ESEARCH_LIMIT - retstart);
   const queryEnvelope = {

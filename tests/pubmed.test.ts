@@ -75,7 +75,7 @@ describe("PubMed ESearch", () => {
     expect(JSON.stringify(result)).not.toContain("ncbi-secret-value");
   });
 
-  it("clamps a requested page to PubMed's per-request maximum", async () => {
+  it("accepts PubMed's exact per-request page maximum", async () => {
     const body = await fixture("esearch-empty.json");
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
@@ -83,10 +83,20 @@ describe("PubMed ESearch", () => {
       return new Response(body, { status: 200 });
     }));
 
-    const result = await searchPubmed({ query: "no matches", pageSize: 250 }, NCBI);
+    const result = await searchPubmed({ query: "no matches", pageSize: 100 }, NCBI);
 
     expect(result.pagination).toMatchObject({ page_size: 100, returned: 0, exhausted: true });
     expect(requests[0]!.searchParams.get("retmax")).toBe("100");
+  });
+
+  it("rejects a PubMed page above the public ceiling before fetch", async () => {
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+
+    await expect(
+      searchPubmed({ query: "bounded query", pageSize: 101 }, NCBI)
+    ).rejects.toThrow("Invalid PubMed search input");
+    expect(upstream).not.toHaveBeenCalled();
   });
 
   it("uses a validated cursor offset and returns complete exhausted empty search", async () => {
