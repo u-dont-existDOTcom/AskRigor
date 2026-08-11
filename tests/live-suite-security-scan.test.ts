@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -105,6 +105,34 @@ describe("live-suite output secret scan", () => {
         .toContain("Live suite v3 accepted");
       expect(await readFile(join(evidenceDirectory, "provider-test.log.sha256"), "utf8"))
         .toContain("provider-test.log");
+    } finally {
+      await rm(temporaryDirectory, { force: true, recursive: true });
+    }
+  });
+
+  it("creates an archive checksum that remains valid after upload to a new path", async () => {
+    const temporaryDirectory = await mkdtemp(join(tmpdir(), "askrigor-live-suite-v3-archive-test-"));
+    const uploadDirectory = join(temporaryDirectory, "uploaded");
+    const archive = join(temporaryDirectory, "packet.tar.gz");
+    const archiveScript = fileURLToPath(new URL("../scripts/create-live-suite-v3-archive.sh", import.meta.url));
+
+    try {
+      const create = spawnSync("bash", [archiveScript, "HEAD", archive], {
+        cwd: fileURLToPath(new URL("..", import.meta.url)),
+        encoding: "utf8"
+      });
+      expect(create.status, create.stderr).toBe(0);
+
+      await mkdir(uploadDirectory);
+      await rename(archive, join(uploadDirectory, "packet.tar.gz"));
+      await rename(`${archive}.sha256`, join(uploadDirectory, "packet.tar.gz.sha256"));
+      const verify = spawnSync("sha256sum", ["-c", "packet.tar.gz.sha256"], {
+        cwd: uploadDirectory,
+        encoding: "utf8"
+      });
+
+      expect(verify.status, verify.stderr).toBe(0);
+      expect(verify.stdout).toContain("packet.tar.gz: OK");
     } finally {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }

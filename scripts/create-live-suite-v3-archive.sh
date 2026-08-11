@@ -20,4 +20,9 @@ if [[ -e "$archive_path" ]]; then
 fi
 
 git archive --format=tar "$commit" | gzip -n >"$archive_path"
-sha256sum "$archive_path" | tee "${archive_path}.sha256"
+archive_directory="$(dirname "$archive_path")"
+archive_name="$(basename "$archive_path")"
+(
+  cd "$archive_directory"
+  sha256sum "$archive_name" | tee "${archive_name}.sha256"
+)
