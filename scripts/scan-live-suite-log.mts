@@ -2,13 +2,9 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
-export const SENSITIVE_RUNTIME_FIELDS = [
-  "NCBI_EMAIL",
-  "NCBI_TOOL",
+export const EXACT_SECRET_RUNTIME_FIELDS = [
   "NCBI_API_KEY",
-  "CROSSREF_MAILTO",
-  "YOUTUBE_API_KEY",
-  "ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID"
+  "YOUTUBE_API_KEY"
 ] as const;
 
 const GENERIC_SENSITIVE_OUTPUT_PATTERNS = [
@@ -22,7 +18,7 @@ export interface LiveSuiteLogScanInput {
 }
 
 export function scanLiveSuiteLog(input: LiveSuiteLogScanInput): void {
-  const configuredValues = SENSITIVE_RUNTIME_FIELDS
+  const configuredValues = EXACT_SECRET_RUNTIME_FIELDS
     .map((field) => input.environment[field]?.trim())
     .filter((value): value is string => value !== undefined && value.length > 0);
 

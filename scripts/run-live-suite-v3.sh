@@ -55,5 +55,5 @@ npx --no-install tsx scripts/assert-live-suite-output.mts \
   --log "$raw_log"
 
 printf '%s\n' \
-  'Live suite v4 accepted: provider exit 0; Test Files 1 passed (1); Tests 5 passed (5); zero skipped.' \
+  'Live suite v5 accepted: provider exit 0; Test Files 1 passed (1); Tests 5 passed (5); zero skipped.' \
   >"$evidence_dir/status.txt"

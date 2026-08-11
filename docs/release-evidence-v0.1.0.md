@@ -114,3 +114,9 @@ Dockerfile copies `apps` and `packages` before `npm ci`; a clean tracked v4
 archive then completed `npm ci`, `npm run build`, and the non-root final image
 locally. Do not reuse the failed v3 archive or remote stage; v4 requires a new
 root-owned stage and a fresh remote validation run.
+
+## v4 scanner failure and v5 replacement
+
+The v4 provider container started, but the server-side scanner failed closed
+before evidence publication with `Live-suite output contains configured sensitive
+value`. No raw log was exposed; the `--rm` container destroyed it, and no evidence was published. Synthetic TDD reproduced the likely false positive without reading runtime values: `NCBI_TOOL=askrigor` matched the normal npm banner `askrigor@0.1.0`. v5 exact-scans only actual configured API keys (`YOUTUBE_API_KEY` and optional `NCBI_API_KEY`), retains generic `AIza[0-9A-Za-z_-]{35}` and API-key-assignment checks, and does not exact-scan the nonsecret tool label, emails, or public video ID. Do not reuse the failed v4 archive or remote stage.

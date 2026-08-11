@@ -201,6 +201,8 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("fail-closed server-side secret scan");
     expect(document).toContain("TS2307");
     expect(document).toContain("No provider request occurred");
+    expect(document).toContain("askrigor@0.1.0");
+    expect(document).toContain("no evidence was published");
   });
 });
 

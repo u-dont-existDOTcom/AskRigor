@@ -36,6 +36,13 @@ describe("live-suite output secret scan", () => {
     }
   });
 
+  it("does not treat the nonsecret NCBI tool label as a leaked credential", () => {
+    expect(() => scanLiveSuiteLog({
+      output: "askrigor@0.1.0",
+      environment: { NCBI_TOOL: "askrigor" }
+    })).not.toThrow();
+  });
+
   it("fails closed on an unconfigured generic Google API-key-shaped value", () => {
     const leakedKey = `AIza${"a".repeat(35)}`;
 
@@ -58,11 +65,13 @@ describe("live-suite output secret scan", () => {
     expect(dockerfile).toContain("RUN npm run build");
   });
 
-  it("marks the post-build packet as v4 and rejects reuse of the failed v3 stage", async () => {
+  it("marks the post-scanner-failure packet as v5 and rejects reuse of the failed v4 stage", async () => {
     const packet = await readFile(new URL("../docs/live-validation-v3.md", import.meta.url), "utf8");
 
-    expect(packet).toContain("live-suite-v4-${source_short}");
+    expect(packet).toContain("live-suite-v5-${source_short}");
     expect(packet).toContain("Do not reuse the failed v3 archive or remote stage");
+    expect(packet).toContain("Do not reuse the failed v4 archive or remote stage");
+    expect(packet).not.toContain("dst=/evidence,rw");
   });
 
   it("copies every npm workspace before installing dependencies", async () => {
@@ -119,7 +128,7 @@ describe("live-suite output secret scan", () => {
       expect(await readFile(join(evidenceDirectory, "provider-test.log"), "utf8"))
         .toBe("Test Files 1 passed (1)\nTests 5 passed (5)\n");
       expect(await readFile(join(evidenceDirectory, "status.txt"), "utf8"))
-        .toContain("Live suite v4 accepted");
+        .toContain("Live suite v5 accepted");
       expect(await readFile(join(evidenceDirectory, "provider-test.log.sha256"), "utf8"))
         .toContain("provider-test.log");
     } finally {
