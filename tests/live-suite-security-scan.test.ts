@@ -58,6 +58,16 @@ describe("live-suite output secret scan", () => {
     expect(dockerfile).toContain("RUN npm run build");
   });
 
+  it("copies every npm workspace before installing dependencies", async () => {
+    const dockerfile = await readFile(new URL("../Dockerfile.live-validation", import.meta.url), "utf8");
+    const installIndex = dockerfile.indexOf("RUN npm ci --no-audit --no-fund");
+
+    expect(dockerfile.indexOf("COPY apps ./apps")).toBeGreaterThan(-1);
+    expect(dockerfile.indexOf("COPY packages ./packages")).toBeGreaterThan(-1);
+    expect(dockerfile.indexOf("COPY apps ./apps")).toBeLessThan(installIndex);
+    expect(dockerfile.indexOf("COPY packages ./packages")).toBeLessThan(installIndex);
+  });
+
   it("refuses to invoke live providers when required configuration is absent", () => {
     const runner = fileURLToPath(new URL("../scripts/run-live-suite-v3.sh", import.meta.url));
     const result = spawnSync("bash", [runner], {

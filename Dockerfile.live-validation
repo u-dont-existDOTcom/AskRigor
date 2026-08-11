@@ -7,6 +7,8 @@ ENV HOME=/tmp
 ENV npm_config_cache=/tmp/npm-cache
 
 COPY package*.json ./
+COPY apps ./apps
+COPY packages ./packages
 RUN npm ci --no-audit --no-fund
 
 COPY . ./
