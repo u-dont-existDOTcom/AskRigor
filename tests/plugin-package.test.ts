@@ -36,7 +36,7 @@ describe("AskRigor plugin package", () => {
     expect(ignored.split(/\r?\n/)).toContain(".app.json");
   });
 
-  it("publishes the ingestion-valid read-only manifest without deferred app or legal fields", async () => {
+  it("publishes the ingestion-valid read-only manifest with registered app wiring and no deferred legal fields", async () => {
     const manifest = JSON.parse(
       await readFile(rootFile(".codex-plugin/plugin.json"), "utf8")
     );
@@ -49,6 +49,7 @@ describe("AskRigor plugin package", () => {
       repository: "https://github.com/u-dont-existDOTcom/AskRigor",
       keywords: ["research", "health", "evidence", "pubmed", "youtube"],
       skills: "./skills/",
+      apps: "./.app.json",
       author: { name: "AskRigor" },
       interface: {
         displayName: "AskRigor",
@@ -63,6 +64,26 @@ describe("AskRigor plugin package", () => {
         defaultPrompt: [
           "Use AskRigor to research this question with auditable evidence and explicit access gaps."
         ]
+      }
+    });
+  });
+
+  it("validates the local registered app mapping when it is present", async () => {
+    let appManifest: unknown;
+    try {
+      appManifest = JSON.parse(await readFile(rootFile(".app.json"), "utf8"));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return;
+      }
+      throw error;
+    }
+
+    expect(appManifest).toEqual({
+      apps: {
+        askrigor: {
+          id: expect.stringMatching(/^asdk_app_[a-f0-9]{32}$/)
+        }
       }
     });
   });

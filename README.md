@@ -129,3 +129,16 @@ credentials are ready.
 Protocol version and SHA-256 values are derived from the canonical XML bytes at
 runtime. Replacing a valid protocol file therefore updates its manifest without
 source-code changes.
+
+## ChatGPT Developer Mode connection
+
+The production MCP endpoint is `https://mcp.askrigor.com/mcp`. In ChatGPT,
+enable developer mode for unverified connectors, create a connector using that
+endpoint, and retain the generated technical connection ID.
+
+The local plugin package maps that exact `asdk_app_...` connection ID in the
+root `.app.json`, while `.codex-plugin/plugin.json` references
+`./.app.json`. The mapping file is deliberately git-ignored because connection
+IDs are environment-specific; regenerate it when installing the plugin in a
+different ChatGPT environment. Never add provider API keys or deployment
+credentials to either manifest.

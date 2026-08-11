@@ -5,6 +5,7 @@
   "repository": "https://github.com/u-dont-existDOTcom/AskRigor",
   "keywords": ["research", "health", "evidence", "pubmed", "youtube"],
   "skills": "./skills/",
+  "apps": "./.app.json",
   "author": {
     "name": "AskRigor"
   },
