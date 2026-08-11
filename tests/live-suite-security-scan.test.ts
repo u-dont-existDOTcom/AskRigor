@@ -130,7 +130,7 @@ describe("live-suite output secret scan", () => {
       expect(await readFile(join(evidenceDirectory, "provider-test.log"), "utf8"))
         .toBe("Test Files 1 passed (1)\nTests 5 passed (5)\n");
       expect(await readFile(join(evidenceDirectory, "status.txt"), "utf8"))
-        .toContain("Live suite v5 accepted");
+        .toContain("Live suite v6 accepted");
       expect(await readFile(join(evidenceDirectory, "provider-test.log.sha256"), "utf8"))
         .toContain("provider-test.log");
 
