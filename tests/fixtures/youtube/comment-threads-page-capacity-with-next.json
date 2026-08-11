@@ -1,0 +1,29 @@
+{
+  "kind": "youtube#commentThreadListResponse",
+  "nextPageToken": "thread-page-2",
+  "pageInfo": { "totalResults": 1, "resultsPerPage": 100 },
+  "items": [
+    {
+      "kind": "youtube#commentThread",
+      "id": "UgxThread000000000000001",
+      "snippet": {
+        "videoId": "XpZHKGGCK-o",
+        "topLevelComment": {
+          "kind": "youtube#comment",
+          "id": "UgxTop00000000000000001",
+          "snippet": {
+            "videoId": "XpZHKGGCK-o",
+            "textDisplay": "Sanitized first top-level comment",
+            "textOriginal": "Sanitized first top-level comment",
+            "authorDisplayName": "Sanitized Author",
+            "authorChannelId": { "value": "UC0123456789abcdefghijkl" },
+            "likeCount": 5,
+            "publishedAt": "2025-02-01T10:00:00Z",
+            "updatedAt": "2025-02-01T10:05:00Z"
+          }
+        },
+        "totalReplyCount": 0
+      }
+    }
+  ]
+}

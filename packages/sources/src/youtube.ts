@@ -462,7 +462,6 @@ interface CommentThreadState {
   topLevelId: string;
   expectedReplies: number;
   fetchedReplyIds: Set<string>;
-  observedReplyTotal?: number;
   repliesExhausted: boolean;
   returnedReplyCount: number;
   comments: YoutubeComment[];
@@ -479,7 +478,6 @@ interface CommentRetrievalState {
   topLevelIds: Set<string>;
   threads: CommentThreadState[];
   pages: { commentThreads: number; replies: number };
-  topLevelTotal?: number;
   topLevelExhausted: boolean;
   accounting: CommentBudgetAccounting;
   expectedReplies: number;
@@ -789,12 +787,11 @@ const validateCommentThreadPage = (
   state: CommentRetrievalState
 ): void => {
   if (
-    response.pageInfo.resultsPerPage !== response.items.length ||
+    response.pageInfo.resultsPerPage < response.items.length ||
+    response.pageInfo.resultsPerPage > state.options.pageSize ||
     response.items.length > state.options.pageSize ||
-    (state.topLevelTotal !== undefined && response.pageInfo.totalResults !== state.topLevelTotal) ||
     (response.pageInfo.totalResults === 0 && (response.items.length !== 0 || response.nextPageToken !== undefined)) ||
-    response.items.length > response.pageInfo.totalResults ||
-    (state.options.cursor === undefined && state.threads.length + response.items.length > response.pageInfo.totalResults)
+    response.items.length > response.pageInfo.totalResults
   ) {
     throw responseError("YouTube commentThreads pageInfo and result counts were inconsistent.");
   }
@@ -807,19 +804,17 @@ const stageCommentThreadPage = (
 ): StagedCommentThread[] => {
   const prospectiveThreads = state.threads.length + response.items.length;
   const nextToken = response.nextPageToken;
-  if (nextToken === undefined) {
-    if (
-      state.options.cursor === undefined &&
-      prospectiveThreads !== response.pageInfo.totalResults
-    ) {
-      throw responseError("YouTube commentThreads results did not reconcile with pageInfo.totalResults.");
-    }
-  } else {
+  if (
+    nextToken === undefined &&
+    state.options.cursor === undefined &&
+    state.threads.length === 0 &&
+    response.items.length !== response.pageInfo.totalResults
+  ) {
+    throw responseError("YouTube initial terminal commentThreads page did not reconcile with pageInfo.totalResults.");
+  }
+  if (nextToken !== undefined) {
     if (seenTokens.has(nextToken)) {
       throw responseError("YouTube commentThreads pagination returned a repeated page token.");
-    }
-    if (prospectiveThreads >= response.pageInfo.totalResults) {
-      throw responseError("YouTube commentThreads pagination was inconsistent with pageInfo.totalResults.");
     }
   }
 
@@ -925,7 +920,6 @@ const commitCommentThreadPage = (
   staged: StagedCommentThread[],
   response: z.infer<typeof commentThreadsResponseSchema>
 ): void => {
-  state.topLevelTotal ??= response.pageInfo.totalResults;
   for (const item of staged) {
     state.threadIds.add(item.threadId);
     state.topLevelIds.add(item.topLevelId);
@@ -983,12 +977,11 @@ const validateReplyPage = (
   thread: CommentThreadState
 ): void => {
   if (
-    response.pageInfo.resultsPerPage !== response.items.length ||
+    response.pageInfo.resultsPerPage < response.items.length ||
+    response.pageInfo.resultsPerPage > REPLY_PAGE_SIZE ||
     response.items.length > REPLY_PAGE_SIZE ||
-    (thread.observedReplyTotal !== undefined && response.pageInfo.totalResults !== thread.observedReplyTotal) ||
     (response.pageInfo.totalResults === 0 && (response.items.length !== 0 || response.nextPageToken !== undefined)) ||
-    response.items.length > response.pageInfo.totalResults ||
-    thread.fetchedReplyIds.size + response.items.length > response.pageInfo.totalResults
+    response.items.length > response.pageInfo.totalResults
   ) {
     throw responseError("YouTube comments pageInfo and result counts were inconsistent.");
   }
@@ -1014,18 +1007,10 @@ const stageReplyPage = (
   pageToken: string | undefined,
   seenTokens: Set<string>
 ): StagedReply[] => {
-  const prospectiveFetched = thread.fetchedReplyIds.size + response.items.length;
   const nextToken = response.nextPageToken;
-  if (nextToken === undefined) {
-    if (prospectiveFetched !== response.pageInfo.totalResults) {
-      throw responseError("YouTube comments results did not reconcile with pageInfo.totalResults.");
-    }
-  } else {
+  if (nextToken !== undefined) {
     if (seenTokens.has(nextToken) || nextToken === pageToken) {
       throw responseError("YouTube replies pagination returned a repeated page token.");
-    }
-    if (prospectiveFetched >= response.pageInfo.totalResults) {
-      throw responseError("YouTube replies pagination was inconsistent with pageInfo.totalResults.");
     }
   }
 
@@ -1076,7 +1061,6 @@ const commitReplyPage = (
   staged: StagedReply[],
   response: z.infer<typeof commentsResponseSchema>
 ): void => {
-  thread.observedReplyTotal ??= response.pageInfo.totalResults;
   for (const reply of staged) {
     thread.fetchedReplyIds.add(reply.id);
     if (reply.isNew) {
@@ -1129,7 +1113,6 @@ const updateThreadMismatch = (
   const independentlyRetrieved = thread.fetchedReplyIds.size;
   const reconciled = state.options.includeReplies &&
     thread.repliesExhausted &&
-    thread.observedReplyTotal === thread.expectedReplies &&
     independentlyRetrieved === thread.expectedReplies &&
     thread.returnedReplyCount === thread.expectedReplies;
   if (reconciled) {
@@ -1624,9 +1607,12 @@ const commentRawMetadata = (
   normalized_text_bytes: number;
   elapsed_ms: number;
 } => ({
-  ...(state.topLevelTotal === undefined
-    ? {}
-    : { api_visible_top_level_comments: state.topLevelTotal }),
+  ...(state.options.cursor === undefined &&
+      state.options.query === undefined &&
+      state.topLevelExhausted &&
+      selection.threads === state.threads.length
+    ? { api_visible_top_level_comments: selection.threads }
+    : {}),
   provider_request_attempts: state.accounting.providerRequestAttempts,
   normalized_output_bytes: normalizedOutputBytes,
   normalized_text_bytes: selection.textBytes,
