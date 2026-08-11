@@ -39,4 +39,11 @@ describe("live-suite runner status assertion", () => {
       output: "Test Files 1 failed (1)\nTests 5 passed (5)"
     })).toThrow("exactly one passing test file");
   });
+
+  it("rejects a skipped test-file summary even when five tests passed", () => {
+    expect(() => assertLiveSuiteSuccess({
+      exitStatus: 0,
+      output: "Test Files 1 passed (1)\nTest Files 1 skipped (1)\nTests 5 passed (5)"
+    })).toThrow("exactly one passing test file");
+  });
 });

@@ -3,9 +3,8 @@ import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
 const ANSI_ESCAPE_SEQUENCE = /\u001B\[[0-?]*[ -/]*[@-~]/g;
-const REQUIRED_TEST_FILE_SUMMARY = /Test Files\s+1 passed\s*\(1\)/;
-const REQUIRED_TEST_SUMMARY = /Tests\s+5 passed\s*\(5\)/;
-const FORBIDDEN_SKIP_SUMMARY = /Tests[^\n]*\bskipped\b/i;
+const REQUIRED_TEST_FILE_SUMMARY = /^\s*Test Files\s+1 passed\s*\(1\)\s*$/;
+const REQUIRED_TEST_SUMMARY = /^\s*Tests\s+5 passed\s*\(5\)\s*$/;
 
 export interface LiveSuiteStatusInput {
   exitStatus: number;
@@ -22,12 +21,18 @@ export function assertLiveSuiteSuccess(input: LiveSuiteStatusInput): string {
   }
 
   const sanitized = stripAnsi(input.output);
+  const lines = sanitized.split(/\r?\n/);
+  const testFileSummaries = lines.filter((line) => /^\s*Test Files\b/.test(line));
+  const testSummaries = lines.filter((line) => /^\s*Tests\b/.test(line));
 
-  if (!REQUIRED_TEST_FILE_SUMMARY.test(sanitized)) {
+  if (
+    testFileSummaries.length !== 1 ||
+    !REQUIRED_TEST_FILE_SUMMARY.test(testFileSummaries[0])
+  ) {
     throw new Error("Live suite did not report exactly one passing test file");
   }
 
-  if (!REQUIRED_TEST_SUMMARY.test(sanitized) || FORBIDDEN_SKIP_SUMMARY.test(sanitized)) {
+  if (testSummaries.length !== 1 || !REQUIRED_TEST_SUMMARY.test(testSummaries[0])) {
     throw new Error("Live suite did not report exactly five passing tests and zero skipped tests");
   }
 

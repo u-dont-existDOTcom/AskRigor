@@ -197,6 +197,8 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("youtube-20260811T172256Z");
     expect(document).toContain("15/15 expected outcomes");
     expect(document).toContain("ANSI");
+    expect(document).toContain("server-side runtime environment");
+    expect(document).toContain("fail-closed server-side secret scan");
   });
 });
 

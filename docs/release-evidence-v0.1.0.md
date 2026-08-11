@@ -21,8 +21,11 @@ verified publisher identity and accurately disclose the service's data handling.
 | Package version | `0.1.0`; manifest retains no unverified privacy/terms/support URL. |
 
 The two Inspector locations are recorded production evidence supplied by the
-successful deployment/validation work. This task did not access the VPS,
-providers, or credentials and does not represent them as a new local run.
+successful deployment/validation work. The controller's validation runner
+accessed the server-side runtime environment without exposing, reading back, or
+logging provider keys; evidence was read only after a fail-closed server-side
+secret scan. This worktree contains no provider secret and did not independently
+run the VPS validation.
 
 ## Recorded production validation
 
@@ -32,7 +35,7 @@ providers, or credentials and does not represent them as a new local run.
 | Formal sources | Production Inspector passed protocol integrity, PubMed, Europe PMC, ClinicalTrials.gov, and Crossref/retraction cases with their expected access/failure semantics. |
 | YouTube | Production Inspector passed YouTube discovery and complete comment-plus-reply retrieval for the bounded public target, including reply-page reconciliation. |
 | Fresh public YouTube Inspector | Exit 0; all 15/15 expected outcomes matched: tools list plus valid, zero, empty, malformed discovery/video/comments, complete reply corpus, and targeted zero-result cases. |
-| Fresh live providers | The provider test process exited 0 and 5/5 passed, including PubMed, Crossref, and YouTube; the server-side secret scan found no match. The original wrapper exit 1 was a false-negative ANSI status-parser failure only, after the provider tests had passed. |
+| Fresh live providers | The provider test process exited 0 and 5/5 passed, including PubMed, Crossref, and YouTube; the fail-closed server-side secret scan found no match. The original wrapper exit 1 was a false-negative ANSI status-parser failure only, after the provider tests had passed. |
 | ChatGPT Developer Mode | End-to-end smoke passed protocol integrity, PubMed, and complete YouTube 2+1 replies through the deployed connector. No AskRigor write tools were exposed or called. |
 | ChatGPT release finding | A separate **routine-status presentation regression** occurred: ChatGPT narrated a stale update-check date/status despite Universal v20.5.11 and HRP v20.5.15 prohibiting routine update diagnostics. This is not a connector retrieval failure; it must be fixed or explicitly accepted before release-quality presentation is claimed. |
 
@@ -85,7 +88,7 @@ checks run only with safely available credentials; credentials are never printed
 | --- | --- |
 | `npm ci` | Passed outside the restricted sandbox: 156 packages installed and 161 audited; npm reported 0 vulnerabilities. The sandboxed attempt was blocked by an `esbuild` postinstall `EPERM`. |
 | `npm run verify` | Passed outside the restricted sandbox after the runner repair: typecheck and build passed; Vitest reported 16 passed files, 1 skipped file, 325 passed tests, and 5 guarded live tests skipped. The sandboxed attempt failed only where loopback-server tests hit `listen EPERM` on `127.0.0.1`. |
-| Credential-bound live suite | Recorded production evidence at `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`: provider process exit 0 and 5/5 passed, including PubMed, Crossref, and YouTube; server-side secret scan found no match. The wrapper exit 1 was solely an ANSI-grep false negative. This worktree did not access credentials or rerun the remote suite. |
+| Credential-bound live suite | Recorded production evidence at `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`: provider process exit 0 and 5/5 passed, including PubMed, Crossref, and YouTube; the controller's runner accessed the server-side runtime environment without exposing, reading back, or logging provider keys, and evidence was read only after a fail-closed server-side secret scan found no match. The wrapper exit 1 was solely an ANSI-grep false negative. This worktree contains no secret and did not independently rerun the remote suite. |
 | `npm audit --omit=dev` | Passed outside the restricted sandbox: 0 production-dependency vulnerabilities. The sandbox could not resolve `registry.npmjs.org`. |
 | `npm outdated` | Exit 0 with no output; no outdated packages reported. No dependency upgrades were attempted. |
 
