@@ -11,7 +11,7 @@ Source: *Communal Societies*, Grand Valley State University ScholarWorks, tested
 - r08: keeper tab fixed zero-tab context death, but navigating item tabs into the inline PDF viewer still produced `TargetClosedError` after successful retrieval.
 - r09: browser-origin `fetch` from the ordinary ScholarWorks HTML page → PDF Blob → browser download worked. It verified 30 PDFs in 66 seconds, then the 31st and all later PDF fetches returned HTTP 403.
 - r10: retained the working browser-origin Blob path, added ≥4 s spacing, 90 s bounded cooldown/escalation on 403/429, and stopped the loop rather than poisoning hundreds of items.
-- r11: adds destination-aware packaging: every ChatGPT-upload ZIP is capped at 90,000,000 bytes using actual compressed ZIP size; oversized groups are recursively split.
+- r11: adds destination-aware packaging: every ChatGPT-upload ZIP is capped at 90,000,000 bytes using actual compressed ZIP size; oversized groups are recursively split. Before rebuilding, stale completed-corpus upload ZIPs/checksums are removed so an older oversized r10 package cannot be mistaken for a valid r11 output.
 
 ## Known-good invariants
 
@@ -25,6 +25,6 @@ Source: *Communal Societies*, Grand Valley State University ScholarWorks, tested
 - Minimum ~4 s between PDF fetch starts on this site; 403/429 after prior successes means cooldown/retry, not “bad article.”
 - SQLite resume, hash recheck, automatic diagnostics, Ctrl+C safe.
 - No OCR unless a later task explicitly needs it.
-- All upload ZIPs <=90,000,000 bytes; if one individual file cannot fit, stop with an explicit packaging error.
+- All upload ZIPs <=90,000,000 bytes; remove stale completed-corpus upload ZIPs before rebuilding, preserve diagnostics/source PDFs, and if one individual file cannot fit, stop with an explicit packaging error.
 
 These are empirical defaults, not universal constants. A different site can require a different interval or retrieval path; preserve the decision logic and evidence gathering rather than copying numbers blindly.

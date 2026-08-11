@@ -8,3 +8,4 @@ The RED cases are real failures from the GVSU collector sequence, not hypothetic
 4. Thirty PDFs succeed rapidly, then every later browser fetch returns 403. Expected: classify as rate limiting, cool down, retry same item, bounded escalation, stop loop if persistent; do not mark the rest permanently failed.
 5. Completed archive packages create a >100 MB ZIP. Expected: enforce 90,000,000-byte maximum based on actual compressed size and split automatically.
 6. User interrupts. Expected: verified items remain verified, rerun resumes, hashes are rechecked, and no manual log collection is required.
+7. A previous run already left an oversized completed-corpus ZIP beside the workspace. Expected: remove stale completed-corpus upload ZIPs/checksums before rebuilding, while preserving diagnostics and verified source files.

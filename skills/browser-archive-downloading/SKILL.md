@@ -18,7 +18,7 @@ Use the least invasive retrieval path that actually works. Keep deterministic di
 5. **Avoid browser PDF viewers.** Resolve the real public file URL from the landing page, then fetch it from JavaScript inside the authorized browser session. Validate the response, convert it to a Blob, trigger a browser download, verify the actual bytes, save atomically, then close only the disposable tab.
 6. **Throttle from evidence.** Space requests conservatively. Treat repeated `403`/`429` after earlier successes as rate limiting: cool down, retry the same item with bounded escalation, and stop the bulk loop if the limit persists. Do not mark the rest of the archive permanently failed.
 7. **Make interruption cheap.** Hash verified files, recheck them on resume, preserve successful state, print the item and stage before blocking calls, use hard per-item time budgets, and generate diagnostics automatically on nonzero exit.
-8. **Package for the destination.** For ChatGPT uploads, cap every ZIP at **90,000,000 bytes** (90 MB), safely below the 100 MB limit. Measure the actual compressed ZIP size and recursively split oversized groups into numbered parts. Never emit an oversized ZIP.
+8. **Package for the destination.** For ChatGPT uploads, cap every ZIP at **90,000,000 bytes** (90 MB), safely below the 100 MB limit. Measure the actual compressed ZIP size and recursively split oversized groups into numbered parts. Remove stale completed-corpus upload ZIPs before a rebuild while preserving diagnostics/source files. Never emit an oversized ZIP.
 
 ## GVSU reference
 

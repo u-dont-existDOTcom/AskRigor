@@ -39,6 +39,8 @@
     "measure_actual_compressed_size": true,
     "split_oversized_groups": true,
     "part_naming": "-part01, -part02, ...",
-    "oversized_single_file": "fail explicitly instead of emitting an unusable ZIP"
+    "oversized_single_file": "fail explicitly instead of emitting an unusable ZIP",
+    "remove_stale_completed_uploads_before_rebuild": true,
+    "preserve_diagnostic_zips": true
   }
 }
