@@ -199,6 +199,8 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("ANSI");
     expect(document).toContain("server-side runtime environment");
     expect(document).toContain("fail-closed server-side secret scan");
+    expect(document).toContain("TS2307");
+    expect(document).toContain("No provider request occurred");
   });
 });
 

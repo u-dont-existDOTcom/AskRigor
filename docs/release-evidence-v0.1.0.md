@@ -103,3 +103,14 @@ ANSI-split successful Vitest summary is accepted and that nonzero exits,
 skipped tests, failed test files, and a color-enabled package command are
 rejected. The repair does not turn the historical wrapper exit into a fresh
 wrapper run.
+
+## v3 Docker preflight finding and v4 replacement
+
+The v3 isolated runner failed during its Docker image build, before a provider
+request: `npm run build` reported `TS2307` workspace-resolution errors for
+`@askrigor/contracts`, `@askrigor/protocol`, and `@askrigor/sources`. No provider request occurred. Root cause was Docker running `npm ci` after only copying the
+root package metadata, so npm could not create workspace links. The v4
+Dockerfile copies `apps` and `packages` before `npm ci`; a clean tracked v4
+archive then completed `npm ci`, `npm run build`, and the non-root final image
+locally. Do not reuse the failed v3 archive or remote stage; v4 requires a new
+root-owned stage and a fresh remote validation run.
