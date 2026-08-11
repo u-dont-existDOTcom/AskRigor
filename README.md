@@ -142,3 +142,14 @@ root `.app.json`, while `.codex-plugin/plugin.json` references
 IDs are environment-specific; regenerate it when installing the plugin in a
 different ChatGPT environment. Never add provider API keys or deployment
 credentials to either manifest.
+
+## Public-review status
+
+The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
+evidence, but v0.1.0 is **not ready for public plugin submission**: the current
+website, privacy, terms, and support URLs redirect from HTTPS to a plain-HTTP
+unrelated destination. Do not add those URLs to the manifest or submit the
+plugin until publisher-matching public HTTPS legal/support pages are live and
+the privacy notice accurately covers public YouTube identity/comment processing.
+See `docs/privacy-data-map.md`, `docs/public-review-checklist.md`, and
+`docs/release-evidence-v0.1.0.md` for the reviewer packet and release gates.
