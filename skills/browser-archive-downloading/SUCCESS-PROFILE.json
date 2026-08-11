@@ -1,0 +1,44 @@
+{
+  "format": "browser-archive-success-profile-v1",
+  "profile": "gvsu-scholarworks-visible-browser",
+  "validated_context": "GVSU ScholarWorks Communal Societies archive on Zorin + Opera/Chromium, August 2026",
+  "discovery": "deterministic_http_public_landing_pages",
+  "file_retrieval": {
+    "mode": "visible_persistent_browser_context",
+    "profile_persistence": true,
+    "keeper_tab": true,
+    "fresh_item_tab": true,
+    "navigate_pdf_viewer": false,
+    "method": "browser_origin_fetch_to_blob_then_browser_download",
+    "validate_pdf_bytes": true,
+    "atomic_save": true,
+    "sha256": true
+  },
+  "observed_waf": {
+    "direct_http_status": 202,
+    "header": "x-amzn-waf-action: challenge",
+    "action": "use ordinary visible browser session; do not bypass access controls"
+  },
+  "rate_limit": {
+    "observed": "30 PDFs verified in 66 seconds, then continuous HTTP 403",
+    "minimum_interval_seconds": 4,
+    "initial_cooldown_seconds": 90,
+    "retry_same_item": true,
+    "bounded_escalation": true,
+    "stop_bulk_loop_if_persistent": true
+  },
+  "resume": {
+    "persistent_state": "sqlite",
+    "rehash_verified_files": true,
+    "ctrl_c_safe": true,
+    "automatic_diagnostic_zip": true
+  },
+  "chatgpt_packaging": {
+    "platform_limit_bytes": 100000000,
+    "configured_max_zip_bytes": 90000000,
+    "measure_actual_compressed_size": true,
+    "split_oversized_groups": true,
+    "part_naming": "-part01, -part02, ...",
+    "oversized_single_file": "fail explicitly instead of emitting an unusable ZIP"
+  }
+}
