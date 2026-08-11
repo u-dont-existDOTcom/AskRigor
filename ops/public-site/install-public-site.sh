@@ -10,15 +10,40 @@ die() {
   return 1
 }
 
-[[ "$#" -eq 3 ]] || {
-  usage
-  exit 64
+write_validation_overlay() {
+  local output=$1
+  local staged_caddyfile=$2
+  local staged_site=$3
+  umask 077
+  command cat >"$output" <<EOF
+services:
+  caddy:
+    volumes:
+      - type: bind
+        source: $staged_site
+        target: /srv/askrigor-site
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: $staged_caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
+EOF
 }
-[[ "${EUID:-$(id -u)}" -eq 0 ]] || die "installer must run as root"
 
-input_archive=$1
-input_checksum=$2
-revision=$3
+main() {
+  [[ "$#" -eq 3 ]] || {
+    usage
+    exit 64
+  }
+  [[ "${EUID:-$(id -u)}" -eq 0 ]] || die "installer must run as root"
+
+  input_archive=$1
+  input_checksum=$2
+  revision=$3
 
 [[ "$revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] ||
   die "revision must be a safe nonempty release name"
@@ -80,6 +105,7 @@ docker compose version >/dev/null || die "Docker Compose v2 is required"
 command -v curl >/dev/null || die "curl is required"
 command -v tar >/dev/null || die "tar is required"
 command -v realpath >/dev/null || die "realpath is required"
+command -v node >/dev/null || die "node is required"
 
 [[ ! -L "$input_archive" ]] || die "path must not be a symlink: $input_archive"
 [[ ! -L "$input_checksum" ]] || die "path must not be a symlink: $input_checksum"
@@ -188,7 +214,8 @@ for required_member in \
   site/assets/site.css \
   ops/public-site/Caddyfile.site \
   ops/public-site/compose.site.yaml \
-  ops/public-site/install-public-site.sh
+  ops/public-site/install-public-site.sh \
+  ops/public-site/verify-compose-delta.mjs
 do
   grep -Fxq -- "$required_member" "$members_file" ||
     die "archive is missing required member: $required_member"
@@ -207,6 +234,7 @@ assert_root_owned_secure_path "$release_path/ops/public-site/compose.site.yaml" 
 
 packet_caddyfile="$release_path/ops/public-site/Caddyfile.site"
 packet_overlay="$release_path/ops/public-site/compose.site.yaml"
+compose_delta_verifier="$release_path/ops/public-site/verify-compose-delta.mjs"
 staged_combined_caddyfile="$staging_path/Caddyfile.combined"
 cp --reflink=never -- "$production_caddyfile" "$staged_combined_caddyfile"
 printf '\n' >>"$staged_combined_caddyfile"
@@ -226,26 +254,27 @@ candidate_compose_command=(
   -f "$packet_overlay"
 )
 
-# A service-config hash compares the complete rendered service, including the
-# research-mcp image, mounts, environment-file references, networks, security
-# options, and port binding, while preventing rendered values from being logged.
-base_research_mcp_hash=$("${base_compose_command[@]}" config --no-env-resolution --no-interpolate --hash research-mcp)
-candidate_research_mcp_hash=$("${candidate_compose_command[@]}" config --no-env-resolution --no-interpolate --hash research-mcp)
-[[ -n "$base_research_mcp_hash" && "$candidate_research_mcp_hash" == "$base_research_mcp_hash" ]] ||
-  die "three-file Compose render changes research-mcp"
+base_compose_render="$staging_path/compose.base.json"
+candidate_compose_render="$staging_path/compose.candidate.json"
+umask 077
+"${base_compose_command[@]}" config --no-env-resolution --no-interpolate --format json \
+  >"$base_compose_render"
+"${candidate_compose_command[@]}" config --no-env-resolution --no-interpolate --format json \
+  >"$candidate_compose_render"
+chmod 0600 -- "$base_compose_render" "$candidate_compose_render"
+node "$compose_delta_verifier" "$base_compose_render" "$candidate_compose_render"
 
-caddy_image_count=$("${base_compose_command[@]}" config --no-env-resolution --no-interpolate --images |
-  grep -Ec '(^|/)caddy(:[^@[:space:]]+)?@sha256:[0-9a-fA-F]{64}$' || true)
-[[ "$caddy_image_count" -eq 1 ]] || die "production Caddy image must be pinned by SHA-256 digest"
+validation_overlay="$staging_path/compose.validation.yaml"
+write_validation_overlay \
+  "$validation_overlay" "$staged_combined_caddyfile" "$release_path/site"
+chmod 0600 -- "$validation_overlay"
 
 # The run-time volume overrides validate the staged inputs without changing the
 # current link or active state files. The image still comes from the production
 # three-file Compose model.
-"${candidate_compose_command[@]}" run --rm --no-deps \
-  -v "$release_path/site:/srv/askrigor-site:ro" \
-  -v "$staged_combined_caddyfile:/tmp/Caddyfile:ro" \
+"${candidate_compose_command[@]}" -f "$validation_overlay" run --rm --no-deps \
   --entrypoint caddy caddy \
-  validate --config /tmp/Caddyfile --adapter caddyfile
+  validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
 curl --fail --silent --show-error --output /dev/null \
   --proto '=https' --tlsv1.2 --max-time 15 https://askrigor.com/ ||
@@ -285,6 +314,9 @@ next_current_link="$site_root/.current.${revision}.new"
 install -o root -g root -m 0400 -- "$staged_combined_caddyfile" "$next_caddyfile"
 install -o root -g root -m 0400 -- "$packet_overlay" "$next_overlay"
 
+activate_release
+}
+
 probe_http_200() {
   local url=$1
   local attempt status
@@ -317,27 +349,80 @@ verify_public_routes() {
 
 restore_previous_state() {
   local restore_path
+  local restoration_failed=0
   if [[ "$previous_caddyfile_present" -eq 1 ]]; then
     restore_path="$state_root/.Caddyfile.rollback"
-    install -o root -g root -m 0400 -- "$previous_caddyfile_backup" "$restore_path" &&
-      mv -Tf -- "$restore_path" "$state_root/Caddyfile"
+    if ! install -o root -g root -m 0400 -- "$previous_caddyfile_backup" "$restore_path"; then
+      printf 'Rollback restore failed: prior Caddyfile could not be staged.\n' >&2
+      restoration_failed=1
+    elif ! mv -Tf -- "$restore_path" "$state_root/Caddyfile"; then
+      printf 'Rollback restore failed: prior Caddyfile could not be installed.\n' >&2
+      restoration_failed=1
+    fi
   else
-    rm -f -- "$state_root/Caddyfile"
+    if ! rm -f -- "$state_root/Caddyfile"; then
+      printf 'Rollback restore failed: new Caddyfile could not be removed.\n' >&2
+      restoration_failed=1
+    fi
   fi
   if [[ "$previous_overlay_present" -eq 1 ]]; then
     restore_path="$state_root/.compose.site.rollback.yaml"
-    install -o root -g root -m 0400 -- "$previous_overlay_backup" "$restore_path" &&
-      mv -Tf -- "$restore_path" "$state_root/compose.site.yaml"
+    if ! install -o root -g root -m 0400 -- "$previous_overlay_backup" "$restore_path"; then
+      printf 'Rollback restore failed: prior Compose overlay could not be staged.\n' >&2
+      restoration_failed=1
+    elif ! mv -Tf -- "$restore_path" "$state_root/compose.site.yaml"; then
+      printf 'Rollback restore failed: prior Compose overlay could not be installed.\n' >&2
+      restoration_failed=1
+    fi
   else
-    rm -f -- "$state_root/compose.site.yaml"
+    if ! rm -f -- "$state_root/compose.site.yaml"; then
+      printf 'Rollback restore failed: new Compose overlay could not be removed.\n' >&2
+      restoration_failed=1
+    fi
   fi
   if [[ -n "$previous_current_target" ]]; then
-    rm -f -- "$next_current_link"
-    ln -s -- "$previous_current_target" "$next_current_link" &&
-      mv -Tf -- "$next_current_link" "$current_link"
+    if ! rm -f -- "$next_current_link" ||
+       ! ln -s -- "$previous_current_target" "$next_current_link" ||
+       ! mv -Tf -- "$next_current_link" "$current_link"; then
+      printf 'Rollback restore failed: prior current link could not be installed.\n' >&2
+      restoration_failed=1
+    fi
   else
-    rm -f -- "$current_link" "$next_current_link"
+    if ! rm -f -- "$current_link" "$next_current_link"; then
+      printf 'Rollback restore failed: new current link could not be removed.\n' >&2
+      restoration_failed=1
+    fi
   fi
+
+  if [[ "$previous_caddyfile_present" -eq 1 ]]; then
+    if [[ -L "$state_root/Caddyfile" || ! -f "$state_root/Caddyfile" ]] ||
+       ! cmp -s -- "$previous_caddyfile_backup" "$state_root/Caddyfile"; then
+      restoration_failed=1
+    fi
+  elif [[ -e "$state_root/Caddyfile" || -L "$state_root/Caddyfile" ]]; then
+    restoration_failed=1
+  fi
+  if [[ "$previous_overlay_present" -eq 1 ]]; then
+    if [[ -L "$state_root/compose.site.yaml" || ! -f "$state_root/compose.site.yaml" ]] ||
+       ! cmp -s -- "$previous_overlay_backup" "$state_root/compose.site.yaml"; then
+      restoration_failed=1
+    fi
+  elif [[ -e "$state_root/compose.site.yaml" || -L "$state_root/compose.site.yaml" ]]; then
+    restoration_failed=1
+  fi
+  if [[ -n "$previous_current_target" ]]; then
+    if [[ ! -L "$current_link" ]] ||
+       [[ $(readlink -- "$current_link" 2>/dev/null || true) != "$previous_current_target" ]]; then
+      restoration_failed=1
+    fi
+  elif [[ -e "$current_link" || -L "$current_link" ]]; then
+    restoration_failed=1
+  fi
+
+  [[ "$restoration_failed" -eq 0 ]] || {
+    printf 'Rollback restoration is incomplete; Caddy will not be recreated.\n' >&2
+    return 1
+  }
 }
 
 recreate_previous_caddy_only() {
@@ -356,17 +441,32 @@ recreate_previous_caddy_only() {
 }
 
 rollback_armed=0
+perform_rollback() {
+  if ! restore_previous_state; then
+    return 1
+  fi
+  if ! recreate_previous_caddy_only; then
+    printf 'Rollback recreation failed after coherent state restoration.\n' >&2
+    return 1
+  fi
+  if ! probe_http_200 http://127.0.0.1:3000/healthz ||
+     ! probe_http_200 https://mcp.askrigor.com/healthz; then
+    printf 'Warning: MCP health did not recover during rollback verification.\n' >&2
+    return 1
+  fi
+}
+
 rollback() {
   local status=$?
+  local rollback_status=0
   trap - ERR
   set +e
   if [[ "$rollback_armed" -eq 1 ]]; then
     printf 'Deployment failed; restoring the prior public-site state.\n' >&2
-    restore_previous_state
-    recreate_previous_caddy_only
-    if ! probe_http_200 http://127.0.0.1:3000/healthz ||
-       ! probe_http_200 https://mcp.askrigor.com/healthz; then
-      printf 'Warning: MCP health did not recover during rollback verification.\n' >&2
+    perform_rollback
+    rollback_status=$?
+    if [[ "$rollback_status" -ne 0 ]]; then
+      printf 'Rollback did not complete successfully; manual recovery is required.\n' >&2
     fi
   fi
   printf 'preserved failed release artifacts:\n  staging: %s\n  release: %s\n' \
@@ -374,25 +474,31 @@ rollback() {
   exit "$status"
 }
 
-# Arm rollback before the first atomic change to current or active state.
-rollback_armed=1
-trap rollback ERR
+activate_release() {
+  # Arm rollback before the first atomic change to current or active state.
+  rollback_armed=1
+  trap rollback ERR
 
-mv -Tf -- "$next_caddyfile" "$state_root/Caddyfile"
-mv -Tf -- "$next_overlay" "$state_root/compose.site.yaml"
-ln -s -- "$release_path/site" "$next_current_link"
-mv -Tf -- "$next_current_link" "$current_link"
+  mv -Tf -- "$next_caddyfile" "$state_root/Caddyfile"
+  mv -Tf -- "$next_overlay" "$state_root/compose.site.yaml"
+  ln -s -- "$release_path/site" "$next_current_link"
+  mv -Tf -- "$next_current_link" "$current_link"
 
-docker compose \
-  -f /opt/askrigor/active/compose.yaml \
-  -f /opt/askrigor/active/compose.https.yaml \
-  -f /opt/askrigor/site/state/compose.site.yaml \
-  up -d --no-deps --force-recreate caddy
+  docker compose \
+    -f /opt/askrigor/active/compose.yaml \
+    -f /opt/askrigor/active/compose.https.yaml \
+    -f /opt/askrigor/site/state/compose.site.yaml \
+    up -d --no-deps --force-recreate caddy
 
-verify_mcp_health
-verify_public_routes
+  verify_mcp_health
+  verify_public_routes
 
-rollback_armed=0
-trap - ERR
-rm -rf -- "$staging_path"
-printf 'Activated public-site release %s at %s\n' "$revision" "$release_path"
+  rollback_armed=0
+  trap - ERR
+  rm -rf -- "$staging_path"
+  printf 'Activated public-site release %s at %s\n' "$revision" "$release_path"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

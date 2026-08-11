@@ -1,5 +1,17 @@
 services:
   caddy:
     volumes:
-      - /opt/askrigor/site/current:/srv/askrigor-site:ro
-      - /opt/askrigor/site/state/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Reviewed identity: /opt/askrigor/site/current:/srv/askrigor-site:ro
+      - type: bind
+        source: /opt/askrigor/site/current
+        target: /srv/askrigor-site
+        read_only: true
+        bind:
+          create_host_path: false
+      # Reviewed identity: /opt/askrigor/site/state/Caddyfile:/etc/caddy/Caddyfile:ro
+      - type: bind
+        source: /opt/askrigor/site/state/Caddyfile
+        target: /etc/caddy/Caddyfile
+        read_only: true
+        bind:
+          create_host_path: false
