@@ -1,0 +1,5 @@
+services:
+  caddy:
+    volumes:
+      - /opt/askrigor/site/current:/srv/askrigor-site:ro
+      - /opt/askrigor/site/state/Caddyfile:/etc/caddy/Caddyfile:ro
