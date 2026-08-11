@@ -209,6 +209,11 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("Live suite v6 accepted");
     expect(document).toContain("zero skipped");
     expect(document).toContain("provider-test.log.sha256");
+    expect(document).toContain("Current fresh live-provider suite");
+    expect(document).not.toMatch(/fresh wrapper exit\s+0 is still required/);
+    expect(document).toContain(
+      "17 passed files, 1 skipped file, 337 passed tests, and 5 guarded live tests skipped",
+    );
   });
 });
 

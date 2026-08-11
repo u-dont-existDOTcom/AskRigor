@@ -107,7 +107,7 @@ Only after real publisher-matching HTTPS legal/support pages are live:
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
 3. Re-run all eight cases in `docs/public-review-cases-v0.1.0.json` with the
-   recorded fixtures and expected fields.
+   production-public inputs and expected fields.
 4. Confirm no response contains credentials, debug payloads, internal
    identifiers, or data not disclosed in the final privacy notice.
 5. Resolve or expressly accept the recorded routine-status presentation
