@@ -24,6 +24,11 @@ describe("AskRigor public site", () => {
     expect(result.internalLinks).toBeGreaterThanOrEqual(16);
   });
 
+  it("counts only same-origin anchor navigation links", async () => {
+    const result = await validatePublicSite(rootFile("site/"));
+    expect(result.internalLinks).toBe(35);
+  });
+
   it.each(pages)("gives %s its exact identity", async (file, title, canonical) => {
     const html = await pageHtml(file);
     expect(html).toContain(`<title>${title}</title>`);

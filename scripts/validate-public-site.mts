@@ -167,7 +167,7 @@ function validateHtml(path: string, html: string, requirement: (typeof pageRequi
     if (pattern.test(html)) add(message);
   }
 
-  const internalLinks = [...html.matchAll(/\shref="(\/[^"\s]*)"/g)]
+  const internalLinks = [...html.matchAll(/<a\b[^>]*\shref="(\/[^"\s]*)"/gi)]
     .filter(([, href]) => !href.startsWith("//"))
     .length;
   return { errors, internalLinks };
