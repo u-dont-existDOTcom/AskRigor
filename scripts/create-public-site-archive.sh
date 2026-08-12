@@ -63,6 +63,18 @@ publish_no_clobber() {
   rm -f -- "$source"
 }
 
+validate_required_public_site_members() {
+  local members_file=$1
+  local required_member
+  for required_member in \
+    ops/public-site/bootstrap-apex-tls.sh \
+    ops/public-site/install-public-site.sh
+  do
+    grep -Fxq -- "$required_member" "$members_file" ||
+      die "archive is missing required member: $required_member"
+  done
+}
+
 main() {
   [[ "$#" -eq 2 ]] || {
     usage
@@ -124,6 +136,7 @@ main() {
 
   git archive --format=tar "$commit" site ops/public-site | gzip -n >"$temporary_archive"
   validate_archive_membership "$temporary_archive" "$members_file" "$verbose_file"
+  validate_required_public_site_members "$members_file"
 
   mkdir -- "$validation_directory"
   tar -xzf "$temporary_archive" --no-same-owner --no-same-permissions \

@@ -7,6 +7,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 const root = resolve(new URL("../", import.meta.url).pathname);
 const archiveScript = resolve(root, "scripts/create-public-site-archive.sh");
 const installerScript = resolve(root, "ops/public-site/install-public-site.sh");
+const bootstrapScript = resolve(root, "ops/public-site/bootstrap-apex-tls.sh");
 
 const bash = (script: string) => spawnSync("bash", ["-c", script], {
   cwd: root,
@@ -16,12 +17,14 @@ const bash = (script: string) => spawnSync("bash", ["-c", script], {
 let caddy: string;
 let compose: string;
 let installer: string;
+let bootstrap: string;
 let archiveCreator: string;
 
 beforeAll(async () => {
   caddy = await readFile(resolve(root, "ops/public-site/Caddyfile.site"), "utf8");
   compose = await readFile(resolve(root, "ops/public-site/compose.site.yaml"), "utf8");
   installer = await readFile(resolve(root, "ops/public-site/install-public-site.sh"), "utf8");
+  bootstrap = await readFile(bootstrapScript, "utf8");
   archiveCreator = await readFile(resolve(root, "scripts/create-public-site-archive.sh"), "utf8");
 });
 
@@ -69,6 +72,196 @@ describe("public-site deployment packet", () => {
     expect(archiveCreator).toContain("archive member is outside the allowed roots");
     expect(archiveCreator).toContain("private-key-like archive member");
     expect(archiveCreator).toContain("npm run test:site");
+    expect(archiveCreator).toContain("ops/public-site/bootstrap-apex-tls.sh");
+  });
+
+  it("defines a root-only, secret-free, Caddy-only apex TLS bootstrap", () => {
+    expect(bootstrap).toContain("set -Eeuo pipefail");
+    expect(bootstrap).toContain("<expected-apex-ipv4>");
+    expect(bootstrap).toContain('[[ "$#" -eq 1 ]]');
+    expect(bootstrap).toContain("must run as root");
+    expect(bootstrap).toContain("base_compose=/opt/askrigor/compose.yaml");
+    expect(bootstrap).toContain("https_release_link=/opt/askrigor/active-https");
+    expect(bootstrap).toContain("https_compose=$resolved_https_compose");
+    expect(bootstrap).toContain("production_caddyfile=$resolved_production_caddyfile");
+    expect(bootstrap).toContain("askrigor.com {");
+    expect(bootstrap).toContain('respond "" 204');
+    expect(bootstrap).toContain("-Server");
+    expect(bootstrap).toContain("compose_environment=(");
+    expect(bootstrap).toContain("env -i");
+    expect(bootstrap).toContain("--no-deps --force-recreate caddy");
+    expect(bootstrap).not.toContain("--force-recreate research-mcp");
+    expect(bootstrap).not.toContain("docker compose down");
+  });
+
+  it("packages the bootstrap utility as a required archive member", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-bootstrap-members-"));
+    try {
+      const members = join(temporary, "members");
+      await writeFile(members, "ops/public-site/install-public-site.sh\n");
+      const rejected = bash(`source "${archiveScript}"; validate_required_public_site_members "${members}"`);
+      expect(rejected.status).not.toBe(0);
+      expect(rejected.stderr).toContain("bootstrap-apex-tls.sh");
+
+      await writeFile(members, [
+        "ops/public-site/install-public-site.sh",
+        "ops/public-site/bootstrap-apex-tls.sh",
+        ""
+      ].join("\n"));
+      const accepted = bash(`source "${archiveScript}"; validate_required_public_site_members "${members}"`);
+      expect(accepted.status, accepted.stderr).toBe(0);
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("enforces the validated live Caddy identity and public interpolation contract", () => {
+    const accepted = bash(`
+      source "${bootstrapScript}"
+      docker() {
+        case "$1" in
+          ps) printf 'caddy-container-id\n' ;;
+          inspect) printf '%s\n' \
+            'ASKRIGOR_HOSTNAME=mcp.askrigor.com' \
+            'ASKRIGOR_DIRECT_DNS_ONLY=true' ;;
+        esac
+      }
+      discover_live_caddy_container /opt/askrigor/compose.yaml,/resolved/compose.https.yaml
+      extract_public_caddy_environment "$live_caddy_container_id"
+      [[ "$live_caddy_container_id" == caddy-container-id ]]
+      [[ "$caddy_hostname" == mcp.askrigor.com ]]
+      [[ "$caddy_direct_dns_only" == true ]]
+    `);
+    expect(accepted.status, accepted.stderr).toBe(0);
+
+    const duplicate = bash(`
+      source "${bootstrapScript}"
+      docker() { printf '%s\n' \
+        'ASKRIGOR_HOSTNAME=mcp.askrigor.com' \
+        'ASKRIGOR_HOSTNAME=other.example' \
+        'ASKRIGOR_DIRECT_DNS_ONLY=true'; }
+      extract_public_caddy_environment caddy-container-id
+    `);
+    expect(duplicate.status).not.toBe(0);
+    expect(duplicate.stderr).toContain("duplicate public Caddy variable");
+
+    const malformed = bash(`
+      source "${bootstrapScript}"
+      docker() { printf '%s\n' \
+        'ASKRIGOR_HOSTNAME=mcp.askrigor.com' \
+        'ASKRIGOR_DIRECT_DNS_ONLY=true;unsafe'; }
+      extract_public_caddy_environment caddy-container-id
+    `);
+    expect(malformed.status).not.toBe(0);
+    expect(malformed.stderr).toContain("malformed ASKRIGOR_DIRECT_DNS_ONLY");
+  });
+
+  it("accepts exactly the expected apex A answer and no AAAA answer", () => {
+    const runDns = (a: string, aaaa: string) => bash(`
+      source "${bootstrapScript}"
+      dig() {
+        if [[ "$2" == A ]]; then
+          printf '%b' ${JSON.stringify(a)}
+        else
+          printf '%b' ${JSON.stringify(aaaa)}
+        fi
+      }
+      verify_apex_dns 191.215.38.123
+    `);
+
+    const accepted = runDns("191.215.38.123\n", "");
+    expect(accepted.status, accepted.stderr).toBe(0);
+    for (const [a, aaaa] of [
+      ["191.215.38.124\n", ""],
+      ["191.215.38.123\n191.215.38.123\n", ""],
+      ["191.215.38.123\n", "2001:db8::1\n"]
+    ]) {
+      const rejected = runDns(a, aaaa);
+      expect(rejected.status).not.toBe(0);
+      expect(rejected.stderr).toContain("apex DNS");
+    }
+  });
+
+  it("requires the apex certificate SAN", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-apex-cert-"));
+    try {
+      const apexCertificate = join(temporary, "apex.pem");
+      const mcpCertificate = join(temporary, "mcp.pem");
+      for (const [name, output] of [
+        ["askrigor.com", apexCertificate],
+        ["mcp.askrigor.com", mcpCertificate]
+      ]) {
+        const generated = spawnSync("openssl", [
+          "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+          "-subj", `/CN=${name}`, "-addext", `subjectAltName=DNS:${name}`,
+          "-keyout", join(temporary, `${name}.key`), "-out", output
+        ], { encoding: "utf8" });
+        expect(generated.status, generated.stderr).toBe(0);
+      }
+
+      const accepted = bash(`source "${bootstrapScript}"; verify_certificate_san "${apexCertificate}"`);
+      expect(accepted.status, accepted.stderr).toBe(0);
+      const rejected = bash(`source "${bootstrapScript}"; verify_certificate_san "${mcpCertificate}"`);
+      expect(rejected.status).not.toBe(0);
+      expect(rejected.stderr).toContain("DNS:askrigor.com");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("requires every post-recreation acceptance signal", () => {
+    const acceptedArgs = [
+      "204", "308", "https://askrigor.com/", "Date: now", "mcp-before", "mcp-before", "200", "200"
+    ];
+    const verify = (args: string[]) => bash(`
+      source "${bootstrapScript}"
+      verify_acceptance_values ${args.map((value) => JSON.stringify(value)).join(" ")}
+    `);
+    const accepted = verify(acceptedArgs);
+    expect(accepted.status, accepted.stderr).toBe(0);
+
+    const mutations = [
+      [0, "200"],
+      [1, "301"],
+      [2, "https://other.example/"],
+      [3, "Server: Caddy"],
+      [5, "mcp-after"],
+      [6, "503"],
+      [7, "503"]
+    ] as const;
+    for (const [index, replacement] of mutations) {
+      const values = [...acceptedArgs];
+      values[index] = replacement;
+      expect(verify(values).status, `mutation ${index}`).not.toBe(0);
+    }
+  });
+
+  it("rolls a failed post-recreation probe back through Caddy only", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-bootstrap-rollback-"));
+    try {
+      const commandLog = join(temporary, "compose.log");
+      const result = bash(`
+        source "${bootstrapScript}"
+        base_compose=/opt/askrigor/compose.yaml
+        https_compose=/opt/askrigor/releases/https/release/compose.https.yaml
+        production_caddyfile=/opt/askrigor/releases/https/release/Caddyfile
+        bootstrap_caddyfile="${join(temporary, "Caddyfile.bootstrap")}"
+        caddy_hostname=mcp.askrigor.com
+        caddy_direct_dns_only=true
+        compose_environment=(env -i PATH=/usr/bin:/bin HOME=/root)
+        run_compose_command() { printf 'env=%s command=%s\\n' "\${compose_environment[*]}" "$*" >>"${commandLog}"; }
+        verify_mcp_health() { return 0; }
+        verify_post_recreation_acceptance() { return 1; }
+        execute_bootstrap_transaction mcp-container-before
+      `);
+      expect(result.status).not.toBe(0);
+      const commands = await readFile(commandLog, "utf8");
+      expect(commands).toContain("--no-deps --force-recreate caddy");
+      expect(commands).not.toContain("research-mcp");
+      expect(commands).toContain("ASKRIGOR_CADDYFILE=/opt/askrigor/releases/https/release/Caddyfile");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
   });
 
   it("installs transactionally and arms a Caddy-only rollback before switching", () => {
@@ -309,7 +502,7 @@ describe("public-site deployment packet", () => {
   });
 
   it("never embeds or invokes forbidden deployment material", () => {
-    const allDeploymentFiles = [caddy, compose, installer, archiveCreator];
+    const allDeploymentFiles = [caddy, compose, installer, bootstrap, archiveCreator];
     for (const file of allDeploymentFiles) {
       expect(file).not.toContain("YOUTUBE_API_KEY");
       expect(file).not.toContain("NCBI_API_KEY");
