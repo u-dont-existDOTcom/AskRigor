@@ -118,8 +118,11 @@ describe("canonical protocol loader", () => {
     for (const required of [
       'search term "used"',
       'search term "results"',
+      "returns one comment",
+      "returns zero",
       "access_status=partial",
       "extraction_coverage=partial",
+      "real-world evidence is weak or indeterminate and finishes the review",
       "discovery-only",
       "unfiltered comments",
       "paginate until exhausted",
