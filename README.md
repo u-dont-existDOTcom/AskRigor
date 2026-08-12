@@ -146,7 +146,10 @@ credentials to either manifest.
 ## Public-review status
 
 The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
-evidence. The website/privacy/terms/support gate passed on 2026-08-12 for site
+evidence. It now serves canonical HRP `20.5.16` (2026-08-12), SHA-256
+`d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`,
+including the field-driven Community Corpus Completion Gate and its exact
+query-bounded YouTube regression. The website/privacy/terms/support gate passed on 2026-08-12 for site
 release `f928b95e29cd`: `https://askrigor.com/`,
 `https://askrigor.com/privacy`, `https://askrigor.com/terms`, and
 `https://askrigor.com/support` all passed direct HTTPS acceptance. The manifest

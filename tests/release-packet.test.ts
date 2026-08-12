@@ -188,7 +188,9 @@ describe("AskRigor public-review packet", () => {
     const document = await readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8");
 
     expect(document).toContain("https://mcp.askrigor.com/mcp");
-    expect(document).toContain("8fface584200f6ab824e91e6e50f975019fbf741");
+    expect(document).toContain("198bbdb5f7a6d3fb55e59b9042ff22b9f3605697");
+    expect(document).toContain("HRP 20.5.16 execution-reliability rollout");
+    expect(document).toContain("d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597");
     expect(document).toContain("Inspector");
     expect(document).toContain("PUBLIC SUBMISSION BLOCKED");
     expect(document).toContain("routine-status presentation regression");
