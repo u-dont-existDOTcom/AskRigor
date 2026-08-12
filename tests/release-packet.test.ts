@@ -21,7 +21,8 @@ const TOOL_NAMES = [
   "search_youtube",
   "get_youtube_video",
   "get_youtube_comments",
-  "search_youtube_comments"
+  "search_youtube_comments",
+  "audit_youtube_community"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -40,6 +41,9 @@ describe("AskRigor public-review packet", () => {
       "Public YouTube video metadata",
       "public YouTube author/channel IDs",
       "comment text",
+      "research question and labeled YouTube queries",
+      "corpus SHA-256",
+      "deterministic sample",
       "not persistently stored",
       "aggregate server logs"
     ]) {
@@ -59,9 +63,9 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(14);
+    expect(inventory.tools).toHaveLength(15);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "2697b21ca2f386ba69b983bfd1b97b42a4d6968995f9a381bb6d609be5b1c13c"
+      "94f09136bb27b25195febc7bc5294bdeb07458d8c67b02c9bfc5081b50bfd216"
     );
 
     for (const tool of inventory.tools) {
@@ -82,6 +86,31 @@ describe("AskRigor public-review packet", () => {
         "annotations", "description", "execution", "inputSchema", "name", "outputSchema"
       ]);
     }
+
+    const audit = inventory.tools.find(({ name }) => name === "audit_youtube_community");
+    expect(audit).toMatchObject({
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false
+      },
+      outputSchema: {
+        properties: {
+          receipt: {
+            properties: {
+              completion_state: { enum: [
+                "api_visible_complete",
+                "complete_no_candidates",
+                "completed_with_access_boundary",
+                "incomplete"
+              ] },
+              synthesis_lock: { enum: ["pass", "block"] },
+              query_bounded_comments_used_as_corpus: { const: false }
+            }
+          }
+        }
+      }
+    });
   });
 
   it("supplies five reproducible positive and three safe negative portal cases", async () => {

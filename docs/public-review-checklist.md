@@ -12,7 +12,7 @@ domain-verification work, Scan Tools review, and submission actions recorded in
 
 The complete reviewer inventory is generated directly from
 `createAskRigorServer()` through an in-memory MCP `tools/list` call. It
-contains all 14 exact tool names, **title absence** (no advertised `title`
+contains all 15 exact tool names, **title absence** (no advertised `title`
 property for any tool), descriptions, full advertised JSON-Schema Draft 7 input schemas, full
 advertised JSON-Schema Draft 7 output schemas, and annotations. The committed
 generated artifact is `docs/tool-inventory-v0.1.0.json`; regenerate it with:
@@ -24,8 +24,8 @@ npx tsx scripts/generate-tool-inventory.mts
 The emitted inventory identifies itself as
 `MCP tools/list against createAskRigorServer()`, gives the intended production
 endpoint `https://mcp.askrigor.com/mcp`, and has the canonical compact-JSON
-SHA-256 `2697b21ca2f386ba69b983bfd1b97b42a4d6968995f9a381bb6d609be5b1c13c`.
-`tests/release-packet.test.ts` regenerates the full inventory, asserts all 14
+SHA-256 `94f09136bb27b25195febc7bc5294bdeb07458d8c67b02c9bfc5081b50bfd216`.
+`tests/release-packet.test.ts` regenerates the full inventory, asserts all 15
 names/order, title absence, schema roots, annotations, exact checksum, and deep
 equality with the committed full JSON artifact. A metadata or schema change
 therefore requires an intentional inventory review, fresh Inspector/ChatGPT
@@ -38,7 +38,7 @@ advertised `execution.taskSupport` is `forbidden` for every tool. Internal SDK
 properties with `undefined` values (including the absent `title` and `_meta`)
 do not serialize and are explicitly checked as absent by the packet test.
 
-All 14 generated entries advertise exactly:
+All 15 generated entries advertise exactly:
 
 ```json
 {"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}
@@ -65,7 +65,16 @@ search_youtube
 get_youtube_video
 get_youtube_comments
 search_youtube_comments
+audit_youtube_community
 ```
+
+`audit_youtube_community` is the preferred pre-synthesis community acquisition
+path. It accepts a research question plus up to six labeled YouTube searches,
+selects at most three bounded provider-ranked videos, and retrieves unfiltered
+comments plus accessible replies. Its output includes search/video receipts,
+complete-corpus accounting, an optional deterministic sample and corpus digest,
+and a literal `synthesis_lock` of `pass` or `block`. The tool makes no efficacy,
+safety, causality, prevalence, or treatment judgment.
 
 ## Reviewer data and state boundary
 

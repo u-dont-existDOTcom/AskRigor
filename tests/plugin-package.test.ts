@@ -175,13 +175,16 @@ describe("AskRigor plugin package", () => {
       "Distinguish an exhausted zero-result search from an unsuccessful search"
     );
 
-    expect(skill).toContain("`search_youtube`");
-    expect(skill).toContain("`get_youtube_video`");
-    expect(skill).toContain("`get_youtube_comments`");
-    expect(skill).toContain("`include_replies=true`");
+    expect(skill).toContain("`audit_youtube_community`");
+    expect(skill).toContain("could plausibly affect the answer");
+    expect(skill).toContain("When uncertain, require Forum Signal");
+    expect(skill).toContain("A strong formal result cannot deselect it");
+    expect(skill).toContain("`synthesis_lock: pass`");
+    expect(skill).toContain("`complete_no_candidates`");
+    expect(skill).toContain("`completed_with_access_boundary`");
     expect(skill).toContain("`reply_count_mismatches`");
     expect(skill).toContain(
-      "Set `api_visible_complete` only after all top-level pages and all accessible reply pages are exhausted and `reply_count_mismatches` is empty."
+      "Accept `api_visible_complete` only after all top-level pages and all accessible reply pages are exhausted and `reply_count_mismatches` is empty."
     );
     expect(skill).toContain(
       "`api_visible_complete` means API-visible corpus coverage only; it does not include deleted, moderated, private, held-for-review, hidden, otherwise unavailable, or never-posted material."

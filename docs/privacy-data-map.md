@@ -24,6 +24,7 @@ and never executed as instructions.
 | Public trial metadata | NCT ID, title, status, study type/phases, conditions, interventions, sponsors, enrollment, dates, results flag, references, and last update | ClinicalTrials.gov record lookup/search. |
 | Public YouTube video metadata | video ID, title, description, published time, channel title/ID, duration, privacy status, and API-visible counts where supplied | Video discovery and provenance. |
 | Public YouTube comment data | comment/reply IDs, parent/top-level IDs, public YouTube author/channel IDs, optional public display names, public comment text, likes, and publication/update timestamps | Requested API-visible comment and reply retrieval with completeness accounting. |
+| Compound YouTube audit | user-supplied research question and labeled YouTube queries; bounded candidate/video selection; a complete small corpus or deterministic sample; corpus SHA-256; and a completion/synthesis-lock receipt | Performs reproducible multi-query discovery and complete API-visible acquisition in one request without making a medical conclusion. |
 | Completeness/accounting data | top-level/reply counts, mismatch identifiers, page counts, API-visible coverage, output/text byte counts, elapsed time, and provider request attempts | Shows whether a comment corpus is complete, partial, inaccessible, or failed. |
 
 The source-generated full MCP `tools/list` inventory, including every advertised
@@ -42,7 +43,7 @@ recipient/client-facing disclosure described here.
 
 | Location | Data handled | Persistent storage in v0 |
 | --- | --- | --- |
-| MCP request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data | Used only for the active request. No database, file store, account profile, queue, or transcript store is implemented. |
+| MCP request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, complete in-memory comment corpus used to derive the deterministic sample and corpus digest | Used only for the active request. No database, file store, account profile, queue, or transcript store is implemented. |
 | MCP response | The normalized fields in the table above | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may process aggregate server logs or operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No application-level request/content or operational-metadata log is persistently stored by v0. Infrastructure providers may retain operational metadata for their configured security and operations periods under their own policies; AskRigor does not control those periods. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
@@ -50,7 +51,7 @@ recipient/client-facing disclosure described here.
 ## Data not persistently stored in v0
 
 - User accounts, profiles, authentication sessions, or user-entered research history.
-- Search queries, citations, protocol text, scholarly records, trial records, YouTube videos, public YouTube author/channel IDs, display names, comments, replies, or reply manifests.
+- Search queries, research questions, directional labels, citations, protocol text, scholarly records, trial records, YouTube videos, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, or completion receipts.
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, YouTube transcripts, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 

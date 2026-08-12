@@ -143,6 +143,25 @@ IDs are environment-specific; regenerate it when installing the plugin in a
 different ChatGPT environment. Never add provider API keys or deployment
 credentials to either manifest.
 
+## ChatGPT Project router
+
+AskRigor's recommended reasoning environment is a ChatGPT Project with the
+copy-ready files in `project/`. Put the complete contents of
+`project/PROJECT_INSTRUCTIONS.md` into the Project instructions and upload
+`project/FORUM_SIGNAL_MODULE.md` as a Project file. The compact router selects
+Forum Signal before the full HRP is used for synthesis.
+
+When Forum Signal is required, ChatGPT calls `audit_youtube_community`. That
+single read-only tool performs bounded multi-query video discovery,
+deduplication, metadata retrieval, unfiltered comments, accessible replies,
+pagination/reconciliation, and deterministic sampling. It returns a blocking or
+terminal completion receipt; it does not make a treatment conclusion.
+
+This design uses ChatGPT as the existing reasoning engine. It adds no OpenAI API
+model call, local model, n8n workflow, database, or additional paid inference.
+After deployment, refresh the developer-mode connection and start a new Project
+chat so the new tool metadata and Project instructions are active.
+
 ## Public-review status
 
 The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
