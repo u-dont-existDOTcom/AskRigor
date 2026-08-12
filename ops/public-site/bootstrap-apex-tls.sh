@@ -337,17 +337,62 @@ configure_compose_environment() {
   )
 }
 
+configure_compose_version_environment() {
+  local clean_path=$1
+  compose_version_environment=(
+    env -i
+    "PATH=$clean_path"
+    HOME=/root
+  )
+}
+
+probe_compose_v2() {
+  "${compose_version_environment[@]}" docker compose version >/dev/null ||
+    die "Docker Compose v2 is required"
+}
+
 run_compose_command() {
   "${compose_environment[@]}" "$@"
+}
+
+assert_pinned_caddy_image_reference() {
+  local image=$1
+  [[ "$image" =~ (^|/)caddy:2\.11\.4@sha256:[0-9a-fA-F]{64}$ ]] ||
+    die "running Caddy image must be the authorized pinned 2.11.4 reference"
+}
+
+assert_effective_caddy_image() {
+  local effective_output image
+  local -a effective_images=()
+  effective_output=$(run_compose_command docker compose \
+    -f "$base_compose" \
+    -f "$https_compose" \
+    config --no-env-resolution --images caddy) ||
+    die "cannot resolve the effective Caddy image"
+  while IFS= read -r image; do
+    [[ -n "$image" ]] && effective_images+=("$image")
+  done <<<"$effective_output"
+  [[ "${#effective_images[@]}" -eq 1 && "${effective_images[0]}" == "$pinned_caddy_image" ]] ||
+    die "effective Caddy image does not equal the inspected pinned reference"
+}
+
+validate_bootstrap_caddyfile() {
+  assert_effective_caddy_image
+  run_compose_command docker compose \
+    -f "$base_compose" \
+    -f "$https_compose" \
+    run --rm --no-deps --pull never --entrypoint caddy caddy \
+    validate --config /etc/caddy/Caddyfile --adapter caddyfile
 }
 
 recreate_caddy_with_selected_file() {
   local selected_caddyfile=$1
   configure_compose_environment "$selected_caddyfile"
+  assert_effective_caddy_image
   run_compose_command docker compose \
     -f "$base_compose" \
     -f "$https_compose" \
-    up -d --no-deps --force-recreate caddy
+    up -d --pull never --no-build --no-deps --force-recreate caddy
 }
 
 verify_post_recreation_acceptance() {
@@ -424,37 +469,75 @@ remove_transient_probe_artifacts() {
 }
 
 rollback_armed=0
+rollback_started=0
+termination_handling=0
 perform_bootstrap_rollback() {
   recreate_caddy_with_selected_file "$production_caddyfile" || return 1
   verify_mcp_health rollback || return 1
 }
 
-bootstrap_rollback() {
+bootstrap_error_handler() {
+  local status=$?
+  exit "$status"
+}
+
+bootstrap_exit_handler() {
   local status=$?
   local rollback_status=0
-  trap - ERR
+  trap - ERR EXIT HUP INT TERM
+  [[ "$rollback_armed" -eq 1 ]] || exit "$status"
+  rollback_armed=0
+  if [[ "$rollback_started" -eq 1 ]]; then
+    exit "$status"
+  fi
+  rollback_started=1
   set +e
-  if [[ "$rollback_armed" -eq 1 ]]; then
-    printf 'Bootstrap failed; restoring the validated MCP-only Caddyfile.\n' >&2
-    remove_transient_probe_artifacts
-    perform_bootstrap_rollback
-    rollback_status=$?
-    if [[ "$rollback_status" -ne 0 ]]; then
-      printf 'Rollback did not restore healthy MCP service; manual recovery is required.\n' >&2
-    fi
+  printf 'Bootstrap interrupted or failed; restoring the validated MCP-only Caddyfile.\n' >&2
+  remove_transient_probe_artifacts
+  perform_bootstrap_rollback
+  rollback_status=$?
+  if [[ "$rollback_status" -ne 0 ]]; then
+    printf 'Rollback did not restore healthy MCP service; manual recovery is required.\n' >&2
   fi
   printf 'Preserved bootstrap state and evidence at %s\n' "${bootstrap_dir:-unknown}" >&2
+  [[ "$status" -ne 0 ]] || status=1
   exit "$status"
+}
+
+handle_bootstrap_signal() {
+  local signal_name=$1
+  local exit_status=$2
+  if [[ "$termination_handling" -eq 0 ]]; then
+    termination_handling=1
+    printf 'Received %s; terminating through the rollback gate.\n' "$signal_name" >&2
+  fi
+  trap - HUP INT TERM
+  exit "$exit_status"
+}
+
+arm_bootstrap_transaction() {
+  rollback_armed=1
+  rollback_started=0
+  termination_handling=0
+  trap bootstrap_error_handler ERR
+  trap bootstrap_exit_handler EXIT
+  trap 'handle_bootstrap_signal HUP 129' HUP
+  trap 'handle_bootstrap_signal INT 130' INT
+  trap 'handle_bootstrap_signal TERM 143' TERM
+}
+
+complete_bootstrap_transaction() {
+  rollback_armed=0
+  remove_transient_probe_artifacts
+  trap - ERR EXIT HUP INT TERM
 }
 
 execute_bootstrap_transaction() {
   local expected_mcp_id=$1
-  rollback_armed=1
-  trap bootstrap_rollback ERR
+  arm_bootstrap_transaction
   recreate_caddy_with_selected_file "$bootstrap_caddyfile"
   verify_post_recreation_acceptance "$expected_mcp_id"
-  rollback_armed=0
-  trap - ERR
+  complete_bootstrap_transaction
 }
 
 ensure_secure_directory() {
@@ -486,7 +569,8 @@ main() {
   for required_command in docker curl dig openssl realpath sha256sum stat readlink install mktemp date mkdir find; do
     command -v "$required_command" >/dev/null || die "$required_command is required"
   done
-  docker compose version >/dev/null || die "Docker Compose v2 is required"
+  configure_compose_version_environment /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  probe_compose_v2
 
   assert_root_owned_secure_path /opt directory
   assert_root_owned_secure_path /opt/askrigor directory
@@ -502,8 +586,7 @@ main() {
   local pinned_caddy_image
   pinned_caddy_image=$(docker inspect --format '{{.Config.Image}}' "$original_caddy_id") ||
     die "cannot inspect the running Caddy image"
-  [[ "$pinned_caddy_image" =~ (^|/)caddy(:[^@[:space:]]+)?@sha256:[0-9a-fA-F]{64}$ ]] ||
-    die "running Caddy image is not pinned by digest"
+  assert_pinned_caddy_image_reference "$pinned_caddy_image"
 
   verify_apex_dns "$expected_apex_ipv4"
   discover_research_mcp_container "$base_compose,$https_compose"
@@ -526,8 +609,6 @@ main() {
   assert_root_owned_secure_path "$bootstrap_dir" directory
   evidence_dir="$bootstrap_dir/evidence"
   install -d -o root -g root -m 0700 -- "$evidence_dir"
-  trap bootstrap_rollback ERR
-
   record_evidence dns-a.txt "$apex_a_answers"
   record_evidence dns-aaaa.txt "$apex_aaaa_answers"
   record_evidence caddy-before.id "$original_caddy_id"
@@ -551,11 +632,7 @@ CADDY
   assert_root_owned_secure_path "$bootstrap_caddyfile" file
 
   configure_compose_environment "$bootstrap_caddyfile"
-  run_compose_command docker compose \
-    -f "$base_compose" \
-    -f "$https_compose" \
-    run --rm --no-deps --entrypoint caddy caddy \
-    validate --config /etc/caddy/Caddyfile --adapter caddyfile
+  validate_bootstrap_caddyfile
 
   execute_bootstrap_transaction "$original_mcp_id"
   printf 'Apex TLS bootstrap accepted; state and evidence: %s\n' "$bootstrap_dir"

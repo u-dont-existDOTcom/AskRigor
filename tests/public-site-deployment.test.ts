@@ -156,6 +156,104 @@ describe("public-site deployment packet", () => {
     expect(malformed.stderr).toContain("malformed ASKRIGOR_DIRECT_DNS_ONLY");
   });
 
+  it("rejects an unpinned or mismatched effective Compose Caddy image before execution", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-caddy-image-"));
+    try {
+      const commandLog = join(temporary, "compose.log");
+      const pinned = `caddy:2.11.4@sha256:${"a".repeat(64)}`;
+      const verify = (effectiveImage: string, operation: "validate" | "recreate") => bash(`
+        source "${bootstrapScript}"
+        base_compose=/opt/askrigor/compose.yaml
+        https_compose=/opt/askrigor/releases/https/release/compose.https.yaml
+        pinned_caddy_image=${JSON.stringify(pinned)}
+        caddy_hostname=mcp.askrigor.com
+        caddy_direct_dns_only=true
+        bootstrap_caddyfile=/bootstrap/Caddyfile
+        run_compose_command() {
+          printf '%s\\n' "$*" >>"${commandLog}"
+          if [[ "$*" == *" config "*"--images"* ]]; then
+            printf '%s\\n' ${JSON.stringify(effectiveImage)}
+          else
+            printf 'unsafe execution reached\\n' >>"${commandLog}"
+          fi
+        }
+        ${operation === "validate"
+          ? "validate_bootstrap_caddyfile"
+          : "recreate_caddy_with_selected_file \"$bootstrap_caddyfile\""}
+      `);
+
+      for (const operation of ["validate", "recreate"] as const) {
+        for (const invalidImage of [
+          "caddy:2.11.4",
+          `caddy:2.11.4@sha256:${"b".repeat(64)}`
+        ]) {
+          await rm(commandLog, { force: true });
+          const rejected = verify(invalidImage, operation);
+          expect(rejected.status).not.toBe(0);
+          expect(rejected.stderr).toContain("effective Caddy image");
+          expect(await readFile(commandLog, "utf8")).not.toContain("unsafe execution reached");
+        }
+      }
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("rolls an injected termination back on EXIT and removes transient probes", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-bootstrap-termination-"));
+    try {
+      const commandLog = join(temporary, "transaction.log");
+      const result = bash(`
+        source "${bootstrapScript}"
+        bootstrap_dir=${JSON.stringify(temporary)}
+        bootstrap_caddyfile=/bootstrap/Caddyfile
+        production_caddyfile=/production/Caddyfile
+        recreate_caddy_with_selected_file() { printf 'recreate %s\\n' "$1" >>"${commandLog}"; }
+        verify_mcp_health() { printf 'verify MCP %s\\n' "$1" >>"${commandLog}"; }
+        verify_post_recreation_acceptance() {
+          printf 'raw\\n' >"$bootstrap_dir/https.headers"
+          printf 'raw\\n' >"$bootstrap_dir/http.body"
+          handle_bootstrap_signal TERM 143
+        }
+        execute_bootstrap_transaction mcp-container-before
+      `);
+      expect(result.status).toBe(143);
+      const transaction = await readFile(commandLog, "utf8");
+      expect(transaction).toContain("recreate /bootstrap/Caddyfile");
+      expect(transaction).toContain("recreate /production/Caddyfile");
+      expect(transaction).toContain("verify MCP rollback");
+      await expect(readFile(join(temporary, "https.headers"))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(join(temporary, "http.body"))).rejects.toMatchObject({ code: "ENOENT" });
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("scrubs inherited environment from the Compose version probe and wrapper", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-clean-compose-"));
+    try {
+      const fakeDocker = join(temporary, "docker");
+      const environmentLog = join(temporary, "environment.log");
+      await writeFile(fakeDocker, `#!/usr/bin/env bash\n/usr/bin/env >${JSON.stringify(environmentLog)}\n`);
+      await chmod(fakeDocker, 0o755);
+      const result = bash(`
+        source "${bootstrapScript}"
+        export INHERITED_COMPOSE_SENTINEL=must-not-leak
+        configure_compose_version_environment ${JSON.stringify(`${temporary}:/usr/bin:/bin`)}
+        probe_compose_v2
+        caddy_hostname=mcp.askrigor.com
+        caddy_direct_dns_only=true
+        configure_compose_environment /validated/Caddyfile
+        run_compose_command /usr/bin/env
+      `);
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(environmentLog, "utf8")).not.toContain("INHERITED_COMPOSE_SENTINEL");
+      expect(result.stdout).not.toContain("INHERITED_COMPOSE_SENTINEL");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
   it("accepts exactly the expected apex A answer and no AAAA answer", () => {
     const runDns = (a: string, aaaa: string) => bash(`
       source "${bootstrapScript}"
@@ -248,8 +346,14 @@ describe("public-site deployment packet", () => {
         bootstrap_caddyfile="${join(temporary, "Caddyfile.bootstrap")}"
         caddy_hostname=mcp.askrigor.com
         caddy_direct_dns_only=true
+        pinned_caddy_image=caddy:2.11.4@sha256:${"c".repeat(64)}
         compose_environment=(env -i PATH=/usr/bin:/bin HOME=/root)
-        run_compose_command() { printf 'env=%s command=%s\\n' "\${compose_environment[*]}" "$*" >>"${commandLog}"; }
+        run_compose_command() {
+          printf 'env=%s command=%s\\n' "\${compose_environment[*]}" "$*" >>"${commandLog}"
+          if [[ "$*" == *" config "*"--images"* ]]; then
+            printf '%s\\n' "$pinned_caddy_image"
+          fi
+        }
         verify_mcp_health() { return 0; }
         verify_post_recreation_acceptance() { return 1; }
         execute_bootstrap_transaction mcp-container-before
