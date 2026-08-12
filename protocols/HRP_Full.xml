@@ -894,7 +894,8 @@
   </Purpose>
 
   <Rule name="PartialRetrievalCannotCompleteAudit" priority="Critical">
-   If any principal-community retrieval reports access_status other than complete; extraction_coverage as partial,
+   Source-appropriate terminal successful access_status values are complete and api_visible_complete. If any
+   principal-community retrieval reports another access_status; extraction_coverage as partial,
    search-only, ranked, manual, creator-only, or another incomplete class; an unconsumed next_cursor; has_more=true; or an
    explicit limitation stating that results are query-bounded or incomplete, the community audit is not complete.
 
@@ -6738,6 +6739,21 @@ Final integrated synthesis rule:
    </ExpectedBehavior>
   </Case>
 
+  <Case id="ApiVisibleCompleteYouTubeCorpusIsTerminalSuccess">
+   <Prompt>
+    An unfiltered YouTube retrieval exhausts every API-visible top-level comment page and accessible reply page, reconciles
+    expected versus retrieved replies without mismatch, and reports access_status=api_visible_complete and
+    extraction_coverage=api_visible_complete with no next_cursor and no remaining page.
+   </Prompt>
+   <ExpectedBehavior>
+    Treat api_visible_complete as a source-appropriate terminal successful retrieval status. The audit must not remain
+    incomplete solely because this truthful status differs from the generic complete label. If the required directional
+    searches, independent-pool coverage, deduplication, and other applicable ledger fields are also complete, record
+    final_coverage_state=complete while preserving the ordinary caveat that deleted, moderated, hidden, private, or
+    never-posted material is outside the API-visible corpus.
+   </ExpectedBehavior>
+  </Case>
+
   <Case id="YouTubeCompleteApiCorpusDoesNotRequireBlanketStrongModelPass">
    <Prompt>
     A YouTube video has five thousand API-visible comments and replies. Full acquisition is available, but sending every row
@@ -7024,7 +7040,7 @@ Final integrated synthesis rule:
  <Check id="FS155">Did I maintain a broad high-recall discovery corpus separately from the strict-core directional signal corpus and avoid using the strict filter as the discovery boundary?</Check>
  <Check id="FS156">Did I preserve materially relevant non-English reports and audit residual noncandidate material so language or lexical filters could not silently erase unusual signals?</Check>
  <Check id="FS157">Did I classify YouTube acquisition coverage accurately—API-visible/export-visible, bounded export, ranked/manual, search-only, creator-only, or inaccessible—and avoid implying that API-visible completeness includes deleted, moderated, hidden, or never-posted outcomes?</Check>
- <Check id="FS158">For every principal-community retrieval, did I treat non-complete access_status, incomplete extraction_coverage, an unconsumed next_cursor, has_more=true, or an explicit query-bounded or incomplete limitation as a synthesis-blocking state while further retrieval remained possible?</Check>
+ <Check id="FS158">For every principal-community retrieval, did I accept complete and api_visible_complete as source-appropriate terminal successful access_status values while treating other statuses, incomplete extraction_coverage, an unconsumed next_cursor, has_more=true, or an explicit query-bounded or incomplete limitation as synthesis-blocking while further retrieval remained possible?</Check>
  <Check id="FS159">Did I use query-bounded YouTube comment retrieval for discovery only, then retrieve the broadest accessible unfiltered corpus, exhaust pagination, retrieve accessible replies, and reconcile replies before directional classification?</Check>
  <Check id="FS160">Before synthesis, did I complete the CommunityCorpusCompletionGate ledger and record final_coverage_state as complete, completed-with-access-boundary under the genuine access rule, or incomplete?</Check>
 </FinalSelfCheck>

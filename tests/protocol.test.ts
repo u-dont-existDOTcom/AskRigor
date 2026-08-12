@@ -16,7 +16,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "386379ab4634eb60c980ed903c92deae6375aacdd26f6ed5b2ced5d87ad8d8c2";
+  "d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597";
 const UNIVERSAL_SHA_256 =
   "1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa";
 
@@ -41,6 +41,13 @@ describe("canonical protocol loader", () => {
 
   it("preserves the HRP 20.5.16 community corpus completion gate and regression", async () => {
     const text = await loadProtocol("hrp");
+    const section = (startMarker: string, endMarker: string): string => {
+      const start = text.indexOf(startMarker);
+      const end = text.indexOf(endMarker, start);
+      expect(start, `missing ${startMarker}`).toBeGreaterThanOrEqual(0);
+      expect(end, `missing ${endMarker} after ${startMarker}`).toBeGreaterThan(start);
+      return text.slice(start, end);
+    };
     const communityGateStart = text.indexOf("<CommunityCorpusCompletionGate");
     const protocolGateStart = text.indexOf("<ProtocolExecutionAndComplianceGate");
 
@@ -58,23 +65,9 @@ describe("canonical protocol loader", () => {
       'name="QueryBoundedYouTubeSearchIsDiscoveryOnly"',
       'name="NoPrematureSaturation"',
       'name="CoverageStateBeforeSynthesis"',
-      "principal_platforms_mapped",
-      "acquisition_mode",
-      "unfiltered_retrieval_attempted",
-      "pagination_exhausted",
-      "replies_reconciled",
-      "unique_firsthand_people",
-      "unique_treatment_episodes",
-      "benefit_search_completed",
-      "no_effect_search_completed",
-      "harm_search_completed",
-      "discontinuation_search_completed",
-      "independent_discussion_pools_sampled",
-      "final_coverage_state",
       "complete / completed-with-access-boundary / incomplete",
       'id="OneQueryBoundedYouTubeCommentPresentedAsReconnaissance"',
-      'search term "used"',
-      'search term "results"'
+      'id="ApiVisibleCompleteYouTubeCorpusIsTerminalSuccess"'
     ]) {
       expect(text).toContain(required);
     }
@@ -88,6 +81,65 @@ describe("canonical protocol loader", () => {
     expect(gateText).toContain("continue automatically before synthesis");
     expect(gateText).toContain("Do not characterize prevalence, direction, rarity, typicality, or strength");
     expect(gateText).toContain("CommunityCorpusAccessBoundaryCompletion");
+    expect(gateText).toContain("complete and api_visible_complete");
+
+    const ledgerFields = [
+      "principal_platforms_mapped",
+      "acquisition_mode",
+      "unfiltered_retrieval_attempted",
+      "pagination_exhausted",
+      "replies_reconciled",
+      "unique_firsthand_people",
+      "unique_treatment_episodes",
+      "benefit_search_completed",
+      "no_effect_search_completed",
+      "harm_search_completed",
+      "discontinuation_search_completed",
+      "independent_discussion_pools_sampled",
+      "final_coverage_state"
+    ];
+    const protocolLedger = section(
+      '<Template id="ProtocolExecutionLedger">',
+      "</Template>"
+    );
+    const iterationLedger = section(
+      '<Template id="BidirectionalEvidenceIterationLedger">',
+      "</Template>"
+    );
+    for (const field of ledgerFields) {
+      expect(protocolLedger).toContain(field);
+      expect(iterationLedger).toContain(field);
+    }
+
+    const queryBoundedRegression = section(
+      '<Case id="OneQueryBoundedYouTubeCommentPresentedAsReconnaissance">',
+      "</Case>"
+    ).replace(/\s+/g, " ");
+    for (const required of [
+      'search term "used"',
+      'search term "results"',
+      "access_status=partial",
+      "extraction_coverage=partial",
+      "discovery-only",
+      "unfiltered comments",
+      "paginate until exhausted",
+      "retrieve accessible replies",
+      "reconcile expected versus retrieved replies",
+      "benefit, no-effect, harm, and discontinuation",
+      "CommunityCorpusAccessBoundaryCompletion",
+      "Do not characterize prevalence"
+    ]) {
+      expect(queryBoundedRegression).toContain(required);
+    }
+
+    const completeCorpusRegression = section(
+      '<Case id="ApiVisibleCompleteYouTubeCorpusIsTerminalSuccess">',
+      "</Case>"
+    ).replace(/\s+/g, " ");
+    expect(completeCorpusRegression).toContain("access_status=api_visible_complete");
+    expect(completeCorpusRegression).toContain("extraction_coverage=api_visible_complete");
+    expect(completeCorpusRegression).toContain("terminal successful retrieval");
+    expect(completeCorpusRegression).toContain("must not remain incomplete solely because");
   });
 
   it("returns the original canonical file text unchanged", async () => {
