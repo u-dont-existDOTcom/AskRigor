@@ -357,8 +357,8 @@ run_compose_command() {
 
 assert_pinned_caddy_image_reference() {
   local image=$1
-  [[ "$image" =~ (^|/)caddy:2\.11\.4@sha256:[0-9a-fA-F]{64}$ ]] ||
-    die "running Caddy image must be the authorized pinned 2.11.4 reference"
+  [[ "$image" == caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648 ]] ||
+    die "running Caddy image must be the authorized pinned production reference"
 }
 
 assert_effective_caddy_image() {

@@ -156,6 +156,28 @@ describe("public-site deployment packet", () => {
     expect(malformed.stderr).toContain("malformed ASKRIGOR_DIRECT_DNS_ONLY");
   });
 
+  it("accepts only the authorized deployed Caddy image reference", () => {
+    const authorized = "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648";
+    const verify = (image: string) => bash(`
+      source "${bootstrapScript}"
+      assert_pinned_caddy_image_reference ${JSON.stringify(image)}
+    `);
+
+    const accepted = verify(authorized);
+    expect(accepted.status, accepted.stderr).toBe(0);
+
+    for (const rejectedImage of [
+      "caddy:2.11.4-alpine",
+      "caddy:2.11.4@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      "caddy:2.11.3-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648",
+      `caddy:2.11.4-alpine@sha256:${"a".repeat(64)}`
+    ]) {
+      const rejected = verify(rejectedImage);
+      expect(rejected.status, rejectedImage).not.toBe(0);
+      expect(rejected.stderr).toContain("authorized pinned");
+    }
+  });
+
   it("rejects an unpinned or mismatched effective Compose Caddy image before execution", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "askrigor-caddy-image-"));
     try {
