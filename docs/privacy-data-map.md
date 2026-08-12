@@ -2,7 +2,7 @@
 
 Status at 2026-08-12: this remains the detailed engineering inventory. The
 publisher-matching public notice is live at `https://askrigor.com/privacy` from
-verified site release `bd742ed9941c`; the notice, rather than this internal map,
+verified site release `f928b95e29cd`; the notice, rather than this internal map,
 is the public privacy policy.
 
 ## Purpose and boundary
@@ -65,7 +65,7 @@ recipient/client-facing disclosure described here.
 ## Public-policy status
 
 The stable HTTPS policy at `https://askrigor.com/privacy` was independently
-verified on 2026-08-12 against immutable release `bd742ed9941c`. It covers public
+verified on 2026-08-12 against immutable release `f928b95e29cd`. It covers public
 YouTube identity/comment processing, provider sharing, operational-log retention,
 end-user/client disclosure, contact, and rights/retention boundaries. Keep this
 internal map as the more detailed implementation inventory and re-review the live

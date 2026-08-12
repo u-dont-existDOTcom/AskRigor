@@ -20,8 +20,8 @@ Scan Tools, and submission actions are resolved.
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
 | Historical live-provider suite | `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`; source `9d1d751`; retained as the initial provider-green run whose wrapper had an ANSI false negative. |
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
-| Public site source | `bd742ed9941c` (`fix: support transactional site upgrades`), including the reviewed privacy-retention correction; immutable VPS release `/opt/askrigor/site/releases/bd742ed9941c`. |
-| Public site packet | SHA-256 `99383c4a5b48b4c3f84d5f2ec690ed7496127e090524c7694a6137a56de2e733`; initial TLS-bootstrap evidence `/opt/askrigor/site/bootstrap/20260812T043156Z-3nU8HLDE/evidence`. |
+| Public site source | `f928b95e29cd` (`fix: rollback site activation on signals`), including the reviewed privacy-retention and transactional-upgrade corrections; immutable VPS release `/opt/askrigor/site/releases/f928b95e29cd`. |
+| Public site packet | SHA-256 `ac49ecccf264f821e75212ad817dc9e3070600c931732222cc72ca552b25919e`; initial TLS-bootstrap evidence `/opt/askrigor/site/bootstrap/20260812T043156Z-3nU8HLDE/evidence`. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs. The support URL remains release/submission documentation because the schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -47,7 +47,7 @@ run the VPS validation.
 ## Public URL gate — direct HTTPS evidence
 
 Fresh direct checks were run 2026-08-12 after activating immutable release
-`bd742ed9941c`. Apex DNS returned only A `191.215.38.123` and no AAAA. The leaf
+`f928b95e29cd`. Apex DNS returned only A `191.215.38.123` and no AAAA. The leaf
 certificate contains `DNS:askrigor.com`, is valid from 2026-08-12 through
 2026-11-10, and has SHA-256 fingerprint
 `70:68:BF:28:C8:6A:CC:6A:5B:2C:2E:86:9D:9D:6B:9C:E6:02:1E:73:64:CB:A9:43:24:01:23:77:F0:67:AF:92`.
