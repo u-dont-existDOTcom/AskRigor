@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { ACCESS_STATUSES, type AccessStatus } from "@askrigor/contracts";
 import {
+  DEFAULT_YOUTUBE_COMMENT_RETRIEVAL_BUDGETS,
   getYoutubeComments,
   getYoutubeVideo,
   searchYoutube,
@@ -137,20 +138,26 @@ export async function auditYoutubeCommunity(
 ): Promise<YoutubeCommunityAuditOutput> {
   const parsed = youtubeCommunityAuditInputSchema.parse(input);
   const distinctSearches = combineDistinctSearches(parsed.searches);
-  const searchResults = [];
-
-  for (const search of distinctSearches) {
-    searchResults.push({
+  const searchResults = await Promise.all(distinctSearches.map(async (search) => ({
       search,
       result: await searchYoutube({
         query: search.query,
         pageSize: parsed.max_videos
       }, config)
-    });
-  }
+    })));
 
   const associations = candidateAssociations(searchResults);
   const selectedVideoIds = roundRobinVideoIds(searchResults, parsed.max_videos);
+  const metadataResults = new Map(await Promise.all(selectedVideoIds.map(async (videoId) => [
+    videoId,
+    await getYoutubeVideo(videoId, config)
+  ] as const)));
+  const commentElapsedMs = selectedVideoIds.length === 0
+    ? undefined
+    : allocateYoutubeCommunityCommentElapsedMs(
+      runtime.budgets?.maxElapsedMs ?? DEFAULT_YOUTUBE_COMMENT_RETRIEVAL_BUDGETS.maxElapsedMs,
+      selectedVideoIds.length
+    );
   const videos: YoutubeCommunityAuditOutput["videos"] = [];
   const blockers: string[] = [];
   const boundaryStatuses: AccessStatus[] = [];
@@ -159,7 +166,7 @@ export async function auditYoutubeCommunity(
 
   for (const videoId of selectedVideoIds) {
     const association = associations.get(videoId)!;
-    const metadataResult = await getYoutubeVideo(videoId, config);
+    const metadataResult = metadataResults.get(videoId)!;
     const videoLimitations = [...metadataResult.limitations];
     const video: YoutubeCommunityAuditOutput["videos"][number] = {
       video_id: videoId,
@@ -186,7 +193,13 @@ export async function auditYoutubeCommunity(
     const commentsResult = await getYoutubeComments({
       video: videoId,
       includeReplies: true
-    }, config, runtime);
+    }, config, {
+      ...runtime,
+      budgets: {
+        ...runtime.budgets,
+        maxElapsedMs: commentElapsedMs!
+      }
+    });
     video.comments_access_status = commentsResult.access_status;
     if (commentsResult.error !== undefined) video.comments_error = commentsResult.error;
     video.limitations.push(...commentsResult.limitations);
@@ -314,6 +327,19 @@ export function sampleYoutubeComments(
   return Array.from({ length: limit }, (_, index) =>
     chronological[Math.floor(index * (chronological.length - 1) / (limit - 1))]!
   );
+}
+
+export function allocateYoutubeCommunityCommentElapsedMs(
+  totalElapsedMs: number,
+  selectedVideoCount: number
+): number {
+  if (!Number.isInteger(totalElapsedMs) || totalElapsedMs < 1) {
+    throw new Error("Community comment deadline must be a positive integer");
+  }
+  if (!Number.isInteger(selectedVideoCount) || selectedVideoCount < 1) {
+    throw new Error("Selected video count must be a positive integer");
+  }
+  return Math.max(1, Math.floor(totalElapsedMs / selectedVideoCount));
 }
 
 export function hashYoutubeCommentCorpus(comments: readonly YoutubeComment[]): string {

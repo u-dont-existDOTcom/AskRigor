@@ -805,7 +805,7 @@ export function registerTools(server: McpServer): void {
         result = await auditYoutubeCommunity(
           input,
           youtubeConfig(),
-          { budgets: youtubeCommentBudgets() }
+          { budgets: youtubeCommunityAuditBudgets() }
         );
       } catch (_error) {
         result = youtubeCommunityAuditFailure(input);
@@ -855,6 +855,13 @@ function youtubeCommentBudgets() {
     maxNormalizedOutputBytes: PUBLIC_TOOL_LIMITS.youtubeNormalizedOutputBytes,
     maxTextBytes: PUBLIC_TOOL_LIMITS.youtubeTextBytes,
     maxElapsedMs: PUBLIC_TOOL_LIMITS.youtubeElapsedMs
+  };
+}
+
+function youtubeCommunityAuditBudgets() {
+  return {
+    ...youtubeCommentBudgets(),
+    maxElapsedMs: PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs
   };
 }
 

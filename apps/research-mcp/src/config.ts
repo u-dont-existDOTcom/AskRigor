@@ -24,7 +24,8 @@ export const PUBLIC_TOOL_LIMITS = {
   youtubeComments: 100_000,
   youtubeNormalizedOutputBytes: 64 * 1_024 * 1_024,
   youtubeTextBytes: 48 * 1_024 * 1_024,
-  youtubeElapsedMs: 120_000
+  youtubeElapsedMs: 120_000,
+  youtubeCommunityAuditElapsedMs: 15_000
 } as const;
 
 export function publicServerIsEnabled(

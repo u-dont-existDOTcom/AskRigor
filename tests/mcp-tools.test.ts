@@ -12,7 +12,10 @@ import {
   createAskRigorHttpServer,
   createAskRigorServer
 } from "../apps/research-mcp/src/server.js";
-import { SERVER_INSTRUCTIONS } from "../apps/research-mcp/src/config.js";
+import {
+  PUBLIC_TOOL_LIMITS,
+  SERVER_INSTRUCTIONS
+} from "../apps/research-mcp/src/config.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 
 const TOOL_NAMES = [
@@ -81,6 +84,12 @@ describe("AskRigor MCP tools", () => {
     expect(criticalInstructions).toContain(
       "search_youtube_comments is query-bounded discovery only"
     );
+  });
+
+  it("keeps the compound audit comment phase below the default MCP deadline", () => {
+    expect(PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs).toBe(15_000);
+    expect(PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs)
+      .toBeLessThan(PUBLIC_TOOL_LIMITS.youtubeElapsedMs);
   });
 
   it("publishes a strict read-only compound YouTube community-audit schema", async () => {

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { YoutubeComment } from "@askrigor/sources";
 import {
+  allocateYoutubeCommunityCommentElapsedMs,
   auditYoutubeCommunity,
   sampleYoutubeComments
 } from "../apps/research-mcp/src/youtube-community-audit.js";
@@ -17,6 +18,12 @@ afterEach(() => {
 });
 
 describe("YouTube community audit", () => {
+  it("splits one compound-call comment deadline across every selected video", () => {
+    expect(allocateYoutubeCommunityCommentElapsedMs(15_000, 1)).toBe(15_000);
+    expect(allocateYoutubeCommunityCommentElapsedMs(15_000, 2)).toBe(7_500);
+    expect(allocateYoutubeCommunityCommentElapsedMs(15_000, 3)).toBe(5_000);
+  });
+
   it("deduplicates directional discovery and completes unfiltered comments plus replies in one audit", async () => {
     const [
       searchBody,
