@@ -691,6 +691,8 @@ recreate_previous_caddy_only() {
 }
 
 rollback_armed=0
+rollback_started=0
+termination_handling=0
 perform_rollback() {
   if ! restore_previous_state; then
     return 1
@@ -706,28 +708,64 @@ perform_rollback() {
   fi
 }
 
-rollback() {
+activation_error_handler() {
+  local status=$?
+  exit "$status"
+}
+
+activation_exit_handler() {
   local status=$?
   local rollback_status=0
-  trap - ERR
+  trap - ERR EXIT HUP INT TERM
+  [[ "$rollback_armed" -eq 1 ]] || exit "$status"
+  rollback_armed=0
+  if [[ "$rollback_started" -eq 1 ]]; then
+    exit "$status"
+  fi
+  rollback_started=1
   set +e
-  if [[ "$rollback_armed" -eq 1 ]]; then
-    printf 'Deployment failed; restoring the prior public-site state.\n' >&2
-    perform_rollback
-    rollback_status=$?
-    if [[ "$rollback_status" -ne 0 ]]; then
-      printf 'Rollback did not complete successfully; manual recovery is required.\n' >&2
-    fi
+  printf 'Deployment interrupted or failed; restoring the prior public-site state.\n' >&2
+  perform_rollback
+  rollback_status=$?
+  if [[ "$rollback_status" -ne 0 ]]; then
+    printf 'Rollback did not complete successfully; manual recovery is required.\n' >&2
   fi
   printf 'preserved failed release artifacts:\n  staging: %s\n  release: %s\n' \
     "$staging_path" "$release_path" >&2
+  [[ "$status" -ne 0 ]] || status=1
   exit "$status"
+}
+
+handle_activation_signal() {
+  local signal_name=$1
+  local exit_status=$2
+  if [[ "$termination_handling" -eq 0 ]]; then
+    termination_handling=1
+    printf 'Received %s; terminating through the rollback gate.\n' "$signal_name" >&2
+  fi
+  trap - HUP INT TERM
+  exit "$exit_status"
+}
+
+arm_activation_transaction() {
+  rollback_armed=1
+  rollback_started=0
+  termination_handling=0
+  trap activation_error_handler ERR
+  trap activation_exit_handler EXIT
+  trap 'handle_activation_signal HUP 129' HUP
+  trap 'handle_activation_signal INT 130' INT
+  trap 'handle_activation_signal TERM 143' TERM
+}
+
+complete_activation_transaction() {
+  rollback_armed=0
+  trap - ERR EXIT HUP INT TERM
 }
 
 activate_release() {
   # Arm rollback before the first atomic change to current or active state.
-  rollback_armed=1
-  trap rollback ERR
+  arm_activation_transaction
 
   mv -Tf -- "$next_caddyfile" "$state_root/Caddyfile"
   mv -Tf -- "$next_overlay" "$state_root/compose.site.yaml"
@@ -743,8 +781,7 @@ activate_release() {
   verify_mcp_health
   verify_public_routes
 
-  rollback_armed=0
-  trap - ERR
+  complete_activation_transaction
   rm -rf -- "$staging_path"
   printf 'Activated public-site release %s at %s\n' "$revision" "$release_path"
 }

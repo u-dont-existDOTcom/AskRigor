@@ -515,11 +515,13 @@ JSON
     expect(installer).toContain("verify_compose_delta()");
     expect(installer).toContain("create_host_path: false");
     expect(installer).toContain("rollback_armed=1");
-    expect(installer.indexOf("caddy validate")).toBeLessThan(installer.indexOf("rollback_armed=1"));
+    const validationIndex = installer.indexOf("validate --config /etc/caddy/Caddyfile");
+    expect(validationIndex).toBeGreaterThan(-1);
+    expect(validationIndex).toBeLessThan(installer.indexOf("rollback_armed=1"));
     expect(installer.indexOf("rollback_armed=1")).toBeLessThan(
       installer.indexOf('ln -s -- "$release_path/site"')
     );
-    expect(installer).toContain("trap rollback ERR");
+    expect(installer).toContain("trap activation_exit_handler EXIT");
     expect(installer).toContain("restore_previous_state");
     expect(installer).toContain("--no-deps --force-recreate caddy");
     expect(installer).not.toContain("--force-recreate research-mcp");
@@ -530,6 +532,42 @@ JSON
     expect(installer).toContain("https://askrigor.com/support");
     expect(installer).toContain("apex HTTPS prerequisite failed");
     expect(installer).toContain("preserved failed release artifacts");
+  });
+
+  it("rolls an interrupted site activation back exactly once through EXIT", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-installer-termination-"));
+    try {
+      const commandLog = join(temporary, "activation.log");
+      const result = bash(`
+        source "${installerScript}"
+        state_root=/state
+        release_path=/releases/new
+        next_caddyfile=/state/Caddyfile.new
+        next_overlay=/state/compose.site.new.yaml
+        next_current_link=/site/current.new
+        current_link=/site/current
+        base_compose=/opt/askrigor/compose.yaml
+        https_compose=/opt/askrigor/releases/https/release/compose.https.yaml
+        staging_path=${JSON.stringify(temporary)}
+        revision=new
+        mv() { printf 'mv %s\n' "$*" >>"${commandLog}"; }
+        ln() { printf 'ln %s\n' "$*" >>"${commandLog}"; }
+        run_compose_command() { printf 'compose %s\n' "$*" >>"${commandLog}"; }
+        verify_mcp_health() { printf 'verify mcp\n' >>"${commandLog}"; }
+        verify_public_routes() { handle_activation_signal TERM 143; }
+        perform_rollback() { printf 'rollback\n' >>"${commandLog}"; }
+        activate_release
+      `);
+      expect(result.status).toBe(143);
+      const log = await readFile(commandLog, "utf8");
+      expect(log).toContain("mv -Tf -- /state/Caddyfile.new /state/Caddyfile");
+      expect(log).toContain("compose docker compose");
+      expect(log.match(/^rollback$/gm)).toHaveLength(1);
+      expect(result.stderr).toContain("Received TERM");
+      expect(result.stderr).toContain("restoring the prior public-site state");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
   });
 
   it("permits only a secure active-https selector below the HTTPS release root", async () => {
