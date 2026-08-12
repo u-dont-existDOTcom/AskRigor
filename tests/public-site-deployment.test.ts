@@ -7,7 +7,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 const root = resolve(new URL("../", import.meta.url).pathname);
 const archiveScript = resolve(root, "scripts/create-public-site-archive.sh");
 const installerScript = resolve(root, "ops/public-site/install-public-site.sh");
-const composeVerifier = resolve(root, "ops/public-site/verify-compose-delta.mjs");
 
 const bash = (script: string) => spawnSync("bash", ["-c", script], {
   cwd: root,
@@ -18,14 +17,12 @@ let caddy: string;
 let compose: string;
 let installer: string;
 let archiveCreator: string;
-let composeDeltaVerifier: string;
 
 beforeAll(async () => {
   caddy = await readFile(resolve(root, "ops/public-site/Caddyfile.site"), "utf8");
   compose = await readFile(resolve(root, "ops/public-site/compose.site.yaml"), "utf8");
   installer = await readFile(resolve(root, "ops/public-site/install-public-site.sh"), "utf8");
   archiveCreator = await readFile(resolve(root, "scripts/create-public-site-archive.sh"), "utf8");
-  composeDeltaVerifier = await readFile(composeVerifier, "utf8");
 });
 
 describe("public-site deployment packet", () => {
@@ -94,7 +91,7 @@ describe("public-site deployment packet", () => {
     expect(installer).toContain("previous_current_target");
     expect(installer).toContain("--no-env-resolution");
     expect(installer).toContain("--format json");
-    expect(installer).toContain("verify-compose-delta.mjs");
+    expect(installer).toContain("verify_compose_delta()");
     expect(installer).toContain("create_host_path: false");
     expect(installer).toContain("rollback_armed=1");
     expect(installer.indexOf("caddy validate")).toBeLessThan(installer.indexOf("rollback_armed=1"));
@@ -115,7 +112,7 @@ describe("public-site deployment packet", () => {
   });
 
   it("never embeds or invokes forbidden deployment material", () => {
-    const allDeploymentFiles = [caddy, compose, installer, archiveCreator, composeDeltaVerifier];
+    const allDeploymentFiles = [caddy, compose, installer, archiveCreator];
     for (const file of allDeploymentFiles) {
       expect(file).not.toContain("YOUTUBE_API_KEY");
       expect(file).not.toContain("NCBI_API_KEY");
@@ -255,7 +252,7 @@ describe("public-site deployment packet", () => {
       await writeFile(baseFile, JSON.stringify(baseConfig));
       await writeFile(candidateFile, JSON.stringify(candidateConfig));
 
-      const accepted = spawnSync("node", [composeVerifier, baseFile, candidateFile], { encoding: "utf8" });
+      const accepted = bash(`source "${installerScript}"; verify_compose_delta "${baseFile}" "${candidateFile}"`);
       expect(accepted.status, accepted.stderr).toBe(0);
 
       const mutations = [
@@ -268,7 +265,7 @@ describe("public-site deployment packet", () => {
         const changed = structuredClone(candidateConfig) as any;
         mutate(changed);
         await writeFile(candidateFile, JSON.stringify(changed));
-        const rejected = spawnSync("node", [composeVerifier, baseFile, candidateFile], { encoding: "utf8" });
+        const rejected = bash(`source "${installerScript}"; verify_compose_delta "${baseFile}" "${candidateFile}"`);
         expect(rejected.status, `${label}: ${rejected.stderr}`).not.toBe(0);
       }
 
@@ -278,9 +275,79 @@ describe("public-site deployment packet", () => {
       unpinnedCandidate.services.caddy.image = "caddy:2.10.0";
       await writeFile(baseFile, JSON.stringify(unpinnedBase));
       await writeFile(candidateFile, JSON.stringify(unpinnedCandidate));
-      const unpinned = spawnSync("node", [composeVerifier, baseFile, candidateFile], { encoding: "utf8" });
+      const unpinned = bash(`source "${installerScript}"; verify_compose_delta "${baseFile}" "${candidateFile}"`);
       expect(unpinned.status).not.toBe(0);
       expect(unpinned.stderr).toContain("pinned production Caddy image");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("rejects a forbidden delta without executing a candidate-supplied verifier", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-malicious-verifier-"));
+    try {
+      const release = join(temporary, "release");
+      const packetOps = join(release, "ops/public-site");
+      const packetSite = join(release, "site");
+      const marker = join(temporary, "candidate-verifier-executed");
+      const maliciousVerifier = join(packetOps, "verify-compose-delta.mjs");
+      await mkdir(packetOps, { recursive: true });
+      await mkdir(join(packetSite, "assets"), { recursive: true });
+      for (const page of ["index.html", "privacy/index.html", "terms/index.html", "support/index.html"]) {
+        await mkdir(join(packetSite, page, ".."), { recursive: true });
+        await writeFile(join(packetSite, page), "<!doctype html><title>fixture</title>\n");
+      }
+      await writeFile(join(packetSite, "assets/site.css"), "body {}\n");
+      await writeFile(maliciousVerifier, `import { writeFileSync } from "node:fs";\nwriteFileSync(${JSON.stringify(marker)}, "executed\\n");\n`);
+      await chmod(maliciousVerifier, 0o755);
+      await writeFile(join(packetOps, "compose.site.yaml"), "services:\n  audit:\n    image: busybox\n");
+      await writeFile(join(packetOps, "Caddyfile.site"), "askrigor.com { respond 200 }\n");
+      await writeFile(join(packetOps, "install-public-site.sh"), "#!/usr/bin/env bash\nexit 0\n");
+      const packet = join(temporary, "candidate.tar.gz");
+      const archived = spawnSync("tar", ["-czf", packet, "-C", release, "site", "ops"], { encoding: "utf8" });
+      expect(archived.status, archived.stderr).toBe(0);
+      const structurallyAccepted = bash(`
+        source "${archiveScript}"
+        validate_archive_membership "${packet}" "${temporary}/members" "${temporary}/verbose"
+      `);
+      expect(structurallyAccepted.status, structurallyAccepted.stderr).toBe(0);
+
+      const pinned = `caddy:2.10.0@sha256:${"e".repeat(64)}`;
+      const base = {
+        services: {
+          caddy: {
+            image: pinned,
+            volumes: [{ type: "bind", source: "/opt/askrigor/active/Caddyfile", target: "/etc/caddy/Caddyfile", read_only: true }]
+          }
+        }
+      };
+      const candidate: any = structuredClone(base);
+      candidate.services.caddy.volumes = [
+        { type: "bind", source: "/opt/askrigor/site/state/Caddyfile", target: "/etc/caddy/Caddyfile", read_only: true, bind: { create_host_path: false } },
+        { type: "bind", source: "/opt/askrigor/site/current", target: "/srv/askrigor-site", read_only: true, bind: { create_host_path: false } }
+      ];
+      candidate.services.audit = { image: "busybox" };
+      const baseFile = join(temporary, "base.json");
+      const candidateFile = join(temporary, "candidate.json");
+      await writeFile(baseFile, JSON.stringify(base));
+      await writeFile(candidateFile, JSON.stringify(candidate));
+
+      const legacyPath = spawnSync("node", [maliciousVerifier, baseFile, candidateFile], { encoding: "utf8" });
+      expect(legacyPath.status, legacyPath.stderr).toBe(0);
+      expect(await readFile(marker, "utf8")).toBe("executed\n");
+      await rm(marker);
+
+      const productionPath = bash(`
+        source "${installerScript}"
+        compose_delta_verifier="${maliciousVerifier}"
+        verify_compose_delta "${baseFile}" "${candidateFile}"
+      `);
+      expect(productionPath.status).not.toBe(0);
+      expect(productionPath.stderr).toContain("outside the two reviewed Caddy mounts");
+      await expect(readFile(marker)).rejects.toMatchObject({ code: "ENOENT" });
+      expect(installer).not.toContain('node "$compose_delta_verifier"');
+      expect(installer).not.toMatch(/(?:bash|sh|node)\s+[^\n]*\$release_path/);
+      expect(installer).not.toMatch(/(?:source|\.)\s+[^\n]*\$(?:release_path|packet_)/);
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }

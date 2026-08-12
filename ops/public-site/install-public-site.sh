@@ -34,6 +34,96 @@ services:
 EOF
 }
 
+verify_compose_delta() {
+  local base_render=$1
+  local candidate_render=$2
+  node --input-type=module - "$base_render" "$candidate_render" <<'NODE'
+import { writeSync } from "node:fs";
+import { readFile } from "node:fs/promises";
+import { isDeepStrictEqual } from "node:util";
+
+function fail(message) {
+  writeSync(2, `Compose delta rejected: ${message}\n`);
+  process.exit(1);
+}
+
+let base;
+let candidate;
+try {
+  [base, candidate] = await Promise.all(
+    process.argv.slice(2).map(async (path) => JSON.parse(await readFile(path, "utf8")))
+  );
+} catch {
+  fail("render is missing or invalid JSON");
+}
+
+const baseCaddy = base?.services?.caddy;
+const candidateCaddy = candidate?.services?.caddy;
+if (!baseCaddy || !candidateCaddy) fail("both renders must contain caddy");
+if (candidateCaddy.image !== baseCaddy.image) fail("candidate Caddy image differs from production");
+if (!/(?:^|\/)caddy(?::[^@\s]+)?@sha256:[0-9a-f]{64}$/i.test(candidateCaddy.image ?? "")) {
+  fail("candidate must use the exact pinned production Caddy image");
+}
+
+const baseVolumes = Array.isArray(baseCaddy.volumes) ? baseCaddy.volumes : [];
+const candidateVolumes = Array.isArray(candidateCaddy.volumes) ? candidateCaddy.volumes : [];
+const byTarget = (volumes, label) => {
+  const result = new Map();
+  for (const volume of volumes) {
+    if (!volume || typeof volume.target !== "string" || result.has(volume.target)) {
+      fail(`${label} Caddy volumes must have unique targets`);
+    }
+    result.set(volume.target, volume);
+  }
+  return result;
+};
+const baseByTarget = byTarget(baseVolumes, "production");
+const candidateByTarget = byTarget(candidateVolumes, "candidate");
+const configTarget = "/etc/caddy/Caddyfile";
+const siteTarget = "/srv/askrigor-site";
+if (!baseByTarget.has(configTarget)) fail("production Caddyfile mount is missing");
+if (baseByTarget.has(siteTarget)) fail("production render already contains the public-site mount");
+if (candidateByTarget.size !== baseByTarget.size + 1) fail("candidate has an unexpected Caddy volume delta");
+
+const exactReviewedBind = (volume, source, target) => isDeepStrictEqual(volume, {
+  type: "bind",
+  source,
+  target,
+  read_only: true,
+  bind: { create_host_path: false }
+});
+if (!exactReviewedBind(
+  candidateByTarget.get(configTarget),
+  "/opt/askrigor/site/state/Caddyfile",
+  configTarget
+)) fail("candidate Caddyfile mount is not the reviewed read-only bind");
+if (!exactReviewedBind(
+  candidateByTarget.get(siteTarget),
+  "/opt/askrigor/site/current",
+  siteTarget
+)) fail("candidate site mount is not the reviewed read-only bind");
+
+for (const [target, baseVolume] of baseByTarget) {
+  if (target === configTarget) continue;
+  if (!isDeepStrictEqual(candidateByTarget.get(target), baseVolume)) {
+    fail(`candidate changes the existing Caddy volume at ${target}`);
+  }
+}
+
+const normalizedCandidateCaddy = structuredClone(candidateCaddy);
+normalizedCandidateCaddy.volumes = structuredClone(baseVolumes);
+if (!isDeepStrictEqual(normalizedCandidateCaddy, baseCaddy)) {
+  fail("candidate changes Caddy configuration outside the two reviewed mounts");
+}
+
+const normalizedCandidate = structuredClone(candidate);
+normalizedCandidate.services.caddy = structuredClone(baseCaddy);
+if (!isDeepStrictEqual(normalizedCandidate, base)) {
+  fail("candidate changes configuration outside the two reviewed Caddy mounts");
+}
+NODE
+}
+
 main() {
   [[ "$#" -eq 3 ]] || {
     usage
@@ -214,8 +304,7 @@ for required_member in \
   site/assets/site.css \
   ops/public-site/Caddyfile.site \
   ops/public-site/compose.site.yaml \
-  ops/public-site/install-public-site.sh \
-  ops/public-site/verify-compose-delta.mjs
+  ops/public-site/install-public-site.sh
 do
   grep -Fxq -- "$required_member" "$members_file" ||
     die "archive is missing required member: $required_member"
@@ -234,7 +323,6 @@ assert_root_owned_secure_path "$release_path/ops/public-site/compose.site.yaml" 
 
 packet_caddyfile="$release_path/ops/public-site/Caddyfile.site"
 packet_overlay="$release_path/ops/public-site/compose.site.yaml"
-compose_delta_verifier="$release_path/ops/public-site/verify-compose-delta.mjs"
 staged_combined_caddyfile="$staging_path/Caddyfile.combined"
 cp --reflink=never -- "$production_caddyfile" "$staged_combined_caddyfile"
 printf '\n' >>"$staged_combined_caddyfile"
@@ -262,7 +350,7 @@ umask 077
 "${candidate_compose_command[@]}" config --no-env-resolution --no-interpolate --format json \
   >"$candidate_compose_render"
 chmod 0600 -- "$base_compose_render" "$candidate_compose_render"
-node "$compose_delta_verifier" "$base_compose_render" "$candidate_compose_render"
+verify_compose_delta "$base_compose_render" "$candidate_compose_render"
 
 validation_overlay="$staging_path/compose.validation.yaml"
 write_validation_overlay \
