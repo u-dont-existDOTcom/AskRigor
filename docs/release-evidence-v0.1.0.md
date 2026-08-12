@@ -1,11 +1,12 @@
 
 # AskRigor v0.1.0 release evidence
 
-Release disposition at 2026-08-11: **PUBLIC SUBMISSION BLOCKED**. Developer
+Release disposition at 2026-08-12: **PUBLIC SUBMISSION BLOCKED**. Developer
 Mode connector retrieval is ready based on the recorded production Inspector and
-ChatGPT evidence below, but public publication cannot proceed until the public
-website, support, privacy, and terms URLs are live HTTPS pages matching the
-verified publisher identity and accurately disclose the service's data handling.
+ChatGPT evidence below, and the public website/support/privacy/terms URL gate is
+now resolved. Public publication still cannot proceed until the separate
+routine-status presentation finding and portal identity, domain-verification,
+Scan Tools, and submission actions are resolved.
 
 ## Artifact and endpoint identity
 
@@ -19,7 +20,9 @@ verified publisher identity and accurately disclose the service's data handling.
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
 | Historical live-provider suite | `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`; source `9d1d751`; retained as the initial provider-green run whose wrapper had an ANSI false negative. |
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
-| Package version | `0.1.0`; manifest retains no unverified privacy/terms/support URL. |
+| Public site source | `9becea82eb84` (`fix: remove target Node dependency`); immutable VPS release `/opt/askrigor/site/releases/9becea82eb84`. |
+| Public site packet | SHA-256 `71e8e7a97522b6baeec6749292c577c4fa62ef86697eac6fe59aceab756ce670`; bootstrap evidence `/opt/askrigor/site/bootstrap/20260812T043156Z-3nU8HLDE/evidence`. |
+| Package version | `0.1.0`; manifest remains unchanged pending authoritative URL-field/schema validation. |
 
 The two Inspector locations are recorded production evidence supplied by the
 successful deployment/validation work. The controller's validation runner
@@ -43,30 +46,30 @@ run the VPS validation.
 
 ## Public URL gate — direct HTTPS evidence
 
-Direct read-only HTTPS checks were run 2026-08-11 16:41 UTC with `curl` using
-HTTPS-only initial and redirect protocols. Each of the following returned
-`HTTP/2 302` with `Location: http://research.u-dont-exist.com`, which downgrades
-to plain HTTP. Strict redirect following refused that location with `Protocol
-"http" not supported or disabled`; effective target was
-`http://research.u-dont-exist.com/`.
+Fresh direct checks were run 2026-08-12 after activating immutable release
+`9becea82eb84`. Apex DNS returned only A `191.215.38.123` and no AAAA. The leaf
+certificate contains `DNS:askrigor.com`, is valid from 2026-08-12 through
+2026-11-10, and has SHA-256 fingerprint
+`70:68:BF:28:C8:6A:CC:6A:5B:2C:2E:86:9D:9D:6B:9C:E6:02:1E:73:64:CB:A9:43:24:01:23:77:F0:67:AF:92`.
 
-| Required listing URL | Direct HTTPS result | Gate |
+| Required listing URL | Fresh direct result | Gate |
 | --- | --- | --- |
-| `https://askrigor.com/` | HTTPS `302` → plain-HTTP unrelated target | Blocked. |
-| `https://askrigor.com/privacy` | HTTPS `302` → plain-HTTP unrelated target | Blocked; no live disclosure of public YouTube identity/comment processing. |
-| `https://askrigor.com/terms` | HTTPS `302` → plain-HTTP unrelated target | Blocked. |
-| `https://askrigor.com/support` | HTTPS `302` → plain-HTTP unrelated target | Blocked. |
+| `https://askrigor.com/` | HTTPS `200`; title `AskRigor \| Evidence-first research retrieval`; exact apex canonical. | Resolved. |
+| `https://askrigor.com/privacy` | HTTPS `200`; title/canonical exact; discloses public YouTube author/channel IDs, display names, and comment/reply text. | Resolved. |
+| `https://askrigor.com/terms` | HTTPS `200`; title/canonical exact. | Resolved. |
+| `https://askrigor.com/support` | HTTPS `200`; title/canonical exact; live `joel@askrigor.com` support contact. | Resolved. |
 
-Do not add these unverified legal URLs to `.codex-plugin/plugin.json`. Developer
-Mode testing may continue, but it does not satisfy the public listing
-requirements.
+Each HTTP counterpart returned `308` to the same HTTPS route. The same-origin
+stylesheet returned `200`; every HTTPS page included the reviewed CSP and HSTS
+headers and omitted `Server`; no mixed-HTTP reference or unrelated redirect
+remained. Public TCP listeners were only 22, 80, and 443, while MCP port 3000
+remained loopback-only. `https://mcp.askrigor.com/healthz` returned `200` and a
+plain GET to `/mcp` returned the expected transport response `406`. The MCP
+container ID remained `5e57f8481aac` before bootstrap, after bootstrap, and
+after site activation.
 
 ## Required submission work remaining
 
-- Publish real public HTTPS website, support, privacy, and terms pages that match
-  the verified AskRigor publisher identity. The privacy page must cover the
-  fields and retention boundaries in `docs/privacy-data-map.md`, specifically
-  public YouTube author/channel IDs, display names, and comment/reply text.
 - Complete/confirm verified developer or business identity, listing URLs,
   country availability, and the portal's HTTPS domain-verification challenge.
 - Submit the fixed production URL, select **Scan Tools**, and compare discovered
