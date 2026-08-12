@@ -256,6 +256,64 @@ describe("public-site deployment packet", () => {
     }
   });
 
+  it("runs target-side Compose verification with Python when Node is unavailable", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-python-compose-verifier-"));
+    try {
+      const importMarker = join(temporary, "hostile-imported");
+      await writeFile(join(temporary, "json.py"), [
+        "from pathlib import Path",
+        `Path(${JSON.stringify(importMarker)}).write_text('executed\\n')`,
+        "raise RuntimeError('hostile json module executed')",
+        ""
+      ].join("\n"));
+      const pinned = "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648";
+      const render = JSON.stringify({ services: { caddy: { image: pinned } } });
+      const image = bash(`
+        cd "${temporary}"
+        export PYTHONPATH="${temporary}"
+        source "${bootstrapScript}"
+        PATH=/usr/bin:/bin
+        extract_effective_caddy_image_from_compose_render <<'JSON'
+${render}
+JSON
+      `);
+      expect(image.status, image.stderr).toBe(0);
+      expect(image.stdout.trim()).toBe(pinned);
+      await expect(readFile(importMarker)).rejects.toMatchObject({ code: "ENOENT" });
+
+      const base = join(temporary, "base.json");
+      const candidate = join(temporary, "candidate.json");
+      const baseModel = {
+        services: {
+          caddy: {
+            image: pinned,
+            volumes: [{ type: "bind", source: "/existing", target: "/etc/caddy/Caddyfile", read_only: true }]
+          }
+        }
+      };
+      const candidateModel = structuredClone(baseModel);
+      candidateModel.services.caddy.volumes = [
+        { type: "bind", source: "/opt/askrigor/site/state/Caddyfile", target: "/etc/caddy/Caddyfile", read_only: true, bind: { create_host_path: false } },
+        { type: "bind", source: "/opt/askrigor/site/current", target: "/srv/askrigor-site", read_only: true, bind: { create_host_path: false } }
+      ];
+      await writeFile(base, JSON.stringify(baseModel));
+      await writeFile(candidate, JSON.stringify(candidateModel));
+      const delta = bash(`
+        cd "${temporary}"
+        export PYTHONPATH="${temporary}"
+        source "${installerScript}"
+        PATH=/usr/bin:/bin
+        verify_compose_delta "${base}" "${candidate}"
+      `);
+      expect(delta.status, delta.stderr).toBe(0);
+      await expect(readFile(importMarker)).rejects.toMatchObject({ code: "ENOENT" });
+      expect(installer).toContain('command -v python3 >/dev/null || die "python3 is required"');
+      expect(bootstrap).toContain("find python3; do");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
   it("rolls an injected termination back on EXIT and removes transient probes", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "askrigor-bootstrap-termination-"));
     try {

@@ -371,42 +371,34 @@ assert_pinned_caddy_image_reference() {
 }
 
 extract_effective_caddy_image_from_compose_render() {
-  node --input-type=module --eval '
-      import { readFileSync, writeSync } from "node:fs";
+  python3 -I -c '
+import json
+import sys
 
-      function fail(message) {
-        writeSync(2, `Effective Caddy image rejected: ${message}\n`);
-        process.exit(1);
-      }
+def fail(message):
+    sys.stderr.write(f"Effective Caddy image rejected: {message}\\n")
+    raise SystemExit(1)
 
-      let render;
-      try {
-        render = JSON.parse(readFileSync(0, "utf8"));
-      } catch {
-        fail("Compose render is not valid JSON");
-      }
+try:
+    render = json.load(sys.stdin)
+except (OSError, ValueError):
+    fail("Compose render is not valid JSON")
 
-      if (!render || typeof render !== "object" || Array.isArray(render)) {
-        fail("Compose render must be an object");
-      }
-      const services = render.services;
-      if (!services || typeof services !== "object" || Array.isArray(services)) {
-        fail("Compose services must be an object");
-      }
-      const caddyKeys = Object.keys(services)
-        .filter((serviceName) => serviceName.toLowerCase() === "caddy");
-      if (caddyKeys.length !== 1 || caddyKeys[0] !== "caddy") {
-        fail("Compose render must contain exactly one canonical caddy service");
-      }
-      const caddy = services.caddy;
-      if (!caddy || typeof caddy !== "object" || Array.isArray(caddy)) {
-        fail("Compose caddy service must be an object");
-      }
-      if (!Object.hasOwn(caddy, "image") || typeof caddy.image !== "string" ||
-          caddy.image.length === 0 || caddy.image.trim() !== caddy.image) {
-        fail("Compose caddy image must be one nonempty string");
-      }
-      process.stdout.write(caddy.image);
+if not isinstance(render, dict):
+    fail("Compose render must be an object")
+services = render.get("services")
+if not isinstance(services, dict):
+    fail("Compose services must be an object")
+caddy_keys = [name for name in services if name.lower() == "caddy"]
+if caddy_keys != ["caddy"]:
+    fail("Compose render must contain exactly one canonical caddy service")
+caddy = services["caddy"]
+if not isinstance(caddy, dict):
+    fail("Compose caddy service must be an object")
+image = caddy.get("image")
+if not isinstance(image, str) or not image or image.strip() != image:
+    fail("Compose caddy image must be one nonempty string")
+sys.stdout.write(image)
     '
 }
 
@@ -608,7 +600,7 @@ main() {
   bootstrap_root=/opt/askrigor/site/bootstrap
 
   local required_command
-  for required_command in docker curl dig openssl realpath sha256sum stat readlink install mktemp date mkdir find node; do
+  for required_command in docker curl dig openssl realpath sha256sum stat readlink install mktemp date mkdir find python3; do
     command -v "$required_command" >/dev/null || die "$required_command is required"
   done
   configure_compose_version_environment /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

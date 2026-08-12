@@ -199,91 +199,96 @@ EOF
 verify_compose_delta() {
   local base_render=$1
   local candidate_render=$2
-  node --input-type=module - "$base_render" "$candidate_render" <<'NODE'
-import { writeSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { isDeepStrictEqual } from "node:util";
+  python3 -I - "$base_render" "$candidate_render" <<'PYTHON'
+import copy
+import json
+import re
+import sys
 
-function fail(message) {
-  writeSync(2, `Compose delta rejected: ${message}\n`);
-  process.exit(1);
-}
+def fail(message):
+    sys.stderr.write(f"Compose delta rejected: {message}\\n")
+    raise SystemExit(1)
 
-let base;
-let candidate;
-try {
-  [base, candidate] = await Promise.all(
-    process.argv.slice(2).map(async (path) => JSON.parse(await readFile(path, "utf8")))
-  );
-} catch {
-  fail("render is missing or invalid JSON");
-}
+def strict_equal(left, right):
+    if type(left) is not type(right):
+        return False
+    if isinstance(left, dict):
+        return left.keys() == right.keys() and all(strict_equal(left[key], right[key]) for key in left)
+    if isinstance(left, list):
+        return len(left) == len(right) and all(strict_equal(a, b) for a, b in zip(left, right))
+    return left == right
 
-const baseCaddy = base?.services?.caddy;
-const candidateCaddy = candidate?.services?.caddy;
-if (!baseCaddy || !candidateCaddy) fail("both renders must contain caddy");
-if (candidateCaddy.image !== baseCaddy.image) fail("candidate Caddy image differs from production");
-if (!/(?:^|\/)caddy(?::[^@\s]+)?@sha256:[0-9a-f]{64}$/i.test(candidateCaddy.image ?? "")) {
-  fail("candidate must use the exact pinned production Caddy image");
-}
+try:
+    with open(sys.argv[1], encoding="utf-8") as base_file:
+        base = json.load(base_file)
+    with open(sys.argv[2], encoding="utf-8") as candidate_file:
+        candidate = json.load(candidate_file)
+except (IndexError, OSError, ValueError):
+    fail("render is missing or invalid JSON")
 
-const baseVolumes = Array.isArray(baseCaddy.volumes) ? baseCaddy.volumes : [];
-const candidateVolumes = Array.isArray(candidateCaddy.volumes) ? candidateCaddy.volumes : [];
-const byTarget = (volumes, label) => {
-  const result = new Map();
-  for (const volume of volumes) {
-    if (!volume || typeof volume.target !== "string" || result.has(volume.target)) {
-      fail(`${label} Caddy volumes must have unique targets`);
-    }
-    result.set(volume.target, volume);
-  }
-  return result;
-};
-const baseByTarget = byTarget(baseVolumes, "production");
-const candidateByTarget = byTarget(candidateVolumes, "candidate");
-const configTarget = "/etc/caddy/Caddyfile";
-const siteTarget = "/srv/askrigor-site";
-if (!baseByTarget.has(configTarget)) fail("production Caddyfile mount is missing");
-if (baseByTarget.has(siteTarget)) fail("production render already contains the public-site mount");
-if (candidateByTarget.size !== baseByTarget.size + 1) fail("candidate has an unexpected Caddy volume delta");
+base_services = base.get("services") if isinstance(base, dict) else None
+candidate_services = candidate.get("services") if isinstance(candidate, dict) else None
+base_caddy = base_services.get("caddy") if isinstance(base_services, dict) else None
+candidate_caddy = candidate_services.get("caddy") if isinstance(candidate_services, dict) else None
+if not isinstance(base_caddy, dict) or not isinstance(candidate_caddy, dict):
+    fail("both renders must contain caddy")
+if candidate_caddy.get("image") != base_caddy.get("image"):
+    fail("candidate Caddy image differs from production")
+image = candidate_caddy.get("image")
+if not isinstance(image, str) or not re.search(r"(?:^|/)caddy(?::[^@\\s]+)?@sha256:[0-9a-f]{64}$", image, re.IGNORECASE):
+    fail("candidate must use the exact pinned production Caddy image")
 
-const exactReviewedBind = (volume, source, target) => isDeepStrictEqual(volume, {
-  type: "bind",
-  source,
-  target,
-  read_only: true,
-  bind: { create_host_path: false }
-});
-if (!exactReviewedBind(
-  candidateByTarget.get(configTarget),
-  "/opt/askrigor/site/state/Caddyfile",
-  configTarget
-)) fail("candidate Caddyfile mount is not the reviewed read-only bind");
-if (!exactReviewedBind(
-  candidateByTarget.get(siteTarget),
-  "/opt/askrigor/site/current",
-  siteTarget
-)) fail("candidate site mount is not the reviewed read-only bind");
+base_volumes = base_caddy.get("volumes") if isinstance(base_caddy.get("volumes"), list) else []
+candidate_volumes = candidate_caddy.get("volumes") if isinstance(candidate_caddy.get("volumes"), list) else []
 
-for (const [target, baseVolume] of baseByTarget) {
-  if (target === configTarget) continue;
-  if (!isDeepStrictEqual(candidateByTarget.get(target), baseVolume)) {
-    fail(`candidate changes the existing Caddy volume at ${target}`);
-  }
-}
+def by_target(volumes, label):
+    result = {}
+    for volume in volumes:
+        target = volume.get("target") if isinstance(volume, dict) else None
+        if not isinstance(target, str) or target in result:
+            fail(f"{label} Caddy volumes must have unique targets")
+        result[target] = volume
+    return result
 
-const normalizedCandidateCaddy = structuredClone(candidateCaddy);
-normalizedCandidateCaddy.volumes = structuredClone(baseVolumes);
-if (!isDeepStrictEqual(normalizedCandidateCaddy, baseCaddy)) {
-  fail("candidate changes Caddy configuration outside the two reviewed mounts");
-}
+base_by_target = by_target(base_volumes, "production")
+candidate_by_target = by_target(candidate_volumes, "candidate")
+config_target = "/etc/caddy/Caddyfile"
+site_target = "/srv/askrigor-site"
+if config_target not in base_by_target:
+    fail("production Caddyfile mount is missing")
+if site_target in base_by_target:
+    fail("production render already contains the public-site mount")
+if len(candidate_by_target) != len(base_by_target) + 1:
+    fail("candidate has an unexpected Caddy volume delta")
 
-const normalizedCandidate = structuredClone(candidate);
-normalizedCandidate.services.caddy = structuredClone(baseCaddy);
-if (!isDeepStrictEqual(normalizedCandidate, base)) {
-  fail("candidate changes configuration outside the two reviewed Caddy mounts");
-}
-NODE
+def exact_reviewed_bind(volume, source, target):
+    return strict_equal(volume, {
+        "type": "bind",
+        "source": source,
+        "target": target,
+        "read_only": True,
+        "bind": {"create_host_path": False},
+    })
+
+if not exact_reviewed_bind(candidate_by_target.get(config_target), "/opt/askrigor/site/state/Caddyfile", config_target):
+    fail("candidate Caddyfile mount is not the reviewed read-only bind")
+if not exact_reviewed_bind(candidate_by_target.get(site_target), "/opt/askrigor/site/current", site_target):
+    fail("candidate site mount is not the reviewed read-only bind")
+
+for target, base_volume in base_by_target.items():
+    if target != config_target and not strict_equal(candidate_by_target.get(target), base_volume):
+        fail(f"candidate changes the existing Caddy volume at {target}")
+
+normalized_candidate_caddy = copy.deepcopy(candidate_caddy)
+normalized_candidate_caddy["volumes"] = copy.deepcopy(base_volumes)
+if not strict_equal(normalized_candidate_caddy, base_caddy):
+    fail("candidate changes Caddy configuration outside the two reviewed mounts")
+
+normalized_candidate = copy.deepcopy(candidate)
+normalized_candidate["services"]["caddy"] = copy.deepcopy(base_caddy)
+if not strict_equal(normalized_candidate, base):
+    fail("candidate changes configuration outside the two reviewed Caddy mounts")
+PYTHON
 }
 
 main() {
@@ -323,7 +328,7 @@ docker compose version >/dev/null || die "Docker Compose v2 is required"
 command -v curl >/dev/null || die "curl is required"
 command -v tar >/dev/null || die "tar is required"
 command -v realpath >/dev/null || die "realpath is required"
-command -v node >/dev/null || die "node is required"
+command -v python3 >/dev/null || die "python3 is required"
 
 [[ ! -L "$input_archive" ]] || die "path must not be a symlink: $input_archive"
 [[ ! -L "$input_checksum" ]] || die "path must not be a symlink: $input_checksum"
