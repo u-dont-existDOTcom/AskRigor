@@ -34,9 +34,60 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.15",
-      revisionDate: "2026-08-10"
+      version: "20.5.16",
+      revisionDate: "2026-08-12"
     });
+  });
+
+  it("preserves the HRP 20.5.16 community corpus completion gate and regression", async () => {
+    const text = await loadProtocol("hrp");
+    const communityGateStart = text.indexOf("<CommunityCorpusCompletionGate");
+    const protocolGateStart = text.indexOf("<ProtocolExecutionAndComplianceGate");
+
+    expect(communityGateStart).toBeGreaterThanOrEqual(0);
+    expect(protocolGateStart).toBeGreaterThanOrEqual(0);
+    expect(communityGateStart).toBeLessThan(protocolGateStart);
+
+    for (const required of [
+      '<CommunityCorpusCompletionGate priority="Critical">',
+      'name="PartialRetrievalCannotCompleteAudit"',
+      "access_status",
+      "extraction_coverage",
+      "next_cursor",
+      "has_more=true",
+      'name="QueryBoundedYouTubeSearchIsDiscoveryOnly"',
+      'name="NoPrematureSaturation"',
+      'name="CoverageStateBeforeSynthesis"',
+      "principal_platforms_mapped",
+      "acquisition_mode",
+      "unfiltered_retrieval_attempted",
+      "pagination_exhausted",
+      "replies_reconciled",
+      "unique_firsthand_people",
+      "unique_treatment_episodes",
+      "benefit_search_completed",
+      "no_effect_search_completed",
+      "harm_search_completed",
+      "discontinuation_search_completed",
+      "independent_discussion_pools_sampled",
+      "final_coverage_state",
+      "complete / completed-with-access-boundary / incomplete",
+      'id="OneQueryBoundedYouTubeCommentPresentedAsReconnaissance"',
+      'search term "used"',
+      'search term "results"'
+    ]) {
+      expect(text).toContain(required);
+    }
+
+    const gateText = text.slice(communityGateStart, protocolGateStart);
+    expect(gateText).toContain("discovery operation only");
+    expect(gateText).toContain("unfiltered top-level comment corpus");
+    expect(gateText).toContain("paginate until exhausted");
+    expect(gateText).toContain("retrieve accessible replies");
+    expect(gateText).toContain("reconcile expected versus retrieved replies");
+    expect(gateText).toContain("continue automatically before synthesis");
+    expect(gateText).toContain("Do not characterize prevalence, direction, rarity, typicality, or strength");
+    expect(gateText).toContain("CommunityCorpusAccessBoundaryCompletion");
   });
 
   it("returns the original canonical file text unchanged", async () => {
@@ -100,7 +151,7 @@ describe("canonical protocol loader", () => {
   it("fails closed when required root attributes are absent", async () => {
     readFileMock.mockResolvedValueOnce(
       Buffer.from(
-        "<?xml version=\"1.0\"?><Protocol name=\"HRP\" version=\"20.5.15\" />"
+        "<?xml version=\"1.0\"?><Protocol name=\"HRP\" version=\"20.5.16\" />"
       )
     );
 

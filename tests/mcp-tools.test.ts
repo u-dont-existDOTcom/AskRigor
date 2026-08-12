@@ -1129,8 +1129,8 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.5.15",
-          revisionDate: "2026-08-10",
+          version: "20.5.16",
+          revisionDate: "2026-08-12",
           sha256: "a61181bb9325b84b542decf8795703f62bac880fa1e60bbeeb89051d874f61f0"
         },
         text: canonicalText
