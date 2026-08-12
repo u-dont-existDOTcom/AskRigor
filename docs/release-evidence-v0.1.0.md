@@ -13,10 +13,10 @@ Scan Tools, and submission actions are resolved.
 | Item | Evidence |
 | --- | --- |
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
-| Production connector revision | `198bbdb5f7a6d3fb55e59b9042ff22b9f3605697` (`test: pin query-bounded YouTube failure details`), deployed as image ID `sha256:e8abf8240af05f36399c61932b9ed06bcf34f63e8dcff0c400222080e0acb17f`. |
+| Production connector revision | `bb2245f04f6e1f7bfed8d146c92497364d6488f7` (`fix: bound compound YouTube audit latency`), deployed as image ID `sha256:4d397a3c5bf5eff3c0ed350720a16e92a20786871072527732a1d9c03487ee81`. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
 | Canonical HRP | Version `20.5.16`, revision date `2026-08-12`, SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`; the public manifest and full-text tool returned this exact identity after rollout. |
-| Production source packet | Exact `git archive` from `198bbdb5f7a6`; SHA-256 `8dd017f0078babc9c550e566636a3a75b30baecef999a7ddcfaf4f3a18ad2a90`. |
+| Production source packet | Exact `git archive` from `bb2245f04f6e`; SHA-256 `f8500daa75392c3d5bb5891cee2134f816389481d585e91b42594e422f11fd6a`. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
@@ -37,15 +37,16 @@ run the VPS validation.
 
 | Check | Recorded outcome |
 | --- | --- |
-| MCP metadata | Inspector discovered all 14 advertised tools and confirmed `readOnlyHint:true`, `destructiveHint:false`, and `openWorldHint:false`. |
+| MCP metadata | Fresh public MCP discovery found exactly 15 advertised tools in committed order, including `audit_youtube_community`, and confirmed `readOnlyHint:true`, `destructiveHint:false`, and `openWorldHint:false` for every tool. |
 | Formal sources | Production Inspector passed protocol integrity, PubMed, Europe PMC, ClinicalTrials.gov, and Crossref/retraction cases with their expected access/failure semantics. |
-| YouTube | Production Inspector passed YouTube discovery and complete comment-plus-reply retrieval for the bounded public target, including reply-page reconciliation. |
+| YouTube | Production Inspector passed YouTube discovery and complete comment-plus-reply retrieval for the bounded public target, including reply-page reconciliation. Fresh compound-tool acceptance returned `api_visible_complete` with `synthesis_lock:pass` for the recorded 2+1 corpus in 3.76 seconds. An oversized corpus returned `partial`, `youtube_comment_budget_elapsed_ms`, and `synthesis_lock:block` in 18.35 seconds under the default 60-second MCP request deadline. |
 | Fresh public YouTube Inspector | Exit 0; all 15/15 expected outcomes matched: tools list plus valid, zero, empty, malformed discovery/video/comments, complete reply corpus, and targeted zero-result cases. |
 | Historical live providers | The provider test process at `/opt/askrigor/validation/live-suite-20260811T172130Z-71611` exited 0 and 5/5 passed, including PubMed, Crossref, and YouTube; the fail-closed server-side secret scan found no match. Its original wrapper exit 1 was an ANSI status-parser false negative only. |
 | Current fresh live providers | Controller-run v6 validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845` passed the clean image build, server-side scanner, ANSI-safe parser (exit 0, exactly one passing file and five passing tests, zero skips), and evidence-side relative checksum. `status.txt` reported `Live suite v6 accepted`. |
 | ChatGPT Developer Mode | End-to-end smoke passed protocol integrity, PubMed, and complete YouTube 2+1 replies through the deployed connector. No AskRigor write tools were exposed or called. |
 | ChatGPT release finding | A separate **routine-status presentation regression** occurred: ChatGPT narrated a stale update-check date/status despite Universal v20.5.11 and HRP v20.5.15 prohibiting routine update diagnostics. This is not a connector retrieval failure; it must be fixed or explicitly accepted before release-quality presentation is claimed. |
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b...2597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
+| Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 
 ## Public URL gate — direct HTTPS evidence
 
@@ -78,6 +79,15 @@ checks returned `200`, and port 3000 remained loopback-only. The runtime-env
 file remained `root:root`, mode `0600`, with unchanged mtime; its contents were
 not read, copied, printed, or checksummed.
 
+The Forum Signal rollout later recreated only `research-mcp` as container
+`4f72903f8789` from revision `bb2245f04f6e`; Caddy remained
+`81b212e28866`, the active site remained
+`/opt/askrigor/site/releases/f928b95e29cd/site`, all five public health/site
+checks returned `200`, the MCP transport probe returned the expected `406`, and
+port 3000 remained bound only to `127.0.0.1`. The runtime-env file remained
+`root:root`, mode `0600`; its contents were not read, copied, printed, or
+checksummed.
+
 ## Required submission work remaining
 
 - Complete/confirm verified developer or business identity, listing URLs,
@@ -101,6 +111,7 @@ checks run only with safely available credentials; credentials are never printed
 | `npm ci` | Passed outside the restricted sandbox: 156 packages installed and 161 audited; npm reported 0 vulnerabilities. The sandboxed attempt was blocked by an `esbuild` postinstall `EPERM`. |
 | `npm run verify` | Passed outside the restricted sandbox after the runner repair: typecheck and build passed; Vitest reported 17 passed files, 1 skipped file, 337 passed tests, and 5 guarded live tests skipped. The sandboxed attempt failed only where loopback-server tests hit `listen EPERM` on `127.0.0.1`. |
 | HRP 20.5.16 verification | Typecheck and build passed; the focused protocol/MCP suite passed 49/49; the serialized full suite passed 386 tests with 5 credential-guarded skips; site validation covered 4 pages; public-site deployment tests passed 28/28; plugin validation and diff checks passed. Independent re-review found no remaining Critical or Important issue. |
+| Forum Signal router verification | Router/audit/MCP/release focused checks passed 54/54; post-latency-fix audit/MCP checks passed 46/46; typecheck and build passed; the final serialized full suite passed 401 tests with 5 credential-guarded skips; site validation covered 4 pages; skill validation and diff checks passed. |
 | Historical credential-bound live suite | Recorded production evidence at `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`: provider process exit 0 and 5/5 passed, including PubMed, Crossref, and YouTube. The old wrapper exit 1 was solely an ANSI-grep false negative. This run is historical, superseded by v6 below. |
 | Current credential-bound live suite | Controller-run v6 evidence at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`: clean archive/image build, server-side scan, ANSI-safe parser exit 0 with exactly `Test Files 1 passed (1)` and `Tests 5 passed (5)` and zero skips, relative evidence checksum, and `Live suite v6 accepted` status all passed. The controller's runner accessed server-side runtime environment without exposing, reading back, or logging provider keys; evidence was read only after the fail-closed scan. This worktree contains no secret and did not independently rerun the remote suite. |
 | `npm audit --omit=dev` | Passed outside the restricted sandbox: 0 production-dependency vulnerabilities. The sandbox could not resolve `registry.npmjs.org`. |

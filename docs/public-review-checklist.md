@@ -76,6 +76,14 @@ complete-corpus accounting, an optional deterministic sample and corpus digest,
 and a literal `synthesis_lock` of `pass` or `block`. The tool makes no efficacy,
 safety, causality, prevalence, or treatment judgment.
 
+Fresh production acceptance on 2026-08-12 discovered these exact 15 tools and
+annotations at `https://mcp.askrigor.com/mcp`. The compound tool returned
+`api_visible_complete` plus `synthesis_lock:pass` for the recorded small
+comment/reply corpus. For a deliberately oversized corpus it returned
+`partial`, `youtube_comment_budget_elapsed_ms`, and `synthesis_lock:block`
+within the default MCP request deadline; it did not relabel the unseen corpus as
+complete.
+
 ## Reviewer data and state boundary
 
 The generated output schemas show every output field, including protocol text

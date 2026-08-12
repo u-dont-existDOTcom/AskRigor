@@ -217,7 +217,10 @@ describe("AskRigor public-review packet", () => {
     const document = await readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8");
 
     expect(document).toContain("https://mcp.askrigor.com/mcp");
-    expect(document).toContain("198bbdb5f7a6d3fb55e59b9042ff22b9f3605697");
+    expect(document).toContain("bb2245f04f6e1f7bfed8d146c92497364d6488f7");
+    expect(document).toContain("Fresh public MCP discovery found exactly 15");
+    expect(document).toContain("youtube_comment_budget_elapsed_ms");
+    expect(document).toContain("synthesis_lock:block");
     expect(document).toContain("HRP 20.5.16 execution-reliability rollout");
     expect(document).toContain("d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597");
     expect(document).toContain("Inspector");
