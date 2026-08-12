@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2025//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_250101.dtd">
+<PubmedArticleSet>
+  <PubmedArticle>
+    <MedlineCitation Status="Publisher" Owner="NLM">
+      <PMID Version="1">52123456</PMID>
+      <Article PubModel="Print">
+        <Journal>
+          <JournalIssue CitedMedium="Print"><PubDate><MedlineDate>1998 Dec-1999 Jan</MedlineDate></PubDate></JournalIssue>
+          <Title>Medline Date Journal</Title>
+        </Journal>
+        <ArticleTitle>Recorded Medline date</ArticleTitle>
+        <ELocationID EIdType="pii">S0000-0000</ELocationID>
+      </Article>
+    </MedlineCitation>
+    <PubmedData />
+  </PubmedArticle>
+</PubmedArticleSet>

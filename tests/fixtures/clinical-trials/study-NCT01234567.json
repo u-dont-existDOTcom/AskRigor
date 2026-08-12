@@ -1,0 +1,35 @@
+{
+  "protocolSection": {
+    "identificationModule": {
+      "nctId": "NCT01234567",
+      "briefTitle": "Recorded trial of an example intervention"
+    },
+    "statusModule": {
+      "overallStatus": "RECRUITING",
+      "startDateStruct": { "date": "2025-01-15", "type": "ACTUAL" },
+      "completionDateStruct": { "date": "2026-12-31", "type": "ESTIMATED" },
+      "lastUpdatePostDateStruct": { "date": "2025-07-01", "type": "ACTUAL" }
+    },
+    "sponsorCollaboratorsModule": {
+      "leadSponsor": { "name": "Recorded Research Institute", "class": "OTHER" },
+      "collaborators": [{ "name": "Example University", "class": "OTHER" }]
+    },
+    "conditionsModule": { "conditions": ["Example condition"] },
+    "designModule": {
+      "studyType": "INTERVENTIONAL",
+      "phases": ["PHASE2"],
+      "enrollmentInfo": { "count": 120, "type": "ESTIMATED" }
+    },
+    "armsInterventionsModule": {
+      "interventions": [{ "type": "DRUG", "name": "Example treatment" }]
+    },
+    "referencesModule": {
+      "references": [{
+        "pmid": "40123456",
+        "type": "DERIVED",
+        "citation": "Recorded source citation"
+      }]
+    }
+  },
+  "resultsSection": { "participantFlowModule": {} }
+}

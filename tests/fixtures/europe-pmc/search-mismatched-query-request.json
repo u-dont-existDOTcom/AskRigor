@@ -1,0 +1,17 @@
+{
+  "version": "6.9",
+  "hitCount": 3,
+  "nextCursorMark": "AoIIQG5leHQtY3Vyc29y",
+  "request": {
+    "queryString": "different query",
+    "resultType": "lite",
+    "cursorMark": "*",
+    "pageSize": 2,
+    "format": "json"
+  },
+  "resultList": {
+    "result": [
+      { "source": "MED", "id": "40123456" }
+    ]
+  }
+}

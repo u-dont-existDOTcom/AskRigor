@@ -1,0 +1,19 @@
+{
+  "version": "6.9",
+  "hitCount": 2,
+  "request": {
+    "queryString": "no matching records",
+    "resultType": "lite",
+    "cursorMark": "*",
+    "pageSize": 1,
+    "format": "json"
+  },
+  "resultList": {
+    "result": [
+      {
+        "source": "MED",
+        "id": "40123456"
+      }
+    ]
+  }
+}

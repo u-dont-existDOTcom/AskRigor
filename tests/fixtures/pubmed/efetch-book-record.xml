@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE PubmedArticleSet PUBLIC "-//NLM//DTD PubMedArticle, 1st January 2025//EN" "https://dtd.nlm.nih.gov/ncbi/pubmed/out/pubmed_250101.dtd">
+<PubmedArticleSet>
+  <PubmedBookArticle>
+    <BookDocument>
+      <PMID Version="1">50123456</PMID>
+      <ArticleIdList>
+        <ArticleId IdType="pubmed">50123456</ArticleId>
+        <ArticleId IdType="doi">10.1234/book.chapter</ArticleId>
+      </ArticleIdList>
+      <Book>
+        <BookTitle>Recorded Reference Book</BookTitle>
+        <PubDate><Year>2024</Year><Season>Winter</Season></PubDate>
+      </Book>
+      <ArticleTitle>Recorded book chapter</ArticleTitle>
+      <AuthorList>
+        <Author><LastName>Okafor</LastName><ForeName>Nia</ForeName></Author>
+      </AuthorList>
+      <PublicationType UI="D016454">Review</PublicationType>
+      <Abstract><AbstractText>Recorded book abstract.</AbstractText></Abstract>
+      <DateRevised><Year>2025</Year><Month>02</Month><Day>03</Day></DateRevised>
+    </BookDocument>
+    <PubmedBookData>
+      <History>
+        <PubMedPubDate PubStatus="pubmed"><Year>2025</Year><Month>02</Month><Day>04</Day></PubMedPubDate>
+      </History>
+      <PublicationStatus>ppublish</PublicationStatus>
+      <ArticleIdList><ArticleId IdType="pubmed">50123456</ArticleId></ArticleIdList>
+    </PubmedBookData>
+  </PubmedBookArticle>
+</PubmedArticleSet>

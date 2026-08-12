@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<PubmedArticleSet>
+  <PubmedBookArticle>
+    <BookDocument>
+      <PMID Version="1">55123456</PMID>
+      <ArticleTitle>Malformed book citation</ArticleTitle>
+    </BookDocument>
+  </PubmedBookArticle>
+</PubmedArticleSet>

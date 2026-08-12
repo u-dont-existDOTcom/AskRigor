@@ -1,0 +1,22 @@
+{
+  "kind": "youtube#videoListResponse",
+  "etag": "fixture-video",
+  "pageInfo": { "totalResults": 1, "resultsPerPage": 1 },
+  "items": [
+    {
+      "kind": "youtube#video",
+      "id": "XpZHKGGCK-o",
+      "snippet": {
+        "publishedAt": "2025-01-02T03:04:05Z",
+        "channelId": "UC0123456789abcdefghijkl",
+        "title": "Recorded video title",
+        "description": "Recorded video description",
+        "tags": ["recorded", "fixture"],
+        "liveBroadcastContent": "none"
+      },
+      "contentDetails": { "duration": "PT12M34S" },
+      "statistics": { "viewCount": "12345678901234567890", "likeCount": "42", "commentCount": "7" },
+      "status": { "embeddable": true, "privacyStatus": "public" }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@askrigor/research-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@askrigor/contracts": "0.1.0",
+    "@askrigor/protocol": "0.1.0",
+    "@askrigor/sources": "0.1.0"
+  }
+}

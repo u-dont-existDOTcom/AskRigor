@@ -1,0 +1,15 @@
+{
+  "version": "6.9",
+  "hitCount": 1,
+  "nextCursorMark": "AoIIQG5leHQtY3Vyc29y",
+  "request": {
+    "queryString": "false empty initial page",
+    "resultType": "lite",
+    "cursorMark": "*",
+    "pageSize": 20,
+    "format": "json"
+  },
+  "resultList": {
+    "result": []
+  }
+}

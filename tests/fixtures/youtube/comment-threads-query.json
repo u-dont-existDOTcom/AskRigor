@@ -1,0 +1,26 @@
+{
+  "kind": "youtube#commentThreadListResponse",
+  "pageInfo": { "totalResults": 1, "resultsPerPage": 1 },
+  "items": [
+    {
+      "kind": "youtube#commentThread",
+      "id": "UgxThreadQuery0000000001",
+      "snippet": {
+        "videoId": "XpZHKGGCK-o",
+        "topLevelComment": {
+          "kind": "youtube#comment",
+          "id": "UgxTopQuery000000000001",
+          "snippet": {
+            "videoId": "XpZHKGGCK-o",
+            "textDisplay": "Query-matched top-level comment",
+            "authorDisplayName": "Query Author",
+            "likeCount": 1,
+            "publishedAt": "2025-03-01T10:00:00Z",
+            "updatedAt": "2025-03-01T10:00:00Z"
+          }
+        },
+        "totalReplyCount": 1
+      }
+    }
+  ]
+}

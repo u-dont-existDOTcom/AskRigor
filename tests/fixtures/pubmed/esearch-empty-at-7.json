@@ -1,0 +1,12 @@
+{
+  "header": {
+    "type": "esearch",
+    "version": "0.3"
+  },
+  "esearchresult": {
+    "count": "7",
+    "retmax": "0",
+    "retstart": "7",
+    "idlist": []
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "kind": "youtube#commentThreadListResponse",
+  "nextPageToken": "thread-page-2",
+  "pageInfo": { "totalResults": 2, "resultsPerPage": 1 },
+  "items": [
+    {
+      "kind": "youtube#commentThread",
+      "id": "UgxThread000000000000001",
+      "snippet": {
+        "videoId": "XpZHKGGCK-o",
+        "topLevelComment": {
+          "kind": "youtube#comment",
+          "id": "UgxTop00000000000000001",
+          "snippet": {
+            "videoId": "XpZHKGGCK-o",
+            "textDisplay": "First top-level comment",
+            "textOriginal": "First top-level comment",
+            "authorDisplayName": "Recorded Author One",
+            "authorChannelId": { "value": "UC0123456789abcdefghijkl" },
+            "likeCount": 5,
+            "publishedAt": "2025-02-01T10:00:00Z",
+            "updatedAt": "2025-02-01T10:05:00Z"
+          }
+        },
+        "totalReplyCount": 3
+      },
+      "replies": {
+        "comments": [
+          {
+            "kind": "youtube#comment",
+            "id": "UgxReply0000000000000001",
+            "snippet": {
+              "parentId": "UgxTop00000000000000001",
+              "textDisplay": "Embedded reply one",
+              "textOriginal": "Embedded reply one",
+              "authorDisplayName": "Recorded Reply Author One",
+              "likeCount": 1,
+              "publishedAt": "2025-02-01T11:00:00Z",
+              "updatedAt": "2025-02-01T11:00:00Z"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

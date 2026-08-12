@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": 404,
+    "message": "provider-secret-video-not-found",
+    "errors": [
+      { "reason": "videoNotFound", "message": "provider-secret-video-not-found" }
+    ]
+  }
+}

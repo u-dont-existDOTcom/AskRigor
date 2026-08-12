@@ -1,0 +1,15 @@
+{
+  "version": "6.9",
+  "hitCount": 0,
+  "nextCursorMark": "*",
+  "request": {
+    "queryString": "(example intervention) AND FIRST_PDATE:[2024-01-02 TO 2025-03-04]",
+    "resultType": "lite",
+    "cursorMark": "*",
+    "pageSize": 20,
+    "format": "json"
+  },
+  "resultList": {
+    "result": []
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": 403,
+    "message": "provider-secret-mid-pagination",
+    "errors": [
+      { "reason": "forbidden", "message": "provider-secret-mid-pagination" }
+    ]
+  }
+}

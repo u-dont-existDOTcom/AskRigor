@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": 404,
+    "message": "provider-secret-comment-not-found",
+    "errors": [
+      { "reason": "commentNotFound", "message": "provider-secret-comment-not-found" }
+    ]
+  }
+}

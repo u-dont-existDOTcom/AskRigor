@@ -1,0 +1,15 @@
+{
+  "version": "6.9",
+  "hitCount": 3,
+  "nextCursorMark": "AoIIQGFkdmFuY2luZy1jdXJzb3I=",
+  "request": {
+    "queryString": "paged records",
+    "resultType": "lite",
+    "cursorMark": "AoIIQHNhbXBsZS1uZXh0LWN1cnNvcg==",
+    "pageSize": 20,
+    "format": "json"
+  },
+  "resultList": {
+    "result": []
+  }
+}

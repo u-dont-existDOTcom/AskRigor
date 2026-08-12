@@ -1,0 +1,17 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message": {
+    "DOI": "10.1021/am300292v",
+    "title": ["Recorded work with a retraction notice"],
+    "author": [{"family": "Example", "given": "Alex"}],
+    "published-print": {"date-parts": [[2013, 2, 1]]},
+    "updated-by": [{
+      "DOI": "10.1021/acsami.9b11759",
+      "type": "retraction",
+      "updated": {"date-parts": [[2024, 3, 4]]},
+      "source": "retraction-watch",
+      "label": "Retraction"
+    }]
+  }
+}

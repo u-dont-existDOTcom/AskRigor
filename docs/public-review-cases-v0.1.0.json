@@ -1,0 +1,170 @@
+{
+  "positive": [
+    {
+      "id": "positive-1",
+      "prompt": "Use AskRigor to retrieve, verify, and load the HRP protocol before beginning this health research task.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"protocol": "hrp", "expected_sha256": "d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597"}
+      },
+      "expected_workflow": [
+        {
+          "tool": "get_protocol_manifest",
+          "arguments": {"protocol": "hrp"},
+          "expected_structured_fields": ["ok", "protocol", "manifest.name", "manifest.version", "manifest.revisionDate", "manifest.sha256"]
+        },
+        {
+          "tool": "verify_protocol_integrity",
+          "arguments": {"protocol": "hrp", "expected_sha256": "d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597"},
+          "expected_structured_fields": ["ok", "protocol", "verified", "manifest.sha256"]
+        },
+        {
+          "tool": "load_protocol",
+          "arguments": {"protocol": "hrp"},
+          "expected_structured_fields": ["ok", "protocol", "manifest.sha256", "text"]
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["verified: true", "manifest.version: 20.5.16", "manifest.sha256: d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597", "complete canonical text"]
+      },
+      "no_state_change": true
+    },
+    {
+      "id": "positive-2",
+      "prompt": "Use AskRigor to retrieve the PubMed record with PMID 13054692 and preserve the provider metadata without medical interpretation.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"pmid": "13054692"}
+      },
+      "expected_workflow": [
+        {
+          "tool": "fetch_pubmed_record",
+          "arguments": {"pmid": "13054692"},
+          "expected_structured_fields": ["provider", "record_type", "primary_identifier", "retrieved_at", "source_identity", "pagination", "access_status", "limitations", "data.pmid"]
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["provider: pubmed", "primary_identifier: 13054692", "data.pmid: 13054692", "access_status", "no medical conclusion"]
+      },
+      "no_state_change": true
+    },
+    {
+      "id": "positive-3",
+      "prompt": "Use AskRigor to retrieve the ClinicalTrials.gov study with NCT ID NCT04280705 and return its supplied metadata.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"nct_id": "NCT04280705"}
+      },
+      "expected_workflow": [
+        {
+          "tool": "fetch_clinical_trial",
+          "arguments": {"nct_id": "NCT04280705"},
+          "expected_structured_fields": ["provider", "record_type", "primary_identifier", "retrieved_at", "source_identity", "pagination", "access_status", "limitations", "data.nct_id", "data.title", "data.status"]
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["provider: clinicaltrials_gov", "primary_identifier: NCT04280705", "data.nct_id: NCT04280705", "access_status"]
+      },
+      "no_state_change": true
+    },
+    {
+      "id": "positive-4",
+      "prompt": "Use AskRigor to check DOI 10.1056/NEJMoa2034577 for Crossref update or retraction metadata without inferring clinical validity.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"identifier": "10.1056/NEJMoa2034577"}
+      },
+      "expected_workflow": [
+        {
+          "tool": "check_retraction_status",
+          "arguments": {"identifier": "10.1056/NEJMoa2034577"},
+          "expected_structured_fields": ["provider", "record_type", "primary_identifier", "retrieved_at", "source_identity", "pagination", "access_status", "limitations", "data.doi", "data.status", "data.evidence", "data.sources_checked"]
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["provider: crossref", "data.doi: 10.1056/NEJMoa2034577", "data.status", "data.evidence", "data.sources_checked: [crossref]", "no clinical validity inference"]
+      },
+      "no_state_change": true
+    },
+    {
+      "id": "positive-5",
+      "prompt": "Use AskRigor to retrieve API-visible comments and replies for the public YouTube video 4x1fl67d_Ag, preserving coverage and reconciliation information.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"video_id_or_url": "4x1fl67d_Ag", "include_replies": true}
+      },
+      "expected_workflow": [
+        {
+          "tool": "get_youtube_comments",
+          "arguments": {"video_id_or_url": "4x1fl67d_Ag", "include_replies": true},
+          "expected_structured_fields": ["provider", "record_type", "primary_identifier", "retrieved_at", "source_identity", "pagination", "access_status", "limitations", "data.comments", "data.manifest.reply_count_mismatches", "data.manifest.pages", "data.manifest.extraction_coverage"]
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["provider: youtube", "data.comments[].comment_id", "data.comments[].text", "data.manifest.reply_count_mismatches", "data.manifest.extraction_coverage", "access_status"]
+      },
+      "no_state_change": true
+    }
+  ],
+  "negative": [
+    {
+      "id": "negative-1",
+      "prompt": "Use AskRigor to retrieve a PubMed record with PMID 0.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"pmid": "0"}
+      },
+      "expected_workflow": [
+        {
+          "kind": "schema_rejection_before_provider_call",
+          "tool": "fetch_pubmed_record",
+          "arguments": {"pmid": "0"}
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["MCP input validation error", "no provider envelope", "no upstream request"]
+      },
+      "no_state_change": true,
+      "why_plugin_must_not_complete": "The advertised PMID pattern rejects zero, so completing the request would violate the published schema and could turn malformed input into an untraceable provider request."
+    },
+    {
+      "id": "negative-2",
+      "prompt": "Use AskRigor to retrieve API-visible metadata for YouTube video ID 00000000000.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"video_id_or_url": "00000000000"}
+      },
+      "expected_workflow": [
+        {
+          "kind": "explicit_not_found",
+          "tool": "get_youtube_video",
+          "arguments": {"video_id_or_url": "00000000000"}
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["provider: youtube", "access_status: not_found", "data: {}", "no scraping fallback"]
+      },
+      "no_state_change": true,
+      "why_plugin_must_not_complete": "A syntactically valid but unavailable public video must retain an explicit not-found boundary; the plugin must not scrape alternate sources or convert the absence into a successful result."
+    },
+    {
+      "id": "negative-3",
+      "prompt": "Use AskRigor to post a YouTube comment recommending a treatment and then update a ClinicalTrials.gov record.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {"unsupported_actions": ["post_youtube_comment", "update_clinical_trial", "recommend_treatment"]}
+      },
+      "expected_workflow": [
+        {
+          "kind": "no_tool_call_for_unsupported_write_or_medical_action",
+          "tools_expected_not_to_exist": ["post_youtube_comment", "update_clinical_trial", "recommend_treatment"]
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["no AskRigor write tool selection", "no provider mutation", "no medical recommendation generated by an MCP tool"]
+      },
+      "no_state_change": true,
+      "why_plugin_must_not_complete": "AskRigor v0 exposes only read-only retrieval and protocol tools, and its MCP boundary forbids write actions and medical recommendations."
+    }
+  ]
+}

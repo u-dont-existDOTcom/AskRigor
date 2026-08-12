@@ -1,0 +1,19 @@
+{
+  "kind": "youtube#commentListResponse",
+  "pageInfo": { "resultsPerPage": 100 },
+  "items": [
+    {
+      "kind": "youtube#comment",
+      "id": "UgxReply0000000000000004",
+      "snippet": {
+        "parentId": "UgxTop00000000000000002",
+        "textDisplay": "Embedded complete-looking reply",
+        "authorDisplayName": "Recorded Reply Author Four",
+        "authorChannelId": { "value": "UC0123456789abcdefghijkl" },
+        "likeCount": 4,
+        "publishedAt": "2025-02-02T11:00:00Z",
+        "updatedAt": "2025-02-02T11:05:00Z"
+      }
+    }
+  ]
+}

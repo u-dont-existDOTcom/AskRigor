@@ -1,0 +1,22 @@
+{
+  "kind": "youtube#searchListResponse",
+  "etag": "live-shape-sanitized",
+  "nextPageToken": "opaque-live-next-token",
+  "pageInfo": { "totalResults": 455901, "resultsPerPage": 1 },
+  "items": [
+    {
+      "kind": "youtube#searchResult",
+      "id": {
+        "kind": "youtube#channel",
+        "channelId": "UC0123456789abcdefghijkl"
+      },
+      "snippet": {
+        "publishedAt": "2026-07-29T14:06:14Z",
+        "channelId": "UC0123456789abcdefghijkl",
+        "title": "Sanitized live channel-shaped search item",
+        "description": "Sanitized description matching the current provider structure.",
+        "liveBroadcastContent": "none"
+      }
+    }
+  ]
+}

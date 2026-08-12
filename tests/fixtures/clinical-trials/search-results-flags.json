@@ -1,0 +1,17 @@
+{
+  "studies": [
+    {
+      "hasResults": true,
+      "protocolSection": { "identificationModule": { "nctId": "NCT11111111" } }
+    },
+    {
+      "hasResults": false,
+      "protocolSection": { "identificationModule": { "nctId": "NCT22222222" } },
+      "resultsSection": { "participantFlowModule": {} }
+    },
+    {
+      "protocolSection": { "identificationModule": { "nctId": "NCT33333333" } },
+      "resultsSection": { "participantFlowModule": {} }
+    }
+  ]
+}

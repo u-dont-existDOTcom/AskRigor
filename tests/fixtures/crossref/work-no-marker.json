@@ -1,0 +1,10 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message": {
+    "DOI": "10.5555/no.marker",
+    "title": ["Recorded work without an update marker"],
+    "author": [{"family": "Example", "given": "Alex"}],
+    "published-online": {"date-parts": [[2022, 1, 2]]}
+  }
+}

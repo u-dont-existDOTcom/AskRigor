@@ -1,0 +1,131 @@
+# AskRigor v6 credential-safe live-validation packet
+
+This v6 packet supersedes the failed pre-provider v3 Docker build, the v4
+scanner false positive, and the v5 read-only Vite startup failure. The v3 build
+failed at `npm run build` with `TS2307` workspace-resolution errors because the
+Dockerfile had run `npm ci` before copying its `apps` and `packages` workspaces.
+No provider request occurred. Do not reuse the failed v3 archive or remote stage.
+The v4 provider container ran, but its scanner failed closed before publishing
+evidence: nonsecret `NCBI_TOOL=askrigor` matched the npm banner
+`askrigor@0.1.0`. No raw log was exposed; `--rm` destroyed it. Do not reuse the failed v4 archive or remote stage. The v5 scanner accepted and published its sanitized log, but Vitest then exited before providers when it could not create `/app/node_modules/.vite-temp` on the read-only root filesystem. No provider request occurred. Do not reuse the failed v5 archive or remote stage. This packet is not live-test evidence and does not alter the
+public-submission blocker in `docs/release-evidence-v0.1.0.md`.
+
+## Included controls
+
+- `scripts/run-live-suite-v3.sh` refuses missing required runtime configuration
+  before it can invoke `npm`; runs only `npm run test:live`; retains the
+  provider process status; and delegates all result acceptance to the tested
+  `scripts/assert-live-suite-output.mts` parser. It has no `grep` result gate.
+- `scripts/scan-live-suite-log.mts` scans only configured secret-key values
+  (`YOUTUBE_API_KEY` and optional `NCBI_API_KEY`) plus generic Google-key and
+  API-key-assignment patterns, without echoing any value. It deliberately does
+  not exact-scan nonsecret `NCBI_TOOL`, email, or public video-ID values. Raw
+  provider output is copied into the evidence directory only after this
+  fail-closed server-side scan.
+- `Dockerfile.live-validation` installs the pinned project dependency graph in
+  a build containing only tracked `git archive` content. The container runs as
+  `node`; the host command additionally makes its root filesystem read-only,
+  uses a bounded temporary filesystem, drops capabilities, denies privilege
+  escalation, and limits processes, memory, and CPU.
+- The runner accepts only provider process exit 0, exactly `Test Files 1 passed
+  (1)`, exactly `Tests 5 passed (5)`, and no additional test/test-file summary.
+  The five live cases remain PubMed, Europe PMC, ClinicalTrials.gov, Crossref,
+  and YouTube. It records no output before its security scan.
+
+## Separate security review
+
+This review is a source-only review separate from provider execution. It must
+be repeated against the hashes below before the remote run:
+
+1. Confirm the archive is made with `git archive` from the recorded commit, so
+   ignored `.env`/`.app.json` files, the repository `.git` directory, and local
+   untracked files cannot enter the Docker context.
+2. Confirm the remote stage path is new, owned `root:root`, and mode `0700`.
+   The only container-writable location is its empty `evidence` child owned by
+   UID/GID 1000 and mode `0700`.
+3. Confirm the existing server-side env file `/opt/askrigor/runtime.env` remains
+   outside the stage, is `root:root` mode `0600`, is passed only with Docker
+   `--env-file`, and is never printed, copied, uploaded, hashed as content, or
+   included in an evidence archive.
+4. Confirm `run-live-suite-v3.sh` runs the security scan before `install` copies
+   `provider-test.log`; a scan failure exits without publishing that log. The
+   scanner error is generic and never includes a matched value.
+5. Confirm the runner calls the tested TypeScript parser and does not introduce
+   a separate `grep`/substring success test. It fail-closes for a nonzero test
+   process, additional test files, skipped tests, or count changes.
+6. Inspect only post-scan evidence (`provider-test.log`, its SHA-256, and
+   `status.txt`). Do not inspect raw temporary files or container environment.
+7. Confirm the run command has both the generic `/tmp` tmpfs and the writable
+   `/app/node_modules/.vite-temp` tmpfs required by Vitest under a read-only
+   root filesystem. Confirm the evidence checksum is emitted relative to the
+   evidence directory so a host-side `sha256sum -c` succeeds.
+
+## Exact preparation, upload, and run commands
+
+Run locally from a clean checkout. `ASKRIGOR_VPS` is the preconfigured SSH
+destination (for example, a root-authorized alias); it is deliberately not
+stored in this repository. These commands do not read or print the remote
+runtime environment.
+
+```bash
+set -Eeuo pipefail
+cd /path/to/askrigor-plugin-v0
+git status --porcelain
+source_commit="$(git rev-parse HEAD)"
+source_short="$(git rev-parse --short=12 HEAD)"
+archive="/tmp/askrigor-live-suite-v6-${source_short}.tar.gz"
+./scripts/create-live-suite-v3-archive.sh "$source_commit" "$archive"
+sha256sum Dockerfile.live-validation scripts/run-live-suite-v3.sh \
+  scripts/assert-live-suite-output.mts scripts/scan-live-suite-log.mts
+```
+
+Set the new remote stage path exactly as follows:
+
+```bash
+readonly remote_stage="/root/askrigor-validation-stage/live-suite-v6-${source_short}"
+ssh "$ASKRIGOR_VPS" "install -d -o root -g root -m 0700 '$remote_stage'"
+ssh "$ASKRIGOR_VPS" "install -d -o 1000 -g 1000 -m 0700 '$remote_stage/evidence'"
+scp "$archive" "${archive}.sha256" "$ASKRIGOR_VPS:${remote_stage}/"
+```
+
+On the remote host, prepare and run the isolated image. The existing root-owned
+runtime env file must remain at `/opt/askrigor/runtime.env`, mode 0600; do not
+copy or rewrite it. Before the command, export the three nonsecret values
+`NCBI_EMAIL`, `CROSSREF_MAILTO`, and `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` into the
+root shell without printing them. They are passed explicitly by name; the
+YouTube/optional NCBI API keys stay only in the existing env file.
+
+```bash
+set -Eeuo pipefail
+cd "$remote_stage"
+readonly archive_name="askrigor-live-suite-v6-${source_short}.tar.gz"
+sha256sum -c "${archive_name}.sha256"
+mkdir source
+tar -xzf "$archive_name" -C source
+docker build --pull=false --file source/Dockerfile.live-validation \
+  --tag "askrigor-live-suite-v6:${source_short}" source
+docker run --rm \
+  --read-only \
+  --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --tmpfs /app/node_modules/.vite-temp:rw,noexec,nosuid,size=64m \
+  --cap-drop=ALL \
+  --security-opt no-new-privileges \
+  --pids-limit=128 \
+  --memory=1g \
+  --cpus=1 \
+  --user=1000:1000 \
+  --env-file /opt/askrigor/runtime.env \
+  --env ASKRIGOR_LIVE_TESTS=1 \
+  --env NCBI_EMAIL \
+  --env CROSSREF_MAILTO \
+  --env ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID \
+  --env ASKRIGOR_LIVE_EVIDENCE_DIR=/evidence \
+  --mount "type=bind,src=${remote_stage}/evidence,dst=/evidence" \
+  "askrigor-live-suite-v6:${source_short}"
+sha256sum evidence/provider-test.log
+cat evidence/status.txt
+```
+
+The container exits 0 only after the server-side scan and all five test/status
+gates pass. A nonzero exit is fail-closed; do not classify a provider result as
+green until the post-scan evidence and `status.txt` exist.

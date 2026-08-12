@@ -1,0 +1,19 @@
+FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d
+
+WORKDIR /app
+ENV NODE_ENV=test
+ENV NO_COLOR=1
+ENV HOME=/tmp
+ENV npm_config_cache=/tmp/npm-cache
+
+COPY package*.json ./
+COPY apps ./apps
+COPY packages ./packages
+RUN npm ci --no-audit --no-fund
+
+COPY . ./
+RUN npm run build
+RUN chmod 0555 scripts/run-live-suite-v3.sh
+
+USER node
+ENTRYPOINT ["bash", "scripts/run-live-suite-v3.sh"]

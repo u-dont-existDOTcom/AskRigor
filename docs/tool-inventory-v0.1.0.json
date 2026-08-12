@@ -1,0 +1,3328 @@
+{
+  "generated_from": "MCP tools/list against createAskRigorServer()",
+  "endpoint": "https://mcp.askrigor.com/mcp",
+  "tools": [
+    {
+      "name": "get_protocol_manifest",
+      "description": "Return canonical protocol identity and SHA-256 metadata.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "hrp",
+              "universal"
+            ],
+            "description": "Canonical protocol to inspect."
+          }
+        },
+        "required": [
+          "protocol"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "hrp",
+              "universal"
+            ]
+          },
+          "manifest": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "revisionDate": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "revisionDate",
+              "sha256"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ok",
+          "protocol"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "load_protocol",
+      "description": "Load the complete, unmodified canonical protocol text.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "hrp",
+              "universal"
+            ],
+            "description": "Canonical protocol to load in full."
+          }
+        },
+        "required": [
+          "protocol"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "hrp",
+              "universal"
+            ]
+          },
+          "manifest": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "revisionDate": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "revisionDate",
+              "sha256"
+            ],
+            "additionalProperties": false
+          },
+          "text": {
+            "type": "string"
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ok",
+          "protocol"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "verify_protocol_integrity",
+      "description": "Validate canonical protocol structure and optionally match its SHA-256.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "hrp",
+              "universal"
+            ],
+            "description": "Canonical protocol to verify."
+          },
+          "expected_sha256": {
+            "description": "Optional lowercase SHA-256 digest that must match exactly.",
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "protocol"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#"
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "protocol": {
+            "type": "string",
+            "enum": [
+              "hrp",
+              "universal"
+            ]
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "manifest": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "version": {
+                "type": "string"
+              },
+              "revisionDate": {
+                "type": "string"
+              },
+              "sha256": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "version",
+              "revisionDate",
+              "sha256"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ok",
+          "protocol"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_pubmed",
+      "description": "Search PubMed citations and return stable PMIDs with explicit pagination and access state; no medical conclusions are generated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "PubMed search query."
+          },
+          "date_range": {
+            "description": "Inclusive publication-date range in YYYY-MM-DD format.",
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "end": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ],
+            "additionalProperties": false
+          },
+          "page_size": {
+            "description": "Requested records per page; allowed range is 1 through 100.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "description": "Opaque cursor returned by a previous PubMed search.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "pubmed"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "pubmed_search_result"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "date_range": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "end": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "total_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "total_count"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pmid": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "pmid"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "query",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "fetch_pubmed_record",
+      "description": "Retrieve one PubMed citation by PMID, preserving only metadata PubMed supplies and making no full-text or medical inference.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pmid": {
+            "type": "string",
+            "pattern": "^[1-9]\\d{0,15}$",
+            "description": "PubMed identifier."
+          }
+        },
+        "required": [
+          "pmid"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "pubmed"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "pubmed_record"
+          },
+          "primary_identifier": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "pmid": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "abstract": {
+                "type": "string"
+              },
+              "journal": {
+                "type": "string"
+              },
+              "dates": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "authors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "doi": {
+                "type": "string"
+              },
+              "publication_types": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "primary_identifier",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_europe_pmc",
+      "description": "Search Europe PMC records while preserving provider source identifiers and cursors with explicit pagination and access state; no medical conclusions are generated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "Europe PMC search query."
+          },
+          "date_range": {
+            "description": "Inclusive publication-date range in YYYY-MM-DD format.",
+            "type": "object",
+            "properties": {
+              "start": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              "end": {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "start",
+              "end"
+            ],
+            "additionalProperties": false
+          },
+          "page_size": {
+            "description": "Requested records per page; allowed range is 1 through 100.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "cursor": {
+            "description": "Opaque Europe PMC cursor returned by a previous search.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "europe_pmc"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "europe_pmc_search_result"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              },
+              "date_range": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "end": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  }
+                },
+                "required": [
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "hit_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "hit_count"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "pmid": {
+                  "type": "string"
+                },
+                "pmcid": {
+                  "type": "string"
+                },
+                "doi": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "authors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "journal": {
+                  "type": "string"
+                },
+                "year": {
+                  "type": "string"
+                },
+                "cited_by": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "is_open_access": {
+                  "type": "boolean"
+                },
+                "has_full_text": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "source",
+                "id"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "query",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_clinical_trials",
+      "description": "Search ClinicalTrials.gov studies with provider pagination and explicit access state; no medical conclusions are generated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "ClinicalTrials.gov search query."
+          },
+          "page_size": {
+            "description": "Requested studies per page; allowed range is 1 through 100.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "page_token": {
+            "description": "Provider page token returned by a previous ClinicalTrials.gov search.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "clinicaltrials_gov"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "clinical_trial_search_result"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "data_timestamp": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "data_timestamp"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nct_id": {
+                  "type": "string",
+                  "pattern": "^NCT\\d{8}$"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "study_type": {
+                  "type": "string"
+                },
+                "phases": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "conditions": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "interventions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "sponsors": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "enrollment": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "count"
+                  ],
+                  "additionalProperties": false
+                },
+                "start_date": {
+                  "type": "string"
+                },
+                "completion_date": {
+                  "type": "string"
+                },
+                "has_results": {
+                  "type": "boolean"
+                },
+                "references": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string"
+                      },
+                      "type": {
+                        "type": "string"
+                      },
+                      "citation": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "last_update": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "nct_id"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "query",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "fetch_clinical_trial",
+      "description": "Retrieve one ClinicalTrials.gov study by NCT ID, preserving supplied metadata without medical inference.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "nct_id": {
+            "type": "string",
+            "pattern": "^NCT\\d{8}$",
+            "description": "ClinicalTrials.gov NCT identifier."
+          }
+        },
+        "required": [
+          "nct_id"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "clinicaltrials_gov"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "clinical_trial"
+          },
+          "primary_identifier": {
+            "type": "string",
+            "pattern": "^NCT\\d{8}$"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "data_timestamp": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "data_timestamp"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "nct_id": {
+                    "type": "string",
+                    "pattern": "^NCT\\d{8}$"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "study_type": {
+                    "type": "string"
+                  },
+                  "phases": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "conditions": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "interventions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "sponsors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "enrollment": {
+                    "type": "object",
+                    "properties": {
+                      "count": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "type": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "count"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "start_date": {
+                    "type": "string"
+                  },
+                  "completion_date": {
+                    "type": "string"
+                  },
+                  "has_results": {
+                    "type": "boolean"
+                  },
+                  "references": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "pmid": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "citation": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "last_update": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "nct_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "primary_identifier",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "resolve_doi",
+      "description": "Resolve a DOI or bibliographic citation through Crossref metadata; no medical conclusions are generated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "doi_or_citation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "DOI URL, doi: identifier, bare DOI, or bibliographic citation."
+          }
+        },
+        "required": [
+          "doi_or_citation"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "crossref"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "doi_resolution"
+          },
+          "primary_identifier": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "citation": {
+                "type": "string"
+              },
+              "rows": {
+                "type": "number",
+                "const": 5
+              }
+            },
+            "required": [
+              "citation",
+              "rows"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "total_results": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "total_results"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "resolved_doi": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "candidates": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "doi": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "first_author": {
+                      "type": "string"
+                    },
+                    "year": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "doi"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "resolved_doi",
+              "candidates"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "check_retraction_status",
+      "description": "Check traceable Crossref update metadata for a DOI without inferring validity, safety, or medical conclusions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "DOI URL, doi: identifier, or bare DOI to inspect."
+          }
+        },
+        "required": [
+          "identifier"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "crossref"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "retraction_status"
+          },
+          "primary_identifier": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "doi": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "retracted",
+                  "expression_of_concern",
+                  "corrected_or_updated",
+                  "no_retraction_record_found",
+                  "unknown"
+                ]
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "retracted",
+                        "expression_of_concern",
+                        "corrected_or_updated"
+                      ]
+                    },
+                    "doi": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "date": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "source": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "raw_label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "doi",
+                    "date",
+                    "source",
+                    "raw_label"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "sources_checked": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "string",
+                    "const": "crossref"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "doi",
+              "status",
+              "evidence",
+              "sources_checked"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_youtube",
+      "description": "Search YouTube videos and return API-visible metadata with explicit pagination and access state; no medical conclusions are generated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "YouTube video search query."
+          },
+          "page_size": {
+            "description": "Requested video results per page; allowed range is 1 through 50.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "cursor": {
+            "description": "Opaque YouTube page token returned by a previous search.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "youtube"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "youtube_search_result"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 5000
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "total_results": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "total_results"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "video_id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{11}$"
+                },
+                "channel_id": {
+                  "type": "string",
+                  "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 10000
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 100000
+                },
+                "published_at": {
+                  "type": "string",
+                  "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                }
+              },
+              "required": [
+                "video_id"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_youtube_video",
+      "description": "Retrieve one API-visible YouTube video by supported ID or URL without interpreting its content or making medical conclusions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "video_id_or_url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "Supported YouTube video ID, youtu.be URL, youtube.com watch URL, or YouTube Shorts URL."
+          }
+        },
+        "required": [
+          "video_id_or_url"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "youtube"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "youtube_video"
+          },
+          "primary_identifier": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "video_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                  },
+                  "channel_id": {
+                    "type": "string",
+                    "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 100000
+                  },
+                  "published_at": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                  },
+                  "duration": {
+                    "type": "string",
+                    "pattern": "^P(?=\\d|T\\d)(?:\\d+D)?(?:T(?=\\d)(?:\\d+H)?(?:\\d+M)?(?:\\d+(?:\\.\\d+)?S)?)?$"
+                  },
+                  "statistics": {
+                    "type": "object",
+                    "properties": {
+                      "view_count": {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      "like_count": {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      },
+                      "comment_count": {
+                        "type": "string",
+                        "pattern": "^\\d+$"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 500
+                    }
+                  },
+                  "live_broadcast_content": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "live",
+                      "upcoming"
+                    ]
+                  },
+                  "embeddable": {
+                    "type": "boolean"
+                  },
+                  "privacy_status": {
+                    "type": "string",
+                    "enum": [
+                      "public",
+                      "private",
+                      "unlisted"
+                    ]
+                  }
+                },
+                "required": [
+                  "video_id"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "get_youtube_comments",
+      "description": "Retrieve all API-visible YouTube top-level comments and, by default, every independently paginated reply with explicit completeness accounting; no medical conclusions are generated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "video_id_or_url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "Supported YouTube video ID, youtu.be URL, youtube.com watch URL, or YouTube Shorts URL."
+          },
+          "include_replies": {
+            "default": true,
+            "description": "Fetch every independently paginated API-visible reply; defaults to true.",
+            "type": "boolean"
+          },
+          "cursor": {
+            "description": "Opaque YouTube commentThreads page token at which retrieval begins.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "required": [
+          "video_id_or_url"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "youtube"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "youtube_comments"
+          },
+          "primary_identifier": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "api_visible_top_level_comments": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "provider_request_attempts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "normalized_output_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "normalized_text_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "elapsed_ms": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "provider_request_attempts",
+              "normalized_output_bytes",
+              "normalized_text_bytes",
+              "elapsed_ms"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "comments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "video_id": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_-]{11}$"
+                        },
+                        "comment_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "parent_id": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "top_level_comment_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "is_reply": {
+                          "type": "boolean"
+                        },
+                        "author_channel_id": {
+                          "type": "string",
+                          "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                        },
+                        "author_display_name": {
+                          "type": "string",
+                          "maxLength": 10000
+                        },
+                        "text": {
+                          "type": "string",
+                          "maxLength": 1000000
+                        },
+                        "like_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "published_at": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                        }
+                      },
+                      "required": [
+                        "video_id",
+                        "comment_id",
+                        "parent_id",
+                        "top_level_comment_id",
+                        "is_reply",
+                        "text",
+                        "like_count",
+                        "published_at",
+                        "updated_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "manifest": {
+                    "type": "object",
+                    "properties": {
+                      "video_id": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{11}$"
+                      },
+                      "top_level_comments_retrieved": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "expected_replies": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "replies_retrieved": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "total_comments_and_replies": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "reply_count_mismatches": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "parent_comment_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            "expected": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "retrieved": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "parent_comment_id",
+                            "expected",
+                            "retrieved"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "pages": {
+                        "type": "object",
+                        "properties": {
+                          "comment_threads": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "replies": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "comment_threads",
+                          "replies"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "extraction_coverage": {
+                        "type": "string",
+                        "enum": [
+                          "api_visible_complete",
+                          "partial"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "video_id",
+                      "top_level_comments_retrieved",
+                      "expected_replies",
+                      "replies_retrieved",
+                      "total_comments_and_replies",
+                      "reply_count_mismatches",
+                      "pages",
+                      "extraction_coverage"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "comments",
+                  "manifest"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    },
+    {
+      "name": "search_youtube_comments",
+      "description": "Retrieve a query-bounded API-visible YouTube comment-thread subset and independently paginate replies with explicit partial coverage; no medical conclusions are generated.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "video_id_or_url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2048,
+            "description": "Supported YouTube video ID, youtu.be URL, youtube.com watch URL, or YouTube Shorts URL."
+          },
+          "include_replies": {
+            "default": true,
+            "description": "Fetch every independently paginated API-visible reply; defaults to true.",
+            "type": "boolean"
+          },
+          "cursor": {
+            "description": "Opaque YouTube commentThreads page token at which retrieval begins.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "query": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000,
+            "description": "Nonempty YouTube comment-thread searchTerms query."
+          }
+        },
+        "required": [
+          "video_id_or_url",
+          "query"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "youtube"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "youtube_comments"
+          },
+          "primary_identifier": {
+            "type": "string"
+          },
+          "retrieved_at": {
+            "type": "string"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {
+              "canonical_url": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "authors_or_channel": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "cursor": {
+                "type": "string"
+              },
+              "next_cursor": {
+                "type": "string"
+              },
+              "page_size": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 100
+              },
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "exhausted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "api_visible_complete",
+              "partial",
+              "abstract_only",
+              "metadata_only",
+              "comments_disabled",
+              "inaccessible",
+              "rate_limited",
+              "not_found",
+              "error"
+            ]
+          },
+          "limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw_metadata": {
+            "type": "object",
+            "properties": {
+              "api_visible_top_level_comments": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "provider_request_attempts": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "normalized_output_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "normalized_text_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "elapsed_ms": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "provider_request_attempts",
+              "normalized_output_bytes",
+              "normalized_text_bytes",
+              "elapsed_ms"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "http_status": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "comments": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "video_id": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9_-]{11}$"
+                        },
+                        "comment_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "parent_id": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "top_level_comment_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 512
+                        },
+                        "is_reply": {
+                          "type": "boolean"
+                        },
+                        "author_channel_id": {
+                          "type": "string",
+                          "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                        },
+                        "author_display_name": {
+                          "type": "string",
+                          "maxLength": 10000
+                        },
+                        "text": {
+                          "type": "string",
+                          "maxLength": 1000000
+                        },
+                        "like_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "published_at": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                        },
+                        "updated_at": {
+                          "type": "string",
+                          "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                        }
+                      },
+                      "required": [
+                        "video_id",
+                        "comment_id",
+                        "parent_id",
+                        "top_level_comment_id",
+                        "is_reply",
+                        "text",
+                        "like_count",
+                        "published_at",
+                        "updated_at"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "manifest": {
+                    "type": "object",
+                    "properties": {
+                      "video_id": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{11}$"
+                      },
+                      "top_level_comments_retrieved": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "expected_replies": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "replies_retrieved": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "total_comments_and_replies": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "reply_count_mismatches": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "parent_comment_id": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            "expected": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "retrieved": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "parent_comment_id",
+                            "expected",
+                            "retrieved"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "pages": {
+                        "type": "object",
+                        "properties": {
+                          "comment_threads": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "replies": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "required": [
+                          "comment_threads",
+                          "replies"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "extraction_coverage": {
+                        "type": "string",
+                        "enum": [
+                          "api_visible_complete",
+                          "partial"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "video_id",
+                      "top_level_comments_retrieved",
+                      "expected_replies",
+                      "replies_retrieved",
+                      "total_comments_and_replies",
+                      "reply_count_mismatches",
+                      "pages",
+                      "extraction_coverage"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "comments",
+                  "manifest"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      }
+    }
+  ]
+}

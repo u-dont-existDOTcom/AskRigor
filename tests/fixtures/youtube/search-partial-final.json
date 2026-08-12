@@ -1,0 +1,17 @@
+{
+  "kind": "youtube#searchListResponse",
+  "etag": "fixture-partial-final-search",
+  "pageInfo": { "totalResults": 2, "resultsPerPage": 1 },
+  "items": [
+    {
+      "kind": "youtube#searchResult",
+      "id": { "kind": "youtube#video", "videoId": "XpZHKGGCK-o" },
+      "snippet": {
+        "publishedAt": "2025-01-02T03:04:05Z",
+        "channelId": "UC0123456789abcdefghijkl",
+        "title": "Recorded final page video",
+        "description": "Recorded final page description"
+      }
+    }
+  ]
+}
