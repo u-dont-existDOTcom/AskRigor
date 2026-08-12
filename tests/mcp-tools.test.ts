@@ -12,6 +12,7 @@ import {
   createAskRigorHttpServer,
   createAskRigorServer
 } from "../apps/research-mcp/src/server.js";
+import { SERVER_INSTRUCTIONS } from "../apps/research-mcp/src/config.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 
 const TOOL_NAMES = [
@@ -28,7 +29,8 @@ const TOOL_NAMES = [
   "search_youtube",
   "get_youtube_video",
   "get_youtube_comments",
-  "search_youtube_comments"
+  "search_youtube_comments",
+  "audit_youtube_community"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -51,7 +53,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the fourteen read-only retrieval tools", async () => {
+  it("registers exactly the fifteen read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -65,6 +67,143 @@ describe("AskRigor MCP tools", () => {
         inputSchema.type === "object" && outputSchema?.type === "object"
       )).toBe(true);
     } finally {
+      await server.close();
+    }
+  });
+
+  it("prioritizes the compound community audit in critical server guidance", () => {
+    const criticalInstructions = SERVER_INSTRUCTIONS.slice(0, 512);
+
+    expect(criticalInstructions).toContain("audit_youtube_community");
+    expect(criticalInstructions).toContain("could plausibly matter");
+    expect(criticalInstructions).toContain("excellent RCT does not remove this requirement");
+    expect(criticalInstructions).toContain("unfiltered YouTube comments and replies");
+    expect(criticalInstructions).toContain(
+      "search_youtube_comments is query-bounded discovery only"
+    );
+  });
+
+  it("publishes a strict read-only compound YouTube community-audit schema", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const audit = tools.find(({ name }) => name === "audit_youtube_community");
+
+      expect(audit).toMatchObject({
+        description:
+          "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["research_question", "searches"],
+          additionalProperties: false,
+          properties: {
+            research_question: { type: "string", minLength: 1, maxLength: 5000 },
+            searches: {
+              type: "array",
+              minItems: 1,
+              maxItems: 6,
+              items: {
+                type: "object",
+                required: ["direction", "query"],
+                additionalProperties: false,
+                properties: {
+                  direction: {
+                    enum: [
+                      "general", "benefit", "no_effect", "harm",
+                      "discontinuation", "formal_discriminator"
+                    ]
+                  },
+                  query: { type: "string", minLength: 1, maxLength: 5000 }
+                }
+              }
+            },
+            max_videos: { type: "integer", minimum: 1, maximum: 3, default: 2 },
+            sample_comments_per_video: {
+              type: "integer", minimum: 20, maximum: 500, default: 250
+            }
+          }
+        },
+        outputSchema: {
+          type: "object",
+          required: [
+            "provider", "record_type", "retrieved_at", "research_question",
+            "access_status", "limitations", "selection", "searches", "videos", "receipt"
+          ],
+          additionalProperties: false
+        }
+      });
+      expect(audit!.outputSchema.properties.receipt).toMatchObject({
+        type: "object",
+        required: [
+          "completion_state", "synthesis_lock", "searches_requested",
+          "searches_completed", "selected_video_ids",
+          "unfiltered_retrieval_attempted_for_all", "replies_requested_for_all",
+          "pagination_exhausted_for_complete_videos",
+          "replies_reconciled_for_complete_videos",
+          "query_bounded_comments_used_as_corpus", "blockers"
+        ],
+        additionalProperties: false
+      });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("returns the complete community-audit receipt through the MCP boundary", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previous = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/search")) {
+        return new Response(await youtubeFixture("search-page-1.json"), { status: 200 });
+      }
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      return mcpCompleteCommentResponse(url);
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_community",
+        arguments: {
+          research_question: "Which hip treatment works in practice?",
+          searches: [{
+            direction: "general",
+            query: "hip treatment patient experience"
+          }],
+          max_videos: 1,
+          sample_comments_per_video: 20
+        }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube community audit selected 1 video(s); completion state api_visible_complete; synthesis lock pass."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_community_audit",
+        access_status: "api_visible_complete",
+        receipt: {
+          completion_state: "api_visible_complete",
+          synthesis_lock: "pass",
+          selected_video_ids: ["XpZHKGGCK-o"],
+          query_bounded_comments_used_as_corpus: false
+        },
+        videos: [{
+          video_id: "XpZHKGGCK-o",
+          comments_access_status: "api_visible_complete",
+          sample: { corpus_count: 6, sampled_count: 6 }
+        }]
+      });
+      expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previous);
       await server.close();
     }
   });

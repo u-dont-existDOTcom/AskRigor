@@ -40,7 +40,7 @@ export function parseTrustedClientIpHeader(
 }
 
 export const SERVER_INSTRUCTIONS =
-  "Read-only research retrieval. Preserve identifiers, provenance, pagination and access status. Never treat access failure as negative evidence.";
+  "Before final synthesis, if firsthand community evidence could plausibly matter, call audit_youtube_community. Finding an excellent RCT does not remove this requirement. The audit retrieves unfiltered YouTube comments and replies. search_youtube_comments is query-bounded discovery only and never satisfies corpus acquisition. Preserve identifiers, provenance, pagination, access status, and blocking receipts. Never treat access failure as negative evidence. Read-only research retrieval.";
 
 export const HEALTH_PAYLOAD = {
   status: "ok",

@@ -32,6 +32,13 @@ import { z } from "zod";
 
 import { PUBLIC_TOOL_LIMITS } from "./config.js";
 import { protocolErrorResult, successfulToolResult } from "./tool-result.js";
+import {
+  auditYoutubeCommunity,
+  youtubeCommunityAuditInputSchema,
+  youtubeCommunityAuditOutputSchema,
+  type YoutubeCommunityAuditInput,
+  type YoutubeCommunityAuditOutput
+} from "./youtube-community-audit.js";
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -782,6 +789,33 @@ export function registerTools(server: McpServer): void {
       }
     }
   );
+
+  server.registerTool(
+    "audit_youtube_community",
+    {
+      description:
+        "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated.",
+      inputSchema: youtubeCommunityAuditInputSchema,
+      outputSchema: youtubeCommunityAuditOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      let result: YoutubeCommunityAuditOutput;
+      try {
+        result = await auditYoutubeCommunity(
+          input,
+          youtubeConfig(),
+          { budgets: youtubeCommentBudgets() }
+        );
+      } catch (_error) {
+        result = youtubeCommunityAuditFailure(input);
+      }
+      return youtubeToolResult(
+        `YouTube community audit selected ${result.receipt.selected_video_ids.length} video(s); completion state ${result.receipt.completion_state}; synthesis lock ${result.receipt.synthesis_lock}.`,
+        result
+      );
+    }
+  );
 }
 
 async function verifyIntegrity(
@@ -1045,6 +1079,53 @@ function youtubeCommentsFailure(query?: string) {
     message: "YouTube operation failed",
     retryable: false,
     data: {}
+  });
+}
+
+function youtubeCommunityAuditFailure(
+  input: YoutubeCommunityAuditInput
+): YoutubeCommunityAuditOutput {
+  const parsed = youtubeCommunityAuditInputSchema.parse(input);
+  const limitation = "YouTube community audit failed before completing its requested acquisition.";
+  return youtubeCommunityAuditOutputSchema.parse({
+    provider: "youtube",
+    record_type: "youtube_community_audit",
+    retrieved_at: new Date().toISOString(),
+    research_question: parsed.research_question,
+    access_status: "error",
+    limitations: [limitation],
+    selection: {
+      basis: "bounded_provider_ranked_round_robin",
+      max_videos: parsed.max_videos,
+      candidates_considered: 0
+    },
+    searches: parsed.searches.map(({ direction, query }) => ({
+      directions: [direction],
+      query,
+      access_status: "error",
+      pagination: { returned: 0, exhausted: false },
+      limitations: [limitation],
+      error: {
+        code: "youtube_community_audit_failed",
+        message: "YouTube community audit failed",
+        retryable: false
+      },
+      candidate_video_ids: []
+    })),
+    videos: [],
+    receipt: {
+      completion_state: "incomplete",
+      synthesis_lock: "block",
+      searches_requested: new Set(parsed.searches.map(({ query }) => query)).size,
+      searches_completed: 0,
+      selected_video_ids: [],
+      unfiltered_retrieval_attempted_for_all: false,
+      replies_requested_for_all: false,
+      pagination_exhausted_for_complete_videos: true,
+      replies_reconciled_for_complete_videos: true,
+      query_bounded_comments_used_as_corpus: false,
+      blockers: [limitation]
+    }
   });
 }
 
