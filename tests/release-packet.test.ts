@@ -215,6 +215,44 @@ describe("AskRigor public-review packet", () => {
       "17 passed files, 1 skipped file, 337 passed tests, and 5 guarded live tests skipped",
     );
   });
+
+  it("closes only the verified public-site gate and publishes supported manifest URLs", async () => {
+    const [manifestText, privacyMap, reviewChecklist, releaseEvidence, readme] = await Promise.all([
+      readFile(rootFile(".codex-plugin/plugin.json"), "utf8"),
+      readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
+      readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
+      readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
+      readFile(rootFile("README.md"), "utf8")
+    ]);
+    const manifest = JSON.parse(manifestText);
+
+    expect(manifest.interface).toMatchObject({
+      websiteURL: "https://askrigor.com",
+      privacyPolicyURL: "https://askrigor.com/privacy",
+      termsOfServiceURL: "https://askrigor.com/terms"
+    });
+    expect(manifest.interface.supportURL).toBeUndefined();
+
+    for (const document of [privacyMap, reviewChecklist, releaseEvidence, readme]) {
+      expect(document).toContain("https://askrigor.com/privacy");
+      expect(document).toContain("2026-08-12");
+      expect(document).toContain("9becea82eb84");
+      expect(document).not.toContain("plain-HTTP unrelated");
+      expect(document).not.toContain("Public submission remains blocked by the website");
+    }
+
+    for (const fragment of [
+      "routine-status presentation regression",
+      "portal",
+      "domain-verification",
+      "Scan Tools",
+      "PUBLIC SUBMISSION BLOCKED"
+    ]) {
+      expect(releaseEvidence).toContain(fragment);
+    }
+    expect(reviewChecklist).toContain("routine-status presentation");
+    expect(reviewChecklist).toContain("Scan Tools");
+  });
 });
 
 interface Fixture {

@@ -17,6 +17,8 @@
     "category": "Productivity",
     "capabilities": ["Read"],
     "websiteURL": "https://askrigor.com",
+    "privacyPolicyURL": "https://askrigor.com/privacy",
+    "termsOfServiceURL": "https://askrigor.com/terms",
     "defaultPrompt": [
       "Use AskRigor to research this question with auditable evidence and explicit access gaps."
     ]

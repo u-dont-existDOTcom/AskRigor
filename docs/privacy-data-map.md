@@ -1,8 +1,9 @@
 # AskRigor v0 data map and privacy review
 
-Status at 2026-08-11: this is an implementation inventory, not a substitute for a
-public privacy notice. Public listing is blocked until an accurate HTTPS privacy
-policy is live at a publisher-matching URL.
+Status at 2026-08-12: this remains the detailed engineering inventory. The
+publisher-matching public notice is live at `https://askrigor.com/privacy` from
+verified site release `9becea82eb84`; the notice, rather than this internal map,
+is the public privacy policy.
 
 ## Purpose and boundary
 
@@ -33,8 +34,8 @@ checksum-locked and equality-checked by `tests/release-packet.test.ts`; it is
 the authoritative companion to this human-readable data map.
 
 Public YouTube author/channel IDs, optional display names, and comment text can be
-personal data even when made public by the author. A public privacy notice must
-specifically disclose this processing, the API-visible-only limitation, and the
+personal data even when made public by the author. The live public privacy notice
+specifically discloses this processing, the API-visible-only limitation, and the
 recipient/client-facing disclosure described here.
 
 ## Processing and retention
@@ -61,11 +62,11 @@ recipient/client-facing disclosure described here.
 - The public route is fail-closed, has bounded request body/concurrency/rate limits, and does not return credentials. Source tests check that a test YouTube key never appears in results.
 - Comment retrieval reports API-visible coverage only. It does not claim access to deleted, moderated, private, hidden, held-for-review, unavailable, or never-posted material.
 
-## Required public-policy gate
+## Public-policy status
 
-Before public submission, publish a stable HTTPS privacy policy under the verified
-AskRigor publisher identity. It must accurately cover the data above, including
-public YouTube identity/comment processing, provider sharing, operational-log
-retention, end-user/client disclosure, contact method, and applicable
-rights/retention terms. Do not copy this internal map into the manifest as a
-legal URL.
+The stable HTTPS policy at `https://askrigor.com/privacy` was independently
+verified on 2026-08-12 against immutable release `9becea82eb84`. It covers public
+YouTube identity/comment processing, provider sharing, operational-log retention,
+end-user/client disclosure, contact, and rights/retention boundaries. Keep this
+internal map as the more detailed implementation inventory and re-review the live
+notice whenever the service's data handling changes.

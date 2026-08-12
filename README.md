@@ -146,10 +146,17 @@ credentials to either manifest.
 ## Public-review status
 
 The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
-evidence, but v0.1.0 is **not ready for public plugin submission**: the current
-website, privacy, terms, and support URLs redirect from HTTPS to a plain-HTTP
-unrelated destination. Do not add those URLs to the manifest or submit the
-plugin until publisher-matching public HTTPS legal/support pages are live and
-the privacy notice accurately covers public YouTube identity/comment processing.
+evidence. The website/privacy/terms/support gate passed on 2026-08-12 for site
+release `9becea82eb84`: `https://askrigor.com/`,
+`https://askrigor.com/privacy`, `https://askrigor.com/terms`, and
+`https://askrigor.com/support` all passed direct HTTPS acceptance. The manifest
+now carries the schema-supported website, privacy-policy, and terms URLs; support
+remains submission documentation because the current manifest schema has no
+support-URL field.
+
+V0.1.0 is still **PUBLIC SUBMISSION BLOCKED** until the routine-status
+presentation regression is resolved or expressly accepted and the remaining
+portal identity, domain-verification, Scan Tools, and public submission actions
+are completed.
 See `docs/privacy-data-map.md`, `docs/public-review-checklist.md`, and
 `docs/release-evidence-v0.1.0.md` for the reviewer packet and release gates.

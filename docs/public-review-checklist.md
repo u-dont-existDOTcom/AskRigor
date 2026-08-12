@@ -1,8 +1,12 @@
 # AskRigor v0 public-review checklist
 
 This packet is prepared for a future plugin draft. It is not permission to submit
-or publish. **Public submission remains blocked** by the website, privacy, terms,
-and support URL findings in `docs/release-evidence-v0.1.0.md`.
+or publish. The website/privacy/terms/support gate passed on 2026-08-12 for
+immutable site release `9becea82eb84`, including the live privacy policy at
+`https://askrigor.com/privacy`. **PUBLIC SUBMISSION BLOCKED** still applies to
+the separate routine-status presentation regression, portal identity and
+domain-verification work, Scan Tools review, and submission actions recorded in
+`docs/release-evidence-v0.1.0.md`.
 
 ## Source-generated MCP tools/list inventory
 
@@ -101,7 +105,8 @@ not unverified comments-disabled behavior.
 
 ## Submission execution gate
 
-Only after real publisher-matching HTTPS legal/support pages are live:
+The publisher-matching HTTPS legal/support prerequisite was verified on
+2026-08-12 at release `9becea82eb84`. Remaining execution steps are:
 
 1. Verify developer/business identity and complete the HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare

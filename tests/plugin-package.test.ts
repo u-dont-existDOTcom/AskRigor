@@ -36,7 +36,7 @@ describe("AskRigor plugin package", () => {
     expect(ignored.split(/\r?\n/)).toContain(".app.json");
   });
 
-  it("publishes the ingestion-valid read-only manifest with registered app wiring and no deferred legal fields", async () => {
+  it("publishes the ingestion-valid read-only manifest with registered app wiring and verified legal fields", async () => {
     const manifest = JSON.parse(
       await readFile(rootFile(".codex-plugin/plugin.json"), "utf8")
     );
@@ -61,6 +61,8 @@ describe("AskRigor plugin package", () => {
         category: "Productivity",
         capabilities: ["Read"],
         websiteURL: "https://askrigor.com",
+        privacyPolicyURL: "https://askrigor.com/privacy",
+        termsOfServiceURL: "https://askrigor.com/terms",
         defaultPrompt: [
           "Use AskRigor to research this question with auditable evidence and explicit access gaps."
         ]
