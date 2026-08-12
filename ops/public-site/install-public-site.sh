@@ -150,6 +150,8 @@ extract_public_caddy_environment() {
   [[ "$caddy_hostname" == mcp.askrigor.com ]] || die "malformed ASKRIGOR_HOSTNAME"
   [[ "$caddy_direct_dns_only" =~ ^[A-Za-z0-9._,:/=-]{1,255}$ ]] ||
     die "malformed ASKRIGOR_DIRECT_DNS_ONLY"
+  [[ "$caddy_direct_dns_only" == true ]] ||
+    die "unexpected ASKRIGOR_DIRECT_DNS_ONLY"
 }
 
 discover_live_caddy_container() {

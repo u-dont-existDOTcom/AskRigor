@@ -274,6 +274,20 @@ describe("public-site deployment packet", () => {
     expect(cleanEnvironment.stdout).not.toContain("SHOULD_NOT_REACH_COMPOSE");
   });
 
+  it("rejects unsupported public Caddy interpolation values that are syntactically safe", () => {
+    const unsupported = bash(`
+      source "${installerScript}"
+      docker() {
+        printf '%s\n' \
+          'ASKRIGOR_HOSTNAME=mcp.askrigor.com' \
+          'ASKRIGOR_DIRECT_DNS_ONLY=unexpected'
+      }
+      extract_public_caddy_environment container-id
+    `);
+    expect(unsupported.status).not.toBe(0);
+    expect(unsupported.stderr).toContain("unexpected ASKRIGOR_DIRECT_DNS_ONLY");
+  });
+
   it("requires exactly one running Caddy container from the validated Compose files", () => {
     const accepted = bash(`
       source "${installerScript}"
