@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.15" revisionDate="2026-08-10" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, and Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, and Project-Release Packaging Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.16" revisionDate="2026-08-12" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, and Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, and Project-Release Packaging Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -419,6 +419,18 @@
  of every comment is not required when a cheaper high-recall retrieval plus audited semantic adjudication preserves the
  decision-relevant corpus.
  </Revision>
+ <Revision version="20.5.16" priority="Critical">
+  Added an early Community Corpus Completion Gate keyed to concrete retrieval output. A non-complete access_status, partial or
+  query-bounded extraction_coverage, unconsumed next_cursor, has_more=true, or explicit incomplete-corpus limitation now keeps
+  the community audit incomplete and blocks visible-signal characterization and full synthesis while further retrieval is
+  possible.
+
+  Classified keyword- or search-term-bounded YouTube comment retrieval as discovery only. Directional signal use now requires
+  the broadest accessible unfiltered corpus for material videos, exhausted pagination or a genuine access boundary, accessible
+  replies, reply reconciliation, directional sampling, deduplicated person x treatment episodes, and an explicit coverage-state
+  ledger. Added the OneQueryBoundedYouTubeCommentPresentedAsReconnaissance regression derived from the observed execution
+  failure.
+ </Revision>
 </RevisionHistory>
 
  <Architecture priority="Critical">
@@ -446,6 +458,12 @@
    Iterative transfer of hypotheses, terminology, discriminators, contradictions, and research priorities between formal
    human evidence, grey literature, clinical signal, and community corpora is controlled by the
    BidirectionalEvidenceDiscoveryAndTriangulationLoop. It prevents fixed evidence-layer sequencing and forced reconciliation.
+  </Layer>
+
+  <Layer id="community_corpus_completion">
+   Concrete community-retrieval output, query-bounded discovery limits, unfiltered YouTube acquisition, pagination and reply
+   exhaustion, directional sampling, and the pre-synthesis coverage state are controlled by the
+   CommunityCorpusCompletionGate. Detailed platform rules govern acquisition; this gate governs whether synthesis may begin.
   </Layer>
 
   <Layer id="protocol_execution_compliance">
@@ -867,6 +885,55 @@
     functional outcomes, and microdosing measurement audit when relevant.</Mode>
   </Modes>
  </AnswerShapeController>
+
+ <CommunityCorpusCompletionGate priority="Critical">
+  <Purpose>
+   Convert concrete incomplete community-retrieval output into a synthesis-blocking state before later narrative judgment can
+   mistake a discovery query for the signal corpus. This gate controls completion; the platform-specific community and
+   YouTube rules control acquisition, extraction, deduplication, and evidence grading.
+  </Purpose>
+
+  <Rule name="PartialRetrievalCannotCompleteAudit" priority="Critical">
+   If any principal-community retrieval reports access_status other than complete; extraction_coverage as partial,
+   search-only, ranked, manual, creator-only, or another incomplete class; an unconsumed next_cursor; has_more=true; or an
+   explicit limitation stating that results are query-bounded or incomplete, the community audit is not complete.
+
+   Do not characterize prevalence, direction, rarity, typicality, or strength of community signal from that retrieval, and
+   do not use zero query matches as evidence about the unseen corpus. If additional retrieval is possible in the current
+   interaction, continue automatically before synthesis. If broader retrieval is genuinely impossible, completion requires
+   every condition of CommunityCorpusAccessBoundaryCompletion; partial output alone does not establish an access boundary.
+  </Rule>
+
+  <Rule name="QueryBoundedYouTubeSearchIsDiscoveryOnly" priority="Critical">
+   YouTube comment retrieval using searchTerms, keywords, search terms, or other query filters is a discovery operation only.
+   It may locate candidate firsthand reports but can never by itself constitute the directional signal corpus.
+
+   For every material selected video, retrieve the broadest accessible unfiltered top-level comment corpus.
+   Then paginate until exhausted or a genuine access boundary is established, retrieve accessible replies, and
+   reconcile expected versus retrieved replies
+   before using the video for directional community-signal classification. Expand to additional material videos or independent
+   discussion pools when required for platform coverage, and deduplicate unique people x treatment or exposure episodes rather
+   than counting comments as independent outcomes.
+  </Rule>
+
+  <Rule name="NoPrematureSaturation" priority="Critical">
+   Do not invoke search saturation while additional pages, unfiltered comments, replies, material principal videos, or
+   independent community discussion pools remain retrievable. A small or empty result caused by a restrictive query is not
+   evidence that the corpus itself is sparse and cannot support a weak, absent, rare, indeterminate, or no-signal verdict.
+  </Rule>
+
+  <Rule name="CoverageStateBeforeSynthesis" priority="Critical">
+   Before synthesis record: principal_platforms_mapped; acquisition_mode; unfiltered_retrieval_attempted;
+   pagination_exhausted; replies_reconciled; unique_firsthand_people; unique_treatment_episodes; benefit_search_completed;
+   no_effect_search_completed; harm_search_completed; discontinuation_search_completed;
+   independent_discussion_pools_sampled; and final_coverage_state.
+
+   The allowed final coverage states are complete / completed-with-access-boundary / incomplete. Complete requires the
+   applicable accessible corpus and directional searches to be finished. Completed-with-access-boundary requires every
+   condition of CommunityCorpusAccessBoundaryCompletion. Full HRP synthesis is blocked while final_coverage_state is
+   incomplete. A missing count is recorded as unknown rather than silently converted to zero.
+  </Rule>
+ </CommunityCorpusCompletionGate>
 
  <ProtocolExecutionAndComplianceGate priority="Critical">
   <Purpose>
@@ -5079,6 +5146,20 @@ Applicable modules:
 - Direct human outcomes:
 - Clinical signal:
 - Relative forum signal:
+- Community corpus completion:
+  - principal_platforms_mapped:
+  - acquisition_mode:
+  - unfiltered_retrieval_attempted:
+  - pagination_exhausted:
+  - replies_reconciled:
+  - unique_firsthand_people:
+  - unique_treatment_episodes:
+  - benefit_search_completed:
+  - no_effect_search_completed:
+  - harm_search_completed:
+  - discontinuation_search_completed:
+  - independent_discussion_pools_sampled:
+  - final_coverage_state: complete / completed-with-access-boundary / incomplete
 - Traditional or ethnobotanical evidence:
 - Product quality and formulation:
 - Functional coaching:
@@ -5545,10 +5626,23 @@ Formal-to-community transfers:
 YouTube corpus, if applicable:
 - Channels and videos sampled:
 - Acquisition capability and method actually used:
+- principal_platforms_mapped:
+- acquisition_mode:
+- unfiltered_retrieval_attempted:
+- pagination_exhausted:
+- replies_reconciled:
 - Creator longitudinal reports separated from independent commenter reports:
 - Comments / replies screened or exported:
 - API-visible/export-visible reconciliation or known coverage gap:
 - Unique authors and person x treatment/exposure episodes after deduplication:
+- unique_firsthand_people:
+- unique_treatment_episodes:
+- benefit_search_completed:
+- no_effect_search_completed:
+- harm_search_completed:
+- discontinuation_search_completed:
+- independent_discussion_pools_sampled:
+- final_coverage_state: complete / completed-with-access-boundary / incomplete
 - Strict-core signal corpus versus broad discovery corpus:
 - Parent/reply and same-person context used where needed:
 - Non-English discovery/translation handling and residual audit:
@@ -6626,6 +6720,24 @@ Final integrated synthesis rule:
    </ExpectedBehavior>
   </Case>
 
+  <Case id="OneQueryBoundedYouTubeCommentPresentedAsReconnaissance">
+   <Prompt>
+    A YouTube search finds a relevant video. A query-bounded comment retrieval using the search term "used" returns one
+    comment with access_status=partial and extraction_coverage=partial. A second retrieval using the search term "results"
+    returns zero. The model then says real-world evidence is weak or indeterminate and finishes the review.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail the community audit. The two query-bounded searches are discovery-only and cannot characterize the unseen corpus.
+    Retrieve the broadest accessible unfiltered comments for every material selected video, paginate until exhausted, retrieve
+    accessible replies, reconcile expected versus retrieved replies, expand to additional relevant videos or independent
+    communities, deduplicate unique people x treatment episodes, and complete benefit, no-effect, harm, and discontinuation
+    searches before directional classification. If broader acquisition is genuinely impossible, run
+    CommunityCorpusAccessBoundaryCompletion and record the missing corpus's decision impact. Do not characterize prevalence,
+    direction, rarity, typicality, strength, weakness, or absence of the unseen corpus from the one retrieved comment or the
+    zero-result filtered query.
+   </ExpectedBehavior>
+  </Case>
+
   <Case id="YouTubeCompleteApiCorpusDoesNotRequireBlanketStrongModelPass">
    <Prompt>
     A YouTube video has five thousand API-visible comments and replies. Full acquisition is available, but sending every row
@@ -6912,5 +7024,8 @@ Final integrated synthesis rule:
  <Check id="FS155">Did I maintain a broad high-recall discovery corpus separately from the strict-core directional signal corpus and avoid using the strict filter as the discovery boundary?</Check>
  <Check id="FS156">Did I preserve materially relevant non-English reports and audit residual noncandidate material so language or lexical filters could not silently erase unusual signals?</Check>
  <Check id="FS157">Did I classify YouTube acquisition coverage accurately—API-visible/export-visible, bounded export, ranked/manual, search-only, creator-only, or inaccessible—and avoid implying that API-visible completeness includes deleted, moderated, hidden, or never-posted outcomes?</Check>
+ <Check id="FS158">For every principal-community retrieval, did I treat non-complete access_status, incomplete extraction_coverage, an unconsumed next_cursor, has_more=true, or an explicit query-bounded or incomplete limitation as a synthesis-blocking state while further retrieval remained possible?</Check>
+ <Check id="FS159">Did I use query-bounded YouTube comment retrieval for discovery only, then retrieve the broadest accessible unfiltered corpus, exhaust pagination, retrieve accessible replies, and reconcile replies before directional classification?</Check>
+ <Check id="FS160">Before synthesis, did I complete the CommunityCorpusCompletionGate ledger and record final_coverage_state as complete, completed-with-access-boundary under the genuine access rule, or incomplete?</Check>
 </FinalSelfCheck>
 </Protocol>

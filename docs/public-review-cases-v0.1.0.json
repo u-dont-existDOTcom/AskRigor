@@ -5,7 +5,7 @@
       "prompt": "Use AskRigor to retrieve, verify, and load the HRP protocol before beginning this health research task.",
       "fixture": {
         "mode": "production-public-input",
-        "inputs": {"protocol": "hrp", "expected_sha256": "b94bda38e6f341f7e5691494643e656a10e9ced68438689ffd4b7614b487911c"}
+        "inputs": {"protocol": "hrp", "expected_sha256": "386379ab4634eb60c980ed903c92deae6375aacdd26f6ed5b2ced5d87ad8d8c2"}
       },
       "expected_workflow": [
         {
@@ -15,7 +15,7 @@
         },
         {
           "tool": "verify_protocol_integrity",
-          "arguments": {"protocol": "hrp", "expected_sha256": "b94bda38e6f341f7e5691494643e656a10e9ced68438689ffd4b7614b487911c"},
+          "arguments": {"protocol": "hrp", "expected_sha256": "386379ab4634eb60c980ed903c92deae6375aacdd26f6ed5b2ced5d87ad8d8c2"},
           "expected_structured_fields": ["ok", "protocol", "verified", "manifest.sha256"]
         },
         {
@@ -25,7 +25,7 @@
         }
       ],
       "expected_result_shape": {
-        "required_fields": ["verified: true", "manifest.version: 20.5.15", "manifest.sha256: b94bda38e6f341f7e5691494643e656a10e9ced68438689ffd4b7614b487911c", "complete canonical text"]
+        "required_fields": ["verified: true", "manifest.version: 20.5.16", "manifest.sha256: 386379ab4634eb60c980ed903c92deae6375aacdd26f6ed5b2ced5d87ad8d8c2", "complete canonical text"]
       },
       "no_state_change": true
     },
