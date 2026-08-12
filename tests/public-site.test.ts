@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { validatePublicSite } from "../scripts/validate-public-site.mts";
 
 const rootFile = (file: string) =>
-  pathToFileURL(resolve(new URL("../", import.meta.url).pathname, file));
+  pathToFileURL(resolve(fileURLToPath(new URL("../", import.meta.url)), file));
 
 const pages = [
   ["site/index.html", "AskRigor | Evidence-first research retrieval", "https://askrigor.com/"],

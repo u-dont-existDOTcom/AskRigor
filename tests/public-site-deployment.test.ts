@@ -2,9 +2,10 @@ import { spawnSync } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 
-const root = resolve(new URL("../", import.meta.url).pathname);
+const root = resolve(fileURLToPath(new URL("../", import.meta.url)));
 const archiveScript = resolve(root, "scripts/create-public-site-archive.sh");
 const installerScript = resolve(root, "ops/public-site/install-public-site.sh");
 const bootstrapScript = resolve(root, "ops/public-site/bootstrap-apex-tls.sh");
