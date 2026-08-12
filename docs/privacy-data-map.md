@@ -2,7 +2,7 @@
 
 Status at 2026-08-12: this remains the detailed engineering inventory. The
 publisher-matching public notice is live at `https://askrigor.com/privacy` from
-verified site release `9becea82eb84`; the notice, rather than this internal map,
+verified site release `bd742ed9941c`; the notice, rather than this internal map,
 is the public privacy policy.
 
 ## Purpose and boundary
@@ -44,7 +44,7 @@ recipient/client-facing disclosure described here.
 | --- | --- | --- |
 | MCP request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data | Used only for the active request. No database, file store, account profile, queue, or transcript store is implemented. |
 | MCP response | The normalized fields in the table above | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
-| Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Operational deployments may keep aggregate server logs (for example, request counts, HTTP status, latency, or capacity signals); they must not add raw request/response bodies or provider secrets. | No application-level request/content log is persistently stored by v0. Deployment/proxy retention must be disclosed by the eventual public notice. |
+| Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may process aggregate server logs or operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No application-level request/content or operational-metadata log is persistently stored by v0. Infrastructure providers may retain operational metadata for their configured security and operations periods under their own policies; AskRigor does not control those periods. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
 
 ## Data not persistently stored in v0
@@ -65,7 +65,7 @@ recipient/client-facing disclosure described here.
 ## Public-policy status
 
 The stable HTTPS policy at `https://askrigor.com/privacy` was independently
-verified on 2026-08-12 against immutable release `9becea82eb84`. It covers public
+verified on 2026-08-12 against immutable release `bd742ed9941c`. It covers public
 YouTube identity/comment processing, provider sharing, operational-log retention,
 end-user/client disclosure, contact, and rights/retention boundaries. Keep this
 internal map as the more detailed implementation inventory and re-review the live

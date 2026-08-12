@@ -236,7 +236,7 @@ describe("AskRigor public-review packet", () => {
     for (const document of [privacyMap, reviewChecklist, releaseEvidence, readme]) {
       expect(document).toContain("https://askrigor.com/privacy");
       expect(document).toContain("2026-08-12");
-      expect(document).toContain("9becea82eb84");
+      expect(document).toContain("bd742ed9941c");
       expect(document).not.toContain("plain-HTTP unrelated");
       expect(document).not.toContain("Public submission remains blocked by the website");
     }

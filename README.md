@@ -147,7 +147,7 @@ credentials to either manifest.
 
 The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
 evidence. The website/privacy/terms/support gate passed on 2026-08-12 for site
-release `9becea82eb84`: `https://askrigor.com/`,
+release `bd742ed9941c`: `https://askrigor.com/`,
 `https://askrigor.com/privacy`, `https://askrigor.com/terms`, and
 `https://askrigor.com/support` all passed direct HTTPS acceptance. The manifest
 now carries the schema-supported website, privacy-policy, and terms URLs; support
