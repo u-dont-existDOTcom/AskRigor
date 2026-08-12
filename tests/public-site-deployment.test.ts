@@ -178,12 +178,21 @@ describe("public-site deployment packet", () => {
     }
   });
 
-  it("rejects an unpinned or mismatched effective Compose Caddy image before execution", async () => {
+  it("selects only the exact Caddy image from a complete Compose render before execution", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "askrigor-caddy-image-"));
     try {
       const commandLog = join(temporary, "compose.log");
-      const pinned = `caddy:2.11.4@sha256:${"a".repeat(64)}`;
-      const verify = (effectiveImage: string, operation: "validate" | "recreate") => bash(`
+      const pinned = "caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648";
+      const exactModel = {
+        name: "askrigor",
+        services: {
+          "research-mcp": { image: "askrigor-research:0.1.0" },
+          caddy: { image: pinned }
+        }
+      };
+      const verify = (render: unknown, operation: "validate" | "recreate") => {
+        const renderJson = JSON.stringify(render);
+        return bash(`
         source "${bootstrapScript}"
         base_compose=/opt/askrigor/compose.yaml
         https_compose=/opt/askrigor/releases/https/release/compose.https.yaml
@@ -192,28 +201,54 @@ describe("public-site deployment packet", () => {
         caddy_direct_dns_only=true
         bootstrap_caddyfile=/bootstrap/Caddyfile
         run_compose_command() {
-          printf '%s\\n' "$*" >>"${commandLog}"
+          printf 'CALL %s\\n' "$*" >>"${commandLog}"
           if [[ "$*" == *" config "*"--images"* ]]; then
-            printf '%s\\n' ${JSON.stringify(effectiveImage)}
+            printf '%s\\n' 'askrigor-research:0.1.0' ${JSON.stringify(pinned)}
+          elif [[ "$*" == *" config "*"--format json"* ]]; then
+            printf '%s\\n' ${JSON.stringify(renderJson)}
           else
-            printf 'unsafe execution reached\\n' >>"${commandLog}"
+            printf 'EXECUTE %s\\n' "$*" >>"${commandLog}"
           fi
         }
         ${operation === "validate"
           ? "validate_bootstrap_caddyfile"
           : "recreate_caddy_with_selected_file \"$bootstrap_caddyfile\""}
       `);
+      };
 
       for (const operation of ["validate", "recreate"] as const) {
-        for (const invalidImage of [
-          "caddy:2.11.4",
-          `caddy:2.11.4@sha256:${"b".repeat(64)}`
-        ]) {
+        await rm(commandLog, { force: true });
+        const accepted = verify(exactModel, operation);
+        expect(accepted.status, accepted.stderr).toBe(0);
+        const acceptedCommands = await readFile(commandLog, "utf8");
+        expect(acceptedCommands).toContain(
+          "config --no-env-resolution --no-interpolate --format json"
+        );
+        expect(acceptedCommands).not.toContain("--images caddy");
+        expect(acceptedCommands).toContain("EXECUTE docker compose -f /opt/askrigor/compose.yaml " +
+          "-f /opt/askrigor/releases/https/release/compose.https.yaml");
+
+        const rejectedModels = [
+          {
+            ...exactModel,
+            services: {
+              ...exactModel.services,
+              caddy: { image: `caddy:2.11.4-alpine@sha256:${"b".repeat(64)}` }
+            }
+          },
+          { name: "askrigor", services: { "research-mcp": exactModel.services["research-mcp"] } },
+          { name: "askrigor", services: { caddy: { image: [pinned] } } },
+          {
+            name: "askrigor",
+            services: { caddy: { image: pinned }, CADDY: { image: pinned } }
+          }
+        ];
+        for (const invalidModel of rejectedModels) {
           await rm(commandLog, { force: true });
-          const rejected = verify(invalidImage, operation);
+          const rejected = verify(invalidModel, operation);
           expect(rejected.status).not.toBe(0);
           expect(rejected.stderr).toContain("effective Caddy image");
-          expect(await readFile(commandLog, "utf8")).not.toContain("unsafe execution reached");
+          expect(await readFile(commandLog, "utf8")).not.toContain("EXECUTE");
         }
       }
     } finally {
@@ -374,6 +409,8 @@ describe("public-site deployment packet", () => {
           printf 'env=%s command=%s\\n' "\${compose_environment[*]}" "$*" >>"${commandLog}"
           if [[ "$*" == *" config "*"--images"* ]]; then
             printf '%s\\n' "$pinned_caddy_image"
+          elif [[ "$*" == *" config "*"--format json"* ]]; then
+            printf '{"services":{"caddy":{"image":"%s"}}}\\n' "$pinned_caddy_image"
           fi
         }
         verify_mcp_health() { return 0; }

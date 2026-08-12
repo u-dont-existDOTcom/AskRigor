@@ -355,32 +355,76 @@ run_compose_command() {
   "${compose_environment[@]}" "$@"
 }
 
+configure_compose_model_command() {
+  compose_model_command=(
+    run_compose_command
+    docker compose
+    -f "$base_compose"
+    -f "$https_compose"
+  )
+}
+
 assert_pinned_caddy_image_reference() {
   local image=$1
   [[ "$image" == caddy:2.11.4-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648 ]] ||
     die "running Caddy image must be the authorized pinned production reference"
 }
 
+extract_effective_caddy_image_from_compose_render() {
+  node --input-type=module --eval '
+      import { readFileSync, writeSync } from "node:fs";
+
+      function fail(message) {
+        writeSync(2, `Effective Caddy image rejected: ${message}\n`);
+        process.exit(1);
+      }
+
+      let render;
+      try {
+        render = JSON.parse(readFileSync(0, "utf8"));
+      } catch {
+        fail("Compose render is not valid JSON");
+      }
+
+      if (!render || typeof render !== "object" || Array.isArray(render)) {
+        fail("Compose render must be an object");
+      }
+      const services = render.services;
+      if (!services || typeof services !== "object" || Array.isArray(services)) {
+        fail("Compose services must be an object");
+      }
+      const caddyKeys = Object.keys(services)
+        .filter((serviceName) => serviceName.toLowerCase() === "caddy");
+      if (caddyKeys.length !== 1 || caddyKeys[0] !== "caddy") {
+        fail("Compose render must contain exactly one canonical caddy service");
+      }
+      const caddy = services.caddy;
+      if (!caddy || typeof caddy !== "object" || Array.isArray(caddy)) {
+        fail("Compose caddy service must be an object");
+      }
+      if (!Object.hasOwn(caddy, "image") || typeof caddy.image !== "string" ||
+          caddy.image.length === 0 || caddy.image.trim() !== caddy.image) {
+        fail("Compose caddy image must be one nonempty string");
+      }
+      process.stdout.write(caddy.image);
+    '
+}
+
 assert_effective_caddy_image() {
-  local effective_output image
-  local -a effective_images=()
-  effective_output=$(run_compose_command docker compose \
-    -f "$base_compose" \
-    -f "$https_compose" \
-    config --no-env-resolution --images caddy) ||
-    die "cannot resolve the effective Caddy image"
-  while IFS= read -r image; do
-    [[ -n "$image" ]] && effective_images+=("$image")
-  done <<<"$effective_output"
-  [[ "${#effective_images[@]}" -eq 1 && "${effective_images[0]}" == "$pinned_caddy_image" ]] ||
+  local compose_render effective_image
+  configure_compose_model_command
+  compose_render=$("${compose_model_command[@]}" \
+    config --no-env-resolution --no-interpolate --format json) ||
+    die "cannot render the effective Compose model"
+  effective_image=$(extract_effective_caddy_image_from_compose_render <<<"$compose_render") ||
+    die "cannot resolve the effective Caddy image from the complete Compose render"
+  [[ "$effective_image" == "$pinned_caddy_image" ]] ||
     die "effective Caddy image does not equal the inspected pinned reference"
 }
 
 validate_bootstrap_caddyfile() {
   assert_effective_caddy_image
-  run_compose_command docker compose \
-    -f "$base_compose" \
-    -f "$https_compose" \
+  "${compose_model_command[@]}" \
     run --rm --no-deps --pull never --entrypoint caddy caddy \
     validate --config /etc/caddy/Caddyfile --adapter caddyfile
 }
@@ -389,9 +433,7 @@ recreate_caddy_with_selected_file() {
   local selected_caddyfile=$1
   configure_compose_environment "$selected_caddyfile"
   assert_effective_caddy_image
-  run_compose_command docker compose \
-    -f "$base_compose" \
-    -f "$https_compose" \
+  "${compose_model_command[@]}" \
     up -d --pull never --no-build --no-deps --force-recreate caddy
 }
 
@@ -566,7 +608,7 @@ main() {
   bootstrap_root=/opt/askrigor/site/bootstrap
 
   local required_command
-  for required_command in docker curl dig openssl realpath sha256sum stat readlink install mktemp date mkdir find; do
+  for required_command in docker curl dig openssl realpath sha256sum stat readlink install mktemp date mkdir find node; do
     command -v "$required_command" >/dev/null || die "$required_command is required"
   done
   configure_compose_version_environment /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
