@@ -78,9 +78,15 @@ describe("public-site deployment packet", () => {
     expect(installer).toContain("/opt/askrigor/site/releases");
     expect(installer).toContain("/opt/askrigor/site/state");
     expect(installer).toContain("/opt/askrigor/site/current");
-    expect(installer).toContain("/opt/askrigor/active/compose.yaml");
-    expect(installer).toContain("/opt/askrigor/active/compose.https.yaml");
-    expect(installer).toContain("/opt/askrigor/active/Caddyfile");
+    expect(installer).toContain("base_compose=/opt/askrigor/compose.yaml");
+    expect(installer).toContain("https_release_link=/opt/askrigor/active-https");
+    expect(installer).toContain("https_compose=/opt/askrigor/active-https/compose.https.yaml");
+    expect(installer).toContain("production_caddyfile=/opt/askrigor/active-https/Caddyfile");
+    expect(installer).not.toContain("/opt/askrigor/active/");
+    expect(installer).toContain('assert_root_owned_secure_parent_chain "$https_releases_root/release"');
+    expect(installer).toContain('assert_root_owned_secure_path "$resolved_https_release" directory');
+    expect(installer).toContain('assert_root_owned_secure_path "$resolved_https_release/compose.https.yaml" file');
+    expect(installer).toContain('assert_root_owned_secure_path "$resolved_https_release/Caddyfile" file');
     expect(installer).toContain("assert_root_owned_secure_path");
     expect(installer).toContain("path must not be a symlink");
     expect(installer).toContain("path must be owned by root");
@@ -109,6 +115,69 @@ describe("public-site deployment packet", () => {
     expect(installer).toContain("https://askrigor.com/support");
     expect(installer).toContain("apex HTTPS prerequisite failed");
     expect(installer).toContain("preserved failed release artifacts");
+  });
+
+  it("permits only a secure active-https selector below the HTTPS release root", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-https-selector-"));
+    try {
+      const releases = join(temporary, "releases/https");
+      const release = join(releases, "2026-08-12");
+      const selector = join(temporary, "active-https");
+      await mkdir(release, { recursive: true });
+      await writeFile(join(release, "compose.https.yaml"), "services: {}\n");
+      await writeFile(join(release, "Caddyfile"), "mcp.askrigor.com { respond 200 }\n");
+      await symlink(release, selector);
+
+      const accepted = bash(`
+        source "${installerScript}"
+        stat() {
+          if [[ "$1" == "-c" && "$2" == "%u" ]]; then printf '0\n'; return 0; fi
+          command stat "$@"
+        }
+        assert_root_owned_secure_path() {
+          [[ -e "$1" && ! -L "$1" ]] || return 1
+        }
+        assert_root_owned_secure_parent_chain() { return 0; }
+        resolve_https_release "${selector}" "${releases}"
+        [[ "$resolved_https_release" == "${release}" ]]
+      `);
+      expect(accepted.status, accepted.stderr).toBe(0);
+
+      const outside = join(temporary, "outside");
+      await mkdir(outside);
+      await rm(selector);
+      await symlink(outside, selector);
+      const rejectedOutside = bash(`
+        source "${installerScript}"
+        stat() { printf '0\n'; }
+        assert_root_owned_secure_path() { return 0; }
+        assert_root_owned_secure_parent_chain() { return 0; }
+        resolve_https_release "${selector}" "${releases}"
+      `);
+      expect(rejectedOutside.status).not.toBe(0);
+      expect(rejectedOutside.stderr).toContain("below the HTTPS releases root");
+
+      await rm(selector);
+      await writeFile(selector, "not a selector\n");
+      const rejectedRegular = bash(`
+        source "${installerScript}"
+        resolve_https_release "${selector}" "${releases}"
+      `);
+      expect(rejectedRegular.status).not.toBe(0);
+      expect(rejectedRegular.stderr).toContain("must be a symlink");
+
+      await rm(selector);
+      await symlink(release, selector);
+      const rejectedOwner = bash(`
+        source "${installerScript}"
+        stat() { printf '1000\n'; }
+        resolve_https_release "${selector}" "${releases}"
+      `);
+      expect(rejectedOwner.status).not.toBe(0);
+      expect(rejectedOwner.stderr).toContain("selector must be owned by root");
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
   });
 
   it("never embeds or invokes forbidden deployment material", () => {
@@ -236,7 +305,7 @@ describe("public-site deployment packet", () => {
             image: pinned,
             command: ["caddy", "run"],
             ports: [{ target: 443, published: "443", protocol: "tcp", mode: "ingress" }],
-            volumes: [{ type: "bind", source: "/opt/askrigor/active/Caddyfile", target: "/etc/caddy/Caddyfile", read_only: true }]
+            volumes: [{ type: "bind", source: "/opt/askrigor/active-https/Caddyfile", target: "/etc/caddy/Caddyfile", read_only: true }]
           },
           "research-mcp": { image: `askrigor@sha256:${"c".repeat(64)}`, networks: { default: null } }
         },
@@ -317,7 +386,7 @@ describe("public-site deployment packet", () => {
         services: {
           caddy: {
             image: pinned,
-            volumes: [{ type: "bind", source: "/opt/askrigor/active/Caddyfile", target: "/etc/caddy/Caddyfile", read_only: true }]
+            volumes: [{ type: "bind", source: "/opt/askrigor/active-https/Caddyfile", target: "/etc/caddy/Caddyfile", read_only: true }]
           }
         }
       };

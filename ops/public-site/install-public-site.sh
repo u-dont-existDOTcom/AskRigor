@@ -10,6 +10,30 @@ die() {
   return 1
 }
 
+resolve_https_release() {
+  local selection_link=$1
+  local https_releases_root=$2
+  local selection_owner canonical_releases_root
+
+  [[ -L "$selection_link" ]] || die "HTTPS release selector must be a symlink: $selection_link"
+  selection_owner=$(stat -c '%u' -- "$selection_link")
+  [[ "$selection_owner" == 0 ]] || die "HTTPS release selector must be owned by root: $selection_link"
+
+  assert_root_owned_secure_parent_chain "$https_releases_root/release"
+  assert_root_owned_secure_path "$https_releases_root" directory
+  canonical_releases_root=$(realpath -e -- "$https_releases_root") ||
+    die "HTTPS releases root is missing or unreadable: $https_releases_root"
+  resolved_https_release=$(realpath -e -- "$selection_link") ||
+    die "HTTPS release selector target is missing or unreadable: $selection_link"
+  case "$resolved_https_release" in
+    "$canonical_releases_root"/*) ;;
+    *) die "HTTPS release selector must resolve below the HTTPS releases root: $selection_link" ;;
+  esac
+  assert_root_owned_secure_path "$resolved_https_release" directory
+  assert_root_owned_secure_path "$resolved_https_release/compose.https.yaml" file
+  assert_root_owned_secure_path "$resolved_https_release/Caddyfile" file
+}
+
 write_validation_overlay() {
   local output=$1
   local staged_caddyfile=$2
@@ -138,10 +162,11 @@ main() {
 [[ "$revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] ||
   die "revision must be a safe nonempty release name"
 
-active_root=/opt/askrigor/active
-base_compose=/opt/askrigor/active/compose.yaml
-https_compose=/opt/askrigor/active/compose.https.yaml
-production_caddyfile=/opt/askrigor/active/Caddyfile
+base_compose=/opt/askrigor/compose.yaml
+https_release_link=/opt/askrigor/active-https
+https_releases_root=/opt/askrigor/releases/https
+https_compose=/opt/askrigor/active-https/compose.https.yaml
+production_caddyfile=/opt/askrigor/active-https/Caddyfile
 site_root=/opt/askrigor/site
 releases_root=/opt/askrigor/site/releases
 state_root=/opt/askrigor/site/state
@@ -204,10 +229,8 @@ input_checksum=$(realpath -e -- "$input_checksum")
 
 assert_root_owned_secure_path /opt directory
 assert_root_owned_secure_path /opt/askrigor directory
-assert_root_owned_secure_path "$active_root" directory
 assert_root_owned_secure_path "$base_compose" file
-assert_root_owned_secure_path "$https_compose" file
-assert_root_owned_secure_path "$production_caddyfile" file
+resolve_https_release "$https_release_link" "$https_releases_root"
 assert_root_owned_secure_parent_chain "$input_archive"
 assert_root_owned_secure_parent_chain "$input_checksum"
 assert_root_owned_secure_path "$input_archive" file
@@ -332,13 +355,13 @@ chmod 0400 -- "$staged_combined_caddyfile"
 
 base_compose_command=(
   docker compose
-  -f /opt/askrigor/active/compose.yaml
-  -f /opt/askrigor/active/compose.https.yaml
+  -f /opt/askrigor/compose.yaml
+  -f /opt/askrigor/active-https/compose.https.yaml
 )
 candidate_compose_command=(
   docker compose
-  -f /opt/askrigor/active/compose.yaml
-  -f /opt/askrigor/active/compose.https.yaml
+  -f /opt/askrigor/compose.yaml
+  -f /opt/askrigor/active-https/compose.https.yaml
   -f "$packet_overlay"
 )
 
@@ -516,14 +539,14 @@ restore_previous_state() {
 recreate_previous_caddy_only() {
   if [[ "$previous_overlay_present" -eq 1 ]]; then
     docker compose \
-      -f /opt/askrigor/active/compose.yaml \
-      -f /opt/askrigor/active/compose.https.yaml \
+      -f /opt/askrigor/compose.yaml \
+      -f /opt/askrigor/active-https/compose.https.yaml \
       -f /opt/askrigor/site/state/compose.site.yaml \
       up -d --no-deps --force-recreate caddy
   else
     docker compose \
-      -f /opt/askrigor/active/compose.yaml \
-      -f /opt/askrigor/active/compose.https.yaml \
+      -f /opt/askrigor/compose.yaml \
+      -f /opt/askrigor/active-https/compose.https.yaml \
       up -d --no-deps --force-recreate caddy
   fi
 }
@@ -573,8 +596,8 @@ activate_release() {
   mv -Tf -- "$next_current_link" "$current_link"
 
   docker compose \
-    -f /opt/askrigor/active/compose.yaml \
-    -f /opt/askrigor/active/compose.https.yaml \
+    -f /opt/askrigor/compose.yaml \
+    -f /opt/askrigor/active-https/compose.https.yaml \
     -f /opt/askrigor/site/state/compose.site.yaml \
     up -d --no-deps --force-recreate caddy
 
