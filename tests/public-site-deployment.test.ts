@@ -722,6 +722,37 @@ JSON
     }
   });
 
+  it("discovers the live Caddy through the active site overlay during upgrades", async () => {
+    const temporary = await mkdtemp(join(tmpdir(), "askrigor-live-site-overlay-"));
+    try {
+      const overlay = join(temporary, "compose.site.yaml");
+      const dockerLog = join(temporary, "docker.log");
+      await writeFile(overlay, "services: {}\n");
+      const result = bash(`
+        source "${installerScript}"
+        assert_root_owned_secure_parent_chain() { :; }
+        assert_root_owned_secure_path() { :; }
+        select_live_compose_config_files \
+          /opt/askrigor/compose.yaml \
+          /opt/askrigor/releases/https/release/compose.https.yaml \
+          "${overlay}"
+        docker() {
+          printf '%s\n' "$*" >"${dockerLog}"
+          printf 'active-caddy-id\n'
+        }
+        discover_live_caddy_container "$live_compose_config_files"
+        [[ "$live_caddy_container_id" == active-caddy-id ]]
+      `);
+      expect(result.status, result.stderr).toBe(0);
+      expect(await readFile(dockerLog, "utf8")).toContain(
+        "label=com.docker.compose.project.config_files=" +
+        `/opt/askrigor/compose.yaml,/opt/askrigor/releases/https/release/compose.https.yaml,${overlay}`
+      );
+    } finally {
+      await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
   it("never embeds or invokes forbidden deployment material", () => {
     const allDeploymentFiles = [caddy, compose, installer, bootstrap, archiveCreator];
     for (const file of allDeploymentFiles) {

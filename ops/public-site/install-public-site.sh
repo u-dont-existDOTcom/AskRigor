@@ -168,6 +168,19 @@ discover_live_caddy_container() {
   live_caddy_container_id=${candidates[0]}
 }
 
+select_live_compose_config_files() {
+  local selected_base_compose=$1
+  local selected_https_compose=$2
+  local selected_site_overlay=$3
+
+  live_compose_config_files="$selected_base_compose,$selected_https_compose"
+  if [[ -e "$selected_site_overlay" || -L "$selected_site_overlay" ]]; then
+    assert_root_owned_secure_parent_chain "$selected_site_overlay"
+    assert_root_owned_secure_path "$selected_site_overlay" file
+    live_compose_config_files+=",$selected_site_overlay"
+  fi
+}
+
 run_compose_command() {
   "${compose_environment[@]}" "$@"
 }
@@ -342,7 +355,9 @@ assert_root_owned_secure_parent_chain "$https_releases_root/release"
 resolve_https_release "$https_release_link" "$https_releases_root"
 https_compose=$resolved_https_compose
 production_caddyfile=$resolved_production_caddyfile
-discover_live_caddy_container "$base_compose,$https_compose"
+select_live_compose_config_files \
+  "$base_compose" "$https_compose" "$state_root/compose.site.yaml"
+discover_live_caddy_container "$live_compose_config_files"
 extract_public_caddy_environment "$live_caddy_container_id"
 caddy_caddyfile=$production_caddyfile
 compose_environment=(
