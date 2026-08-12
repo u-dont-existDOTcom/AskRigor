@@ -10,28 +10,164 @@ die() {
   return 1
 }
 
+assert_owned_secure_path() {
+  local path=$1
+  local expected_kind=$2
+  local expected_owner=$3
+  local owner mode
+
+  [[ ! -L "$path" ]] || die "path must not be a symlink: $path"
+  [[ -e "$path" ]] || die "required path is missing: $path"
+  case "$expected_kind" in
+    file) [[ -f "$path" ]] || die "path must be a regular file: $path" ;;
+    directory) [[ -d "$path" ]] || die "path must be a directory: $path" ;;
+    *) die "internal error: unknown path kind" ;;
+  esac
+  owner=$(stat -c '%u' -- "$path")
+  [[ "$owner" == "$expected_owner" ]] || die "path must be owned by root: $path"
+  mode=$(stat -c '%a' -- "$path")
+  (( (8#$mode & 0022) == 0 )) ||
+    die "path must not be group/world writable: $path"
+}
+
+assert_root_owned_secure_path() {
+  assert_owned_secure_path "$1" "$2" 0
+}
+
+assert_root_owned_secure_parent_chain() {
+  local path=$1
+  local parent cursor component
+  parent=$(dirname -- "$path")
+  cursor=/
+  assert_root_owned_secure_path "$cursor" directory
+  IFS='/' read -r -a parent_components <<<"${parent#/}"
+  for component in "${parent_components[@]}"; do
+    [[ -n "$component" ]] || continue
+    cursor=${cursor%/}/$component
+    assert_root_owned_secure_path "$cursor" directory
+  done
+}
+
+normalize_lexical_absolute_path() {
+  local input=$1
+  local component last_index
+  local -a input_components normalized_components=()
+  [[ "$input" == /* ]] || die "internal error: path must be absolute"
+  IFS='/' read -r -a input_components <<<"${input#/}"
+  for component in "${input_components[@]}"; do
+    case "$component" in
+      ""|.) ;;
+      ..)
+        ((${#normalized_components[@]} > 0)) || die "path escapes the filesystem root"
+        last_index=$((${#normalized_components[@]} - 1))
+        unset "normalized_components[$last_index]"
+        ;;
+      *) normalized_components+=("$component") ;;
+    esac
+  done
+  local IFS=/
+  normalized_path="/${normalized_components[*]}"
+}
+
 resolve_https_release() {
   local selection_link=$1
   local https_releases_root=$2
-  local selection_owner canonical_releases_root
+  local expected_owner=${3:-0}
+  local selection_owner canonical_releases_root raw_target lexical_target
+  local relative_target cursor component
 
   [[ -L "$selection_link" ]] || die "HTTPS release selector must be a symlink: $selection_link"
   selection_owner=$(stat -c '%u' -- "$selection_link")
-  [[ "$selection_owner" == 0 ]] || die "HTTPS release selector must be owned by root: $selection_link"
+  [[ "$selection_owner" == "$expected_owner" ]] ||
+    die "HTTPS release selector must be owned by root: $selection_link"
 
-  assert_root_owned_secure_parent_chain "$https_releases_root/release"
-  assert_root_owned_secure_path "$https_releases_root" directory
+  assert_owned_secure_path "$https_releases_root" directory "$expected_owner"
   canonical_releases_root=$(realpath -e -- "$https_releases_root") ||
     die "HTTPS releases root is missing or unreadable: $https_releases_root"
-  resolved_https_release=$(realpath -e -- "$selection_link") ||
-    die "HTTPS release selector target is missing or unreadable: $selection_link"
-  case "$resolved_https_release" in
+  normalize_lexical_absolute_path "$https_releases_root"
+  [[ "$canonical_releases_root" == "$normalized_path" ]] ||
+    die "HTTPS releases root path must not traverse a symlink"
+
+  raw_target=$(readlink -- "$selection_link") || die "HTTPS release selector is unreadable"
+  if [[ "$raw_target" == /* ]]; then
+    normalize_lexical_absolute_path "$raw_target"
+  else
+    normalize_lexical_absolute_path "$(dirname -- "$selection_link")/$raw_target"
+  fi
+  lexical_target=$normalized_path
+  case "$lexical_target" in
     "$canonical_releases_root"/*) ;;
     *) die "HTTPS release selector must resolve below the HTTPS releases root: $selection_link" ;;
   esac
-  assert_root_owned_secure_path "$resolved_https_release" directory
-  assert_root_owned_secure_path "$resolved_https_release/compose.https.yaml" file
-  assert_root_owned_secure_path "$resolved_https_release/Caddyfile" file
+
+  relative_target=${lexical_target#"$canonical_releases_root"/}
+  cursor=$canonical_releases_root
+  IFS='/' read -r -a target_components <<<"$relative_target"
+  for component in "${target_components[@]}"; do
+    [[ -n "$component" ]] || continue
+    cursor=$cursor/$component
+    assert_owned_secure_path "$cursor" directory "$expected_owner"
+  done
+
+  resolved_https_release=$(realpath -e -- "$selection_link") ||
+    die "HTTPS release selector target is missing or unreadable: $selection_link"
+  [[ "$resolved_https_release" == "$lexical_target" ]] ||
+    die "HTTPS release selector target path must not traverse a symlink"
+  assert_owned_secure_path "$resolved_https_release/compose.https.yaml" file "$expected_owner"
+  assert_owned_secure_path "$resolved_https_release/Caddyfile" file "$expected_owner"
+  resolved_https_compose=$resolved_https_release/compose.https.yaml
+  resolved_production_caddyfile=$resolved_https_release/Caddyfile
+}
+
+extract_public_caddy_environment() {
+  local container_id=$1
+  local environment_output line key value
+  local hostname_count=0 direct_count=0
+  environment_output=$(docker inspect --format '{{range .Config.Env}}{{if or (eq (index (split . "=") 0) "ASKRIGOR_HOSTNAME") (eq (index (split . "=") 0) "ASKRIGOR_DIRECT_DNS_ONLY")}}{{println .}}{{end}}{{end}}' "$container_id") ||
+    die "cannot inspect the running Caddy public environment"
+
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    key=${line%%=*}
+    value=${line#*=}
+    case "$key" in
+      ASKRIGOR_HOSTNAME)
+        ((hostname_count += 1))
+        [[ "$hostname_count" -eq 1 ]] || die "duplicate public Caddy variable: $key"
+        caddy_hostname=$value
+        ;;
+      ASKRIGOR_DIRECT_DNS_ONLY)
+        ((direct_count += 1))
+        [[ "$direct_count" -eq 1 ]] || die "duplicate public Caddy variable: $key"
+        caddy_direct_dns_only=$value
+        ;;
+      *) die "unexpected public Caddy variable name" ;;
+    esac
+  done <<<"$environment_output"
+
+  [[ "$hostname_count" -eq 1 && "$direct_count" -eq 1 ]] ||
+    die "public Caddy environment is incomplete"
+  [[ "$caddy_hostname" == mcp.askrigor.com ]] || die "malformed ASKRIGOR_HOSTNAME"
+  [[ "$caddy_direct_dns_only" =~ ^[A-Za-z0-9._,:/=-]{1,255}$ ]] ||
+    die "malformed ASKRIGOR_DIRECT_DNS_ONLY"
+}
+
+discover_live_caddy_container() {
+  local expected_config_files=$1
+  local candidates_output
+  local -a candidates=()
+  candidates_output=$(docker ps -q \
+    --filter label=com.docker.compose.service=caddy \
+    --filter "label=com.docker.compose.project.config_files=$expected_config_files") ||
+    die "cannot identify the running Caddy container"
+  mapfile -t candidates <<<"$candidates_output"
+  [[ "${#candidates[@]}" -eq 1 && -n "${candidates[0]}" ]] ||
+    die "expected exactly one running Caddy container for the validated Compose files"
+  live_caddy_container_id=${candidates[0]}
+}
+
+run_compose_command() {
+  "${compose_environment[@]}" "$@"
 }
 
 write_validation_overlay() {
@@ -165,8 +301,6 @@ main() {
 base_compose=/opt/askrigor/compose.yaml
 https_release_link=/opt/askrigor/active-https
 https_releases_root=/opt/askrigor/releases/https
-https_compose=/opt/askrigor/active-https/compose.https.yaml
-production_caddyfile=/opt/askrigor/active-https/Caddyfile
 site_root=/opt/askrigor/site
 releases_root=/opt/askrigor/site/releases
 state_root=/opt/askrigor/site/state
@@ -174,45 +308,12 @@ current_link=/opt/askrigor/site/current
 release_path="$releases_root/$revision"
 staging_path="$releases_root/.${revision}.staging"
 
-assert_root_owned_secure_path() {
-  local path=$1
-  local expected_kind=$2
-  local owner mode
-
-  [[ ! -L "$path" ]] || die "path must not be a symlink: $path"
-  [[ -e "$path" ]] || die "required path is missing: $path"
-  case "$expected_kind" in
-    file) [[ -f "$path" ]] || die "path must be a regular file: $path" ;;
-    directory) [[ -d "$path" ]] || die "path must be a directory: $path" ;;
-    *) die "internal error: unknown path kind" ;;
-  esac
-  owner=$(stat -c '%u' -- "$path")
-  [[ "$owner" == 0 ]] || die "path must be owned by root: $path"
-  mode=$(stat -c '%a' -- "$path")
-  (( (8#$mode & 0022) == 0 )) ||
-    die "path must not be group/world writable: $path"
-}
-
 ensure_secure_directory() {
   local path=$1
   if [[ ! -e "$path" && ! -L "$path" ]]; then
     install -d -o root -g root -m 0755 -- "$path"
   fi
   assert_root_owned_secure_path "$path" directory
-}
-
-assert_root_owned_secure_parent_chain() {
-  local path=$1
-  local parent cursor component
-  parent=$(dirname -- "$path")
-  cursor=/
-  assert_root_owned_secure_path "$cursor" directory
-  IFS='/' read -r -a parent_components <<<"${parent#/}"
-  for component in "${parent_components[@]}"; do
-    [[ -n "$component" ]] || continue
-    cursor=${cursor%/}/$component
-    assert_root_owned_secure_path "$cursor" directory
-  done
 }
 
 command -v docker >/dev/null || die "docker is required"
@@ -230,7 +331,21 @@ input_checksum=$(realpath -e -- "$input_checksum")
 assert_root_owned_secure_path /opt directory
 assert_root_owned_secure_path /opt/askrigor directory
 assert_root_owned_secure_path "$base_compose" file
+assert_root_owned_secure_parent_chain "$https_releases_root/release"
 resolve_https_release "$https_release_link" "$https_releases_root"
+https_compose=$resolved_https_compose
+production_caddyfile=$resolved_production_caddyfile
+discover_live_caddy_container "$base_compose,$https_compose"
+extract_public_caddy_environment "$live_caddy_container_id"
+caddy_caddyfile=$production_caddyfile
+compose_environment=(
+  env -i
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  HOME=/root
+  "ASKRIGOR_HOSTNAME=$caddy_hostname"
+  "ASKRIGOR_DIRECT_DNS_ONLY=$caddy_direct_dns_only"
+  "ASKRIGOR_CADDYFILE=$caddy_caddyfile"
+)
 assert_root_owned_secure_parent_chain "$input_archive"
 assert_root_owned_secure_parent_chain "$input_checksum"
 assert_root_owned_secure_path "$input_archive" file
@@ -354,14 +469,16 @@ chown root:root -- "$staged_combined_caddyfile"
 chmod 0400 -- "$staged_combined_caddyfile"
 
 base_compose_command=(
+  run_compose_command
   docker compose
-  -f /opt/askrigor/compose.yaml
-  -f /opt/askrigor/active-https/compose.https.yaml
+  -f "$base_compose"
+  -f "$https_compose"
 )
 candidate_compose_command=(
+  run_compose_command
   docker compose
-  -f /opt/askrigor/compose.yaml
-  -f /opt/askrigor/active-https/compose.https.yaml
+  -f "$base_compose"
+  -f "$https_compose"
   -f "$packet_overlay"
 )
 
@@ -538,15 +655,15 @@ restore_previous_state() {
 
 recreate_previous_caddy_only() {
   if [[ "$previous_overlay_present" -eq 1 ]]; then
-    docker compose \
-      -f /opt/askrigor/compose.yaml \
-      -f /opt/askrigor/active-https/compose.https.yaml \
+    run_compose_command docker compose \
+      -f "$base_compose" \
+      -f "$https_compose" \
       -f /opt/askrigor/site/state/compose.site.yaml \
       up -d --no-deps --force-recreate caddy
   else
-    docker compose \
-      -f /opt/askrigor/compose.yaml \
-      -f /opt/askrigor/active-https/compose.https.yaml \
+    run_compose_command docker compose \
+      -f "$base_compose" \
+      -f "$https_compose" \
       up -d --no-deps --force-recreate caddy
   fi
 }
@@ -595,9 +712,9 @@ activate_release() {
   ln -s -- "$release_path/site" "$next_current_link"
   mv -Tf -- "$next_current_link" "$current_link"
 
-  docker compose \
-    -f /opt/askrigor/compose.yaml \
-    -f /opt/askrigor/active-https/compose.https.yaml \
+  run_compose_command docker compose \
+    -f "$base_compose" \
+    -f "$https_compose" \
     -f /opt/askrigor/site/state/compose.site.yaml \
     up -d --no-deps --force-recreate caddy
 

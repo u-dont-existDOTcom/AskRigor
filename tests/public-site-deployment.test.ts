@@ -80,13 +80,14 @@ describe("public-site deployment packet", () => {
     expect(installer).toContain("/opt/askrigor/site/current");
     expect(installer).toContain("base_compose=/opt/askrigor/compose.yaml");
     expect(installer).toContain("https_release_link=/opt/askrigor/active-https");
-    expect(installer).toContain("https_compose=/opt/askrigor/active-https/compose.https.yaml");
-    expect(installer).toContain("production_caddyfile=/opt/askrigor/active-https/Caddyfile");
+    expect(installer).toContain("https_compose=$resolved_https_compose");
+    expect(installer).toContain("production_caddyfile=$resolved_production_caddyfile");
+    expect(installer).not.toContain("/opt/askrigor/active-https/compose.https.yaml");
+    expect(installer).not.toContain("/opt/askrigor/active-https/Caddyfile");
     expect(installer).not.toContain("/opt/askrigor/active/");
     expect(installer).toContain('assert_root_owned_secure_parent_chain "$https_releases_root/release"');
-    expect(installer).toContain('assert_root_owned_secure_path "$resolved_https_release" directory');
-    expect(installer).toContain('assert_root_owned_secure_path "$resolved_https_release/compose.https.yaml" file');
-    expect(installer).toContain('assert_root_owned_secure_path "$resolved_https_release/Caddyfile" file');
+    expect(installer).toContain('assert_owned_secure_path "$resolved_https_release/compose.https.yaml" file "$expected_owner"');
+    expect(installer).toContain('assert_owned_secure_path "$resolved_https_release/Caddyfile" file "$expected_owner"');
     expect(installer).toContain("assert_root_owned_secure_path");
     expect(installer).toContain("path must not be a symlink");
     expect(installer).toContain("path must be owned by root");
@@ -123,22 +124,20 @@ describe("public-site deployment packet", () => {
       const releases = join(temporary, "releases/https");
       const release = join(releases, "2026-08-12");
       const selector = join(temporary, "active-https");
+      const fixtureUid = process.getuid?.() ?? 1000;
       await mkdir(release, { recursive: true });
+      await chmod(join(temporary, "releases"), 0o755);
+      await chmod(releases, 0o755);
+      await chmod(release, 0o755);
       await writeFile(join(release, "compose.https.yaml"), "services: {}\n");
       await writeFile(join(release, "Caddyfile"), "mcp.askrigor.com { respond 200 }\n");
+      await chmod(join(release, "compose.https.yaml"), 0o644);
+      await chmod(join(release, "Caddyfile"), 0o644);
       await symlink(release, selector);
 
       const accepted = bash(`
         source "${installerScript}"
-        stat() {
-          if [[ "$1" == "-c" && "$2" == "%u" ]]; then printf '0\n'; return 0; fi
-          command stat "$@"
-        }
-        assert_root_owned_secure_path() {
-          [[ -e "$1" && ! -L "$1" ]] || return 1
-        }
-        assert_root_owned_secure_parent_chain() { return 0; }
-        resolve_https_release "${selector}" "${releases}"
+        resolve_https_release "${selector}" "${releases}" "${fixtureUid}"
         [[ "$resolved_https_release" == "${release}" ]]
       `);
       expect(accepted.status, accepted.stderr).toBe(0);
@@ -149,10 +148,7 @@ describe("public-site deployment packet", () => {
       await symlink(outside, selector);
       const rejectedOutside = bash(`
         source "${installerScript}"
-        stat() { printf '0\n'; }
-        assert_root_owned_secure_path() { return 0; }
-        assert_root_owned_secure_parent_chain() { return 0; }
-        resolve_https_release "${selector}" "${releases}"
+        resolve_https_release "${selector}" "${releases}" "${fixtureUid}"
       `);
       expect(rejectedOutside.status).not.toBe(0);
       expect(rejectedOutside.stderr).toContain("below the HTTPS releases root");
@@ -161,7 +157,7 @@ describe("public-site deployment packet", () => {
       await writeFile(selector, "not a selector\n");
       const rejectedRegular = bash(`
         source "${installerScript}"
-        resolve_https_release "${selector}" "${releases}"
+        resolve_https_release "${selector}" "${releases}" "${fixtureUid}"
       `);
       expect(rejectedRegular.status).not.toBe(0);
       expect(rejectedRegular.stderr).toContain("must be a symlink");
@@ -170,13 +166,131 @@ describe("public-site deployment packet", () => {
       await symlink(release, selector);
       const rejectedOwner = bash(`
         source "${installerScript}"
-        stat() { printf '1000\n'; }
-        resolve_https_release "${selector}" "${releases}"
+        resolve_https_release "${selector}" "${releases}" "$(( ${fixtureUid} + 1 ))"
       `);
       expect(rejectedOwner.status).not.toBe(0);
       expect(rejectedOwner.stderr).toContain("selector must be owned by root");
+
+      const hiddenTarget = join(releases, "hidden-target");
+      const hiddenLink = join(releases, "hidden-link");
+      await mkdir(join(hiddenTarget, "release"), { recursive: true });
+      await chmod(hiddenTarget, 0o755);
+      await chmod(join(hiddenTarget, "release"), 0o755);
+      await writeFile(join(hiddenTarget, "release/compose.https.yaml"), "services: {}\n");
+      await writeFile(join(hiddenTarget, "release/Caddyfile"), "mcp.askrigor.com { respond 200 }\n");
+      await chmod(join(hiddenTarget, "release/compose.https.yaml"), 0o644);
+      await chmod(join(hiddenTarget, "release/Caddyfile"), 0o644);
+      await symlink(hiddenTarget, hiddenLink);
+      await rm(selector);
+      await symlink(join(hiddenLink, "release"), selector);
+      const rejectedHiddenLink = bash(`
+        source "${installerScript}"
+        resolve_https_release "${selector}" "${releases}" "${fixtureUid}"
+      `);
+      expect(rejectedHiddenLink.status).not.toBe(0);
+      expect(rejectedHiddenLink.stderr).toContain("path must not be a symlink");
+
+      const writableParent = join(releases, "writable-parent");
+      const writableRelease = join(writableParent, "release");
+      await mkdir(writableRelease, { recursive: true });
+      await chmod(writableParent, 0o775);
+      await chmod(writableRelease, 0o755);
+      await writeFile(join(writableRelease, "compose.https.yaml"), "services: {}\n");
+      await writeFile(join(writableRelease, "Caddyfile"), "mcp.askrigor.com { respond 200 }\n");
+      await chmod(join(writableRelease, "compose.https.yaml"), 0o644);
+      await chmod(join(writableRelease, "Caddyfile"), 0o644);
+      await rm(selector);
+      await symlink(writableRelease, selector);
+      const rejectedWritable = bash(`
+        source "${installerScript}"
+        resolve_https_release "${selector}" "${releases}" "${fixtureUid}"
+      `);
+      expect(rejectedWritable.status).not.toBe(0);
+      expect(rejectedWritable.stderr).toContain("path must not be group/world writable");
     } finally {
       await rm(temporary, { recursive: true, force: true });
+    }
+  });
+
+  it("loads only unique validated public Caddy interpolation values", () => {
+    const valid = bash(`
+      source "${installerScript}"
+      docker() {
+        printf '%s\n' \
+          'ASKRIGOR_HOSTNAME=mcp.askrigor.com' \
+          'ASKRIGOR_DIRECT_DNS_ONLY=true'
+      }
+      extract_public_caddy_environment container-id
+      [[ "$caddy_hostname" == mcp.askrigor.com ]]
+      [[ "$caddy_direct_dns_only" == true ]]
+    `);
+    expect(valid.status, valid.stderr).toBe(0);
+
+    const duplicate = bash(`
+      source "${installerScript}"
+      docker() {
+        printf '%s\n' \
+          'ASKRIGOR_HOSTNAME=mcp.askrigor.com' \
+          'ASKRIGOR_HOSTNAME=other.example' \
+          'ASKRIGOR_DIRECT_DNS_ONLY=true'
+      }
+      extract_public_caddy_environment container-id
+    `);
+    expect(duplicate.status).not.toBe(0);
+    expect(duplicate.stderr).toContain("duplicate public Caddy variable");
+
+    const malformed = bash(`
+      source "${installerScript}"
+      docker() {
+        printf '%s\n' \
+          'ASKRIGOR_HOSTNAME=mcp.askrigor.com' \
+          'ASKRIGOR_DIRECT_DNS_ONLY=true;touch_/tmp/no'
+      }
+      extract_public_caddy_environment container-id
+    `);
+    expect(malformed.status).not.toBe(0);
+    expect(malformed.stderr).toContain("malformed ASKRIGOR_DIRECT_DNS_ONLY");
+    expect(installer).toContain("compose_environment=(");
+    expect(installer).toContain("env -i");
+    expect(installer).toContain("caddy_caddyfile=$production_caddyfile");
+    expect(installer).not.toContain("env_file");
+
+    const cleanEnvironment = bash(`
+      source "${installerScript}"
+      compose_environment=(
+        env -i
+        PATH=/usr/bin:/bin
+        HOME=/root
+        ASKRIGOR_HOSTNAME=mcp.askrigor.com
+        ASKRIGOR_DIRECT_DNS_ONLY=true
+        ASKRIGOR_CADDYFILE=/validated/Caddyfile
+      )
+      export SHOULD_NOT_REACH_COMPOSE=secret
+      run_compose_command /usr/bin/env
+    `);
+    expect(cleanEnvironment.status, cleanEnvironment.stderr).toBe(0);
+    expect(cleanEnvironment.stdout).toContain("ASKRIGOR_HOSTNAME=mcp.askrigor.com");
+    expect(cleanEnvironment.stdout).toContain("ASKRIGOR_CADDYFILE=/validated/Caddyfile");
+    expect(cleanEnvironment.stdout).not.toContain("SHOULD_NOT_REACH_COMPOSE");
+  });
+
+  it("requires exactly one running Caddy container from the validated Compose files", () => {
+    const accepted = bash(`
+      source "${installerScript}"
+      docker() { printf 'caddy-container-id\n'; }
+      discover_live_caddy_container /opt/askrigor/compose.yaml,/resolved/compose.https.yaml
+      [[ "$live_caddy_container_id" == caddy-container-id ]]
+    `);
+    expect(accepted.status, accepted.stderr).toBe(0);
+
+    for (const output of ["", "one\ntwo\n"]) {
+      const rejected = bash(`
+        source "${installerScript}"
+        docker() { printf ${JSON.stringify(output)}; }
+        discover_live_caddy_container /opt/askrigor/compose.yaml,/resolved/compose.https.yaml
+      `);
+      expect(rejected.status).not.toBe(0);
+      expect(rejected.stderr).toContain("exactly one running Caddy container");
     }
   });
 
