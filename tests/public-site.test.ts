@@ -71,6 +71,8 @@ describe("AskRigor public site", () => {
       "public YouTube author/channel IDs", "display names", "comment and reply text",
       "NCBI/PubMed", "Europe PMC", "ClinicalTrials.gov", "Crossref", "YouTube Data API v3",
       "active request", "does not persist", "connected client", "operational metadata",
+      "does not persist operational metadata", "Infrastructure providers may retain",
+      "access, correction, or deletion",
       "joel@askrigor.com"
     ]) expect(html).toContain(fragment);
   });

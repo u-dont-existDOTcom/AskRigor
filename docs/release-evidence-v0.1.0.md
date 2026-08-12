@@ -22,7 +22,7 @@ Scan Tools, and submission actions are resolved.
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | `9becea82eb84` (`fix: remove target Node dependency`); immutable VPS release `/opt/askrigor/site/releases/9becea82eb84`. |
 | Public site packet | SHA-256 `71e8e7a97522b6baeec6749292c577c4fa62ef86697eac6fe59aceab756ce670`; bootstrap evidence `/opt/askrigor/site/bootstrap/20260812T043156Z-3nU8HLDE/evidence`. |
-| Package version | `0.1.0`; manifest remains unchanged pending authoritative URL-field/schema validation. |
+| Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs. The support URL remains release/submission documentation because the schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
 successful deployment/validation work. The controller's validation runner

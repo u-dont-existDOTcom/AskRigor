@@ -252,6 +252,7 @@ describe("AskRigor public-review packet", () => {
     }
     expect(reviewChecklist).toContain("routine-status presentation");
     expect(reviewChecklist).toContain("Scan Tools");
+    expect(releaseEvidence).not.toContain("manifest remains unchanged");
   });
 });
 
