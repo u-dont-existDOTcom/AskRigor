@@ -74,3 +74,10 @@ export {
   type YoutubeSearchRecord,
   type YoutubeVideo
 } from "./youtube.js";
+export {
+  getYoutubeCommentSegment,
+  getYoutubeCommentsByIds,
+  type YoutubeCommentSegmentCursor,
+  type YoutubeCommentSegmentResult,
+  type YoutubeCommentSegmentRuntime
+} from "./youtube-comment-segment.js";
