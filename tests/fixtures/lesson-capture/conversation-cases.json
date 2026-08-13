@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "validated_missing_sources",
+      "scenario": "AskRigor rechecks a missing-sources criticism, validates it, and has no standing consent.",
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [],
+        "standing_consent_after": false
+      },
+      "required_contract_text": [
+        "With no standing consent, display the candidate first, ask the exact question above, and do not call the Action yet."
+      ]
+    },
+    {
+      "id": "yes_once",
+      "scenario": "The user replies exactly Yes to one displayed pending candidate.",
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "once"
+          }
+        ],
+        "standing_consent_after": false
+      },
+      "required_contract_text": [
+        "`Yes` authorizes exactly the currently displayed candidate: call `submit_lesson_candidate` once with `consent_scope: \"once\"`, then clear the pending candidate without enabling standing consent."
+      ]
+    },
+    {
+      "id": "yes_always_first_and_later",
+      "scenario": "The user replies exactly Yes always in this chat, then AskRigor independently validates another lesson later in the same chat.",
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 2,
+        "askrigor_consent_questions": 1,
+        "action_calls": [
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "conversation"
+          },
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "conversation"
+          }
+        ],
+        "standing_consent_after": true,
+        "later_candidate_auto_submitted": true
+      },
+      "required_contract_text": [
+        "For every later independently validated candidate in that same chat, display the generalized candidate first, then call the Action with `consent_scope: \"conversation\"` without repeating AskRigor's consent question."
+      ]
+    },
+    {
+      "id": "no_silence_ambiguity_or_topic_change",
+      "scenario": "The pending-candidate response is No, silence, ambiguous assent, or a changed subject.",
+      "variants": [
+        "No",
+        "silence",
+        "ambiguous assent",
+        "changed subject"
+      ],
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [],
+        "standing_consent_after": false,
+        "pending_candidate_after": false
+      },
+      "required_contract_text": [
+        "`No`, silence, ambiguous assent, or a changed subject authorizes no call; discard the pending candidate."
+      ]
+    },
+    {
+      "id": "stop_clears_standing_consent",
+      "scenario": "Standing consent is active and the user says Stop submitting lessons.",
+      "expected": {
+        "lesson_proposed": false,
+        "generalized_candidates_displayed": 0,
+        "askrigor_consent_questions": 0,
+        "action_calls": [],
+        "standing_consent_before": true,
+        "standing_consent_after": false,
+        "pending_candidate_after": false
+      },
+      "required_contract_text": [
+        "`Stop submitting lessons` immediately clears standing consent and any pending candidate without making a call."
+      ]
+    },
+    {
+      "id": "new_chat_clears_standing_consent",
+      "scenario": "A new chat begins after standing consent existed in a previous chat.",
+      "expected": {
+        "lesson_proposed": false,
+        "generalized_candidates_displayed": 0,
+        "askrigor_consent_questions": 0,
+        "action_calls": [],
+        "standing_consent_after": false,
+        "pending_candidate_after": false
+      },
+      "required_contract_text": [
+        "At the start of every new chat, initialize standing consent to off and the pending candidate to empty; never inherit or recover either value."
+      ]
+    },
+    {
+      "id": "unverified_or_preference_disagreement",
+      "scenario": "The criticism remains unverified or is only a preference disagreement.",
+      "expected": {
+        "lesson_proposed": false,
+        "generalized_candidates_displayed": 0,
+        "askrigor_consent_questions": 0,
+        "action_calls": [],
+        "standing_consent_after": false
+      },
+      "required_contract_text": [
+        "Do not propose or submit a candidate when the criticism is unverified, is a preference disagreement, or remains in doubt."
+      ]
+    },
+    {
+      "id": "privacy_rejection_or_failure",
+      "scenario": "The Action returns privacy_rejected or the privacy service is unavailable.",
+      "server_statuses": [
+        "privacy_rejected",
+        "anonymizer_unavailable"
+      ],
+      "expected": {
+        "success_claim": false,
+        "private_url_displayed": false,
+        "receipts": {
+          "privacy_rejected": "Lesson not submitted: privacy screening rejected the candidate.",
+          "anonymizer_unavailable": "Lesson not submitted: privacy generalization is unavailable."
+        }
+      },
+      "required_contract_text": [
+        "`privacy_rejected` -> `Lesson not submitted: privacy screening rejected the candidate.`",
+        "`anonymizer_unavailable` -> `Lesson not submitted: privacy generalization is unavailable.`"
+      ]
+    },
+    {
+      "id": "successful_submission_receipt",
+      "scenario": "The Action returns submitted with ARL-0042 and occurrence count 1.",
+      "server_statuses": [
+        "submitted"
+      ],
+      "expected": {
+        "success_claim": true,
+        "private_url_displayed": false,
+        "receipt": "Lesson submitted for private review as ARL-0042 (anonymous occurrence 1)."
+      },
+      "required_contract_text": [
+        "`submitted` -> `Lesson submitted for private review as {candidate_id} (anonymous occurrence {occurrence_count}).`"
+      ]
+    },
+    {
+      "id": "platform_confirmation_remains",
+      "scenario": "Standing conversational consent exists and ChatGPT applies its own confirmation to a consequential Action call.",
+      "expected": {
+        "askrigor_consent_questions": 0,
+        "chatgpt_platform_confirmation_may_occur": true,
+        "platform_confirmation_suppressed": false
+      },
+      "required_contract_text": [
+        "The Action is consequential, so ChatGPT may still require its own platform confirmation for every call; conversational standing consent cannot suppress, bypass, or replace that confirmation."
+      ]
+    }
+  ]
+}
