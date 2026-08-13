@@ -81,7 +81,11 @@ export function createAskRigorHttpServer(
   validateActionRoutes(actionRoutes);
 
   return createServer(async (request, response) => {
-    const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+    const pathname = exactOriginFormPath(request.url);
+    if (pathname === undefined) {
+      response.writeHead(404).end();
+      return;
+    }
 
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -179,6 +183,19 @@ export function createAskRigorHttpServer(
       releasePermit();
     }
   });
+}
+
+function exactOriginFormPath(target: string | undefined): string | undefined {
+  if (
+    target === undefined ||
+    !target.startsWith("/") ||
+    target.startsWith("//") ||
+    target.includes("#")
+  ) {
+    return undefined;
+  }
+  const queryIndex = target.indexOf("?");
+  return queryIndex < 0 ? target : target.slice(0, queryIndex);
 }
 
 class RequestBodyTooLargeError extends Error {}

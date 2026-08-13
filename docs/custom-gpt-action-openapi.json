@@ -88,6 +88,106 @@
               }
             }
           },
+          "400": {
+            "description": "HTTP 400 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_invalid_json",
+                            "action_request_read_failed"
+                          ]
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "HTTP 401 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_auth_required"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "HTTP 413 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_body_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "415": {
             "description": "HTTP 415 response",
             "content": {
@@ -179,6 +279,16 @@
                       ]
                     }
                   }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "required": true,
+                "description": "Seconds until the Action request may be retried.",
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1
                 }
               }
             }

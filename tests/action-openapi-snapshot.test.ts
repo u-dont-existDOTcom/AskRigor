@@ -48,7 +48,18 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
         },
       },
     });
-    expect(Object.keys(operation?.responses as object)).toEqual(["200", "415", "422", "429", "503"]);
+    expect(Object.keys(operation?.responses as object)).toEqual([
+      "200", "400", "401", "413", "415", "422", "429", "503"
+    ]);
+    expect((operation?.responses as Record<string, unknown>)["429"]).toMatchObject({
+      headers: {
+        "Retry-After": {
+          required: true,
+          description: "Seconds until the Action request may be retried.",
+          schema: { type: "integer", minimum: 1 },
+        },
+      },
+    });
 
     const serialized = JSON.stringify(document);
     expect(objectKeys(document)).not.toEqual(expect.arrayContaining(["example", "examples"]));

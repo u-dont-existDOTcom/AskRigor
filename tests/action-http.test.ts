@@ -1,4 +1,7 @@
+import { execFile } from "node:child_process";
+import { createConnection } from "node:net";
 import type { AddressInfo } from "node:net";
+import { promisify } from "node:util";
 
 import { describe, expect, it } from "vitest";
 
@@ -6,6 +9,8 @@ import {
   createAskRigorHttpServer,
   type ActionRoute
 } from "../apps/research-mcp/src/server.js";
+
+const execFileAsync = promisify(execFile);
 
 const routes: ActionRoute[] = [{
   method: "POST",
@@ -66,6 +71,116 @@ describe("isolated Action HTTP routing", () => {
       expect(await response.json()).toEqual({ body: { lesson: "private" } });
     });
   });
+
+  it("allows an ordinary query only when the raw origin-form Action path is exact", async () => {
+    let handlerCalls = 0;
+    const exactRoute: ActionRoute = {
+      ...routes[0],
+      async handle({ body }) {
+        handlerCalls += 1;
+        return { status: 200, body: { body } };
+      }
+    };
+
+    await withHttpServer({ actionRoutes: [exactRoute] }, async (baseUrl) => {
+      const response = await rawHttpRequest(baseUrl, "/actions/test?trace=ordinary", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-action-secret",
+          "content-type": "application/json"
+        },
+        body: "{}"
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toBe('{"body":{}}');
+    });
+    expect(handlerCalls).toBe(1);
+  });
+
+  it.each([
+    "/actions/foo/../test",
+    "/actions/foo/%2e%2e/test",
+    "/actions/%2e/test",
+    "/actions\\test",
+    "/actions/%74est",
+    "//evil.example/actions/test",
+    "http://evil.example/actions/test"
+  ])("returns 404 without authentication or handler dispatch for noncanonical target %s", async (target) => {
+    let handlerCalls = 0;
+    const exactRoute: ActionRoute = {
+      ...routes[0],
+      async handle() {
+        handlerCalls += 1;
+        return { status: 200, body: {} };
+      }
+    };
+
+    await withHttpServer({ actionRoutes: [exactRoute] }, async (baseUrl) => {
+      const response = await rawHttpRequest(baseUrl, target, {
+        method: "POST",
+        headers: {
+          authorization: "Bearer test-action-secret",
+          "content-type": "application/json"
+        },
+        body: "{}"
+      });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toBe("");
+    });
+    expect(handlerCalls).toBe(0);
+  });
+
+  it("contains a malformed raw request target and keeps the isolated server healthy", async () => {
+    const childSource = String.raw`
+      import { createConnection } from "node:net";
+      import { createAskRigorHttpServer } from "./apps/research-mcp/src/server.ts";
+
+      const server = createAskRigorHttpServer({
+        publicServerEnabled: true,
+        actionsEnabled: false
+      });
+      await new Promise((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(0, "127.0.0.1", resolve);
+      });
+      const { port } = server.address();
+
+      const rawResponse = await new Promise((resolve, reject) => {
+        const socket = createConnection({ host: "127.0.0.1", port }, () => {
+          socket.write("GET http://[ HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
+        });
+        let value = "";
+        socket.setEncoding("utf8");
+        socket.on("data", (chunk) => { value += chunk; });
+        socket.once("error", reject);
+        socket.once("end", () => resolve(value));
+      });
+      const health = await fetch("http://127.0.0.1:" + port + "/healthz");
+      console.log(JSON.stringify({
+        malformed_status: Number(/^HTTP\/1\.1 (\d{3})/u.exec(rawResponse)?.[1]),
+        health_status: health.status,
+        health_body: await health.json()
+      }));
+      await new Promise((resolve, reject) => {
+        server.close((error) => error ? reject(error) : resolve());
+      });
+    `;
+
+    const { stdout, stderr } = await execFileAsync(
+      process.execPath,
+      ["--import", "tsx", "--input-type=module", "--eval", childSource],
+      { cwd: process.cwd(), timeout: 15_000 }
+    );
+
+    expect(stderr).toBe("");
+    expect(JSON.parse(stdout)).toEqual({
+      malformed_status: 404,
+      health_status: 200,
+      health_body: { status: "ok", service: "askrigor-research", version: "0.1.0" }
+    });
+  }, 20_000);
 
   it("rejects Action bodies above 8,192 bytes before reaching the handler", async () => {
     let handlerCalls = 0;
@@ -191,4 +306,63 @@ async function withHttpServer<T>(
       server.close((error) => error ? reject(error) : resolve());
     });
   }
+}
+
+async function rawHttpRequest(
+  baseUrl: URL,
+  target: string,
+  options: {
+    method: string;
+    headers?: Readonly<Record<string, string>>;
+    body?: string;
+  }
+): Promise<{ status: number; body: string }> {
+  const port = Number(baseUrl.port);
+  const body = options.body ?? "";
+  const headers = {
+    host: "localhost",
+    connection: "close",
+    ...(body.length > 0 ? { "content-length": String(Buffer.byteLength(body)) } : {}),
+    ...options.headers
+  };
+  const head = [
+    `${options.method} ${target} HTTP/1.1`,
+    ...Object.entries(headers).map(([name, value]) => `${name}: ${value}`),
+    "",
+    body
+  ].join("\r\n");
+
+  const raw = await new Promise<string>((resolve, reject) => {
+    const socket = createConnection({ host: "127.0.0.1", port }, () => socket.write(head));
+    let response = "";
+    socket.setEncoding("utf8");
+    socket.on("data", (chunk) => { response += chunk; });
+    socket.once("error", reject);
+    socket.once("end", () => resolve(response));
+  });
+  const separator = raw.indexOf("\r\n\r\n");
+  const status = Number(/^HTTP\/1\.1 (\d{3})/u.exec(raw)?.[1]);
+  const responseHeaders = separator < 0 ? "" : raw.slice(0, separator);
+  const rawBody = separator < 0 ? "" : raw.slice(separator + 4);
+  return {
+    status,
+    body: /\r\ntransfer-encoding: chunked\r?$/imu.test(responseHeaders)
+      ? decodeChunkedBody(rawBody)
+      : rawBody
+  };
+}
+
+function decodeChunkedBody(value: string): string {
+  let remaining = value;
+  let decoded = "";
+  while (remaining.length > 0) {
+    const lineEnd = remaining.indexOf("\r\n");
+    if (lineEnd < 0) return decoded;
+    const size = Number.parseInt(remaining.slice(0, lineEnd), 16);
+    if (!Number.isFinite(size) || size === 0) return decoded;
+    const chunkStart = lineEnd + 2;
+    decoded += remaining.slice(chunkStart, chunkStart + size);
+    remaining = remaining.slice(chunkStart + size + 2);
+  }
+  return decoded;
 }
