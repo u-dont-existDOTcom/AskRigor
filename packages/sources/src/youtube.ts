@@ -156,6 +156,7 @@ const commentsResponseSchema = z.object({
 }).passthrough();
 
 export interface YoutubeConfig { apiKey: string; }
+export interface YoutubeRequestRuntime { max_elapsed_ms?: number; }
 export interface SearchYoutubeInput { query: string; pageSize?: number; cursor?: string; }
 export interface YoutubeSearchRecord {
   video_id: string;
@@ -371,7 +372,8 @@ export const searchYoutube = async (
 
 export const getYoutubeVideo = async (
   videoIdOrUrl: string,
-  config: YoutubeConfig
+  config: YoutubeConfig,
+  runtime: YoutubeRequestRuntime = {}
 ): Promise<ProvenanceEnvelope<YoutubeVideo>> => {
   const parsedConfig = apiKeySchema.safeParse(config.apiKey);
   if (!parsedConfig.success) return videoError("youtube_api_key_missing");
@@ -383,7 +385,14 @@ export const getYoutubeVideo = async (
     url.searchParams.set("part", "snippet,contentDetails,statistics,status");
     url.searchParams.set("id", videoId);
     url.searchParams.set("key", parsedConfig.data);
-    const parsedResponse = videosResponseSchema.safeParse(await fetchJson(url.toString()));
+    const maxElapsedMs = runtime.max_elapsed_ms;
+    if (maxElapsedMs !== undefined && (!Number.isInteger(maxElapsedMs) || maxElapsedMs < 1)) {
+      return videoError("youtube_video_runtime_invalid", videoId);
+    }
+    const parsedResponse = videosResponseSchema.safeParse(await fetchJson(
+      url.toString(),
+      maxElapsedMs === undefined ? undefined : { timeoutMs: maxElapsedMs }
+    ));
     if (!parsedResponse.success || !isCoherentVideoResponse(parsedResponse.data, videoId)) {
       throw new YoutubeResponseError();
     }
@@ -1783,6 +1792,7 @@ type YoutubeFailureCode =
   | "youtube_comments_disabled"
   | "youtube_search_input_invalid"
   | "youtube_video_id_invalid"
+  | "youtube_video_runtime_invalid"
   | "youtube_response_invalid"
   | "youtube_video_not_found"
   | "youtube_parent_comment_not_found"
@@ -1832,6 +1842,7 @@ const failureDetails = (code: YoutubeFailureCode): {
   if (code === "youtube_comments_disabled") return { accessStatus: "comments_disabled", message: "YouTube comments are disabled", retryable: false, httpStatus: 403 };
   if (code === "youtube_search_input_invalid") return { accessStatus: "error", message: "YouTube search input is invalid", retryable: false };
   if (code === "youtube_video_id_invalid") return { accessStatus: "error", message: "YouTube video identifier is invalid", retryable: false };
+  if (code === "youtube_video_runtime_invalid") return { accessStatus: "error", message: "YouTube video runtime configuration is invalid", retryable: false };
   if (code === "youtube_response_invalid") return { accessStatus: "error", message: "YouTube response was invalid", retryable: false };
   if (code === "youtube_video_not_found") return { accessStatus: "not_found", message: "YouTube video was not found", retryable: false, httpStatus: 404 };
   if (code === "youtube_parent_comment_not_found") return { accessStatus: "not_found", message: "YouTube parent comment was not found", retryable: false, httpStatus: 404 };

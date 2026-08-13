@@ -101,6 +101,11 @@ export interface YoutubeCommentSegmentRuntime {
   now?: () => number;
 }
 
+export interface YoutubeCommentRefetchRuntime {
+  max_elapsed_ms?: number;
+  now?: () => number;
+}
+
 interface SegmentAccounting {
   attempts: number;
   maxAttempts: number;
@@ -555,7 +560,8 @@ function providerFailure(videoId: string, error: UpstreamHttpError): YoutubeComm
 export async function getYoutubeCommentsByIds(
   videoIdInput: string,
   commentIds: readonly string[],
-  config: YoutubeConfig
+  config: YoutubeConfig,
+  runtime: YoutubeCommentRefetchRuntime = {}
 ): Promise<{
   access_status: "api_visible_complete" | "partial" | "inaccessible" |
     "rate_limited" | "not_found" | "error";
@@ -578,8 +584,26 @@ export async function getYoutubeCommentsByIds(
   }
 
   const comments: YoutubeComment[] = [];
+  const now = runtime.now ?? Date.now;
+  const startedAt = now();
+  const maxElapsedMs = runtime.max_elapsed_ms ?? DEFAULT_MAX_ELAPSED_MS;
+  if (!Number.isInteger(maxElapsedMs) || maxElapsedMs < 1) {
+    return {
+      access_status: "error",
+      comments: [],
+      limitations: ["Comment-ID refetch runtime was invalid."]
+    };
+  }
   try {
     for (let offset = 0; offset < commentIds.length; offset += 100) {
+      const elapsedMs = refetchElapsed(now, startedAt);
+      if (elapsedMs >= maxElapsedMs) {
+        return {
+          access_status: "partial",
+          comments,
+          limitations: ["Comment-ID refetch reached its per-call elapsed-time budget."]
+        };
+      }
       const batch = commentIds.slice(offset, offset + 100);
       const requested = new Set(batch);
       const url = new URL(`${YOUTUBE_API_URL}/comments`);
@@ -588,7 +612,10 @@ export async function getYoutubeCommentsByIds(
       url.searchParams.set("maxResults", String(batch.length));
       url.searchParams.set("textFormat", "plainText");
       url.searchParams.set("key", config.apiKey);
-      const payload = await fetchJson(url.toString(), { maxRetries: 0 });
+      const payload = await fetchJson(url.toString(), {
+        maxRetries: 0,
+        timeoutMs: Math.max(1, maxElapsedMs - elapsedMs)
+      });
       const parsed = replyPageSchema.safeParse(payload);
       if (!parsed.success || parsed.data.nextPageToken !== undefined) {
         return invalidCommentIdRefetch(comments);
@@ -633,6 +660,14 @@ export async function getYoutubeCommentsByIds(
     comments,
     limitations: []
   };
+}
+
+function refetchElapsed(now: () => number, startedAt: number): number {
+  const value = now();
+  if (!Number.isFinite(value) || value < startedAt) {
+    throw new Error("Invalid comment-ID refetch clock");
+  }
+  return value - startedAt;
 }
 
 function invalidCommentIdRefetch(comments: YoutubeComment[]): {

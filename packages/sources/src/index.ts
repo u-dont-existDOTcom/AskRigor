@@ -70,6 +70,7 @@ export {
   type YoutubeCommentRetrievalBudgets,
   type YoutubeCommentRetrievalRuntime,
   type YoutubeConfig,
+  type YoutubeRequestRuntime,
   type YoutubeReplyCountMismatch,
   type YoutubeSearchRecord,
   type YoutubeVideo
@@ -78,6 +79,7 @@ export {
   getYoutubeCommentSegment,
   getYoutubeCommentsByIds,
   type YoutubeCommentSegmentCursor,
+  type YoutubeCommentRefetchRuntime,
   type YoutubeCommentSegmentResult,
   type YoutubeCommentSegmentRuntime
 } from "./youtube-comment-segment.js";

@@ -381,6 +381,48 @@ describe("resumable YouTube comment segments", () => {
     expect(JSON.stringify(result)).not.toContain(YOUTUBE.apiKey);
   });
 
+  it("stops multi-batch comment-ID refetch at its shared elapsed-time budget", async () => {
+    const ids = Array.from({ length: 101 }, (_, index) =>
+      `UgxBudgeted${String(index).padStart(4, "0")}`
+    );
+    let clock = 0;
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      const requested = url.searchParams.get("id")?.split(",") ?? [];
+      clock = 10;
+      return Response.json({
+        pageInfo: { totalResults: requested.length, resultsPerPage: requested.length },
+        items: requested.map((id) => ({
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            textDisplay: `comment ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }))
+      });
+    }));
+
+    const result = await getYoutubeCommentsByIds(
+      "XpZHKGGCK-o",
+      ids,
+      YOUTUBE,
+      { max_elapsed_ms: 5, now: () => clock }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      comments: expect.any(Array),
+      limitations: [expect.stringContaining("elapsed-time budget")]
+    });
+    expect(result.comments).toHaveLength(100);
+    expect(requests).toHaveLength(1);
+  });
+
   it("preserves committed records and the resume cursor on a retryable mid-segment boundary", async () => {
     const [threadPage, quotaError] = await Promise.all([
       fixture("comment-threads-page-1.json"),

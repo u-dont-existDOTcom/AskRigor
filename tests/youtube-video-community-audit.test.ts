@@ -152,7 +152,70 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(dependencies.get_comments_by_ids).toHaveBeenCalledWith(
       VIDEO_ID,
       expect.arrayContaining([expect.any(String)]),
-      CONFIG.youtube
+      CONFIG.youtube,
+      { max_elapsed_ms: 15_000, now: expect.any(Function) }
+    );
+  });
+
+  it("shares one elapsed-time budget across metadata, acquisition, and terminal refetch", async () => {
+    let clock = NOW;
+    const comments = makeComments(1);
+    const getVideo = vi.fn(async () => {
+      clock += 4_000;
+      return videoEnvelope("1");
+    });
+    const getSegment = vi.fn(async () => {
+      clock += 8_000;
+      return {
+        video_id: VIDEO_ID,
+        comments,
+        top_level_comments_retrieved: 1,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0,
+        reply_count_mismatches: [],
+        exhausted: true,
+        access_status: "api_visible_complete" as const,
+        limitations: []
+      };
+    });
+    const getCommentsByIds = vi.fn(async () => ({
+      access_status: "api_visible_complete" as const,
+      comments,
+      limitations: []
+    }));
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: getVideo,
+      get_segment: getSegment,
+      get_comments_by_ids: getCommentsByIds
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      {
+        now: () => clock,
+        max_elapsed_ms: 15_000,
+        dependencies
+      } as never
+    );
+
+    expect(result.receipt.synthesis_lock).toBe("pass");
+    expect(getVideo).toHaveBeenCalledWith(
+      VIDEO_ID,
+      CONFIG.youtube,
+      { max_elapsed_ms: 15_000 }
+    );
+    expect(getSegment).toHaveBeenCalledWith(
+      { video: VIDEO_ID, page_size: 20 },
+      CONFIG.youtube,
+      expect.objectContaining({ max_elapsed_ms: 11_000, now: expect.any(Function) })
+    );
+    expect(getCommentsByIds).toHaveBeenCalledWith(
+      VIDEO_ID,
+      [comments[0]!.comment_id],
+      CONFIG.youtube,
+      { max_elapsed_ms: 3_000, now: expect.any(Function) }
     );
   });
 
@@ -240,7 +303,7 @@ describe("adaptive per-video YouTube community audit", () => {
         cursor: { top_level_page_token: "page-11", thread_offset: 0, top_level_emitted: false }
       },
       CONFIG.youtube,
-      undefined
+      { max_elapsed_ms: 15_000, now: expect.any(Function) }
     );
   });
 

@@ -22,6 +22,7 @@ import {
 const TOKEN_LIFETIME_MS = 3_600_000;
 const MIN_SECRET_BYTES = 32;
 const DEFAULT_ANALYSIS_LIMIT = 500;
+const DEFAULT_MAX_ELAPSED_MS = 15_000;
 const COMMENT_PAGE_SIZE = 20;
 const ZERO_SHA256 = "0".repeat(64);
 const ACCESS_BOUNDARIES = new Set<AccessStatus>([
@@ -136,6 +137,7 @@ export interface YoutubeVideoCommunityAuditDependencies {
 
 export interface YoutubeVideoCommunityAuditRuntime {
   now?: () => number;
+  max_elapsed_ms?: number;
   segment?: YoutubeCommentSegmentRuntime;
   dependencies?: YoutubeVideoCommunityAuditDependencies;
 }
@@ -154,7 +156,9 @@ export async function auditYoutubeVideoCommunity(
   validateSecret(config.continuation_secret);
   const parsedInput = youtubeVideoCommunityAuditInputSchema.safeParse(input);
   if (!parsedInput.success) throw new Error("YouTube video community audit input is invalid");
-  const nowMs = readNow(runtime.now);
+  const clock = runtime.now ?? Date.now;
+  const nowMs = readNow(clock);
+  const maxElapsedMs = readMaxElapsed(runtime.max_elapsed_ms);
   const dependencies = runtime.dependencies ?? DEFAULT_DEPENDENCIES;
   const isContinuation = input.continuation_token !== undefined;
 
@@ -194,7 +198,9 @@ export async function auditYoutubeVideoCommunity(
     };
   }
 
-  const metadata = await dependencies.get_video(videoId, config.youtube);
+  const metadata = await dependencies.get_video(videoId, config.youtube, {
+    max_elapsed_ms: remainingElapsed(clock, nowMs, maxElapsedMs)
+  });
   const metadataVideo = isComplete(metadata.access_status) ? metadata.data : undefined;
   const currentProviderCount = metadataVideo?.statistics?.comment_count;
   baseState = {
@@ -208,7 +214,14 @@ export async function auditYoutubeVideoCommunity(
     video: videoId,
     page_size: COMMENT_PAGE_SIZE,
     ...(resumeCursor === undefined ? {} : { cursor: resumeCursor })
-  }, config.youtube, runtime.segment);
+  }, config.youtube, {
+    ...runtime.segment,
+    max_elapsed_ms: Math.min(
+      runtime.segment?.max_elapsed_ms ?? maxElapsedMs,
+      remainingElapsed(clock, nowMs, maxElapsedMs)
+    ),
+    now: runtime.segment?.now ?? clock
+  });
   if (
     segment.video_id !== videoId ||
     segment.comments.some(({ video_id }) => video_id !== videoId)
@@ -249,7 +262,15 @@ export async function auditYoutubeVideoCommunity(
       sample = { mode: "all", corpus_count: 0, sampled_count: 0, comments: [] };
     } else {
       const sampleIds = state.sample_identifiers.map(({ comment_id }) => comment_id);
-      const refetched = await dependencies.get_comments_by_ids(videoId, sampleIds, config.youtube);
+      const refetched = await dependencies.get_comments_by_ids(
+        videoId,
+        sampleIds,
+        config.youtube,
+        {
+          max_elapsed_ms: remainingElapsed(clock, nowMs, maxElapsedMs),
+          now: clock
+        }
+      );
       const returnedIds = refetched.comments.map(({ comment_id }) => comment_id);
       if (
         refetched.access_status !== "api_visible_complete" ||
@@ -377,6 +398,22 @@ function readNow(now: (() => number) | undefined): number {
     throw new Error("YouTube video community audit clock is invalid");
   }
   return value;
+}
+
+function readMaxElapsed(value: number | undefined): number {
+  const maxElapsedMs = value ?? DEFAULT_MAX_ELAPSED_MS;
+  if (!Number.isSafeInteger(maxElapsedMs) || maxElapsedMs < 1) {
+    throw new Error("YouTube video community audit elapsed-time budget is invalid");
+  }
+  return maxElapsedMs;
+}
+
+function remainingElapsed(now: () => number, startedAt: number, maximum: number): number {
+  const current = readNow(now);
+  if (current < startedAt) {
+    throw new Error("YouTube video community audit clock moved backwards");
+  }
+  return Math.max(1, maximum - (current - startedAt));
 }
 
 function validateSecret(secret: string): void {

@@ -872,9 +872,9 @@ export function registerTools(server: McpServer): void {
           youtube: youtubeConfig(),
           continuation_secret: youtubeAuditContinuationSecret()
         }, {
+          max_elapsed_ms: PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs,
           segment: {
-            max_provider_requests: PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests,
-            max_elapsed_ms: PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs
+            max_provider_requests: PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests
           }
         });
       } catch (error) {
