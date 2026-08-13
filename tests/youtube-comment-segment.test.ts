@@ -574,6 +574,7 @@ describe("resumable YouTube comment segments", () => {
     expect(requests).toHaveLength(2);
     expect(requests.map((url) => url.searchParams.get("id")!.split(",").length)).toEqual([100, 1]);
     expect(requests.every((url) => url.searchParams.get("part") === "snippet")).toBe(true);
+    expect(requests.every((url) => !url.searchParams.has("maxResults"))).toBe(true);
     expect(JSON.stringify(result)).not.toContain(YOUTUBE.apiKey);
   });
 

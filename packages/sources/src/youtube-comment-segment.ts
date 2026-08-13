@@ -655,7 +655,6 @@ export async function getYoutubeCommentsByIds(
       const url = new URL(`${YOUTUBE_API_URL}/comments`);
       url.searchParams.set("part", "snippet");
       url.searchParams.set("id", batch.join(","));
-      url.searchParams.set("maxResults", String(batch.length));
       url.searchParams.set("textFormat", "plainText");
       url.searchParams.set("key", config.apiKey);
       const payload = await fetchJson(url.toString(), {
