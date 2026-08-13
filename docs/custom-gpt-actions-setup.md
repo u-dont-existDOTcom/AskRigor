@@ -48,18 +48,18 @@ The runtime requires these exact names and constraints:
 | Environment variable | Required value or boundary |
 | --- | --- |
 | `ASKRIGOR_ACTIONS_ENABLED` | Exact literal `true` only when ready to accept Actions. |
-| `ASKRIGOR_ACTIONS_API_KEY` | Dedicated high-entropy Action Bearer secret. |
-| `OPENAI_API_KEY` | Dedicated OpenAI API project key for the privacy check; VPS only. |
-| `ASKRIGOR_AI_BUDGET_LEDGER` | Absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
-| `ASKRIGOR_AI_MONTHLY_BUDGET_USD` | Exact literal `50.00`. |
+| `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
+| `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
+| `ASKRIGOR_AI_BUDGET_LEDGER` | Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
+| `ASKRIGOR_AI_MONTHLY_BUDGET_USD` | Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`. |
 | `ASKRIGOR_GITHUB_APP_ID` | Positive decimal App ID. |
 | `ASKRIGOR_GITHUB_INSTALLATION_ID` | Positive decimal installation ID. |
-| `ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64` | Base64-encoded dedicated App private key; VPS only. |
+| `ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64` | Base64-encoded dedicated server-only App private key. |
 | `ASKRIGOR_LESSONS_REPOSITORY` | Exact private repository name `u-dont-existDOTcom/AskRigor-lessons`. |
 
 The server enforces a hard monthly cap of **$50.00**, recorded as an aggregate
-nano-USD ledger. It uses only the fixed privacy model
-`gpt-5-nano-2025-08-07` with `store: false`. Budget exhaustion, ledger failure,
+nano-USD ledger. The server accepts only the fixed privacy model `gpt-5-nano-2025-08-07`; no moving alias is allowed.
+The request uses `store: false`. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses
 screening or reaches GitHub.
 

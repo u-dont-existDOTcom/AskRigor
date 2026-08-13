@@ -71,10 +71,21 @@ describe("AskRigor public site", () => {
       "public YouTube author/channel IDs", "display names", "comment and reply text",
       "NCBI/PubMed", "Europe PMC", "ClinicalTrials.gov", "Crossref", "YouTube Data API v3",
       "active request", "does not persist", "connected client", "operational metadata",
-      "does not persist operational metadata", "Infrastructure providers may retain",
+      "Infrastructure providers may retain",
       "access, correction, or deletion",
       "joel@askrigor.com"
     ]) expect(html).toContain(fragment);
+
+    expect(html).toContain(
+      "The application persists no request or response body, candidate content, or access log.",
+    );
+    expect(html).toContain(
+      "Only four aggregate budget data values are retained in that ledger: UTC month, fixed monthly limit, charged nano-USD total, and update time.",
+    );
+    expect(html).toContain("A non-content schema marker is also stored.");
+    expect(html).toContain("Neither contains candidate or request content.");
+    expect(html).not.toContain("does not persist operational metadata");
+    expect(html).not.toContain("Application and reverse-proxy operational logs omit");
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
@@ -91,17 +102,17 @@ describe("AskRigor public site", () => {
       "private review candidate",
       "anonymous occurrence count",
       "No user account, conversation ID, medical history, upload, or raw quotation",
-      "deletion-eligible 90 days",
-      "deliberate maintainer operation",
-      "may occur later",
+      "deletion-eligible only after more than 90 complete days from terminal review",
+      "Deletion is not automatic; a maintainer must act, so it may occur later.",
       "ARL-####",
       "request earlier deletion",
       "OpenAI, GitHub, ChatGPT, and infrastructure providers",
-      "candidate, request, or response bodies",
+      "no request or response body, candidate content, or access log",
     ]) expect(html).toContain(fragment);
 
     expect(html).not.toContain("AskRigor-lessons");
     expect(html).not.toContain("github.com/");
+    expect(html).not.toContain("deletion-eligible 90 days after terminal review");
   });
 
   it("states the home research boundary", async () => {

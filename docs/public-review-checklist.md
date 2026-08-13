@@ -2,8 +2,10 @@
 
 This packet is prepared for a future plugin draft. It is not permission to submit
 or publish. The website/privacy/terms/support gate passed on 2026-08-12 for
-immutable site release `f928b95e29cd`, including the live privacy policy at
-`https://askrigor.com/privacy`. **PUBLIC SUBMISSION BLOCKED** still applies to
+immutable site release `f928b95e29cd`.
+The live August 12 policy at release `f928b95e29cd` is the pre-lesson notice.
+The August 13 lesson notice is prepared in this branch but is not yet deployed.
+**PUBLIC SUBMISSION BLOCKED** still applies to
 the separate routine-status presentation regression, portal identity and
 domain-verification work, Scan Tools review, and submission actions recorded in
 `docs/release-evidence-v0.1.0.md`.

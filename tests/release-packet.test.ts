@@ -29,25 +29,30 @@ const TOOL_NAMES = [
 
 describe("AskRigor public-review packet", () => {
   it("documents the exact lesson data, setup, and rollback boundary", async () => {
-    const [setup, privacyMap, readme, checklist, openApi] = await Promise.all([
+    const [setup, privacyMap, privacySite, readme, checklist, openApi] = await Promise.all([
       readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
       readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
+      readFile(rootFile("site/privacy/index.html"), "utf8"),
       readFile(rootFile("README.md"), "utf8"),
       readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-action-openapi.json"), "utf8"),
     ]);
 
-    for (const variable of [
-      "ASKRIGOR_ACTIONS_ENABLED",
-      "ASKRIGOR_ACTIONS_API_KEY",
-      "OPENAI_API_KEY",
-      "ASKRIGOR_AI_BUDGET_LEDGER",
-      "ASKRIGOR_AI_MONTHLY_BUDGET_USD",
-      "ASKRIGOR_GITHUB_APP_ID",
-      "ASKRIGOR_GITHUB_INSTALLATION_ID",
-      "ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64",
-      "ASKRIGOR_LESSONS_REPOSITORY",
-    ]) expect(setup).toContain(variable);
+    const environmentRows = new Map(
+      [...setup.matchAll(/^\| `([^`]+)` \| ([^|]+) \|$/gmu)]
+        .map((match) => [match[1], match[2]?.trim()]),
+    );
+    expect(Object.fromEntries(environmentRows)).toEqual({
+      ASKRIGOR_ACTIONS_ENABLED: "Exact literal `true` only when ready to accept Actions.",
+      ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
+      OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
+      ASKRIGOR_AI_BUDGET_LEDGER: "Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`.",
+      ASKRIGOR_AI_MONTHLY_BUDGET_USD: "Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`.",
+      ASKRIGOR_GITHUB_APP_ID: "Positive decimal App ID.",
+      ASKRIGOR_GITHUB_INSTALLATION_ID: "Positive decimal installation ID.",
+      ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64: "Base64-encoded dedicated server-only App private key.",
+      ASKRIGOR_LESSONS_REPOSITORY: "Exact private repository name `u-dont-existDOTcom/AskRigor-lessons`.",
+    });
 
     for (const fragment of [
       "$50.00",
@@ -75,6 +80,9 @@ describe("AskRigor public-review packet", () => {
     expect(setup).toContain("u-dont-existDOTcom/AskRigor-lessons");
     expect(setup).not.toMatch(/https?:\/\/(?:www\.)?github\.com\//iu);
     expect(setup).not.toMatch(/(?:sk-|gh[opusr]_)[A-Za-z0-9_-]{16,}/u);
+    expect(setup).toContain(
+      "The server accepts only the fixed privacy model `gpt-5-nano-2025-08-07`; no moving alias is allowed.",
+    );
 
     for (const fragment of [
       "Research retrieval path",
@@ -113,6 +121,46 @@ describe("AskRigor public-review packet", () => {
     }
     expect(openApi).not.toContain("AskRigor-lessons");
     expect(openApi).not.toMatch(/https?:\/\/(?:www\.)?github\.com\//iu);
+
+    expect(privacyMap).toContain(
+      "The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.",
+    );
+    expect(privacyMap).toContain(
+      "The August 13, 2026 lesson notice is prepared and committed in this release candidate but is not live until Task 10 deploys and verifies it.",
+    );
+    expect(privacyMap).not.toContain("publisher-matching public notice is live");
+    expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
+    expect(privacySite).toContain("Effective August 13, 2026");
+    expect(privacySite).toContain("Optional lesson feedback");
+    expect(readme).toContain("This Action is implemented locally but is **not yet deployed**.");
+    expect(checklist).toContain(
+      "The live August 12 policy at release `f928b95e29cd` is the pre-lesson notice.",
+    );
+    expect(checklist).toContain(
+      "The August 13 lesson notice is prepared in this branch but is not yet deployed.",
+    );
+  });
+
+  it("distinguishes transient research logs from the aggregate lesson budget ledger", async () => {
+    const [privacyMap, privacySite] = await Promise.all([
+      readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
+      readFile(rootFile("site/privacy/index.html"), "utf8"),
+    ]);
+
+    expect(privacyMap).toContain(
+      "The application persists no request body, response body, candidate content, or access log; its only log output is the startup line.",
+    );
+    expect(privacyMap).toContain(
+      "The ledger's four aggregate data values are UTC month, monthly limit, charged nano-USD, and update time; a non-content schema version is also stored.",
+    );
+    expect(privacyMap).toContain("The ledger contains no candidate or request content.");
+    expect(privacyMap).not.toContain("Application and reverse-proxy operational logs omit");
+    expect(privacySite).toContain(
+      "Only four aggregate budget data values are retained in that ledger: UTC month, fixed monthly limit, charged nano-USD total, and update time.",
+    );
+    expect(privacySite).toContain("A non-content schema marker is also stored.");
+    expect(privacySite).toContain("Neither contains candidate or request content.");
+    expect(privacySite).not.toContain("does not persist operational metadata");
   });
 
   it("keeps the privacy map explicit about every protocol and retrieval response category", async () => {
@@ -142,7 +190,7 @@ describe("AskRigor public-review packet", () => {
       "continuation secret is never returned",
       "no server-side comment corpus or research-session persistence",
       "not persistently stored",
-      "aggregate server logs"
+      "Infrastructure providers may independently process operational"
     ]) {
       expect(document).toContain(fragment);
     }

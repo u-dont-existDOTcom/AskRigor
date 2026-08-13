@@ -1,9 +1,8 @@
 # AskRigor v0 data map and privacy review
 
-Status at 2026-08-13: this remains the detailed engineering inventory. The
-publisher-matching public notice is live at `https://askrigor.com/privacy` from
-verified site release `f928b95e29cd`; the notice, rather than this internal map,
-is the public privacy policy.
+Status at 2026-08-13: this remains the detailed engineering inventory.
+The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.
+The August 13, 2026 lesson notice is prepared and committed in this release candidate but is not live until Task 10 deploys and verifies it.
 
 ## Purpose and boundary
 
@@ -49,9 +48,10 @@ checksum-locked and equality-checked by `tests/release-packet.test.ts`; it is
 the authoritative companion to this human-readable data map.
 
 Public YouTube author/channel IDs, optional display names, and comment text can be
-personal data even when made public by the author. The live public privacy notice
-specifically discloses this processing, the API-visible-only limitation, and the
-recipient/client-facing disclosure described here.
+personal data even when made public by the author. The live pre-lesson notice
+specifically discloses this research processing and its API-visible-only
+limitation; the prepared August 13 notice preserves that disclosure and adds the
+lesson boundary.
 
 The optional continuation token contains only the video identifier, upstream
 pagination cursor, one-hour issue/expiry timestamps, analysis limit, page and
@@ -71,7 +71,7 @@ matching session record.
 | MCP request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only. No database, file store, account profile, queue, transcript store, server-side comment corpus, or research-session persistence is implemented. |
 | Client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking client and processed transiently if resubmitted within one hour. There is no server-side comment corpus or research-session persistence. |
 | MCP response | The normalized fields in the table above | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
-| Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may process aggregate server logs or operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No application-level request/content or operational-metadata log is persistently stored by v0. Infrastructure providers may retain operational metadata for their configured security and operations periods under their own policies; AskRigor does not control those periods. |
+| Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No application request, response, candidate-content, or access log is stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
 
 ## Optional lesson request and result contract
@@ -122,10 +122,11 @@ deduplication fingerprint marker. It intentionally stores no `consent_scope`,
 user identity, network identity, conversation identifier, raw chat, raw
 quotation, medical history, or upload.
 
-The persistent AI budget ledger contains only `schema_version`, `utc_month`,
-`monthly_limit_nano_usd`, `charged_nano_usd`, and `updated_at`. It contains no
-candidate content or request identity. It enforces the fixed $50.00 monthly
-limit; a new UTC month replaces the prior aggregate ledger.
+The ledger's four aggregate data values are UTC month, monthly limit, charged nano-USD, and update time; a non-content schema version is also stored.
+Their implemented keys are `utc_month`, `monthly_limit_nano_usd`,
+`charged_nano_usd`, and `updated_at`, plus `schema_version`. The ledger contains no candidate or request content.
+It enforces the fixed $50.00 monthly limit; a new UTC month replaces the prior
+aggregate ledger.
 
 Recipients and provider boundaries are therefore distinct:
 
@@ -145,15 +146,12 @@ does not claim to control provider-side copies or deletion schedules.
 
 ## Lesson logs, retention, and deletion
 
-The AskRigor application does not log lesson request or response bodies,
-candidate content, raw chat, user identifiers, network identifiers, or
-credentials. Application and reverse-proxy operational logs omit candidate,
-request, and response bodies. Permitted operational metadata is limited to
-items such as timestamp, endpoint, status, latency, bounded error code, and a
-short non-reversible fingerprint prefix if operational logging is later
-enabled; the current application emits only its startup line. Infrastructure
-may also process IP/network or security signals under its own configured
-retention boundary.
+The application persists no request body, response body, candidate content, or access log; its only log output is the startup line.
+It also does not log raw chat, user identifiers, network identifiers, or
+credentials. Infrastructure providers may independently process operational
+metadata, IP/network data, or security signals under their own configured
+policies; AskRigor does not claim that its application controls those provider
+logs or retention periods.
 
 Private lesson issues remain available for human review until a maintainer
 deletes them. Rejected or incorporated issues become deletion-eligible strictly
