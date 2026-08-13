@@ -183,6 +183,49 @@ describe("YouTube audit continuation tokens", () => {
     expect(payload).not.toContain("author-UgxC");
   });
 
+  it("retains provider-valid dotted reply identifiers in continuation state", () => {
+    const empty = {
+      ...STATE,
+      segment_index: 0,
+      top_level_comments_retrieved: 0,
+      replies_retrieved: 0,
+      comment_thread_pages: 0,
+      reply_pages: 0,
+      records_retrieved_cumulative: 0,
+      rolling_sha256: "0".repeat(64),
+      sample_identifiers: []
+    };
+    const { cursor: _cursor, ...withoutCursor } = empty;
+    const reply = {
+      ...comment("UgxReply.replyPart"),
+      parent_id: "UgxTop",
+      top_level_comment_id: "UgxTop",
+      is_reply: true
+    };
+
+    const advanced = advanceYoutubeAuditState(
+      withoutCursor,
+      [reply],
+      {
+        top_level_comments_retrieved: 0,
+        replies_retrieved: 1,
+        comment_thread_pages: 1,
+        reply_pages: 1,
+        reply_count_mismatches: []
+      },
+      { thread_offset: 1, top_level_emitted: false }
+    );
+
+    expect(advanced.sample_identifiers).toEqual([
+      { comment_id: "UgxReply.replyPart" }
+    ]);
+    expect(decodeYoutubeAuditContinuation(
+      encodeYoutubeAuditContinuation(advanced, SECRET),
+      SECRET,
+      NOW
+    )).toEqual(advanced);
+  });
+
   it("rejects duplicate record IDs within or across continuation segments", () => {
     const empty = {
       ...STATE,

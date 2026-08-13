@@ -14,17 +14,17 @@ const MAX_ANALYSIS_RECORDS = 500;
 const MIN_SECRET_BYTES = 32;
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
-const YOUTUBE_IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 const boundedInteger = z.number().int().min(0).max(MAX_SAFE_INTEGER);
+const youtubeProviderIdentifierSchema = z.string().min(1).max(512);
 const cursorSchema = z.object({
   top_level_page_token: z.string().min(1).max(1_024).optional(),
   page_fingerprint: z.string().regex(SHA256_PATTERN).optional(),
   thread_offset: boundedInteger,
   top_level_emitted: z.boolean(),
   reply_page_token: z.string().min(1).max(1_024).optional(),
-  current_parent_id: z.string().regex(YOUTUBE_IDENTIFIER_PATTERN).optional(),
+  current_parent_id: youtubeProviderIdentifierSchema.optional(),
   current_expected_replies: boundedInteger.optional(),
   current_replies_retrieved: boundedInteger.optional()
 }).strict().superRefine((cursor, context) => {
@@ -44,10 +44,10 @@ const cursorSchema = z.object({
 });
 
 const sampleIdentifierSchema = z.object({
-  comment_id: z.string().regex(YOUTUBE_IDENTIFIER_PATTERN)
+  comment_id: youtubeProviderIdentifierSchema
 }).strict();
 const replyMismatchSchema = z.object({
-  parent_comment_id: z.string().regex(YOUTUBE_IDENTIFIER_PATTERN),
+  parent_comment_id: youtubeProviderIdentifierSchema,
   expected: boundedInteger,
   retrieved: boundedInteger
 }).strict();
