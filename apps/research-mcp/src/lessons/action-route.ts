@@ -187,6 +187,15 @@ export function createLessonActionRoute(service: LessonService): ActionRoute {
     public: false,
     requestSchema: LESSON_ACTION_REQUEST_SCHEMA,
     responseSchemas: LESSON_ACTION_RESPONSE_SCHEMAS,
+    responseHeaders: {
+      429: {
+        "Retry-After": {
+          required: true,
+          description: "Seconds until the Action request may be retried.",
+          schema: { type: "integer", minimum: 1 },
+        },
+      },
+    } as const,
     async handle({ request, body }: ActionRequestContext) {
       if (!isLessonActionJsonContentType(request.headers["content-type"])) {
         return {

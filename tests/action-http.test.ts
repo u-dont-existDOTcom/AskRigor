@@ -100,10 +100,12 @@ describe("isolated Action HTTP routing", () => {
 
   it.each([
     "/actions/foo/../test",
+    "/actions/./test",
     "/actions/foo/%2e%2e/test",
     "/actions/%2e/test",
     "/actions\\test",
     "/actions/%74est",
+    "/actions/test#fragment",
     "//evil.example/actions/test",
     "http://evil.example/actions/test"
   ])("returns 404 without authentication or handler dispatch for noncanonical target %s", async (target) => {
@@ -263,6 +265,115 @@ describe("isolated Action HTTP routing", () => {
     expect(() => createAskRigorHttpServer({
       actionRoutes: [{ ...routes[0], path: path as "/actions/test" }]
     })).toThrow();
+  });
+
+  it.each([
+    "/actions/foo/../test",
+    "/actions/./test",
+    "/actions/%74est",
+    "/actions/foo\\test",
+    "/actions/test#fragment",
+    "/actions/test?query=not-a-route",
+    "//actions/test",
+    "actions/test"
+  ])("rejects a noncanonical registered Action path %s", (path) => {
+    expect(() => createAskRigorHttpServer({
+      actionRoutes: [{ ...routes[0], path: path as ActionRoute["path"] }]
+    })).toThrow();
+  });
+
+  it.each([
+    undefined,
+    { "Retry-After": "0" },
+    { "Retry-After": "not-an-integer" }
+  ])("fails closed when a declared response header is missing or invalid: %j", async (headers) => {
+    const rateLimitedRoute: ActionRoute = {
+      ...routes[0],
+      responseSchemas: { 429: { type: "object" } },
+      responseHeaders: {
+        429: {
+          "Retry-After": {
+            required: true,
+            description: "Seconds until the Action request may be retried.",
+            schema: { type: "integer", minimum: 1 }
+          }
+        }
+      },
+      async handle() {
+        return { status: 429, headers, body: { status: "rate_limited" } };
+      }
+    };
+
+    await withHttpServer({ actionRoutes: [rateLimitedRoute] }, async (baseUrl) => {
+      const response = await fetch(new URL("/actions/test", baseUrl), {
+        method: "POST",
+        headers: { authorization: "Bearer test-action-secret" },
+        body: "{}"
+      });
+
+      expect(response.status).toBe(500);
+      expect(await response.text()).toBe(
+        '{"error":{"code":"action_internal_error","retryable":false}}'
+      );
+    });
+  });
+
+  it("emits a declared required response header when its runtime value is valid", async () => {
+    const rateLimitedRoute: ActionRoute = {
+      ...routes[0],
+      responseSchemas: { 429: { type: "object" } },
+      responseHeaders: {
+        429: {
+          "Retry-After": {
+            required: true,
+            description: "Seconds until the Action request may be retried.",
+            schema: { type: "integer", minimum: 1 }
+          }
+        }
+      },
+      async handle() {
+        return {
+          status: 429,
+          headers: { "Retry-After": "73" },
+          body: { status: "rate_limited" }
+        };
+      }
+    };
+
+    await withHttpServer({ actionRoutes: [rateLimitedRoute] }, async (baseUrl) => {
+      const response = await fetch(new URL("/actions/test", baseUrl), {
+        method: "POST",
+        headers: { authorization: "Bearer test-action-secret" },
+        body: "{}"
+      });
+
+      expect(response.status).toBe(429);
+      expect(response.headers.get("retry-after")).toBe("73");
+      expect(await response.json()).toEqual({ status: "rate_limited" });
+    });
+  });
+
+  it("fails closed when a handler tries to emit a router-owned response status", async () => {
+    const contradictoryRoute: ActionRoute = {
+      ...routes[0],
+      responseSchemas: { 400: { const: "route-owned-contradiction" } },
+      async handle() {
+        return { status: 400, body: "route-owned-contradiction" };
+      }
+    };
+
+    await withHttpServer({ actionRoutes: [contradictoryRoute] }, async (baseUrl) => {
+      const response = await fetch(new URL("/actions/test", baseUrl), {
+        method: "POST",
+        headers: { authorization: "Bearer test-action-secret" },
+        body: "{}"
+      });
+
+      expect(response.status).toBe(500);
+      expect(await response.text()).toBe(
+        '{"error":{"code":"action_internal_error","retryable":false}}'
+      );
+    });
   });
 
   it("rejects duplicate Action method and path pairs", () => {

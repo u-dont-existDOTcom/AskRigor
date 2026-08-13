@@ -17,11 +17,11 @@ export function createActionOpenApiDocument(
       ...route.responseSchemas
     };
     if (route.method === "POST") {
-      responseSchemas[400] ??= BAD_REQUEST_SCHEMA;
-      responseSchemas[413] ??= BODY_TOO_LARGE_SCHEMA;
+      responseSchemas[400] = BAD_REQUEST_SCHEMA;
+      responseSchemas[413] = BODY_TOO_LARGE_SCHEMA;
     }
     if (!route.public) {
-      responseSchemas[401] ??= AUTH_REQUIRED_SCHEMA;
+      responseSchemas[401] = AUTH_REQUIRED_SCHEMA;
     }
 
     const operation: Record<string, unknown> = {
@@ -34,14 +34,9 @@ export function createActionOpenApiDocument(
           description: `HTTP ${status} response`,
           content: { "application/json": { schema } }
         };
-        if (status === "429") {
-          response.headers = {
-            "Retry-After": {
-              required: true,
-              description: "Seconds until the Action request may be retried.",
-              schema: { type: "integer", minimum: 1 }
-            }
-          };
+        const declaredHeaders = route.responseHeaders?.[Number(status)];
+        if (declaredHeaders !== undefined && !isRouterOwnedStatus(route, Number(status))) {
+          response.headers = declaredHeaders;
         }
         return [status, response];
       }))
@@ -72,6 +67,11 @@ export function createActionOpenApiDocument(
     },
     paths
   };
+}
+
+function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
+  return (route.method === "POST" && (status === 400 || status === 413)) ||
+    (!route.public && status === 401);
 }
 
 function actionErrorSchema(codeSchema: Record<string, unknown>): Record<string, unknown> {

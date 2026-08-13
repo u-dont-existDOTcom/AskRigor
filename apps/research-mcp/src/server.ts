@@ -24,6 +24,7 @@ import {
 } from "./config.js";
 import { createActionOpenApiDocument } from "./actions/openapi.js";
 import { hasValidActionAuthorization } from "./actions/auth.js";
+import { isCanonicalRawPath } from "./actions/path.js";
 import {
   dispatchActionRequest,
   validateActionRoutes
@@ -186,16 +187,12 @@ export function createAskRigorHttpServer(
 }
 
 function exactOriginFormPath(target: string | undefined): string | undefined {
-  if (
-    target === undefined ||
-    !target.startsWith("/") ||
-    target.startsWith("//") ||
-    target.includes("#")
-  ) {
+  if (target === undefined || target.includes("#")) {
     return undefined;
   }
   const queryIndex = target.indexOf("?");
-  return queryIndex < 0 ? target : target.slice(0, queryIndex);
+  const path = queryIndex < 0 ? target : target.slice(0, queryIndex);
+  return isCanonicalRawPath(path) ? path : undefined;
 }
 
 class RequestBodyTooLargeError extends Error {}

@@ -6,7 +6,8 @@ import {
   InvalidActionJsonError,
   readActionJsonBody
 } from "./body.js";
-import type { ActionRoute } from "./types.js";
+import { isCanonicalRawPath } from "./path.js";
+import type { ActionResult, ActionRoute } from "./types.js";
 
 const ACTION_BODY_MAX_BYTES = 8_192;
 const OPENAPI_PATH = "/actions/openapi.json";
@@ -23,9 +24,15 @@ export interface DispatchActionRequestOptions {
 export function validateActionRoutes(routes: readonly ActionRoute[]): void {
   const seen = new Set<string>();
   for (const route of routes) {
-    if (!route.path.startsWith("/actions/") || RESERVED_PATHS.has(route.path)) {
+    if (
+      !isCanonicalRawPath(route.path) ||
+      !route.path.startsWith("/actions/") ||
+      RESERVED_PATHS.has(route.path)
+    ) {
       throw new Error(`Invalid Action route path: ${route.path}`);
     }
+
+    validateResponseHeaders(route);
 
     const key = `${route.method} ${route.path}`;
     if (seen.has(key)) {
@@ -81,11 +88,75 @@ export async function dispatchActionRequest(
 
   try {
     const result = await route.handle({ request, clientIp: options.clientIp, body });
+    if (
+      isRouterOwnedStatus(route, result.status) ||
+      !hasValidRequiredResponseHeaders(route, result)
+    ) {
+      writeJson(response, 500, { error: { code: "action_internal_error", retryable: false } });
+      return true;
+    }
     writeJson(response, result.status, result.body, result.headers);
   } catch {
     writeJson(response, 500, { error: { code: "action_internal_error", retryable: false } });
   }
   return true;
+}
+
+function validateResponseHeaders(route: ActionRoute): void {
+  for (const [rawStatus, headers] of Object.entries(route.responseHeaders ?? {})) {
+    const status = Number(rawStatus);
+    if (!Number.isInteger(status) || route.responseSchemas[status] === undefined) {
+      throw new Error(`Invalid Action response-header status: ${route.operationId}`);
+    }
+    if (isRouterOwnedStatus(route, status)) {
+      throw new Error(`Action response headers cannot alter router-owned status: ${route.operationId}`);
+    }
+
+    const seen = new Set<string>();
+    for (const [name, definition] of Object.entries(headers)) {
+      const normalizedName = name.toLowerCase();
+      if (
+        !isHttpToken(name) ||
+        seen.has(normalizedName) ||
+        definition.required !== true ||
+        definition.description.trim().length === 0 ||
+        definition.schema.type !== "integer" ||
+        !Number.isSafeInteger(definition.schema.minimum)
+      ) {
+        throw new Error(`Invalid Action response-header contract: ${route.operationId}`);
+      }
+      seen.add(normalizedName);
+    }
+  }
+}
+
+function hasValidRequiredResponseHeaders(route: ActionRoute, result: ActionResult): boolean {
+  const requiredHeaders = route.responseHeaders?.[result.status];
+  if (requiredHeaders === undefined) return true;
+
+  const actualHeaders = Object.entries(result.headers ?? {});
+  return Object.entries(requiredHeaders).every(([requiredName, definition]) => {
+    const matchingValues = actualHeaders
+      .filter(([name]) => name.toLowerCase() === requiredName.toLowerCase())
+      .map(([, value]) => value);
+    return matchingValues.length === 1 &&
+      isIntegerAtLeast(matchingValues[0]!, definition.schema.minimum);
+  });
+}
+
+function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
+  return (route.method === "POST" && (status === 400 || status === 413)) ||
+    (!route.public && status === 401);
+}
+
+function isHttpToken(value: string): boolean {
+  return /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u.test(value);
+}
+
+function isIntegerAtLeast(value: string, minimum: number): boolean {
+  if (!/^-?(?:0|[1-9][0-9]*)$/u.test(value)) return false;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= minimum;
 }
 
 function writeJson(

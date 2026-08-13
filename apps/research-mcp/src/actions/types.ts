@@ -12,6 +12,15 @@ export interface ActionResult {
   headers?: Readonly<Record<string, string>>;
 }
 
+export interface ActionRequiredResponseHeader {
+  required: true;
+  description: string;
+  schema: {
+    type: "integer";
+    minimum: number;
+  };
+}
+
 export interface ActionRoute {
   method: "GET" | "POST";
   path: `/actions/${string}`;
@@ -22,5 +31,9 @@ export interface ActionRoute {
   public: boolean;
   requestSchema?: Record<string, unknown>;
   responseSchemas: Readonly<Record<number, Record<string, unknown>>>;
+  responseHeaders?: Readonly<Record<
+    number,
+    Readonly<Record<string, ActionRequiredResponseHeader>>
+  >>;
   handle(context: ActionRequestContext): Promise<ActionResult>;
 }

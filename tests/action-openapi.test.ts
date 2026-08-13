@@ -42,16 +42,28 @@ describe("Action OpenAPI document", () => {
     });
   });
 
-  it("documents strict common private POST errors and a mandatory integer Retry-After header", () => {
+  it("documents authoritative common private POST errors and a declared Retry-After header", () => {
     const document = createActionOpenApiDocument([{
       ...routes[0],
       responseSchemas: {
         200: { type: "object" },
+        400: { const: "route-owned-contradiction" },
+        401: { const: "route-owned-contradiction" },
+        413: { const: "route-owned-contradiction" },
         429: {
           type: "object",
           additionalProperties: false,
           required: ["status"],
           properties: { status: { const: "rate_limited" } }
+        }
+      },
+      responseHeaders: {
+        429: {
+          "Retry-After": {
+            required: true,
+            description: "Seconds until the Action request may be retried.",
+            schema: { type: "integer", minimum: 1 }
+          }
         }
       }
     }]) as {
@@ -139,5 +151,18 @@ describe("Action OpenAPI document", () => {
         }
       }
     });
+  });
+
+  it("does not invent Retry-After for an undeclared 429 response header", () => {
+    const document = createActionOpenApiDocument([{
+      ...routes[0],
+      responseSchemas: {
+        429: { type: "object" }
+      }
+    }]) as {
+      paths: Record<string, { post: { responses: Record<string, { headers?: unknown }> } }>;
+    };
+
+    expect(document.paths["/actions/test"]!.post.responses["429"]!.headers).toBeUndefined();
   });
 });
