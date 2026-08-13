@@ -56,6 +56,23 @@ function createSubject(overrides: {
   return { service, consume, generalize, submit };
 }
 
+function pipelineWithPublicCandidateId(
+  publicCandidateId: LessonSubmissionPipeline["publicCandidateId"],
+): LessonSubmissionPipeline {
+  return {
+    parseCandidate: () => candidate,
+    parseGeneralized: () => candidate,
+    screen: (value) => ({ safe: true, candidate: value }),
+    canonicalize: () => ({
+      category: candidate.category,
+      general_lesson: candidate.general_lesson,
+      expected_behavior: candidate.expected_behavior,
+    }),
+    fingerprint: () => "f".repeat(64),
+    publicCandidateId,
+  };
+}
+
 describe("lesson submission pipeline", () => {
   it("runs the exact fail-closed stages in order before returning a private-safe receipt", async () => {
     const order: string[] = [];
@@ -76,7 +93,8 @@ describe("lesson submission pipeline", () => {
       },
       parseGeneralized(raw) {
         order.push("strict generalized parse");
-        return raw === candidate ? candidate : undefined;
+        expect(raw).toEqual(candidate);
+        return candidate;
       },
       canonicalize(value) {
         order.push("canonicalize");
@@ -175,6 +193,51 @@ describe("lesson submission pipeline", () => {
     expect(submit).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["truthy non-boolean allowed", { allowed: "candidate-secret" }],
+    ["allowed result with an extra field", { allowed: true, user_id: "private-user" }],
+    ["blocked result missing its reset", { allowed: false }],
+    ["blocked result with an extra field", { allowed: false, retryAfterSeconds: 60, clientIp: "192.0.2.1" }],
+  ])("rejects the malformed limiter decision: %s", async (_name, decision) => {
+    const unsafeLimiter = {
+      consume: () => decision,
+      lastBlockingReason: () => "hourly_limit",
+    } as unknown as LessonAttemptLimiter;
+    const { service, generalize, submit } = createSubject({ limiter: unsafeLimiter });
+
+    const result = await service.submit(candidate);
+
+    expect(result).toEqual({
+      status: "github_unavailable",
+      retryable: false,
+      reason_code: "github_service_unavailable",
+    });
+    expect(generalize).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("candidate-secret");
+    expect(JSON.stringify(result)).not.toContain("private-user");
+    expect(JSON.stringify(result)).not.toContain("192.0.2.1");
+  });
+
+  it("does not reuse a mutable generic failure receipt across submissions", async () => {
+    const unsafeLimiter = {
+      consume: () => ({ allowed: "candidate-secret" }),
+      lastBlockingReason: () => "hourly_limit",
+    } as unknown as LessonAttemptLimiter;
+    const { service } = createSubject({ limiter: unsafeLimiter });
+    const first = await service.submit(candidate);
+    (first as unknown as { reason_code: string }).reason_code = "mutated-secret";
+
+    const second = await service.submit(candidate);
+
+    expect(second).toEqual({
+      status: "github_unavailable",
+      retryable: false,
+      reason_code: "github_service_unavailable",
+    });
+    expect(JSON.stringify(second)).not.toContain("mutated-secret");
+  });
+
   it("strictly rejects malformed input before either external dependency", async () => {
     const { service, generalize, submit } = createSubject();
 
@@ -262,6 +325,40 @@ describe("lesson submission pipeline", () => {
   });
 
   it.each([
+    ["unknown unavailable reason", {
+      status: "anonymizer_unavailable",
+      reasonCode: "provider-private-reason",
+    }],
+    ["unavailable result with extra data", {
+      status: "anonymizer_unavailable",
+      reasonCode: "privacy_service_unavailable",
+      provider_response: "private provider response",
+    }],
+    ["privacy rejection with extra data", {
+      status: "privacy_rejected",
+      risk_codes: ["private-risk-detail"],
+    }],
+    ["generalized result with extra data", {
+      status: "generalized",
+      candidate,
+      provider_response: "private provider response",
+    }],
+  ])("strictly rejects malformed anonymizer outcome: %s", async (_name, anonymizerOutcome) => {
+    const { service, submit } = createSubject({ anonymizerOutcome });
+
+    const result = await service.submit(candidate);
+
+    expect(result).toEqual({
+      status: "github_unavailable",
+      retryable: false,
+      reason_code: "github_service_unavailable",
+    });
+    expect(submit).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("provider-private");
+    expect(JSON.stringify(result)).not.toContain("private-risk-detail");
+  });
+
+  it.each([
     [new GitHubApiError("github_auth_unavailable", false), "github_auth_unavailable", false],
     [new GitHubApiError("github_scope_invalid", false), "github_auth_unavailable", false],
     [new GitHubApiError("github_service_unavailable", true), "github_service_unavailable", true],
@@ -276,6 +373,70 @@ describe("lesson submission pipeline", () => {
     });
   });
 
+  it.each([
+    ["non-boolean retryability", "retryable-secret"],
+    ["missing retryability", undefined],
+  ])("strictly rejects a GitHub error with %s", async (_name, retryable) => {
+    const queueError = new GitHubApiError("github_service_unavailable", false);
+    Object.defineProperty(queueError, "retryable", { value: retryable });
+    const { service } = createSubject({ queueError });
+
+    const result = await service.submit(candidate);
+
+    expect(result).toEqual({
+      status: "github_unavailable",
+      retryable: false,
+      reason_code: "github_service_unavailable",
+    });
+    expect(JSON.stringify(result)).not.toContain("retryable-secret");
+  });
+
+  it.each([
+    ["zero occurrence count", {
+      kind: "created",
+      issueNumber: 991,
+      occurrenceCount: 0,
+      possibleRegression: false,
+    }],
+    ["invalid issue number", {
+      kind: "created",
+      issueNumber: -1,
+      occurrenceCount: 1,
+      possibleRegression: false,
+    }],
+    ["non-boolean regression flag", {
+      kind: "existing",
+      issueNumber: 991,
+      occurrenceCount: 2,
+      possibleRegression: "private-provider-state",
+    }],
+    ["extra private queue field", {
+      kind: "created",
+      issueNumber: 991,
+      occurrenceCount: 1,
+      possibleRegression: false,
+      private_url: "https://github.com/private/repository/issues/991",
+    }],
+  ])("strictly rejects malformed queue result before deriving an ID: %s", async (_name, queueOutcome) => {
+    const publicCandidateId = vi.fn(() => "ARL-0991");
+    const { service } = createSubject({
+      queueOutcome,
+      pipeline: pipelineWithPublicCandidateId(publicCandidateId),
+    });
+
+    const result = await service.submit(candidate);
+
+    expect(result).toEqual({
+      status: "github_unavailable",
+      retryable: false,
+      reason_code: "github_service_unavailable",
+    });
+    expect(publicCandidateId).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("991");
+    expect(JSON.stringify(result)).not.toContain("github.com");
+    expect(JSON.stringify(result)).not.toContain("private-provider-state");
+  });
+
   it("does not expose arbitrary dependency errors or apply a public ID after queue failure", async () => {
     const privateError = new Error([
       candidate.general_lesson,
@@ -286,18 +447,7 @@ describe("lesson submission pipeline", () => {
       "secret-fixture",
     ].join(" "));
     const publicCandidateId = vi.fn(() => "ARL-0991");
-    const pipeline: LessonSubmissionPipeline = {
-      parseCandidate: () => candidate,
-      parseGeneralized: () => candidate,
-      screen: (value) => ({ safe: true, candidate: value }),
-      canonicalize: () => ({
-        category: candidate.category,
-        general_lesson: candidate.general_lesson,
-        expected_behavior: candidate.expected_behavior,
-      }),
-      fingerprint: () => "f".repeat(64),
-      publicCandidateId,
-    };
+    const pipeline = pipelineWithPublicCandidateId(publicCandidateId);
     const { service } = createSubject({ pipeline, queueError: privateError });
 
     const result = await service.submit(candidate);

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   generalizedLessonSchema,
   lessonCandidateSchema,
@@ -53,6 +54,48 @@ const defaultPipeline: LessonSubmissionPipeline = {
   publicCandidateId,
 };
 
+const lessonAttemptLimitDecisionSchema = z.discriminatedUnion("allowed", [
+  z.strictObject({ allowed: z.literal(true) }),
+  z.strictObject({
+    allowed: z.literal(false),
+    retryAfterSeconds: z.number().int().positive(),
+  }),
+]);
+
+const anonymizerOutcomeSchema = z.discriminatedUnion("status", [
+  z.strictObject({
+    status: z.literal("generalized"),
+    candidate: generalizedLessonSchema,
+  }),
+  z.strictObject({ status: z.literal("privacy_rejected") }),
+  z.strictObject({
+    status: z.literal("anonymizer_unavailable"),
+    reasonCode: z.enum(["ai_budget_exhausted", "privacy_service_unavailable"]),
+  }),
+]);
+
+const githubLessonQueueResultSchema = z.strictObject({
+  kind: z.enum(["created", "existing"]),
+  issueNumber: z.number().int().positive(),
+  occurrenceCount: z.number().int().positive(),
+  possibleRegression: z.boolean(),
+});
+
+const githubApiErrorShapeSchema = z.discriminatedUnion("code", [
+  z.strictObject({
+    code: z.literal("github_auth_unavailable"),
+    retryable: z.literal(false),
+  }),
+  z.strictObject({
+    code: z.literal("github_scope_invalid"),
+    retryable: z.literal(false),
+  }),
+  z.strictObject({
+    code: z.literal("github_service_unavailable"),
+    retryable: z.boolean(),
+  }),
+]);
+
 /** Orchestrates the endpoint-global, fail-closed lesson submission pipeline. */
 export class LessonSubmissionService {
   private readonly pipeline: LessonSubmissionPipeline;
@@ -63,16 +106,18 @@ export class LessonSubmissionService {
 
   async submit(raw: unknown): Promise<LessonSubmissionResult> {
     try {
-      const limit = this.options.limiter.consume();
+      const parsedLimit = lessonAttemptLimitDecisionSchema.safeParse(
+        this.options.limiter.consume(),
+      );
+      if (!parsedLimit.success) return genericGitHubUnavailable();
+      const limit = parsedLimit.data;
       if (!limit.allowed) {
-        const result: unknown = {
+        return finalizePublicResult({
           status: "rate_limited",
           retryable: true,
           retry_after_seconds: limit.retryAfterSeconds,
           reason_code: this.options.limiter.lastBlockingReason(),
-        };
-        const parsedResult = lessonSubmissionResultSchema.safeParse(result);
-        return parsedResult.success ? parsedResult.data : githubUnavailable(undefined);
+        });
       }
 
       const parsedCandidate = this.pipeline.parseCandidate(raw);
@@ -81,8 +126,12 @@ export class LessonSubmissionService {
       const preScreen = this.pipeline.screen(parsedCandidate);
       if (!preScreen.safe) return privacyRejected();
 
-      const anonymizerOutcome: Awaited<ReturnType<LessonAnonymizer["generalize"]>> =
-        await this.options.anonymizer.generalize(preScreen.candidate);
+      const rawAnonymizerOutcome: unknown = await this.options.anonymizer.generalize(
+        preScreen.candidate,
+      );
+      const parsedAnonymizerOutcome = anonymizerOutcomeSchema.safeParse(rawAnonymizerOutcome);
+      if (!parsedAnonymizerOutcome.success) return genericGitHubUnavailable();
+      const anonymizerOutcome = parsedAnonymizerOutcome.data;
 
       if (anonymizerOutcome.status === "privacy_rejected") return privacyRejected();
       if (anonymizerOutcome.status === "anonymizer_unavailable") {
@@ -90,10 +139,6 @@ export class LessonSubmissionService {
           ? anonymizerUnavailable("ai_budget_exhausted", false)
           : anonymizerUnavailable("privacy_service_unavailable", true);
       }
-      if (anonymizerOutcome.status !== "generalized") {
-        return githubUnavailable(undefined);
-      }
-
       const generalized = this.pipeline.parseGeneralized(anonymizerOutcome.candidate);
       if (!generalized) return anonymizerUnavailable("privacy_service_unavailable", true);
 
@@ -103,9 +148,9 @@ export class LessonSubmissionService {
       const canonical = this.pipeline.canonicalize(postScreen.candidate);
       const fingerprint = this.pipeline.fingerprint(canonical);
 
-      let queueResult: GitHubLessonQueueResult;
+      let rawQueueResult: unknown;
       try {
-        queueResult = await this.options.queue.submit({
+        rawQueueResult = await this.options.queue.submit({
           candidate: postScreen.candidate,
           fingerprint,
         });
@@ -113,65 +158,80 @@ export class LessonSubmissionService {
         return githubUnavailable(error);
       }
 
-      return this.receiptFor(queueResult);
+      const parsedQueueResult = githubLessonQueueResultSchema.safeParse(rawQueueResult);
+      if (!parsedQueueResult.success) return genericGitHubUnavailable();
+
+      return this.receiptFor(parsedQueueResult.data);
     } catch {
       return githubUnavailable(undefined);
     }
   }
 
   private receiptFor(queueResult: GitHubLessonQueueResult): LessonSubmissionResult {
-    if (queueResult.kind !== "created" && queueResult.kind !== "existing") {
-      return githubUnavailable(undefined);
-    }
     const candidateId = this.pipeline.publicCandidateId(queueResult.issueNumber);
-    const result: unknown = {
+    return finalizePublicResult({
       status: queueResult.kind === "created" ? "submitted" : "existing_candidate",
       candidate_id: candidateId,
       occurrence_count: queueResult.occurrenceCount,
       retryable: false,
-    };
-    const parsed = lessonSubmissionResultSchema.safeParse(result);
-    return parsed.success ? parsed.data : githubUnavailable(undefined);
+    });
   }
 }
 
 function privacyRejected(): LessonSubmissionResult {
-  return {
+  return finalizePublicResult({
     status: "privacy_rejected",
     retryable: false,
     reason_code: "unsafe_candidate",
-  };
+  });
 }
 
 function anonymizerUnavailable(
   reasonCode: "ai_budget_exhausted" | "privacy_service_unavailable",
   retryable: boolean,
 ): LessonSubmissionResult {
-  return {
+  return finalizePublicResult({
     status: "anonymizer_unavailable",
     retryable,
     reason_code: reasonCode,
-  };
+  });
 }
 
 function githubUnavailable(error: unknown): LessonSubmissionResult {
   if (error instanceof GitHubApiError) {
-    if (error.code === "github_auth_unavailable" || error.code === "github_scope_invalid") {
-      return {
+    const parsedError = githubApiErrorShapeSchema.safeParse({
+      code: error.code,
+      retryable: error.retryable,
+    });
+    if (!parsedError.success) return genericGitHubUnavailable();
+    if (
+      parsedError.data.code === "github_auth_unavailable" ||
+      parsedError.data.code === "github_scope_invalid"
+    ) {
+      return finalizePublicResult({
         status: "github_unavailable",
         retryable: false,
         reason_code: "github_auth_unavailable",
-      };
+      });
     }
-    return {
+    return finalizePublicResult({
       status: "github_unavailable",
-      retryable: error.retryable,
+      retryable: parsedError.data.retryable,
       reason_code: "github_service_unavailable",
-    };
+    });
   }
-  return {
+  return genericGitHubUnavailable();
+}
+
+function finalizePublicResult(value: unknown): LessonSubmissionResult {
+  const parsed = lessonSubmissionResultSchema.safeParse(value);
+  return parsed.success ? parsed.data : genericGitHubUnavailable();
+}
+
+function genericGitHubUnavailable(): LessonSubmissionResult {
+  return lessonSubmissionResultSchema.parse({
     status: "github_unavailable",
     retryable: false,
     reason_code: "github_service_unavailable",
-  };
+  });
 }
