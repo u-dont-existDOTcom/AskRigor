@@ -122,8 +122,7 @@ describe("YouTube audit continuation tokens", () => {
         createHash("sha256").update(left).digest("hex")
           .localeCompare(createHash("sha256").update(right).digest("hex")) ||
         left.localeCompare(right)
-      )
-      .slice(0, 2);
+      );
     expect(advanced).toMatchObject({
       segment_index: 1,
       top_level_comments_retrieved: 3,

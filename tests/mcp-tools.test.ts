@@ -428,12 +428,12 @@ describe("AskRigor MCP tools", () => {
         top_level_comments_retrieved_cumulative: 2,
         replies_retrieved_cumulative: 4,
         records_retrieved_cumulative: 6,
-        records_returned_for_analysis: 5,
+        records_returned_for_analysis: 6,
         continuation_recommended: false,
         sample: {
-          mode: "deterministic_hash_chronological",
+          mode: "all",
           corpus_count: 6,
-          sampled_count: 5
+          sampled_count: 6
         },
         receipt: {
           completion_state: "api_visible_complete",

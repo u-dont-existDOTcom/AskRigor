@@ -157,6 +157,25 @@ describe("adaptive per-video YouTube community audit", () => {
     );
   });
 
+  it("uses a lower analysis limit only after a complete corpus exceeds 500 records", async () => {
+    const comments = makeComments(800);
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID, analysis_limit: 5 },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(comments) }
+    );
+
+    expect(result).toMatchObject({
+      records_retrieved_cumulative: 800,
+      records_returned_for_analysis: 5,
+      sample: {
+        mode: "deterministic_hash_chronological",
+        corpus_count: 800,
+        sampled_count: 5
+      }
+    });
+  });
+
   it("shares one elapsed-time budget across metadata, acquisition, and terminal refetch", async () => {
     let clock = NOW;
     const comments = makeComments(1);

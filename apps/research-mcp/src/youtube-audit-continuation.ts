@@ -74,7 +74,7 @@ const continuationStateSchema = z.object({
   }
   if (
     state.sample_identifiers.length !==
-    Math.min(state.analysis_limit, state.records_retrieved_cumulative)
+    Math.min(MAX_ANALYSIS_RECORDS, state.records_retrieved_cumulative)
   ) {
     context.addIssue({
       code: "custom",
@@ -222,7 +222,7 @@ export function advanceYoutubeAuditState(
   }
   const sampleIdentifiers = [...identifiers]
     .sort((left, right) => sampleRank(left).localeCompare(sampleRank(right)) || left.localeCompare(right))
-    .slice(0, state.analysis_limit)
+    .slice(0, MAX_ANALYSIS_RECORDS)
     .map((comment_id) => ({ comment_id }));
   const commentPayload = comments.map(canonicalCommentJson).join("\n");
   const candidate: YoutubeVideoAuditContinuationState = {

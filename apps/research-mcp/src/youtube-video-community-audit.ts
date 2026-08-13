@@ -37,9 +37,9 @@ const PROVIDER_COUNT_MISMATCH_LIMITATION =
 export const youtubeVideoCommunityAuditInputSchema = z.object({
   video_id_or_url: z.string().min(1).max(2_048).optional(),
   continuation_token: z.string().min(1).max(65_536).optional(),
-  analysis_limit: z.number().int().min(1).max(500).optional().meta({
-    default: DEFAULT_ANALYSIS_LIMIT
-  })
+  analysis_limit: z.number().int().min(1).max(500).optional().describe(
+    "Analysis sample limit for a complete corpus larger than 500 records; complete corpora of 500 or fewer return all records."
+  ).meta({ default: DEFAULT_ANALYSIS_LIMIT })
 }).strict().superRefine((value, context) => {
   if ((value.video_id_or_url === undefined) === (value.continuation_token === undefined)) {
     context.addIssue({
@@ -261,7 +261,11 @@ export async function auditYoutubeVideoCommunity(
     if (state.sample_identifiers.length === 0) {
       sample = { mode: "all", corpus_count: 0, sampled_count: 0, comments: [] };
     } else {
-      const sampleIds = state.sample_identifiers.map(({ comment_id }) => comment_id);
+      const sampleIds = state.sample_identifiers
+        .slice(0, state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT
+          ? DEFAULT_ANALYSIS_LIMIT
+          : state.analysis_limit)
+        .map(({ comment_id }) => comment_id);
       const refetched = await dependencies.get_comments_by_ids(
         videoId,
         sampleIds,
@@ -282,7 +286,7 @@ export async function auditYoutubeVideoCommunity(
       } else {
         const comments = chronological(refetched.comments);
         sample = {
-          mode: state.records_retrieved_cumulative <= state.analysis_limit
+          mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT
             ? "all"
             : "deterministic_hash_chronological",
           corpus_count: state.records_retrieved_cumulative,
