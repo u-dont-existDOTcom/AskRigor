@@ -43,9 +43,12 @@ recipient/client-facing disclosure described here.
 
 The optional continuation token contains only the video identifier, upstream
 pagination cursor, one-hour issue/expiry timestamps, analysis limit, page and
-record counters, comment identifiers, counters, and rolling corpus digest. It
-contains no comment text, author identity, provider credential, or continuation
-secret. The token is authenticated by a server-side secret. As a control, the continuation secret is never returned or logged.
+record counters, bounded deterministic-sample comment identifiers, bounded
+reply-parent identifiers with provider-reported versus retrieved reply counts,
+and rolling corpus digest. It contains no comment text, author identity,
+provider credential, or continuation secret. The token is authenticated by a
+server-side secret. As a control, the continuation secret is never returned or
+logged.
 The invoking client receives the token and may resend it during the active
 request chain; the server keeps no
 matching session record.

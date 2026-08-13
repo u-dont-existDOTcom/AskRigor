@@ -157,6 +157,12 @@ describe("resumable YouTube comment segments", () => {
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));
       requests.push(url);
+      if (url.pathname.endsWith("/comments")) {
+        return Response.json({
+          pageInfo: { totalResults: 0, resultsPerPage: 0 },
+          items: []
+        });
+      }
       return Response.json({
         pageInfo: { totalResults: 2, resultsPerPage: 2 },
         items: [0, 1].map((index) => ({
@@ -192,7 +198,112 @@ describe("resumable YouTube comment segments", () => {
       comment_thread_pages: 1
     });
     expect(result.comments.map(({ comment_id }) => comment_id)).toEqual(["top-0", "top-1"]);
-    expect(requests).toHaveLength(1);
+    expect(requests).toHaveLength(3);
+    expect(requests.filter((url) => url.pathname.endsWith("/comments"))).toHaveLength(2);
+  });
+
+  it("probes replies even when the provider reports a stale zero total", async () => {
+    let replyRequests = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/commentThreads")) {
+        return Response.json({
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{
+            id: "thread-stale-zero",
+            snippet: {
+              videoId: "XpZHKGGCK-o",
+              topLevelComment: {
+                id: "top-stale-zero",
+                snippet: {
+                  videoId: "XpZHKGGCK-o",
+                  textDisplay: "Top level",
+                  likeCount: 0,
+                  publishedAt: "2025-02-01T10:00:00Z",
+                  updatedAt: "2025-02-01T10:00:00Z"
+                }
+              },
+              totalReplyCount: 0
+            }
+          }]
+        });
+      }
+      replyRequests += 1;
+      return Response.json({
+        pageInfo: { totalResults: 1, resultsPerPage: 1 },
+        items: [{
+          id: "reply-hidden-by-stale-zero",
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            parentId: "top-stale-zero",
+            textDisplay: "Accessible reply",
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }]
+      });
+    }));
+
+    const result = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 5, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(replyRequests).toBe(1);
+    expect(result.comments.map(({ comment_id }) => comment_id)).toEqual([
+      "top-stale-zero",
+      "reply-hidden-by-stale-zero"
+    ]);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      exhausted: false,
+      replies_retrieved: 1,
+      reply_count_mismatches: [{
+        parent_comment_id: "top-stale-zero",
+        expected: 0,
+        retrieved: 1
+      }]
+    });
+  });
+
+  it("stops a repeated reply-page token as a nonretryable malformed-provider boundary", async () => {
+    const threadPage = await fixture("comment-threads-page-1.json");
+    let replyRequests = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/commentThreads")) {
+        return new Response(threadPage, { status: 200 });
+      }
+      replyRequests += 1;
+      return Response.json({
+        nextPageToken: "same-reply-page",
+        pageInfo: { totalResults: 3, resultsPerPage: 0 },
+        items: []
+      });
+    }));
+
+    const result = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 50, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(replyRequests).toBe(2);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      comments: [{ comment_id: "UgxTop00000000000000001" }],
+      top_level_comments_retrieved: 1,
+      next_cursor: {
+        reply_page_token: "same-reply-page",
+        current_parent_id: "UgxTop00000000000000001"
+      },
+      error: {
+        code: "youtube_comment_segment_response_invalid",
+        retryable: false
+      }
+    });
   });
 
   it("follows every accessible reply page even when the reported reply total is stale", async () => {
@@ -348,6 +459,91 @@ describe("resumable YouTube comment segments", () => {
     expect(JSON.stringify(result)).not.toContain("provider-secret");
   });
 
+  it("preserves a terminal provider boundary after committing records in the same segment", async () => {
+    const [threadPage, providerError] = await Promise.all([
+      fixture("comment-threads-page-capacity-with-next.json"),
+      fixture("error-comments-disabled.json")
+    ]);
+    let request = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      request += 1;
+      return request === 1
+        ? new Response(threadPage, { status: 200 })
+        : new Response(providerError, { status: 403 });
+    }));
+
+    const result = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 3, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "comments_disabled",
+      comments: [{ comment_id: "UgxTop00000000000000001" }],
+      top_level_comments_retrieved: 1,
+      replies_retrieved: 0,
+      next_cursor: {
+        thread_offset: 0,
+        top_level_emitted: true,
+        current_parent_id: "UgxTop00000000000000001",
+        current_replies_retrieved: 0
+      },
+      error: {
+        code: "youtube_comments_disabled",
+        retryable: false
+      }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
+  it("preserves committed records and cursor when a reply page is malformed", async () => {
+    const threadPage = await fixture("comment-threads-page-1.json");
+    let request = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      request += 1;
+      return request === 1
+        ? new Response(threadPage, { status: 200 })
+        : Response.json({
+            pageInfo: { totalResults: 1, resultsPerPage: 1 },
+            items: [{
+              id: "wrong-parent-reply",
+              snippet: {
+                videoId: "XpZHKGGCK-o",
+                parentId: "different-parent",
+                textDisplay: "Malformed relationship",
+                likeCount: 0,
+                publishedAt: "2025-02-01T11:00:00Z",
+                updatedAt: "2025-02-01T11:00:00Z"
+              }
+            }]
+          });
+    }));
+
+    const result = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 3, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      comments: [{ comment_id: "UgxTop00000000000000001" }],
+      top_level_comments_retrieved: 1,
+      replies_retrieved: 0,
+      next_cursor: {
+        thread_offset: 0,
+        top_level_emitted: true,
+        current_parent_id: "UgxTop00000000000000001",
+        current_replies_retrieved: 0
+      },
+      error: {
+        code: "youtube_comment_segment_response_invalid",
+        retryable: false
+      }
+    });
+  });
+
   it("refetches requested comment IDs in 100-record batches and keeps them video-scoped", async () => {
     const ids = Array.from({ length: 101 }, (_, index) => `UgxRequested${String(index).padStart(4, "0")}`);
     const requests: URL[] = [];
@@ -442,7 +638,7 @@ describe("resumable YouTube comment segments", () => {
     );
 
     expect(result).toMatchObject({
-      access_status: "partial",
+      access_status: "rate_limited",
       comments: [{ comment_id: "UgxTop00000000000000001" }],
       top_level_comments_retrieved: 1,
       replies_retrieved: 0,

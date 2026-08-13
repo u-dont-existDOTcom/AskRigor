@@ -2,7 +2,8 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import type {
   YoutubeComment,
-  YoutubeCommentSegmentCursor
+  YoutubeCommentSegmentCursor,
+  YoutubeReplyCountMismatch
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -13,7 +14,7 @@ const MAX_ANALYSIS_RECORDS = 500;
 const MIN_SECRET_BYTES = 32;
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
-const YOUTUBE_IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+const YOUTUBE_IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 
 const boundedInteger = z.number().int().min(0).max(MAX_SAFE_INTEGER);
@@ -45,6 +46,11 @@ const cursorSchema = z.object({
 const sampleIdentifierSchema = z.object({
   comment_id: z.string().regex(YOUTUBE_IDENTIFIER_PATTERN)
 }).strict();
+const replyMismatchSchema = z.object({
+  parent_comment_id: z.string().regex(YOUTUBE_IDENTIFIER_PATTERN),
+  expected: boundedInteger,
+  retrieved: boundedInteger
+}).strict();
 
 const continuationStateSchema = z.object({
   version: z.literal(TOKEN_VERSION),
@@ -61,7 +67,8 @@ const continuationStateSchema = z.object({
   reply_pages: boundedInteger,
   records_retrieved_cumulative: boundedInteger,
   rolling_sha256: z.string().regex(SHA256_PATTERN),
-  sample_identifiers: z.array(sampleIdentifierSchema).max(MAX_ANALYSIS_RECORDS)
+  sample_identifiers: z.array(sampleIdentifierSchema).max(MAX_ANALYSIS_RECORDS),
+  reply_count_mismatches: z.array(replyMismatchSchema)
 }).strict().superRefine((state, context) => {
   if (state.expires_at_ms !== state.started_at_ms + TOKEN_LIFETIME_MS) {
     context.addIssue({ code: "custom", message: "Continuation expiry must be one hour" });
@@ -84,6 +91,12 @@ const continuationStateSchema = z.object({
   const identifiers = state.sample_identifiers.map(({ comment_id }) => comment_id);
   if (new Set(identifiers).size !== identifiers.length) {
     context.addIssue({ code: "custom", message: "Continuation sample identifiers are not unique" });
+  }
+  const mismatchParents = state.reply_count_mismatches.map(({ parent_comment_id }) =>
+    parent_comment_id
+  );
+  if (new Set(mismatchParents).size !== mismatchParents.length) {
+    context.addIssue({ code: "custom", message: "Continuation reply mismatches are not unique" });
   }
 });
 
@@ -118,6 +131,7 @@ export interface YoutubeVideoAuditContinuationState {
   records_retrieved_cumulative: number;
   rolling_sha256: string;
   sample_identifiers: YoutubeAuditSampleIdentifier[];
+  reply_count_mismatches: YoutubeReplyCountMismatch[];
 }
 
 export function encodeYoutubeAuditContinuation(
@@ -202,12 +216,18 @@ export function advanceYoutubeAuditState(
     replies_retrieved: number;
     comment_thread_pages: number;
     reply_pages: number;
+    reply_count_mismatches: YoutubeReplyCountMismatch[];
   },
   cursor: YoutubeCommentSegmentCursor
 ): YoutubeVideoAuditContinuationState {
-  const values = Object.values(counters);
+  const numericCounters = [
+    counters.top_level_comments_retrieved,
+    counters.replies_retrieved,
+    counters.comment_thread_pages,
+    counters.reply_pages
+  ];
   if (
-    values.some((value) => !Number.isSafeInteger(value) || value < 0) ||
+    numericCounters.some((value) => !Number.isSafeInteger(value) || value < 0) ||
     counters.top_level_comments_retrieved + counters.replies_retrieved !== comments.length ||
     comments.some(({ video_id }) => video_id !== state.video_id)
   ) {
@@ -224,6 +244,18 @@ export function advanceYoutubeAuditState(
     .sort((left, right) => sampleRank(left).localeCompare(sampleRank(right)) || left.localeCompare(right))
     .slice(0, MAX_ANALYSIS_RECORDS)
     .map((comment_id) => ({ comment_id }));
+  const mismatchByParent = new Map(
+    state.reply_count_mismatches.map((mismatch) => [mismatch.parent_comment_id, mismatch])
+  );
+  for (const mismatch of counters.reply_count_mismatches) {
+    const existing = mismatchByParent.get(mismatch.parent_comment_id);
+    if (existing !== undefined && (
+      existing.expected !== mismatch.expected || existing.retrieved !== mismatch.retrieved
+    )) {
+      throw new Error("YouTube reply mismatch changed within continuation chain");
+    }
+    mismatchByParent.set(mismatch.parent_comment_id, mismatch);
+  }
   const commentPayload = comments.map(canonicalCommentJson).join("\n");
   const candidate: YoutubeVideoAuditContinuationState = {
     ...state,
@@ -238,7 +270,8 @@ export function advanceYoutubeAuditState(
     rolling_sha256: createHash("sha256")
       .update(`${state.rolling_sha256}\n${commentPayload}`)
       .digest("hex"),
-    sample_identifiers: sampleIdentifiers
+    sample_identifiers: sampleIdentifiers,
+    reply_count_mismatches: [...mismatchByParent.values()]
   };
   return parseState(candidate);
 }

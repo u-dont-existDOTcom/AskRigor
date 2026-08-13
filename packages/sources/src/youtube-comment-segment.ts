@@ -115,6 +115,11 @@ interface SegmentAccounting {
 }
 
 class SegmentBudgetReached extends Error {}
+class SegmentFatalError extends Error {
+  constructor(public readonly code: string) {
+    super(code);
+  }
+}
 
 export async function getYoutubeCommentSegment(
   input: {
@@ -152,9 +157,16 @@ export async function getYoutubeCommentSegment(
     thread_offset: 0,
     top_level_emitted: false
   };
+  const requestedThreadPageTokens = new Set<string>();
 
   try {
     while (true) {
+      if (cursor.top_level_page_token !== undefined) {
+        if (requestedThreadPageTokens.has(cursor.top_level_page_token)) {
+          throw new SegmentFatalError("youtube_comment_segment_response_invalid");
+        }
+        requestedThreadPageTokens.add(cursor.top_level_page_token);
+      }
       const page = await fetchThreadPage(videoId, pageSize, cursor.top_level_page_token, config, accounting);
       commentThreadPages += 1;
       const fingerprint = await threadPageFingerprint(page.items.map(({ id }) => id));
@@ -196,21 +208,22 @@ export async function getYoutubeCommentSegment(
         (page.items.length > 0 && cursor.thread_offset >= page.items.length) ||
         (page.items.length === 0 && (cursor.thread_offset !== 0 || cursor.top_level_emitted))
       ) {
-        return segmentFailure(videoId, "youtube_comment_segment_cursor_invalid");
+        throw new SegmentFatalError("youtube_comment_segment_cursor_invalid");
       }
       while (cursor.thread_offset < page.items.length) {
         const thread = page.items[cursor.thread_offset]!;
         const topLevel = thread.snippet.topLevelComment;
         const parentId = topLevel.id;
         const expectedReplies = thread.snippet.totalReplyCount;
+        if (thread.snippet.videoId !== videoId || topLevel.snippet.videoId !== videoId) {
+          throw new SegmentFatalError("youtube_comment_segment_response_invalid");
+        }
         if (
-          thread.snippet.videoId !== videoId ||
-          topLevel.snippet.videoId !== videoId ||
           (cursor.current_parent_id !== undefined && cursor.current_parent_id !== parentId) ||
           (cursor.current_expected_replies !== undefined &&
             cursor.current_expected_replies !== expectedReplies)
         ) {
-          return segmentFailure(videoId, "youtube_comment_segment_cursor_invalid");
+          throw new SegmentFatalError("youtube_comment_segment_cursor_invalid");
         }
 
         if (!cursor.top_level_emitted) {
@@ -228,7 +241,20 @@ export async function getYoutubeCommentSegment(
 
         let replyPageToken = cursor.reply_page_token;
         let currentReplies = cursor.current_replies_retrieved ?? 0;
-        while (currentReplies < expectedReplies || replyPageToken !== undefined) {
+        let firstReplyProbePending = replyPageToken === undefined && currentReplies === 0;
+        const requestedReplyPageTokens = new Set<string>();
+        while (
+          firstReplyProbePending ||
+          currentReplies < expectedReplies ||
+          replyPageToken !== undefined
+        ) {
+          firstReplyProbePending = false;
+          if (replyPageToken !== undefined) {
+            if (requestedReplyPageTokens.has(replyPageToken)) {
+              throw new SegmentFatalError("youtube_comment_segment_response_invalid");
+            }
+            requestedReplyPageTokens.add(replyPageToken);
+          }
           const replyPage = await fetchReplyPage(
             videoId,
             parentId,
@@ -237,10 +263,10 @@ export async function getYoutubeCommentSegment(
             accounting
           );
           replyPages += 1;
+          if (replyPage.items.some((reply) => reply.snippet.parentId !== parentId)) {
+            throw new SegmentFatalError("youtube_comment_segment_response_invalid");
+          }
           for (const reply of replyPage.items) {
-            if (reply.snippet.parentId !== parentId) {
-              return segmentFailure(videoId, "youtube_comment_segment_response_invalid");
-            }
             comments.push(normalizeComment(reply, videoId, parentId, true));
             replyCount += 1;
             currentReplies += 1;
@@ -325,10 +351,28 @@ export async function getYoutubeCommentSegment(
             cursor,
             limitation: failure.limitations[0] ?? "YouTube retrieval stopped at a provider boundary."
           }),
+          access_status: failure.access_status,
           error: failure.error
         };
       }
       return failure;
+    }
+    if (error instanceof SegmentFatalError) {
+      if (comments.length > 0) {
+        return partialResult({
+          videoId,
+          comments,
+          topLevelCount,
+          replyCount,
+          commentThreadPages,
+          replyPages,
+          mismatches,
+          cursor,
+          limitation: "YouTube comment segment could not be completed.",
+          errorCode: error.code
+        });
+      }
+      return segmentFailure(videoId, error.code);
     }
     return segmentFailure(videoId, "youtube_comment_segment_failed");
   }
@@ -405,7 +449,7 @@ async function fetchReplyPage(
   const page = await fetchParsed(url, replyPageSchema, accounting);
   for (const reply of page.items) {
     if (reply.snippet.videoId !== undefined && reply.snippet.videoId !== videoId) {
-      throw new Error("Reply video mismatch");
+      throw new SegmentFatalError("youtube_comment_segment_response_invalid");
     }
   }
   return page;
@@ -428,7 +472,9 @@ async function fetchParsed<T>(
     }
   });
   const parsed = schema.safeParse(payload);
-  if (!parsed.success) throw new Error("Invalid YouTube comment response");
+  if (!parsed.success) {
+    throw new SegmentFatalError("youtube_comment_segment_response_invalid");
+  }
   return parsed.data;
 }
 

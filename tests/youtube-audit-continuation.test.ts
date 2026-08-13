@@ -27,7 +27,8 @@ const STATE: YoutubeVideoAuditContinuationState = {
   reply_pages: 0,
   records_retrieved_cumulative: 1,
   rolling_sha256: "a".repeat(64),
-  sample_identifiers: [{ comment_id: "UgxTop00000000000000001" }]
+  sample_identifiers: [{ comment_id: "UgxTop00000000000000001" }],
+  reply_count_mismatches: []
 };
 
 const comment = (id: string, text = `comment ${id}`): YoutubeComment => ({
@@ -88,6 +89,45 @@ describe("YouTube audit continuation tokens", () => {
     }, SECRET)).toThrow(/state/i);
   });
 
+  it("keeps the worst-case supported continuation below the public token limit", () => {
+    const identifier = (prefix: string, index: number) =>
+      `${prefix}${String(index).padStart(4, "0")}`.padEnd(64, "x");
+    const worstCase: YoutubeVideoAuditContinuationState = {
+      ...STATE,
+      cursor: {
+        top_level_page_token: "t".repeat(1_024),
+        page_fingerprint: "f".repeat(64),
+        thread_offset: Number.MAX_SAFE_INTEGER,
+        top_level_emitted: true,
+        reply_page_token: "r".repeat(1_024),
+        current_parent_id: identifier("parent", 0),
+        current_expected_replies: Number.MAX_SAFE_INTEGER,
+        current_replies_retrieved: Number.MAX_SAFE_INTEGER
+      },
+      provider_reported_comments: "9".repeat(64),
+      top_level_comments_retrieved: 500,
+      replies_retrieved: 0,
+      records_retrieved_cumulative: 500,
+      sample_identifiers: Array.from(
+        { length: 500 },
+        (_, index) => ({ comment_id: identifier("comment", index) })
+      ),
+      reply_count_mismatches: Array.from(
+        { length: 16 },
+        (_, index) => ({
+          parent_comment_id: identifier("mismatch", index),
+          expected: Number.MAX_SAFE_INTEGER,
+          retrieved: Number.MAX_SAFE_INTEGER
+        })
+      )
+    };
+
+    const token = encodeYoutubeAuditContinuation(worstCase, SECRET);
+
+    expect(token.length).toBeLessThanOrEqual(65_536);
+    expect(decodeYoutubeAuditContinuation(token, SECRET, NOW)).toEqual(worstCase);
+  });
+
   it("advances counters, rolling digest, and a deterministic bottom-k identifier sample", () => {
     const base = {
       ...STATE,
@@ -111,7 +151,8 @@ describe("YouTube audit continuation tokens", () => {
         top_level_comments_retrieved: 3,
         replies_retrieved: 0,
         comment_thread_pages: 1,
-        reply_pages: 0
+        reply_pages: 0,
+        reply_count_mismatches: []
       },
       { thread_offset: 3, top_level_emitted: false }
     );
@@ -162,7 +203,8 @@ describe("YouTube audit continuation tokens", () => {
         top_level_comments_retrieved: 2,
         replies_retrieved: 0,
         comment_thread_pages: 1,
-        reply_pages: 0
+        reply_pages: 0,
+        reply_count_mismatches: []
       },
       { thread_offset: 2, top_level_emitted: false }
     )).toThrow(/duplicate/i);
@@ -175,7 +217,8 @@ describe("YouTube audit continuation tokens", () => {
         top_level_comments_retrieved: 1,
         replies_retrieved: 0,
         comment_thread_pages: 1,
-        reply_pages: 0
+        reply_pages: 0,
+        reply_count_mismatches: []
       },
       { thread_offset: 2, top_level_emitted: false }
     )).toThrow(/duplicate/i);

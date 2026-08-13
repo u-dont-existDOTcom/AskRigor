@@ -133,9 +133,11 @@ For an incomplete call, the tool returns a truthful provisional segment and an o
 
 Individual YouTube calls remain bounded below the client timeout, but the overall research pass has no one-minute or other arbitrary wall-clock cutoff. The controller calls the per-video tool repeatedly when continuation is valuable.
 
-Continuation must not require storing comment text or research sessions on the VPS. The opaque token is authenticated by the server and carries only the state needed to resume and verify the chain: video identity, upstream cursor, chain position, cumulative counters, rolling corpus digest state, bounded deterministic-sample identifiers, issue time, and expiry. It contains no API key and no raw comment text. A dedicated runtime secret authenticates tokens. Tokens expire after one hour because a multi-call public comment corpus can change over time; an expired or invalid token produces a truthful restart-required result, never a fabricated completion.
+Continuation must not require storing comment text or research sessions on the VPS. The opaque token is authenticated by the server and carries only the state needed to resume and verify the chain: video identity, upstream cursor, chain position, cumulative counters, rolling corpus digest state, bounded deterministic-sample identifiers, reply-parent identifiers with expected/retrieved reconciliation counts, issue time, and expiry. It contains no API key and no raw comment text. A dedicated runtime secret authenticates tokens. Tokens expire after one hour because a multi-call public comment corpus can change over time; an expired or invalid token produces a truthful restart-required result, never a fabricated completion. If exact state cannot fit the bounded stateless token, the tool returns an explicit blocking receipt rather than dropping mismatch evidence or fabricating continuation.
 
 At terminal exhaustion the tool can refetch the bounded deterministic sample identifiers when needed and return the final sample plus a mechanically validated receipt covering the chain from the first page through exhaustion. The receipt reaches `api_visible_complete` only when top-level pagination is exhausted, all accessible reply pages are exhausted, and reply mismatches are empty.
+
+If every top-level page and accessible reply-page token is exhausted but a stale provider reply total still does not reconcile, refetch and return the retained sample as `completed_with_access_boundary`. Keep `replies_reconciled: false`, preserve every mismatch and its confidence limitation, and do not call the corpus `api_visible_complete`. A stable terminal mismatch must not make already retrieved evidence permanently unusable.
 
 ## Adaptive research controller
 
@@ -143,9 +145,9 @@ Elapsed time alone is not a stopping rule. AskRigor automatically spends additio
 
 ### Automatic deeper continuation
 
-Continue deeper on an already selected video when any of these conditions holds:
+`continuation_recommended` is authoritative for immediate automatic resubmission. A continuation token paired with `continuation_recommended: false` is deferred recovery state: preserve it and report the retry-later blocker, but do not auto-resubmit it in the same pass. Subject to that rule, continue deeper on an already selected video when any of these conditions holds:
 
-- the tool returns a continuation token for a materially relevant video;
+- the tool returns `continuation_recommended: true` for a materially relevant video;
 - provider metadata indicates at least 300 comments may exist but fewer than 300 records have been retrieved;
 - fewer than 300 records have been analyzed and additional records are likely available, unless the complete corpus is smaller;
 - benefit, no-effect, harm, or discontinuation coverage remains incomplete;

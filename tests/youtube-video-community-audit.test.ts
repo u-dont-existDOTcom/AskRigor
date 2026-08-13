@@ -536,7 +536,296 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(result.continuation_token).toBeUndefined();
   });
 
-  it("blocks terminal reply-count mismatches instead of issuing a complete receipt", async () => {
+  it("retains counts but blocks synthesis when malformed upstream data follows a committed record", async () => {
+    const comments = makeComments(1);
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("400")),
+      get_segment: vi.fn(async () => ({
+        video_id: VIDEO_ID,
+        comments,
+        top_level_comments_retrieved: 1,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 1,
+        reply_count_mismatches: [],
+        exhausted: false,
+        next_cursor: {
+          thread_offset: 0,
+          top_level_emitted: true,
+          current_parent_id: comments[0]!.comment_id,
+          current_expected_replies: 1,
+          current_replies_retrieved: 0
+        },
+        access_status: "partial" as const,
+        limitations: ["YouTube comment segment could not be completed."],
+        error: {
+          code: "youtube_comment_segment_response_invalid",
+          message: "YouTube comment segment could not safely resume",
+          retryable: false
+        }
+      })),
+      get_comments_by_ids: vi.fn()
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      records_retrieved_this_call: 1,
+      records_retrieved_cumulative: 1,
+      records_returned_for_analysis: 0,
+      continuation_recommended: false,
+      receipt: {
+        completion_state: "incomplete",
+        synthesis_lock: "block",
+        blockers: [expect.stringMatching(/restart.*video/i)]
+      }
+    });
+    expect(result.continuation_token).toBeUndefined();
+    expect(result.sample).toBeUndefined();
+  });
+
+  it("pauses a retryable mid-segment boundary without auto-looping and preserves its token", async () => {
+    const comments = makeComments(1);
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("400")),
+      get_segment: vi.fn(async () => ({
+        video_id: VIDEO_ID,
+        comments,
+        top_level_comments_retrieved: 1,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0,
+        reply_count_mismatches: [],
+        exhausted: false,
+        next_cursor: {
+          top_level_page_token: "retry-page",
+          thread_offset: 0,
+          top_level_emitted: false
+        },
+        access_status: "rate_limited" as const,
+        limitations: ["YouTube rate limit reached."],
+        error: {
+          code: "youtube_rate_limited",
+          message: "YouTube rate limit reached",
+          retryable: true
+        }
+      })),
+      get_comments_by_ids: vi.fn()
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "rate_limited",
+      records_retrieved_cumulative: 1,
+      records_returned_for_analysis: 0,
+      continuation_recommended: false,
+      continuation_token: expect.any(String),
+      receipt: {
+        completion_state: "incomplete",
+        synthesis_lock: "block",
+        blockers: [expect.stringMatching(/retry later.*continuation token/i)]
+      }
+    });
+    expect(result.sample).toBeUndefined();
+  });
+
+  it("returns retained evidence when a terminal boundary follows records in the same segment", async () => {
+    const comments = makeComments(2);
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("400")),
+      get_segment: vi.fn(async () => ({
+        video_id: VIDEO_ID,
+        comments,
+        top_level_comments_retrieved: 2,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0,
+        reply_count_mismatches: [],
+        exhausted: false,
+        next_cursor: {
+          top_level_page_token: "blocked-page",
+          thread_offset: 0,
+          top_level_emitted: false
+        },
+        access_status: "comments_disabled" as const,
+        limitations: ["YouTube comments are disabled."],
+        error: {
+          code: "youtube_comments_disabled",
+          message: "YouTube comments are disabled",
+          retryable: false
+        }
+      })),
+      get_comments_by_ids: vi.fn(async () => ({
+        access_status: "api_visible_complete" as const,
+        comments,
+        limitations: []
+      }))
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "comments_disabled",
+      extraction_coverage: "completed_with_access_boundary",
+      records_retrieved_cumulative: 2,
+      records_returned_for_analysis: 2,
+      continuation_recommended: false,
+      sample: { mode: "all", corpus_count: 2, sampled_count: 2 },
+      receipt: {
+        completion_state: "completed_with_access_boundary",
+        synthesis_lock: "pass"
+      }
+    });
+    expect(result.continuation_token).toBeUndefined();
+  });
+
+  it("continues past a reply mismatch and carries it into the terminal blocked receipt", async () => {
+    const firstComments = makeComments(1);
+    const secondComments = makeComments(1, 1);
+    const mismatch = {
+      parent_comment_id: firstComments[0]!.comment_id,
+      expected: 2,
+      retrieved: 1
+    };
+    const getSegment = vi.fn(async (input: { cursor?: unknown }) => input.cursor === undefined
+      ? {
+          video_id: VIDEO_ID,
+          comments: firstComments,
+          top_level_comments_retrieved: 1,
+          replies_retrieved: 0,
+          comment_thread_pages: 1,
+          reply_pages: 1,
+          reply_count_mismatches: [mismatch],
+          exhausted: false,
+          next_cursor: {
+            top_level_page_token: "next",
+            thread_offset: 0,
+            top_level_emitted: false
+          },
+          access_status: "partial" as const,
+          limitations: ["Reply count mismatch."]
+        }
+      : {
+          video_id: VIDEO_ID,
+          comments: secondComments,
+          top_level_comments_retrieved: 1,
+          replies_retrieved: 0,
+          comment_thread_pages: 1,
+          reply_pages: 0,
+          reply_count_mismatches: [],
+          exhausted: true,
+          access_status: "api_visible_complete" as const,
+          limitations: []
+        });
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("2")),
+      get_segment: getSegment,
+      get_comments_by_ids: vi.fn(async () => ({
+        access_status: "api_visible_complete" as const,
+        comments: [...firstComments, ...secondComments],
+        limitations: []
+      }))
+    };
+
+    const first = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+    expect(first).toMatchObject({
+      records_retrieved_cumulative: 1,
+      reply_count_mismatches: [mismatch],
+      continuation_recommended: true,
+      receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+    });
+
+    const second = await auditYoutubeVideoCommunity(
+      { continuation_token: first.continuation_token },
+      CONFIG,
+      { now: () => NOW + 1, dependencies }
+    );
+    expect(second).toMatchObject({
+      records_retrieved_cumulative: 2,
+      records_returned_for_analysis: 2,
+      reply_count_mismatches: [mismatch],
+      continuation_recommended: false,
+      receipt: {
+        completion_state: "completed_with_access_boundary",
+        synthesis_lock: "pass",
+        top_level_pagination_exhausted: true,
+        replies_reconciled: false,
+        blockers: []
+      }
+    });
+    expect(second.sample).toMatchObject({ mode: "all", corpus_count: 2, sampled_count: 2 });
+    expect(second.limitations).toEqual(expect.arrayContaining([
+      expect.stringMatching(/retained sample is usable as bounded evidence/i)
+    ]));
+    expect(getSegment).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns a blocking receipt instead of failing when exact continuation state is too large", async () => {
+    const comments = makeComments(500);
+    const mismatches = comments.map(({ comment_id }) => ({
+      parent_comment_id: comment_id.padEnd(512, "x"),
+      expected: Number.MAX_SAFE_INTEGER,
+      retrieved: Number.MAX_SAFE_INTEGER
+    }));
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("1000")),
+      get_segment: vi.fn(async () => ({
+        video_id: VIDEO_ID,
+        comments,
+        top_level_comments_retrieved: 500,
+        replies_retrieved: 0,
+        comment_thread_pages: 25,
+        reply_pages: 0,
+        reply_count_mismatches: mismatches,
+        exhausted: false,
+        next_cursor: {
+          top_level_page_token: "next",
+          thread_offset: 0,
+          top_level_emitted: false
+        },
+        access_status: "partial" as const,
+        limitations: ["Reply counts did not reconcile."]
+      })),
+      get_comments_by_ids: vi.fn()
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      records_retrieved_cumulative: 500,
+      reply_count_mismatches: mismatches,
+      continuation_recommended: false,
+      receipt: {
+        completion_state: "incomplete",
+        synthesis_lock: "block",
+        blockers: expect.arrayContaining([expect.stringMatching(/stateless-token limit/i)])
+      }
+    });
+    expect(result.continuation_token).toBeUndefined();
+  });
+
+  it("returns bounded retained evidence for a source-shaped terminal reply mismatch", async () => {
     const comments = makeComments(20);
     const dependencies: YoutubeVideoCommunityAuditDependencies = {
       get_video: vi.fn(async () => videoEnvelope("20")),
@@ -556,7 +845,11 @@ describe("adaptive per-video YouTube community audit", () => {
         access_status: "partial" as const,
         limitations: ["Replies did not reconcile."]
       })),
-      get_comments_by_ids: vi.fn()
+      get_comments_by_ids: vi.fn(async () => ({
+        access_status: "api_visible_complete" as const,
+        comments,
+        limitations: []
+      }))
     };
 
     const result = await auditYoutubeVideoCommunity(
@@ -567,16 +860,23 @@ describe("adaptive per-video YouTube community audit", () => {
 
     expect(result).toMatchObject({
       access_status: "partial",
+      extraction_coverage: "completed_with_access_boundary",
+      records_returned_for_analysis: 20,
       reply_count_mismatches: [{ expected: 1, retrieved: 0 }],
       continuation_recommended: false,
       receipt: {
-        completion_state: "incomplete",
-        synthesis_lock: "block",
+        completion_state: "completed_with_access_boundary",
+        synthesis_lock: "pass",
+        top_level_pagination_exhausted: true,
         replies_reconciled: false,
-        blockers: [expect.stringContaining("reply counts")]
+        blockers: []
       }
     });
     expect(result.continuation_token).toBeUndefined();
+    expect(result.sample).toMatchObject({ mode: "all", corpus_count: 20, sampled_count: 20 });
+    expect(result.limitations).toEqual(expect.arrayContaining([
+      expect.stringMatching(/retained sample is usable as bounded evidence/i)
+    ]));
   });
 
   it("rejects tampered, expired, wrong-video, changed-limit, and missing-secret chains", async () => {

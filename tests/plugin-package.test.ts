@@ -196,6 +196,9 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("`records_retrieved_cumulative`");
     expect(skill).toContain("`records_returned_for_analysis`");
     expect(skill).toContain("`continuation_recommended: true`");
+    expect(skill).toContain(
+      "`continuation_recommended` is authoritative for immediate automatic resubmission"
+    );
     expect(skill).toContain("expected information gain remains positive");
     expect(skill).toContain("`support_not_located`");
     expect(skill).toContain("cannot by itself downgrade the community signal");

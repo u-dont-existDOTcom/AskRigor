@@ -33,6 +33,8 @@ const ACCESS_BOUNDARIES = new Set<AccessStatus>([
 ]);
 const PROVIDER_COUNT_MISMATCH_LIMITATION =
   "YouTube provider metadata and the complete API-visible comment/reply corpus reported different counts.";
+const TERMINAL_REPLY_MISMATCH_LIMITATION =
+  "All top-level pages and accessible reply-page tokens were exhausted, but one or more provider-reported reply totals did not reconcile; the retained sample is usable as bounded evidence, not a complete API-visible corpus.";
 
 export const youtubeVideoCommunityAuditInputSchema = z.object({
   video_id_or_url: z.string().min(1).max(2_048).optional(),
@@ -194,7 +196,8 @@ export async function auditYoutubeVideoCommunity(
       reply_pages: 0,
       records_retrieved_cumulative: 0,
       rolling_sha256: ZERO_SHA256,
-      sample_identifiers: []
+      sample_identifiers: [],
+      reply_count_mismatches: []
     };
   }
 
@@ -235,32 +238,47 @@ export async function auditYoutubeVideoCommunity(
       top_level_comments_retrieved: segment.top_level_comments_retrieved,
       replies_retrieved: segment.replies_retrieved,
       comment_thread_pages: segment.comment_thread_pages,
-      reply_pages: segment.reply_pages
+      reply_pages: segment.reply_pages,
+      reply_count_mismatches: segment.reply_count_mismatches
     },
     segment.next_cursor ?? resumeCursor ?? { thread_offset: 0, top_level_emitted: false }
   );
 
-  const mismatchBlock = segment.reply_count_mismatches.length > 0;
-  const apiVisibleComplete =
+  const mismatchBlock = state.reply_count_mismatches.length > 0;
+  const apiReportedExhaustion =
     segment.access_status === "api_visible_complete" &&
     segment.exhausted &&
-    segment.next_cursor === undefined &&
-    !mismatchBlock;
-  const terminalAccessBoundary = ACCESS_BOUNDARIES.has(segment.access_status) &&
-    segment.comments.length === 0 &&
     segment.next_cursor === undefined;
+  const terminalMismatchAfterTopLevelExhaustion =
+    segment.access_status === "partial" &&
+    segment.error === undefined &&
+    segment.next_cursor === undefined &&
+    segment.reply_count_mismatches.length > 0;
+  const topLevelPaginationExhausted =
+    apiReportedExhaustion || terminalMismatchAfterTopLevelExhaustion;
+  const apiVisibleComplete = apiReportedExhaustion && !mismatchBlock;
+  const terminalReplyMismatchBoundary =
+    topLevelPaginationExhausted &&
+    mismatchBlock &&
+    segment.error === undefined &&
+    segment.next_cursor === undefined;
+  const retryLater = segment.next_cursor !== undefined && segment.error?.retryable === true;
+  const terminalAccessBoundary = ACCESS_BOUNDARIES.has(segment.access_status) && !retryLater;
   const restartRequired = segment.next_cursor !== undefined &&
-    segment.error?.retryable === false;
-  const canContinue =
+    segment.error?.retryable === false &&
+    !terminalAccessBoundary;
+  const canAutoContinue =
     !apiVisibleComplete &&
     !terminalAccessBoundary &&
-    !mismatchBlock &&
+    !retryLater &&
     !restartRequired &&
+    segment.error === undefined &&
     segment.next_cursor !== undefined;
+  const canIssueContinuation = canAutoContinue || retryLater;
 
   let sample: YoutubeVideoCommunityAuditOutput["sample"];
   let sampleFailure: string | undefined;
-  if (apiVisibleComplete || terminalAccessBoundary) {
+  if (apiVisibleComplete || terminalAccessBoundary || terminalReplyMismatchBoundary) {
     if (state.sample_identifiers.length === 0) {
       sample = { mode: "all", corpus_count: 0, sampled_count: 0, comments: [] };
     } else {
@@ -303,27 +321,47 @@ export async function auditYoutubeVideoCommunity(
 
   const completionState = apiVisibleComplete && sampleFailure === undefined
     ? "api_visible_complete" as const
-    : terminalAccessBoundary && sampleFailure === undefined
+    : (terminalAccessBoundary || terminalReplyMismatchBoundary) && sampleFailure === undefined
       ? "completed_with_access_boundary" as const
       : "incomplete" as const;
+  let continuationToken: string | undefined;
+  let continuationStateTooLarge = false;
+  if (canIssueContinuation) {
+    try {
+      continuationToken = encodeYoutubeAuditContinuation(state, config.continuation_secret);
+    } catch (error) {
+      if (error instanceof Error && error.message === "YouTube audit continuation token is too large") {
+        continuationStateTooLarge = true;
+      } else {
+        throw error;
+      }
+    }
+  }
   const blockers = completionState === "incomplete"
     ? uniqueStrings([
         ...(mismatchBlock ? ["One or more YouTube reply counts did not reconcile."] : []),
-        ...(canContinue ? ["Additional API-visible YouTube comment or reply pages remain retrievable."] : []),
+        ...(canAutoContinue
+          ? ["Additional API-visible YouTube comment or reply pages remain retrievable."]
+          : []),
+        ...(retryLater
+          ? ["YouTube returned a retryable provider boundary; retry later with the continuation token."]
+          : []),
         ...(restartRequired
           ? ["The YouTube audit cannot safely continue from this cursor; restart the audit from the video ID."]
           : []),
+        ...(continuationStateTooLarge
+          ? ["The exact continuation state exceeded the safe stateless-token limit; this audit cannot continue automatically."]
+          : []),
         ...(sampleFailure === undefined ? [] : [sampleFailure]),
-        ...(!canContinue && !mismatchBlock && !restartRequired && sampleFailure === undefined
+        ...(!canAutoContinue && !retryLater && !mismatchBlock && !restartRequired &&
+          !continuationStateTooLarge && sampleFailure === undefined
           ? ["The YouTube video corpus did not reach a terminal complete or access-boundary state."]
           : [])
       ])
     : [];
-  const continuationToken = canContinue
-    ? encodeYoutubeAuditContinuation(state, config.continuation_secret)
-    : undefined;
   const providerReportedCount = state.provider_reported_comments;
   const insufficientDepth = !segment.exhausted &&
+    !terminalReplyMismatchBoundary &&
     providerReportedCount !== undefined &&
     BigInt(providerReportedCount) >= 300n &&
     state.records_retrieved_cumulative < 300;
@@ -334,6 +372,10 @@ export async function auditYoutubeVideoCommunity(
     ...metadata.limitations,
     ...segment.limitations,
     ...(countMismatch ? [PROVIDER_COUNT_MISMATCH_LIMITATION] : []),
+    ...(terminalReplyMismatchBoundary ? [TERMINAL_REPLY_MISMATCH_LIMITATION] : []),
+    ...(continuationStateTooLarge
+      ? ["The exact continuation state exceeded the safe stateless-token limit."]
+      : []),
     ...(sampleFailure === undefined ? [] : [sampleFailure])
   ]);
   const sampleComments = sample?.comments ?? [];
@@ -343,7 +385,9 @@ export async function auditYoutubeVideoCommunity(
     ? "api_visible_complete"
     : terminalAccessBoundary
       ? segment.access_status
-      : "partial";
+      : retryLater
+        ? segment.access_status
+        : "partial";
 
   return youtubeVideoCommunityAuditOutputSchema.parse({
     provider: "youtube",
@@ -385,17 +429,17 @@ export async function auditYoutubeVideoCommunity(
     records_returned_for_analysis: sampleComments.length,
     top_level_records_returned_for_analysis: returnedTopLevel,
     reply_records_returned_for_analysis: returnedReplies,
-    reply_count_mismatches: segment.reply_count_mismatches,
+    reply_count_mismatches: state.reply_count_mismatches,
     corpus_rolling_sha256: state.rolling_sha256,
     insufficient_depth: insufficientDepth,
-    continuation_recommended: continuationToken !== undefined,
+    continuation_recommended: canAutoContinue && continuationToken !== undefined,
     ...(continuationToken === undefined ? {} : { continuation_token: continuationToken }),
     ...(sample === undefined ? {} : { sample }),
     receipt: {
       completion_state: completionState,
       synthesis_lock: completionState === "incomplete" ? "block" : "pass",
       chain_started_at_first_page: true,
-      top_level_pagination_exhausted: apiVisibleComplete,
+      top_level_pagination_exhausted: topLevelPaginationExhausted,
       replies_reconciled: apiVisibleComplete,
       query_bounded_comments_used_as_corpus: false,
       blockers

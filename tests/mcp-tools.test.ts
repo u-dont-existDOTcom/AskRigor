@@ -379,7 +379,7 @@ describe("AskRigor MCP tools", () => {
       stalledReplyRequests += 1;
       if (stalledReplyRequests <= 49) {
         return Response.json({
-          nextPageToken: "resume-replies",
+          nextPageToken: `resume-replies-${stalledReplyRequests}`,
           pageInfo: { totalResults: 3, resultsPerPage: 0 },
           items: []
         });
@@ -515,7 +515,8 @@ describe("AskRigor MCP tools", () => {
       reply_pages: 0,
       records_retrieved_cumulative: 0,
       rolling_sha256: "0".repeat(64),
-      sample_identifiers: []
+      sample_identifiers: [],
+      reply_count_mismatches: []
     }, secret);
 
     try {
@@ -1610,7 +1611,7 @@ describe("AskRigor MCP tools", () => {
           name: "HRP",
           version: "20.5.17",
           revisionDate: "2026-08-13",
-          sha256: "1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2"
+          sha256: "d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242"
         },
         text: canonicalText
       });

@@ -6758,13 +6758,24 @@ Final integrated synthesis rule:
 
   <Case id="FinalAnswerStopsWhileYouTubeExpansionStillLikelyUseful">
    <Prompt>
-    A material YouTube video has an unconsumed continuation token, another independent discussion pool is findable, and the
+    A material YouTube video has continuation_recommended=true, another independent discussion pool is findable, and the
     controller records further_expansion_likely_to_improve_answer=yes, but the model writes its final treatment ranking.
    </Prompt>
    <ExpectedBehavior>
     Fail the completion audit and must not emit the final synthesis. Continue the executable wider or deeper retrieval,
     re-evaluate directional and independent-pool coverage, and rerun the completion gate. A final answer may report further
     expansion as no or blocked with a reason; yes is a nonterminal internal state while useful retrieval remains executable.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="DeferredYouTubeContinuationDoesNotAutoLoop">
+   <Prompt>
+    A material YouTube audit returns a continuation token with continuation_recommended=false and a retry-later quota blocker.
+   </Prompt>
+   <ExpectedBehavior>
+    Preserve the deferred token and report the boundary, but do not immediately resubmit it. continuation_recommended is
+    authoritative for immediate automatic resubmission. Continue other executable wider work or finish with blocked and the
+    explicit reason when no useful work remains.
    </ExpectedBehavior>
   </Case>
 

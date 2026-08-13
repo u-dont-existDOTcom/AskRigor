@@ -11,6 +11,8 @@ Run this module after the Project router marks `FORUM_SIGNAL REQUIRED`. It acqui
 5. For each video preserve `provider_reported_comments`, `top_level_comments_retrieved_cumulative`, `replies_retrieved_cumulative`, `records_retrieved_cumulative`, and `records_returned_for_analysis`. These are different count classes. Provider metadata may exceed or differ from the API-visible corpus.
 6. When a materially relevant video reports at least 300 available comments but fewer than 300 records were retrieved, label it `insufficient_depth` and continue unless the complete corpus is smaller or a genuine boundary stops retrieval. Analyze all records when the complete corpus contains 500 or fewer; for a larger completely acquired corpus use the returned deterministic 500-record sample.
 
+A terminal `completed_with_access_boundary` receipt with `replies_reconciled: false` preserves usable bounded evidence after all page tokens are exhausted, but it is not a complete corpus. Report the exact reply mismatches and confidence limitation.
+
 `retrieved` does not mean persisted or user-downloadable. AskRigor processes public material transiently and does not create a comment archive.
 
 ## Episode analysis and evidence weighting
@@ -49,7 +51,7 @@ Community → formal: convert material interventions, subgroups, outcomes, regim
 
 Formal → community: convert decision-critical formal findings into targeted community discriminators. Record `no_material_discriminators` only when none exist. Preserve discordance rather than forcing either layer to win automatically.
 
-Continue deeper when a selected video has a continuation token, fewer than 300 records despite at least 300 plausibly available, incomplete directional coverage, unresolved replies, or a material community/formal conflict. Continue wider when a material signal comes from only one creator or discussion pool, fewer than two independent relevant videos were audited despite plausible candidates, a direction is missing, a new hypothesis could change actionability, or another search page contains plausible candidates.
+Continue deeper immediately when a selected video reports `continuation_recommended: true`, fewer than 300 records despite at least 300 plausibly available, incomplete directional coverage, unresolved replies, or a material community/formal conflict. `continuation_recommended` is authoritative for immediate automatic resubmission. A token paired with `continuation_recommended: false` is deferred recovery state: preserve it, report the retry-later blocker, and do not auto-resubmit it in the same pass. Continue wider when a material signal comes from only one creator or discussion pool, fewer than two independent relevant videos were audited despite plausible candidates, a direction is missing, a new hypothesis could change actionability, or another search page contains plausible candidates.
 
 Elapsed time is not evidence saturation. Stop after terminal video states and directional coverage when two consecutive wider expansions add no material intervention, outcome, discriminator, contradiction, or actionability change, independent pools have been sought for every material signal, and remaining candidates are unlikely to change the answer. A genuine access or quota boundary may also stop expansion.
 

@@ -61,7 +61,8 @@ configuration variables; `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` is test-only and may
 be set directly in the shell running the smoke test. Production adaptive
 YouTube audits also require `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET`, supplied at
 runtime with at least 32 UTF-8 bytes. It authenticates client-carried,
-one-hour continuation state and is never returned by a tool.
+one-hour continuation state—including bounded comment/reply identifiers and
+reply-reconciliation counts—and is never returned by a tool.
 
 ## Run the local MCP server
 
@@ -183,7 +184,7 @@ chat so the new tool metadata and Project instructions are active.
 The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
 evidence for the prior 15-tool release. This release candidate serves canonical
 HRP `20.5.17` (2026-08-13), SHA-256
-`1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2`,
+`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
 with the independent community-evidence weighting invariant and adaptive
 YouTube regressions. Production remains on the prior release until this
 candidate passes verification and rollout acceptance. The

@@ -72,6 +72,12 @@ describe("AskRigor ChatGPT Project router", () => {
 
     expect(instructions).toContain("up to three materially different videos");
     expect(instructions).toContain("`continuation_recommended: true`");
+    expect(instructions).toContain(
+      "`continuation_recommended` is authoritative for immediate automatic resubmission"
+    );
+    expect(instructions).toContain(
+      "A token paired with `continuation_recommended: false` is deferred recovery state"
+    );
     expect(instructions).toContain("expected information gain is positive");
     expect(instructions).toContain("does not require ceremonial user approval");
     expect(instructions).toContain(

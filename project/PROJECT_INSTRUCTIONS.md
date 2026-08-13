@@ -14,7 +14,7 @@ After the ledger is fixed, REQUIRED cannot become NOT REQUIRED because another l
 
 Load and verify Universal and, when applicable, the complete HRP. Execute every required module.
 
-When `FORUM_SIGNAL` is required, read `FORUM_SIGNAL_MODULE.md` completely. Map independent communities. Call `survey_youtube_community` with directional searches, then select up to three materially different videos. Call `audit_youtube_video_community` for each selected video and repeat while `continuation_recommended: true`. Run wider searches while expected information gain is positive. Safe read-only continuation does not require ceremonial user approval. Query-bounded comment search cannot replace an unfiltered corpus.
+When `FORUM_SIGNAL` is required, read `FORUM_SIGNAL_MODULE.md` completely. Map independent communities. Call `survey_youtube_community` with directional searches, then select up to three materially different videos. Call `audit_youtube_video_community` for each selected video and repeat while `continuation_recommended: true`. `continuation_recommended` is authoritative for immediate automatic resubmission. A token paired with `continuation_recommended: false` is deferred recovery state: do not immediately resubmit it; preserve it and report the retry-later blocker. Run wider searches while expected information gain is positive. Safe read-only continuation does not require ceremonial user approval. Query-bounded comment search cannot replace an unfiltered corpus.
 
 The Forum Signal module returns a receipt and per-video `synthesis_lock: pass | block`. A missing or blocked receipt keeps the module incomplete. Repair executable missing work before synthesis.
 
