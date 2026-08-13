@@ -6,6 +6,7 @@ import { z } from "zod";
 
 const REPOSITORY_ISSUES_PATH = "repos/u-dont-existDOTcom/AskRigor-lessons/issues";
 const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1_000;
+const MAX_GH_OUTPUT_BYTES = 16 * 1_024 * 1_024;
 const TERMINAL_LABELS = new Set([
   "incorporated",
   "rejected",
@@ -89,7 +90,7 @@ export type LessonStatusExecFile = (
   file: string,
   args: readonly string[],
   options: LessonStatusExecOptions,
-  callback: (error: NodeJS.ErrnoException | null, stdout: string, stderr: string) => void,
+  callback: (error: import("node:child_process").ExecFileException | null, stdout: string, stderr: string) => void,
 ) => unknown;
 
 export interface LessonStatusDependencies {
@@ -158,7 +159,14 @@ export function summarizeLessonIssues(
     if (category !== undefined && labels.has(`category:${category}`)) relevantToCategory += 1;
 
     if (isTerminal(issue, labels)) {
-      const terminalTimestamp = issue.closed_at ?? issue.updated_at;
+      const hasTerminalLabel = [...TERMINAL_LABELS].some((label) => labels.has(label));
+      // GitHub's issue listing has no label-event timestamp. updated_at is the
+      // conservative lower bound for labeled terminals; closed_at is safe only
+      // when closure itself is the sole terminal signal.
+      const terminalTimestamp = hasTerminalLabel ? issue.updated_at : issue.closed_at;
+      if (terminalTimestamp === null) {
+        return invalidResponse();
+      }
       if (now.getTime() - Date.parse(terminalTimestamp) > NINETY_DAYS_MS) {
         deletionEligible += 1;
       }
@@ -177,7 +185,16 @@ export function summarizeLessonIssues(
   };
 }
 
-function classifyGhFailure(stderr: string): LessonQueueReasonCode {
+function classifyGhFailure(
+  error: import("node:child_process").ExecFileException,
+  stderr: string,
+): LessonQueueReasonCode {
+  if (error.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER") {
+    return "invalid_response";
+  }
+  if (error.code === 4 || error.code === "4") {
+    return "auth_unavailable";
+  }
   const normalized = stderr.toLowerCase();
   if (/rate limit|secondary rate|\b429\b/.test(normalized)) {
     return "github_rate_limited";
@@ -191,43 +208,137 @@ function classifyGhFailure(stderr: string): LessonQueueReasonCode {
   return "gh_unavailable";
 }
 
-function fetchLessonIssues(
-  execute: LessonStatusExecFile = execFile as unknown as LessonStatusExecFile,
-): Promise<LessonIssue[]> {
-  return new Promise((fulfill, reject) => {
-    execute("gh", [
-      "api", "--method", "GET", "--paginate", "--slurp",
-      REPOSITORY_ISSUES_PATH,
-      "-f", "state=all", "-f", "per_page=100",
-    ], {
+interface GhResult {
+  error: import("node:child_process").ExecFileException | null;
+  stdout: string;
+  stderr: string;
+}
+
+const COMMON_GH_ARGS = [
+  "api", "--method", "GET", "--paginate",
+  REPOSITORY_ISSUES_PATH,
+  "-f", "state=all", "-f", "per_page=100",
+] as const;
+
+function runGh(execute: LessonStatusExecFile, slurp: boolean): Promise<GhResult> {
+  const args = slurp
+    ? [...COMMON_GH_ARGS.slice(0, 4), "--slurp", ...COMMON_GH_ARGS.slice(4)]
+    : [...COMMON_GH_ARGS];
+
+  return new Promise((fulfill) => {
+    execute("gh", args, {
       encoding: "utf8",
-      maxBuffer: 16 * 1_024 * 1_024,
+      maxBuffer: MAX_GH_OUTPUT_BYTES,
       windowsHide: true,
       shell: false,
-    }, (error, stdout, stderr) => {
-      if (error !== null) {
-        const code = (error as NodeJS.ErrnoException).code;
-        const reasonCode = code === "ENOENT" ? "gh_unavailable" : classifyGhFailure(stderr);
-        reject(new LessonStatusError(reasonCode));
-        return;
-      }
-
-      let raw: unknown;
-      try {
-        raw = JSON.parse(stdout) as unknown;
-      } catch {
-        reject(new LessonStatusError("invalid_response"));
-        return;
-      }
-
-      const parsed = paginatedResponseSchema.safeParse(raw);
-      if (!parsed.success) {
-        reject(new LessonStatusError("invalid_response"));
-        return;
-      }
-      fulfill(parsed.data.flat());
-    });
+    }, (error, stdout, stderr) => fulfill({ error, stdout, stderr }));
   });
+}
+
+function isUnsupportedSlurp(result: GhResult): boolean {
+  return (
+    (result.error?.code === 1 || result.error?.code === "1") &&
+    result.stdout.length === 0 &&
+    /^unknown flag: --slurp(?:\r?\n|$)/.test(result.stderr)
+  );
+}
+
+function parseSlurpedPages(stdout: string): LessonIssue[] {
+  if (Buffer.byteLength(stdout, "utf8") > MAX_GH_OUTPUT_BYTES) {
+    return invalidResponse();
+  }
+
+  let raw: unknown;
+  try {
+    raw = JSON.parse(stdout) as unknown;
+  } catch {
+    return invalidResponse();
+  }
+  const parsed = paginatedResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    return invalidResponse();
+  }
+  return parsed.data.flat();
+}
+
+function parseSequentialPages(stdout: string): LessonIssue[] {
+  if (Buffer.byteLength(stdout, "utf8") > MAX_GH_OUTPUT_BYTES) {
+    return invalidResponse();
+  }
+
+  const pages: unknown[] = [];
+  let position = 0;
+  while (position < stdout.length) {
+    while (/[ \t\r\n]/.test(stdout[position] ?? "")) position += 1;
+    if (position === stdout.length) break;
+    if (stdout[position] !== "[") return invalidResponse();
+
+    const start = position;
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+    for (; position < stdout.length; position += 1) {
+      const character = stdout[position];
+      if (inString) {
+        if (escaped) {
+          escaped = false;
+        } else if (character === "\\") {
+          escaped = true;
+        } else if (character === '"') {
+          inString = false;
+        }
+        continue;
+      }
+      if (character === '"') {
+        inString = true;
+      } else if (character === "[" || character === "{") {
+        stack.push(character);
+      } else if (character === "]" || character === "}") {
+        const expected = character === "]" ? "[" : "{";
+        if (stack.pop() !== expected) return invalidResponse();
+        if (stack.length === 0) {
+          position += 1;
+          break;
+        }
+      }
+    }
+    if (inString || stack.length !== 0) return invalidResponse();
+
+    try {
+      pages.push(JSON.parse(stdout.slice(start, position)) as unknown);
+    } catch {
+      return invalidResponse();
+    }
+  }
+
+  if (pages.length === 0) return invalidResponse();
+  const parsed = paginatedResponseSchema.safeParse(pages);
+  if (!parsed.success) return invalidResponse();
+  return parsed.data.flat();
+}
+
+async function fetchLessonIssues(
+  execute: LessonStatusExecFile = execFile as unknown as LessonStatusExecFile,
+): Promise<LessonIssue[]> {
+  const primary = await runGh(execute, true);
+  if (primary.error === null) {
+    return parseSlurpedPages(primary.stdout);
+  }
+  if (!isUnsupportedSlurp(primary)) {
+    const reasonCode = primary.error.code === "ENOENT"
+      ? "gh_unavailable"
+      : classifyGhFailure(primary.error, primary.stderr);
+    throw new LessonStatusError(reasonCode);
+  }
+
+  const fallback = await runGh(execute, false);
+  if (fallback.error !== null) {
+    const reasonCode = fallback.error.code === "ENOENT"
+      ? "gh_unavailable"
+      : classifyGhFailure(fallback.error, fallback.stderr);
+    throw new LessonStatusError(reasonCode);
+  }
+  return parseSequentialPages(fallback.stdout);
 }
 
 function parseCategory(args: readonly string[]): string | undefined {
