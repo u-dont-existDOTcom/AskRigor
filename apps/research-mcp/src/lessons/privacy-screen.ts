@@ -23,7 +23,7 @@ export interface CanonicalLesson {
 
 const disallowedInvisibleCharacters = /[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/u;
 const invisibleCharacters = /[\u00AD\u034F\u061C\u180E\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/gu;
-const forbiddenControlCharacters = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/u;
+const forbiddenControlCharacters = /[\u0000-\u001F\u007F]/u;
 const urlPattern = /https?:\/\/[^\s<>()\[\]{}]+/gu;
 const markdownOrHtmlLinkPattern = /\[[^\]]*\]\([^)]*\)|<\/?[A-Za-z][^>]*>/u;
 const emailPattern = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/iu;
@@ -36,11 +36,11 @@ const secretPatterns = [
 ];
 const addressPattern = /\b\d{1,5}\s+[A-Za-z][A-Za-z.'-]*(?:\s+[A-Za-z][A-Za-z.'-]*){0,3}\s+(?:street|st\.?|avenue|ave\.?|road|rd\.?|boulevard|blvd\.?|drive|dr\.?|lane|ln\.?|court|ct\.?)\b/iu;
 const postalAddressPattern = /\b(?:postal\s+code|zip\s+code)\s*[:#-]?\s*[A-Z0-9][A-Z0-9 -]{2,9}\b/iu;
-const rawConversationPattern = /(?:^|\n)\s*(?:user|assistant)\s*:/iu;
-const longQuotationPattern = /["“][^"”\n]{280,}["”]/u;
+const rawConversationPattern = /<\|\s*(?:user|assistant|system|tool)\s*\|>|(?:^|\n)\s*(?:user|assistant|system|tool)\s*:/iu;
+const longCopiedMaterialPattern = /(?:["“][^"”\n]{280,}["”]|['‘][^'’\n]{280,}['’]|(?:^|\n)\s*>\s*[\s\S]{280,}|```[\s\S]{280,}(?:```|$))/u;
 const firstPersonMedicalPattern = /\b(?:i|my|me)\b.{0,100}\b(?:diagnosed|diagnosis|medical|medication|treatment|condition|symptom|hospital|doctor|therapy|disease|illness)\b/iu;
 const personalAgeOrDatePattern = /\b(?:i\s+(?:am|was)\s+\d{1,3}\s+years?\s+old|i\b.{0,80}\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{2,4}|(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d{1,2},\s+\d{4}))\b/iu;
-const promptInjectionPattern = /\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b|\b(?:tell|instruct|direct|command)\b.{0,80}\b(?:privacy\s+model|github(?:\s+service)?)\b|\b(?:submit|create|write|send)\b.{0,80}\b(?:to\s+)?github\b/iu;
+const promptInjectionPattern = /\b(?:ignore|disregard|override)\s+(?:all\s+)?(?:previous|prior|system)\s+instructions?\b|\b(?:tell|instruct|direct|command|ask)\b.{0,80}\b(?:privacy\s+model|github(?:\s+service)?)\b|\b(?:submit|create|write|send|open|publish|forward|approve|mark)\b.{0,80}\b(?:privacy\s+model|github(?:\s+service)?)\b|\b(?:privacy\s+model|github(?:\s+service)?)\b.{0,80}\b(?:approve|mark|submit|create|write|send|open|publish|forward)\b/iu;
 
 /**
  * Reject unsafe content without attempting to redact or salvage it. This exact
@@ -93,7 +93,7 @@ function screenText(value: string): PrivacyScreenReasonCode | undefined {
   if (hasUnsafeUrl(value)) return "unsafe_url";
   if (secretPatterns.some((pattern) => pattern.test(value))) return "secret_like_data";
   if (rawConversationPattern.test(value)) return "raw_conversation";
-  if (longQuotationPattern.test(value)) return "quoted_material";
+  if (longCopiedMaterialPattern.test(value)) return "quoted_material";
   if (firstPersonMedicalPattern.test(value) || personalAgeOrDatePattern.test(value)) return "personal_narrative";
   if (emailPattern.test(value) || phonePattern.test(value) || addressPattern.test(value) || postalAddressPattern.test(value)) {
     return "direct_identifier";
