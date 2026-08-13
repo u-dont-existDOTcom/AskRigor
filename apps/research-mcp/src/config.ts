@@ -42,6 +42,12 @@ export function actionsAreEnabled(
   return value === "true";
 }
 
+export function actionApiKeyFromEnv(
+  value = process.env.ASKRIGOR_ACTIONS_API_KEY
+): string | undefined {
+  return value;
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {

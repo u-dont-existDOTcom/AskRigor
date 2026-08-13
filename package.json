@@ -14,6 +14,7 @@
     "test:site-deploy": "vitest run tests/public-site-deployment.test.ts",
     "test:live": "NO_COLOR=1 ASKRIGOR_LIVE_TESTS=1 vitest run tests/live-smoke.test.ts",
     "verify": "npm run typecheck && npm run test:run && npm run build",
+    "generate:action-openapi": "tsx scripts/generate-action-openapi.mts",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
     "start:mcp": "node apps/research-mcp/dist/index.js"
   },

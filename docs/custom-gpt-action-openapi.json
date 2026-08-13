@@ -1,0 +1,360 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AskRigor Actions",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://mcp.askrigor.com"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "paths": {
+    "/actions/lessons": {
+      "post": {
+        "operationId": "submit_lesson_candidate",
+        "summary": "Submit an anonymized AskRigor lesson candidate",
+        "description": "Submit a separately consented, generalized AskRigor correction for private human review. Never send raw chat, user identity, personal case details, uploads, or credentials.",
+        "x-openai-isConsequential": true,
+        "responses": {
+          "200": {
+            "description": "HTTP 200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "status",
+                        "candidate_id",
+                        "occurrence_count",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "status": {
+                          "const": "submitted"
+                        },
+                        "candidate_id": {
+                          "type": "string",
+                          "pattern": "^ARL-[0-9]{4,}$"
+                        },
+                        "occurrence_count": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "status",
+                        "candidate_id",
+                        "occurrence_count",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "status": {
+                          "const": "existing_candidate"
+                        },
+                        "candidate_id": {
+                          "type": "string",
+                          "pattern": "^ARL-[0-9]{4,}$"
+                        },
+                        "occurrence_count": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "HTTP 415 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_json_content_type_required"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HTTP 422 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "status",
+                    "retryable",
+                    "reason_code"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "privacy_rejected"
+                    },
+                    "retryable": {
+                      "const": false
+                    },
+                    "reason_code": {
+                      "const": "unsafe_candidate"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "status",
+                    "retryable",
+                    "retry_after_seconds",
+                    "reason_code"
+                  ],
+                  "properties": {
+                    "status": {
+                      "const": "rate_limited"
+                    },
+                    "retryable": {
+                      "const": true
+                    },
+                    "retry_after_seconds": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "reason_code": {
+                      "type": "string",
+                      "enum": [
+                        "hourly_limit",
+                        "daily_limit"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "HTTP 503 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "status",
+                        "retryable",
+                        "reason_code"
+                      ],
+                      "properties": {
+                        "status": {
+                          "const": "anonymizer_unavailable"
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "reason_code": {
+                          "type": "string",
+                          "enum": [
+                            "ai_budget_exhausted",
+                            "privacy_service_unavailable"
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "status",
+                        "retryable",
+                        "reason_code"
+                      ],
+                      "properties": {
+                        "status": {
+                          "const": "github_unavailable"
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "reason_code": {
+                          "type": "string",
+                          "enum": [
+                            "github_auth_unavailable",
+                            "github_service_unavailable"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "general_lesson",
+                  "expected_behavior",
+                  "failure_reason",
+                  "synthetic_regression_example",
+                  "evidence_basis",
+                  "consent_scope"
+                ],
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "missing_sources",
+                      "conflicting_claims",
+                      "incomplete_research",
+                      "evidence_weighting",
+                      "community_corpus",
+                      "tool_semantics",
+                      "protocol_execution",
+                      "privacy_or_safety",
+                      "usability",
+                      "other"
+                    ]
+                  },
+                  "general_lesson": {
+                    "type": "string",
+                    "minLength": 40,
+                    "maxLength": 600
+                  },
+                  "expected_behavior": {
+                    "type": "string",
+                    "minLength": 40,
+                    "maxLength": 1200
+                  },
+                  "failure_reason": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 800
+                  },
+                  "synthetic_regression_example": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 1200
+                  },
+                  "evidence_basis": {
+                    "type": "string",
+                    "enum": [
+                      "assistant_self_check",
+                      "tool_receipt_conflict",
+                      "source_recheck",
+                      "instruction_mismatch"
+                    ]
+                  },
+                  "askrigor_version": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "protocol_identities": {
+                    "type": "array",
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "name",
+                        "version"
+                      ],
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "version": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        }
+                      }
+                    }
+                  },
+                  "consent_scope": {
+                    "type": "string",
+                    "enum": [
+                      "once",
+                      "conversation"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

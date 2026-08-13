@@ -10,6 +10,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
 
 import {
+  actionApiKeyFromEnv,
   actionsAreEnabled,
   HEALTH_PAYLOAD,
   MAX_MCP_REQUEST_BYTES,
@@ -22,11 +23,18 @@ import {
   SERVICE_VERSION
 } from "./config.js";
 import { createActionOpenApiDocument } from "./actions/openapi.js";
+import { hasValidActionAuthorization } from "./actions/auth.js";
 import {
   dispatchActionRequest,
   validateActionRoutes
 } from "./actions/router.js";
 import type { ActionRoute } from "./actions/types.js";
+import {
+  isLessonActionJsonContentType,
+  LESSON_ACTION_JSON_CONTENT_TYPE_ERROR,
+  LESSON_ACTION_PATH
+} from "./lessons/action-route.js";
+import { createDefaultActionRoutes } from "./lessons/runtime.js";
 import {
   createConcurrencyLimiter,
   createTokenBucketLimiter,
@@ -62,7 +70,8 @@ export function createAskRigorHttpServer(
 ): HttpServer {
   const publicServerEnabled = options.publicServerEnabled ?? publicServerIsEnabled();
   const actionsEnabled = options.actionsEnabled ?? actionsAreEnabled();
-  const actionRoutes = options.actionRoutes ?? [];
+  const actionApiKey = options.actionApiKey ?? actionApiKeyFromEnv();
+  const actionRoutes = options.actionRoutes ?? createDefaultActionRoutes();
   const trustedClientIpHeader = options.trustedClientIpHeader ??
     parseTrustedClientIpHeader();
   const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(PUBLIC_RATE_LIMIT);
@@ -80,10 +89,28 @@ export function createAskRigorHttpServer(
       return;
     }
 
+    if (
+      actionsEnabled &&
+      request.method === "POST" &&
+      pathname === LESSON_ACTION_PATH &&
+      actionRoutes.some((route) =>
+        route.method === "POST" &&
+        route.path === LESSON_ACTION_PATH &&
+        route.operationId === "submit_lesson_candidate" &&
+        route.public === false
+      ) &&
+      !isLessonActionJsonContentType(request.headers["content-type"]) &&
+      hasValidActionAuthorization(request, actionApiKey)
+    ) {
+      response.writeHead(415, { "content-type": "application/json" });
+      response.end(JSON.stringify(LESSON_ACTION_JSON_CONTENT_TYPE_ERROR));
+      return;
+    }
+
     if (actionsEnabled && await dispatchActionRequest(request, response, {
       pathname,
       clientIp: resolveClientIp(request, trustedClientIpHeader),
-      actionApiKey: options.actionApiKey,
+      actionApiKey,
       routes: actionRoutes,
       createOpenApiDocument: () => createActionOpenApiDocument(actionRoutes)
     })) {
