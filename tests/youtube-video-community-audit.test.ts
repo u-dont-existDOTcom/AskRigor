@@ -393,6 +393,149 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(dependencies.get_comments_by_ids).not.toHaveBeenCalled();
   });
 
+  it("returns previously acquired records when a continuation reaches an access boundary", async () => {
+    const comments = makeComments(2);
+    const getSegment = vi.fn(async (input: { cursor?: unknown }) => input.cursor === undefined
+      ? {
+          video_id: VIDEO_ID,
+          comments,
+          top_level_comments_retrieved: 2,
+          replies_retrieved: 0,
+          comment_thread_pages: 1,
+          reply_pages: 0,
+          reply_count_mismatches: [],
+          exhausted: false,
+          next_cursor: {
+            top_level_page_token: "next",
+            thread_offset: 0,
+            top_level_emitted: false
+          },
+          access_status: "partial" as const,
+          limitations: ["Continue."]
+        }
+      : {
+          video_id: VIDEO_ID,
+          comments: [],
+          top_level_comments_retrieved: 0,
+          replies_retrieved: 0,
+          comment_thread_pages: 0,
+          reply_pages: 0,
+          reply_count_mismatches: [],
+          exhausted: false,
+          access_status: "rate_limited" as const,
+          limitations: ["YouTube rate limit reached."]
+        });
+    const getCommentsByIds = vi.fn(async () => ({
+      access_status: "api_visible_complete" as const,
+      comments,
+      limitations: []
+    }));
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("400")),
+      get_segment: getSegment,
+      get_comments_by_ids: getCommentsByIds
+    };
+    const first = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+    const second = await auditYoutubeVideoCommunity(
+      { continuation_token: first.continuation_token },
+      CONFIG,
+      { now: () => NOW + 1, dependencies }
+    );
+
+    expect(second).toMatchObject({
+      access_status: "rate_limited",
+      extraction_coverage: "completed_with_access_boundary",
+      records_retrieved_cumulative: 2,
+      records_returned_for_analysis: 2,
+      continuation_recommended: false,
+      sample: { mode: "all", corpus_count: 2, sampled_count: 2 },
+      receipt: {
+        completion_state: "completed_with_access_boundary",
+        synthesis_lock: "pass"
+      }
+    });
+    expect(second.sample?.comments).toEqual(comments);
+    expect(getCommentsByIds).toHaveBeenCalledOnce();
+  });
+
+  it("blocks with restart instructions when a terminal sample cannot be refetched", async () => {
+    const comments = makeComments(2);
+    const dependencies = completeDependencies(comments);
+    dependencies.get_comments_by_ids = vi.fn(async () => ({
+      access_status: "partial" as const,
+      comments: [],
+      limitations: ["Sample unavailable."]
+    }));
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      extraction_coverage: "partial",
+      records_retrieved_cumulative: 2,
+      records_returned_for_analysis: 0,
+      receipt: {
+        completion_state: "incomplete",
+        synthesis_lock: "block",
+        top_level_pagination_exhausted: true,
+        replies_reconciled: true,
+        blockers: [expect.stringMatching(/restart.*video/i)]
+      }
+    });
+  });
+
+  it("does not recommend an unretryable continuation cursor", async () => {
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("400")),
+      get_segment: vi.fn(async () => ({
+        video_id: VIDEO_ID,
+        comments: [],
+        top_level_comments_retrieved: 0,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0,
+        reply_count_mismatches: [],
+        exhausted: false,
+        next_cursor: {
+          page_fingerprint: "0".repeat(64),
+          thread_offset: 0,
+          top_level_emitted: false
+        },
+        access_status: "partial" as const,
+        limitations: ["Thread page changed."],
+        error: {
+          code: "youtube_comment_segment_changed",
+          message: "YouTube comment segment could not safely resume",
+          retryable: false
+        }
+      })),
+      get_comments_by_ids: vi.fn()
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      continuation_recommended: false,
+      receipt: {
+        completion_state: "incomplete",
+        synthesis_lock: "block",
+        blockers: [expect.stringMatching(/restart.*video/i)]
+      }
+    });
+    expect(result.continuation_token).toBeUndefined();
+  });
+
   it("blocks terminal reply-count mismatches instead of issuing a complete receipt", async () => {
     const comments = makeComments(20);
     const dependencies: YoutubeVideoCommunityAuditDependencies = {

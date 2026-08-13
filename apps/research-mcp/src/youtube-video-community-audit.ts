@@ -249,15 +249,18 @@ export async function auditYoutubeVideoCommunity(
   const terminalAccessBoundary = ACCESS_BOUNDARIES.has(segment.access_status) &&
     segment.comments.length === 0 &&
     segment.next_cursor === undefined;
+  const restartRequired = segment.next_cursor !== undefined &&
+    segment.error?.retryable === false;
   const canContinue =
     !apiVisibleComplete &&
     !terminalAccessBoundary &&
     !mismatchBlock &&
+    !restartRequired &&
     segment.next_cursor !== undefined;
 
   let sample: YoutubeVideoCommunityAuditOutput["sample"];
   let sampleFailure: string | undefined;
-  if (apiVisibleComplete) {
+  if (apiVisibleComplete || terminalAccessBoundary) {
     if (state.sample_identifiers.length === 0) {
       sample = { mode: "all", corpus_count: 0, sampled_count: 0, comments: [] };
     } else {
@@ -282,7 +285,8 @@ export async function auditYoutubeVideoCommunity(
         new Set(returnedIds).size !== sampleIds.length ||
         sampleIds.some((id) => !returnedIds.includes(id))
       ) {
-        sampleFailure = "The deterministic analysis sample could not be completely refetched.";
+        sampleFailure =
+          "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
       } else {
         const comments = chronological(refetched.comments);
         sample = {
@@ -299,15 +303,18 @@ export async function auditYoutubeVideoCommunity(
 
   const completionState = apiVisibleComplete && sampleFailure === undefined
     ? "api_visible_complete" as const
-    : terminalAccessBoundary
+    : terminalAccessBoundary && sampleFailure === undefined
       ? "completed_with_access_boundary" as const
       : "incomplete" as const;
   const blockers = completionState === "incomplete"
     ? uniqueStrings([
         ...(mismatchBlock ? ["One or more YouTube reply counts did not reconcile."] : []),
         ...(canContinue ? ["Additional API-visible YouTube comment or reply pages remain retrievable."] : []),
+        ...(restartRequired
+          ? ["The YouTube audit cannot safely continue from this cursor; restart the audit from the video ID."]
+          : []),
         ...(sampleFailure === undefined ? [] : [sampleFailure]),
-        ...(!canContinue && !mismatchBlock && sampleFailure === undefined
+        ...(!canContinue && !mismatchBlock && !restartRequired && sampleFailure === undefined
           ? ["The YouTube video corpus did not reach a terminal complete or access-boundary state."]
           : [])
       ])
@@ -388,8 +395,8 @@ export async function auditYoutubeVideoCommunity(
       completion_state: completionState,
       synthesis_lock: completionState === "incomplete" ? "block" : "pass",
       chain_started_at_first_page: true,
-      top_level_pagination_exhausted: completionState === "api_visible_complete",
-      replies_reconciled: completionState === "api_visible_complete",
+      top_level_pagination_exhausted: apiVisibleComplete,
+      replies_reconciled: apiVisibleComplete,
       query_bounded_comments_used_as_corpus: false,
       blockers
     }
