@@ -619,7 +619,7 @@ export async function getYoutubeCommentsByIds(
     videoId === undefined ||
     config.apiKey.trim().length === 0 ||
     commentIds.length === 0 ||
-    commentIds.some((id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id)) ||
+    commentIds.some((id) => id.length < 1 || id.length > 512) ||
     new Set(commentIds).size !== commentIds.length
   ) {
     return {
