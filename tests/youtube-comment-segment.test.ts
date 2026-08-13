@@ -195,6 +195,74 @@ describe("resumable YouTube comment segments", () => {
     expect(requests).toHaveLength(1);
   });
 
+  it("follows every accessible reply page even when the reported reply total is stale", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      if (url.pathname.endsWith("/commentThreads")) {
+        return Response.json({
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{
+            id: "thread-stale-count",
+            snippet: {
+              videoId: "XpZHKGGCK-o",
+              topLevelComment: {
+                id: "top-stale-count",
+                snippet: {
+                  videoId: "XpZHKGGCK-o",
+                  textDisplay: "Top level",
+                  likeCount: 0,
+                  publishedAt: "2025-02-01T10:00:00Z",
+                  updatedAt: "2025-02-01T10:00:00Z"
+                }
+              },
+              totalReplyCount: 1
+            }
+          }]
+        });
+      }
+      const secondPage = url.searchParams.get("pageToken") === "reply-page-2";
+      return Response.json({
+        ...(secondPage ? {} : { nextPageToken: "reply-page-2" }),
+        pageInfo: { totalResults: 2, resultsPerPage: 1 },
+        items: [{
+          id: secondPage ? "reply-2" : "reply-1",
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            parentId: "top-stale-count",
+            textDisplay: secondPage ? "Second reply" : "First reply",
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }]
+      });
+    }));
+
+    const result = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 50, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(result.comments.map(({ comment_id }) => comment_id)).toEqual([
+      "top-stale-count", "reply-1", "reply-2"
+    ]);
+    expect(result).toMatchObject({
+      access_status: "partial",
+      exhausted: false,
+      replies_retrieved: 2,
+      reply_pages: 2,
+      reply_count_mismatches: [{
+        parent_comment_id: "top-stale-count",
+        expected: 1,
+        retrieved: 2
+      }]
+    });
+    expect(requests).toHaveLength(3);
+  });
+
   it("fails closed when a refetched thread page changed before resume", async () => {
     const threadPage = await fixture("comment-threads-page-1.json");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(threadPage, { status: 200 })));

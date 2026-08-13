@@ -223,7 +223,7 @@ export async function getYoutubeCommentSegment(
 
         let replyPageToken = cursor.reply_page_token;
         let currentReplies = cursor.current_replies_retrieved ?? 0;
-        while (currentReplies < expectedReplies) {
+        while (currentReplies < expectedReplies || replyPageToken !== undefined) {
           const replyPage = await fetchReplyPage(
             videoId,
             parentId,
