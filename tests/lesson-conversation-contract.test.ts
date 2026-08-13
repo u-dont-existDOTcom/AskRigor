@@ -356,6 +356,12 @@ const contradictoryInstructions = [
   "Display the private repository URL in the receipt.",
 ] as const;
 
+const universalConsentReaskMutations = [
+  "Display the full approved shell before every Action call.",
+  "Always show the exact consent question and options before calling the Action.",
+  "Before any submission, repeat the consent question and options.",
+] as const;
+
 async function lessonModule(): Promise<string> {
   return readFile(rootFile("project/LESSON_CAPTURE_MODULE.md"), "utf8");
 }
@@ -465,8 +471,21 @@ function validateModule(source: string, fixture: ConversationFixture): string[] 
   for (const contradiction of contradictoryInstructions) {
     if (source.includes(contradiction)) errors.push(`contradiction:${contradiction}`);
   }
+  if (requiresUniversalConsentReask(source)) errors.push("universal_consent_reask");
   if (/https?:\/\//u.test(source)) errors.push("private_or_unneeded_url");
   return errors;
+}
+
+function requiresUniversalConsentReask(source: string): boolean {
+  return source
+    .split(/\n\s*\n|(?<=[.!?])\s+/u)
+    .map((part) => part.replace(/\s+/gu, " ").trim().toLowerCase())
+    .filter((part) => !/(?:do not|without|never)\s+(?:display|repeat|show)|\bwith no standing consent\b/u.test(part))
+    .some((part) => {
+      const namesConsentUi = /(?:\b(?:full|approved|exact|this)\s+(?:approved\s+)?shell\b|\bconsent question\b|\bquestion and (?:reply )?options\b)/u.test(part);
+      const makesUniversal = /(?:\bbefore\s+(?:any|every|each)\s+(?:action\s+)?(?:call|submission)\b|\balways\b.*\bbefore\b.*\b(?:action|call|submission)\b|\bbefore\s+calling\s+the\s+action\b|\bbefore\s+any\s+submission\b)/u.test(part);
+      return namesConsentUi && makesUniversal;
+    });
 }
 
 function caseById(fixture: ConversationFixture, id: string): ConversationCase {
@@ -550,6 +569,18 @@ describe("Custom GPT lesson conversation contract", () => {
     expect(validateFixture(unexpectedCase)).toContain("yes_once.case_keys");
   });
 
+  it("rejects unknown expected fields and unknown contract-node entries", async () => {
+    const fixture = await conversationFixture();
+    const unexpectedExpected = structuredClone(fixture);
+    (caseById(unexpectedExpected, "yes_once").expected as unknown as Record<string, unknown>)
+      .conversation_id = "must-not-exist";
+    const unexpectedContractNode = structuredClone(fixture);
+    caseById(unexpectedContractNode, "yes_once").contract_nodes.push("state.unknown");
+
+    expect(validateFixture(unexpectedExpected)).toContain("yes_once.expected_keys");
+    expect(validateFixture(unexpectedContractNode)).toContain("yes_once.unknown_node:state.unknown");
+  });
+
   it("rejects misplaced required copy and contradictory instructions", async () => {
     const fixture = await conversationFixture();
     const module = await lessonModule();
@@ -560,6 +591,17 @@ describe("Custom GPT lesson conversation contract", () => {
     for (const contradiction of contradictoryInstructions) {
       expect(validateModule(`${module}\n${contradiction}\n`, fixture), contradiction)
         .toContain(`contradiction:${contradiction}`);
+    }
+  });
+
+  it("rejects any instruction that universally re-asks consent before Action calls", async () => {
+    const fixture = await conversationFixture();
+    const module = await lessonModule();
+
+    expect(validateModule(module, fixture)).not.toContain("universal_consent_reask");
+    for (const mutation of universalConsentReaskMutations) {
+      expect(validateModule(`${module}\n${mutation}\n`, fixture), mutation)
+        .toContain("universal_consent_reask");
     }
   });
 
