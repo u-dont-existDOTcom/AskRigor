@@ -36,7 +36,9 @@ const PROVIDER_COUNT_MISMATCH_LIMITATION =
 export const youtubeVideoCommunityAuditInputSchema = z.object({
   video_id_or_url: z.string().min(1).max(2_048).optional(),
   continuation_token: z.string().min(1).max(65_536).optional(),
-  analysis_limit: z.number().int().min(1).max(500).default(DEFAULT_ANALYSIS_LIMIT)
+  analysis_limit: z.number().int().min(1).max(500).optional().meta({
+    default: DEFAULT_ANALYSIS_LIMIT
+  })
 }).strict().superRefine((value, context) => {
   if ((value.video_id_or_url === undefined) === (value.continuation_token === undefined)) {
     context.addIssue({
@@ -178,7 +180,7 @@ export async function auditYoutubeVideoCommunity(
     baseState = {
       version: 1,
       video_id: videoId,
-      analysis_limit: parsedInput.data.analysis_limit,
+      analysis_limit: parsedInput.data.analysis_limit ?? DEFAULT_ANALYSIS_LIMIT,
       started_at_ms: nowMs,
       expires_at_ms: nowMs + TOKEN_LIFETIME_MS,
       segment_index: 0,

@@ -395,7 +395,7 @@ describe("AskRigor MCP tools", () => {
     try {
       const first = await client.callTool({
         name: "audit_youtube_video_community",
-        arguments: { video_id_or_url: "XpZHKGGCK-o", analysis_limit: 500 }
+        arguments: { video_id_or_url: "XpZHKGGCK-o", analysis_limit: 5 }
       });
 
       expect(first.isError).not.toBe(true);
@@ -426,9 +426,13 @@ describe("AskRigor MCP tools", () => {
         top_level_comments_retrieved_cumulative: 2,
         replies_retrieved_cumulative: 4,
         records_retrieved_cumulative: 6,
-        records_returned_for_analysis: 6,
+        records_returned_for_analysis: 5,
         continuation_recommended: false,
-        sample: { mode: "all", corpus_count: 6, sampled_count: 6 },
+        sample: {
+          mode: "deterministic_hash_chronological",
+          corpus_count: 6,
+          sampled_count: 5
+        },
         receipt: {
           completion_state: "api_visible_complete",
           synthesis_lock: "pass",

@@ -1268,7 +1268,7 @@ function youtubeVideoCommunityAuditFailure(
     retrieved_at: new Date().toISOString(),
     video_id: videoId,
     canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
-    analysis_limit: parsed.analysis_limit,
+    analysis_limit: parsed.analysis_limit ?? 500,
     segment_index: 0,
     metadata_access_status: "error",
     metadata_error: error,
