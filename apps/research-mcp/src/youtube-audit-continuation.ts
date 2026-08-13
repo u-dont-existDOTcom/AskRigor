@@ -91,6 +91,17 @@ export interface YoutubeAuditSampleIdentifier {
   comment_id: string;
 }
 
+export class YoutubeAuditContinuationError extends Error {
+  constructor(
+    public readonly code: "youtube_video_audit_continuation_invalid" |
+      "youtube_video_audit_continuation_expired",
+    message: string
+  ) {
+    super(message);
+    this.name = "YoutubeAuditContinuationError";
+  }
+}
+
 export interface YoutubeVideoAuditContinuationState {
   version: 1;
   video_id: string;
@@ -133,7 +144,7 @@ export function decodeYoutubeAuditContinuation(
 ): YoutubeVideoAuditContinuationState {
   validateSecret(secret);
   if (token.length > MAX_TOKEN_CHARACTERS) {
-    throw new Error("YouTube audit continuation token is too large");
+    throw invalidContinuation("Invalid YouTube audit continuation token: token is too large");
   }
   if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
     throw new Error("Invalid YouTube audit continuation clock");
@@ -146,7 +157,7 @@ export function decodeYoutubeAuditContinuation(
     !BASE64URL_PATTERN.test(parts[0]) ||
     !BASE64URL_PATTERN.test(parts[1])
   ) {
-    throw new Error("Invalid YouTube audit continuation token");
+    throw invalidContinuation("Invalid YouTube audit continuation token");
   }
   const [encodedPayload, suppliedSignature] = parts;
   const expectedSignature = createHmac("sha256", secret).update(encodedPayload).digest();
@@ -156,21 +167,29 @@ export function decodeYoutubeAuditContinuation(
     suppliedBytes.length !== expectedSignature.length ||
     !timingSafeEqual(suppliedBytes, expectedSignature)
   ) {
-    throw new Error("Invalid YouTube audit continuation token signature");
+    throw invalidContinuation("Invalid YouTube audit continuation token signature");
   }
   const payloadBytes = Buffer.from(encodedPayload, "base64url");
   if (payloadBytes.toString("base64url") !== encodedPayload) {
-    throw new Error("Invalid YouTube audit continuation token payload");
+    throw invalidContinuation("Invalid YouTube audit continuation token payload");
   }
   let payload: unknown;
   try {
     payload = JSON.parse(payloadBytes.toString("utf8"));
   } catch {
-    throw new Error("Invalid YouTube audit continuation token payload");
+    throw invalidContinuation("Invalid YouTube audit continuation token payload");
   }
-  const state = parseState(payload);
+  let state: YoutubeVideoAuditContinuationState;
+  try {
+    state = parseState(payload);
+  } catch {
+    throw invalidContinuation("Invalid YouTube audit continuation token state");
+  }
   if (nowMs >= state.expires_at_ms) {
-    throw new Error("YouTube audit continuation token expired");
+    throw new YoutubeAuditContinuationError(
+      "youtube_video_audit_continuation_expired",
+      "YouTube audit continuation token expired"
+    );
   }
   return state;
 }
@@ -236,6 +255,13 @@ function validateSecret(secret: string): void {
   if (Buffer.byteLength(secret, "utf8") < MIN_SECRET_BYTES) {
     throw new Error("YouTube audit continuation secret must contain at least 32 UTF-8 bytes");
   }
+}
+
+function invalidContinuation(message: string): YoutubeAuditContinuationError {
+  return new YoutubeAuditContinuationError(
+    "youtube_video_audit_continuation_invalid",
+    message
+  );
 }
 
 function sampleRank(commentId: string): string {

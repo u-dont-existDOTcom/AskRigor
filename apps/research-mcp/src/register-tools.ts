@@ -54,6 +54,7 @@ import {
   type YoutubeVideoCommunityAuditInput,
   type YoutubeVideoCommunityAuditOutput
 } from "./youtube-video-community-audit.js";
+import { YoutubeAuditContinuationError } from "./youtube-audit-continuation.js";
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -876,8 +877,8 @@ export function registerTools(server: McpServer): void {
             max_elapsed_ms: PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs
           }
         });
-      } catch (_error) {
-        result = youtubeVideoCommunityAuditFailure(input);
+      } catch (error) {
+        result = youtubeVideoCommunityAuditFailure(input, error);
       }
       return youtubeToolResult(
         `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`,
@@ -1250,16 +1251,24 @@ function youtubeCommunitySurveyFailure(
 }
 
 function youtubeVideoCommunityAuditFailure(
-  input: YoutubeVideoCommunityAuditInput
+  input: YoutubeVideoCommunityAuditInput,
+  cause?: unknown
 ): YoutubeVideoCommunityAuditOutput {
   const parsed = youtubeVideoCommunityAuditInputSchema.parse(input);
   const videoId = parsed.video_id_or_url === undefined
     ? "unknown0000"
     : parseYoutubeVideoId(parsed.video_id_or_url) ?? "unknown0000";
-  const limitation = "YouTube video community audit failed before reaching a valid completion state.";
+  const continuationError = cause instanceof YoutubeAuditContinuationError ? cause : undefined;
+  const limitation = continuationError?.code === "youtube_video_audit_continuation_expired"
+    ? "The YouTube video audit continuation expired; restart the audit from the video ID."
+    : continuationError === undefined
+      ? "YouTube video community audit failed before reaching a valid completion state."
+      : "The YouTube video audit continuation is invalid; restart the audit from the video ID.";
   const error: ProviderErrorShape = {
-    code: "youtube_video_community_audit_failed",
-    message: "YouTube video community audit failed",
+    code: continuationError?.code ?? "youtube_video_community_audit_failed",
+    message: continuationError === undefined
+      ? "YouTube video community audit failed"
+      : limitation,
     retryable: false
   };
   return youtubeVideoCommunityAuditOutputSchema.parse({

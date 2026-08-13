@@ -16,6 +16,8 @@ import {
   PUBLIC_TOOL_LIMITS,
   SERVER_INSTRUCTIONS
 } from "../apps/research-mcp/src/config.js";
+import { encodeYoutubeAuditContinuation } from
+  "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 
 const TOOL_NAMES = [
@@ -482,6 +484,63 @@ describe("AskRigor MCP tools", () => {
         }
       });
       expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await server.close();
+    }
+  });
+
+  it("reports invalid and expired continuations as literal restart-required failures", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    const secret = "mcp-continuation-secret-value-32-bytes";
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = secret;
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+    const now = Date.now();
+    const expiredToken = encodeYoutubeAuditContinuation({
+      version: 1,
+      video_id: "XpZHKGGCK-o",
+      analysis_limit: 500,
+      started_at_ms: now - 3_600_001,
+      expires_at_ms: now - 1,
+      segment_index: 0,
+      cursor: { thread_offset: 0, top_level_emitted: false },
+      top_level_comments_retrieved: 0,
+      replies_retrieved: 0,
+      comment_thread_pages: 0,
+      reply_pages: 0,
+      records_retrieved_cumulative: 0,
+      rolling_sha256: "0".repeat(64),
+      sample_identifiers: []
+    }, secret);
+
+    try {
+      const [invalid, expired] = await Promise.all([
+        client.callTool({
+          name: "audit_youtube_video_community",
+          arguments: { continuation_token: `${expiredToken}x` }
+        }),
+        client.callTool({
+          name: "audit_youtube_video_community",
+          arguments: { continuation_token: expiredToken }
+        })
+      ]);
+
+      expect(upstream).not.toHaveBeenCalled();
+      expect(invalid.structuredContent).toMatchObject({
+        error: { code: "youtube_video_audit_continuation_invalid" },
+        limitations: [expect.stringMatching(/restart.*video/i)],
+        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+      });
+      expect(expired.structuredContent).toMatchObject({
+        error: { code: "youtube_video_audit_continuation_expired" },
+        limitations: [expect.stringMatching(/restart.*video/i)],
+        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+      });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
