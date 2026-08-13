@@ -7,10 +7,22 @@ is the public privacy policy.
 
 ## Purpose and boundary
 
-AskRigor v0 is a stateless, read-only MCP retrieval service. It returns provider
-data to the invoking MCP client and makes no user account, database, write API,
-or medical conclusion. Provider content is untrusted input; it is parsed as data
-and never executed as instructions.
+AskRigor has two deliberately separate processing paths:
+
+- **Research retrieval path:** the existing MCP research operations remain
+  stateless, read-only, and transient. They return provider data to the invoking
+  client and make no provider write or medical conclusion. Provider content is
+  untrusted input; it is parsed as data and never executed as instructions.
+- **Optional lesson path:** after AskRigor validates a concrete criticism and
+  obtains separate consent, the consequential Custom GPT Action accepts a
+  derived candidate, screens it, sends the derived fields to a fixed OpenAI
+  privacy check, and writes a private GitHub review candidate plus anonymous
+  occurrence metadata. It is not an MCP operation and cannot change code,
+  protocols, instructions, providers, or releases.
+
+The lesson path is implemented in this release candidate but is not yet
+deployed. Task 10 provisioning and live acceptance remain required before any
+production lesson submission claim.
 
 ## Data returned to the MCP client
 
@@ -52,7 +64,7 @@ The invoking client receives the token and may resend it during the active
 request chain; the server keeps no
 matching session record.
 
-## Processing and retention
+## Research processing and retention
 
 | Location | Data handled | Persistent storage in v0 |
 | --- | --- | --- |
@@ -62,12 +74,107 @@ matching session record.
 | Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may process aggregate server logs or operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No application-level request/content or operational-metadata log is persistently stored by v0. Infrastructure providers may retain operational metadata for their configured security and operations periods under their own policies; AskRigor does not control those periods. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
 
-## Data not persistently stored in v0
+## Optional lesson request and result contract
+
+AskRigor receives only these generalized structured request fields from the
+Custom GPT, never the raw chat:
+
+| Request field | Meaning and implemented bound |
+| --- | --- |
+| `category` | One allowlisted product-failure category. |
+| `general_lesson` | General product invariant, 40–600 characters. |
+| `expected_behavior` | Correct AskRigor behavior, 40–1,200 characters. |
+| `failure_reason` | General defect explanation, 20–800 characters. |
+| `synthetic_regression_example` | Non-personal synthetic example, 20–1,200 characters. |
+| `evidence_basis` | `assistant_self_check`, `tool_receipt_conflict`, `source_recheck`, or `instruction_mismatch`. |
+| `askrigor_version` | Optional version string, at most 64 characters. |
+| `protocol_identities` | Optional list of at most four name/version/optional SHA-256 identities. |
+| `consent_scope` | `once` or `conversation`; screened for audit semantics but not stored in the GitHub issue. |
+
+Unknown fields are rejected. There is no request field for raw user or
+assistant messages, a user or conversation identifier, an account, email,
+location, medical history, upload, or raw quotation. The complete decoded JSON
+body is limited to 8,192 UTF-8 bytes.
+
+The public result is one strict status shape: `submitted` or
+`existing_candidate` returns only `candidate_id`, `occurrence_count`, and
+`retryable:false`; `rate_limited` returns `retry_after_seconds`, an allowlisted
+`reason_code`, and `retryable:true`; `privacy_rejected`,
+`anonymizer_unavailable`, and `github_unavailable` return only their status,
+retryability, and an allowlisted reason code. Results do not expose a private
+URL, GitHub issue number, candidate text, or fingerprint.
+
+## Lesson screening, recipients, and storage
+
+The server applies deterministic screening before and after the fixed OpenAI
+privacy check. Only already-derived fields are sent to
+`gpt-5-nano-2025-08-07`; the Responses API request uses `store:false` and strict
+structured output. Model uncertainty, failure, invalid output, or budget
+exhaustion fails closed before GitHub. The OpenAI check generalizes privacy risk
+but does not determine whether the lesson is scientifically correct.
+
+If both screens pass, the private GitHub issue stores the category in its title
+and labels; general lesson; expected behavior; failure reason; synthetic
+regression example; evidence basis; optional AskRigor version and protocol
+identities; the privacy-gate marker; optional prior public candidate ID; an
+anonymous occurrence count; first/last seen timestamps; and a hidden
+deduplication fingerprint marker. It intentionally stores no `consent_scope`,
+user identity, network identity, conversation identifier, raw chat, raw
+quotation, medical history, or upload.
+
+The persistent AI budget ledger contains only `schema_version`, `utc_month`,
+`monthly_limit_nano_usd`, `charged_nano_usd`, and `updated_at`. It contains no
+candidate content or request identity. It enforces the fixed $50.00 monthly
+limit; a new UTC month replaces the prior aggregate ledger.
+
+Recipients and provider boundaries are therefore distinct:
+
+- the AskRigor server receives and validates the generalized structured lesson
+  candidate;
+- OpenAI receives those derived fields for the fixed privacy check;
+- GitHub receives only the approved private issue fields and anonymous
+  recurrence metadata;
+- ChatGPT handles the surrounding conversation and Action result under its own
+  terms and settings; and
+- infrastructure providers may process bounded operational metadata for
+  security and service operation.
+
+OpenAI API, GitHub, ChatGPT, infrastructure, and research-data providers govern
+their own processing and retention under their respective policies. AskRigor
+does not claim to control provider-side copies or deletion schedules.
+
+## Lesson logs, retention, and deletion
+
+The AskRigor application does not log lesson request or response bodies,
+candidate content, raw chat, user identifiers, network identifiers, or
+credentials. Application and reverse-proxy operational logs omit candidate,
+request, and response bodies. Permitted operational metadata is limited to
+items such as timestamp, endpoint, status, latency, bounded error code, and a
+short non-reversible fingerprint prefix if operational logging is later
+enabled; the current application emits only its startup line. Infrastructure
+may also process IP/network or security signals under its own configured
+retention boundary.
+
+Private lesson issues remain available for human review until a maintainer
+deletes them. Rejected or incorporated issues become deletion-eligible strictly
+after 90 complete days from the terminal review timestamp.
+Deletion is not automatic in v1: `npm run lessons:status` flags eligible candidates, but
+deletion is a deliberate maintainer operation and may occur later. A user can
+request earlier deletion by sending the private-safe `ARL-####` receipt to
+`joel@askrigor.com`. AskRigor can act only on data it controls; provider
+retention and provider-side deletion remain governed by the provider.
+
+## Research data not persistently stored in v0
 
 - User accounts, profiles, authentication sessions, or user-entered research history.
 - Search queries, research questions, directional labels, citations, protocol text, scholarly records, trial records, YouTube videos, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, continuation tokens, or completion receipts.
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, YouTube transcripts, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
+
+The optional lesson path is the narrow exception to the research path's
+no-persistence boundary. It stores only the screened private candidate and
+anonymous recurrence metadata listed above; it does not create a research
+history, transcript store, user profile, or automatic-learning database.
 
 ## Response minimization and security controls
 
@@ -77,12 +184,20 @@ matching session record.
 - Provider access failures remain explicit (`inaccessible`, `rate_limited`, `not_found`, or `error`) and never become negative evidence.
 - The public route is fail-closed, has bounded request body/concurrency/rate limits, and does not return credentials. Source tests check that a test YouTube key never appears in results.
 - Comment retrieval reports API-visible coverage only. It does not claim access to deleted, moderated, private, hidden, held-for-review, unavailable, or never-posted material.
+- The lesson Action uses separate Bearer authentication, remains
+  `x-openai-isConsequential:true`, and never appears in MCP `tools/list`.
+- The dedicated GitHub App is restricted to metadata read and issues
+  read/write on one private repository; it has no contents, pull-request,
+  actions, administration, secrets, organization, or account permission.
+- Only one lesson writer runs in v1. The server serializes duplicate handling
+  and returns only an `ARL-####` candidate ID plus anonymous occurrence count.
 
 ## Public-policy status
 
 The stable HTTPS policy at `https://askrigor.com/privacy` was independently
-verified on 2026-08-12 against immutable release `f928b95e29cd`. It covers public
-YouTube identity/comment processing, provider sharing, operational-log retention,
-end-user/client disclosure, contact, and rights/retention boundaries. Keep this
-internal map as the more detailed implementation inventory and re-review the live
-notice whenever the service's data handling changes.
+verified on 2026-08-12 against immutable release `f928b95e29cd` for the
+read-only research service. The August 13, 2026 notice in this release candidate
+adds the optional lesson disclosure and must be deployed and reverified before
+the lesson Action is enabled. Keep this internal map as the more detailed
+implementation inventory and re-review the live notice whenever processing
+changes.

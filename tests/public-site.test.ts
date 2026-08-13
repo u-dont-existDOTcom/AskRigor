@@ -77,6 +77,33 @@ describe("AskRigor public site", () => {
     ]) expect(html).toContain(fragment);
   });
 
+  it("separates transient research from optional private lesson feedback", async () => {
+    const html = await pageHtml("site/privacy/index.html");
+    for (const fragment of [
+      "Effective August 13, 2026",
+      "Optional lesson feedback",
+      "separate consent",
+      "generalized structured fields",
+      "not the raw chat",
+      "deterministic screening",
+      "fixed OpenAI privacy check",
+      "before GitHub",
+      "private review candidate",
+      "anonymous occurrence count",
+      "No user account, conversation ID, medical history, upload, or raw quotation",
+      "deletion-eligible 90 days",
+      "deliberate maintainer operation",
+      "may occur later",
+      "ARL-####",
+      "request earlier deletion",
+      "OpenAI, GitHub, ChatGPT, and infrastructure providers",
+      "candidate, request, or response bodies",
+    ]) expect(html).toContain(fragment);
+
+    expect(html).not.toContain("AskRigor-lessons");
+    expect(html).not.toContain("github.com/");
+  });
+
   it("states the home research boundary", async () => {
     const html = await pageHtml("site/index.html");
     for (const fragment of [
@@ -89,7 +116,8 @@ describe("AskRigor public site", () => {
     const html = await pageHtml("site/terms/index.html");
     for (const fragment of [
       "read-only", "lawful use", "no medical, legal, or financial advice", "rate limits",
-      "third-party", "as available", "applicable law", "joel@askrigor.com"
+      "third-party", "as available", "applicable law", "joel@askrigor.com",
+      "expressly approved lesson Action", "private feedback"
     ]) expect(html).toContain(fragment);
   });
 

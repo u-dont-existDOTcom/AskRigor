@@ -28,6 +28,93 @@ const TOOL_NAMES = [
 ];
 
 describe("AskRigor public-review packet", () => {
+  it("documents the exact lesson data, setup, and rollback boundary", async () => {
+    const [setup, privacyMap, readme, checklist, openApi] = await Promise.all([
+      readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
+      readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
+      readFile(rootFile("README.md"), "utf8"),
+      readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
+      readFile(rootFile("docs/custom-gpt-action-openapi.json"), "utf8"),
+    ]);
+
+    for (const variable of [
+      "ASKRIGOR_ACTIONS_ENABLED",
+      "ASKRIGOR_ACTIONS_API_KEY",
+      "OPENAI_API_KEY",
+      "ASKRIGOR_AI_BUDGET_LEDGER",
+      "ASKRIGOR_AI_MONTHLY_BUDGET_USD",
+      "ASKRIGOR_GITHUB_APP_ID",
+      "ASKRIGOR_GITHUB_INSTALLATION_ID",
+      "ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64",
+      "ASKRIGOR_LESSONS_REPOSITORY",
+    ]) expect(setup).toContain(variable);
+
+    for (const fragment of [
+      "$50.00",
+      "gpt-5-nano-2025-08-07",
+      "API billing is separate from ChatGPT billing",
+      "https://mcp.askrigor.com/actions/openapi.json",
+      "API Key",
+      "Bearer",
+      "https://askrigor.com/privacy",
+      "Submit this anonymized lesson to improve AskRigor?",
+      "PROJECT_INSTRUCTIONS.md",
+      "FORUM_SIGNAL_MODULE.md",
+      "LESSON_CAPTURE_MODULE.md",
+      "synthetic",
+      "ARL-####",
+      "npm run lessons:status",
+      "Rollback",
+      "Key rotation",
+      "Existing chats",
+      "MCP remains available",
+      "Metadata: Read-only",
+      "Issues: Read and write",
+    ]) expect(setup).toContain(fragment);
+
+    expect(setup).toContain("u-dont-existDOTcom/AskRigor-lessons");
+    expect(setup).not.toMatch(/https?:\/\/(?:www\.)?github\.com\//iu);
+    expect(setup).not.toMatch(/(?:sk-|gh[opusr]_)[A-Za-z0-9_-]{16,}/u);
+
+    for (const fragment of [
+      "Research retrieval path",
+      "Optional lesson path",
+      "category",
+      "general_lesson",
+      "expected_behavior",
+      "failure_reason",
+      "synthetic_regression_example",
+      "evidence_basis",
+      "askrigor_version",
+      "protocol_identities",
+      "consent_scope",
+      "submitted",
+      "existing_candidate",
+      "privacy_rejected",
+      "rate_limited",
+      "anonymizer_unavailable",
+      "github_unavailable",
+      "utc_month",
+      "monthly_limit_nano_usd",
+      "charged_nano_usd",
+      "updated_at",
+      "anonymous occurrence count",
+      "first/last seen",
+      "fingerprint",
+      "not automatic",
+      "joel@askrigor.com",
+    ]) expect(privacyMap).toContain(fragment);
+
+    for (const document of [readme, checklist]) {
+      expect(document).toContain("lesson Action");
+      expect(document).toContain("not yet deployed");
+      expect(document).toContain("existing chats");
+      expect(document).toContain("MCP");
+    }
+    expect(openApi).not.toContain("AskRigor-lessons");
+    expect(openApi).not.toMatch(/https?:\/\/(?:www\.)?github\.com\//iu);
+  });
+
   it("keeps the privacy map explicit about every protocol and retrieval response category", async () => {
     const document = await readFile(rootFile("docs/privacy-data-map.md"), "utf8");
 
