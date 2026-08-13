@@ -17,14 +17,9 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
-export const youtubeCommunityDirectionSchema = z.enum([
-  "general",
-  "benefit",
-  "no_effect",
-  "harm",
-  "discontinuation",
-  "formal_discriminator"
-]);
+import { youtubeCommunityDirectionSchema } from "./youtube-community-survey.js";
+
+export { youtubeCommunityDirectionSchema } from "./youtube-community-survey.js";
 
 export const youtubeCommunityAuditInputSchema = z.object({
   research_question: z.string().trim().min(1).max(5_000),
