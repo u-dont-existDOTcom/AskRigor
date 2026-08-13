@@ -152,6 +152,49 @@ describe("resumable YouTube comment segments", () => {
       .toSatisfy((urls: URL[]) => urls.every((url) => !url.searchParams.has("searchTerms")));
   });
 
+  it("processes every thread from a fetched page without refetching that page", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      return Response.json({
+        pageInfo: { totalResults: 2, resultsPerPage: 2 },
+        items: [0, 1].map((index) => ({
+          id: `thread-${index}`,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            topLevelComment: {
+              id: `top-${index}`,
+              snippet: {
+                videoId: "XpZHKGGCK-o",
+                textDisplay: `Top level ${index}`,
+                likeCount: 0,
+                publishedAt: "2025-02-01T10:00:00Z",
+                updatedAt: "2025-02-01T10:00:00Z"
+              }
+            },
+            totalReplyCount: 0
+          }
+        }))
+      });
+    }));
+
+    const result = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o", page_size: 20 },
+      YOUTUBE,
+      { max_provider_requests: 50, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "api_visible_complete",
+      exhausted: true,
+      top_level_comments_retrieved: 2,
+      comment_thread_pages: 1
+    });
+    expect(result.comments.map(({ comment_id }) => comment_id)).toEqual(["top-0", "top-1"]);
+    expect(requests).toHaveLength(1);
+  });
+
   it("fails closed when a refetched thread page changed before resume", async () => {
     const threadPage = await fixture("comment-threads-page-1.json");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(threadPage, { status: 200 })));

@@ -186,81 +186,88 @@ export async function getYoutubeCommentSegment(
           limitations: []
         };
       }
-      if (cursor.thread_offset < 0 || cursor.thread_offset >= page.items.length) {
-        return segmentFailure(videoId, "youtube_comment_segment_cursor_invalid");
-      }
-      const thread = page.items[cursor.thread_offset]!;
-      const topLevel = thread.snippet.topLevelComment;
-      const parentId = topLevel.id;
-      const expectedReplies = thread.snippet.totalReplyCount;
       if (
-        thread.snippet.videoId !== videoId ||
-        topLevel.snippet.videoId !== videoId ||
-        (cursor.current_parent_id !== undefined && cursor.current_parent_id !== parentId) ||
-        (cursor.current_expected_replies !== undefined &&
-          cursor.current_expected_replies !== expectedReplies)
+        cursor.thread_offset < 0 ||
+        (page.items.length > 0 && cursor.thread_offset >= page.items.length) ||
+        (page.items.length === 0 && (cursor.thread_offset !== 0 || cursor.top_level_emitted))
       ) {
         return segmentFailure(videoId, "youtube_comment_segment_cursor_invalid");
       }
-
-      if (!cursor.top_level_emitted) {
-        comments.push(normalizeComment(topLevel, videoId, parentId, false));
-        topLevelCount += 1;
-        cursor = {
-          ...cursor,
-          page_fingerprint: fingerprint,
-          top_level_emitted: true,
-          current_parent_id: parentId,
-          current_expected_replies: expectedReplies,
-          current_replies_retrieved: 0
-        };
-      }
-
-      let replyPageToken = cursor.reply_page_token;
-      let currentReplies = cursor.current_replies_retrieved ?? 0;
-      while (currentReplies < expectedReplies) {
-        const replyPage = await fetchReplyPage(
-          videoId,
-          parentId,
-          replyPageToken,
-          config,
-          accounting
-        );
-        replyPages += 1;
-        for (const reply of replyPage.items) {
-          if (reply.snippet.parentId !== parentId) {
-            return segmentFailure(videoId, "youtube_comment_segment_response_invalid");
-          }
-          comments.push(normalizeComment(reply, videoId, parentId, true));
-          replyCount += 1;
-          currentReplies += 1;
+      while (cursor.thread_offset < page.items.length) {
+        const thread = page.items[cursor.thread_offset]!;
+        const topLevel = thread.snippet.topLevelComment;
+        const parentId = topLevel.id;
+        const expectedReplies = thread.snippet.totalReplyCount;
+        if (
+          thread.snippet.videoId !== videoId ||
+          topLevel.snippet.videoId !== videoId ||
+          (cursor.current_parent_id !== undefined && cursor.current_parent_id !== parentId) ||
+          (cursor.current_expected_replies !== undefined &&
+            cursor.current_expected_replies !== expectedReplies)
+        ) {
+          return segmentFailure(videoId, "youtube_comment_segment_cursor_invalid");
         }
-        replyPageToken = replyPage.nextPageToken;
-        cursor = {
-          ...cursor,
-          page_fingerprint: fingerprint,
-          reply_page_token: replyPageToken,
-          current_replies_retrieved: currentReplies
-        };
-        if (replyPageToken === undefined) break;
-      }
-      if (currentReplies !== expectedReplies) {
-        mismatches.push({
-          parent_comment_id: parentId,
-          expected: expectedReplies,
-          retrieved: currentReplies
-        });
-      }
 
-      const nextThreadOffset = cursor.thread_offset + 1;
-      if (nextThreadOffset < page.items.length) {
-        cursor = {
-          top_level_page_token: cursor.top_level_page_token,
-          page_fingerprint: fingerprint,
-          thread_offset: nextThreadOffset,
-          top_level_emitted: false
-        };
-        continue;
+        if (!cursor.top_level_emitted) {
+          comments.push(normalizeComment(topLevel, videoId, parentId, false));
+          topLevelCount += 1;
+          cursor = {
+            ...cursor,
+            page_fingerprint: fingerprint,
+            top_level_emitted: true,
+            current_parent_id: parentId,
+            current_expected_replies: expectedReplies,
+            current_replies_retrieved: 0
+          };
+        }
+
+        let replyPageToken = cursor.reply_page_token;
+        let currentReplies = cursor.current_replies_retrieved ?? 0;
+        while (currentReplies < expectedReplies) {
+          const replyPage = await fetchReplyPage(
+            videoId,
+            parentId,
+            replyPageToken,
+            config,
+            accounting
+          );
+          replyPages += 1;
+          for (const reply of replyPage.items) {
+            if (reply.snippet.parentId !== parentId) {
+              return segmentFailure(videoId, "youtube_comment_segment_response_invalid");
+            }
+            comments.push(normalizeComment(reply, videoId, parentId, true));
+            replyCount += 1;
+            currentReplies += 1;
+          }
+          replyPageToken = replyPage.nextPageToken;
+          cursor = {
+            ...cursor,
+            page_fingerprint: fingerprint,
+            reply_page_token: replyPageToken,
+            current_replies_retrieved: currentReplies
+          };
+          if (replyPageToken === undefined) break;
+        }
+        if (currentReplies !== expectedReplies) {
+          mismatches.push({
+            parent_comment_id: parentId,
+            expected: expectedReplies,
+            retrieved: currentReplies
+          });
+        }
+
+        const nextThreadOffset = cursor.thread_offset + 1;
+        if (nextThreadOffset < page.items.length) {
+          cursor = {
+            top_level_page_token: cursor.top_level_page_token,
+            page_fingerprint: fingerprint,
+            thread_offset: nextThreadOffset,
+            top_level_emitted: false
+          };
+          continue;
+        }
+        break;
       }
       if (page.nextPageToken === undefined) {
         return {
