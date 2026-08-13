@@ -24,7 +24,7 @@ npx tsx scripts/generate-tool-inventory.mts
 The emitted inventory identifies itself as
 `MCP tools/list against createAskRigorServer()`, gives the intended production
 endpoint `https://mcp.askrigor.com/mcp`, and has the canonical compact-JSON
-SHA-256 `09bae41f95ce0935cd82c677b3fd8f393f8f643ff6f2b2587c3cf1cb5da282c5`.
+SHA-256 `f803181f8378a3489c630fde4b4dce49f6beec90c017e670b586d844e40c1c91`.
 `tests/release-packet.test.ts` regenerates the full inventory, asserts all 17
 names/order, title absence, schema roots, annotations, exact checksum, and deep
 equality with the committed full JSON artifact. A metadata or schema change

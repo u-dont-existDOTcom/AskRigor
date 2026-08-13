@@ -114,6 +114,7 @@ describe("YouTube discovery", () => {
       data: [{
         video_id: "XpZHKGGCK-o",
         channel_id: "UC0123456789abcdefghijkl",
+        channel_title: "Recorded health channel",
         title: "Recorded video title",
         description: "Recorded video description",
         published_at: "2025-01-02T03:04:05Z"
@@ -307,6 +308,7 @@ describe("YouTube discovery", () => {
       data: {
         video_id: "XpZHKGGCK-o",
         channel_id: "UC0123456789abcdefghijkl",
+        channel_title: "Recorded health channel",
         title: "Recorded video title",
         description: "Recorded video description",
         published_at: "2025-01-02T03:04:05Z",

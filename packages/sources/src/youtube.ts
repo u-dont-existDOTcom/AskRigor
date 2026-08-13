@@ -41,6 +41,7 @@ const searchInputSchema = z.object({
 const snippetSchema = z.object({
   publishedAt: youtubeTimestampSchema.optional(),
   channelId: channelIdSchema.optional(),
+  channelTitle: z.string().min(1).max(10_000).optional(),
   title: z.string().min(1).max(10_000).optional(),
   description: z.string().max(100_000).optional(),
   tags: z.array(z.string().min(1).max(500)).optional(),
@@ -159,6 +160,7 @@ export interface SearchYoutubeInput { query: string; pageSize?: number; cursor?:
 export interface YoutubeSearchRecord {
   video_id: string;
   channel_id?: string;
+  channel_title?: string;
   title?: string;
   description?: string;
   published_at?: string;
@@ -166,6 +168,7 @@ export interface YoutubeSearchRecord {
 export interface YoutubeVideo {
   video_id: string;
   channel_id?: string;
+  channel_title?: string;
   title?: string;
   description?: string;
   published_at?: string;
@@ -245,6 +248,7 @@ export interface YoutubeCommentData {
 export const youtubeSearchRecordSchema = z.object({
   video_id: youtubeVideoIdSchema,
   channel_id: channelIdSchema.optional(),
+  channel_title: z.string().min(1).max(10_000).optional(),
   title: z.string().min(1).max(10_000).optional(),
   description: z.string().max(100_000).optional(),
   published_at: youtubeTimestampSchema.optional()
@@ -254,6 +258,7 @@ export const youtubeSearchRecordListSchema = z.array(youtubeSearchRecordSchema).
 export const youtubeVideoDataSchema = z.object({
   video_id: youtubeVideoIdSchema,
   channel_id: channelIdSchema.optional(),
+  channel_title: z.string().min(1).max(10_000).optional(),
   title: z.string().min(1).max(10_000).optional(),
   description: z.string().max(100_000).optional(),
   published_at: youtubeTimestampSchema.optional(),
@@ -1726,6 +1731,7 @@ const jsonUtf8Bytes = (value: unknown): number => {
 const normalizeSearchRecord = (item: z.infer<typeof searchItemSchema>): YoutubeSearchRecord => ({
   video_id: item.id.videoId,
   ...(item.snippet.channelId === undefined ? {} : { channel_id: item.snippet.channelId }),
+  ...(item.snippet.channelTitle === undefined ? {} : { channel_title: item.snippet.channelTitle }),
   ...(item.snippet.title === undefined ? {} : { title: item.snippet.title }),
   ...(item.snippet.description === undefined ? {} : { description: item.snippet.description }),
   ...(item.snippet.publishedAt === undefined ? {} : { published_at: item.snippet.publishedAt })
@@ -1733,6 +1739,7 @@ const normalizeSearchRecord = (item: z.infer<typeof searchItemSchema>): YoutubeS
 const normalizeVideo = (item: z.infer<typeof videoItemSchema>): YoutubeVideo => ({
   video_id: item.id,
   ...(item.snippet.channelId === undefined ? {} : { channel_id: item.snippet.channelId }),
+  ...(item.snippet.channelTitle === undefined ? {} : { channel_title: item.snippet.channelTitle }),
   ...(item.snippet.title === undefined ? {} : { title: item.snippet.title }),
   ...(item.snippet.description === undefined ? {} : { description: item.snippet.description }),
   ...(item.snippet.publishedAt === undefined ? {} : { published_at: item.snippet.publishedAt }),

@@ -73,7 +73,7 @@ describe("AskRigor public-review packet", () => {
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
     expect(inventory.tools).toHaveLength(17);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "09bae41f95ce0935cd82c677b3fd8f393f8f643ff6f2b2587c3cf1cb5da282c5"
+      "f803181f8378a3489c630fde4b4dce49f6beec90c017e670b586d844e40c1c91"
     );
 
     for (const tool of inventory.tools) {
@@ -127,6 +127,7 @@ describe("AskRigor public-review packet", () => {
             items: {
               properties: {
                 canonical_url: { type: "string", format: "uri" },
+                channel_title: { type: "string" },
                 provider_reported_comments: {
                   type: "string",
                   pattern: "^(0|[1-9][0-9]*)$"
@@ -144,6 +145,7 @@ describe("AskRigor public-review packet", () => {
       outputSchema: {
         properties: {
           provider_reported_comments: { type: "string" },
+          channel_title: { type: "string" },
           records_retrieved_cumulative: { type: "integer" },
           records_returned_for_analysis: { type: "integer", maximum: 500 },
           continuation_recommended: { type: "boolean" },

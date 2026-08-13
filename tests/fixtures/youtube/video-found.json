@@ -9,6 +9,7 @@
       "snippet": {
         "publishedAt": "2025-01-02T03:04:05Z",
         "channelId": "UC0123456789abcdefghijkl",
+        "channelTitle": "Recorded health channel",
         "title": "Recorded video title",
         "description": "Recorded video description",
         "tags": ["recorded", "fixture"],

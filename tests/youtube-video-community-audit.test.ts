@@ -44,6 +44,7 @@ const videoEnvelope = (providerCount: string) => ({
     video_id: VIDEO_ID,
     title: "Recorded hip video",
     channel_id: "UC0123456789abcdefghijkl",
+    channel_title: "Recorded health channel",
     published_at: "2025-01-02T03:04:05Z",
     duration: "PT12M34S",
     statistics: { comment_count: providerCount }
@@ -94,6 +95,7 @@ describe("adaptive per-video YouTube community audit", () => {
       video_id: VIDEO_ID,
       canonical_url: `https://www.youtube.com/watch?v=${VIDEO_ID}`,
       title: "Recorded hip video",
+      channel_title: "Recorded health channel",
       provider_reported_comments: "399",
       top_level_comments_retrieved_cumulative: 399,
       replies_retrieved_cumulative: 0,

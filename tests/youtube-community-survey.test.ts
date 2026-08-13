@@ -81,6 +81,7 @@ describe("YouTube community survey", () => {
         metadata_access_status: "api_visible_complete",
         title: "Recorded video title",
         channel_id: "UC0123456789abcdefghijkl",
+        channel_title: "Recorded health channel",
         published_at: "2025-01-02T03:04:05Z",
         duration: "PT12M34S",
         statistics: {

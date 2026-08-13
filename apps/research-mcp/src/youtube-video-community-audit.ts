@@ -71,6 +71,7 @@ export const youtubeVideoCommunityAuditOutputSchema = z.object({
   metadata_error: providerErrorSchema.optional(),
   title: youtubeVideoDataSchema.shape.title.optional(),
   channel_id: youtubeVideoDataSchema.shape.channel_id.optional(),
+  channel_title: youtubeVideoDataSchema.shape.channel_title.optional(),
   published_at: youtubeVideoDataSchema.shape.published_at.optional(),
   duration: youtubeVideoDataSchema.shape.duration.optional(),
   statistics: youtubeVideoDataSchema.shape.statistics.optional(),
@@ -322,6 +323,9 @@ export async function auditYoutubeVideoCommunity(
     ...(metadata.error === undefined ? {} : { metadata_error: metadata.error }),
     ...(metadataVideo?.title === undefined ? {} : { title: metadataVideo.title }),
     ...(metadataVideo?.channel_id === undefined ? {} : { channel_id: metadataVideo.channel_id }),
+    ...(metadataVideo?.channel_title === undefined
+      ? {}
+      : { channel_title: metadataVideo.channel_title }),
     ...(metadataVideo?.published_at === undefined ? {} : { published_at: metadataVideo.published_at }),
     ...(metadataVideo?.duration === undefined ? {} : { duration: metadataVideo.duration }),
     ...(metadataVideo?.statistics === undefined ? {} : { statistics: metadataVideo.statistics }),
