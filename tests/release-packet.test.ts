@@ -22,7 +22,9 @@ const TOOL_NAMES = [
   "get_youtube_video",
   "get_youtube_comments",
   "search_youtube_comments",
-  "audit_youtube_community"
+  "audit_youtube_community",
+  "survey_youtube_community",
+  "audit_youtube_video_community"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -44,6 +46,12 @@ describe("AskRigor public-review packet", () => {
       "research question and labeled YouTube queries",
       "corpus SHA-256",
       "deterministic sample",
+      "opaque authenticated continuation state",
+      "comment identifiers, counters, and rolling corpus digest",
+      "one hour",
+      "active request only",
+      "continuation secret is never returned",
+      "no server-side comment corpus or research-session persistence",
       "not persistently stored",
       "aggregate server logs"
     ]) {
@@ -63,9 +71,9 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(15);
+    expect(inventory.tools).toHaveLength(17);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "94f09136bb27b25195febc7bc5294bdeb07458d8c67b02c9bfc5081b50bfd216"
+      "09bae41f95ce0935cd82c677b3fd8f393f8f643ff6f2b2587c3cf1cb5da282c5"
     );
 
     for (const tool of inventory.tools) {
@@ -111,17 +119,53 @@ describe("AskRigor public-review packet", () => {
         }
       }
     });
+    const survey = inventory.tools.find(({ name }) => name === "survey_youtube_community");
+    expect(survey).toMatchObject({
+      outputSchema: {
+        properties: {
+          candidates: {
+            items: {
+              properties: {
+                canonical_url: { type: "string", format: "uri" },
+                provider_reported_comments: {
+                  type: "string",
+                  pattern: "^(0|[1-9][0-9]*)$"
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+    const videoAudit = inventory.tools.find(({ name }) =>
+      name === "audit_youtube_video_community"
+    );
+    expect(videoAudit).toMatchObject({
+      outputSchema: {
+        properties: {
+          provider_reported_comments: { type: "string" },
+          records_retrieved_cumulative: { type: "integer" },
+          records_returned_for_analysis: { type: "integer", maximum: 500 },
+          continuation_recommended: { type: "boolean" },
+          continuation_token: { type: "string", maxLength: 65536 },
+          receipt: {
+            properties: { synthesis_lock: { enum: ["pass", "block"] } }
+          }
+        }
+      }
+    });
   });
 
-  it("supplies five reproducible positive and three safe negative portal cases", async () => {
+  it("supplies six reproducible positive and three safe negative portal cases", async () => {
     const cases = JSON.parse(
       await readFile(rootFile("docs/public-review-cases-v0.1.0.json"), "utf8")
     ) as { positive: PositiveReviewCase[]; negative: NegativeReviewCase[] };
 
-    expect(cases.positive).toHaveLength(5);
+    expect(cases.positive).toHaveLength(6);
     expect(cases.negative).toHaveLength(3);
     expect(cases.positive.map(({ id }) => id)).toEqual([
-      "positive-1", "positive-2", "positive-3", "positive-4", "positive-5"
+      "positive-1", "positive-2", "positive-3", "positive-4", "positive-5",
+      "positive-6"
     ]);
     expect(cases.negative.map(({ id }) => id)).toEqual([
       "negative-1", "negative-2", "negative-3"
@@ -133,7 +177,12 @@ describe("AskRigor public-review packet", () => {
       ["fetch_pubmed_record"],
       ["fetch_clinical_trial"],
       ["check_retraction_status"],
-      ["get_youtube_comments"]
+      ["get_youtube_comments"],
+      [
+        "survey_youtube_community",
+        "audit_youtube_video_community",
+        "audit_youtube_video_community"
+      ]
     ]);
     expect(cases.positive[0].expected_workflow[0].arguments).toEqual({
       protocol: "hrp"
@@ -148,6 +197,10 @@ describe("AskRigor public-review packet", () => {
       video_id_or_url: "4x1fl67d_Ag",
       include_replies: true
     });
+    expect(cases.positive[5].expected_workflow[2].arguments).toEqual({
+      continuation_token: "$step_2.continuation_token"
+    });
+    expect(JSON.stringify(cases)).not.toMatch(/continuation_secret/i);
     expect(cases.negative.map(({ expected_workflow }) => expected_workflow[0].kind)).toEqual([
       "schema_rejection_before_provider_call",
       "explicit_not_found",
@@ -172,7 +225,7 @@ describe("AskRigor public-review packet", () => {
         return typeof args?.video_id_or_url === "string" ? [args.video_id_or_url] : [];
       })
     );
-    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag"]);
+    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag", "4x1fl67d_Ag"]);
     expect(negativeYoutubeIds).toEqual(["00000000000"]);
     expect(positiveYoutubeIds.some((id) => negativeYoutubeIds.includes(id))).toBe(false);
 

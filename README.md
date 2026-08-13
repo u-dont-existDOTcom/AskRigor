@@ -58,7 +58,10 @@ npm run test:live
 
 Do not commit provider credentials. See `.env.example` for the provider
 configuration variables; `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` is test-only and may
-be set directly in the shell running the smoke test.
+be set directly in the shell running the smoke test. Production adaptive
+YouTube audits also require `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET`, supplied at
+runtime with at least 32 UTF-8 bytes. It authenticates client-carried,
+one-hour continuation state and is never returned by a tool.
 
 ## Run the local MCP server
 
@@ -151,24 +154,40 @@ copy-ready files in `project/`. Put the complete contents of
 `project/FORUM_SIGNAL_MODULE.md` as a Project file. The compact router selects
 Forum Signal before the full HRP is used for synthesis.
 
-When Forum Signal is required, ChatGPT calls `audit_youtube_community`. That
-single read-only tool performs bounded multi-query video discovery,
-deduplication, metadata retrieval, unfiltered comments, accessible replies,
-pagination/reconciliation, and deterministic sampling. It returns a blocking or
-terminal completion receipt; it does not make a treatment conclusion.
+When Forum Signal is required, ChatGPT first calls
+`survey_youtube_community`, which returns bounded, deduplicated candidates with
+clickable canonical links and provider-reported comment counts. It selects up
+to three materially different videos, then calls
+`audit_youtube_video_community` for each and automatically resubmits the opaque
+continuation token while `continuation_recommended` is true. Each call is
+bounded to about 15 seconds, but there is no arbitrary one-minute total limit:
+the controller keeps spending additional minutes while expected information
+gain is positive.
+
+Each per-video result distinguishes the provider-reported comment count, the
+API-visible comments/replies actually retrieved, and the records returned for
+analysis. Complete corpora of 500 or fewer are all returned; larger complete
+corpora receive a deterministic 500-record sample. The final report names and
+links the videos worth watching, and it cannot synthesize while wider or deeper
+executable work is still likely to improve the answer. The legacy
+`audit_youtube_community` remains available for compatibility.
 
 This design uses ChatGPT as the existing reasoning engine. It adds no OpenAI API
-model call, local model, n8n workflow, database, or additional paid inference.
+model call, local model, n8n workflow, database, comment persistence, or
+additional paid inference.
 After deployment, refresh the developer-mode connection and start a new Project
 chat so the new tool metadata and Project instructions are active.
 
 ## Public-review status
 
 The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
-evidence. It now serves canonical HRP `20.5.16` (2026-08-12), SHA-256
-`d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`,
-including the field-driven Community Corpus Completion Gate and its exact
-query-bounded YouTube regression. The website/privacy/terms/support gate passed on 2026-08-12 for site
+evidence for the prior 15-tool release. This release candidate serves canonical
+HRP `20.5.17` (2026-08-13), SHA-256
+`1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2`,
+with the independent community-evidence weighting invariant and adaptive
+YouTube regressions. Production remains on the prior release until this
+candidate passes verification and rollout acceptance. The
+website/privacy/terms/support gate passed on 2026-08-12 for site
 release `f928b95e29cd`: `https://askrigor.com/`,
 `https://askrigor.com/privacy`, `https://askrigor.com/terms`, and
 `https://askrigor.com/support` all passed direct HTTPS acceptance. The manifest

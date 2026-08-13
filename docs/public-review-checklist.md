@@ -12,7 +12,7 @@ domain-verification work, Scan Tools review, and submission actions recorded in
 
 The complete reviewer inventory is generated directly from
 `createAskRigorServer()` through an in-memory MCP `tools/list` call. It
-contains all 15 exact tool names, **title absence** (no advertised `title`
+contains all 17 exact tool names, **title absence** (no advertised `title`
 property for any tool), descriptions, full advertised JSON-Schema Draft 7 input schemas, full
 advertised JSON-Schema Draft 7 output schemas, and annotations. The committed
 generated artifact is `docs/tool-inventory-v0.1.0.json`; regenerate it with:
@@ -24,8 +24,8 @@ npx tsx scripts/generate-tool-inventory.mts
 The emitted inventory identifies itself as
 `MCP tools/list against createAskRigorServer()`, gives the intended production
 endpoint `https://mcp.askrigor.com/mcp`, and has the canonical compact-JSON
-SHA-256 `94f09136bb27b25195febc7bc5294bdeb07458d8c67b02c9bfc5081b50bfd216`.
-`tests/release-packet.test.ts` regenerates the full inventory, asserts all 15
+SHA-256 `09bae41f95ce0935cd82c677b3fd8f393f8f643ff6f2b2587c3cf1cb5da282c5`.
+`tests/release-packet.test.ts` regenerates the full inventory, asserts all 17
 names/order, title absence, schema roots, annotations, exact checksum, and deep
 equality with the committed full JSON artifact. A metadata or schema change
 therefore requires an intentional inventory review, fresh Inspector/ChatGPT
@@ -38,7 +38,7 @@ advertised `execution.taskSupport` is `forbidden` for every tool. Internal SDK
 properties with `undefined` values (including the absent `title` and `_meta`)
 do not serialize and are explicitly checked as absent by the packet test.
 
-All 15 generated entries advertise exactly:
+All 17 generated entries advertise exactly:
 
 ```json
 {"readOnlyHint":true,"destructiveHint":false,"openWorldHint":false}
@@ -66,23 +66,35 @@ get_youtube_video
 get_youtube_comments
 search_youtube_comments
 audit_youtube_community
+survey_youtube_community
+audit_youtube_video_community
 ```
 
-`audit_youtube_community` is the preferred pre-synthesis community acquisition
-path. It accepts a research question plus up to six labeled YouTube searches,
-selects at most three bounded provider-ranked videos, and retrieves unfiltered
-comments plus accessible replies. Its output includes search/video receipts,
-complete-corpus accounting, an optional deterministic sample and corpus digest,
-and a literal `synthesis_lock` of `pass` or `block`. The tool makes no efficacy,
-safety, causality, prevalence, or treatment judgment.
+The adaptive pre-synthesis path starts with `survey_youtube_community`, which
+accepts a research question plus up to six labeled searches and returns bounded,
+deduplicated candidates with canonical clickable URLs and provider-reported
+comment counts. The client then calls `audit_youtube_video_community` for each
+material video and repeats with its authenticated continuation token while
+`continuation_recommended` is true. Results distinguish provider-reported
+comments, API-visible records actually retrieved, and records returned for
+analysis; they include exact page/reply accounting, a deterministic sample of
+at most 500, and a literal `synthesis_lock` of `pass` or `block`. Each call is
+bounded to 15 seconds, while the reasoning controller may continue for several
+minutes when expected information gain remains positive. The legacy
+`audit_youtube_community` remains advertised for compatibility. None of these
+tools makes an efficacy, safety, causality, prevalence, or treatment judgment.
 
-Fresh production acceptance on 2026-08-12 discovered these exact 15 tools and
+Fresh production acceptance on 2026-08-12 discovered the prior exact 15 tools and
 annotations at `https://mcp.askrigor.com/mcp`. The compound tool returned
 `api_visible_complete` plus `synthesis_lock:pass` for the recorded small
 comment/reply corpus. For a deliberately oversized corpus it returned
 `partial`, `youtube_comment_budget_elapsed_ms`, and `synthesis_lock:block`
 within the default MCP request deadline; it did not relabel the unseen corpus as
 complete.
+
+The current local release candidate advertises 17 tools. Its two adaptive tools
+and updated inventory must not be described as deployed until rollout and fresh
+production discovery complete.
 
 ## Reviewer data and state boundary
 
@@ -105,7 +117,7 @@ confirmation and no tool may make a state change.
 `docs/public-review-cases-v0.1.0.json` is the reviewer-ready, mechanically
 validated case set:
 
-- five positive cases and three negative cases, with fixed IDs/counts;
+- six positive cases and three negative cases, with fixed IDs/counts;
 - literal user prompts, production-public input values, exact expected tool
   workflows/arguments, expected structured fields, and result-shape fields;
 - explicit no-state-change expectation for every case; and
@@ -128,7 +140,7 @@ The publisher-matching HTTPS legal/support prerequisite was verified on
 1. Verify developer/business identity and complete the HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
-3. Re-run all eight cases in `docs/public-review-cases-v0.1.0.json` with the
+3. Re-run all nine cases in `docs/public-review-cases-v0.1.0.json` with the
    production-public inputs and expected fields.
 4. Confirm no response contains credentials, debug payloads, internal
    identifiers, or data not disclosed in the final privacy notice.

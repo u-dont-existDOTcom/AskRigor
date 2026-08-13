@@ -5,7 +5,7 @@
       "prompt": "Use AskRigor to retrieve, verify, and load the HRP protocol before beginning this health research task.",
       "fixture": {
         "mode": "production-public-input",
-        "inputs": {"protocol": "hrp", "expected_sha256": "d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597"}
+        "inputs": {"protocol": "hrp", "expected_sha256": "1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2"}
       },
       "expected_workflow": [
         {
@@ -15,7 +15,7 @@
         },
         {
           "tool": "verify_protocol_integrity",
-          "arguments": {"protocol": "hrp", "expected_sha256": "d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597"},
+          "arguments": {"protocol": "hrp", "expected_sha256": "1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2"},
           "expected_structured_fields": ["ok", "protocol", "verified", "manifest.sha256"]
         },
         {
@@ -25,7 +25,7 @@
         }
       ],
       "expected_result_shape": {
-        "required_fields": ["verified: true", "manifest.version: 20.5.16", "manifest.sha256: d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597", "complete canonical text"]
+        "required_fields": ["verified: true", "manifest.version: 20.5.17", "manifest.sha256: 1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2", "complete canonical text"]
       },
       "no_state_change": true
     },
@@ -102,6 +102,54 @@
       ],
       "expected_result_shape": {
         "required_fields": ["provider: youtube", "data.comments[].comment_id", "data.comments[].text", "data.manifest.reply_count_mismatches", "data.manifest.extraction_coverage", "access_status"]
+      },
+      "no_state_change": true
+    },
+    {
+      "id": "positive-6",
+      "prompt": "Use AskRigor to survey YouTube for firsthand hip-osteoarthritis treatment experiences, show clickable promising videos and provider comment counts, then deeply audit video 4x1fl67d_Ag and continue its authenticated acquisition when the first call recommends continuation.",
+      "fixture": {
+        "mode": "production-public-input",
+        "inputs": {
+          "research_question": "Which approaches do people with severe hip osteoarthritis report as improving pain or function?",
+          "searches": [
+            {"label": "benefit", "query": "hip osteoarthritis treatment success experience"},
+            {"label": "no_effect", "query": "hip osteoarthritis treatment did not work"},
+            {"label": "harm", "query": "hip osteoarthritis treatment worse complications"},
+            {"label": "discontinuation", "query": "hip osteoarthritis stopped treatment side effects"}
+          ],
+          "video_id_or_url": "4x1fl67d_Ag",
+          "analysis_limit": 500
+        }
+      },
+      "expected_workflow": [
+        {
+          "tool": "survey_youtube_community",
+          "arguments": {
+            "research_question": "Which approaches do people with severe hip osteoarthritis report as improving pain or function?",
+            "searches": [
+              {"label": "benefit", "query": "hip osteoarthritis treatment success experience"},
+              {"label": "no_effect", "query": "hip osteoarthritis treatment did not work"},
+              {"label": "harm", "query": "hip osteoarthritis treatment worse complications"},
+              {"label": "discontinuation", "query": "hip osteoarthritis stopped treatment side effects"}
+            ],
+            "results_per_search": 10
+          },
+          "expected_structured_fields": ["provider", "record_type", "research_question", "queries", "candidates", "candidates[].canonical_url", "candidates[].title", "candidates[].channel_title", "candidates[].published_at", "candidates[].provider_reported_comments", "limitations"]
+        },
+        {
+          "tool": "audit_youtube_video_community",
+          "arguments": {"video_id_or_url": "4x1fl67d_Ag", "analysis_limit": 500},
+          "expected_structured_fields": ["provider", "record_type", "video_id", "canonical_url", "title", "channel_title", "published_at", "provider_reported_comments", "records_retrieved_this_call", "records_retrieved_cumulative", "records_returned_for_analysis", "continuation_recommended", "continuation_token", "receipt.synthesis_lock"]
+        },
+        {
+          "tool": "audit_youtube_video_community",
+          "arguments": {"continuation_token": "$step_2.continuation_token"},
+          "expected_structured_fields": ["provider", "record_type", "video_id", "canonical_url", "provider_reported_comments", "records_retrieved_this_call", "records_retrieved_cumulative", "records_returned_for_analysis", "sample", "continuation_recommended", "receipt.completion_state", "receipt.synthesis_lock"]
+        }
+      ],
+      "expected_result_shape": {
+        "required_fields": ["clickable candidates[].canonical_url", "provider-reported comments", "API-visible records retrieved", "records returned for analysis", "authenticated continuation only when recommended", "terminal completion receipt before synthesis"]
       },
       "no_state_change": true
     }
