@@ -25,6 +25,14 @@ export class GitHubApiError extends Error {
   }
 }
 
+/** Internal optimistic-concurrency signal; its public surface stays sanitized. */
+export class GitHubWriteConflictError extends GitHubApiError {
+  constructor() {
+    super("github_service_unavailable", true);
+    this.name = "GitHubWriteConflictError";
+  }
+}
+
 export interface GitHubTokenProvider {
   getToken(): Promise<string>;
 }
@@ -44,6 +52,7 @@ interface CachedToken {
 
 const REQUIRED_PERMISSIONS = { issues: "write", metadata: "read" } as const;
 const TOKEN_EXPIRY_SKEW_MILLISECONDS = 60_000;
+const REQUEST_TIMEOUT_MILLISECONDS = 20_000;
 
 /** Exchanges a short-lived App JWT for one verified, selected-repository token. */
 export class GitHubInstallationTokenProvider implements GitHubTokenProvider {
@@ -55,7 +64,15 @@ export class GitHubInstallationTokenProvider implements GitHubTokenProvider {
   }
 
   async getToken(): Promise<string> {
-    const nowMilliseconds = this.now().getTime();
+    let nowMilliseconds: number;
+    try {
+      nowMilliseconds = this.now().getTime();
+    } catch {
+      throw new GitHubApiError("github_auth_unavailable", false);
+    }
+    if (!Number.isFinite(nowMilliseconds)) {
+      throw new GitHubApiError("github_auth_unavailable", false);
+    }
     if (this.cachedToken && nowMilliseconds < this.cachedToken.usableUntilMilliseconds) {
       return this.cachedToken.value;
     }
@@ -103,7 +120,7 @@ export class GitHubInstallationTokenProvider implements GitHubTokenProvider {
   }
 
   private async verifyRepositorySelection(token: string): Promise<void> {
-    const fullNames: string[] = [];
+    const repositories: Array<{ fullName: string; private: boolean }> = [];
     for (let page = 1; ; page += 1) {
       const response = await githubRequestJson(
         this.options.fetch,
@@ -117,18 +134,27 @@ export class GitHubInstallationTokenProvider implements GitHubTokenProvider {
         throw new GitHubApiError("github_scope_invalid", false);
       }
       for (const repository of response.repositories) {
-        if (!isRecord(repository) || typeof repository.full_name !== "string") {
+        if (!isRecord(repository) ||
+          typeof repository.full_name !== "string" ||
+          typeof repository.private !== "boolean") {
           throw new GitHubApiError("github_scope_invalid", false);
         }
-        fullNames.push(repository.full_name);
+        repositories.push({ fullName: repository.full_name, private: repository.private });
       }
       if (response.repositories.length < 100) break;
     }
 
-    if (fullNames.length !== 1 || fullNames[0] !== LESSON_REPOSITORY_FULL_NAME) {
+    if (repositories.length !== 1 ||
+      repositories[0]?.fullName !== LESSON_REPOSITORY_FULL_NAME ||
+      repositories[0]?.private !== true) {
       throw new GitHubApiError("github_scope_invalid", false);
     }
   }
+}
+
+export interface GitHubJsonResponse {
+  value: unknown;
+  etag?: string;
 }
 
 /** Makes one GitHub REST request with the repository client's fixed headers. */
@@ -137,23 +163,36 @@ export async function githubRequestJson(
   url: string,
   init: RequestInit,
 ): Promise<unknown> {
-  let response: Response;
+  return (await githubRequestJsonResponse(fetchImpl, url, init)).value;
+}
+
+/** Same sanitized request boundary, retaining only the ETag needed for safe writes. */
+export async function githubRequestJsonResponse(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+): Promise<GitHubJsonResponse> {
+  const timeoutController = new AbortController();
+  const timeout = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MILLISECONDS);
   try {
     const headers = new Headers(init.headers);
     headers.set("accept", "application/vnd.github+json");
     headers.set("x-github-api-version", GITHUB_API_VERSION);
     headers.set("user-agent", GITHUB_USER_AGENT);
     if (init.body !== undefined) headers.set("content-type", "application/json");
-    response = await fetchImpl(url, { ...init, headers });
-  } catch {
+    const signal = init.signal
+      ? AbortSignal.any([init.signal, timeoutController.signal])
+      : timeoutController.signal;
+    const response = await fetchImpl(url, { ...init, headers, signal });
+    if (!response.ok) throw errorForResponse(response);
+    const value: unknown = await response.json();
+    const etag = response.headers.get("etag");
+    return { value, ...(etag ? { etag } : {}) };
+  } catch (error) {
+    if (error instanceof GitHubApiError) throw error;
     throw new GitHubApiError("github_service_unavailable", true);
-  }
-
-  if (!response.ok) throw errorForResponse(response);
-  try {
-    return await response.json();
-  } catch {
-    throw new GitHubApiError("github_service_unavailable", true);
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -189,6 +228,7 @@ function hasExactPermissions(value: unknown): boolean {
 
 function errorForResponse(response: Response): GitHubApiError {
   const status = response.status;
+  if (status === 412) return new GitHubWriteConflictError();
   if (status === 403 && (
     response.headers.has("retry-after") ||
     response.headers.get("x-ratelimit-remaining") === "0"

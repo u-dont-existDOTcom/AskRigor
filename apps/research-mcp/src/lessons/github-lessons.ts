@@ -2,9 +2,11 @@ import type { GeneralizedLesson } from "./contracts.js";
 import {
   GITHUB_API_ROOT,
   GitHubApiError,
+  GitHubWriteConflictError,
   LESSON_REPOSITORY_FULL_NAME,
-  githubRequestJson,
+  githubRequestJsonResponse,
   isRecord,
+  type GitHubJsonResponse,
   type GitHubTokenProvider,
 } from "./github-app.js";
 
@@ -47,6 +49,12 @@ const TERMINAL_LABELS = new Set(["incorporated", "rejected", "duplicate", "insuf
 const METADATA_PREFIX = "<!-- askrigor-lesson-metadata:";
 const METADATA_PATTERN = /\n<!-- askrigor-lesson-metadata:([A-Za-z0-9_-]+) -->$/u;
 const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/u;
+const GENERATED_COUNT_START = "<!-- askrigor-generated-occurrence-count:start -->";
+const GENERATED_COUNT_END = "<!-- askrigor-generated-occurrence-count:end -->";
+const GENERATED_LAST_SEEN_START = "<!-- askrigor-generated-last-seen:start -->";
+const GENERATED_LAST_SEEN_END = "<!-- askrigor-generated-last-seen:end -->";
+const MAX_WRITE_ATTEMPTS = 3;
+const MAX_ISSUE_TITLE_CHARACTERS = 256;
 
 /** Converts a private issue number into the only identifier exposed publicly. */
 export function publicCandidateId(issueNumber: number): string {
@@ -79,9 +87,23 @@ export class GitHubLessonQueue {
       throw new GitHubApiError("github_service_unavailable", false);
     }
     const observedAt = this.safeTimestamp();
+    for (let attempt = 1; attempt <= MAX_WRITE_ATTEMPTS; attempt += 1) {
+      try {
+        return await this.submitAttempt(input, observedAt);
+      } catch (error) {
+        if (!(error instanceof GitHubWriteConflictError) || attempt === MAX_WRITE_ATTEMPTS) throw error;
+      }
+    }
+    throw new GitHubApiError("github_service_unavailable", true);
+  }
+
+  private async submitAttempt(
+    input: GitHubLessonSubmission,
+    observedAt: string,
+  ): Promise<GitHubLessonQueueResult> {
     const issues = await this.listAllIssues(input.fingerprint);
     const active = newestIssue(issues.filter((issue) => isActive(issue)));
-    if (active) return await this.updateActiveIssue(active, observedAt);
+    if (active) return await this.updateActiveIssue(active, input.fingerprint, observedAt);
 
     const terminal = newestIssue(issues);
     return await this.createIssue(input, observedAt, terminal);
@@ -108,7 +130,23 @@ export class GitHubLessonQueue {
     return matching;
   }
 
-  private async updateActiveIssue(issue: ListedIssue, observedAt: string): Promise<GitHubLessonQueueResult> {
+  private async updateActiveIssue(
+    listedIssue: ListedIssue,
+    fingerprint: string,
+    observedAt: string,
+  ): Promise<GitHubLessonQueueResult> {
+    const response = await this.requestResponse(`${ISSUES_PATH}/${listedIssue.number}`, { method: "GET" });
+    if (!response.etag || !isRecord(response.value) || typeof response.value.body !== "string") {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
+    const currentMetadata = parseMetadata(response.value.body);
+    if (!currentMetadata || currentMetadata.fingerprint !== fingerprint) {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const issue = parseMatchingIssue(response.value, currentMetadata);
+    if (!issue) throw new GitHubApiError("github_service_unavailable", false);
+    if (!isActive(issue)) throw new GitHubWriteConflictError();
+
     const occurrenceCount = issue.metadata.occurrence_count + 1;
     const metadata: PrivateMetadata = {
       fingerprint: issue.metadata.fingerprint,
@@ -119,6 +157,7 @@ export class GitHubLessonQueue {
     const body = updateGeneratedFields(issue.body, issue.metadata, metadata);
     await this.request(`${ISSUES_PATH}/${issue.number}`, {
       method: "PATCH",
+      headers: { "if-match": response.etag },
       body: JSON.stringify({ body }),
     });
     return {
@@ -144,7 +183,7 @@ export class GitHubLessonQueue {
     const response = await this.request(ISSUES_PATH, {
       method: "POST",
       body: JSON.stringify({
-        title: `[${input.candidate.category}] ${input.candidate.general_lesson}`,
+        title: issueTitle(input.candidate),
         body: buildIssueBody(
           input.candidate,
           {
@@ -170,6 +209,10 @@ export class GitHubLessonQueue {
   }
 
   private async request(path: string, init: RequestInit): Promise<unknown> {
+    return (await this.requestResponse(path, init)).value;
+  }
+
+  private async requestResponse(path: string, init: RequestInit): Promise<GitHubJsonResponse> {
     let token: string;
     try {
       token = await this.options.tokenProvider.getToken();
@@ -177,14 +220,21 @@ export class GitHubLessonQueue {
       if (error instanceof GitHubApiError) throw error;
       throw new GitHubApiError("github_auth_unavailable", false);
     }
-    return await githubRequestJson(this.options.fetch, `${GITHUB_API_ROOT}${path}`, {
+    const headers = new Headers(init.headers);
+    headers.set("authorization", `Bearer ${token}`);
+    return await githubRequestJsonResponse(this.options.fetch, `${GITHUB_API_ROOT}${path}`, {
       ...init,
-      headers: { authorization: `Bearer ${token}` },
+      headers,
     });
   }
 
   private safeTimestamp(): string {
-    const value = this.now();
+    let value: Date;
+    try {
+      value = this.now();
+    } catch {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
     if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
@@ -220,9 +270,17 @@ function buildIssueBody(
     ...(priorIssueNumber === undefined
       ? []
       : [section("Prior candidate", escapeMarkdown(publicCandidateId(priorIssueNumber)))]),
-    section("Anonymous occurrence count", String(metadata.occurrence_count)),
+    section("Anonymous occurrence count", ownedValue(
+      GENERATED_COUNT_START,
+      String(metadata.occurrence_count),
+      GENERATED_COUNT_END,
+    )),
     section("First seen", metadata.first_seen),
-    section("Last seen", metadata.last_seen),
+    section("Last seen", ownedValue(
+      GENERATED_LAST_SEEN_START,
+      metadata.last_seen,
+      GENERATED_LAST_SEEN_END,
+    )),
   ];
   return `${sections.join("\n\n")}\n\n${metadataMarker(metadata)}`;
 }
@@ -232,31 +290,47 @@ function updateGeneratedFields(
   previous: PrivateMetadata,
   next: PrivateMetadata,
 ): string {
-  let updated = replaceLastOwnedValue(
+  let updated = replaceOwnedValue(
     body,
-    "Anonymous occurrence count",
+    GENERATED_COUNT_START,
+    GENERATED_COUNT_END,
     String(previous.occurrence_count),
     String(next.occurrence_count),
     true,
   );
-  updated = replaceLastOwnedValue(updated, "Last seen", previous.last_seen, next.last_seen, false);
+  updated = replaceOwnedValue(
+    updated,
+    GENERATED_LAST_SEEN_START,
+    GENERATED_LAST_SEEN_END,
+    previous.last_seen,
+    next.last_seen,
+    false,
+  );
   if (!METADATA_PATTERN.test(updated)) {
     throw new GitHubApiError("github_service_unavailable", false);
   }
   return updated.replace(METADATA_PATTERN, `\n${metadataMarker(next)}`);
 }
 
-function replaceLastOwnedValue(
+function replaceOwnedValue(
   body: string,
-  heading: string,
+  startMarker: string,
+  endMarker: string,
   previous: string,
   next: string,
   rejectFollowingDigit: boolean,
 ): string {
-  const prefix = `\n## ${heading}\n\n`;
-  const prefixIndex = body.lastIndexOf(prefix);
-  if (prefixIndex < 0) throw new GitHubApiError("github_service_unavailable", false);
+  const prefix = `${startMarker}\n`;
+  const suffix = `\n${endMarker}`;
+  const prefixIndex = body.indexOf(prefix);
+  if (prefixIndex < 0 || prefixIndex !== body.lastIndexOf(prefix)) {
+    throw new GitHubApiError("github_service_unavailable", false);
+  }
   const valueIndex = prefixIndex + prefix.length;
+  const suffixIndex = body.indexOf(suffix, valueIndex);
+  if (suffixIndex < 0 || suffixIndex !== body.lastIndexOf(suffix)) {
+    throw new GitHubApiError("github_service_unavailable", false);
+  }
   if (!body.startsWith(previous, valueIndex)) {
     throw new GitHubApiError("github_service_unavailable", false);
   }
@@ -265,6 +339,18 @@ function replaceLastOwnedValue(
     throw new GitHubApiError("github_service_unavailable", false);
   }
   return body.slice(0, valueIndex) + next + body.slice(valueIndex + previous.length);
+}
+
+function issueTitle(candidate: GeneralizedLesson): string {
+  const prefix = `[${candidate.category}] `;
+  const codePoints = [...candidate.general_lesson];
+  const available = MAX_ISSUE_TITLE_CHARACTERS - [...prefix].length;
+  if (codePoints.length <= available) return `${prefix}${candidate.general_lesson}`;
+  return `${prefix}${codePoints.slice(0, available - 1).join("")}…`;
+}
+
+function ownedValue(startMarker: string, value: string, endMarker: string): string {
+  return `${startMarker}\n${value}\n${endMarker}`;
 }
 
 function parseMatchingIssue(value: Record<string, unknown>, metadata: PrivateMetadata): ListedIssue | undefined {

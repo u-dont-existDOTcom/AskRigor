@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GeneralizedLesson } from "../apps/research-mcp/src/lessons/contracts.js";
 import { GitHubApiError } from "../apps/research-mcp/src/lessons/github-app.js";
 import {
@@ -30,18 +30,33 @@ interface StoredIssue {
   pull_request?: { url: string };
 }
 
+interface HangingRequest {
+  method: string;
+  url: string;
+}
+
 class FakeGitHub {
-  readonly calls: Array<{ url: string; method: string; body?: unknown; headers: Headers }> = [];
+  readonly calls: Array<{ url: string; method: string; body?: unknown; headers: Headers; signal?: AbortSignal | null }> = [];
   readonly issues: StoredIssue[] = [];
+  readonly versions = new Map<number, number>();
   nextNumber = 1;
   loseNextCreateResponse = false;
   createDelay?: Promise<void>;
+  editBeforeNextPatch?: (issue: StoredIssue) => void;
+  hangingRequest?: HangingRequest;
 
   readonly fetch: typeof fetch = async (input, init) => {
     const url = String(input);
     const method = init?.method ?? "GET";
     const body = init?.body === undefined ? undefined : JSON.parse(String(init.body));
-    this.calls.push({ url, method, body, headers: new Headers(init?.headers) });
+    const headers = new Headers(init?.headers);
+    this.calls.push({ url, method, body, headers, signal: init?.signal });
+
+    if (this.hangingRequest?.method === method && url === this.hangingRequest.url) {
+      return await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("private hung GitHub request")));
+      });
+    }
 
     if (method === "GET" && url.startsWith("https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues?")) {
       const page = Number(new URL(url).searchParams.get("page"));
@@ -61,6 +76,7 @@ class FakeGitHub {
         created_at: observedAt,
       };
       this.issues.push(issue);
+      this.versions.set(issue.number, 1);
       if (this.loseNextCreateResponse) {
         this.loseNextCreateResponse = false;
         throw new Error("private network path and request body");
@@ -69,20 +85,42 @@ class FakeGitHub {
     }
 
     const patchMatch = /^https:\/\/api\.github\.com\/repos\/u-dont-existDOTcom\/AskRigor-lessons\/issues\/(\d+)$/.exec(url);
+    if (method === "GET" && patchMatch) {
+      const issue = this.issues.find((value) => value.number === Number(patchMatch[1]));
+      if (!issue) return json({ message: "missing" }, 404);
+      return json(issue, 200, { etag: this.etag(issue) });
+    }
     if (method === "PATCH" && patchMatch) {
       const issue = this.issues.find((value) => value.number === Number(patchMatch[1]));
       if (!issue) return json({ message: "missing" }, 404);
+      if (this.editBeforeNextPatch) {
+        const edit = this.editBeforeNextPatch;
+        this.editBeforeNextPatch = undefined;
+        edit(issue);
+        this.versions.set(issue.number, (this.versions.get(issue.number) ?? 1) + 1);
+      }
+      if (headers.get("if-match") !== this.etag(issue)) {
+        return json({ message: "precondition failed" }, 412);
+      }
       const request = body as { body: string };
       issue.body = request.body;
-      return json(issue);
+      this.versions.set(issue.number, (this.versions.get(issue.number) ?? 1) + 1);
+      return json(issue, 200, { etag: this.etag(issue) });
     }
 
     throw new Error("Unexpected test fetch boundary");
   };
+
+  private etag(issue: StoredIssue): string {
+    return `"issue-${issue.number}-v${this.versions.get(issue.number) ?? 1}"`;
+  }
 }
 
-function json(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
+function json(value: unknown, status = 200, headers: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: { "content-type": "application/json", ...headers },
+  });
 }
 
 function queue(github: FakeGitHub, now: () => Date = () => new Date(observedAt)) {
@@ -113,7 +151,9 @@ function issueBody(
     "",
     "## Anonymous occurrence count",
     "",
+    "<!-- askrigor-generated-occurrence-count:start -->",
     String(occurrenceCount),
+    "<!-- askrigor-generated-occurrence-count:end -->",
     "",
     "## First seen",
     "",
@@ -121,7 +161,9 @@ function issueBody(
     "",
     "## Last seen",
     "",
+    "<!-- askrigor-generated-last-seen:start -->",
     lastSeen,
+    "<!-- askrigor-generated-last-seen:end -->",
     "",
     marker({ fingerprint: issueFingerprint, occurrence_count: occurrenceCount, first_seen: firstSeen, last_seen: lastSeen }),
   ].join("\n");
@@ -151,6 +193,7 @@ function addIssue(
     ...(options.pullRequest ? { pull_request: { url: "private fixture" } } : {}),
   };
   github.issues.push(issue);
+  github.versions.set(number, 1);
   return issue;
 }
 
@@ -163,6 +206,10 @@ function parseFinalMetadata(body: string): unknown {
 function requestCalls(github: FakeGitHub, method: string) {
   return github.calls.filter((call) => call.method === method);
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("private GitHub lesson queue", () => {
   it("maps private issue numbers to opaque public candidate identifiers", () => {
@@ -220,7 +267,9 @@ describe("private GitHub lesson queue", () => {
         "",
         "## Anonymous occurrence count",
         "",
+        "<!-- askrigor-generated-occurrence-count:start -->",
         "1",
+        "<!-- askrigor-generated-occurrence-count:end -->",
         "",
         "## First seen",
         "",
@@ -228,7 +277,9 @@ describe("private GitHub lesson queue", () => {
         "",
         "## Last seen",
         "",
+        "<!-- askrigor-generated-last-seen:start -->",
         observedAt,
+        "<!-- askrigor-generated-last-seen:end -->",
         "",
         marker({ fingerprint, occurrence_count: 1, first_seen: observedAt, last_seen: observedAt }),
       ].join("\n"),
@@ -252,18 +303,29 @@ describe("private GitHub lesson queue", () => {
     expect(create.headers.get("user-agent")).toBe("AskRigor-Lesson-Queue/0.1");
   });
 
+  it("bounds a maximum-length lesson to one deterministic 256-character title while retaining the full body", async () => {
+    const github = new FakeGitHub();
+    const longCandidate: GeneralizedLesson = { ...candidate, general_lesson: "x".repeat(600) };
+
+    await queue(github).submit({ candidate: longCandidate, fingerprint });
+    const create = requestCalls(github, "POST")[0]!.body as { title: string; body: string };
+    expect(create.title).toBe(`[missing_sources] ${"x".repeat(237)}…`);
+    expect([...create.title]).toHaveLength(256);
+    expect(create.body).toContain("x".repeat(600));
+  });
+
   it("updates only generated count and last-seen fields on the newest active exact match", async () => {
     const github = new FakeGitHub();
     addIssue(github, { number: 3, count: 7, body: issueBody(fingerprint, 7, observedAt, observedAt, "older maintainer content") });
     const maintainerText = "newest maintainer content\n\n## Anonymous occurrence count\n\nmaintainer-authored context\n\nReviewer note stays here.";
     const annotatedBody = issueBody(fingerprint, 2, observedAt, observedAt, maintainerText)
       .replace(
-        "## Anonymous occurrence count\n\n2\n\n## First seen",
-        "## Anonymous occurrence count\n\n2 — inline maintainer note\n\nIntervening maintainer note.\n\n## First seen",
+        "<!-- askrigor-generated-occurrence-count:start -->\n2\n<!-- askrigor-generated-occurrence-count:end -->",
+        "<!-- askrigor-generated-occurrence-count:start -->\n2 — inline maintainer note\n\nIntervening maintainer note.\n<!-- askrigor-generated-occurrence-count:end -->",
       )
       .replace(
-        `## Last seen\n\n${observedAt}`,
-        `## Last seen\n\n${observedAt} — last-seen context`,
+        `<!-- askrigor-generated-last-seen:start -->\n${observedAt}\n<!-- askrigor-generated-last-seen:end -->`,
+        `<!-- askrigor-generated-last-seen:start -->\n${observedAt} — last-seen context\n<!-- askrigor-generated-last-seen:end -->`,
       );
     const newest = addIssue(github, { number: 8, count: 2, body: annotatedBody });
     newest.created_at = "2026-08-13T11:08:00Z";
@@ -282,15 +344,56 @@ describe("private GitHub lesson queue", () => {
     expect(requestCalls(github, "PATCH")[0]!.url).toBe("https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/8");
     expect(requestCalls(github, "PATCH")[0]!.body).toEqual({ body: newest.body });
     expect(newest.body).toContain(maintainerText);
-    expect(newest.body).toContain("## Anonymous occurrence count\n\n3 — inline maintainer note\n\nIntervening maintainer note.");
+    expect(newest.body).toContain("<!-- askrigor-generated-occurrence-count:start -->\n3 — inline maintainer note\n\nIntervening maintainer note.\n<!-- askrigor-generated-occurrence-count:end -->");
     expect(newest.body).toContain("## First seen\n\n2026-08-13T12:00:00.000Z");
-    expect(newest.body).toContain("## Last seen\n\n2026-08-13T13:00:00.000Z — last-seen context");
+    expect(newest.body).toContain("<!-- askrigor-generated-last-seen:start -->\n2026-08-13T13:00:00.000Z — last-seen context\n<!-- askrigor-generated-last-seen:end -->");
     expect(parseFinalMetadata(newest.body)).toEqual({
       fingerprint,
       occurrence_count: 3,
       first_seen: observedAt,
       last_seen: "2026-08-13T13:00:00.000Z",
     });
+  });
+
+  it("updates sentinel-owned fields and preserves duplicate generated headings appended by a maintainer", async () => {
+    const github = new FakeGitHub();
+    const duplicateHeadings = [
+      "## Anonymous occurrence count",
+      "",
+      "2 — maintainer comparison, do not alter",
+      "",
+      "## Last seen",
+      "",
+      `${observedAt} — maintainer note, do not alter`,
+    ].join("\n");
+    const body = issueBody(fingerprint, 2).replace(
+      `\n${marker({ fingerprint, occurrence_count: 2, first_seen: observedAt, last_seen: observedAt })}`,
+      `\n${duplicateHeadings}\n\n${marker({ fingerprint, occurrence_count: 2, first_seen: observedAt, last_seen: observedAt })}`,
+    );
+    const issue = addIssue(github, { number: 8, count: 2, body });
+
+    await expect(queue(github, () => new Date("2026-08-13T13:00:00.000Z")).submit({ candidate, fingerprint }))
+      .resolves.toMatchObject({ kind: "existing", occurrenceCount: 3 });
+    expect(issue.body).toContain("<!-- askrigor-generated-occurrence-count:start -->\n3\n<!-- askrigor-generated-occurrence-count:end -->");
+    expect(issue.body).toContain("<!-- askrigor-generated-last-seen:start -->\n2026-08-13T13:00:00.000Z\n<!-- askrigor-generated-last-seen:end -->");
+    expect(issue.body).toContain(duplicateHeadings);
+  });
+
+  it("retries a conditional active update and preserves a maintainer edit made after the detail read", async () => {
+    const github = new FakeGitHub();
+    const issue = addIssue(github, { number: 8, count: 2 });
+    github.editBeforeNextPatch = (current) => {
+      current.body = current.body.replace(
+        "maintainer-preserved content",
+        "maintainer-preserved content\n\nConcurrent maintainer edit remains.",
+      );
+    };
+
+    await expect(queue(github, () => new Date("2026-08-13T13:00:00.000Z")).submit({ candidate, fingerprint }))
+      .resolves.toMatchObject({ kind: "existing", issueNumber: 8, occurrenceCount: 3 });
+    expect(issue.body).toContain("Concurrent maintainer edit remains.");
+    expect(requestCalls(github, "PATCH")).toHaveLength(2);
+    expect(requestCalls(github, "PATCH").every((call) => call.headers.get("if-match") !== null)).toBe(true);
   });
 
   it("creates one linked possible-regression candidate after incorporation", async () => {
@@ -360,6 +463,7 @@ describe("private GitHub lesson queue", () => {
     expect(requestCalls(github, "GET").map((call) => call.url)).toEqual([
       "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues?state=all&per_page=100&page=1",
       "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues?state=all&per_page=100&page=2",
+      "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/101",
     ]);
     expect(requestCalls(github, "POST")).toHaveLength(0);
   });
@@ -438,5 +542,36 @@ describe("private GitHub lesson queue", () => {
     expect(body).toContain("AskRigor should render \\~\\~review\\~\\~ plus &lt;unsafe&gt; &amp; evidence as literal generalized text\\.");
     expect(body).not.toContain("~~review~~");
     expect(body).not.toContain("<unsafe>");
+  });
+
+  it("sanitizes an injected queue clock failure", async () => {
+    const github = new FakeGitHub();
+    const subject = queue(github, () => { throw new Error("private queue clock details"); });
+
+    const error = await subject.submit({ candidate, fingerprint }).catch((value: unknown) => value);
+    expect(error).toBeInstanceOf(GitHubApiError);
+    expect(error).toMatchObject({ code: "github_service_unavailable", retryable: false });
+    expect(String(error)).not.toContain("private queue clock details");
+    expect(github.calls).toHaveLength(0);
+  });
+
+  it.each([
+    ["issue listing", "GET", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues?state=all&per_page=100&page=1", false],
+    ["issue creation", "POST", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues", false],
+    ["active issue patch", "PATCH", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/8", true],
+  ])("aborts a hung %s at the application deadline", async (_name, method, url, needsIssue) => {
+    vi.useFakeTimers();
+    const github = new FakeGitHub();
+    if (needsIssue) addIssue(github, { number: 8, count: 2 });
+    github.hangingRequest = { method, url };
+    const outcome = queue(github).submit({ candidate, fingerprint }).catch((value: unknown) => value);
+    await vi.waitFor(() => expect(github.calls.some((call) => call.method === method && call.url === url)).toBe(true));
+    const hungCall = github.calls.findLast((call) => call.method === method && call.url === url)!;
+
+    expect(hungCall.signal).toBeDefined();
+    await vi.advanceTimersByTimeAsync(20_000);
+    const error = await outcome;
+    expect(error).toMatchObject({ code: "github_service_unavailable", retryable: true });
+    expect(String(error)).not.toContain("private hung GitHub request");
   });
 });

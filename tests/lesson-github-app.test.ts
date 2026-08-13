@@ -1,5 +1,5 @@
 import { generateKeyPairSync, verify } from "node:crypto";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   GitHubApiError,
   GitHubInstallationTokenProvider,
@@ -51,6 +51,10 @@ function createProvider(fetchImpl: typeof fetch, privateKeyBase64: string, now: 
     now,
   });
 }
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("least-privilege GitHub App installation token", () => {
   it("signs the exact short-lived JWT and scopes the token request to one repository", async () => {
@@ -158,6 +162,24 @@ describe("least-privilege GitHub App installation token", () => {
     });
   });
 
+  it("rejects the fixed repository when GitHub enumerates it as public", async () => {
+    const { privateKeyBase64 } = keyFixture();
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(tokenResponse())
+      .mockResolvedValueOnce(repositoryResponse([{
+        id: 42,
+        name: "AskRigor-lessons",
+        full_name: "u-dont-existDOTcom/AskRigor-lessons",
+        private: false,
+      }]));
+    const provider = createProvider(fetchMock, privateKeyBase64, () => new Date("2026-08-13T12:00:00.000Z"));
+
+    await expect(provider.getToken()).rejects.toMatchObject({
+      code: "github_scope_invalid",
+      retryable: false,
+    });
+  });
+
   it.each([
     [401, false, "github_auth_unavailable"],
     [403, false, "github_auth_unavailable"],
@@ -231,6 +253,39 @@ describe("least-privilege GitHub App installation token", () => {
     expect(error).toMatchObject({ code: "github_auth_unavailable", retryable: false });
     expect(String(error)).not.toContain("dG9rZW4tc2VjcmV0");
     expect(String(error)).not.toContain("token-secret");
+  });
+
+  it("sanitizes an injected clock failure", async () => {
+    const { privateKeyBase64 } = keyFixture();
+    const provider = createProvider(vi.fn<typeof fetch>(), privateKeyBase64, () => {
+      throw new Error("private clock details");
+    });
+
+    const error = await provider.getToken().catch((value: unknown) => value);
+    expect(error).toBeInstanceOf(GitHubApiError);
+    expect(error).toMatchObject({ code: "github_auth_unavailable", retryable: false });
+    expect(String(error)).not.toContain("private clock details");
+  });
+
+  it("aborts a hung installation-token exchange at the application deadline", async () => {
+    vi.useFakeTimers();
+    const { privateKeyBase64 } = keyFixture();
+    let requestSignal: AbortSignal | null | undefined;
+    const fetchMock = vi.fn<typeof fetch>().mockImplementation(async (_input, init) => {
+      requestSignal = init?.signal;
+      return await new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => reject(new Error("private hung token exchange")));
+      });
+    });
+    const provider = createProvider(fetchMock, privateKeyBase64, () => new Date("2026-08-13T12:00:00.000Z"));
+    const outcome = provider.getToken().catch((value: unknown) => value);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    expect(requestSignal).toBeDefined();
+    await vi.advanceTimersByTimeAsync(20_000);
+    const error = await outcome;
+    expect(error).toMatchObject({ code: "github_service_unavailable", retryable: true });
+    expect(String(error)).not.toContain("private hung token exchange");
   });
 });
 
