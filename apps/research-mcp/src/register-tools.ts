@@ -20,6 +20,7 @@ import {
   searchPubmed,
   getYoutubeComments,
   getYoutubeVideo,
+  parseYoutubeVideoId,
   searchYoutube,
   searchYoutubeComments,
   youtubeCommentDataSchema,
@@ -39,6 +40,20 @@ import {
   type YoutubeCommunityAuditInput,
   type YoutubeCommunityAuditOutput
 } from "./youtube-community-audit.js";
+import {
+  surveyYoutubeCommunity,
+  youtubeCommunitySurveyInputSchema,
+  youtubeCommunitySurveyOutputSchema,
+  type YoutubeCommunitySurveyInput,
+  type YoutubeCommunitySurveyOutput
+} from "./youtube-community-survey.js";
+import {
+  auditYoutubeVideoCommunity,
+  youtubeVideoCommunityAuditInputSchema,
+  youtubeVideoCommunityAuditOutputSchema,
+  type YoutubeVideoCommunityAuditInput,
+  type YoutubeVideoCommunityAuditOutput
+} from "./youtube-video-community-audit.js";
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -816,6 +831,60 @@ export function registerTools(server: McpServer): void {
       );
     }
   );
+
+  server.registerTool(
+    "survey_youtube_community",
+    {
+      description:
+        "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated.",
+      inputSchema: youtubeCommunitySurveyInputSchema,
+      outputSchema: youtubeCommunitySurveyOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      let result: YoutubeCommunitySurveyOutput;
+      try {
+        result = await surveyYoutubeCommunity(input, youtubeConfig());
+      } catch (_error) {
+        result = youtubeCommunitySurveyFailure(input);
+      }
+      return youtubeToolResult(
+        `YouTube community survey returned ${result.candidates.length} deduplicated candidate video(s).`,
+        result
+      );
+    }
+  );
+
+  server.registerTool(
+    "audit_youtube_video_community",
+    {
+      description:
+        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation, returning exact retrieved-versus-analyzed counts and a blocking completion receipt; no medical conclusions are generated.",
+      inputSchema: youtubeVideoCommunityAuditInputSchema,
+      outputSchema: youtubeVideoCommunityAuditOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => {
+      let result: YoutubeVideoCommunityAuditOutput;
+      try {
+        result = await auditYoutubeVideoCommunity(input, {
+          youtube: youtubeConfig(),
+          continuation_secret: youtubeAuditContinuationSecret()
+        }, {
+          segment: {
+            max_provider_requests: PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests,
+            max_elapsed_ms: PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs
+          }
+        });
+      } catch (_error) {
+        result = youtubeVideoCommunityAuditFailure(input);
+      }
+      return youtubeToolResult(
+        `YouTube video audit retrieved ${result.records_retrieved_cumulative} record(s) cumulatively; synthesis lock ${result.receipt.synthesis_lock}.`,
+        result
+      );
+    }
+  );
 }
 
 async function verifyIntegrity(
@@ -843,6 +912,10 @@ function crossrefConfig() {
 
 function youtubeConfig() {
   return { apiKey: process.env.YOUTUBE_API_KEY ?? "" };
+}
+
+function youtubeAuditContinuationSecret(): string {
+  return process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET ?? "";
 }
 
 function youtubeCommentBudgets() {
@@ -1134,6 +1207,108 @@ function youtubeCommunityAuditFailure(
       blockers: [limitation]
     }
   });
+}
+
+function youtubeCommunitySurveyFailure(
+  input: YoutubeCommunitySurveyInput
+): YoutubeCommunitySurveyOutput {
+  const parsed = youtubeCommunitySurveyInputSchema.parse(input);
+  const limitation = "YouTube community survey failed before completing its requested discovery.";
+  return youtubeCommunitySurveyOutputSchema.parse({
+    provider: "youtube",
+    record_type: "youtube_community_survey",
+    retrieved_at: new Date().toISOString(),
+    research_question: parsed.research_question,
+    access_status: "error",
+    limitations: [limitation],
+    error: {
+      code: "youtube_community_survey_failed",
+      message: "YouTube community survey failed",
+      retryable: false
+    },
+    searches: parsed.searches.map(({ direction, query, cursor }) => ({
+      directions: [direction],
+      query,
+      ...(cursor === undefined ? {} : { cursor }),
+      access_status: "error",
+      pagination: {
+        ...(cursor === undefined ? {} : { cursor }),
+        page_size: parsed.results_per_search,
+        returned: 0,
+        exhausted: false
+      },
+      limitations: [limitation],
+      error: {
+        code: "youtube_community_survey_failed",
+        message: "YouTube community survey failed",
+        retryable: false
+      },
+      candidate_video_ids: []
+    })),
+    candidates: []
+  });
+}
+
+function youtubeVideoCommunityAuditFailure(
+  input: YoutubeVideoCommunityAuditInput
+): YoutubeVideoCommunityAuditOutput {
+  const parsed = youtubeVideoCommunityAuditInputSchema.parse(input);
+  const videoId = parsed.video_id_or_url === undefined
+    ? "unknown0000"
+    : parseYoutubeVideoId(parsed.video_id_or_url) ?? "unknown0000";
+  const limitation = "YouTube video community audit failed before reaching a valid completion state.";
+  const error: ProviderErrorShape = {
+    code: "youtube_video_community_audit_failed",
+    message: "YouTube video community audit failed",
+    retryable: false
+  };
+  return youtubeVideoCommunityAuditOutputSchema.parse({
+    provider: "youtube",
+    record_type: "youtube_video_community_audit",
+    retrieved_at: new Date().toISOString(),
+    video_id: videoId,
+    canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
+    analysis_limit: parsed.analysis_limit,
+    segment_index: 0,
+    metadata_access_status: "error",
+    metadata_error: error,
+    access_status: "error",
+    extraction_coverage: "partial",
+    limitations: [limitation],
+    error,
+    top_level_comments_retrieved_this_call: 0,
+    replies_retrieved_this_call: 0,
+    records_retrieved_this_call: 0,
+    comment_thread_pages_this_call: 0,
+    reply_pages_this_call: 0,
+    top_level_comments_retrieved_cumulative: 0,
+    replies_retrieved_cumulative: 0,
+    records_retrieved_cumulative: 0,
+    comment_thread_pages_cumulative: 0,
+    reply_pages_cumulative: 0,
+    records_returned_for_analysis: 0,
+    top_level_records_returned_for_analysis: 0,
+    reply_records_returned_for_analysis: 0,
+    reply_count_mismatches: [],
+    corpus_rolling_sha256: "0".repeat(64),
+    insufficient_depth: false,
+    continuation_recommended: false,
+    receipt: {
+      completion_state: "incomplete",
+      synthesis_lock: "block",
+      chain_started_at_first_page: parsed.video_id_or_url !== undefined,
+      top_level_pagination_exhausted: false,
+      replies_reconciled: false,
+      query_bounded_comments_used_as_corpus: false,
+      blockers: [limitation]
+    }
+  });
+}
+
+interface ProviderErrorShape {
+  code: string;
+  message: string;
+  retryable: boolean;
 }
 
 function crossrefResolveFailure() {

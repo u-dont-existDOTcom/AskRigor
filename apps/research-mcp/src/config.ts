@@ -25,7 +25,9 @@ export const PUBLIC_TOOL_LIMITS = {
   youtubeNormalizedOutputBytes: 64 * 1_024 * 1_024,
   youtubeTextBytes: 48 * 1_024 * 1_024,
   youtubeElapsedMs: 120_000,
-  youtubeCommunityAuditElapsedMs: 15_000
+  youtubeCommunityAuditElapsedMs: 15_000,
+  youtubeVideoAuditElapsedMs: 15_000,
+  youtubeVideoAuditProviderRequests: 50
 } as const;
 
 export function publicServerIsEnabled(
@@ -41,7 +43,7 @@ export function parseTrustedClientIpHeader(
 }
 
 export const SERVER_INSTRUCTIONS =
-  "Before final synthesis, if firsthand community evidence could plausibly matter, call audit_youtube_community. Finding an excellent RCT does not remove this requirement. The audit retrieves unfiltered YouTube comments and replies. search_youtube_comments is query-bounded discovery only and never satisfies corpus acquisition. Preserve identifiers, provenance, pagination, access status, and blocking receipts. Never treat access failure as negative evidence. Read-only research retrieval.";
+  "Before final synthesis, if firsthand community evidence could plausibly matter, call survey_youtube_community, then audit_youtube_video_community for each material video. Finding an excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true and widen while expected information gain is positive. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only and never satisfies corpus acquisition. Preserve provenance and blocking receipts. Read-only retrieval.";
 
 export const HEALTH_PAYLOAD = {
   status: "ok",

@@ -33,7 +33,9 @@ const TOOL_NAMES = [
   "get_youtube_video",
   "get_youtube_comments",
   "search_youtube_comments",
-  "audit_youtube_community"
+  "audit_youtube_community",
+  "survey_youtube_community",
+  "audit_youtube_video_community"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -56,7 +58,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the fifteen read-only retrieval tools", async () => {
+  it("registers exactly the seventeen read-only retrieval tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -74,12 +76,15 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("prioritizes the compound community audit in critical server guidance", () => {
+  it("prioritizes the adaptive community workflow in critical server guidance", () => {
     const criticalInstructions = SERVER_INSTRUCTIONS.slice(0, 512);
 
-    expect(criticalInstructions).toContain("audit_youtube_community");
+    expect(criticalInstructions).toContain("survey_youtube_community");
+    expect(criticalInstructions).toContain("audit_youtube_video_community");
     expect(criticalInstructions).toContain("could plausibly matter");
     expect(criticalInstructions).toContain("excellent RCT does not remove this requirement");
+    expect(criticalInstructions).toContain("continuation_recommended");
+    expect(criticalInstructions).toContain("expected information gain is positive");
     expect(criticalInstructions).toContain("unfiltered YouTube comments and replies");
     expect(criticalInstructions).toContain(
       "search_youtube_comments is query-bounded discovery only"
@@ -90,6 +95,88 @@ describe("AskRigor MCP tools", () => {
     expect(PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs).toBe(15_000);
     expect(PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs)
       .toBeLessThan(PUBLIC_TOOL_LIMITS.youtubeElapsedMs);
+  });
+
+  it("keeps each adaptive video segment below the MCP deadline with a bounded provider budget", () => {
+    expect(PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs).toBe(15_000);
+    expect(PUBLIC_TOOL_LIMITS.youtubeVideoAuditProviderRequests).toBe(50);
+    expect(PUBLIC_TOOL_LIMITS.youtubeVideoAuditElapsedMs)
+      .toBeLessThan(PUBLIC_TOOL_LIMITS.youtubeElapsedMs);
+  });
+
+  it("publishes strict read-only adaptive YouTube survey and per-video audit schemas", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const survey = tools.find(({ name }) => name === "survey_youtube_community");
+      const audit = tools.find(({ name }) => name === "audit_youtube_video_community");
+
+      expect(survey).toMatchObject({
+        description: "Survey bounded YouTube video candidates for a community-evidence question and return deduplicated metadata, canonical watch links, provider comment counts, pagination, and access receipts; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          required: ["research_question", "searches"],
+          additionalProperties: false,
+          properties: {
+            research_question: { type: "string", minLength: 1, maxLength: 5000 },
+            searches: { type: "array", minItems: 1, maxItems: 6 },
+            results_per_search: { type: "integer", minimum: 1, maximum: 10, default: 10 }
+          }
+        },
+        outputSchema: {
+          type: "object",
+          required: [
+            "provider", "record_type", "retrieved_at", "research_question",
+            "access_status", "limitations", "searches", "candidates"
+          ],
+          additionalProperties: false
+        }
+      });
+      expect(survey!.outputSchema.properties.candidates.items.properties).toMatchObject({
+        canonical_url: { type: "string", format: "uri" },
+        provider_reported_comments: { type: "string", pattern: "^(0|[1-9][0-9]*)$" },
+        metadata_access_status: expect.any(Object)
+      });
+
+      expect(audit).toMatchObject({
+        description: "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation, returning exact retrieved-versus-analyzed counts and a blocking completion receipt; no medical conclusions are generated.",
+        annotations: READ_ONLY_ANNOTATIONS,
+        inputSchema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            video_id_or_url: { type: "string", minLength: 1, maxLength: 2048 },
+            continuation_token: { type: "string", minLength: 1, maxLength: 65536 },
+            analysis_limit: { type: "integer", minimum: 1, maximum: 500, default: 500 }
+          }
+        },
+        outputSchema: { type: "object", additionalProperties: false }
+      });
+      expect(audit!.outputSchema.required).toEqual(expect.arrayContaining([
+        "top_level_comments_retrieved_cumulative",
+        "replies_retrieved_cumulative",
+        "records_retrieved_cumulative",
+        "records_returned_for_analysis",
+        "continuation_recommended",
+        "insufficient_depth",
+        "receipt"
+      ]));
+      expect(audit!.outputSchema.properties.provider_reported_comments)
+        .toMatchObject({ type: "string", pattern: "^(0|[1-9][0-9]*)$" });
+      expect(audit!.outputSchema.properties.receipt).toMatchObject({
+        type: "object",
+        required: [
+          "completion_state", "synthesis_lock", "chain_started_at_first_page",
+          "top_level_pagination_exhausted", "replies_reconciled",
+          "query_bounded_comments_used_as_corpus", "blockers"
+        ],
+        additionalProperties: false
+      });
+    } finally {
+      await server.close();
+    }
   });
 
   it("publishes a strict read-only compound YouTube community-audit schema", async () => {
@@ -213,6 +300,187 @@ describe("AskRigor MCP tools", () => {
       expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previous);
+      await server.close();
+    }
+  });
+
+  it("returns deduplicated survey candidates with canonical links and provider counts through MCP", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      return url.pathname.endsWith("/search")
+        ? new Response(await youtubeFixture("search-page-1.json"), { status: 200 })
+        : new Response(await youtubeFixture("video-found.json"), { status: 200 });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "survey_youtube_community",
+        arguments: {
+          research_question: "Which hip approaches help in real life?",
+          searches: [
+            { direction: "general", query: "hip treatment experience" },
+            { direction: "benefit", query: "hip treatment helped" }
+          ]
+        }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube community survey returned 1 deduplicated candidate video(s)."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_community_survey",
+        access_status: "complete",
+        candidates: [{
+          video_id: "XpZHKGGCK-o",
+          canonical_url: "https://www.youtube.com/watch?v=XpZHKGGCK-o",
+          directions: ["general", "benefit"],
+          provider_reported_comments: "7",
+          metadata_access_status: "api_visible_complete"
+        }]
+      });
+      expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      await server.close();
+    }
+  });
+
+  it("starts, continues, and completes one video audit through the MCP boundary", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "mcp-continuation-secret-value-32-bytes";
+    let stalledReplyRequests = 0;
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      if (url.pathname.endsWith("/commentThreads")) {
+        return new Response(await youtubeFixture(
+          url.searchParams.get("pageToken") === "thread-page-2"
+            ? "comment-threads-page-2.json"
+            : "comment-threads-page-1.json"
+        ), { status: 200 });
+      }
+      if (url.searchParams.has("id")) return mcpCommentIdResponse(url);
+      if (url.searchParams.get("parentId") === "UgxTop00000000000000002") {
+        return new Response(await youtubeFixture("comments-top-2-page-1.json"), { status: 200 });
+      }
+      stalledReplyRequests += 1;
+      if (stalledReplyRequests <= 49) {
+        return Response.json({
+          nextPageToken: "resume-replies",
+          pageInfo: { totalResults: 3, resultsPerPage: 0 },
+          items: []
+        });
+      }
+      const [firstPage, secondPage] = await Promise.all([
+        youtubeFixture("comments-top-1-page-1.json"),
+        youtubeFixture("comments-top-1-page-2.json")
+      ]).then((values) => values.map((value) => JSON.parse(value)));
+      return Response.json({
+        pageInfo: { totalResults: 3, resultsPerPage: 3 },
+        items: [...firstPage.items, ...secondPage.items]
+      });
+    }));
+
+    try {
+      const first = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { video_id_or_url: "XpZHKGGCK-o", analysis_limit: 500 }
+      });
+
+      expect(first.isError).not.toBe(true);
+      expect(first.structuredContent).toMatchObject({
+        record_type: "youtube_video_community_audit",
+        provider_reported_comments: "7",
+        records_retrieved_this_call: 1,
+        records_retrieved_cumulative: 1,
+        records_returned_for_analysis: 0,
+        continuation_recommended: true,
+        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+      });
+      const token = (first.structuredContent as { continuation_token: string }).continuation_token;
+      expect(token).toEqual(expect.any(String));
+
+      const second = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { continuation_token: token }
+      });
+
+      expect(second.isError).not.toBe(true);
+      expect(second.content).toEqual([{
+        type: "text",
+        text: "YouTube video audit retrieved 6 record(s) cumulatively; synthesis lock pass."
+      }]);
+      expect(second.structuredContent).toMatchObject({
+        access_status: "api_visible_complete",
+        top_level_comments_retrieved_cumulative: 2,
+        replies_retrieved_cumulative: 4,
+        records_retrieved_cumulative: 6,
+        records_returned_for_analysis: 6,
+        continuation_recommended: false,
+        sample: { mode: "all", corpus_count: 6, sampled_count: 6 },
+        receipt: {
+          completion_state: "api_visible_complete",
+          synthesis_lock: "pass",
+          top_level_pagination_exhausted: true,
+          replies_reconciled: true
+        }
+      });
+      expect(JSON.stringify([first, second])).not.toContain("mcp-youtube-secret");
+      expect(JSON.stringify([first, second]))
+        .not.toContain("mcp-continuation-secret-value-32-bytes");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await server.close();
+    }
+  });
+
+  it("returns a structured synthesis-blocking failure when the continuation secret is missing", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    delete process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { video_id_or_url: "XpZHKGGCK-o" }
+      });
+
+      expect(upstream).not.toHaveBeenCalled();
+      expect(result.isError).toBe(true);
+      expect(result.content).toEqual([{
+        type: "text",
+        text: "YouTube video audit retrieved 0 record(s) cumulatively; synthesis lock block."
+      }]);
+      expect(result.structuredContent).toMatchObject({
+        provider: "youtube",
+        record_type: "youtube_video_community_audit",
+        access_status: "error",
+        error: { code: "youtube_video_community_audit_failed" },
+        receipt: {
+          completion_state: "incomplete",
+          synthesis_lock: "block"
+        }
+      });
+      expect(JSON.stringify(result)).not.toContain("mcp-youtube-secret");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
       await server.close();
     }
   });
@@ -1605,4 +1873,30 @@ async function mcpCompleteCommentResponse(url: URL): Promise<Response> {
       ? "comments-top-1-page-2.json"
       : "comments-top-1-page-1.json"
   ), { status: 200 });
+}
+
+function mcpCommentIdResponse(url: URL): Response {
+  const ids = url.searchParams.get("id")?.split(",") ?? [];
+  return Response.json({
+    pageInfo: { totalResults: ids.length, resultsPerPage: ids.length },
+    items: ids.map((id) => {
+      const parentId = id.includes("Reply0000000000000004")
+        ? "UgxTop00000000000000002"
+        : id.includes("Reply")
+          ? "UgxTop00000000000000001"
+          : undefined;
+      return {
+        id,
+        snippet: {
+          videoId: "XpZHKGGCK-o",
+          ...(parentId === undefined ? {} : { parentId }),
+          textDisplay: `Refetched ${id}`,
+          authorDisplayName: `Author ${id}`,
+          likeCount: 0,
+          publishedAt: "2025-02-01T11:00:00Z",
+          updatedAt: "2025-02-01T11:00:00Z"
+        }
+      };
+    })
+  });
 }

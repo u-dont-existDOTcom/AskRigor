@@ -249,6 +249,96 @@ describe("AskRigor cross-adapter regressions", () => {
     }
   });
 
+  it("carries a bounded YouTube survey candidate into a complete adaptive per-video audit", async () => {
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    process.env.YOUTUBE_API_KEY = YOUTUBE.apiKey;
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = "regression-continuation-secret-32-bytes";
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/search")) {
+        return new Response(await fixture("youtube/search-page-1.json"), { status: 200 });
+      }
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await fixture("youtube/video-found.json"), { status: 200 });
+      }
+      if (url.pathname.endsWith("/commentThreads")) {
+        return new Response(await fixture(
+          url.searchParams.get("pageToken") === "thread-page-2"
+            ? "youtube/comment-threads-page-2.json"
+            : "youtube/comment-threads-page-1.json"
+        ), { status: 200 });
+      }
+      if (url.searchParams.has("id")) return regressionCommentIdResponse(url);
+      if (url.searchParams.get("parentId") === "UgxTop00000000000000002") {
+        return new Response(await fixture("youtube/comments-top-2-page-1.json"), { status: 200 });
+      }
+      return new Response(await fixture(
+        url.searchParams.get("pageToken") === "reply-top-1-page-2"
+          ? "youtube/comments-top-1-page-2.json"
+          : "youtube/comments-top-1-page-1.json"
+      ), { status: 200 });
+    }));
+    const server = createAskRigorServer();
+    const client = new Client({ name: "askrigor-adaptive-regression", version: "0.1.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const survey = await client.callTool({
+        name: "survey_youtube_community",
+        arguments: {
+          research_question: "Which recorded treatment experiences are decision-useful?",
+          searches: [{ direction: "general", query: "recorded subject" }],
+          results_per_search: 1
+        }
+      });
+      expect(survey).toMatchObject({
+        structuredContent: {
+          record_type: "youtube_community_survey",
+          access_status: "complete",
+          candidates: [{
+            video_id: "XpZHKGGCK-o",
+            canonical_url: "https://www.youtube.com/watch?v=XpZHKGGCK-o",
+            provider_reported_comments: "7"
+          }]
+        }
+      });
+      const videoId = (
+        survey.structuredContent as { candidates: Array<{ video_id: string }> }
+      ).candidates[0]!.video_id;
+
+      const audit = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { video_id_or_url: videoId }
+      });
+      expect(audit).toMatchObject({
+        structuredContent: {
+          record_type: "youtube_video_community_audit",
+          provider_reported_comments: "7",
+          top_level_comments_retrieved_cumulative: 2,
+          replies_retrieved_cumulative: 4,
+          records_retrieved_cumulative: 6,
+          records_returned_for_analysis: 6,
+          receipt: {
+            completion_state: "api_visible_complete",
+            synthesis_lock: "pass",
+            query_bounded_comments_used_as_corpus: false
+          }
+        }
+      });
+      expect(JSON.stringify([survey, audit])).not.toContain(YOUTUBE.apiKey);
+      expect(JSON.stringify([survey, audit]))
+        .not.toContain("regression-continuation-secret-32-bytes");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await client.close();
+      await server.close();
+    }
+  });
+
   it("keeps abstract-limited, metadata-only, and inaccessible evidence below full-text completion", async () => {
     const [pubmedBody, crossrefBody] = await Promise.all([
       fixture("pubmed/efetch-record.xml"),
@@ -468,4 +558,29 @@ function restoreEnvironment(name: string, value: string | undefined): void {
   } else {
     process.env[name] = value;
   }
+}
+
+function regressionCommentIdResponse(url: URL): Response {
+  const ids = url.searchParams.get("id")?.split(",") ?? [];
+  return Response.json({
+    pageInfo: { totalResults: ids.length, resultsPerPage: ids.length },
+    items: ids.map((id) => {
+      const parentId = id.includes("Reply0000000000000004")
+        ? "UgxTop00000000000000002"
+        : id.includes("Reply")
+          ? "UgxTop00000000000000001"
+          : undefined;
+      return {
+        id,
+        snippet: {
+          videoId: "XpZHKGGCK-o",
+          ...(parentId === undefined ? {} : { parentId }),
+          textDisplay: `Refetched ${id}`,
+          likeCount: 0,
+          publishedAt: "2025-02-01T11:00:00Z",
+          updatedAt: "2025-02-01T11:00:00Z"
+        }
+      };
+    })
+  });
 }

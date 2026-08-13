@@ -83,6 +83,7 @@ export const youtubeCommunitySurveyOutputSchema = z.object({
   research_question: z.string(),
   access_status: accessStatusSchema,
   limitations: z.array(z.string()),
+  error: providerErrorSchema.optional(),
   searches: z.array(surveySearchReceiptSchema).min(1).max(6),
   candidates: z.array(surveyCandidateSchema).max(60)
 }).strict();
