@@ -4538,6 +4538,7 @@
             "maxLength": 65536
           },
           "analysis_limit": {
+            "description": "Analysis sample limit for a complete corpus larger than 500 records; complete corpora of 500 or fewer return all records.",
             "default": 500,
             "type": "integer",
             "minimum": 1,

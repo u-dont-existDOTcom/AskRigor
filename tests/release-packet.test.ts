@@ -73,7 +73,7 @@ describe("AskRigor public-review packet", () => {
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
     expect(inventory.tools).toHaveLength(17);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "f803181f8378a3489c630fde4b4dce49f6beec90c017e670b586d844e40c1c91"
+      "dbff1edc405982fb58eac6a5b28840ffcf07fd93cad0e55c349f65b2fffcf5e9"
     );
 
     for (const tool of inventory.tools) {
