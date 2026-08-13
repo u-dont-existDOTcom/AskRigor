@@ -1545,9 +1545,9 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.5.16",
-          revisionDate: "2026-08-12",
-          sha256: "d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597"
+          version: "20.5.17",
+          revisionDate: "2026-08-13",
+          sha256: "1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2"
         },
         text: canonicalText
       });

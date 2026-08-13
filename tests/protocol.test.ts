@@ -16,7 +16,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597";
+  "1f2121a55ec3c0e5d6abc3e92a2bf3e72e5b90ddd38144dac6ab757c000fa2f2";
 const UNIVERSAL_SHA_256 =
   "1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa";
 
@@ -34,12 +34,12 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.16",
-      revisionDate: "2026-08-12"
+      version: "20.5.17",
+      revisionDate: "2026-08-13"
     });
   });
 
-  it("preserves the HRP 20.5.16 community corpus completion gate and regression", async () => {
+  it("preserves the HRP community corpus completion gate and regression", async () => {
     const text = await loadProtocol("hrp");
     const section = (startMarker: string, endMarker: string): string => {
       const start = text.indexOf(startMarker);
@@ -143,6 +143,63 @@ describe("canonical protocol loader", () => {
     expect(completeCorpusRegression).toContain("extraction_coverage=api_visible_complete");
     expect(completeCorpusRegression).toContain("terminal successful retrieval");
     expect(completeCorpusRegression).toContain("must not remain incomplete solely because");
+  });
+
+  it("scopes independent community weighting and actionability to the HRP 20.5.17 gate", async () => {
+    const text = await loadProtocol("hrp");
+    const gateStart = text.indexOf(
+      '<CommunityEvidenceIndependenceAndActionabilityGate priority="Critical">'
+    );
+    const gateEnd = text.indexOf(
+      "</CommunityEvidenceIndependenceAndActionabilityGate>",
+      gateStart
+    );
+    expect(gateStart).toBeGreaterThanOrEqual(0);
+    expect(gateEnd).toBeGreaterThan(gateStart);
+    const gate = text.slice(gateStart, gateEnd).replace(/\s+/g, " ");
+
+    for (const required of [
+      'name="FormalAbsenceCannotEraseCommunitySignal"',
+      "Community signal is an independent evidence layer",
+      "support_not_located",
+      "must not, by itself, downgrade the observed community signal",
+      'name="MatchedContradictionAndOutcomeAlignment"',
+      "materially aligned population, intervention, comparator, outcome, and timeframe",
+      "outcome_mismatch",
+      'name="ActionabilityIntegration"',
+      "risk, cost, reversibility, and the opportunity cost of delay",
+      "corroborated | contradicted | support_not_located | outcome_mismatch"
+    ]) {
+      expect(gate).toContain(required);
+    }
+  });
+
+  it("keeps the exact hip anti-erasure and positive-information-gain regressions", async () => {
+    const text = await loadProtocol("hrp");
+    const section = (id: string): string => {
+      const start = text.indexOf(`<Case id="${id}">`);
+      const end = text.indexOf("</Case>", start);
+      expect(start, `missing ${id}`).toBeGreaterThanOrEqual(0);
+      expect(end, `unterminated ${id}`).toBeGreaterThan(start);
+      return text.slice(start, end).replace(/\s+/g, " ");
+    };
+    const hip = section("HipCommunitySignalWithoutMatchedFormalSupport");
+    for (const required of [
+      "old hip that barely works and hurts",
+      "gelatin, keto, and swimming",
+      "support_not_located",
+      "not negative evidence",
+      "risk, cost, reversibility",
+      "opportunity cost",
+      "time-bounded trial",
+      "urgent diagnosis"
+    ]) {
+      expect(hip).toContain(required);
+    }
+    const expansion = section("FinalAnswerStopsWhileYouTubeExpansionStillLikelyUseful");
+    expect(expansion).toContain("further_expansion_likely_to_improve_answer=yes");
+    expect(expansion.toLowerCase()).toContain("continue the executable wider or deeper retrieval");
+    expect(expansion).toContain("must not emit the final synthesis");
   });
 
   it("returns the original canonical file text unchanged", async () => {

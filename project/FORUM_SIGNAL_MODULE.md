@@ -1,38 +1,87 @@
 # Forum Signal Module
 
-Run this module only after the Project router marks `FORUM_SIGNAL REQUIRED`. Its job is to acquire and analyze firsthand community evidence, then return a receipt to HRP synthesis. It does not decide the final treatment ranking.
+Run this module after the Project router marks `FORUM_SIGNAL REQUIRED`. It acquires and analyzes firsthand community evidence as an independent evidence layer, then returns structured evidence to HRP synthesis. It does not decide the final ranking alone.
 
-## Inputs
+## Acquisition controller
 
-- The user's research question and population, intervention, comparator, outcomes, and time frame when known.
-- The current provisional formal-evidence hypothesis.
-- Decision-critical discriminators from formal evidence, which may initially be empty.
+1. Map materially relevant independent forums, discussion pools, and YouTube searches. Record platform, query, date, access result, and whether material is firsthand. Use ordinary web research for accessible non-YouTube communities.
+2. Prepare up to six YouTube searches labeled `general`, `benefit`, `no_effect`, `harm`, `discontinuation`, or `formal_discriminator`. Call `survey_youtube_community` and preserve its search cursors and candidates.
+3. Select up to three materially different videos using topical relevance, likely firsthand value, independent creators or pools, directional diversity, and comment volume. Provider ranking does not decide materiality.
+4. Call `audit_youtube_video_community` once per selected video. Continue the same chain whenever `continuation_recommended: true`. Query-bounded comment search is discovery-only and is never the corpus.
+5. For each video preserve `provider_reported_comments`, `top_level_comments_retrieved_cumulative`, `replies_retrieved_cumulative`, `records_retrieved_cumulative`, and `records_returned_for_analysis`. These are different count classes. Provider metadata may exceed or differ from the API-visible corpus.
+6. When a materially relevant video reports at least 300 available comments but fewer than 300 records were retrieved, label it `insufficient_depth` and continue unless the complete corpus is smaller or a genuine boundary stops retrieval. Analyze all records when the complete corpus contains 500 or fewer; for a larger completely acquired corpus use the returned deterministic 500-record sample.
 
-## Acquisition
+`retrieved` does not mean persisted or user-downloadable. AskRigor processes public material transiently and does not create a comment archive.
 
-1. Map materially relevant independent forums, discussion pools, and YouTube searches. Use ordinary web research for accessible non-YouTube communities. Record the platform, query, date, access result, and whether the material is firsthand.
-2. Prepare YouTube video searches labeled `general`, `benefit`, `no_effect`, `harm`, `discontinuation`, or `formal_discriminator`. Use only the labels that fit the question, but cover all four directional outcomes during analysis.
-3. Call `audit_youtube_community` with the research question and labeled searches. The compound tool performs bounded video discovery, metadata validation, unfiltered top-level comment retrieval, independent reply pagination, reconciliation, and sampling.
-4. Treat the returned receipt literally. A query-bounded comment search is discovery-only and cannot satisfy corpus acquisition. Never infer absent experiences from an inaccessible, partial, or failed layer.
-5. When the receipt says `synthesis_lock: block` and its missing work remains executable, repair the query or acquisition and call the compound tool again before proceeding.
+## Episode analysis and evidence weighting
 
-## Analysis
+Deduplicate at the person × treatment episode level. Separate firsthand reports from hearsay, creator claims, and opinions. Preserve benefit, no effect, harm, discontinuation, mixed trajectories, diagnoses, co-interventions, follow-up, and parent/reply context. Translate “cured” into the specific evidenced outcome; pain, function, range of motion, or avoided surgery does not establish structural regeneration.
 
-Deduplicate reports at the person × treatment episode level. Separate firsthand reports from hearsay, creator claims, and general opinions. Classify relevant episodes as benefit, no effect, harm, or discontinuation and retain important mixed outcomes.
+Return one block per material intervention:
 
-State whether YouTube analysis used every comment from a complete small corpus or a deterministic sample from a completely acquired corpus. A sample can reveal hypotheses and directional examples; it cannot establish platform-wide prevalence. Do not characterize any unseen corpus.
+```text
+intervention_signal:
+  intervention: <name>
+  reported_outcome: <specific self-reported outcome>
+  diagnosis_alignment: confirmed | likely | uncertain | mismatched
+  firsthand_people: <count or bounded unknown>
+  treatment_episodes: <count or bounded unknown>
+  independent_discussion_pools: <count and list>
+  benefit: <count or no_material_reports | incomplete>
+  no_effect: <count or no_material_reports | incomplete>
+  harm: <count or no_material_reports | incomplete>
+  discontinuation: <count or no_material_reports | incomplete>
+  community_signal: promising | mixed | weak | concerning | indeterminate
+  formal_relationship: corroborated | contradicted | support_not_located | outcome_mismatch
+  risk_cost_reversibility: <explicit assessment>
+  opportunity_cost: low | moderate | high | uncertain
+  actionability: reasonable_time_bounded_trial | clinician_supervised_trial | insufficient_basis | avoid
+  measurement_and_stop_rules: <required when a trial is reasonable>
+```
 
-## Bidirectional iteration
+`support_not_located` is an evidence gap, not evidence that the reports are false, implausible, ineffective, or disproved. It cannot by itself downgrade the observed community signal. Formal contradiction requires materially aligned population, intervention, comparator, outcome, and timeframe. Otherwise use `outcome_mismatch`. Judge safety separately for each intervention. A reasonable trial needs baseline measurement, duration, success threshold, stop rules, interactions, and escalation rules; it must not delay urgent diagnosis or time-sensitive effective care.
 
-For community → formal, turn material community observations into searchable hypotheses and execute the relevant formal searches. If none are material, record `no_material_transferable_hypotheses`.
+For the exact old-hip regression, repeated firsthand improvement with gelatin, keto, or swimming may be promising for the specific reported outcome. If matched formal support was not located, that signal must not become `weak`, `ineffective`, or `disproved` merely because the formal pass was empty. A low-risk, low-cost, reversible option may justify a measured time-bounded trial when opportunity cost and diagnostic delay are controlled.
 
-For formal → community, turn decision-critical formal findings into discriminators and inspect them in the acquired community material or a new labeled audit. If none are material, record `no_material_discriminators`.
+## Bidirectional and adaptive iteration
 
-Both directions require an explicit terminal value; absence is incomplete.
+Community → formal: convert material interventions, subgroups, outcomes, regimens, adverse effects, and dechallenge/rechallenge into targeted formal and grey searches. Record `no_material_transferable_hypotheses` only when none exist.
 
-## Required output
+Formal → community: convert decision-critical formal findings into targeted community discriminators. Record `no_material_discriminators` only when none exist. Preserve discordance rather than forcing either layer to win automatically.
 
-Return this ledger verbatim in structure and replace each value with the supported terminal state:
+Continue deeper when a selected video has a continuation token, fewer than 300 records despite at least 300 plausibly available, incomplete directional coverage, unresolved replies, or a material community/formal conflict. Continue wider when a material signal comes from only one creator or discussion pool, fewer than two independent relevant videos were audited despite plausible candidates, a direction is missing, a new hypothesis could change actionability, or another search page contains plausible candidates.
+
+Elapsed time is not evidence saturation. Stop after terminal video states and directional coverage when two consecutive wider expansions add no material intervention, outcome, discriminator, contradiction, or actionability change, independent pools have been sought for every material signal, and remaining candidates are unlikely to change the answer. A genuine access or quota boundary may also stop expansion.
+
+If wider or deeper work remains executable and `further_expansion_likely_to_improve_answer` would be `yes`, continue. A final answer may contain only `no` or `blocked` with an explicit reason.
+
+Normal Project chat is the primary YouTube pagination workflow. Deep Research is optional for later broad literature or web synthesis when AskRigor is available there; Deep Research does not make YouTube pagination faster.
+
+## Required user-facing output
+
+Include a **Videos worth watching** table ranked by decision usefulness, not positivity. A video rich in failures, harms, or difficult recovery may rank first. Each row needs the clickable canonical title link, channel, publication date, why it matters, provider-reported count, API-visible top-level comments and replies retrieved, records returned for analysis, firsthand people or episodes (or bounded unknown), completion state, directional summary, and limitation.
+
+```text
+youtube_expansion_report:
+  deeper_expansion_performed: yes | no
+  deeper_calls: <count>
+  deeper_reason: <text>
+  wider_expansion_performed: yes | no
+  wider_searches: <list>
+  wider_reason: <text>
+  material_new_information: <text or none>
+  further_expansion_likely_to_improve_answer: yes | no | blocked
+  stopping_reason: <text>
+
+deeper_literature_handoff:
+  unresolved_claims: <list>
+  population_intervention_outcomes: <text>
+  synonyms_and_searches_run: <list>
+  papers_and_identifiers_inspected: <list>
+  missing_evidence: <text>
+```
+
+Also return:
 
 ```text
 forum_signal_receipt:
@@ -51,4 +100,4 @@ forum_signal_receipt:
   confidence_effect: <explicit text>
 ```
 
-`status` cannot be `complete` while any required field is incomplete. `completed_with_access_boundary` requires a terminal provider boundary, an explicit description of the missing material, and its confidence effect. This receipt is an input to HRP synthesis, not a treatment verdict.
+`complete` requires every applicable field complete. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect. This receipt is an input to HRP synthesis, not a treatment verdict.

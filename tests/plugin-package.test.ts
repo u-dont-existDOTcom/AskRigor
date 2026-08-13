@@ -175,7 +175,8 @@ describe("AskRigor plugin package", () => {
       "Distinguish an exhausted zero-result search from an unsuccessful search"
     );
 
-    expect(skill).toContain("`audit_youtube_community`");
+    expect(skill).toContain("`survey_youtube_community`");
+    expect(skill).toContain("`audit_youtube_video_community`");
     expect(skill).toContain("could plausibly affect the answer");
     expect(skill).toContain("When uncertain, require Forum Signal");
     expect(skill).toContain("A strong formal result cannot deselect it");
@@ -191,6 +192,14 @@ describe("AskRigor plugin package", () => {
     );
     expect(skill).toContain("`search_youtube_comments`");
     expect(skill).toContain("query-bounded `partial`");
+    expect(skill).toContain("`provider_reported_comments`");
+    expect(skill).toContain("`records_retrieved_cumulative`");
+    expect(skill).toContain("`records_returned_for_analysis`");
+    expect(skill).toContain("`continuation_recommended: true`");
+    expect(skill).toContain("expected information gain remains positive");
+    expect(skill).toContain("`support_not_located`");
+    expect(skill).toContain("cannot by itself downgrade the community signal");
+    expect(skill).toContain("Videos worth watching");
 
     for (const judgment of [
       "efficacy",

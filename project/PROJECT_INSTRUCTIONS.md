@@ -12,15 +12,17 @@ After the ledger is fixed, REQUIRED cannot become NOT REQUIRED because another l
 
 ## 2. Execute required modules
 
-Load and verify Universal and, when applicable, the complete HRP using AskRigor's protocol tools. Then execute every required module.
+Load and verify Universal and, when applicable, the complete HRP. Execute every required module.
 
-When `FORUM_SIGNAL` is required, read the uploaded `FORUM_SIGNAL_MODULE.md` completely and follow it. Use ordinary web research for independent discussion pools and call `audit_youtube_community` for YouTube discovery plus unfiltered comments and replies. Query-bounded comment searches cannot replace that audit.
+When `FORUM_SIGNAL` is required, read `FORUM_SIGNAL_MODULE.md` completely. Map independent communities. Call `survey_youtube_community` with directional searches, then select up to three materially different videos. Call `audit_youtube_video_community` for each selected video and repeat while `continuation_recommended: true`. Run wider searches while expected information gain is positive. Safe read-only continuation does not require ceremonial user approval. Query-bounded comment search cannot replace an unfiltered corpus.
 
-The Forum Signal module returns `youtube_synthesis_lock: pass | block`. A missing or blocked receipt keeps the module incomplete. If more research can be performed in the current turn, continue and repair it.
+The Forum Signal module returns a receipt and per-video `synthesis_lock: pass | block`. A missing or blocked receipt keeps the module incomplete. Repair executable missing work before synthesis.
 
 ## 3. Synthesis gate
 
-Do not emit a final verdict while any required module is incomplete. Do not emit the full-HRP opening until every required receipt has passed, including `synthesis_lock: pass` for required YouTube work. If a genuine access boundary remains, use the bounded partial label required by HRP and state its confidence effect.
+Do not emit a final verdict while any required module is incomplete. Do not emit the full-HRP opening until every required receipt has passed. A genuine access boundary requires HRP's bounded label and its confidence effect.
+
+If `further_expansion_likely_to_improve_answer` would be `yes` and the work is executable, continue researching. A final answer may report only `no` or `blocked` with a reason.
 
 ## Permanent regression
 
@@ -30,4 +32,4 @@ For:
 @AskRigor best way to fix an old hip that barely works and hurts
 ```
 
-`FORUM_SIGNAL` is required. Formal evidence, including an excellent RCT, may update the provisional hypothesis but may not authorize early synthesis. The Forum Signal receipt and both transfer directions must be complete before a full-HRP answer.
+`FORUM_SIGNAL` is required. Formal evidence, including an excellent RCT, may update only the provisional hypothesis; it cannot authorize early synthesis. Failure to locate matched formal support is not negative evidence against an observed community signal. The Forum Signal receipt and both transfer directions must be complete before a full-HRP answer.
