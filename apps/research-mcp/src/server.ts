@@ -10,6 +10,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
 
 import {
+  actionsAreEnabled,
   HEALTH_PAYLOAD,
   MAX_MCP_REQUEST_BYTES,
   parseTrustedClientIpHeader,
@@ -20,6 +21,12 @@ import {
   SERVICE_NAME,
   SERVICE_VERSION
 } from "./config.js";
+import { createActionOpenApiDocument } from "./actions/openapi.js";
+import {
+  dispatchActionRequest,
+  validateActionRoutes
+} from "./actions/router.js";
+import type { ActionRoute } from "./actions/types.js";
 import {
   createConcurrencyLimiter,
   createTokenBucketLimiter,
@@ -41,6 +48,9 @@ export function createAskRigorServer(): McpServer {
 
 export interface AskRigorHttpServerOptions {
   publicServerEnabled?: boolean;
+  actionsEnabled?: boolean;
+  actionApiKey?: string;
+  actionRoutes?: readonly ActionRoute[];
   trustedClientIpHeader?: TrustedClientIpHeader;
   rateLimiter?: TokenBucketLimiter;
   concurrencyLimiter?: ConcurrencyLimiter;
@@ -51,12 +61,15 @@ export function createAskRigorHttpServer(
   options: AskRigorHttpServerOptions = {}
 ): HttpServer {
   const publicServerEnabled = options.publicServerEnabled ?? publicServerIsEnabled();
+  const actionsEnabled = options.actionsEnabled ?? actionsAreEnabled();
+  const actionRoutes = options.actionRoutes ?? [];
   const trustedClientIpHeader = options.trustedClientIpHeader ??
     parseTrustedClientIpHeader();
   const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(PUBLIC_RATE_LIMIT);
   const concurrencyLimiter = options.concurrencyLimiter ??
     createConcurrencyLimiter(PUBLIC_MCP_CONCURRENCY_LIMIT);
   const createMcpServer = options.createMcpServer ?? createAskRigorServer;
+  validateActionRoutes(actionRoutes);
 
   return createServer(async (request, response) => {
     const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
@@ -64,6 +77,16 @@ export function createAskRigorHttpServer(
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(HEALTH_PAYLOAD));
+      return;
+    }
+
+    if (actionsEnabled && await dispatchActionRequest(request, response, {
+      pathname,
+      clientIp: resolveClientIp(request, trustedClientIpHeader),
+      actionApiKey: options.actionApiKey,
+      routes: actionRoutes,
+      createOpenApiDocument: () => createActionOpenApiDocument(actionRoutes)
+    })) {
       return;
     }
 

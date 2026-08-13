@@ -36,6 +36,12 @@ export function publicServerIsEnabled(
   return value === "true";
 }
 
+export function actionsAreEnabled(
+  value = process.env.ASKRIGOR_ACTIONS_ENABLED
+): boolean {
+  return value === "true";
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {
