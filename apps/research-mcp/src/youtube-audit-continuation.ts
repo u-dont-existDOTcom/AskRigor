@@ -40,13 +40,6 @@ const cursorSchema = z.object({
   )) {
     context.addIssue({ code: "custom", message: "Unemitted thread cursor has reply state" });
   }
-  if (
-    cursor.current_expected_replies !== undefined &&
-    cursor.current_replies_retrieved !== undefined &&
-    cursor.current_replies_retrieved > cursor.current_expected_replies
-  ) {
-    context.addIssue({ code: "custom", message: "Retrieved reply count exceeds expected replies" });
-  }
 });
 
 const sampleIdentifierSchema = z.object({
@@ -79,11 +72,14 @@ const continuationStateSchema = z.object({
   ) {
     context.addIssue({ code: "custom", message: "Continuation counters do not reconcile" });
   }
-  if (state.sample_identifiers.length > state.analysis_limit) {
-    context.addIssue({ code: "custom", message: "Continuation sample exceeds analysis limit" });
-  }
-  if (state.sample_identifiers.length > state.records_retrieved_cumulative) {
-    context.addIssue({ code: "custom", message: "Continuation sample exceeds retrieved records" });
+  if (
+    state.sample_identifiers.length !==
+    Math.min(state.analysis_limit, state.records_retrieved_cumulative)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Continuation sample count does not reconcile with retrieved records"
+    });
   }
   const identifiers = state.sample_identifiers.map(({ comment_id }) => comment_id);
   if (new Set(identifiers).size !== identifiers.length) {
@@ -199,7 +195,12 @@ export function advanceYoutubeAuditState(
     throw new Error("Invalid YouTube audit continuation advance");
   }
   const identifiers = new Set(state.sample_identifiers.map(({ comment_id }) => comment_id));
-  for (const { comment_id } of comments) identifiers.add(comment_id);
+  for (const { comment_id } of comments) {
+    if (identifiers.has(comment_id)) {
+      throw new Error("Duplicate YouTube comment identifier in continuation chain");
+    }
+    identifiers.add(comment_id);
+  }
   const sampleIdentifiers = [...identifiers]
     .sort((left, right) => sampleRank(left).localeCompare(sampleRank(right)) || left.localeCompare(right))
     .slice(0, state.analysis_limit)

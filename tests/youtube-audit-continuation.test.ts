@@ -21,11 +21,11 @@ const STATE: YoutubeVideoAuditContinuationState = {
   segment_index: 1,
   cursor: { thread_offset: 1, top_level_emitted: false },
   provider_reported_comments: "399",
-  top_level_comments_retrieved: 20,
-  replies_retrieved: 4,
+  top_level_comments_retrieved: 1,
+  replies_retrieved: 0,
   comment_thread_pages: 1,
-  reply_pages: 3,
-  records_retrieved_cumulative: 24,
+  reply_pages: 0,
+  records_retrieved_cumulative: 1,
   rolling_sha256: "a".repeat(64),
   sample_identifiers: [{ comment_id: "UgxTop00000000000000001" }]
 };
@@ -141,6 +141,59 @@ describe("YouTube audit continuation tokens", () => {
     const payload = Buffer.from(token.split(".")[0]!, "base64url").toString("utf8");
     expect(payload).not.toContain("my hip stopped hurting");
     expect(payload).not.toContain("author-UgxC");
+  });
+
+  it("rejects duplicate record IDs within or across continuation segments", () => {
+    const empty = {
+      ...STATE,
+      segment_index: 0,
+      top_level_comments_retrieved: 0,
+      replies_retrieved: 0,
+      comment_thread_pages: 0,
+      reply_pages: 0,
+      records_retrieved_cumulative: 0,
+      rolling_sha256: "0".repeat(64),
+      sample_identifiers: []
+    };
+    const { cursor: _emptyCursor, ...emptyWithoutCursor } = empty;
+    expect(() => advanceYoutubeAuditState(
+      emptyWithoutCursor,
+      [comment("UgxDuplicate"), comment("UgxDuplicate")],
+      {
+        top_level_comments_retrieved: 2,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0
+      },
+      { thread_offset: 2, top_level_emitted: false }
+    )).toThrow(/duplicate/i);
+
+    const { cursor: _stateCursor, ...stateWithoutCursor } = STATE;
+    expect(() => advanceYoutubeAuditState(
+      stateWithoutCursor,
+      [comment("UgxTop00000000000000001")],
+      {
+        top_level_comments_retrieved: 1,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0
+      },
+      { thread_offset: 2, top_level_emitted: false }
+    )).toThrow(/duplicate/i);
+  });
+
+  it("allows a resumable cursor to exceed a stale provider reply count", () => {
+    expect(() => encodeYoutubeAuditContinuation({
+      ...STATE,
+      cursor: {
+        thread_offset: 0,
+        top_level_emitted: true,
+        reply_page_token: "next-reply-page",
+        current_parent_id: "UgxTop00000000000000001",
+        current_expected_replies: 1,
+        current_replies_retrieved: 2
+      }
+    }, SECRET)).not.toThrow();
   });
 
   it("uses a canonical signature over the encoded payload", () => {
