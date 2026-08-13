@@ -71,7 +71,7 @@ matching session record.
 | MCP request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only. No database, file store, account profile, queue, transcript store, server-side comment corpus, or research-session persistence is implemented. |
 | Client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking client and processed transiently if resubmitted within one hour. There is no server-side comment corpus or research-session persistence. |
 | MCP response | The normalized fields in the table above | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
-| Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No application request, response, candidate-content, or access log is stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
+| Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
 
 ## Optional lesson request and result contract
@@ -146,7 +146,8 @@ does not claim to control provider-side copies or deletion schedules.
 
 ## Lesson logs, retention, and deletion
 
-The application persists no request body, response body, candidate content, or access log; its only log output is the startup line.
+The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log; its only log output is the startup line.
+This application-log boundary coexists with the separately disclosed private GitHub issue storage of accepted generalized candidate fields and anonymous occurrence metadata, and with the aggregate budget ledger.
 It also does not log raw chat, user identifiers, network identifiers, or
 credentials. Infrastructure providers may independently process operational
 metadata, IP/network data, or security signals under their own configured

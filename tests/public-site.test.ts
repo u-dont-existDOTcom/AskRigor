@@ -77,15 +77,21 @@ describe("AskRigor public site", () => {
     ]) expect(html).toContain(fragment);
 
     expect(html).toContain(
-      "The application persists no request or response body, candidate content, or access log.",
+      "The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log.",
     );
     expect(html).toContain(
       "Only four aggregate budget data values are retained in that ledger: UTC month, fixed monthly limit, charged nano-USD total, and update time.",
     );
     expect(html).toContain("A non-content schema marker is also stored.");
-    expect(html).toContain("Neither contains candidate or request content.");
+    expect(html).toContain("The budget ledger contains no candidate or request content.");
+    expect(html).toContain(
+      "This log boundary does not change the separately disclosed storage of accepted generalized candidate fields and anonymous occurrence metadata in a private GitHub issue, or the aggregate budget ledger.",
+    );
     expect(html).not.toContain("does not persist operational metadata");
     expect(html).not.toContain("Application and reverse-proxy operational logs omit");
+    expect(html).not.toContain(
+      "The application persists no request or response body, candidate content, or access log.",
+    );
   });
 
   it("separates transient research from optional private lesson feedback", async () => {
@@ -107,7 +113,7 @@ describe("AskRigor public site", () => {
       "ARL-####",
       "request earlier deletion",
       "OpenAI, GitHub, ChatGPT, and infrastructure providers",
-      "no request or response body, candidate content, or access log",
+      "does not emit or store request-body logs, response-body logs, candidate-content logs",
     ]) expect(html).toContain(fragment);
 
     expect(html).not.toContain("AskRigor-lessons");

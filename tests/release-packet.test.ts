@@ -148,18 +148,27 @@ describe("AskRigor public-review packet", () => {
     ]);
 
     expect(privacyMap).toContain(
-      "The application persists no request body, response body, candidate content, or access log; its only log output is the startup line.",
+      "The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log; its only log output is the startup line.",
     );
     expect(privacyMap).toContain(
       "The ledger's four aggregate data values are UTC month, monthly limit, charged nano-USD, and update time; a non-content schema version is also stored.",
     );
     expect(privacyMap).toContain("The ledger contains no candidate or request content.");
+    expect(privacyMap).toContain(
+      "This application-log boundary coexists with the separately disclosed private GitHub issue storage of accepted generalized candidate fields and anonymous occurrence metadata, and with the aggregate budget ledger.",
+    );
     expect(privacyMap).not.toContain("Application and reverse-proxy operational logs omit");
+    expect(privacyMap).not.toContain(
+      "The application persists no request body, response body, candidate content, or access log",
+    );
     expect(privacySite).toContain(
       "Only four aggregate budget data values are retained in that ledger: UTC month, fixed monthly limit, charged nano-USD total, and update time.",
     );
     expect(privacySite).toContain("A non-content schema marker is also stored.");
-    expect(privacySite).toContain("Neither contains candidate or request content.");
+    expect(privacySite).toContain("The budget ledger contains no candidate or request content.");
+    expect(privacySite).toContain(
+      "This log boundary does not change the separately disclosed storage of accepted generalized candidate fields and anonymous occurrence metadata in a private GitHub issue, or the aggregate budget ledger.",
+    );
     expect(privacySite).not.toContain("does not persist operational metadata");
   });
 
