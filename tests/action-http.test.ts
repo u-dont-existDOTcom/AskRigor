@@ -282,41 +282,78 @@ describe("isolated Action HTTP routing", () => {
     })).toThrow();
   });
 
-  it.each([
-    undefined,
-    { "Retry-After": "0" },
-    { "Retry-After": "not-an-integer" }
-  ])("fails closed when a declared response header is missing or invalid: %j", async (headers) => {
-    const rateLimitedRoute: ActionRoute = {
-      ...routes[0],
-      responseSchemas: { 429: { type: "object" } },
-      responseHeaders: {
-        429: {
-          "Retry-After": {
-            required: true,
-            description: "Seconds until the Action request may be retried.",
-            schema: { type: "integer", minimum: 1 }
+  it.each([-1, 0])(
+    "rejects a response-header minimum below one: %i",
+    (minimum) => {
+      const invalidRoute: ActionRoute = {
+        ...routes[0],
+        responseSchemas: { 429: { type: "object" } },
+        responseHeaders: {
+          429: {
+            "Retry-After": {
+              required: true,
+              description: "Seconds until the Action request may be retried.",
+              schema: { type: "integer", minimum }
+            }
           }
         }
-      },
-      async handle() {
-        return { status: 429, headers, body: { status: "rate_limited" } };
-      }
-    };
+      };
 
-    await withHttpServer({ actionRoutes: [rateLimitedRoute] }, async (baseUrl) => {
-      const response = await fetch(new URL("/actions/test", baseUrl), {
-        method: "POST",
-        headers: { authorization: "Bearer test-action-secret" },
-        body: "{}"
+      expect(() => createAskRigorHttpServer({ actionRoutes: [invalidRoute] })).toThrow();
+    }
+  );
+
+  it.each([
+    [undefined, 1],
+    ["0", 1],
+    ["+1", 1],
+    ["-1", 1],
+    [" 1", 1],
+    ["1 ", 1],
+    ["01", 1],
+    ["1.0", 1],
+    ["1e0", 1],
+    ["9007199254740992", 1],
+    ["1", 2],
+    ["not-an-integer", 1]
+  ] as const)(
+    "fails closed for noncanonical or under-minimum response header %j at minimum %i",
+    async (headerValue, minimum) => {
+      const rateLimitedRoute: ActionRoute = {
+        ...routes[0],
+        responseSchemas: { 429: { type: "object" } },
+        responseHeaders: {
+          429: {
+            "Retry-After": {
+              required: true,
+              description: "Seconds until the Action request may be retried.",
+              schema: { type: "integer", minimum }
+            }
+          }
+        },
+        async handle() {
+          return {
+            status: 429,
+            headers: headerValue === undefined ? undefined : { "Retry-After": headerValue },
+            body: { status: "rate_limited" }
+          };
+        }
+      };
+
+      await withHttpServer({ actionRoutes: [rateLimitedRoute] }, async (baseUrl) => {
+        const response = await fetch(new URL("/actions/test", baseUrl), {
+          method: "POST",
+          headers: { authorization: "Bearer test-action-secret" },
+          body: "{}"
+        });
+
+        expect(response.status).toBe(500);
+        expect(await response.text()).toBe(
+          '{"error":{"code":"action_internal_error","retryable":false}}'
+        );
       });
-
-      expect(response.status).toBe(500);
-      expect(await response.text()).toBe(
-        '{"error":{"code":"action_internal_error","retryable":false}}'
-      );
-    });
-  });
+    }
+  );
 
   it("emits a declared required response header when its runtime value is valid", async () => {
     const rateLimitedRoute: ActionRoute = {

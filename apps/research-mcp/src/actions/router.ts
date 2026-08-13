@@ -121,7 +121,8 @@ function validateResponseHeaders(route: ActionRoute): void {
         definition.required !== true ||
         definition.description.trim().length === 0 ||
         definition.schema.type !== "integer" ||
-        !Number.isSafeInteger(definition.schema.minimum)
+        !Number.isSafeInteger(definition.schema.minimum) ||
+        definition.schema.minimum < 1
       ) {
         throw new Error(`Invalid Action response-header contract: ${route.operationId}`);
       }
@@ -154,7 +155,7 @@ function isHttpToken(value: string): boolean {
 }
 
 function isIntegerAtLeast(value: string, minimum: number): boolean {
-  if (!/^-?(?:0|[1-9][0-9]*)$/u.test(value)) return false;
+  if (!/^[1-9][0-9]*$/u.test(value)) return false;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= minimum;
 }
