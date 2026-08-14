@@ -1,0 +1,13 @@
+# Default owner
+* @u-dont-existDOTcom
+
+# Critical protocol, research, automation, and release paths
+/.github/ @u-dont-existDOTcom
+/AGENTS.md @u-dont-existDOTcom
+/project/ @u-dont-existDOTcom
+/ops/ @u-dont-existDOTcom
+/apps/ @u-dont-existDOTcom
+/packages/ @u-dont-existDOTcom
+/package.json @u-dont-existDOTcom
+/package-lock.json @u-dont-existDOTcom
+/Dockerfile* @u-dont-existDOTcom
