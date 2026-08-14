@@ -3,6 +3,8 @@
 These source-controlled files serve two distinct ChatGPT installation surfaces.
 Updating GitHub or the MCP server does not update an existing ChatGPT Project automatically, and it does not update an existing Custom GPT automatically.
 
+`AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs.
+
 ## ChatGPT Project with MCP
 
 1. Open the AskRigor Project and replace its ChatGPT Project instructions with the complete contents of `PROJECT_INSTRUCTIONS.md`.

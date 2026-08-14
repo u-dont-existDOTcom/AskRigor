@@ -22,12 +22,25 @@ describe("AskRigor ChatGPT Project router", () => {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
 
-    expect(files.sort()).toEqual([
+    const repositoryControlFiles = new Set([
+      "AGENTS.md",
+      "CODEX-CURRENT-STATE.md"
+    ]);
+    expect(files.filter((file) => !repositoryControlFiles.has(file)).sort()).toEqual([
       "FORUM_SIGNAL_MODULE.md",
       "LESSON_CAPTURE_MODULE.md",
       "PROJECT_INSTRUCTIONS.md",
       "README.md"
     ]);
+    expect(files.filter((file) => repositoryControlFiles.has(file)).sort()).toEqual([
+      "AGENTS.md",
+      "CODEX-CURRENT-STATE.md"
+    ]);
+
+    const readme = await projectFile("README.md");
+    expect(readme).toContain(
+      "`AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs."
+    );
   });
 
   it("uses a compact pre-HRP router with an irreversible sensitive trigger", async () => {
