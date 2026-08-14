@@ -18,6 +18,16 @@ output, preserved the fixed metadata, used 185 output tokens, and used no
 reasoning tokens. No lesson issue was created during diagnosis, and production
 was restored to the pre-Action image with Actions disabled.
 
+After the minimal-reasoning fix passed deterministic and container gates, two
+live synthetic candidates exposed a second independent fault. The model
+returned `safe:false` while also returning a populated generalized object and,
+when optional version metadata was omitted, invented a version value. The
+service correctly rejected both contradictory/invented results before GitHub.
+The same shape occurred for a plainly non-health software citation example,
+which rules out health-adjacent candidate wording as the cause. The privacy
+prompt does not define `safe` narrowly enough or explicitly state the required
+null/preservation behavior.
+
 ## Constraints
 
 - Retain the reviewed pinned model and `store: false` boundary.
@@ -27,6 +37,8 @@ was restored to the pre-Action image with Actions disabled.
   change the lesson candidate contract.
 - Keep the change limited to this simple privacy classification/generalization
   request.
+- Never treat a model's contradictory safety result or invented metadata as a
+  valid candidate merely to make acceptance pass.
 
 ## Considered approaches
 
@@ -39,22 +51,52 @@ was restored to the pre-Action image with Actions disabled.
 3. **Change models.** This would require a broader cost, behavior, policy, and
    acceptance review and is unnecessary for the observed fault.
 
+For the second fault, the selected approach is an exact prompt-contract
+clarification. Accepting `safe:false` with a populated generalized object would
+weaken fail-closed validation and would not make a safe candidate eligible.
+Redesigning the response schema would add avoidable blast radius while the
+existing strict schema and parser already reject malformed results correctly.
+
 ## Design
 
 Add exactly `reasoning: { effort: "minimal" }` to the Responses API request in
 the OpenAI lesson anonymizer. Keep the existing 1,200-token output ceiling and
 all response validation unchanged.
 
+Extend the existing privacy system prompt with these exact semantics:
+
+- `safe` refers only to privacy and security content, not scientific truth,
+  evidence quality, or whether the candidate describes a product failure;
+- an already-generalized product lesson with no personal narrative, direct
+  identifier, credential, raw conversation, unnecessary URL, or copied
+  material is safe;
+- when `safe` is false, `generalized` must be null;
+- when `safe` is true, the model must preserve `category`, `evidence_basis`,
+  `askrigor_version`, `protocol_identities`, and `consent_scope` exactly; and
+- omitted optional version/protocol metadata must remain null in transport and
+  must never be inferred or invented.
+
+Do not change the JSON schema, parser, metadata comparison, privacy screens,
+budget, public result mapping, or GitHub queue behavior.
+
 The regression test will exercise the real request-construction path through
 the injected fetch boundary and require the exact minimal-reasoning parameter.
 It must fail against the current implementation before production code is
 changed. The minimal production change is then the single request property.
 
+A second regression assertion will require the privacy prompt to contain the
+narrow safety definition, false/null invariant, exact metadata-preservation
+rule, and omitted-metadata rule. It must fail against the current prompt before
+the prompt text changes. No test will relax the existing malformed-output or
+metadata-mutation rejection cases.
+
 ## Verification and deployment
 
-1. Run the focused anonymizer test and record the expected red failure.
-2. Add the single request property and rerun the focused test to green.
-3. Run the repository's complete deterministic test command.
+1. Run the focused prompt-contract assertion and record the expected red
+   failure.
+2. Add only the approved prompt statements and rerun the focused test to green.
+3. Confirm the existing contradictory-output and metadata-mutation tests still
+   pass, then run the repository's complete deterministic test command.
 4. Review the final diff and build a new immutable image from the resulting
    commit.
 5. Transactionally deploy only the research service with the protected Action
