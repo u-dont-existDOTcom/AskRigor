@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make the pinned lesson privacy model reliably emit its strict structured result within the existing 1,200-token ceiling, then complete the live Action acceptance.
+**Goal:** Make the pinned lesson privacy model reliably emit a valid, privacy-only strict structured result within the existing 1,200-token ceiling, then complete the live Action acceptance.
 
-**Architecture:** Keep the current OpenAI anonymizer, schemas, budget, privacy screens, GitHub queue, and deployment topology unchanged. Add only `reasoning: { effort: "minimal" }` to the pinned Responses request, verify it through the injected-fetch contract test, build an immutable image from the verified commit, and deploy with the existing rollback boundary.
+**Architecture:** Keep the current OpenAI anonymizer, schemas, parser, budget, privacy screens, GitHub queue, and deployment topology unchanged. Retain the completed `reasoning: { effort: "minimal" }` request fix and clarify only the privacy system prompt's safety, nullability, and metadata-preservation contract. Verify both boundaries through focused regression tests, build an immutable image from the verified commit, and deploy with the existing rollback boundary.
 
 **Tech Stack:** Node.js 24, TypeScript, Vitest, OpenAI Responses API, Docker Compose, GitHub App installation tokens, GitHub Issues.
 
@@ -19,7 +19,7 @@
 
 ---
 
-### Task 1: Regression test and minimal request fix
+### Task 1: Completed regression test and minimal request fix
 
 **Files:**
 - Modify: `tests/lesson-openai-anonymizer.test.ts:119`
@@ -29,12 +29,77 @@
 - Consumes: `createOpenAiLessonAnonymizer(options: OpenAiLessonAnonymizerOptions): LessonAnonymizer` and its injected `fetch` boundary.
 - Produces: the existing Responses request body with exact `reasoning: { effort: "minimal" }`; no exported interface changes.
 
-- [ ] **Step 1: Add the failing request-contract assertion**
+- [x] **Step 1: Add the failing request-contract assertion**
 
 Add the following property between `max_output_tokens` and `input` in the exact request expectation:
 
 ```ts
 reasoning: { effort: "minimal" },
+```
+
+- [x] **Step 2: Run the focused test and verify red**
+
+Run:
+
+```bash
+npm run test:run -- tests/lesson-openai-anonymizer.test.ts
+```
+
+Expected: FAIL in `sends the exact fixed, non-stored structured-output request and returns screened output` because the received request body has no `reasoning` property.
+
+- [x] **Step 3: Add the minimal production request property**
+
+Add the same exact property between `max_output_tokens` and `input` in the `JSON.stringify` request body:
+
+```ts
+reasoning: { effort: "minimal" },
+```
+
+- [x] **Step 4: Run focused and component deterministic verification**
+
+Run:
+
+```bash
+npm run test:run -- tests/lesson-openai-anonymizer.test.ts
+npm run verify
+npm run test:site
+git diff --check
+```
+
+Expected: the focused test, typecheck, complete Vitest suite, build, public-site validation, and whitespace check all pass. These component gates passed for commit `7e353d0`; the exact aggregate `npm run verify` remains mandatory against the final commit because the approval runner timed out before returning the aggregate result.
+
+- [x] **Step 5: Review and commit the behavioral fix**
+
+Run:
+
+```bash
+git diff -- tests/lesson-openai-anonymizer.test.ts apps/research-mcp/src/lessons/openai-anonymizer.ts
+git add tests/lesson-openai-anonymizer.test.ts apps/research-mcp/src/lessons/openai-anonymizer.ts
+git commit -m "fix: bound lesson anonymizer reasoning"
+```
+
+Expected: one focused commit containing only the regression assertion and one request property.
+
+### Task 1B: Regression test and prompt-contract clarification
+
+**Files:**
+- Modify: `tests/lesson-openai-anonymizer.test.ts`
+- Modify: `apps/research-mcp/src/lessons/openai-anonymizer.ts`
+
+**Interfaces:**
+- Consumes: the exported `PRIVACY_SYSTEM_PROMPT` and unchanged strict Responses schema.
+- Produces: a privacy-only safety instruction with explicit false/null, exact metadata-preservation, and omitted-metadata rules; no exported interface or response-validation changes.
+
+- [ ] **Step 1: Add the failing prompt-contract assertion**
+
+Require the prompt to include these exact statements:
+
+```ts
+"Judge only privacy and security risk; do not treat scientific uncertainty, evidence quality, or a described product failure as privacy risk."
+"Return safe:true with an empty risk_codes array when the candidate is already a generalized product lesson with no personal narrative, direct identifier, credential, raw conversation, unnecessary URL, or copied material."
+"When safe is false, generalized must be null."
+"When safe is true, preserve category, evidence_basis, askrigor_version, protocol_identities, and consent_scope exactly."
+"Keep omitted askrigor_version and protocol_identities null; never infer or invent them."
 ```
 
 - [ ] **Step 2: Run the focused test and verify red**
@@ -45,15 +110,11 @@ Run:
 npm run test:run -- tests/lesson-openai-anonymizer.test.ts
 ```
 
-Expected: FAIL in `sends the exact fixed, non-stored structured-output request and returns screened output` because the received request body has no `reasoning` property.
+Expected: FAIL only because the current prompt lacks the five approved contract statements.
 
-- [ ] **Step 3: Add the minimal production request property**
+- [ ] **Step 3: Add only the approved prompt statements**
 
-Add the same exact property between `max_output_tokens` and `input` in the `JSON.stringify` request body:
-
-```ts
-reasoning: { effort: "minimal" },
-```
+Append those exact five statements to `PRIVACY_SYSTEM_PROMPT`. Do not change the JSON schema, parser, metadata comparison, privacy screens, budget, request parameters, public receipts, or GitHub queue.
 
 - [ ] **Step 4: Run focused and complete deterministic verification**
 
@@ -66,19 +127,19 @@ npm run test:site
 git diff --check
 ```
 
-Expected: the focused test, typecheck, complete Vitest suite, build, public-site validation, and whitespace check all pass.
+Expected: the focused prompt contract, existing contradictory-output and metadata-mutation cases, typecheck, full Vitest suite, build, site validation, and whitespace check all pass.
 
-- [ ] **Step 5: Review and commit the behavioral fix**
+- [ ] **Step 5: Review and commit the prompt-only fix**
 
 Run:
 
 ```bash
 git diff -- tests/lesson-openai-anonymizer.test.ts apps/research-mcp/src/lessons/openai-anonymizer.ts
 git add tests/lesson-openai-anonymizer.test.ts apps/research-mcp/src/lessons/openai-anonymizer.ts
-git commit -m "fix: bound lesson anonymizer reasoning"
+git commit -m "fix: define lesson privacy model contract"
 ```
 
-Expected: one focused commit containing only the regression assertion and one request property.
+Expected: one focused commit containing only the regression assertion and the approved prompt statements.
 
 ### Task 2: Build and transactionally deploy the immutable candidate
 
@@ -110,7 +171,12 @@ Expected: the build succeeds; the image runs as `node` with `/app` as its workin
 
 - [ ] **Step 2: Run the local no-secret container gate**
 
-Start the image with Actions disabled and no provider credentials, then verify `/healthz`, `/actions/openapi.json`, the disabled `/actions/lessons` path, read-only root filesystem, dropped capabilities, and empty logs. Stop and remove only this named test container when the checks finish.
+Start the image with Actions enabled, a disposable local-only Action key, and no
+OpenAI or GitHub credentials. Verify `/healthz`, `/actions/openapi.json`, the
+unauthenticated 401 boundary on `/actions/lessons`, the read-only root
+filesystem, dropped capabilities, and secret-free logs. Do not make an
+authenticated submission in this no-provider gate. Stop and remove only this
+named test container when the checks finish.
 
 ```bash
 candidate_sha=$(git rev-parse HEAD)
@@ -119,7 +185,8 @@ docker run --detach --name "$container" --read-only --cap-drop ALL \
   --security-opt no-new-privileges:true --tmpfs /tmp:rw,noexec,nosuid,nodev,size=64m \
   --publish 127.0.0.1::3000 \
   --env ASKRIGOR_PUBLIC_SERVER_ENABLED=true \
-  --env ASKRIGOR_ACTIONS_ENABLED=false \
+  --env ASKRIGOR_ACTIONS_ENABLED=true \
+  --env ASKRIGOR_ACTIONS_API_KEY=local-container-gate-only \
   "askrigor-research:${candidate_sha}"
 ```
 
