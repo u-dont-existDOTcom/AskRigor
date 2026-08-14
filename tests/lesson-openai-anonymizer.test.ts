@@ -120,6 +120,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
       model: "gpt-5-nano-2025-08-07",
       store: false,
       max_output_tokens: 1200,
+      reasoning: { effort: "minimal" },
       input: [
         { role: "system", content: [{ type: "input_text", text: PRIVACY_SYSTEM_PROMPT }] },
         { role: "user", content: [{ type: "input_text", text: JSON.stringify(candidate) }] },

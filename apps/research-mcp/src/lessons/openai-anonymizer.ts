@@ -202,6 +202,7 @@ export function createOpenAiLessonAnonymizer(options: OpenAiLessonAnonymizerOpti
             model: OPENAI_LESSON_MODEL,
             store: false,
             max_output_tokens: 1_200,
+            reasoning: { effort: "minimal" },
             input: [
               { role: "system", content: [{ type: "input_text", text: PRIVACY_SYSTEM_PROMPT }] },
               { role: "user", content: [{ type: "input_text", text: JSON.stringify(candidate) }] },
