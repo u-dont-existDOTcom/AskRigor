@@ -1,7 +1,7 @@
 # OpenAI structured-output reasoning budget fix
 
-**Date:** 2026-08-14  
-**Branch:** `feature/anonymized-lesson-capture`  
+**Date:** 2026-08-14
+**Branch:** `feature/anonymized-lesson-capture`
 **Scope:** Lesson privacy generalization only
 
 ## Problem
