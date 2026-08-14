@@ -17,7 +17,8 @@
   "optional_commands": {
     "live_smoke": {
       "command": "npm run test:live",
-      "status": "not_run_in_compliance_task",
+      "status": "passed_with_credential_gated_skips",
+      "result": "2026-08-14: 1 file passed; 2 public-provider tests passed; 3 credential-gated provider tests skipped.",
       "requirements": "Run only with explicit live-provider authorization and the applicable runtime credentials/nonsecret identifiers. Never include it in ordinary pull-request CI."
     }
   },
@@ -80,5 +81,5 @@
       "result": "Private vulnerability reporting returned enabled false."
     }
   },
-  "audit_note": "The canonical commands were recovered from package.json, the committed lockfile, .nvmrc, current CI, and successful execution on this branch. The separately recorded live smoke command is not canonical evidence for this task because it was deliberately not run; it remains explicit, bounded, opt-in, and outside ordinary PR CI. Hosted settings remain separate from file-based checks."
+  "audit_note": "The canonical commands were recovered from package.json, the committed lockfile, .nvmrc, current CI, and successful execution on this branch. The live smoke remains explicitly optional, bounded, separately authorized, and excluded from ordinary PR CI; its credential-gated skips are not represented as provider coverage. Hosted settings remain separate from file-based checks."
 }

@@ -1,0 +1,294 @@
+{
+  "schema_version": 2,
+  "display_shell": "**Proposed anonymized lesson**\nWhen [general situation], AskRigor should [correct behavior] because [reason].\n\n**Submit this anonymized lesson to improve AskRigor?**\nReply: **Yes**, **Yes always in this chat**, or **No**.",
+  "status_receipts": {
+    "submitted": "Anonymized lesson submitted as candidate {candidate_id}. It requires review before changing AskRigor. Anonymous occurrence count: {occurrence_count}.",
+    "existing_candidate": "Lesson already existed as {candidate_id}; anonymous occurrence count is now {occurrence_count}.",
+    "privacy_rejected": "Lesson not submitted: privacy screening rejected the candidate.",
+    "rate_limited": "Lesson not submitted: submission is rate limited. Try again after {retry_after_seconds} seconds.",
+    "anonymizer_unavailable": "Lesson not submitted: privacy generalization is unavailable.",
+    "github_unavailable": "Lesson not submitted: the private review queue is unavailable."
+  },
+  "cases": [
+    {
+      "id": "validated_missing_sources",
+      "scenario": "AskRigor rechecks a missing-sources criticism, validates it, and has no standing consent.",
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [],
+        "standing_consent_before": false,
+        "standing_consent_after": false,
+        "pending_candidate_after": true,
+        "later_candidate_auto_submitted": false,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": false,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "eligibility.validated_only",
+        "privacy.derived_only",
+        "state.no_standing"
+      ]
+    },
+    {
+      "id": "yes_once",
+      "scenario": "The user replies exactly Yes to one displayed pending candidate; the Action result is not part of this authorization case.",
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "once"
+          }
+        ],
+        "standing_consent_before": false,
+        "standing_consent_after": false,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": false,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": true,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "state.yes_once",
+        "confirmation.consequential"
+      ]
+    },
+    {
+      "id": "yes_always_first_and_later",
+      "scenario": "The user replies exactly Yes always in this chat, then AskRigor independently validates another lesson later in the same chat; Action results are not part of this authorization case.",
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 2,
+        "askrigor_consent_questions": 1,
+        "action_calls": [
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "conversation"
+          },
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "conversation"
+          }
+        ],
+        "standing_consent_before": false,
+        "standing_consent_after": true,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": true,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": true,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "state.yes_always",
+        "state.later_conversation_submission",
+        "state.clear_conversation_pending",
+        "state.display_receipt_after_response",
+        "confirmation.consequential"
+      ]
+    },
+    {
+      "id": "no_silence_ambiguity_or_topic_change",
+      "scenario": "The pending-candidate response is No, silence, ambiguous assent, or a changed subject.",
+      "variants": [
+        "No",
+        "silence",
+        "ambiguous assent",
+        "changed subject"
+      ],
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [],
+        "standing_consent_before": false,
+        "standing_consent_after": false,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": false,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": false,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "state.no_or_nonanswer"
+      ]
+    },
+    {
+      "id": "stop_clears_standing_consent",
+      "scenario": "Standing consent is active and the user says Stop submitting lessons.",
+      "expected": {
+        "lesson_proposed": false,
+        "generalized_candidates_displayed": 0,
+        "askrigor_consent_questions": 0,
+        "action_calls": [],
+        "standing_consent_before": true,
+        "standing_consent_after": false,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": false,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": false,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "state.stop"
+      ]
+    },
+    {
+      "id": "new_chat_clears_standing_consent",
+      "scenario": "A new chat begins after standing consent existed in a previous chat.",
+      "expected": {
+        "lesson_proposed": false,
+        "generalized_candidates_displayed": 0,
+        "askrigor_consent_questions": 0,
+        "action_calls": [],
+        "standing_consent_before": false,
+        "standing_consent_after": false,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": false,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": false,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "state.new_chat"
+      ]
+    },
+    {
+      "id": "unverified_or_preference_disagreement",
+      "scenario": "The criticism remains unverified or is only a preference disagreement.",
+      "expected": {
+        "lesson_proposed": false,
+        "generalized_candidates_displayed": 0,
+        "askrigor_consent_questions": 0,
+        "action_calls": [],
+        "standing_consent_before": false,
+        "standing_consent_after": false,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": false,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": false,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "eligibility.reject_unverified"
+      ]
+    },
+    {
+      "id": "privacy_rejection_or_failure",
+      "scenario": "After exact Yes authorization, the Action returns privacy_rejected or anonymizer_unavailable.",
+      "server_statuses": [
+        "privacy_rejected",
+        "anonymizer_unavailable"
+      ],
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "once"
+          }
+        ],
+        "standing_consent_before": false,
+        "standing_consent_after": false,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": false,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": true,
+        "platform_confirmation_suppressed": false,
+        "receipts": [
+          "Lesson not submitted: privacy screening rejected the candidate.",
+          "Lesson not submitted: privacy generalization is unavailable."
+        ]
+      },
+      "contract_nodes": [
+        "state.yes_once",
+        "receipt.no_invented_success",
+        "confirmation.consequential"
+      ]
+    },
+    {
+      "id": "successful_submission_receipt",
+      "scenario": "After exact Yes authorization, the Action returns submitted with ARL-0042 and occurrence count 1.",
+      "server_statuses": [
+        "submitted"
+      ],
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 1,
+        "action_calls": [
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "once"
+          }
+        ],
+        "standing_consent_before": false,
+        "standing_consent_after": false,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": false,
+        "success_claim": true,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": true,
+        "platform_confirmation_suppressed": false,
+        "receipts": [
+          "Anonymized lesson submitted as candidate ARL-0042. It requires review before changing AskRigor. Anonymous occurrence count: 1."
+        ]
+      },
+      "contract_nodes": [
+        "state.yes_once",
+        "receipt.private_safe",
+        "confirmation.consequential"
+      ]
+    },
+    {
+      "id": "platform_confirmation_remains",
+      "scenario": "Standing conversational consent exists, AskRigor validates a later candidate, and ChatGPT applies its own confirmation to the consequential Action call.",
+      "expected": {
+        "lesson_proposed": true,
+        "generalized_candidates_displayed": 1,
+        "askrigor_consent_questions": 0,
+        "action_calls": [
+          {
+            "operation": "submit_lesson_candidate",
+            "consent_scope": "conversation"
+          }
+        ],
+        "standing_consent_before": true,
+        "standing_consent_after": true,
+        "pending_candidate_after": false,
+        "later_candidate_auto_submitted": true,
+        "success_claim": false,
+        "private_url_displayed": false,
+        "chatgpt_platform_confirmation_may_occur": true,
+        "platform_confirmation_suppressed": false,
+        "receipts": []
+      },
+      "contract_nodes": [
+        "state.later_conversation_submission",
+        "state.clear_conversation_pending",
+        "confirmation.consequential"
+      ]
+    }
+  ]
+}

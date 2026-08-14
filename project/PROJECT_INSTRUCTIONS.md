@@ -33,3 +33,7 @@ For:
 ```
 
 `FORUM_SIGNAL` is required. Formal evidence, including an excellent RCT, may update only the provisional hypothesis; it cannot authorize early synthesis. Failure to locate matched formal support is not negative evidence against an observed community signal. The Forum Signal receipt and both transfer directions must be complete before a full-HRP answer.
+
+## 5. Lesson capture hook
+
+Read `LESSON_CAPTURE_MODULE.md` completely only after AskRigor has rechecked the relevant material and explicitly concluded that the user's concrete criticism is valid. Follow that module for candidate generalization, consent, conversation-local state, submission, and receipts. This hook is separate from the HRP module ledger and does not change any HRP requirement.

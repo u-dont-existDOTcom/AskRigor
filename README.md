@@ -3,6 +3,9 @@
 AskRigor v0 is a protocol-aware research plugin with a read-only, deterministic
 Model Context Protocol (MCP) server. The server exposes protocol manifests and
 source adapters; it does not provide medical interpretation or treatment advice.
+Production also contains a separate, consequential Custom GPT lesson Action for
+optional, consented private feedback. That deployed Action is not an MCP tool
+and cannot modify AskRigor code, protocols, instructions, or releases.
 
 ## Authority and source map
 
@@ -201,23 +204,44 @@ links the videos worth watching, and it cannot synthesize while wider or deeper
 executable work is still likely to improve the answer. The legacy
 `audit_youtube_community` remains available for compatibility.
 
-This design uses ChatGPT as the existing reasoning engine. It adds no OpenAI API
-model call, local model, n8n workflow, database, comment persistence, or
-additional paid inference.
+The read-only research path uses ChatGPT as the existing reasoning engine. It
+adds no OpenAI API model call, local model, n8n workflow, database, comment
+persistence, or additional paid inference. The separate lesson Action uses the
+fixed OpenAI API privacy check documented below; API billing is separate from
+ChatGPT billing and is capped server-side at $50.00 per UTC month.
 After deployment, refresh the developer-mode connection and start a new Project
 chat so the new tool metadata and Project instructions are active.
 
+## Custom GPT lesson Action
+
+The lesson Action accepts only a separately consented, generalized candidate,
+runs deterministic and fixed-model privacy checks, and writes only to a private
+human-review queue. It never receives raw chat, does not modify AskRigor, and
+does not change the 17-tool read-only MCP inventory. Setup, secret handling,
+synthetic acceptance, queue status, rollback, and key rotation are documented
+in `docs/custom-gpt-actions-setup.md`.
+
+The lesson Action is deployed and live-accepted from exact code revision
+`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. Its August 13 privacy notice,
+private queue, least-privilege GitHub App, protected runtime credentials,
+synthetic submission and append-only duplicate, failure isolation, queue status,
+and rollback path passed the bounded acceptance recorded in
+`docs/release-evidence-v0.1.0.md`. Updating the server or instructions does not
+retrofit existing chats with standing consent; start a new Custom GPT chat after
+installation. Disabling the Action or revoking its repository-scoped App stops
+new lessons while MCP remains available and unchanged.
+
 ## Public-review status
 
-The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
-evidence for the prior 15-tool release. This release candidate serves canonical
-HRP `20.5.17` (2026-08-13), SHA-256
+The deployed MCP connector serves the exact existing 17-tool read-only inventory
+and the separate Action route. Production serves canonical HRP `20.5.17`
+(2026-08-13), SHA-256
 `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
 with the independent community-evidence weighting invariant and adaptive
-YouTube regressions. Production remains on the prior release until this
-candidate passes verification and rollout acceptance. The
-website/privacy/terms/support gate passed on 2026-08-12 for site
-release `f928b95e29cd`: `https://askrigor.com/`,
+YouTube regressions. The original website/privacy/terms/support gate passed on
+2026-08-12 for site release `f928b95e29cd`, and the August 13 lesson disclosure
+was later deployed and reverified before Action activation:
+`https://askrigor.com/`,
 `https://askrigor.com/privacy`, `https://askrigor.com/terms`, and
 `https://askrigor.com/support` all passed direct HTTPS acceptance. The manifest
 now carries the schema-supported website, privacy-policy, and terms URLs; support

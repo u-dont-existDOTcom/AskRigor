@@ -4,8 +4,8 @@ Date: 2026-08-14
 Repository: `u-dont-existDOTcom/AskRigor`
 Branch: `codex/github-compliance-2026-08-14`
 Recovered base: `50be9e4aba0efd6f4536b425ae9db5b61df1a6e0`
-Final implementation commit before this evidence document:
-`697bfe63a08b7fd8729d37b9e35a7cee75214076`
+Compliance line before main integration: `9d9dc78294abbed06cf3acabe9e764ece0f57be8`
+Integrated current main: `f8e7ca1e10c096e050207828eeb9eb7957d7ef6f`
 
 The exact published PR-head SHA and final-head workflow run belong in the pull
 request and final worker report. A file inside a commit cannot truthfully name
@@ -24,9 +24,10 @@ the SHA of the commit that contains it.
   `protocols/Universal_Instructions.xml` bytes remain authoritative after
   current explicit owner correction. No protocol or substantive research policy
   changed.
-- Source-access states, pagination/reply reconciliation, MCP request/rate/work
-  ceilings, proxy trust, privacy, deployment behavior, and candidate/production
-  release state are unchanged.
+- Current main's source-access states, pagination/reply reconciliation, MCP
+  request/rate/work ceilings, proxy trust, deployed lesson Action, privacy, and
+  rollback behavior are preserved. The compliance diff does not change runtime
+  behavior or production; it repairs stale release-state documentation.
 - V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** under the existing release gates.
 
 ## Protocol-byte evidence
@@ -47,12 +48,18 @@ the SHA of the commit that contains it.
   exact authority/source chain and separate copy-ready Project files from
   governance metadata.
 - `.github/codex-repository.json` — record only successfully executed canonical
-  commands, the canonical state path, dated hosted evidence, and the unexecuted
-  live command as explicitly optional rather than task evidence.
+  commands, the canonical state path, dated hosted evidence, and the separately
+  authorized live command as explicitly optional rather than ordinary CI.
 - `CURRENT-STATE.md`, `project/CODEX-CURRENT-STATE.md` — provide one obvious
   canonical recovery checkpoint and preserve the exact blocker/evidence state.
 - `tests/project-router.test.ts` — repair the recovered failing exact-package
   regression while continuing to enumerate all expected Project files.
+- `tests/lesson-privacy-screen.test.ts` — preserve exact token-shaped rejection
+  cases without committing scanner-matching provider-token literals.
+- `README.md`, `docs/privacy-data-map.md`, `docs/public-review-checklist.md`,
+  `docs/release-evidence-v0.1.0.md`, `tests/release-packet.test.ts` — test-first
+  reconciliation of the already-deployed Action/privacy notice and 17-tool
+  production receipt; public-submission gates remain blocked.
 - `.github/workflows/ci.yml` — expose the stable unique `Deterministic
   verification` check with exact `.nvmrc`, lockfile install, read-only token,
   non-persisted checkout credentials, immutable Action pins, timeout, and
@@ -87,8 +94,8 @@ Recovered baseline:
   `project/CODEX-CURRENT-STATE.md`. Fourteen localhost transport tests also
   failed only under the socket-restricted sandbox with `listen EPERM`.
 - `npx vitest run tests/project-router.test.ts --reporter=verbose` — RED, one
-  exact-package failure before the repair; GREEN, 10/10 after the minimal test
-  correction.
+  exact-package failure before the repair; GREEN, 12/12 after the merged
+  MCP/Action installation-boundary correction.
 
 Final implementation candidate:
 
@@ -96,7 +103,7 @@ Final implementation candidate:
   committed workflow policy falsely flagged its own detector text; GREEN: 2/2,
   including rejection of a real mapping-form `pull_request_target` checkout.
 - `npm run verify` outside the loopback-restricted sandbox — PASS: typecheck,
-  26 test files passed and one credential-gated live file skipped; 467 tests
+  40 test files passed and one credential-gated live file skipped; 778 tests
   passed and five live tests skipped; build passed.
 - `npm run test:site` outside the IPC-restricted sandbox — PASS, four pages
   validated. The first sandboxed run failed only because the pinned `tsx`
@@ -109,10 +116,17 @@ Final implementation candidate:
 - `python3 -m json.tool .github/codex-repository.json` — PASS.
 - `git diff --check` — PASS.
 
-`npm run test:live` was deliberately **NOT RUN**. It is a bounded,
-credential/provider-dependent opt-in check, not ordinary PR CI or evidence for
-this compliance-only change. No OpenAI paid model call, provider credential,
-deployment, release, public submission, or production mutation occurred.
+`npm run test:live` was run with explicit authorization outside ordinary CI:
+one file passed, two public-provider tests passed, and three credential-gated
+provider tests skipped. The skips are not represented as provider coverage.
+This command made no OpenAI model call. Separately, the already-merged Action
+rollout used the bounded paid privacy acceptance recorded in release evidence;
+this compliance integration performed no deployment, release, public
+submission, or production mutation.
+
+- `npm run lessons:status` — PASS/available at
+  `2026-08-14T23:02:10.872Z`: 0 open candidates, 0 needs review, 0
+  accepted-not-incorporated, 1 incorporated-or-closed, and 0 deletion eligible.
 
 ## CI contract and publication evidence
 
@@ -166,8 +180,8 @@ which must remain open until direct settings/API evidence exists.
 - `promoted`: exact-byte authority, truthful partial-access states, bounded
   opt-in live validation, public read-only MCP safety, and structure-aware
   secret detection are recorded with exact source hashes, limits, tests, and
-  supersession in universal commit
-  `7870cd2e649c8a09b0b09f96e0411c546e5f1782`, file
+  supersession in universal PR #4 exact head
+  `1d1e6d03a92bbcec65bdc02ea6490af6e640eda8`, file
   `audits/2026-08-14-askrigor-transferable-controls.md`.
 - `superseded`: the stale remote `codex/github-baseline` branch is not reused;
   it diverged before current `main` and has no open PR. No branch is deleted by

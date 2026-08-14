@@ -41,7 +41,7 @@
 - Verify: source-access and public-MCP regression suites
 
 1. Preserve the observed failing regression: the copy-ready Project package assertion rejects required governance files in `project/`.
-2. Narrow the assertion to the exact three distributable Project files while continuing to reject accidental extra distributable files.
+2. Separate repository-control files from the exact conversation files used by the MCP Project and Custom GPT Action surfaces, while continuing to reject accidental extra distributable files.
 3. Confirm protocol manifests derive version/date/SHA from the exact XML bytes and fail closed for unreadable, malformed, invalid UTF-8, missing-attribute, or stale-hash inputs.
 4. Confirm explicit source-access states, bounded pagination/reply reconciliation, and public MCP ceilings remain unchanged.
 

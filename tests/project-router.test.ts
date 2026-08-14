@@ -22,13 +22,25 @@ describe("AskRigor ChatGPT Project router", () => {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
 
-    expect(files.sort()).toEqual([
+    const repositoryControlFiles = new Set([
       "AGENTS.md",
-      "CODEX-CURRENT-STATE.md",
+      "CODEX-CURRENT-STATE.md"
+    ]);
+    expect(files.filter((file) => !repositoryControlFiles.has(file)).sort()).toEqual([
       "FORUM_SIGNAL_MODULE.md",
+      "LESSON_CAPTURE_MODULE.md",
       "PROJECT_INSTRUCTIONS.md",
       "README.md"
     ]);
+    expect(files.filter((file) => repositoryControlFiles.has(file)).sort()).toEqual([
+      "AGENTS.md",
+      "CODEX-CURRENT-STATE.md"
+    ]);
+
+    const readme = await projectFile("README.md");
+    expect(readme).toContain(
+      "`AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs."
+    );
   });
 
   it("uses a compact pre-HRP router with an irreversible sensitive trigger", async () => {
@@ -209,5 +221,34 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(readme).toContain("survey_youtube_community");
     expect(readme).toContain("audit_youtube_video_community");
     expect(readme).toMatch(/start a new chat/i);
+  });
+
+  it("distinguishes the MCP Project package from the Custom GPT Action and existing chats", async () => {
+    const readme = await projectFile("README.md");
+
+    expect(readme).toContain("## ChatGPT Project with MCP");
+    expect(readme).toContain("This MCP Project package is the read-only research integration.");
+    expect(readme).toContain("The lesson submission Action is not an MCP tool");
+    expect(readme).toContain("## Custom GPT with the lesson Action");
+    expect(readme).toContain("Action authentication and import are separate from the MCP Project connection.");
+    expect(readme).toContain("Existing chats do not acquire the new standing-consent behavior");
+    expect(readme).toContain("consent from an old chat never carries into a new one");
+  });
+
+  it("routes validated criticism to a separate lesson module without mixing it into HRP", async () => {
+    const instructions = await projectFile("PROJECT_INSTRUCTIONS.md");
+    const lessonHook = instructions.indexOf("## 5. Lesson capture hook");
+
+    expect(lessonHook).toBeGreaterThan(-1);
+    expect(instructions.slice(lessonHook)).toContain("`LESSON_CAPTURE_MODULE.md`");
+    expect(instructions.slice(lessonHook)).toContain(
+      "only after AskRigor has rechecked the relevant material and explicitly concluded that the user's concrete criticism is valid"
+    );
+    expect(instructions.slice(lessonHook)).toContain(
+      "This hook is separate from the HRP module ledger and does not change any HRP requirement."
+    );
+    expect(instructions.slice(0, lessonHook)).not.toContain("LESSON_CAPTURE_MODULE.md");
+    expect(instructions).not.toContain("Submit this anonymized lesson to improve AskRigor?");
+    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(550);
   });
 });
