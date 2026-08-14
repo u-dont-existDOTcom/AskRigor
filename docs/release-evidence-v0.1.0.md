@@ -13,10 +13,10 @@ Scan Tools, and submission actions are resolved.
 | Item | Evidence |
 | --- | --- |
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
-| Production connector revision | `bb2245f04f6e1f7bfed8d146c92497364d6488f7` (`fix: bound compound YouTube audit latency`), deployed as image ID `sha256:4d397a3c5bf5eff3c0ed350720a16e92a20786871072527732a1d9c03487ee81`. |
+| Production connector revision | Lesson-Action code revision `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` (`fix: preserve lesson issues with append-only occurrences`), deployed as image ID `sha256:b78653b181346727eefedc31c903e93818d51a88cd4ad967d91e936e9d8f57a8`. Prior connector revision `bb2245f04f6e1f7bfed8d146c92497364d6488f7` and its image `sha256:4d397a3c5bf5eff3c0ed350720a16e92a20786871072527732a1d9c03487ee81` remain the tested Actions-disabled rollback. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
-| Canonical HRP | Version `20.5.16`, revision date `2026-08-12`, SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`; the public manifest and full-text tool returned this exact identity after rollout. |
-| Production source packet | Exact `git archive` from `bb2245f04f6e`; SHA-256 `f8500daa75392c3d5bb5891cee2134f816389481d585e91b42594e422f11fd6a`. |
+| Canonical HRP | Version `20.5.17`, revision date `2026-08-13`, SHA-256 `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; the public manifest returned this exact identity after the Lesson-Action rollout. |
+| Production source packet | Exact secret-free `git archive` from `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; SHA-256 `d128247d2aa12a830514e515c9f74666a4e0558955f3de60a301af1ec2690600`. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
@@ -45,7 +45,7 @@ run the VPS validation.
 | Current fresh live providers | Controller-run v6 validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845` passed the clean image build, server-side scanner, ANSI-safe parser (exit 0, exactly one passing file and five passing tests, zero skips), and evidence-side relative checksum. `status.txt` reported `Live suite v6 accepted`. |
 | ChatGPT Developer Mode | End-to-end smoke passed protocol integrity, PubMed, and complete YouTube 2+1 replies through the deployed connector. No AskRigor write tools were exposed or called. |
 | ChatGPT release finding | A separate **routine-status presentation regression** occurred: ChatGPT narrated a stale update-check date/status despite Universal v20.5.11 and HRP v20.5.15 prohibiting routine update diagnostics. This is not a connector retrieval failure; it must be fixed or explicitly accepted before release-quality presentation is claimed. |
-| HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b...2597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
+| HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 
 ## Public URL gate — direct HTTPS evidence
@@ -153,3 +153,67 @@ The v5 scanner accepted and published a sanitized log, but Vitest exited before 
 ## v6 remote integration evidence
 
 Controller-run remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845` is green. The archive checksum and clean image build passed; the server-side scanner accepted the log; and the ANSI-safe parser accepted process exit 0, exactly `Test Files 1 passed (1)`, exactly `Tests 5 passed (5)`, and zero skipped tests. The evidence-side relative checksum verified with `(cd evidence && sha256sum -c provider-test.log.sha256)`, and `status.txt` reported `Live suite v6 accepted`. This is recorded remote evidence; this worktree did not rerun providers or access runtime secrets.
+
+## Anonymized Lesson Action live acceptance — 2026-08-14
+
+The append-only duplicate path was accepted from exact code revision
+`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. Its secret-free source archive
+SHA-256 was `d128247d2aa12a830514e515c9f74666a4e0558955f3de60a301af1ec2690600`;
+the resulting non-root image ID is
+`sha256:b78653b181346727eefedc31c903e93818d51a88cd4ad967d91e936e9d8f57a8`.
+The isolated no-provider image gate passed a read-only root filesystem, dropped
+all capabilities, `no-new-privileges`, health `200`, Action OpenAPI `200`,
+unauthenticated Action `401`, and fixed startup-only logs.
+
+The final deployment recreated only `research-mcp` as container
+`85fcd68645d24d2b7d941a2a845f8fc2bf13b45f297ce6a8868c613f3e67e37c`.
+Caddy remained container
+`5d849df160bda42b924feef49a4aff26a7d8df5e5cfa7f0d5e16ac378c43c23e`.
+The only Action-state mount is the intended read-write bind from
+`/opt/askrigor/state/actions` to `/var/lib/askrigor-actions`; the source is UID
+and GID 1000, mode `0700`. The immediately usable Actions-disabled rollback is
+the prior image
+`sha256:4d397a3c5bf5eff3c0ed350720a16e92a20786871072527732a1d9c03487ee81`
+plus
+`/opt/askrigor/releases/1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a/compose.pre-actions.yaml`.
+
+Fresh public checks passed health `200`, Action OpenAPI `200` with SHA-256
+`9dd8caee3e85a3b7a581ccf05e7e0f6b59c8395390c4fd802a9c4911518dcad3`,
+and unauthenticated Action `401`. MCP initialization and `tools/list` returned
+the existing 17 tools; the ordered-name SHA-256 remained
+`5719a8539fbf75c8bb2db58fc5aa7849c8ed307216544c221ab602bf7b983b29`.
+The Universal manifest remained version `20.5.11`, revision date `2026-08-07`,
+SHA-256 `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`;
+the HRP manifest returned version `20.5.17`, revision date `2026-08-13`, SHA-256
+`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`.
+
+The first non-stored synthetic attempt failed closed as `privacy_rejected`
+before GitHub. Production was immediately restored to the prior image with
+Actions disabled, no Action mount, healthy service, and unchanged Caddy. One
+GitHub-disconnected diagnostic of the identical input then returned completed
+HTTP `200`, `safe:true`, zero risk codes, exact optional-metadata preservation,
+a passing deterministic post-screen, and a committed charge of 101,550
+nano-USD. This established a conservative model false negative rather than a
+transport, metadata, or post-screen failure. After a fresh transactional
+activation, the bounded acceptance retry returned HTTP `200`, status
+`existing_candidate`, public ID `ARL-0004`, occurrence count 2, and
+`retryable:false`.
+
+Private verification found the synthetic issue body byte-identical, exactly one
+canonical generated occurrence comment, exact metadata keys `fingerprint`,
+`occurrence_count`, and `observed_at`, and no repeated candidate text. A
+credential-shaped synthetic request then returned local HTTP `422`
+`privacy_rejected`; aggregate AI spend remained unchanged at 40,354,200
+nano-USD and GitHub remained unchanged. Post-isolation health and the 17-tool
+inventory passed again. The synthetic issue was labeled `rejected`, had
+`needs-review` removed, received the note `Synthetic live acceptance only; not
+a product lesson.`, and was closed as not planned. Its body remained unchanged.
+`npm run lessons:status` then reported `open_candidates:0`, `needs_review:0`,
+`accepted_not_incorporated:0`, `incorporated_or_closed:1`, and
+`deletion_eligible:0`.
+
+Final pre-evidence implementation verification passed `npm run verify` with 39
+passing files, one skipped credential-guarded file, 776 passing tests, and five
+skipped credential-guarded tests. Typecheck and build passed. `npm run
+test:site` validated all four public pages. No private issue body, private URL,
+credential, raw model output, or raw request is retained in this evidence.
