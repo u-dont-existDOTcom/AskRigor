@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "repository_kind": "software",
+  "active": true,
+  "long_running": true,
+  "visibility": "public",
+  "risk": "critical",
+  "commands": {
+    "bootstrap": "npm ci"
+  },
+  "current_state": null,
+  "github_controls": {
+    "default_branch_rules": "unverified",
+    "secret_scanning": "unverified",
+    "push_protection": "unverified",
+    "code_scanning": "unverified"
+  },
+  "audit_note": "Do not add test/lint/typecheck/build commands until the repository's actual scripts and authoritative orchestration entry point have been inspected and verified. A missing command is an explicit audit gap, not permission to guess."
+}
