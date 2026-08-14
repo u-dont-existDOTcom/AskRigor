@@ -1,17 +1,42 @@
-# Universal Project Bootstrap
+# AskRigor agent map
 
-Before substantive work, load current cross-project guidance from `u-dont-existDOTcom/universal-dev-architecture`, starting with `LESSON-INDEX.md`. Follow only the task-relevant current patterns/templates; do not rely on remembered lesson lists from prior chats.
+## Authority
 
-Authority order: current owner/project requirements; verified current state/evidence in this repository; current universal guidance; older summaries, stale checkpoints, and remembered chat context.
+1. Current owner and task requirements
+2. `project/PROJECT_INSTRUCTIONS.md` for research routing and completion gates
+3. `project/FORUM_SIGNAL_MODULE.md` when that module is required
+4. `docs/INDEX.md` for validation, privacy, public-review, and release evidence
+5. Current code, tests, artifacts, and Git history
+6. Relevant current patterns from `u-dont-existDOTcom/universal-dev-architecture`
 
-Treat conversation/context as disposable working memory, this repository as durable project memory, and Git history as the audit trail.
+Never reconstruct a missing current protocol from chat memory.
 
-For long-running, multi-step, autonomous, or multi-session work, maintain one obvious project-local current-state checkpoint (`CURRENT-STATE.md`, `state/CURRENT-STATE.md`, or an existing equivalent). Keep it sufficient for a fresh worker to recover the goal, active decisions/constraints, completed work, current step, remaining work, blockers, relevant evidence/tests/branches/commits, and next safe action without the old transcript.
+## Validation
 
-Update the checkpoint at meaningful durable boundaries. After interruption, a fresh thread, context compaction, or model switch, inspect actual repository state and recent relevant commits/artifacts first; reconcile the checkpoint, identify exactly what survived, repair stale entries, and resume from the latest verified durable boundary without repeating completed work.
+- Runtime: Node 24.18.0 (`.nvmrc`)
+- Install: `npm ci`
+- Targeted tests: `npm run test:run`
+- Complete deterministic gate: `npm run verify`
+- Public-site checks when affected: `npm run test:site` and `npm run test:site-deploy`
+- Live/provider smoke only when explicitly required and credentials are available: `npm run test:live`
 
-Never let stale checkpoint/chat state outrank newer owner instructions or verified repository state.
+## Workflow
 
-For substantive work, follow the current universal lesson-closeout pattern. Preserve project-specific evidence here and promote genuinely transferable lessons to the universal repository with provenance and limits.
+Use an isolated worktree or task branch and a pull request. For complex work, maintain a committed plan under `docs/superpowers/plans/`. Keep hermetic CI separate from live checks. Run the complete applicable gate, inspect results, review the final diff, update release/privacy documentation when affected, and complete lesson closeout before reporting completion.
 
-If the universal repository cannot be accessed, do not reconstruct its current contents from memory; continue under current local project requirements and this bootstrap, and record the missing dependency for the next worker.
+## Branch roles
+
+- `main`: canonical public source and release baseline
+- task branches: proposed implementation, documentation, protocol, or evidence changes
+
+## Safety
+
+Do not commit credentials, private user data, raw private research content, or unrestricted provider output. Preserve explicit inaccessible, partial, deferred, and error states. Health/research policy and substantive protocol changes require owner judgment.
+
+## Code review rules
+
+- A required module or receipt cannot be treated as complete without its executable evidence; strong evidence from another layer does not silently deselect it.
+- Do not synthesize a full verdict while the project router says required work is incomplete or blocked.
+- Preserve the privacy data map and bounded live-validation contract; never broaden collected or exported data accidentally.
+
+Treat chat as disposable working memory. A fresh worker must be able to recover from this repository without the old transcript.
