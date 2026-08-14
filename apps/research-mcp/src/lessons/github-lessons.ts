@@ -35,6 +35,12 @@ interface PrivateMetadata {
   last_seen: string;
 }
 
+interface OccurrenceMetadata {
+  fingerprint: string;
+  occurrence_count: number;
+  observed_at: string;
+}
+
 interface ListedIssue {
   number: number;
   body: string;
@@ -53,6 +59,8 @@ const GENERATED_COUNT_START = "<!-- askrigor-generated-occurrence-count:start --
 const GENERATED_COUNT_END = "<!-- askrigor-generated-occurrence-count:end -->";
 const GENERATED_LAST_SEEN_START = "<!-- askrigor-generated-last-seen:start -->";
 const GENERATED_LAST_SEEN_END = "<!-- askrigor-generated-last-seen:end -->";
+const OCCURRENCE_PREFIX = "<!-- askrigor-lesson-occurrence:";
+const OCCURRENCE_PATTERN = /\n<!-- askrigor-lesson-occurrence:([A-Za-z0-9_-]+) -->$/u;
 const MAX_WRITE_ATTEMPTS = 3;
 const MAX_ISSUE_TITLE_CHARACTERS = 256;
 
@@ -135,37 +143,66 @@ export class GitHubLessonQueue {
     fingerprint: string,
     observedAt: string,
   ): Promise<GitHubLessonQueueResult> {
-    const response = await this.requestResponse(`${ISSUES_PATH}/${listedIssue.number}`, { method: "GET" });
-    if (!response.etag || !isRecord(response.value) || typeof response.value.body !== "string") {
+    const response = await this.request(`${ISSUES_PATH}/${listedIssue.number}`, { method: "GET" });
+    if (!isRecord(response) || typeof response.body !== "string") {
       throw new GitHubApiError("github_service_unavailable", true);
     }
-    const currentMetadata = parseMetadata(response.value.body);
+    const currentMetadata = parseMetadata(response.body);
     if (!currentMetadata || currentMetadata.fingerprint !== fingerprint) {
       throw new GitHubApiError("github_service_unavailable", false);
     }
-    const issue = parseMatchingIssue(response.value, currentMetadata);
+    const issue = parseMatchingIssue(response, currentMetadata);
     if (!issue) throw new GitHubApiError("github_service_unavailable", false);
     if (!isActive(issue)) throw new GitHubWriteConflictError();
 
-    const occurrenceCount = issue.metadata.occurrence_count + 1;
-    const metadata: PrivateMetadata = {
+    const highestStoredCount = await this.highestStoredOccurrenceCount(issue, fingerprint);
+    const occurrenceCount = highestStoredCount + 1;
+    if (!isPositiveInteger(occurrenceCount)) {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const metadata: OccurrenceMetadata = {
       fingerprint: issue.metadata.fingerprint,
       occurrence_count: occurrenceCount,
-      first_seen: issue.metadata.first_seen,
-      last_seen: observedAt,
+      observed_at: observedAt,
     };
-    const body = updateGeneratedFields(issue.body, issue.metadata, metadata);
-    await this.request(`${ISSUES_PATH}/${issue.number}`, {
-      method: "PATCH",
-      headers: { "if-match": response.etag },
-      body: JSON.stringify({ body }),
+    const created = await this.request(`${ISSUES_PATH}/${issue.number}/comments`, {
+      method: "POST",
+      body: JSON.stringify({ body: buildOccurrenceComment(metadata) }),
     });
+    if (!isRecord(created) || !isPositiveInteger(created.id)) {
+      throw new GitHubApiError("github_service_unavailable", true);
+    }
     return {
       kind: "existing",
       issueNumber: issue.number,
       occurrenceCount,
       possibleRegression: issue.labels.includes("possible-regression"),
     };
+  }
+
+  private async highestStoredOccurrenceCount(
+    issue: ListedIssue,
+    fingerprint: string,
+  ): Promise<number> {
+    let highest = issue.metadata.occurrence_count;
+    for (let page = 1; ; page += 1) {
+      const response = await this.request(
+        `${ISSUES_PATH}/${issue.number}/comments?per_page=100&page=${page}`,
+        { method: "GET" },
+      );
+      if (!Array.isArray(response)) throw new GitHubApiError("github_service_unavailable", true);
+      for (const value of response) {
+        if (!isRecord(value) || typeof value.body !== "string") {
+          throw new GitHubApiError("github_service_unavailable", true);
+        }
+        const metadata = parseOccurrenceMetadata(value.body);
+        if (metadata?.fingerprint === fingerprint) {
+          highest = Math.max(highest, metadata.occurrence_count);
+        }
+      }
+      if (response.length < 100) break;
+    }
+    return highest;
   }
 
   private async createIssue(
@@ -285,60 +322,15 @@ function buildIssueBody(
   return `${sections.join("\n\n")}\n\n${metadataMarker(metadata)}`;
 }
 
-function updateGeneratedFields(
-  body: string,
-  previous: PrivateMetadata,
-  next: PrivateMetadata,
-): string {
-  let updated = replaceOwnedValue(
-    body,
-    GENERATED_COUNT_START,
-    GENERATED_COUNT_END,
-    String(previous.occurrence_count),
-    String(next.occurrence_count),
-    true,
-  );
-  updated = replaceOwnedValue(
-    updated,
-    GENERATED_LAST_SEEN_START,
-    GENERATED_LAST_SEEN_END,
-    previous.last_seen,
-    next.last_seen,
-    false,
-  );
-  if (!METADATA_PATTERN.test(updated)) {
-    throw new GitHubApiError("github_service_unavailable", false);
-  }
-  return updated.replace(METADATA_PATTERN, `\n${metadataMarker(next)}`);
-}
-
-function replaceOwnedValue(
-  body: string,
-  startMarker: string,
-  endMarker: string,
-  previous: string,
-  next: string,
-  rejectFollowingDigit: boolean,
-): string {
-  const prefix = `${startMarker}\n`;
-  const suffix = `\n${endMarker}`;
-  const prefixIndex = body.indexOf(prefix);
-  if (prefixIndex < 0 || prefixIndex !== body.lastIndexOf(prefix)) {
-    throw new GitHubApiError("github_service_unavailable", false);
-  }
-  const valueIndex = prefixIndex + prefix.length;
-  const suffixIndex = body.indexOf(suffix, valueIndex);
-  if (suffixIndex < 0 || suffixIndex !== body.lastIndexOf(suffix)) {
-    throw new GitHubApiError("github_service_unavailable", false);
-  }
-  if (!body.startsWith(previous, valueIndex)) {
-    throw new GitHubApiError("github_service_unavailable", false);
-  }
-  const following = body[valueIndex + previous.length];
-  if (rejectFollowingDigit && following !== undefined && /[0-9]/u.test(following)) {
-    throw new GitHubApiError("github_service_unavailable", false);
-  }
-  return body.slice(0, valueIndex) + next + body.slice(valueIndex + previous.length);
+function buildOccurrenceComment(metadata: OccurrenceMetadata): string {
+  return [
+    "## Anonymous lesson occurrence",
+    "",
+    `Occurrence count: ${metadata.occurrence_count}`,
+    `Observed at: ${metadata.observed_at}`,
+    "",
+    occurrenceMetadataMarker(metadata),
+  ].join("\n");
 }
 
 function issueTitle(candidate: GeneralizedLesson): string {
@@ -404,6 +396,42 @@ function parseMetadata(body: string): PrivateMetadata | undefined {
 
 function metadataMarker(metadata: PrivateMetadata): string {
   return `${METADATA_PREFIX}${Buffer.from(JSON.stringify(metadata), "utf8").toString("base64url")} -->`;
+}
+
+function parseOccurrenceMetadata(body: string): OccurrenceMetadata | undefined {
+  const prefixCount = body.split(OCCURRENCE_PREFIX).length - 1;
+  if (prefixCount === 0) return undefined;
+  if (prefixCount !== 1) throw new GitHubApiError("github_service_unavailable", false);
+  const match = OCCURRENCE_PATTERN.exec(body);
+  if (!match) throw new GitHubApiError("github_service_unavailable", false);
+  try {
+    const decoded = Buffer.from(match[1]!, "base64url").toString("utf8");
+    const value: unknown = JSON.parse(decoded);
+    if (!isRecord(value) || Object.keys(value).join(",") !== "fingerprint,occurrence_count,observed_at") {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    if (!FINGERPRINT_PATTERN.test(String(value.fingerprint)) ||
+      !isPositiveInteger(value.occurrence_count) ||
+      !isCanonicalTimestamp(value.observed_at)) {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    const metadata: OccurrenceMetadata = {
+      fingerprint: value.fingerprint as string,
+      occurrence_count: value.occurrence_count,
+      observed_at: value.observed_at,
+    };
+    if (occurrenceMetadataMarker(metadata) !== `${OCCURRENCE_PREFIX}${match[1]} -->`) {
+      throw new GitHubApiError("github_service_unavailable", false);
+    }
+    return metadata;
+  } catch (error) {
+    if (error instanceof GitHubApiError) throw error;
+    throw new GitHubApiError("github_service_unavailable", false);
+  }
+}
+
+function occurrenceMetadataMarker(metadata: OccurrenceMetadata): string {
+  return `${OCCURRENCE_PREFIX}${Buffer.from(JSON.stringify(metadata), "utf8").toString("base64url")} -->`;
 }
 
 function isActive(issue: ListedIssue): boolean {

@@ -100,7 +100,9 @@ ChatGPT platform confirmation. A success must return an `ARL-####` receipt and
 say that human review is required. Privately verify that the candidate contains
 only the generalized fields, privacy marker, labels, anonymous occurrence
 metadata, and no raw prompt. Repeat the same synthetic lesson and require the
-same candidate ID with an incremented anonymous occurrence count. Mark the test
+same candidate ID with an incremented anonymous occurrence count. The initial
+issue body remains unchanged; later occurrences are count/timestamp-only
+generated private comments with no repeated candidate text. Mark the test
 candidate as synthetic and do not treat it as a product lesson.
 
 Run `npm run lessons:status` with the maintainer's local GitHub authentication.

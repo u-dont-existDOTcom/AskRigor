@@ -30,6 +30,12 @@ interface StoredIssue {
   pull_request?: { url: string };
 }
 
+interface StoredComment {
+  id: number;
+  body: string;
+  created_at: string;
+}
+
 interface HangingRequest {
   method: string;
   url: string;
@@ -38,10 +44,14 @@ interface HangingRequest {
 class FakeGitHub {
   readonly calls: Array<{ url: string; method: string; body?: unknown; headers: Headers; signal?: AbortSignal | null }> = [];
   readonly issues: StoredIssue[] = [];
+  readonly comments = new Map<number, StoredComment[]>();
   readonly versions = new Map<number, number>();
   nextNumber = 1;
+  nextCommentId = 1_000;
   loseNextCreateResponse = false;
+  loseNextCommentResponse = false;
   createDelay?: Promise<void>;
+  commentDelay?: Promise<void>;
   editBeforeNextPatch?: (issue: StoredIssue) => void;
   hangingRequest?: HangingRequest;
 
@@ -82,6 +92,32 @@ class FakeGitHub {
         throw new Error("private network path and request body");
       }
       return json(issue, 201);
+    }
+
+    const commentMatch = /^https:\/\/api\.github\.com\/repos\/u-dont-existDOTcom\/AskRigor-lessons\/issues\/(\d+)\/comments(?:\?.*)?$/u.exec(url);
+    if (method === "GET" && commentMatch) {
+      const issueNumber = Number(commentMatch[1]);
+      const page = Number(new URL(url).searchParams.get("page"));
+      const start = (page - 1) * 100;
+      return json((this.comments.get(issueNumber) ?? []).slice(start, start + 100));
+    }
+    if (method === "POST" && commentMatch) {
+      if (this.commentDelay) await this.commentDelay;
+      const issueNumber = Number(commentMatch[1]);
+      const request = body as { body: string };
+      const comment: StoredComment = {
+        id: this.nextCommentId++,
+        body: request.body,
+        created_at: observedAt,
+      };
+      const comments = this.comments.get(issueNumber) ?? [];
+      comments.push(comment);
+      this.comments.set(issueNumber, comments);
+      if (this.loseNextCommentResponse) {
+        this.loseNextCommentResponse = false;
+        throw new Error("private comment response path and request body");
+      }
+      return json(comment, 201);
     }
 
     const patchMatch = /^https:\/\/api\.github\.com\/repos\/u-dont-existDOTcom\/AskRigor-lessons\/issues\/(\d+)$/.exec(url);
@@ -137,6 +173,29 @@ function encodeMetadata(metadata: Record<string, unknown>): string {
 
 function marker(metadata: Record<string, unknown>): string {
   return `<!-- askrigor-lesson-metadata:${encodeMetadata(metadata)} -->`;
+}
+
+function occurrenceMarker(metadata: Record<string, unknown>): string {
+  return `<!-- askrigor-lesson-occurrence:${encodeMetadata(metadata)} -->`;
+}
+
+function occurrenceComment(
+  issueFingerprint: string,
+  occurrenceCount: number,
+  observedAtValue = observedAt,
+): string {
+  return [
+    "## Anonymous lesson occurrence",
+    "",
+    `Occurrence count: ${occurrenceCount}`,
+    `Observed at: ${observedAtValue}`,
+    "",
+    occurrenceMarker({
+      fingerprint: issueFingerprint,
+      occurrence_count: occurrenceCount,
+      observed_at: observedAtValue,
+    }),
+  ].join("\n");
 }
 
 function issueBody(
@@ -197,8 +256,26 @@ function addIssue(
   return issue;
 }
 
+function addComment(github: FakeGitHub, issueNumber: number, body: string): StoredComment {
+  const comment: StoredComment = {
+    id: github.nextCommentId++,
+    body,
+    created_at: observedAt,
+  };
+  const comments = github.comments.get(issueNumber) ?? [];
+  comments.push(comment);
+  github.comments.set(issueNumber, comments);
+  return comment;
+}
+
 function parseFinalMetadata(body: string): unknown {
   const match = /\n<!-- askrigor-lesson-metadata:([A-Za-z0-9_-]+) -->$/.exec(body);
+  expect(match).not.toBeNull();
+  return JSON.parse(Buffer.from(match![1]!, "base64url").toString("utf8"));
+}
+
+function parseOccurrenceMetadata(body: string): unknown {
+  const match = /\n<!-- askrigor-lesson-occurrence:([A-Za-z0-9_-]+) -->$/.exec(body);
   expect(match).not.toBeNull();
   return JSON.parse(Buffer.from(match![1]!, "base64url").toString("utf8"));
 }
@@ -314,23 +391,15 @@ describe("private GitHub lesson queue", () => {
     expect(create.body).toContain("x".repeat(600));
   });
 
-  it("updates only generated count and last-seen fields on the newest active exact match", async () => {
+  it("appends one anonymous occurrence comment and preserves the active issue body byte-for-byte", async () => {
     const github = new FakeGitHub();
     addIssue(github, { number: 3, count: 7, body: issueBody(fingerprint, 7, observedAt, observedAt, "older maintainer content") });
     const maintainerText = "newest maintainer content\n\n## Anonymous occurrence count\n\nmaintainer-authored context\n\nReviewer note stays here.";
-    const annotatedBody = issueBody(fingerprint, 2, observedAt, observedAt, maintainerText)
-      .replace(
-        "<!-- askrigor-generated-occurrence-count:start -->\n2\n<!-- askrigor-generated-occurrence-count:end -->",
-        "<!-- askrigor-generated-occurrence-count:start -->\n2 — inline maintainer note\n\nIntervening maintainer note.\n<!-- askrigor-generated-occurrence-count:end -->",
-      )
-      .replace(
-        `<!-- askrigor-generated-last-seen:start -->\n${observedAt}\n<!-- askrigor-generated-last-seen:end -->`,
-        `<!-- askrigor-generated-last-seen:start -->\n${observedAt} — last-seen context\n<!-- askrigor-generated-last-seen:end -->`,
-      );
+    const annotatedBody = issueBody(fingerprint, 2, observedAt, observedAt, maintainerText);
     const newest = addIssue(github, { number: 8, count: 2, body: annotatedBody });
     newest.created_at = "2026-08-13T11:08:00Z";
     addIssue(github, { number: 9, count: 10, labels: ["lesson-candidate", "incorporated"] });
-    let now = new Date("2026-08-13T13:00:00.000Z");
+    const now = new Date("2026-08-13T13:00:00.000Z");
 
     await expect(queue(github, () => now).submit({ candidate, fingerprint })).resolves.toEqual({
       kind: "existing",
@@ -339,61 +408,56 @@ describe("private GitHub lesson queue", () => {
       possibleRegression: false,
     });
 
-    expect(requestCalls(github, "POST")).toHaveLength(0);
-    expect(requestCalls(github, "PATCH")).toHaveLength(1);
-    expect(requestCalls(github, "PATCH")[0]!.url).toBe("https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/8");
-    expect(requestCalls(github, "PATCH")[0]!.body).toEqual({ body: newest.body });
-    expect(newest.body).toContain(maintainerText);
-    expect(newest.body).toContain("<!-- askrigor-generated-occurrence-count:start -->\n3 — inline maintainer note\n\nIntervening maintainer note.\n<!-- askrigor-generated-occurrence-count:end -->");
-    expect(newest.body).toContain("## First seen\n\n2026-08-13T12:00:00.000Z");
-    expect(newest.body).toContain("<!-- askrigor-generated-last-seen:start -->\n2026-08-13T13:00:00.000Z — last-seen context\n<!-- askrigor-generated-last-seen:end -->");
+    expect(requestCalls(github, "PATCH")).toHaveLength(0);
+    expect(newest.body).toBe(annotatedBody);
     expect(parseFinalMetadata(newest.body)).toEqual({
       fingerprint,
-      occurrence_count: 3,
+      occurrence_count: 2,
       first_seen: observedAt,
-      last_seen: "2026-08-13T13:00:00.000Z",
+      last_seen: observedAt,
     });
+    const commentCreates = requestCalls(github, "POST").filter((call) => call.url.endsWith("/issues/8/comments"));
+    expect(commentCreates).toHaveLength(1);
+    expect(commentCreates[0]!.body).toEqual({ body: occurrenceComment(fingerprint, 3, now.toISOString()) });
+    expect(parseOccurrenceMetadata(String((commentCreates[0]!.body as { body: string }).body))).toEqual({
+      fingerprint,
+      occurrence_count: 3,
+      observed_at: now.toISOString(),
+    });
+    expect(String((commentCreates[0]!.body as { body: string }).body)).not.toContain(candidate.general_lesson);
   });
 
-  it("updates sentinel-owned fields and preserves duplicate generated headings appended by a maintainer", async () => {
-    const github = new FakeGitHub();
-    const duplicateHeadings = [
-      "## Anonymous occurrence count",
-      "",
-      "2 — maintainer comparison, do not alter",
-      "",
-      "## Last seen",
-      "",
-      `${observedAt} — maintainer note, do not alter`,
-    ].join("\n");
-    const body = issueBody(fingerprint, 2).replace(
-      `\n${marker({ fingerprint, occurrence_count: 2, first_seen: observedAt, last_seen: observedAt })}`,
-      `\n${duplicateHeadings}\n\n${marker({ fingerprint, occurrence_count: 2, first_seen: observedAt, last_seen: observedAt })}`,
-    );
-    const issue = addIssue(github, { number: 8, count: 2, body });
-
-    await expect(queue(github, () => new Date("2026-08-13T13:00:00.000Z")).submit({ candidate, fingerprint }))
-      .resolves.toMatchObject({ kind: "existing", occurrenceCount: 3 });
-    expect(issue.body).toContain("<!-- askrigor-generated-occurrence-count:start -->\n3\n<!-- askrigor-generated-occurrence-count:end -->");
-    expect(issue.body).toContain("<!-- askrigor-generated-last-seen:start -->\n2026-08-13T13:00:00.000Z\n<!-- askrigor-generated-last-seen:end -->");
-    expect(issue.body).toContain(duplicateHeadings);
-  });
-
-  it("retries a conditional active update and preserves a maintainer edit made after the detail read", async () => {
+  it("reconstructs the next count from paginated comments while ignoring ordinary and foreign comments", async () => {
     const github = new FakeGitHub();
     const issue = addIssue(github, { number: 8, count: 2 });
-    github.editBeforeNextPatch = (current) => {
-      current.body = current.body.replace(
-        "maintainer-preserved content",
-        "maintainer-preserved content\n\nConcurrent maintainer edit remains.",
-      );
-    };
+    for (let index = 0; index < 99; index += 1) {
+      addComment(github, issue.number, `maintainer note ${index}`);
+    }
+    addComment(github, issue.number, occurrenceComment("a".repeat(64), 99));
+    addComment(github, issue.number, occurrenceComment(fingerprint, 7));
 
     await expect(queue(github, () => new Date("2026-08-13T13:00:00.000Z")).submit({ candidate, fingerprint }))
-      .resolves.toMatchObject({ kind: "existing", issueNumber: 8, occurrenceCount: 3 });
-    expect(issue.body).toContain("Concurrent maintainer edit remains.");
-    expect(requestCalls(github, "PATCH")).toHaveLength(2);
-    expect(requestCalls(github, "PATCH").every((call) => call.headers.get("if-match") !== null)).toBe(true);
+      .resolves.toMatchObject({ kind: "existing", occurrenceCount: 8 });
+    expect(requestCalls(github, "GET").map((call) => call.url)).toContain(
+      "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/8/comments?per_page=100&page=2",
+    );
+    expect(github.comments.get(issue.number)?.at(-1)?.body).toBe(
+      occurrenceComment(fingerprint, 8, "2026-08-13T13:00:00.000Z"),
+    );
+    expect(requestCalls(github, "PATCH")).toHaveLength(0);
+  });
+
+  it("fails closed without writing when a comment claims the queue namespace with malformed metadata", async () => {
+    const github = new FakeGitHub();
+    addIssue(github, { number: 8, count: 2 });
+    addComment(github, 8, "maintainer note\n<!-- askrigor-lesson-occurrence:not-canonical! -->");
+
+    await expect(queue(github).submit({ candidate, fingerprint })).rejects.toMatchObject({
+      code: "github_service_unavailable",
+      retryable: false,
+    });
+    expect(requestCalls(github, "POST")).toHaveLength(0);
+    expect(requestCalls(github, "PATCH")).toHaveLength(0);
   });
 
   it("creates one linked possible-regression candidate after incorporation", async () => {
@@ -444,8 +508,12 @@ describe("private GitHub lesson queue", () => {
       occurrenceCount: 2,
       possibleRegression: true,
     });
-    expect(requestCalls(github, "POST")).toHaveLength(1);
-    expect(requestCalls(github, "PATCH")).toHaveLength(1);
+    expect(requestCalls(github, "POST")).toHaveLength(2);
+    expect(requestCalls(github, "POST").map((call) => call.url)).toEqual([
+      "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues",
+      "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/43/comments",
+    ]);
+    expect(requestCalls(github, "PATCH")).toHaveLength(0);
   });
 
   it("fully paginates all issues and ignores pull requests before matching", async () => {
@@ -464,8 +532,12 @@ describe("private GitHub lesson queue", () => {
       "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues?state=all&per_page=100&page=1",
       "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues?state=all&per_page=100&page=2",
       "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/101",
+      "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/101/comments?per_page=100&page=1",
     ]);
-    expect(requestCalls(github, "POST")).toHaveLength(0);
+    expect(requestCalls(github, "POST")).toHaveLength(1);
+    expect(requestCalls(github, "POST")[0]!.url).toBe(
+      "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/101/comments",
+    );
   });
 
   it("serializes concurrent identical submissions through one writer and creates once", async () => {
@@ -475,14 +547,17 @@ describe("private GitHub lesson queue", () => {
     const subject = queue(github);
     const first = subject.submit({ candidate, fingerprint });
     const second = subject.submit({ candidate, fingerprint });
-    await vi.waitFor(() => expect(requestCalls(github, "POST")).toHaveLength(1));
+    await vi.waitFor(() => expect(
+      requestCalls(github, "POST").filter((call) => call.url.endsWith("/issues")),
+    ).toHaveLength(1));
     releaseCreate();
 
     await expect(Promise.all([first, second])).resolves.toEqual([
       { kind: "created", issueNumber: 1, occurrenceCount: 1, possibleRegression: false },
       { kind: "existing", issueNumber: 1, occurrenceCount: 2, possibleRegression: false },
     ]);
-    expect(requestCalls(github, "POST")).toHaveLength(1);
+    expect(requestCalls(github, "POST")).toHaveLength(2);
+    expect(requestCalls(github, "POST").filter((call) => call.url.endsWith("/comments"))).toHaveLength(1);
   });
 
   it("finds a committed issue after response loss and never exposes the network error", async () => {
@@ -500,7 +575,30 @@ describe("private GitHub lesson queue", () => {
       occurrenceCount: 2,
       possibleRegression: false,
     });
-    expect(requestCalls(github, "POST")).toHaveLength(1);
+    expect(requestCalls(github, "POST")).toHaveLength(2);
+    expect(github.issues).toHaveLength(1);
+  });
+
+  it("keeps one issue and advances from a committed occurrence comment after response loss", async () => {
+    const github = new FakeGitHub();
+    addIssue(github, { number: 8, count: 1 });
+    github.loseNextCommentResponse = true;
+    const subject = queue(github);
+
+    const error = await subject.submit({ candidate, fingerprint }).catch((value: unknown) => value);
+    expect(error).toBeInstanceOf(GitHubApiError);
+    expect(error).toMatchObject({ code: "github_service_unavailable", retryable: true });
+    expect(String(error)).not.toContain("private comment response path");
+    await expect(subject.submit({ candidate, fingerprint })).resolves.toMatchObject({
+      kind: "existing",
+      issueNumber: 8,
+      occurrenceCount: 3,
+    });
+    expect(github.issues).toHaveLength(1);
+    expect(github.comments.get(8)?.map(({ body }) => parseOccurrenceMetadata(body))).toEqual([
+      { fingerprint, occurrence_count: 2, observed_at: observedAt },
+      { fingerprint, occurrence_count: 3, observed_at: observedAt },
+    ]);
   });
 
   it("ignores malformed and non-canonical markers rather than deduplicating against them", async () => {
@@ -558,7 +656,8 @@ describe("private GitHub lesson queue", () => {
   it.each([
     ["issue listing", "GET", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues?state=all&per_page=100&page=1", false],
     ["issue creation", "POST", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues", false],
-    ["active issue patch", "PATCH", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/8", true],
+    ["occurrence comment listing", "GET", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/8/comments?per_page=100&page=1", true],
+    ["occurrence comment creation", "POST", "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/issues/8/comments", true],
   ])("aborts a hung %s at the application deadline", async (_name, method, url, needsIssue) => {
     vi.useFakeTimers();
     const github = new FakeGitHub();

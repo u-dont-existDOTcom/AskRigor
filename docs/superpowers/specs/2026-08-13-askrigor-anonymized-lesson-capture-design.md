@@ -245,8 +245,13 @@ Each new issue contains:
 - AskRigor and protocol identities when supplied;
 - privacy-gate result;
 - duplicate fingerprint marker;
-- anonymous occurrence count; and
-- first/last submission timestamps.
+- initial anonymous occurrence count; and
+- first submission timestamp.
+
+Later duplicate occurrences are private append-only generated issue comments.
+Each contains only the next anonymous count, its observation timestamp, and a
+canonical fingerprint marker; it repeats no candidate text. The latest
+canonical generated comment supplies the current count and last-seen time.
 
 Initial labels are `lesson-candidate`, `needs-review`, `source-custom-gpt`, and
 `category:<category>`.
@@ -257,10 +262,12 @@ before creating one. This avoids a new database while making concurrent retries
 idempotent. A future multi-replica deployment must add a distributed lock before
 enabling more than one writer.
 
-If the fingerprint matches an active issue, the service increments the
-anonymous occurrence count and last-seen timestamp on that issue. It does not
-add user, network, conversation, or medical information. A response lost after
-a successful GitHub write can therefore be retried without creating a second
+If the fingerprint matches an active issue, the service leaves the issue body
+byte-identical and appends an anonymous occurrence comment. It reconstructs the
+next count from the issue's backward-compatible base metadata plus fully
+paginated canonical occurrence comments. It does not add candidate text, user,
+network, conversation, or medical information. A response lost after a
+successful GitHub write can therefore be retried without creating a second
 candidate.
 
 If the matching issue is already terminal, a new occurrence is not silently

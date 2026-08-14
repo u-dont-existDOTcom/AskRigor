@@ -117,10 +117,12 @@ If both screens pass, the private GitHub issue stores the category in its title
 and labels; general lesson; expected behavior; failure reason; synthetic
 regression example; evidence basis; optional AskRigor version and protocol
 identities; the privacy-gate marker; optional prior public candidate ID; an
-anonymous occurrence count; first/last seen timestamps; and a hidden
-deduplication fingerprint marker. It intentionally stores no `consent_scope`,
-user identity, network identity, conversation identifier, raw chat, raw
-quotation, medical history, or upload.
+initial anonymous occurrence count; first-seen timestamp; and a hidden
+deduplication fingerprint marker. Later duplicates leave that body unchanged
+and append private generated comments containing only the anonymous count,
+observation timestamp, and canonical fingerprint marker. Neither the issue nor
+the generated comments store `consent_scope`, user identity, network identity,
+conversation identifier, raw chat, raw quotation, medical history, or upload.
 
 The ledger's four aggregate data values are UTC month, monthly limit, charged nano-USD, and update time; a non-content schema version is also stored.
 Their implemented keys are `utc_month`, `monthly_limit_nano_usd`,
