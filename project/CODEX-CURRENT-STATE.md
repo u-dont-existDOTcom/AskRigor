@@ -22,17 +22,26 @@ Updated: 2026-08-14
 - `npm ci` completed with the committed lockfile on Node `24.18.0` and reported zero audited vulnerabilities.
 - The recovered `main` gate had one real drift: its Project-package test rejected the already-committed Project governance files. The failing regression was preserved and the assertion was narrowed to the exact three installable files plus the two expected governance files.
 - The complete deterministic gate passed after that minimal test repair: 25 test files passed, one live file skipped; 465 tests passed and five live tests skipped; typecheck and build passed.
-- Repository-visible authority, security reporting, no-license-grant contribution posture, ownership, PR evidence, and CI presentation are staged without changing protocols, source states, MCP behavior, site behavior, or release state.
+- Repository-visible authority, security reporting, no-license-grant contribution posture, ownership, PR evidence, and CI presentation are committed without changing protocols, source states, MCP behavior, site behavior, or release state.
+- The verified repository-visible implementation is committed as
+  `3feae13af7f460143f090e5782d73c9794ea1eec`.
+- The current universal compliance PR now contains the structure-aware PEM
+  detector fix and the AskRigor transferable-control lesson; its lesson commit
+  is `7870cd2e649c8a09b0b09f96e0411c546e5f1782`.
 - Hosted API evidence on 2026-08-14: public repository, one admin maintainer, no environments, no repository rulesets, private vulnerability reporting disabled; several admin/security endpoints returned HTTP 403 and remain `unverified`.
+- Hardening issue [#6](https://github.com/u-dont-existDOTcom/AskRigor/issues/6)
+  contains the precise remaining hosted settings and owner licensing decision.
 
 ## Current checkpoint
 
-- Current step: finish repository-visible audit evidence, rerun final gates, publish one focused PR, and verify final-head CI.
-- Last verified durable boundary: branch commit `4564465` records the execution plan; the subsequent working-tree candidate passed `npm run verify` before the profile declared its commands.
+- Current step: rerun final gates with this report/state update, publish one
+  focused PR, and verify both final-head checks.
+- Last verified durable boundary: implementation commit
+  `3feae13af7f460143f090e5782d73c9794ea1eec`; the compliance report records the
+  exact recovered and final-candidate evidence.
 
 ## Remaining
 
-- Add the dated repository audit/report and one durable hardening issue with the exact hosted-setting actions.
 - Rerun protocol-focused tests, the complete final deterministic gate, JSON/YAML/shell/diff checks, and the current universal portable audit.
 - Commit and push the final candidate, open one PR, and verify both final-head checks.
 - Protect `main` with the stable `Deterministic verification` check, enable private vulnerability reporting and supported security controls, and verify Actions defaults when an authenticated administration path is available.
@@ -43,12 +52,18 @@ Updated: 2026-08-14
 - Classic `main` protection, Actions policy/default token, secret scanning/push protection, code scanning, vulnerability alerts, and Dependabot security updates are inaccessible to the connected GitHub App (`403 Resource not accessible by integration`) and remain `UNVERIFIED`.
 - Repository rulesets are verified absent and private vulnerability reporting is verified disabled. These applicable critical-risk controls block a `COMPLIANT` result until corrected and verified.
 - A public reuse license is not selected. `LICENSE.md` preserves the existing no-license-grant posture; choosing an open/public license remains an owner decision.
-- The portable universal audit currently mistakes a negative assertion containing a private-key marker for committed key material. The match is a test guard, not a credential; preserve the regression and promote a tested audit fix to the universal repository.
+- The recovered portable-audit false positive is resolved in universal commit
+  `4b8247cb335d2f4c0ff8470e7101863bf44325be`: it now requires a structurally
+  plausible PEM block while preserving AskRigor's negative archive assertion.
 
 ## Evidence / artifacts
 
 - Repository profile: `.github/codex-repository.json`
 - Compliance plan: `docs/superpowers/plans/2026-08-14-codex-github-compliance.md`
+- Compliance report: `docs/audits/2026-08-14-codex-github-compliance.md`
+- Hosted follow-up: [hardening issue #6](https://github.com/u-dont-existDOTcom/AskRigor/issues/6)
+- Promoted universal lesson: `audits/2026-08-14-askrigor-transferable-controls.md`
+  at universal commit `7870cd2e649c8a09b0b09f96e0411c546e5f1782`
 - Universal operating standard: `patterns/codex-github-operating-system.md` in `universal-dev-architecture`
 - Central baseline: `audits/2026-08-14-connected-repositories.md` in `universal-dev-architecture`
 

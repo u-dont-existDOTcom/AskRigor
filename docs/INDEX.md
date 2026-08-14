@@ -23,6 +23,8 @@ complete XML protocol.
 
 ## Validation and release
 
+- `audits/2026-08-14-codex-github-compliance.md`: repository compliance report,
+  exact gates, hosted evidence, residual risk, and lesson closeout
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
