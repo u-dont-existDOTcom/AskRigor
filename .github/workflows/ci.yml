@@ -1,19 +1,22 @@
 name: CI
-
 on:
-  push:
   pull_request:
-
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: askrigor-ci
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: 24.18.0
           cache: npm
       - run: npm ci
-      - run: npm run typecheck
-      - run: npm run test:run
-      - run: npm run build
+      - run: npm run verify
