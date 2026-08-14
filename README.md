@@ -4,6 +4,33 @@ AskRigor v0 is a protocol-aware research plugin with a read-only, deterministic
 Model Context Protocol (MCP) server. The server exposes protocol manifests and
 source adapters; it does not provide medical interpretation or treatment advice.
 
+## Authority and source map
+
+AskRigor uses this order when sources disagree:
+
+1. current explicit owner correction;
+2. the exact complete bytes of `protocols/HRP_Full.xml` and
+   `protocols/Universal_Instructions.xml`;
+3. byte-derived protocol manifests and integrity behavior in
+   `packages/protocol/src/index.ts` and `tests/protocol.test.ts`;
+4. the Project router and required module in `project/`;
+5. source-access contracts and adapters in `packages/contracts/` and
+   `packages/sources/`, then the public MCP implementation in
+   `apps/research-mcp/`;
+6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
+7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
+
+The current canonical files identify HRP `20.5.17` (2026-08-13), SHA-256
+`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
+and Universal Instructions `20.5.11` (2026-08-07), SHA-256
+`1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`.
+Those values are descriptive receipts derived from the exact XML bytes, not
+substitutes for the files. A README, manifest, router, lesson, checkpoint,
+release record, generated excerpt, or remembered summary never silently
+replaces, truncates, or amends a complete protocol. Candidate evidence also
+does not describe production until the documented release gates and rollout
+acceptance pass.
+
 ## Requirements and verification
 
 - Node.js 24.x and npm
@@ -132,7 +159,8 @@ credentials are ready.
 
 Protocol version and SHA-256 values are derived from the canonical XML bytes at
 runtime. Replacing a valid protocol file therefore updates its manifest without
-source-code changes.
+source-code changes, but a protocol change remains a substantive owner-reviewed
+change and must pass the protocol integrity and semantic regressions.
 
 ## ChatGPT Developer Mode connection
 

@@ -6,14 +6,79 @@
   "visibility": "public",
   "risk": "critical",
   "commands": {
-    "bootstrap": "npm ci"
+    "bootstrap": "npm ci",
+    "test": "npm run verify",
+    "test_fixtures": "npm run test:run",
+    "typecheck": "npm run typecheck",
+    "build": "npm run build",
+    "site": "npm run test:site",
+    "site_deployment": "npm run test:site-deploy"
   },
-  "current_state": null,
+  "optional_commands": {
+    "live_smoke": {
+      "command": "npm run test:live",
+      "status": "not_run_in_compliance_task",
+      "requirements": "Run only with explicit live-provider authorization and the applicable runtime credentials/nonsecret identifiers. Never include it in ordinary pull-request CI."
+    }
+  },
+  "current_state": "project/CODEX-CURRENT-STATE.md",
   "github_controls": {
     "default_branch_rules": "unverified",
+    "actions_policy": "unverified",
+    "default_workflow_permissions": "unverified",
     "secret_scanning": "unverified",
     "push_protection": "unverified",
-    "code_scanning": "unverified"
+    "code_scanning": "unverified",
+    "vulnerability_alerts": "unverified",
+    "dependabot_security_updates": "unverified",
+    "private_vulnerability_reporting": "disabled"
   },
-  "audit_note": "Do not add test/lint/typecheck/build commands until the repository's actual scripts and authoritative orchestration entry point have been inspected and verified. A missing command is an explicit audit gap, not permission to guess."
+  "github_control_evidence": {
+    "default_branch_rules": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Repository rulesets returned an empty list; classic main branch protection returned HTTP 403 Resource not accessible by integration, so the combined default-branch control remains unverified."
+    },
+    "actions_policy": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Actions policy endpoint returned HTTP 403 Resource not accessible by integration."
+    },
+    "default_workflow_permissions": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Default workflow permissions endpoint returned HTTP 403 Resource not accessible by integration."
+    },
+    "secret_scanning": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Secret-scanning alerts endpoint returned HTTP 403 Resource not accessible by integration."
+    },
+    "push_protection": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "The integration could not read the security setting; no repository file is accepted as proof."
+    },
+    "code_scanning": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Code-scanning alerts endpoint returned HTTP 403 Resource not accessible by integration."
+    },
+    "vulnerability_alerts": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Vulnerability-alerts endpoint returned HTTP 403 Resource not accessible by integration."
+    },
+    "dependabot_security_updates": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Automated-security-fixes endpoint returned HTTP 403 Resource not accessible by integration."
+    },
+    "private_vulnerability_reporting": {
+      "checked_at": "2026-08-14",
+      "method": "GitHub REST API through the connected GitHub App",
+      "result": "Private vulnerability reporting returned enabled false."
+    }
+  },
+  "audit_note": "The canonical commands were recovered from package.json, the committed lockfile, .nvmrc, current CI, and successful execution on this branch. The separately recorded live smoke command is not canonical evidence for this task because it was deliberately not run; it remains explicit, bounded, opt-in, and outside ordinary PR CI. Hosted settings remain separate from file-based checks."
 }

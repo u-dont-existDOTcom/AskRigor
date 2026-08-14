@@ -14,7 +14,7 @@ async function projectFile(path: string): Promise<string> {
 }
 
 describe("AskRigor ChatGPT Project router", () => {
-  it("ships the exact copy-ready Project package", async () => {
+  it("ships the exact copy-ready Project package alongside governance metadata", async () => {
     let files: string[] = [];
     try {
       files = await readdir(rootFile("project"));
@@ -23,6 +23,8 @@ describe("AskRigor ChatGPT Project router", () => {
     }
 
     expect(files.sort()).toEqual([
+      "AGENTS.md",
+      "CODEX-CURRENT-STATE.md",
       "FORUM_SIGNAL_MODULE.md",
       "PROJECT_INSTRUCTIONS.md",
       "README.md"

@@ -9,42 +9,52 @@ Updated: 2026-08-14
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Branch: `main`
-- Protocol authority: the current complete canonical `HRP_Full.xml` and `Universal_Instructions.xml`, plus explicit current owner correction.
+- Canonical branch: `main`; active task branch: `codex/github-compliance-2026-08-14`, based on `50be9e4aba0efd6f4536b425ae9db5b61df1a6e0`.
+- Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`.
+- Current byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`.
+- Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`.
 - Universal engineering entry point: `u-dont-existDOTcom/universal-dev-architecture/LESSON-INDEX.md`.
 
 ## Completed
 
-- A repository profile now records AskRigor as public, active, long-running, critical-risk software and records hosted controls as unverified rather than assumed.
-- `npm ci` is recorded as the reproducible dependency-install baseline because the repository has a committed npm lockfile.
+- Recovery covered all applicable agent instructions, the repository profile, both state files, README/indexes, current scripts/lockfile/runtime, workflows, ownership/dependency automation, recent commits, open PRs, and the hardening-issue search.
+- The original `main` checkout and its unrelated untracked secret-looking files remain untouched; this task uses an isolated worktree.
+- `npm ci` completed with the committed lockfile on Node `24.18.0` and reported zero audited vulnerabilities.
+- The recovered `main` gate had one real drift: its Project-package test rejected the already-committed Project governance files. The failing regression was preserved and the assertion was narrowed to the exact three installable files plus the two expected governance files.
+- The complete deterministic gate passed after that minimal test repair: 25 test files passed, one live file skipped; 465 tests passed and five live tests skipped; typecheck and build passed.
+- Repository-visible authority, security reporting, no-license-grant contribution posture, ownership, PR evidence, and CI presentation are staged without changing protocols, source states, MCP behavior, site behavior, or release state.
+- Hosted API evidence on 2026-08-14: public repository, one admin maintainer, no environments, no repository rulesets, private vulnerability reporting disabled; several admin/security endpoints returned HTTP 403 and remain `unverified`.
 
 ## Current checkpoint
 
-- Current step: verify the actual project instruction hierarchy, canonical orchestration command, test/lint/typecheck/build commands, CI workflows, and hosted GitHub controls.
-- Last verified durable boundary: repository classification/profile and this checkpoint were added.
+- Current step: finish repository-visible audit evidence, rerun final gates, publish one focused PR, and verify final-head CI.
+- Last verified durable boundary: branch commit `4564465` records the execution plan; the subsequent working-tree candidate passed `npm run verify` before the profile declared its commands.
 
 ## Remaining
 
-- Identify and record exact authoritative commands without guessing from historical chat.
-- Audit root/nested `AGENTS.md` against current protocol authority.
-- Audit Actions permissions, immutable action pins, untrusted-PR handling, release credentials, and artifact provenance.
-- Verify branch rules, secret scanning, push protection, code scanning, Dependabot, CODEOWNERS, security policy, and release controls through GitHub.
-- Add the portable repository audit and required CI gate after exact commands are known.
+- Add the dated repository audit/report and one durable hardening issue with the exact hosted-setting actions.
+- Rerun protocol-focused tests, the complete final deterministic gate, JSON/YAML/shell/diff checks, and the current universal portable audit.
+- Commit and push the final candidate, open one PR, and verify both final-head checks.
+- Protect `main` with the stable `Deterministic verification` check, enable private vulnerability reporting and supported security controls, and verify Actions defaults when an authenticated administration path is available.
+- Keep V0.1.0 public submission blocked until its existing release gates pass or the owner expressly accepts the risk.
 
 ## Blockers / unresolved
 
-- Hosted GitHub controls cannot be inferred from repository files.
-- The canonical test/orchestration command must be derived from current repository scripts and documentation, not remembered summaries.
+- Classic `main` protection, Actions policy/default token, secret scanning/push protection, code scanning, vulnerability alerts, and Dependabot security updates are inaccessible to the connected GitHub App (`403 Resource not accessible by integration`) and remain `UNVERIFIED`.
+- Repository rulesets are verified absent and private vulnerability reporting is verified disabled. These applicable critical-risk controls block a `COMPLIANT` result until corrected and verified.
+- A public reuse license is not selected. `LICENSE.md` preserves the existing no-license-grant posture; choosing an open/public license remains an owner decision.
+- The portable universal audit currently mistakes a negative assertion containing a private-key marker for committed key material. The match is a test guard, not a credential; preserve the regression and promote a tested audit fix to the universal repository.
 
 ## Evidence / artifacts
 
 - Repository profile: `.github/codex-repository.json`
+- Compliance plan: `docs/superpowers/plans/2026-08-14-codex-github-compliance.md`
 - Universal operating standard: `patterns/codex-github-operating-system.md` in `universal-dev-architecture`
 - Central baseline: `audits/2026-08-14-connected-repositories.md` in `universal-dev-architecture`
 
 ## Next safe action
 
-- Read the current root and nested instruction files, `package.json`, workflow files, and project entry-point documentation; then update the repository profile with exact commands and this file's path before enforcing CI.
+- Review the complete candidate diff, run the final verification matrix, then create/update the single hardening issue and publish one focused PR. Do not deploy, submit publicly, run paid provider calls, or modify protocol policy as part of this compliance change.
 
 ## Recovery rule
 

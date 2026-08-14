@@ -2,14 +2,19 @@
 
 ## Authority
 
-1. Current owner and task requirements
-2. `project/PROJECT_INSTRUCTIONS.md` for research routing and completion gates
-3. `project/FORUM_SIGNAL_MODULE.md` when that module is required
-4. `docs/INDEX.md` for validation, privacy, public-review, and release evidence
-5. Current code, tests, artifacts, and Git history
-6. Relevant current patterns from `u-dont-existDOTcom/universal-dev-architecture`
+1. Current explicit owner correction and task requirements
+2. Complete canonical `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml` bytes
+3. `packages/protocol/src/index.ts` and protocol tests for byte-derived version, date, and SHA-256 manifests
+4. `project/PROJECT_INSTRUCTIONS.md` for research routing and completion gates
+5. `project/FORUM_SIGNAL_MODULE.md` when that module is required
+6. Current source-access contracts, adapters, public MCP behavior, and tests
+7. `docs/INDEX.md` for validation, privacy, public-review, and release evidence
+8. `project/CODEX-CURRENT-STATE.md` for recovery only
+9. Relevant current patterns from `u-dont-existDOTcom/universal-dev-architecture`
 
-Never reconstruct a missing current protocol from chat memory.
+Never reconstruct a missing current protocol from chat memory. A manifest, hash,
+router, module, status file, release record, generated excerpt, or lesson summary
+cannot replace, truncate, or amend either complete canonical XML file.
 
 ## Validation
 
