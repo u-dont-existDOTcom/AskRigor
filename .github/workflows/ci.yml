@@ -7,7 +7,7 @@ permissions:
   contents: read
 concurrency:
   group: askrigor-ci
-  cancel-in-progress: true
+  cancel-in-progress: false
 jobs:
   verify:
     runs-on: ubuntu-latest
