@@ -100,6 +100,20 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     expect(LESSON_PRIVACY_JSON_SCHEMA).not.toHaveProperty("anyOf");
   });
 
+  it("defines privacy-only safety, nullability, and exact metadata preservation", () => {
+    const requiredContract = [
+      "Judge only privacy and security risk; do not treat scientific uncertainty, evidence quality, or a described product failure as privacy risk.",
+      "Return safe:true with an empty risk_codes array when the candidate is already a generalized product lesson with no personal narrative, direct identifier, credential, raw conversation, unnecessary URL, or copied material.",
+      "When safe is false, generalized must be null.",
+      "When safe is true, preserve category, evidence_basis, askrigor_version, protocol_identities, and consent_scope exactly.",
+      "Keep omitted askrigor_version and protocol_identities null; never infer or invent them.",
+    ];
+
+    for (const statement of requiredContract) {
+      expect(PRIVACY_SYSTEM_PROMPT).toContain(statement);
+    }
+  });
+
   it("sends the exact fixed, non-stored structured-output request and returns screened output", async () => {
     const generalized = { ...candidate, general_lesson: "AskRigor should preserve only a general product lesson supported by traceable evidence." };
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor({ safe: true, risk_codes: [], generalized }));
