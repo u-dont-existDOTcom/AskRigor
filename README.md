@@ -3,6 +3,9 @@
 AskRigor v0 is a protocol-aware research plugin with a read-only, deterministic
 Model Context Protocol (MCP) server. The server exposes protocol manifests and
 source adapters; it does not provide medical interpretation or treatment advice.
+The current release candidate also contains a separate, consequential Custom
+GPT lesson Action for optional, consented private feedback. That lesson Action
+is not yet deployed and is not an MCP tool.
 
 ## Requirements and verification
 
@@ -173,11 +176,31 @@ links the videos worth watching, and it cannot synthesize while wider or deeper
 executable work is still likely to improve the answer. The legacy
 `audit_youtube_community` remains available for compatibility.
 
-This design uses ChatGPT as the existing reasoning engine. It adds no OpenAI API
-model call, local model, n8n workflow, database, comment persistence, or
-additional paid inference.
+The read-only research path uses ChatGPT as the existing reasoning engine. It
+adds no OpenAI API model call, local model, n8n workflow, database, comment
+persistence, or additional paid inference. The separate lesson Action uses the
+fixed OpenAI API privacy check documented below; API billing is separate from
+ChatGPT billing and is capped server-side at $50.00 per UTC month.
 After deployment, refresh the developer-mode connection and start a new Project
 chat so the new tool metadata and Project instructions are active.
+
+## Custom GPT lesson Action release candidate
+
+The lesson Action accepts only a separately consented, generalized candidate,
+runs deterministic and fixed-model privacy checks, and writes only to a private
+human-review queue. It never receives raw chat, does not modify AskRigor, and
+does not change the 17-tool read-only MCP inventory. Setup, secret handling,
+synthetic acceptance, queue status, rollback, and key rotation are documented
+in `docs/custom-gpt-actions-setup.md`.
+
+This Action is implemented locally but is **not yet deployed**. Task 10 must
+deploy the August 13 privacy notice, provision and audit the private queue,
+install protected runtime credentials, run one synthetic submission and its
+idempotent duplicate, and record rollback evidence before release. Updating the
+server or instructions does not retrofit existing chats with standing consent;
+start a new Custom GPT chat after installation. Disabling the Action or revoking
+its repository-scoped App stops new lessons while MCP remains available and
+unchanged.
 
 ## Public-review status
 

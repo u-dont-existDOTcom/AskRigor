@@ -10,6 +10,8 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
 
 import {
+  actionApiKeyFromEnv,
+  actionsAreEnabled,
   HEALTH_PAYLOAD,
   MAX_MCP_REQUEST_BYTES,
   parseTrustedClientIpHeader,
@@ -20,6 +22,20 @@ import {
   SERVICE_NAME,
   SERVICE_VERSION
 } from "./config.js";
+import { createActionOpenApiDocument } from "./actions/openapi.js";
+import { hasValidActionAuthorization } from "./actions/auth.js";
+import { isCanonicalRawPath } from "./actions/path.js";
+import {
+  dispatchActionRequest,
+  validateActionRoutes
+} from "./actions/router.js";
+import type { ActionRoute } from "./actions/types.js";
+import {
+  isLessonActionJsonContentType,
+  LESSON_ACTION_JSON_CONTENT_TYPE_ERROR,
+  LESSON_ACTION_PATH
+} from "./lessons/action-route.js";
+import { createDefaultActionRoutes } from "./lessons/runtime.js";
 import {
   createConcurrencyLimiter,
   createTokenBucketLimiter,
@@ -41,6 +57,9 @@ export function createAskRigorServer(): McpServer {
 
 export interface AskRigorHttpServerOptions {
   publicServerEnabled?: boolean;
+  actionsEnabled?: boolean;
+  actionApiKey?: string;
+  actionRoutes?: readonly ActionRoute[];
   trustedClientIpHeader?: TrustedClientIpHeader;
   rateLimiter?: TokenBucketLimiter;
   concurrencyLimiter?: ConcurrencyLimiter;
@@ -51,19 +70,55 @@ export function createAskRigorHttpServer(
   options: AskRigorHttpServerOptions = {}
 ): HttpServer {
   const publicServerEnabled = options.publicServerEnabled ?? publicServerIsEnabled();
+  const actionsEnabled = options.actionsEnabled ?? actionsAreEnabled();
+  const actionApiKey = options.actionApiKey ?? actionApiKeyFromEnv();
+  const actionRoutes = options.actionRoutes ?? createDefaultActionRoutes();
   const trustedClientIpHeader = options.trustedClientIpHeader ??
     parseTrustedClientIpHeader();
   const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(PUBLIC_RATE_LIMIT);
   const concurrencyLimiter = options.concurrencyLimiter ??
     createConcurrencyLimiter(PUBLIC_MCP_CONCURRENCY_LIMIT);
   const createMcpServer = options.createMcpServer ?? createAskRigorServer;
+  validateActionRoutes(actionRoutes);
 
   return createServer(async (request, response) => {
-    const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+    const pathname = exactOriginFormPath(request.url);
+    if (pathname === undefined) {
+      response.writeHead(404).end();
+      return;
+    }
 
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(HEALTH_PAYLOAD));
+      return;
+    }
+
+    if (
+      actionsEnabled &&
+      request.method === "POST" &&
+      pathname === LESSON_ACTION_PATH &&
+      actionRoutes.some((route) =>
+        route.method === "POST" &&
+        route.path === LESSON_ACTION_PATH &&
+        route.operationId === "submit_lesson_candidate" &&
+        route.public === false
+      ) &&
+      !isLessonActionJsonContentType(request.headers["content-type"]) &&
+      hasValidActionAuthorization(request, actionApiKey)
+    ) {
+      response.writeHead(415, { "content-type": "application/json" });
+      response.end(JSON.stringify(LESSON_ACTION_JSON_CONTENT_TYPE_ERROR));
+      return;
+    }
+
+    if (actionsEnabled && await dispatchActionRequest(request, response, {
+      pathname,
+      clientIp: resolveClientIp(request, trustedClientIpHeader),
+      actionApiKey,
+      routes: actionRoutes,
+      createOpenApiDocument: () => createActionOpenApiDocument(actionRoutes)
+    })) {
       return;
     }
 
@@ -129,6 +184,15 @@ export function createAskRigorHttpServer(
       releasePermit();
     }
   });
+}
+
+function exactOriginFormPath(target: string | undefined): string | undefined {
+  if (target === undefined || target.includes("#")) {
+    return undefined;
+  }
+  const queryIndex = target.indexOf("?");
+  const path = queryIndex < 0 ? target : target.slice(0, queryIndex);
+  return isCanonicalRawPath(path) ? path : undefined;
 }
 
 class RequestBodyTooLargeError extends Error {}

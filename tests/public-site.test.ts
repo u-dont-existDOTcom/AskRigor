@@ -71,10 +71,54 @@ describe("AskRigor public site", () => {
       "public YouTube author/channel IDs", "display names", "comment and reply text",
       "NCBI/PubMed", "Europe PMC", "ClinicalTrials.gov", "Crossref", "YouTube Data API v3",
       "active request", "does not persist", "connected client", "operational metadata",
-      "does not persist operational metadata", "Infrastructure providers may retain",
+      "Infrastructure providers may retain",
       "access, correction, or deletion",
       "joel@askrigor.com"
     ]) expect(html).toContain(fragment);
+
+    expect(html).toContain(
+      "The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log.",
+    );
+    expect(html).toContain(
+      "Only four aggregate budget data values are retained in that ledger: UTC month, fixed monthly limit, charged nano-USD total, and update time.",
+    );
+    expect(html).toContain("A non-content schema marker is also stored.");
+    expect(html).toContain("The budget ledger contains no candidate or request content.");
+    expect(html).toContain(
+      "This log boundary does not change the separately disclosed storage of accepted generalized candidate fields and anonymous occurrence metadata in a private GitHub issue, or the aggregate budget ledger.",
+    );
+    expect(html).not.toContain("does not persist operational metadata");
+    expect(html).not.toContain("Application and reverse-proxy operational logs omit");
+    expect(html).not.toContain(
+      "The application persists no request or response body, candidate content, or access log.",
+    );
+  });
+
+  it("separates transient research from optional private lesson feedback", async () => {
+    const html = await pageHtml("site/privacy/index.html");
+    for (const fragment of [
+      "Effective August 13, 2026",
+      "Optional lesson feedback",
+      "separate consent",
+      "generalized structured fields",
+      "not the raw chat",
+      "deterministic screening",
+      "fixed OpenAI privacy check",
+      "before GitHub",
+      "private review candidate",
+      "anonymous occurrence count",
+      "No user account, conversation ID, medical history, upload, or raw quotation",
+      "deletion-eligible only after more than 90 complete days from terminal review",
+      "Deletion is not automatic; a maintainer must act, so it may occur later.",
+      "ARL-####",
+      "request earlier deletion",
+      "OpenAI, GitHub, ChatGPT, and infrastructure providers",
+      "does not emit or store request-body logs, response-body logs, candidate-content logs",
+    ]) expect(html).toContain(fragment);
+
+    expect(html).not.toContain("AskRigor-lessons");
+    expect(html).not.toContain("github.com/");
+    expect(html).not.toContain("deletion-eligible 90 days after terminal review");
   });
 
   it("states the home research boundary", async () => {
@@ -89,7 +133,8 @@ describe("AskRigor public site", () => {
     const html = await pageHtml("site/terms/index.html");
     for (const fragment of [
       "read-only", "lawful use", "no medical, legal, or financial advice", "rate limits",
-      "third-party", "as available", "applicable law", "joel@askrigor.com"
+      "third-party", "as available", "applicable law", "joel@askrigor.com",
+      "expressly approved lesson Action", "private feedback"
     ]) expect(html).toContain(fragment);
   });
 

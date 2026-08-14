@@ -5,6 +5,17 @@ import { DEFAULT_PORT } from "./config.js";
 import { createAskRigorHttpServer } from "./server.js";
 
 export { createAskRigorHttpServer, createAskRigorServer } from "./server.js";
+export { createActionOpenApiDocument } from "./actions/openapi.js";
+export { createLessonActionRoute } from "./lessons/action-route.js";
+export {
+  createDefaultActionRoutes,
+  createLessonRuntimeFromEnv
+} from "./lessons/runtime.js";
+export type {
+  ActionRequestContext,
+  ActionResult,
+  ActionRoute
+} from "./actions/types.js";
 
 if (
   process.argv[1] !== undefined &&

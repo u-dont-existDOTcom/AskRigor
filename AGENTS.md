@@ -22,7 +22,30 @@ Never reconstruct a missing current protocol from chat memory.
 
 ## Workflow
 
-Use an isolated worktree or task branch and a pull request. For complex work, maintain a committed plan under `docs/superpowers/plans/`. Keep hermetic CI separate from live checks. Run the complete applicable gate, inspect results, review the final diff, update release/privacy documentation when affected, and complete lesson closeout before reporting completion.
+Use an isolated worktree or task branch and a pull request. For complex work,
+maintain a committed plan under `docs/superpowers/plans/`. Keep hermetic CI
+separate from live checks. Run the complete applicable gate, inspect results,
+review the final diff, update release/privacy documentation when affected, and
+complete lesson closeout before reporting completion.
+
+### Lesson-queue checkpoints
+
+Run `npm run lessons:status` using the maintainer's local GitHub authentication:
+
+- at the start of every AskRigor development session;
+- before designing a change related to the lesson queue or a relevant lesson category;
+- before every release or deployment; and
+- whenever the user asks for AskRigor project status.
+
+Report the available result concisely: open candidates, needs review, accepted
+but not incorporated, incorporated or closed, deletion eligible, and any
+requested relevant-category count. An unavailable result is not a zero count:
+report that status is unavailable and its allowlisted reason instead of
+inventing queue totals.
+
+Unreviewed lessons cannot silently expand the current task's scope or block an
+unrelated release. Bring a potentially critical lesson relevant to the current
+work to the user's attention and obtain direction before expanding scope.
 
 ## Branch roles
 
@@ -31,7 +54,10 @@ Use an isolated worktree or task branch and a pull request. For complex work, ma
 
 ## Safety
 
-Do not commit credentials, private user data, raw private research content, or unrestricted provider output. Preserve explicit inaccessible, partial, deferred, and error states. Health/research policy and substantive protocol changes require owner judgment.
+Do not commit credentials, private user data, raw private research content, or
+unrestricted provider output. Preserve explicit inaccessible, partial,
+deferred, and error states. Health/research policy and substantive protocol
+changes require owner judgment.
 
 ## Code review rules
 
@@ -39,4 +65,5 @@ Do not commit credentials, private user data, raw private research content, or u
 - Do not synthesize a full verdict while the project router says required work is incomplete or blocked.
 - Preserve the privacy data map and bounded live-validation contract; never broaden collected or exported data accidentally.
 
-Treat chat as disposable working memory. A fresh worker must be able to recover from this repository without the old transcript.
+Treat chat as disposable working memory. A fresh worker must be able to recover
+from this repository without the old transcript.

@@ -2,11 +2,30 @@
 
 This packet is prepared for a future plugin draft. It is not permission to submit
 or publish. The website/privacy/terms/support gate passed on 2026-08-12 for
-immutable site release `f928b95e29cd`, including the live privacy policy at
-`https://askrigor.com/privacy`. **PUBLIC SUBMISSION BLOCKED** still applies to
+immutable site release `f928b95e29cd`.
+The live August 12 policy at release `f928b95e29cd` is the pre-lesson notice.
+The August 13 lesson notice is prepared in this branch but is not yet deployed.
+**PUBLIC SUBMISSION BLOCKED** still applies to
 the separate routine-status presentation regression, portal identity and
 domain-verification work, Scan Tools review, and submission actions recorded in
 `docs/release-evidence-v0.1.0.md`.
+
+## Optional lesson Action release-candidate truth
+
+The consequential Custom GPT lesson Action is implemented in this branch but is
+**not yet deployed**. The August 13, 2026 privacy/terms candidate, private queue
+provisioning, exact GitHub App permission audit, protected server credentials,
+synthetic submission and duplicate, live `npm run lessons:status`, and rollback
+evidence remain Task 10 gates. No local test or documentation update is
+production release evidence.
+
+The lesson Action is separate from the read-only MCP inventory. It does not add
+an MCP tool or change MCP schemas, provider behavior, or research semantics.
+Disabling Actions or revoking the dedicated App must stop new private feedback
+while MCP remains healthy. Updating instructions does not retrofit existing chats
+with standing consent; acceptance starts in a new Custom GPT chat. The
+setup runbook is `docs/custom-gpt-actions-setup.md`, and the public notice remains
+`https://askrigor.com/privacy`.
 
 ## Source-generated MCP tools/list inventory
 

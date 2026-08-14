@@ -1,0 +1,149 @@
+[
+  {
+    "number": 101,
+    "state": "open",
+    "labels": [
+      {
+        "name": "needs-review"
+      },
+      {
+        "name": "lesson-candidate"
+      },
+      {
+        "name": "category:missing_sources"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-08-01T00:00:00Z",
+    "closed_at": null
+  },
+  {
+    "number": 102,
+    "state": "closed",
+    "labels": [
+      {
+        "name": "lesson-candidate"
+      },
+      {
+        "name": "rejected"
+      },
+      {
+        "name": "category:missing_sources"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-05-15T12:00:00Z",
+    "closed_at": "2026-05-15T12:00:00Z"
+  },
+  {
+    "number": 103,
+    "state": "closed",
+    "labels": [
+      {
+        "name": "category:tool_semantics"
+      },
+      {
+        "name": "rejected"
+      },
+      {
+        "name": "lesson-candidate"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-05-15T11:59:59Z",
+    "closed_at": "2026-05-15T11:59:59Z"
+  },
+  {
+    "number": 104,
+    "state": "open",
+    "labels": [
+      {
+        "name": "duplicate"
+      },
+      {
+        "name": "category:missing_sources"
+      },
+      {
+        "name": "lesson-candidate"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-05-01T00:00:00Z",
+    "closed_at": null
+  },
+  {
+    "number": 105,
+    "state": "open",
+    "labels": [
+      {
+        "name": "lesson-candidate"
+      },
+      {
+        "name": "insufficient-evidence"
+      },
+      {
+        "name": "category:missing_sources-extra"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-08-01T00:00:00Z",
+    "closed_at": null
+  },
+  {
+    "number": 106,
+    "state": "open",
+    "labels": [
+      {
+        "name": "lesson-candidate"
+      },
+      {
+        "name": "needs-review"
+      },
+      {
+        "name": "category:missing_sources"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-08-01T00:00:00Z",
+    "closed_at": null,
+    "pull_request": {
+      "url": "https://api.github.com/repos/u-dont-existDOTcom/AskRigor-lessons/pulls/106"
+    }
+  },
+  {
+    "number": 107,
+    "state": "closed",
+    "labels": [
+      {
+        "name": "incorporated"
+      },
+      {
+        "name": "lesson-candidate"
+      },
+      {
+        "name": "category:missing_sources"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-04-15T00:00:00Z",
+    "closed_at": "2026-04-15T00:00:00Z"
+  },
+  {
+    "number": 108,
+    "state": "open",
+    "labels": [
+      {
+        "name": "category:missing_sources"
+      },
+      {
+        "name": "lesson-candidate"
+      },
+      {
+        "name": "needs-review"
+      }
+    ],
+    "created_at": "2026-01-01T00:00:00Z",
+    "updated_at": "2026-08-01T00:00:00Z",
+    "closed_at": null
+  }
+]
