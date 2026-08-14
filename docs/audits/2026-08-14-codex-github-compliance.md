@@ -5,7 +5,7 @@ Repository: `u-dont-existDOTcom/AskRigor`
 Branch: `codex/github-compliance-2026-08-14`
 Recovered base: `50be9e4aba0efd6f4536b425ae9db5b61df1a6e0`
 Final implementation commit before this evidence document:
-`3feae13af7f460143f090e5782d73c9794ea1eec`
+`697bfe63a08b7fd8729d37b9e35a7cee75214076`
 
 The exact published PR-head SHA and final-head workflow run belong in the pull
 request and final worker report. A file inside a commit cannot truthfully name
@@ -57,9 +57,10 @@ the SHA of the commit that contains it.
   verification` check with exact `.nvmrc`, lockfile install, read-only token,
   non-persisted checkout credentials, immutable Action pins, timeout, and
   ref-scoped cancellation.
-- `.github/workflows/repository-workflow-policy.yml` — retain the separate
-  immutable-pin/permission policy gate and add bounded concurrency plus
-  non-persisted checkout credentials.
+- `.github/workflows/repository-workflow-policy.yml`,
+  `tests/workflow-policy.test.ts` — retain the separate immutable-pin/permission
+  policy gate, add bounded concurrency/non-persisted checkout credentials, and
+  require actual YAML event syntax instead of self-matching the detector text.
 - `.github/CODEOWNERS`, `.github/pull_request_template.md` — cover protocol,
   source-access, MCP, security, deployment/release, state, and policy paths and
   require exact completion evidence.
@@ -91,8 +92,11 @@ Recovered baseline:
 
 Final implementation candidate:
 
+- `npx vitest run tests/workflow-policy.test.ts --reporter=verbose` — RED: the
+  committed workflow policy falsely flagged its own detector text; GREEN: 2/2,
+  including rejection of a real mapping-form `pull_request_target` checkout.
 - `npm run verify` outside the loopback-restricted sandbox — PASS: typecheck,
-  25 test files passed and one credential-gated live file skipped; 465 tests
+  26 test files passed and one credential-gated live file skipped; 467 tests
   passed and five live tests skipped; build passed.
 - `npm run test:site` outside the IPC-restricted sandbox — PASS, four pages
   validated. The first sandboxed run failed only because the pinned `tsx`
@@ -117,6 +121,11 @@ deployment, release, public submission, or production mutation occurred.
 - Separate check: `Repository workflow policy` / `workflow-policy`.
 - Exact final-head run IDs, links, and conclusions are recorded in the PR after
   publication; no local run is represented as hosted evidence.
+- Initial PR run `31776171520` failed because the policy used substring
+  detection and matched its own source. GitHub job `94691933099` supplied the
+  exact log evidence. Commit
+  `697bfe63a08b7fd8729d37b9e35a7cee75214076` contains the red/green event-syntax
+  fix; only the replacement final-head runs count for completion.
 
 ## Hosted GitHub controls
 

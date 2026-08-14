@@ -21,10 +21,17 @@ Updated: 2026-08-14
 - The original `main` checkout and its unrelated untracked secret-looking files remain untouched; this task uses an isolated worktree.
 - `npm ci` completed with the committed lockfile on Node `24.18.0` and reported zero audited vulnerabilities.
 - The recovered `main` gate had one real drift: its Project-package test rejected the already-committed Project governance files. The failing regression was preserved and the assertion was narrowed to the exact three installable files plus the two expected governance files.
-- The complete deterministic gate passed after that minimal test repair: 25 test files passed, one live file skipped; 465 tests passed and five live tests skipped; typecheck and build passed.
+- The complete deterministic gate passes with the Project and workflow-policy
+  regressions: 26 test files passed, one live file skipped; 467 tests passed and
+  five live tests skipped; typecheck and build passed.
 - Repository-visible authority, security reporting, no-license-grant contribution posture, ownership, PR evidence, and CI presentation are committed without changing protocols, source states, MCP behavior, site behavior, or release state.
 - The verified repository-visible implementation is committed as
   `3feae13af7f460143f090e5782d73c9794ea1eec`.
+- Initial PR workflow-policy run `31776171520` failed because its substring
+  detector matched its own `pull_request_target` source text. The red/green
+  event-syntax repair is committed as
+  `697bfe63a08b7fd8729d37b9e35a7cee75214076` and still rejects a real
+  mapping-form privileged checkout.
 - The current universal compliance PR now contains the structure-aware PEM
   detector fix and the AskRigor transferable-control lesson; its lesson commit
   is `7870cd2e649c8a09b0b09f96e0411c546e5f1782`.
@@ -36,8 +43,8 @@ Updated: 2026-08-14
 
 - Current step: rerun final gates with this report/state update, publish one
   focused PR, and verify both final-head checks.
-- Last verified durable boundary: implementation commit
-  `3feae13af7f460143f090e5782d73c9794ea1eec`; the compliance report records the
+- Last verified durable boundary: workflow-policy fix commit
+  `697bfe63a08b7fd8729d37b9e35a7cee75214076`; the compliance report records the
   exact recovered and final-candidate evidence.
 
 ## Remaining
