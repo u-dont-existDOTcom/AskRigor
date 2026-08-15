@@ -27,10 +27,13 @@ spot check remains a distinct manual status.
 - Use `chat-latest` by default and record both requested and returned model
   identity; never claim that this is identical to the ChatGPT product interface.
 - Send `store: false`, a bounded `max_output_tokens`, and one fresh Responses
-  request per case.
+  request per case. Set top-level `max_tool_calls` to the selected case's exact
+  approved workflow length.
 - Accept the API key only as `OPENAI_API_KEY`; never accept it as a command-line
   argument or persist it.
 - Run cases serially with per-request, per-case, and full-run deadlines.
+- Bound MCP initialization to the request deadline and deduct it from the
+  full-run budget.
 - Never persist complete protocol text, YouTube comment text or identities, raw
   continuation tokens, authorization data, or unrestricted model/provider
   bodies.
@@ -335,6 +338,7 @@ export interface PublicReviewReport {
   started_at: string;
   finished_at: string | null;
   inventory: SafeInventoryEvidence | null;
+  run_failure_class: FailureClass | null;
   cases: CaseReport[];
   usage: { input_tokens: number; output_tokens: number; total_tokens: number };
   automated_result: "pass" | "fail" | "incomplete";
@@ -681,7 +685,9 @@ Defaults are `mode=all`, `model=chat-latest`, the committed case file, and
 `.artifacts/public-review-eval`. `--live` is mandatory before any network call.
 The CLI reads only the presence/value of `OPENAI_API_KEY` for model/all modes.
 The accepted design's committed-case requirement is enforced by omitting a
-case-file override; `--case` can only select an exact committed case ID.
+case-file override; `--case` can only select an exact committed case ID. Before
+connecting, compare the fixed working-tree bytes with the same path at the
+reported commit and reject any mismatch.
 
 The MCP adapter uses `Client` plus `StreamableHTTPClientTransport`, closes in a
 `finally`, and connects only to the exact constant endpoint. The OpenAI adapter
@@ -865,9 +871,17 @@ contents, environment values, request headers, or raw protocol/provider output.
 
 - [ ] **Step 2: Package the exact committed tree and run it ephemerally on the VPS**
 
-Create a `git archive` of the exact candidate commit, transfer it to a
-root-owned temporary directory, and run it in the pinned Node 24.18.0 container.
-Mount `/root/askrigor-openai.key` read-only at `/run/secrets/openai`; inside the
+Create a `git archive` of the exact candidate commit and separately capture that
+commit's raw commit object plus expected tree ID. Transfer those bounded files
+to a root-owned temporary directory. After extraction, initialize a minimal
+ephemeral Git object database, add only the archived tracked files, require its
+written tree ID to equal the expected tree ID, write the raw commit object,
+require its object ID to equal the candidate commit, and point `HEAD` at that
+commit. This preserves the runner's commit/blob verification without copying
+repository history or merely asserting a commit through an environment value.
+
+Run the verified clean checkout in the pinned Node 24.18.0 container. Mount
+`/root/askrigor-openai.key` read-only at `/run/secrets/openai`; inside the
 container, export its contents to `OPENAI_API_KEY` and immediately execute:
 
 ```sh

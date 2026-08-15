@@ -98,7 +98,8 @@ workflows, required fields, and negative-case semantics. The runner validates
 its versioned structure and records its SHA-256 before making live calls. It
 must not silently repair, infer, or broaden a malformed case. The live command
 has no case-file override: it can select only exact IDs from this committed
-file.
+file. Before any network connection, it compares the working bytes with that
+path at the reported commit and fails closed on a mismatch.
 
 The command supports three explicit modes:
 
@@ -192,6 +193,7 @@ can hide a missing call. The request uses:
 - a case-specific `allowed_tools` list;
 - `store: false`;
 - an explicit maximum output size; and
+- top-level `max_tool_calls` equal to the case's approved workflow length; and
 - bounded request and case timeouts.
 
 Positive cases expose only the operations declared by that case. The parser
@@ -230,6 +232,11 @@ arguments, missing required call, or unexpected extra call fails the case. The
 runner will not weaken a case merely because the final natural-language answer
 sounds correct.
 
+When a response mixes opaque and structured MCP outputs, direct proof may cover
+only the specific opaque call. Every structured result is still checked for its
+own identity, access state, continuation decision, and terminal receipt. A
+wrong structured result cannot be replaced by an unrelated direct-lane pass.
+
 ## 9. Credentials and execution boundary
 
 The runner accepts the OpenAI credential only through the `OPENAI_API_KEY`
@@ -252,6 +259,7 @@ Action or any GitHub integration.
 
 The runner has independent bounds for:
 
+- MCP connection and initialization time;
 - per-request timeout;
 - per-case elapsed time;
 - full-run elapsed time;
@@ -263,7 +271,14 @@ The runner has independent bounds for:
 Version 1 permits at most the nine approved cases, three workflow steps per
 case, and a 1 MiB sanitized JSON report. Per-case and full-run deadlines race
 the active operation rather than being checked only between cases; production
-MCP requests also retain their smaller transport deadline.
+MCP requests also retain their smaller transport deadline and are aborted when
+the case deadline expires.
+
+MCP initialization has the same 45-second request bound, and its elapsed time is
+deducted from the 30-minute full-run budget. The selected compound YouTube
+target passes only when the survey itself is `complete`, the selected candidate
+has complete metadata, and its provider-reported comment count is present.
+Partial survey success is not borrowed from a later per-video audit.
 
 It runs cases serially and records token usage when OpenAI supplies it. A live
 run is opt-in and paid; it is not part of ordinary `npm run verify`, pull-request
@@ -293,6 +308,8 @@ The report records:
 - requested and returned model identity;
 - start/end timestamps, durations, and token usage;
 - advertised tool names and read-only annotation result;
+- an explicit run-level MCP discovery or timeout failure class when inventory
+  acquisition cannot complete;
 - per-case lane, status, exact safe arguments, call order, validation checks,
   bounded errors, and explicit failure class; and
 - a manual ChatGPT-interface status of `pending`, `pass`, `fail`, or
@@ -401,6 +418,9 @@ that an API model is not necessarily the hosted product model.
 
 Reviewed on 2026-08-15:
 
+- OpenAI Responses create reference (`max_tool_calls` is a top-level total
+  built-in-tool-call bound across the response):
+  <https://developers.openai.com/api/reference/resources/responses/methods/create>
 - OpenAI remote MCP and connectors guide:
   <https://developers.openai.com/api/docs/guides/tools-connectors-mcp>
 - OpenAI `chat-latest` model reference:

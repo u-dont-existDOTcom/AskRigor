@@ -42,7 +42,9 @@ npm run review:public-live -- --live --mode model --case negative-3
 committed order. Model or all mode requires the protected OpenAI environment;
 direct mode does not. The live runner always reads the committed
 `docs/public-review-cases-v0.1.0.json`; there is deliberately no case-file or
-endpoint override. A rerun may narrow that approved set only by exact case ID.
+endpoint override. Before connecting, the runner compares those bytes with the
+same path at the reported commit and rejects a dirty or substituted copy. A
+rerun may narrow that approved set only by exact case ID.
 
 ## Bounds and failure behavior
 
@@ -52,12 +54,19 @@ endpoint override. A rerun may narrow that approved set only by exact case ID.
 - only the case's expected tools are exposed, except the unsupported-action
   case, which intentionally exposes the complete verified read-only inventory;
 - 4,096 maximum model output tokens;
+- top-level Responses `max_tool_calls` equal to the selected case's one-to-three
+  approved workflow steps;
 - 45-second request deadline;
 - 180-second case budget and 30-minute full-run budget;
 - at most nine cases and three workflow calls per case;
 - 1 MiB maximum sanitized JSON report;
 - serial execution with no scheduled or recurring paid run; and
 - nonzero exit when any required automated lane fails or remains blocked.
+
+Direct-case expiry aborts the active MCP request as well as returning a timeout
+result. MCP initialization is also aborted at 45 seconds and its elapsed time is
+deducted from the 30-minute full-run budget. The MCP transport retains its
+smaller request timeout as a second bound.
 
 Provider unavailability, partial access, rate limiting, quota exhaustion,
 timeouts, and malformed results remain explicit. The runner writes a valid
@@ -72,6 +81,18 @@ only a generic MCP error. A canonical input-validation or
 `youtube_video_not_visible` error code may pass only with the corresponding
 direct-lane proof. This preserves useful selection evidence without calling an
 unverifiable result complete.
+
+Positive provider cases also require their case-specific success state:
+PubMed and ClinicalTrials.gov must be `api_visible_complete`, Crossref must be
+the expected `metadata_only` record, and the YouTube comments case must be
+`api_visible_complete` with at least one API-visible record. Partial,
+rate-limited, inaccessible, error, or empty positive results do not pass.
+The compound YouTube case additionally requires a `complete` survey, complete
+metadata for the selected target, and that target's provider-reported comment
+count before either direct or model evidence can pass.
+
+Run-level MCP discovery or timeout failures are recorded explicitly in the
+sanitized report instead of being collapsed into an unexplained global failure.
 
 ## Evidence bundle
 

@@ -12,6 +12,7 @@ import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js";
 import {
   McpInputValidationError,
   OpenAiTransportError,
+  FULL_RUN_TIMEOUT_MS,
   REQUEST_TIMEOUT_MS,
   parseReviewCaseSet,
   runPublicReviewEvaluation,
@@ -29,6 +30,18 @@ import {
 const execFileAsync = promisify(execFile);
 const PRODUCTION_MCP_ENDPOINT = "https://mcp.askrigor.com/mcp";
 const OPENAI_RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses";
+const APPROVED_CASE_FILE = "docs/public-review-cases-v0.1.0.json";
+
+type ReadCommittedCaseFile = (
+  workingDirectory: string,
+  commit: string,
+) => Promise<string>;
+
+export interface McpInitializationOptions {
+  signal: AbortSignal;
+  timeout: number;
+  maxTotalTimeout: number;
+}
 
 export interface PublicReviewCliOptions {
   live: boolean;
@@ -58,7 +71,7 @@ export function parsePublicReviewCliArgs(
     mode: "all",
     caseIds: [],
     model: "chat-latest",
-    caseFile: "docs/public-review-cases-v0.1.0.json",
+    caseFile: APPROVED_CASE_FILE,
     outputRoot: ".artifacts/public-review-eval",
   };
 
@@ -158,11 +171,13 @@ async function runProductionReview(input: {
   apiKey?: string;
 }): Promise<RunEvaluationResult> {
   const workingDirectory = process.cwd();
-  const caseFilePath = resolve(workingDirectory, input.options.caseFile);
-  const caseFileBytes = await readFile(caseFilePath);
+  const repository = await readRepositoryIdentity(workingDirectory);
+  const caseFileBytes = await readApprovedReviewCaseFile(
+    workingDirectory,
+    repository.commit,
+  );
   const caseSet = parseReviewCaseSet(JSON.parse(caseFileBytes.toString("utf8")));
   const reviewCases = selectReviewCases(caseSet, input.options.caseIds);
-  const repository = await readRepositoryIdentity(workingDirectory);
   const started = new Date();
   const runId = `${compactUtcTimestamp(started)}-${randomBytes(4).toString("hex")}`;
 
@@ -170,10 +185,20 @@ async function runProductionReview(input: {
     name: "askrigor-public-review-eval",
     version: "0.1.0",
   });
+  const transport = new StreamableHTTPClientTransport(
+    new URL(PRODUCTION_MCP_ENDPOINT),
+  );
+  const fullRunDeadline = started.getTime() + FULL_RUN_TIMEOUT_MS;
   try {
-    await client.connect(new StreamableHTTPClientTransport(
-      new URL(PRODUCTION_MCP_ENDPOINT),
-    ));
+    await connectMcpClientWithinDeadline(
+      (candidateTransport, options) => client.connect(candidateTransport, options),
+      transport,
+      REQUEST_TIMEOUT_MS,
+    );
+    const remainingFullRunMs = fullRunDeadline - Date.now();
+    if (remainingFullRunMs <= 0) {
+      throw new Error("public review full-run deadline expired during MCP initialization");
+    }
     const session = createMcpSession(client);
     const responsesTransport = input.apiKey === undefined
       ? undefined
@@ -194,10 +219,52 @@ async function runProductionReview(input: {
       startedAt: started.toISOString(),
       finishedAt: () => new Date().toISOString(),
       activeSecret: input.apiKey,
+      fullRunTimeoutMs: remainingFullRunMs,
     });
   } finally {
     await client.close();
   }
+}
+
+export async function connectMcpClientWithinDeadline<TTransport>(
+  connect: (
+    transport: TTransport,
+    options: McpInitializationOptions,
+  ) => Promise<void>,
+  transport: TTransport,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): Promise<void> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("MCP initialization deadline is invalid");
+  }
+  const controller = new AbortController();
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      controller.abort();
+      rejectPromise(new Error("MCP initialization deadline expired"));
+    }, timeoutMs);
+    connect(transport, {
+      signal: controller.signal,
+      timeout: timeoutMs,
+      maxTotalTimeout: timeoutMs,
+    }).then(
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        resolvePromise();
+      },
+      (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        rejectPromise(error);
+      },
+    );
+  });
 }
 
 function createMcpSession(client: Client): McpSession {
@@ -209,12 +276,16 @@ function createMcpSession(client: Client): McpSession {
       );
       return { tools: result.tools as McpToolDescriptor[] };
     },
-    async callTool(input) {
+    async callTool(input, signal) {
       try {
         const result = await client.callTool(
           input,
           undefined,
-          { timeout: REQUEST_TIMEOUT_MS, maxTotalTimeout: REQUEST_TIMEOUT_MS },
+          {
+            timeout: REQUEST_TIMEOUT_MS,
+            maxTotalTimeout: REQUEST_TIMEOUT_MS,
+            signal,
+          },
         );
         return result as unknown as McpCallResult;
       } catch (error) {
@@ -229,6 +300,35 @@ function createMcpSession(client: Client): McpSession {
       }
     },
   };
+}
+
+export async function readApprovedReviewCaseFile(
+  workingDirectory: string,
+  commit: string,
+  readCommitted: ReadCommittedCaseFile = readCommittedApprovedCaseFile,
+): Promise<Buffer> {
+  const caseFilePath = resolve(workingDirectory, APPROVED_CASE_FILE);
+  const [workingBytes, committedText] = await Promise.all([
+    readFile(caseFilePath),
+    readCommitted(workingDirectory, commit),
+  ]);
+  const committedBytes = Buffer.from(committedText, "utf8");
+  if (!workingBytes.equals(committedBytes)) {
+    throw new Error("approved public review case file differs from the reported commit");
+  }
+  return workingBytes;
+}
+
+async function readCommittedApprovedCaseFile(
+  workingDirectory: string,
+  commit: string,
+): Promise<string> {
+  const { stdout } = await execFileAsync(
+    "git",
+    ["show", `${commit}:${APPROVED_CASE_FILE}`],
+    { cwd: workingDirectory, maxBuffer: 1_048_576 },
+  );
+  return stdout;
 }
 
 function createOpenAiResponsesTransport(apiKey: string): ResponsesTransport {

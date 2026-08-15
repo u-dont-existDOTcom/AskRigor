@@ -153,7 +153,7 @@ export interface McpSession {
   callTool(input: {
     name: string;
     arguments: Record<string, unknown>;
-  }): Promise<McpCallResult>;
+  }, signal?: AbortSignal): Promise<McpCallResult>;
 }
 
 export class McpInputValidationError extends Error {
@@ -164,6 +164,7 @@ export interface OpenAiResponsesRequest {
   model: string;
   store: false;
   max_output_tokens: 4096;
+  max_tool_calls: number;
   input: string;
   tools: [{
     type: "mcp";
@@ -232,6 +233,7 @@ export interface PublicReviewReport {
   started_at: string;
   finished_at: string | null;
   inventory: SafeInventoryEvidence | null;
+  run_failure_class: FailureClass | null;
   cases: CaseReport[];
   usage: { input_tokens: number; output_tokens: number; total_tokens: number };
   automated_result: "pass" | "fail" | "incomplete";
@@ -426,11 +428,19 @@ export async function runDirectCase(
   session: McpSession,
   inventory: SafeInventoryEvidence,
   now: () => number = Date.now,
+  signal?: AbortSignal,
 ): Promise<CaseLaneResult> {
   const startedAt = now();
   try {
     if (reviewCase.group === "negative") {
-      return await runNegativeDirectCase(reviewCase, session, inventory, startedAt, now);
+      return await runNegativeDirectCase(
+        reviewCase,
+        session,
+        inventory,
+        startedAt,
+        now,
+        signal,
+      );
     }
 
     const calls: SafeCallEvidence[] = [];
@@ -450,7 +460,10 @@ export async function runDirectCase(
 
       let callResult: McpCallResult;
       try {
-        callResult = await session.callTool({ name: step.tool, arguments: argumentsValue });
+        callResult = await session.callTool(
+          { name: step.tool, arguments: argumentsValue },
+          signal,
+        );
       } catch {
         return failedLane("direct", "provider_result", calls, checks, startedAt, now);
       }
@@ -543,6 +556,7 @@ export function buildResponsesRequest(
     model,
     store: false,
     max_output_tokens: 4096,
+    max_tool_calls: reviewCase.expected_workflow.length,
     input: reviewCase.prompt,
     tools: [{
       type: "mcp",
@@ -609,11 +623,16 @@ export async function runModelCase(
 ): Promise<CaseLaneResult> {
   const now = options.now ?? Date.now;
   const startedAt = now();
-  let normalized: NormalizedModelResponse;
+  let request: OpenAiResponsesRequest;
   try {
-    const request = buildResponsesRequest(reviewCase, options.inventory, options.model);
-    const response = await options.transport.create(request, options.signal);
-    normalized = normalizeMcpCalls(response, "askrigor");
+    request = buildResponsesRequest(reviewCase, options.inventory, options.model);
+  } catch {
+    return failedLane("model", "case_contract", [], [], startedAt, now);
+  }
+
+  let response: unknown;
+  try {
+    response = await options.transport.create(request, options.signal);
   } catch (error) {
     if (
       error instanceof OpenAiTransportError &&
@@ -622,6 +641,13 @@ export async function runModelCase(
       return blockedLane("quota_or_rate_limit", startedAt, now);
     }
     if (isAbortError(error)) return blockedLane("timeout", startedAt, now);
+    return failedLane("model", "model_transport", [], [], startedAt, now);
+  }
+
+  let normalized: NormalizedModelResponse;
+  try {
+    normalized = normalizeMcpCalls(response, "askrigor");
+  } catch {
     return failedLane("model", "model_output", [], [], startedAt, now);
   }
 
@@ -715,12 +741,11 @@ export async function runModelCase(
     }
   }
 
-  const semanticChecks = results.some((result) => result === undefined)
-    ? [{
-      name: "structured_results_verified_by_direct_lane",
-      pass: options.directContractPassed === true,
-    }]
-    : validatePositiveSemantics(reviewCase, results);
+  const semanticChecks = validatePositiveSemantics(
+    reviewCase,
+    results,
+    options.directContractPassed === true,
+  );
   checks.push(...semanticChecks);
   if (semanticChecks.some((check) => !check.pass)) {
     return failedModelOutput(safeCalls, normalized, startedAt, now, checks);
@@ -798,6 +823,7 @@ export async function runPublicReviewEvaluation(
     started_at: options.startedAt,
     finished_at: null,
     inventory: null,
+    run_failure_class: null,
     cases: options.reviewCases.map((reviewCase) => ({
       id: reviewCase.id,
       group: reviewCase.group,
@@ -817,7 +843,10 @@ export async function runPublicReviewEvaluation(
     );
     report.inventory = assertReadOnlyInventory(tools);
     paths = await persistReport(options, report);
-  } catch {
+  } catch (error) {
+    report.run_failure_class = error instanceof HardDeadlineError
+      ? "timeout"
+      : "mcp_discovery";
     report.finished_at = options.finishedAt();
     report.automated_result = "fail";
     paths = await persistReport(options, report);
@@ -830,10 +859,18 @@ export async function runPublicReviewEvaluation(
       if (remainingRunMs <= 0) {
         report.cases[index].direct = timeoutLane("direct");
       } else {
+        const timeoutController = new AbortController();
         report.cases[index].direct = await runLaneWithDeadline(
-          () => runDirectCase(reviewCase, options.mcpSession, report.inventory!, now),
+          () => runDirectCase(
+            reviewCase,
+            options.mcpSession,
+            report.inventory!,
+            now,
+            timeoutController.signal,
+          ),
           "direct",
           Math.min(caseTimeoutMs, remainingRunMs),
+          () => timeoutController.abort(),
         );
       }
       refreshReportAggregates(report, options.mode);
@@ -1016,6 +1053,7 @@ async function runNegativeDirectCase(
   inventory: SafeInventoryEvidence,
   startedAt: number,
   now: () => number,
+  signal?: AbortSignal,
 ): Promise<CaseLaneResult> {
   const step = reviewCase.expected_workflow[0];
   if (step === undefined || step.kind === undefined) {
@@ -1045,7 +1083,10 @@ async function runNegativeDirectCase(
 
   if (step.kind === "schema_rejection_before_provider_call") {
     try {
-      const result = await session.callTool({ name: step.tool, arguments: argumentsValue });
+      const result = await session.callTool(
+        { name: step.tool, arguments: argumentsValue },
+        signal,
+      );
       const pass = isInputValidationToolResult(result);
       const checks = [{ name: "input_schema_rejected", pass }];
       return pass
@@ -1075,7 +1116,10 @@ async function runNegativeDirectCase(
   if (step.kind === "explicit_not_found") {
     let result: McpCallResult;
     try {
-      result = await session.callTool({ name: step.tool, arguments: argumentsValue });
+      result = await session.callTool(
+        { name: step.tool, arguments: argumentsValue },
+        signal,
+      );
     } catch {
       return failedLane("direct", "provider_result", [], [], startedAt, now);
     }
@@ -1112,7 +1156,10 @@ async function runNegativeDirectCase(
   if (step.kind === "explicit_access_boundary") {
     let result: McpCallResult;
     try {
-      result = await session.callTool({ name: step.tool, arguments: argumentsValue });
+      result = await session.callTool(
+        { name: step.tool, arguments: argumentsValue },
+        signal,
+      );
     } catch {
       return failedLane("direct", "provider_result", [], [], startedAt, now);
     }
@@ -1158,14 +1205,16 @@ async function runNegativeDirectCase(
 function validatePositiveSemantics(
   reviewCase: ReviewCase,
   results: readonly unknown[],
+  directContractPassed = false,
 ): CaseLaneResult["checks"] {
   const checks: CaseLaneResult["checks"] = [];
   if (reviewCase.id === "positive-1") {
     const expectedSha = reviewCase.fixture.inputs.expected_sha256;
     if (typeof expectedSha === "string") {
       const matchingDigests = results.every((result) => {
+        if (result === undefined) return directContractPassed;
         const digest = getDottedValue(result, "manifest.sha256");
-        return digest === undefined || digest === expectedSha;
+        return digest === expectedSha;
       });
       checks.push({ name: "protocol_sha256_matches_fixture", pass: matchingDigests });
     }
@@ -1175,7 +1224,11 @@ function validatePositiveSemantics(
     if (verificationIndex >= 0) {
       checks.push({
         name: "protocol_integrity_verified",
-        pass: getDottedValue(results[verificationIndex], "verified") === true,
+        pass: semanticResultPass(
+          results[verificationIndex],
+          directContractPassed,
+          (result) => getDottedValue(result, "verified") === true,
+        ),
       });
     }
     const loadIndex = reviewCase.expected_workflow.findIndex(
@@ -1185,7 +1238,9 @@ function validatePositiveSemantics(
       const text = getDottedValue(results[loadIndex], "text");
       checks.push({
         name: "complete_protocol_text_returned",
-        pass: typeof text === "string" && text.length > 0,
+        pass: results[loadIndex] === undefined
+          ? directContractPassed
+          : typeof text === "string" && text.length > 0,
       });
     }
   }
@@ -1194,10 +1249,21 @@ function validatePositiveSemantics(
     const pmid = reviewCase.fixture.inputs.pmid;
     checks.push({
       name: "pubmed_identity_matches_fixture",
-      pass: results.length === 1 &&
-        getDottedValue(results[0], "provider") === "pubmed" &&
-        getDottedValue(results[0], "primary_identifier") === pmid &&
-        getDottedValue(results[0], "data.pmid") === pmid,
+      pass: results.length === 1 && semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => getDottedValue(result, "provider") === "pubmed" &&
+          getDottedValue(result, "primary_identifier") === pmid &&
+          getDottedValue(result, "data.pmid") === pmid,
+      ),
+    });
+    checks.push({
+      name: "pubmed_access_state_complete",
+      pass: semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => getDottedValue(result, "access_status") === "api_visible_complete",
+      ),
     });
   }
 
@@ -1205,70 +1271,164 @@ function validatePositiveSemantics(
     const nctId = reviewCase.fixture.inputs.nct_id;
     checks.push({
       name: "clinical_trial_identity_matches_fixture",
-      pass: results.length === 1 &&
-        getDottedValue(results[0], "provider") === "clinicaltrials_gov" &&
-        getDottedValue(results[0], "primary_identifier") === nctId &&
-        getDottedValue(results[0], "data.nct_id") === nctId,
+      pass: results.length === 1 && semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => getDottedValue(result, "provider") === "clinicaltrials_gov" &&
+          getDottedValue(result, "primary_identifier") === nctId &&
+          getDottedValue(result, "data.nct_id") === nctId,
+      ),
+    });
+    checks.push({
+      name: "clinical_trial_access_state_complete",
+      pass: semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => getDottedValue(result, "access_status") === "api_visible_complete",
+      ),
     });
   }
 
   if (reviewCase.id === "positive-4") {
     const identifier = reviewCase.fixture.inputs.identifier;
-    const returnedDoi = getDottedValue(results[0], "data.doi");
     checks.push({
       name: "crossref_identity_matches_fixture",
-      pass: results.length === 1 &&
-        getDottedValue(results[0], "provider") === "crossref" &&
-        typeof identifier === "string" &&
-        typeof returnedDoi === "string" &&
-        returnedDoi.toLowerCase() === identifier.toLowerCase(),
+      pass: results.length === 1 && semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => {
+          const doi = getDottedValue(result, "data.doi");
+          return getDottedValue(result, "provider") === "crossref" &&
+            typeof identifier === "string" &&
+            typeof doi === "string" &&
+            doi.toLowerCase() === identifier.toLowerCase();
+        },
+      ),
+    });
+    checks.push({
+      name: "crossref_access_state_metadata_only",
+      pass: semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => getDottedValue(result, "access_status") === "metadata_only",
+      ),
     });
   }
 
   if (reviewCase.id === "positive-5") {
     const expectedVideoId = reviewCase.fixture.inputs.video_id_or_url;
-    const comments = getDottedValue(results[0], "data.comments");
     checks.push({
       name: "youtube_comment_identity_matches_fixture",
-      pass: typeof expectedVideoId === "string" &&
-        results.length === 1 &&
-        getDottedValue(results[0], "provider") === "youtube" &&
-        getDottedValue(results[0], "primary_identifier") === expectedVideoId &&
-        Array.isArray(comments) &&
-        comments.every((comment) => getDottedValue(comment, "video_id") === expectedVideoId),
+      pass: typeof expectedVideoId === "string" && results.length === 1 &&
+        semanticResultPass(results[0], directContractPassed, (result) => {
+          const returnedComments = getDottedValue(result, "data.comments");
+          return getDottedValue(result, "provider") === "youtube" &&
+            getDottedValue(result, "primary_identifier") === expectedVideoId &&
+            Array.isArray(returnedComments) &&
+            returnedComments.every((comment) =>
+              getDottedValue(comment, "video_id") === expectedVideoId
+            );
+        }),
+    });
+    checks.push({
+      name: "youtube_comments_nonempty_and_complete",
+      pass: semanticResultPass(results[0], directContractPassed, (result) => {
+        const returnedComments = getDottedValue(result, "data.comments");
+        return getDottedValue(result, "access_status") === "api_visible_complete" &&
+          Array.isArray(returnedComments) &&
+          returnedComments.length > 0;
+      }),
     });
   }
 
   if (reviewCase.id === "positive-6") {
     const final = results.at(-1);
-    const completionState = getDottedValue(final, "receipt.completion_state");
     const expectedVideoId = reviewCase.fixture.inputs.video_id_or_url;
-    const surveyCandidates = getDottedValue(results[0], "candidates");
     checks.push({
       name: "youtube_survey_contains_audited_video",
-      pass: typeof expectedVideoId === "string" &&
-        Array.isArray(surveyCandidates) &&
-        surveyCandidates.some((candidate) =>
-          getDottedValue(candidate, "video_id") === expectedVideoId &&
-          getDottedValue(candidate, "canonical_url") ===
-            `https://www.youtube.com/watch?v=${expectedVideoId}`
-        ),
+      pass: typeof expectedVideoId === "string" && semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => {
+          const candidates = getDottedValue(result, "candidates");
+          return Array.isArray(candidates) && candidates.some((candidate) =>
+            getDottedValue(candidate, "video_id") === expectedVideoId &&
+            getDottedValue(candidate, "canonical_url") ===
+              `https://www.youtube.com/watch?v=${expectedVideoId}`
+          );
+        },
+      ),
+    });
+    checks.push({
+      name: "youtube_survey_access_complete",
+      pass: semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => getDottedValue(result, "access_status") === "complete",
+      ),
+    });
+    checks.push({
+      name: "youtube_survey_target_metadata_complete",
+      pass: typeof expectedVideoId === "string" && semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => {
+          const candidates = getDottedValue(result, "candidates");
+          if (!Array.isArray(candidates)) return false;
+          const target = candidates.find((candidate) =>
+            getDottedValue(candidate, "video_id") === expectedVideoId
+          );
+          const status = getDottedValue(target, "metadata_access_status");
+          return status === "complete" || status === "api_visible_complete";
+        },
+      ),
+    });
+    checks.push({
+      name: "youtube_survey_target_provider_count",
+      pass: typeof expectedVideoId === "string" && semanticResultPass(
+        results[0],
+        directContractPassed,
+        (result) => {
+          const candidates = getDottedValue(result, "candidates");
+          if (!Array.isArray(candidates)) return false;
+          const target = candidates.find((candidate) =>
+            getDottedValue(candidate, "video_id") === expectedVideoId
+          );
+          const count = getDottedValue(target, "provider_reported_comments");
+          return typeof count === "string" && /^(0|[1-9][0-9]*)$/.test(count);
+        },
+      ),
     });
     checks.push({
       name: "youtube_audit_identity_matches_fixture",
       pass: typeof expectedVideoId === "string" &&
         results.length >= 2 &&
-        results.slice(1).every((result) => getDottedValue(result, "video_id") === expectedVideoId),
+        results.slice(1).every((result) => semanticResultPass(
+          result,
+          directContractPassed,
+          (structured) => getDottedValue(structured, "video_id") === expectedVideoId,
+        )),
     });
     checks.push({
       name: "terminal_youtube_audit_receipt",
-      pass: getDottedValue(final, "continuation_recommended") === false &&
-        getDottedValue(final, "receipt.synthesis_lock") === "pass" &&
-        (completionState === "api_visible_complete" ||
-          completionState === "completed_with_access_boundary"),
+      pass: semanticResultPass(final, directContractPassed, (result) => {
+        const state = getDottedValue(result, "receipt.completion_state");
+        return getDottedValue(result, "continuation_recommended") === false &&
+          getDottedValue(result, "receipt.synthesis_lock") === "pass" &&
+          (state === "api_visible_complete" ||
+            state === "completed_with_access_boundary");
+      }),
     });
   }
   return checks;
+}
+
+function semanticResultPass(
+  result: unknown,
+  directContractPassed: boolean,
+  validate: (structured: unknown) => boolean,
+): boolean {
+  return result === undefined ? directContractPassed : validate(result);
 }
 
 function failedLane(
@@ -1321,7 +1481,10 @@ function renderEvidenceSummary(report: PublicReviewReport): string {
     "",
     `Run: ${report.run_id}`,
     `Commit: ${report.repository.commit}${report.repository.dirty ? " (dirty)" : ""}`,
+    `Endpoint: ${report.endpoint_origin}`,
+    `Case file SHA-256: ${report.case_file.sha256}`,
     `Automated result: ${report.automated_result.toUpperCase()}`,
+    `Run failure class: ${report.run_failure_class ?? "none"}`,
     `Direct passes: ${directPasses}`,
     `Model passes: ${modelPasses}`,
     `Cases selected: ${report.cases.length}`,
@@ -1799,6 +1962,10 @@ async function writeAtomic(path: string, content: string): Promise<void> {
   await chmod(path, 0o600);
 }
 
+class HardDeadlineError extends Error {
+  override readonly name = "HardDeadlineError";
+}
+
 async function withHardDeadline<T>(task: () => Promise<T>, timeoutMs: number): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("deadline expired");
   let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -1806,7 +1973,7 @@ async function withHardDeadline<T>(task: () => Promise<T>, timeoutMs: number): P
     return await Promise.race([
       task(),
       new Promise<T>((_, reject) => {
-        timeout = setTimeout(() => reject(new Error("deadline expired")), timeoutMs);
+        timeout = setTimeout(() => reject(new HardDeadlineError("deadline expired")), timeoutMs);
       }),
     ]);
   } finally {

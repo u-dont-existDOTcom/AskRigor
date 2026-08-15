@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -32,8 +32,10 @@ import {
   type SafeInventoryEvidence,
 } from "../scripts/public-review-eval-lib.mts";
 import {
+  connectMcpClientWithinDeadline,
   main as publicReviewMain,
   parsePublicReviewCliArgs,
+  readApprovedReviewCaseFile,
   type PublicReviewCliRuntime,
 } from "../scripts/run-public-review-eval.mts";
 
@@ -70,6 +72,7 @@ const completeSafeReportFixture: PublicReviewReport = {
     ordered_names_sha256: "c".repeat(64),
     read_only_verified: true,
   },
+  run_failure_class: null,
   cases: [],
   usage: { input_tokens: 12, output_tokens: 3, total_tokens: 15 },
   automated_result: "pass",
@@ -270,6 +273,10 @@ describe("public review evidence safety", () => {
         .toEqual(completeSafeReportFixture);
       expect(await readFile(paths.summaryMarkdown, "utf8"))
         .toContain("Automated result: PASS");
+      expect(await readFile(paths.summaryMarkdown, "utf8"))
+        .toContain("Endpoint: https://mcp.askrigor.com");
+      expect(await readFile(paths.summaryMarkdown, "utf8"))
+        .toContain(`Case file SHA-256: ${"b".repeat(64)}`);
       expect((await stat(paths.reportJson)).mode & 0o777).toBe(0o600);
       expect((await stat(paths.summaryMarkdown)).mode & 0o777).toBe(0o600);
 
@@ -404,6 +411,31 @@ describe("direct public MCP review", () => {
     expect(result).toMatchObject({ state: "fail", failure_class: "provider_result" });
   });
 
+  it("fails a positive PubMed result whose access state is rate-limited", async () => {
+    const reviewCase = makeReviewCase({
+      id: "positive-2",
+      expected_workflow: [{
+        tool: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        expected_structured_fields: ["provider", "primary_identifier", "access_status", "data.pmid"],
+      }],
+      fixtureInputs: { pmid: "13054692" },
+    });
+    const result = await runDirectCase(reviewCase, scriptedMcpSession([{
+      name: "fetch_pubmed_record",
+      arguments: { pmid: "13054692" },
+      result: {
+        structuredContent: { ...pubmedResultFixture(), access_status: "rate_limited" },
+      },
+    }]), readOnlyInventoryFixture, deterministicClock());
+
+    expect(result).toMatchObject({ state: "fail", failure_class: "provider_result" });
+    expect(result.checks).toContainEqual({
+      name: "pubmed_access_state_complete",
+      pass: false,
+    });
+  });
+
   it("uses the exact in-memory continuation token and stores only its digest", async () => {
     const value = JSON.parse(await readFile(
       new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
@@ -529,6 +561,81 @@ describe("direct public MCP review", () => {
     });
   });
 
+  it("fails a YouTube survey whose overall access state is partial", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+    const session = scriptedMcpSession([
+      {
+        name: "survey_youtube_community",
+        arguments: reviewCase.expected_workflow[0].arguments ?? {},
+        result: {
+          structuredContent: { ...surveyResultFixture(), access_status: "partial" },
+        },
+      },
+      {
+        name: "audit_youtube_video_community",
+        arguments: reviewCase.expected_workflow[1].arguments ?? {},
+        result: {
+          structuredContent: auditResultFixture({ continuation_recommended: false }),
+        },
+      },
+    ]);
+
+    const result = await runDirectCase(
+      reviewCase,
+      session,
+      readOnlyInventoryFixture,
+      deterministicClock(),
+    );
+
+    expect(result).toMatchObject({ state: "fail", failure_class: "provider_result" });
+    expect(result.checks).toContainEqual({
+      name: "youtube_survey_access_complete",
+      pass: false,
+    });
+  });
+
+  it("fails a YouTube survey target without a provider-reported comment count", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+    const survey = surveyResultFixture();
+    const candidates = survey.candidates as Array<Record<string, unknown>>;
+    delete candidates[0].provider_reported_comments;
+    const session = scriptedMcpSession([
+      {
+        name: "survey_youtube_community",
+        arguments: reviewCase.expected_workflow[0].arguments ?? {},
+        result: { structuredContent: survey },
+      },
+      {
+        name: "audit_youtube_video_community",
+        arguments: reviewCase.expected_workflow[1].arguments ?? {},
+        result: {
+          structuredContent: auditResultFixture({ continuation_recommended: false }),
+        },
+      },
+    ]);
+
+    const result = await runDirectCase(
+      reviewCase,
+      session,
+      readOnlyInventoryFixture,
+      deterministicClock(),
+    );
+
+    expect(result).toMatchObject({ state: "fail", failure_class: "provider_result" });
+    expect(result.checks).toContainEqual({
+      name: "step_1_required_fields",
+      pass: false,
+    });
+  });
+
   it("fails a YouTube comment result for a different video than the case fixture", async () => {
     const reviewCase = makeReviewCase({
       id: "positive-5",
@@ -558,6 +665,36 @@ describe("direct public MCP review", () => {
     });
   });
 
+  it("fails a positive YouTube comment result with no API-visible records", async () => {
+    const reviewCase = makeReviewCase({
+      id: "positive-5",
+      expected_workflow: [{
+        tool: "get_youtube_comments",
+        arguments: { video_id_or_url: "W42rwWD6zjw", include_replies: true },
+        expected_structured_fields: ["provider", "primary_identifier", "access_status", "data.comments"],
+      }],
+      fixtureInputs: { video_id_or_url: "W42rwWD6zjw" },
+    });
+    const result = await runDirectCase(reviewCase, scriptedMcpSession([{
+      name: "get_youtube_comments",
+      arguments: { video_id_or_url: "W42rwWD6zjw", include_replies: true },
+      result: {
+        structuredContent: {
+          provider: "youtube",
+          primary_identifier: "W42rwWD6zjw",
+          access_status: "api_visible_complete",
+          data: { comments: [] },
+        },
+      },
+    }]), readOnlyInventoryFixture, deterministicClock());
+
+    expect(result).toMatchObject({ state: "fail", failure_class: "provider_result" });
+    expect(result.checks).toContainEqual({
+      name: "youtube_comments_nonempty_and_complete",
+      pass: false,
+    });
+  });
+
   it("fails a YouTube audit when the survey did not return the selected video", async () => {
     const value = JSON.parse(await readFile(
       new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
@@ -569,6 +706,7 @@ describe("direct public MCP review", () => {
       video_id: "Different00",
       canonical_url: "https://www.youtube.com/watch?v=Different00",
       metadata_access_status: "api_visible_complete",
+      provider_reported_comments: "100",
     }];
     const result = await runDirectCase(reviewCase, scriptedMcpSession([
       {
@@ -784,6 +922,7 @@ describe("Responses API public MCP review", () => {
       model: "chat-latest",
       store: false,
       max_output_tokens: 4096,
+      max_tool_calls: 1,
       input: "Use AskRigor.",
       tools: [{
         type: "mcp",
@@ -793,6 +932,20 @@ describe("Responses API public MCP review", () => {
         allowed_tools: ["fetch_pubmed_record"],
       }],
     });
+  });
+
+  it("caps the model's actual remote calls at the case workflow length", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+
+    expect(buildResponsesRequest(
+      reviewCase,
+      readOnlyInventoryFixture,
+      "chat-latest",
+    ).max_tool_calls).toBe(3);
   });
 
   it("exposes the complete read-only inventory for unsupported-action restraint", () => {
@@ -1086,6 +1239,54 @@ describe("Responses API public MCP review", () => {
     });
   });
 
+  it("fails a nonterminal structured audit even when the survey receipt is opaque", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+    const token = "mixed-receipt-token";
+    const result = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(completedResponsesFixture([
+        {
+          name: "survey_youtube_community",
+          arguments: reviewCase.expected_workflow[0].arguments ?? {},
+          structuredContent: surveyResultFixture(),
+          outputText: "Survey completed.",
+        },
+        {
+          name: "audit_youtube_video_community",
+          arguments: reviewCase.expected_workflow[1].arguments ?? {},
+          structuredContent: auditResultFixture({
+            continuation_recommended: true,
+            continuation_token: token,
+            completion_state: "partial",
+          }),
+        },
+        {
+          name: "audit_youtube_video_community",
+          arguments: { continuation_token: token },
+          structuredContent: auditResultFixture({
+            continuation_recommended: false,
+            receipt: { completion_state: "partial", synthesis_lock: "blocked" },
+            sample: [],
+          }),
+        },
+      ])),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directContractPassed: true,
+      now: deterministicClock(),
+    });
+
+    expect(result).toMatchObject({ state: "fail", failure_class: "model_output" });
+    expect(result.checks).toContainEqual({
+      name: "terminal_youtube_audit_receipt",
+      pass: false,
+    });
+  });
+
   it("blocks a generic MCP error receipt even after direct access-boundary proof", async () => {
     const reviewCase = makeNegativeCase({
       id: "negative-2",
@@ -1280,6 +1481,11 @@ describe("Responses API public MCP review", () => {
         throw new DOMException("request timed out", "AbortError");
       },
     };
+    const httpFailureTransport: ResponsesTransport = {
+      async create() {
+        throw new OpenAiTransportError(500, "server_error");
+      },
+    };
 
     const quota = await runModelCase(reviewCase, {
       transport: quotaTransport,
@@ -1295,14 +1501,82 @@ describe("Responses API public MCP review", () => {
       signal: new AbortController().signal,
       now: deterministicClock(),
     });
+    const httpFailure = await runModelCase(reviewCase, {
+      transport: httpFailureTransport,
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      now: deterministicClock(),
+    });
 
     expect(quota).toMatchObject({ state: "blocked", failure_class: "quota_or_rate_limit" });
     expect(timeout).toMatchObject({ state: "blocked", failure_class: "timeout" });
-    expect(JSON.stringify([quota, timeout])).not.toContain("request timed out");
+    expect(httpFailure).toMatchObject({ state: "fail", failure_class: "model_transport" });
+    expect(JSON.stringify([quota, timeout, httpFailure])).not.toContain("request timed out");
   });
 });
 
 describe("public review runner orchestration", () => {
+  it("bounds and aborts a hanging MCP initialization request", async () => {
+    let capturedOptions: {
+      signal: AbortSignal;
+      timeout: number;
+      maxTotalTimeout: number;
+    } | undefined;
+    const connect = async (
+      _transport: { endpoint: string },
+      options: NonNullable<typeof capturedOptions>,
+    ): Promise<void> => {
+      capturedOptions = options;
+      await new Promise<void>((_resolve, reject) => {
+        options.signal.addEventListener("abort", () => {
+          reject(new DOMException("aborted", "AbortError"));
+        });
+      });
+    };
+
+    await expect(connectMcpClientWithinDeadline(
+      connect,
+      { endpoint: "https://mcp.askrigor.com/mcp" },
+      10,
+    )).rejects.toThrow("MCP initialization deadline expired");
+    expect(capturedOptions).toMatchObject({ timeout: 10, maxTotalTimeout: 10 });
+    expect(capturedOptions?.signal.aborted).toBe(true);
+  });
+
+  it("rejects tampered bytes at the fixed approved case path", async () => {
+    const root = await mkdtemp(join(tmpdir(), "askrigor-approved-cases-"));
+    try {
+      const caseDirectory = join(root, "docs");
+      await mkdir(caseDirectory, { recursive: true });
+      const approved = '{"positive":[],"negative":[]}\n';
+      const commit = "a".repeat(40);
+      const readCommitted = async (_workingDirectory: string, requestedCommit: string) => {
+        expect(requestedCommit).toBe(commit);
+        return approved;
+      };
+      await writeFile(
+        join(caseDirectory, "public-review-cases-v0.1.0.json"),
+        '{"positive":[{"private":"input"}],"negative":[]}\n',
+      );
+
+      await expect(readApprovedReviewCaseFile(
+        root,
+        commit,
+        readCommitted,
+      )).rejects.toThrow("approved public review case file differs from the reported commit");
+
+      await writeFile(
+        join(caseDirectory, "public-review-cases-v0.1.0.json"),
+        approved,
+      );
+      await expect(readApprovedReviewCaseFile(root, commit, readCommitted))
+        .resolves.toEqual(Buffer.from(approved));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("parses explicit live options and rejects credential arguments", () => {
     expect(parsePublicReviewCliArgs([
       "--live",
@@ -1428,6 +1702,43 @@ describe("public review runner orchestration", () => {
     }
   });
 
+  it("records MCP discovery failure in the sanitized report", async () => {
+    const root = await mkdtemp(join(tmpdir(), "askrigor-discovery-failure-"));
+    try {
+      const result = await runPublicReviewEvaluation({
+        reviewCases: [makeReviewCase({
+          id: "positive-2",
+          expected_workflow: [{
+            tool: "fetch_pubmed_record",
+            arguments: { pmid: "13054692" },
+            expected_structured_fields: ["data.pmid"],
+          }],
+          fixtureInputs: { pmid: "13054692" },
+        })],
+        mode: "direct",
+        model: "chat-latest",
+        mcpSession: {
+          async listTools() { throw new Error("discovery unavailable"); },
+          async callTool() { throw new Error("must not run"); },
+        },
+        repository: { commit: "e".repeat(40), dirty: false },
+        caseFile: {
+          path: "docs/public-review-cases-v0.1.0.json",
+          sha256: "f".repeat(64),
+        },
+        outputRoot: root,
+        runId: "20260815T070000.000Z-91abcdef",
+        startedAt: "2026-08-15T07:00:00.000Z",
+        finishedAt: () => "2026-08-15T07:01:00.000Z",
+      });
+
+      expect(result.exitCode).toBe(1);
+      expect(result.report.run_failure_class).toBe("mcp_discovery");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("blocks a model case after its direct dependency fails", async () => {
     let modelCalls = 0;
     const root = await mkdtemp(join(tmpdir(), "askrigor-orchestrator-"));
@@ -1482,6 +1793,7 @@ describe("public review runner orchestration", () => {
   it("enforces the hard per-case deadline while a direct call is still pending", async () => {
     const root = await mkdtemp(join(tmpdir(), "askrigor-orchestrator-timeout-"));
     try {
+      let operationAborted = false;
       const reviewCase = makeReviewCase({
         id: "positive-2",
         expected_workflow: [{
@@ -1499,8 +1811,13 @@ describe("public review runner orchestration", () => {
           async listTools() {
             return { tools: [{ name: "fetch_pubmed_record", annotations: readOnlyToolAnnotations }] };
           },
-          async callTool() {
-            return await new Promise<McpCallResult>(() => {});
+          async callTool(_input, signal?: AbortSignal) {
+            return await new Promise<McpCallResult>((_, reject) => {
+              signal?.addEventListener("abort", () => {
+                operationAborted = true;
+                reject(new DOMException("aborted", "AbortError"));
+              });
+            });
           },
         },
         repository: { commit: "e".repeat(40), dirty: false },
@@ -1518,6 +1835,7 @@ describe("public review runner orchestration", () => {
         failure_class: "timeout",
       });
       expect(result.exitCode).toBe(1);
+      expect(operationAborted).toBe(true);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1602,6 +1920,7 @@ function surveyResultFixture(): Record<string, unknown> {
     provider: "youtube",
     record_type: "youtube_community_survey",
     research_question: "Which approaches improve pain or function?",
+    access_status: "complete",
     searches: [],
     candidates: [{
       video_id: "W42rwWD6zjw",
