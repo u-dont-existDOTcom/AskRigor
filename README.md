@@ -254,3 +254,13 @@ portal identity, domain-verification, Scan Tools, and public submission actions
 are completed.
 See `docs/privacy-data-map.md`, `docs/public-review-checklist.md`, and
 `docs/release-evidence-v0.1.0.md` for the reviewer packet and release gates.
+
+## License
+
+AskRigor's original software is licensed under
+`AGPL-3.0-or-later`. Complete canonical protocols, health-research policy,
+research/release evidence, site editorial material, recorded fixtures, and
+archived or third-party tools are Reserved Materials outside that grant. See
+[`LICENSE.md`](LICENSE.md) for the exact path boundary and
+[`LICENSES/AGPL-3.0-or-later.txt`](LICENSES/AGPL-3.0-or-later.txt) for the
+complete license text.

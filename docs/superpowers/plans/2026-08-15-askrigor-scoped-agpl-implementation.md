@@ -38,13 +38,13 @@ only current documentation/evidence; do not rewrite historical plans.
   `LICENSES/AGPL-3.0-or-later.txt`.
 - Produces: deterministic assertions for the scope map and official text hash.
 
-- [ ] **Step 1: Write the regression**
+- [x] **Step 1: Write the regression**
 
 Require the AGPL identifier, every reserved path class, both generated-interface
 exceptions, the no-protocol-authority statement, and the exact official-text
 SHA-256.
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run `npx vitest run tests/license-posture.test.ts --reporter=verbose`.
 Expected: failure because the official text and approved scope map do not exist.
@@ -59,18 +59,18 @@ Expected: failure because the official text and approved scope map do not exist.
 - Consumes: the approved design and official GNU text.
 - Produces: an exact software reuse grant with reserved-material exclusions.
 
-- [ ] **Step 1: Replace the no-grant placeholder**
+- [x] **Step 1: Replace the no-grant placeholder**
 
 State the covered default, reserved paths, generated-interface exceptions,
 third-party boundary, protocol-authority boundary, warranty pointer, and source
 of the verbatim license text.
 
-- [ ] **Step 2: Add the official text unchanged**
+- [x] **Step 2: Add the official text unchanged**
 
 Retrieve from `https://www.gnu.org/licenses/agpl-3.0.txt`, add it only through
 `apply_patch`, and verify the required SHA-256.
 
-- [ ] **Step 3: Verify GREEN**
+- [x] **Step 3: Verify GREEN**
 
 Run `npx vitest run tests/license-posture.test.ts --reporter=verbose`.
 Expected: all licensing assertions pass.
@@ -88,13 +88,13 @@ Expected: all licensing assertions pass.
 - Consumes: the verified licensing artifacts.
 - Produces: current human guidance, recovery truth, and exact PR evidence.
 
-- [ ] **Step 1: Update only current licensing claims**
+- [x] **Step 1: Update only current licensing claims**
 
 Replace the obsolete no-license statements with the scoped AGPL decision and
 reserved-material boundary. Preserve historical evidence rather than rewriting
 old completed plans.
 
-- [ ] **Step 2: Run the exact final gates**
+- [x] **Step 2: Run the exact final gates**
 
 Run `npm run verify`, `npm run test:site`, `npm run test:site-deploy`, the
 current universal portable audit, license SHA-256, JSON/YAML/diff checks, and a

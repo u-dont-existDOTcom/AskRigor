@@ -1,9 +1,10 @@
 # Contributing
 
 AskRigor is public, critical-risk research software. Bug reports and bounded
-technical feedback are welcome. Before submitting code, protocol content, or a
-pull request, obtain explicit maintainer confirmation because contribution and
-reuse licensing terms have not been established.
+technical feedback are welcome. Contributions to Covered Software are accepted
+under `AGPL-3.0-or-later`. Obtain explicit maintainer confirmation before
+submitting anything under a Reserved Materials path; those materials are not
+covered by the software license.
 
 Before proposing a change:
 
@@ -17,9 +18,9 @@ Before proposing a change:
 
 Provider/live tests are opt-in and must never receive secrets through a public
 pull request. Substantive HRP or Universal policy changes, public release or
-submission risk, and licensing decisions require the repository owner's
-explicit decision.
+submission risk, changes to the Reserved Materials boundary, and other
+licensing decisions require the repository owner's explicit decision.
 
-The repository currently grants no public reuse license. Publication and any
-review of a proposed contribution do not by themselves grant rights to reuse
-the repository. Do not contribute material you are not authorized to submit.
+Read `LICENSE.md` before contributing. Do not contribute material you are not
+authorized to submit; third-party material remains governed by its own rights
+and notices.

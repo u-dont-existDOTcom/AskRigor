@@ -73,9 +73,14 @@ the SHA of the commit that contains it.
   require exact completion evidence.
 - `SECURITY.md` — establish the already-published private email reporting path
   while truthfully recording that hosted private reporting is disabled.
-- `CONTRIBUTING.md`, `LICENSE.md` — preserve a no-license-grant/no-unsolicited-
-  code-contribution posture without selecting a public reuse license for the
-  owner.
+- `CONTRIBUTING.md`, `LICENSE.md`, and
+  `LICENSES/AGPL-3.0-or-later.txt` — license original software under scoped
+  `AGPL-3.0-or-later` terms while keeping complete protocols, policy, evidence,
+  editorial material, fixtures, and archived/third-party tools outside the
+  grant.
+- `tests/license-posture.test.ts` — fail closed when the approved scope map,
+  protocol-authority boundary, generated-interface exceptions, or official
+  AGPL text hash drifts.
 - `docs/superpowers/plans/2026-08-14-codex-github-compliance.md` and this report
   — preserve the execution and recovery evidence outside chat.
 
@@ -102,15 +107,20 @@ Final implementation candidate:
 - `npx vitest run tests/workflow-policy.test.ts --reporter=verbose` — RED: the
   committed workflow policy falsely flagged its own detector text; GREEN: 2/2,
   including rejection of a real mapping-form `pull_request_target` checkout.
+- `npx vitest run tests/license-posture.test.ts --reporter=verbose` — RED before
+  the approved scope map and official text existed; GREEN, 1/1 after the minimal
+  licensing implementation.
 - `npm run verify` outside the loopback-restricted sandbox — PASS: typecheck,
-  40 test files passed and one credential-gated live file skipped; 778 tests
+  41 test files passed and one credential-gated live file skipped; 779 tests
   passed and five live tests skipped; build passed.
 - `npm run test:site` outside the IPC-restricted sandbox — PASS, four pages
   validated. The first sandboxed run failed only because the pinned `tsx`
   runner could not bind its temporary local IPC pipe.
 - `npm run test:site-deploy` — PASS, 28/28 tests.
-- `sha256sum protocols/HRP_Full.xml protocols/Universal_Instructions.xml` —
-  PASS, exact hashes recorded above.
+- `sha256sum LICENSES/AGPL-3.0-or-later.txt protocols/HRP_Full.xml protocols/Universal_Instructions.xml`
+  — PASS: official AGPL text
+  `0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0`;
+  exact protocol hashes recorded above.
 - `python3 /home/joel/universal-dev-architecture-worktrees/codex-github-compliance-2026-08-14/scripts/audit_codex_github.py --root . --fail-on error`
   — PASS, zero errors and four truthful warnings for unverified hosted controls.
 - `python3 -m json.tool .github/codex-repository.json` — PASS.
@@ -166,8 +176,9 @@ which must remain open until direct settings/API evidence exists.
 - Applicable critical-risk hosted controls remain absent, disabled, or
   inaccessible to the current integration. The stable check must succeed on the
   PR head before an authenticated administrator makes it required.
-- Selecting a public reuse license remains an owner decision; this branch only
-  documents the existing no-license-grant posture.
+- The owner selected scoped `AGPL-3.0-or-later` coverage for original software.
+  The license boundary is regression-tested and does not change canonical
+  protocol or health-research authority.
 - Existing public-release gates and the candidate-versus-production distinction
   remain unresolved by design and are not accepted through this compliance PR.
 - No fake solo-maintainer approval rule is proposed.
@@ -176,7 +187,8 @@ which must remain open until direct settings/API evidence exists.
 ## Lesson closeout
 
 - `project-specific`: AskRigor's protocol wording, research routing, current
-  release candidate, and public-submission decisions remain in AskRigor.
+  release candidate, public-submission decisions, and scoped software-license
+  boundary remain in AskRigor.
 - `promoted`: exact-byte authority, truthful partial-access states, bounded
   opt-in live validation, public read-only MCP safety, and structure-aware
   secret detection are recorded with exact source hashes, limits, tests, and
