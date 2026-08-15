@@ -3,21 +3,21 @@
 This packet is prepared for a future plugin draft. It is not permission to submit
 or publish. The website/privacy/terms/support gate passed on 2026-08-12 for
 immutable site release `f928b95e29cd`.
-The live August 12 policy at release `f928b95e29cd` is the pre-lesson notice.
-The August 13 lesson notice is prepared in this branch but is not yet deployed.
+The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.
+The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
 the separate routine-status presentation regression, portal identity and
 domain-verification work, Scan Tools review, and submission actions recorded in
 `docs/release-evidence-v0.1.0.md`.
 
-## Optional lesson Action release-candidate truth
+## Optional lesson Action deployment truth
 
-The consequential Custom GPT lesson Action is implemented in this branch but is
-**not yet deployed**. The August 13, 2026 privacy/terms candidate, private queue
-provisioning, exact GitHub App permission audit, protected server credentials,
-synthetic submission and duplicate, live `npm run lessons:status`, and rollback
-evidence remain Task 10 gates. No local test or documentation update is
-production release evidence.
+The consequential Custom GPT lesson Action is deployed from exact revision
+`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. The August 13, 2026 privacy/terms
+notice, private queue provisioning, exact GitHub App permission audit, protected
+server credentials, synthetic submission and append-only duplicate, live
+`npm run lessons:status`, failure isolation, and rollback evidence passed the
+bounded production acceptance in `docs/release-evidence-v0.1.0.md`.
 
 The lesson Action is separate from the read-only MCP inventory. It does not add
 an MCP tool or change MCP schemas, provider behavior, or research semantics.
@@ -111,9 +111,11 @@ comment/reply corpus. For a deliberately oversized corpus it returned
 within the default MCP request deadline; it did not relabel the unseen corpus as
 complete.
 
-The current local release candidate advertises 17 tools. Its two adaptive tools
-and updated inventory must not be described as deployed until rollout and fresh
-production discovery complete.
+Fresh production acceptance on 2026-08-14 returned the exact existing 17-tool
+inventory in source order; its ordered-name SHA-256 is
+`5719a8539fbf75c8bb2db58fc5aa7849c8ed307216544c221ab602bf7b983b29`.
+The consequential lesson submission endpoint remains a separate Custom GPT
+Action and is not counted as an MCP tool.
 
 ## Reviewer data and state boundary
 

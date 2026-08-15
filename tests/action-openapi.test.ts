@@ -165,4 +165,17 @@ describe("Action OpenAPI document", () => {
 
     expect(document.paths["/actions/test"]!.post.responses["429"]!.headers).toBeUndefined();
   });
+
+  it("does not mutate object prototypes when constructing route paths", () => {
+    expect(Object.prototype).not.toHaveProperty("post");
+    try {
+      createActionOpenApiDocument([{
+        ...routes[0],
+        path: "__proto__"
+      }]);
+      expect(Object.prototype).not.toHaveProperty("post");
+    } finally {
+      delete (Object.prototype as { post?: unknown }).post;
+    }
+  });
 });

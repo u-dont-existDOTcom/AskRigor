@@ -1,13 +1,37 @@
 # Default owner
 * @u-dont-existDOTcom
 
-# Critical protocol, research, automation, and release paths
+# Repository policy and recovery
 /.github/ @u-dont-existDOTcom
 /AGENTS.md @u-dont-existDOTcom
+/CURRENT-STATE.md @u-dont-existDOTcom
+/SECURITY.md @u-dont-existDOTcom
+/CONTRIBUTING.md @u-dont-existDOTcom
+/LICENSE.md @u-dont-existDOTcom
+
+# Complete protocol bytes and byte-derived integrity behavior
+/protocols/ @u-dont-existDOTcom
+/packages/protocol/ @u-dont-existDOTcom
+/tests/protocol.test.ts @u-dont-existDOTcom
+
+# Research routing, source-access truth, and public MCP security
 /project/ @u-dont-existDOTcom
+/packages/contracts/ @u-dont-existDOTcom
+/packages/sources/ @u-dont-existDOTcom
+/apps/research-mcp/ @u-dont-existDOTcom
+/tests/ @u-dont-existDOTcom
+
+# Release, deployment, privacy, and review evidence
 /ops/ @u-dont-existDOTcom
-/apps/ @u-dont-existDOTcom
-/packages/ @u-dont-existDOTcom
+/scripts/ @u-dont-existDOTcom
+/docs/INDEX.md @u-dont-existDOTcom
+/docs/privacy-data-map.md @u-dont-existDOTcom
+/docs/live-validation-v3.md @u-dont-existDOTcom
+/docs/public-review-checklist.md @u-dont-existDOTcom
+/docs/public-review-cases-v0.1.0.json @u-dont-existDOTcom
+/docs/release-evidence-v0.1.0.md @u-dont-existDOTcom
+/docs/tool-inventory-v0.1.0.json @u-dont-existDOTcom
+/site/ @u-dont-existDOTcom
 /package.json @u-dont-existDOTcom
 /package-lock.json @u-dont-existDOTcom
 /Dockerfile* @u-dont-existDOTcom

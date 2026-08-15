@@ -1,7 +1,6 @@
 # Install the AskRigor conversation files
 
-These source-controlled files serve two distinct ChatGPT installation surfaces.
-Updating GitHub or the MCP server does not update an existing ChatGPT Project automatically, and it does not update an existing Custom GPT automatically.
+These source-controlled files serve two distinct ChatGPT installation surfaces. Updating GitHub or the MCP server does not update an existing ChatGPT Project automatically, and it does not update an existing Custom GPT automatically.
 
 `AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs.
 
@@ -24,3 +23,9 @@ After changing either installation, start a new chat. Existing chats do not acqu
 ChatGPT remains the reasoning engine. AskRigor MCP supplies deterministic
 read-only retrieval and stateless continuation; only the separately installed,
 consequential Custom GPT Action can submit an anonymized lesson candidate.
+
+These conversation files route work but do not replace or summarize the complete
+canonical `../protocols/HRP_Full.xml` or
+`../protocols/Universal_Instructions.xml`. Current explicit owner correction
+and those complete files remain authoritative over Project text, manifests,
+release records, checkpoints, or lessons.

@@ -1,8 +1,8 @@
 # AskRigor v0 data map and privacy review
 
-Status at 2026-08-13: this remains the detailed engineering inventory.
+Status at 2026-08-14: this remains the detailed engineering inventory.
 The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.
-The August 13, 2026 lesson notice is prepared and committed in this release candidate but is not live until Task 10 deploys and verifies it.
+The August 13, 2026 lesson notice is live and was reverified before the lesson Action was enabled.
 
 ## Purpose and boundary
 
@@ -19,9 +19,9 @@ AskRigor has two deliberately separate processing paths:
   occurrence metadata. It is not an MCP operation and cannot change code,
   protocols, instructions, providers, or releases.
 
-The lesson path is implemented in this release candidate but is not yet
-deployed. Task 10 provisioning and live acceptance remain required before any
-production lesson submission claim.
+The lesson path is deployed from exact code revision
+`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` and passed its bounded synthetic
+submission, append-only duplicate, failure-isolation, and rollback acceptance.
 
 ## Data returned to the MCP client
 
@@ -50,7 +50,7 @@ the authoritative companion to this human-readable data map.
 Public YouTube author/channel IDs, optional display names, and comment text can be
 personal data even when made public by the author. The live pre-lesson notice
 specifically discloses this research processing and its API-visible-only
-limitation; the prepared August 13 notice preserves that disclosure and adds the
+limitation; the live August 13 notice preserves that disclosure and adds the
 lesson boundary.
 
 The optional continuation token contains only the video identifier, upstream
@@ -197,8 +197,8 @@ history, transcript store, user profile, or automatic-learning database.
 
 The stable HTTPS policy at `https://askrigor.com/privacy` was independently
 verified on 2026-08-12 against immutable release `f928b95e29cd` for the
-read-only research service. The August 13, 2026 notice in this release candidate
-adds the optional lesson disclosure and must be deployed and reverified before
-the lesson Action is enabled. Keep this internal map as the more detailed
-implementation inventory and re-review the live notice whenever processing
-changes.
+read-only research service. The August 13, 2026 lesson disclosure from source
+commit `56d13b73e74c377cfd6d513a5f4ceeec9949e0bf` was later deployed and
+reverified before the lesson Action was enabled. Keep this internal map as the
+more detailed implementation inventory and re-review the live notice whenever
+processing changes.

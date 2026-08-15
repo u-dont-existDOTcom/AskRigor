@@ -29,13 +29,14 @@ const TOOL_NAMES = [
 
 describe("AskRigor public-review packet", () => {
   it("documents the exact lesson data, setup, and rollback boundary", async () => {
-    const [setup, privacyMap, privacySite, readme, checklist, openApi] = await Promise.all([
+    const [setup, privacyMap, privacySite, readme, checklist, openApi, releaseEvidence] = await Promise.all([
       readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
       readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
       readFile(rootFile("site/privacy/index.html"), "utf8"),
       readFile(rootFile("README.md"), "utf8"),
       readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-action-openapi.json"), "utf8"),
+      readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
     ]);
 
     const environmentRows = new Map(
@@ -117,7 +118,8 @@ describe("AskRigor public-review packet", () => {
 
     for (const document of [readme, checklist]) {
       expect(document).toContain("lesson Action");
-      expect(document).toContain("not yet deployed");
+      expect(document).toContain("deployed");
+      expect(document).not.toContain("not yet deployed");
       expect(document).toContain("existing chats");
       expect(document).toContain("MCP");
     }
@@ -128,19 +130,20 @@ describe("AskRigor public-review packet", () => {
       "The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.",
     );
     expect(privacyMap).toContain(
-      "The August 13, 2026 lesson notice is prepared and committed in this release candidate but is not live until Task 10 deploys and verifies it.",
+      "The August 13, 2026 lesson notice is live and was reverified before the lesson Action was enabled.",
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
     expect(privacySite).toContain("Effective August 13, 2026");
     expect(privacySite).toContain("Optional lesson feedback");
-    expect(readme).toContain("This Action is implemented locally but is **not yet deployed**.");
+    expect(readme).toContain("The lesson Action is deployed and live-accepted");
     expect(checklist).toContain(
-      "The live August 12 policy at release `f928b95e29cd` is the pre-lesson notice.",
+      "The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.",
     );
     expect(checklist).toContain(
-      "The August 13 lesson notice is prepared in this branch but is not yet deployed.",
+      "The August 13 lesson notice is deployed and live-accepted.",
     );
+    expect(releaseEvidence).toContain("56d13b73e74c377cfd6d513a5f4ceeec9949e0bf");
   });
 
   it("distinguishes transient research logs from the aggregate lesson budget ledger", async () => {

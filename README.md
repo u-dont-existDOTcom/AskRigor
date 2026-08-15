@@ -3,9 +3,36 @@
 AskRigor v0 is a protocol-aware research plugin with a read-only, deterministic
 Model Context Protocol (MCP) server. The server exposes protocol manifests and
 source adapters; it does not provide medical interpretation or treatment advice.
-The current release candidate also contains a separate, consequential Custom
-GPT lesson Action for optional, consented private feedback. That lesson Action
-is not yet deployed and is not an MCP tool.
+Production also contains a separate, consequential Custom GPT lesson Action for
+optional, consented private feedback. That deployed Action is not an MCP tool
+and cannot modify AskRigor code, protocols, instructions, or releases.
+
+## Authority and source map
+
+AskRigor uses this order when sources disagree:
+
+1. current explicit owner correction;
+2. the exact complete bytes of `protocols/HRP_Full.xml` and
+   `protocols/Universal_Instructions.xml`;
+3. byte-derived protocol manifests and integrity behavior in
+   `packages/protocol/src/index.ts` and `tests/protocol.test.ts`;
+4. the Project router and required module in `project/`;
+5. source-access contracts and adapters in `packages/contracts/` and
+   `packages/sources/`, then the public MCP implementation in
+   `apps/research-mcp/`;
+6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
+7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
+
+The current canonical files identify HRP `20.5.17` (2026-08-13), SHA-256
+`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
+and Universal Instructions `20.5.11` (2026-08-07), SHA-256
+`1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`.
+Those values are descriptive receipts derived from the exact XML bytes, not
+substitutes for the files. A README, manifest, router, lesson, checkpoint,
+release record, generated excerpt, or remembered summary never silently
+replaces, truncates, or amends a complete protocol. Candidate evidence also
+does not describe production until the documented release gates and rollout
+acceptance pass.
 
 ## Requirements and verification
 
@@ -135,7 +162,8 @@ credentials are ready.
 
 Protocol version and SHA-256 values are derived from the canonical XML bytes at
 runtime. Replacing a valid protocol file therefore updates its manifest without
-source-code changes.
+source-code changes, but a protocol change remains a substantive owner-reviewed
+change and must pass the protocol integrity and semantic regressions.
 
 ## ChatGPT Developer Mode connection
 
@@ -184,7 +212,7 @@ ChatGPT billing and is capped server-side at $50.00 per UTC month.
 After deployment, refresh the developer-mode connection and start a new Project
 chat so the new tool metadata and Project instructions are active.
 
-## Custom GPT lesson Action release candidate
+## Custom GPT lesson Action
 
 The lesson Action accepts only a separately consented, generalized candidate,
 runs deterministic and fixed-model privacy checks, and writes only to a private
@@ -193,26 +221,27 @@ does not change the 17-tool read-only MCP inventory. Setup, secret handling,
 synthetic acceptance, queue status, rollback, and key rotation are documented
 in `docs/custom-gpt-actions-setup.md`.
 
-This Action is implemented locally but is **not yet deployed**. Task 10 must
-deploy the August 13 privacy notice, provision and audit the private queue,
-install protected runtime credentials, run one synthetic submission and its
-idempotent duplicate, and record rollback evidence before release. Updating the
-server or instructions does not retrofit existing chats with standing consent;
-start a new Custom GPT chat after installation. Disabling the Action or revoking
-its repository-scoped App stops new lessons while MCP remains available and
-unchanged.
+The lesson Action is deployed and live-accepted from exact code revision
+`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. Its August 13 privacy notice,
+private queue, least-privilege GitHub App, protected runtime credentials,
+synthetic submission and append-only duplicate, failure isolation, queue status,
+and rollback path passed the bounded acceptance recorded in
+`docs/release-evidence-v0.1.0.md`. Updating the server or instructions does not
+retrofit existing chats with standing consent; start a new Custom GPT chat after
+installation. Disabling the Action or revoking its repository-scoped App stops
+new lessons while MCP remains available and unchanged.
 
 ## Public-review status
 
-The deployed MCP connector has recorded Inspector and ChatGPT Developer Mode
-evidence for the prior 15-tool release. This release candidate serves canonical
-HRP `20.5.17` (2026-08-13), SHA-256
+The deployed MCP connector serves the exact existing 17-tool read-only inventory
+and the separate Action route. Production serves canonical HRP `20.5.17`
+(2026-08-13), SHA-256
 `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
 with the independent community-evidence weighting invariant and adaptive
-YouTube regressions. Production remains on the prior release until this
-candidate passes verification and rollout acceptance. The
-website/privacy/terms/support gate passed on 2026-08-12 for site
-release `f928b95e29cd`: `https://askrigor.com/`,
+YouTube regressions. The original website/privacy/terms/support gate passed on
+2026-08-12 for site release `f928b95e29cd`, and the August 13 lesson disclosure
+was later deployed and reverified before Action activation:
+`https://askrigor.com/`,
 `https://askrigor.com/privacy`, `https://askrigor.com/terms`, and
 `https://askrigor.com/support` all passed direct HTTPS acceptance. The manifest
 now carries the schema-supported website, privacy-policy, and terms URLs; support
@@ -225,3 +254,13 @@ portal identity, domain-verification, Scan Tools, and public submission actions
 are completed.
 See `docs/privacy-data-map.md`, `docs/public-review-checklist.md`, and
 `docs/release-evidence-v0.1.0.md` for the reviewer packet and release gates.
+
+## License
+
+AskRigor's original software is licensed under
+`AGPL-3.0-or-later`. Complete canonical protocols, health-research policy,
+research/release evidence, site editorial material, recorded fixtures, and
+archived or third-party tools are Reserved Materials outside that grant. See
+[`LICENSE.md`](LICENSE.md) for the exact path boundary and
+[`LICENSES/AGPL-3.0-or-later.txt`](LICENSES/AGPL-3.0-or-later.txt) for the
+complete license text.

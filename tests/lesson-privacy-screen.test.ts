@@ -31,8 +31,8 @@ describe("deterministic lesson privacy screen", () => {
   it.each([
     ["contact me@example.com for evidence", "direct_identifier"],
     ["call +1 (415) 555-0123 before changing the response", "direct_identifier"],
-    ["credential sk-abcdefghijklmnopqrstuvwxyz0123456789 is not evidence", "secret_like_data"],
-    ["token ghp_abcdefghijklmnopqrstuvwxyz0123456789 is not evidence", "secret_like_data"],
+    ["credential " + "sk-" + "abcdefghijklmnopqrstuvwxyz0123456789 is not evidence", "secret_like_data"],
+    ["token " + "gh" + "p_" + "abcdefghijklmnopqrstuvwxyz0123456789 is not evidence", "secret_like_data"],
     ["key AIzaSyDUMMYabcdefghijklmnopqrstuvwxyz012345 is not evidence", "secret_like_data"],
     ["-----BEGIN PRIVATE KEY----- do not retain this material", "secret_like_data"],
     ["The reported case at 123 Main Street requires a general lesson", "direct_identifier"],

@@ -22,7 +22,7 @@ Scan Tools, and submission actions are resolved.
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
 | Historical live-provider suite | `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`; source `9d1d751`; retained as the initial provider-green run whose wrapper had an ANSI false negative. |
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
-| Public site source | `f928b95e29cd` (`fix: rollback site activation on signals`), including the reviewed privacy-retention and transactional-upgrade corrections; immutable VPS release `/opt/askrigor/site/releases/f928b95e29cd`. |
+| Public site source | Current lesson-disclosure source `56d13b73e74c377cfd6d513a5f4ceeec9949e0bf` (`fix: scope lesson logging disclosure`), activated as site release `56d13b73e74c`; prior immutable research-only release `/opt/askrigor/site/releases/f928b95e29cd` remains historical rollback evidence. |
 | Public site packet | SHA-256 `ac49ecccf264f821e75212ad817dc9e3070600c931732222cc72ca552b25919e`; initial TLS-bootstrap evidence `/opt/askrigor/site/bootstrap/20260812T043156Z-3nU8HLDE/evidence`. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs. The support URL remains release/submission documentation because the schema exposes no support-URL field. |
 
@@ -155,6 +155,12 @@ The v5 scanner accepted and published a sanitized log, but Vitest exited before 
 Controller-run remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845` is green. The archive checksum and clean image build passed; the server-side scanner accepted the log; and the ANSI-safe parser accepted process exit 0, exactly `Test Files 1 passed (1)`, exactly `Tests 5 passed (5)`, and zero skipped tests. The evidence-side relative checksum verified with `(cd evidence && sha256sum -c provider-test.log.sha256)`, and `status.txt` reported `Live suite v6 accepted`. This is recorded remote evidence; this worktree did not rerun providers or access runtime secrets.
 
 ## Anonymized Lesson Action live acceptance — 2026-08-14
+
+Before Action traffic was enabled, the transactional site installer activated
+the August 13 privacy/terms disclosure from source commit
+`56d13b73e74c377cfd6d513a5f4ceeec9949e0bf` as site release
+`56d13b73e74c`, recreated only Caddy, and preserved the research container.
+All four public pages passed the release archive and direct HTTPS acceptance.
 
 The append-only duplicate path was accepted from exact code revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. Its secret-free source archive
