@@ -394,7 +394,7 @@ describe("AskRigor public-review packet", () => {
         return typeof args?.video_id_or_url === "string" ? [args.video_id_or_url] : [];
       })
     );
-    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag", "4x1fl67d_Ag"]);
+    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag", "W42rwWD6zjw"]);
     expect(negativeYoutubeIds).toEqual(["00000000000"]);
     expect(positiveYoutubeIds.some((id) => negativeYoutubeIds.includes(id))).toBe(false);
 

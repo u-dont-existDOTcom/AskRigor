@@ -578,6 +578,38 @@ describe("resumable YouTube comment segments", () => {
     expect(JSON.stringify(result)).not.toContain(YOUTUBE.apiKey);
   });
 
+  it("accepts the live comments.list ID-filter shape without pageInfo or snippet.videoId", async () => {
+    const ids = ["UgxLiveShape0001", "UgxLiveShape0002"];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const requested = new URL(String(input)).searchParams.get("id")?.split(",") ?? [];
+      return Response.json({
+        kind: "youtube#commentListResponse",
+        etag: "public-response-etag",
+        items: requested.map((id) => ({
+          kind: "youtube#comment",
+          id,
+          snippet: {
+            textDisplay: `comment ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }))
+      });
+    }));
+
+    const result = await getYoutubeCommentsByIds("XpZHKGGCK-o", ids, YOUTUBE);
+
+    expect(result).toMatchObject({
+      access_status: "api_visible_complete",
+      comments: [
+        { comment_id: ids[0], video_id: "XpZHKGGCK-o" },
+        { comment_id: ids[1], video_id: "XpZHKGGCK-o" }
+      ],
+      limitations: []
+    });
+  });
+
   it("refetches provider-valid dotted reply IDs", async () => {
     const id = "UgxRequested.replyPart";
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({

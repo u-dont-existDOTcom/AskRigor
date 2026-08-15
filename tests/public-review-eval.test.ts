@@ -443,6 +443,42 @@ describe("direct public MCP review", () => {
     });
   });
 
+  it("fails a terminal YouTube audit for a different video than the case fixture", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+    const session = scriptedMcpSession([
+      {
+        name: "survey_youtube_community",
+        arguments: reviewCase.expected_workflow[0].arguments ?? {},
+        result: { structuredContent: surveyResultFixture() },
+      },
+      {
+        name: "audit_youtube_video_community",
+        arguments: reviewCase.expected_workflow[1].arguments ?? {},
+        result: { structuredContent: auditResultFixture({
+          video_id: "Different00",
+          continuation_recommended: false,
+        }) },
+      },
+    ]);
+
+    const result = await runDirectCase(
+      reviewCase,
+      session,
+      readOnlyInventoryFixture,
+      deterministicClock(),
+    );
+
+    expect(result).toMatchObject({ state: "fail", failure_class: "provider_result" });
+    expect(result.checks).toContainEqual({
+      name: "youtube_audit_identity_matches_fixture",
+      pass: false,
+    });
+  });
+
   it("passes only an input-schema rejection for invalid PMID zero", async () => {
     const reviewCase = makeNegativeCase({
       id: "negative-1",
@@ -1245,7 +1281,7 @@ function surveyResultFixture(): Record<string, unknown> {
     research_question: "Which approaches improve pain or function?",
     searches: [],
     candidates: [{
-      canonical_url: "https://www.youtube.com/watch?v=4x1fl67d_Ag",
+      canonical_url: "https://www.youtube.com/watch?v=W42rwWD6zjw",
       title: "Hip osteoarthritis experience",
       channel_title: "Public channel",
       published_at: "2020-01-01T00:00:00Z",
@@ -1262,8 +1298,8 @@ function auditResultFixture(
   return {
     provider: "youtube",
     record_type: "youtube_video_community_audit",
-    video_id: "4x1fl67d_Ag",
-    canonical_url: "https://www.youtube.com/watch?v=4x1fl67d_Ag",
+    video_id: "W42rwWD6zjw",
+    canonical_url: "https://www.youtube.com/watch?v=W42rwWD6zjw",
     title: "Hip osteoarthritis experience",
     channel_title: "Public channel",
     published_at: "2020-01-01T00:00:00Z",

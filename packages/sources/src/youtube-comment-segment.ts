@@ -55,6 +55,15 @@ const replyPageSchema = z.object({
   items: z.array(providerCommentSchema)
 }).passthrough();
 
+const commentIdListSchema = z.object({
+  nextPageToken: z.string().min(1).optional(),
+  pageInfo: z.object({
+    totalResults: z.number().int().nonnegative().optional(),
+    resultsPerPage: z.number().int().nonnegative()
+  }).passthrough().optional(),
+  items: z.array(providerCommentSchema)
+}).passthrough();
+
 export interface YoutubeCommentSegmentCursor {
   top_level_page_token?: string;
   page_fingerprint?: string;
@@ -661,7 +670,7 @@ export async function getYoutubeCommentsByIds(
         maxRetries: 0,
         timeoutMs: Math.max(1, maxElapsedMs - elapsedMs)
       });
-      const parsed = replyPageSchema.safeParse(payload);
+      const parsed = commentIdListSchema.safeParse(payload);
       if (!parsed.success || parsed.data.nextPageToken !== undefined) {
         return invalidCommentIdRefetch(comments);
       }
@@ -671,7 +680,7 @@ export async function getYoutubeCommentsByIds(
         if (
           !requested.has(item.id) ||
           returned.has(item.id) ||
-          item.snippet.videoId !== videoId ||
+          (item.snippet.videoId !== undefined && item.snippet.videoId !== videoId) ||
           parentId === item.id
         ) {
           return invalidCommentIdRefetch(comments);

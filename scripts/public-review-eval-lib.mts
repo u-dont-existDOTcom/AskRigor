@@ -1206,6 +1206,13 @@ function validatePositiveSemantics(
   if (reviewCase.id === "positive-6") {
     const final = results.at(-1);
     const completionState = getDottedValue(final, "receipt.completion_state");
+    const expectedVideoId = reviewCase.fixture.inputs.video_id_or_url;
+    checks.push({
+      name: "youtube_audit_identity_matches_fixture",
+      pass: typeof expectedVideoId === "string" &&
+        results.length >= 2 &&
+        results.slice(1).every((result) => getDottedValue(result, "video_id") === expectedVideoId),
+    });
     checks.push({
       name: "terminal_youtube_audit_receipt",
       pass: getDottedValue(final, "continuation_recommended") === false &&
