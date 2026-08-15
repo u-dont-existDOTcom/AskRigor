@@ -9,8 +9,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; active task branch: `codex/public-review-ui-evidence-2026-08-15`
-- Current `origin/main`: `e63a0f73ec28a4b91673eed768d8e72f41986418`
+- Canonical branch: `main`; no active application change remains
+- Verified main boundary containing the interface evidence: `287bac798f9e61568b56194385e43a21b899a4f8`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
 - Byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`
@@ -75,6 +75,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   card; that presentation limitation remains declared.
 - Lesson closeout for this acceptance is project-specific / no-new-lesson; the
   three-layer proof distinction was already promoted and tested universally.
+- PR #10 merged the interface evidence into `main` as
+  `287bac798f9e61568b56194385e43a21b899a4f8`. Post-merge deterministic
+  verification, workflow policy, and both CodeQL analyses passed on that exact
+  merge commit.
 
 ## Current checkpoint
 
@@ -92,8 +96,6 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- Merge this bounded UI-evidence update after its deterministic and policy
-  checks pass.
 - Confirm developer/business identity and the portal HTTPS domain challenge.
 - Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 17 tools
   with the committed inventory, and review the portal's response/privacy output.
@@ -126,10 +128,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Verify and merge the bounded UI-evidence update, then open the OpenAI identity
-portal in the owner's signed-in browser and confirm whether `askrigor.com` is
-verified or copy the exact public DNS challenge for automated DNS validation.
+Open the OpenAI identity portal in the owner's signed-in browser and confirm
+whether `askrigor.com` is verified or copy the exact public DNS challenge for
+automated DNS validation.
 
 ## Recovery rule
 
-After interruption, inspect actual Git state, this checkpoint, complete protocol files, current release evidence, the merged PR #9, issue #6, and newer owner instructions. Resume from the latest verified boundary without touching the dirty original checkout or repeating live production acceptance.
+After interruption, inspect actual Git state, this checkpoint, complete protocol files, current release evidence, merged PRs #9 and #10, issue #6, and newer owner instructions. Resume from the latest verified boundary without touching the dirty original checkout or repeating live production acceptance.
