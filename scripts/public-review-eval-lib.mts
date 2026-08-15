@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
+import { basename, join, resolve } from "node:path";
 
 import { z } from "zod";
 
@@ -79,6 +81,79 @@ export interface FieldInspection {
   present: boolean;
   type?: "array" | "boolean" | "null" | "number" | "object" | "string";
   count?: number;
+}
+
+export type AutomatedState = "pass" | "fail" | "blocked";
+
+export type FailureClass = "case_contract" | "mcp_discovery" | "mcp_schema" |
+  "provider_result" | "model_transport" | "model_tool_selection" |
+  "model_output" | "quota_or_rate_limit" | "timeout" |
+  "artifact_safety" | "unexpected_internal_error";
+
+export interface OmittedValueEvidence {
+  omitted: true;
+  byte_length: number;
+  sha256: string;
+}
+
+export interface SafeCallEvidence {
+  tool: string;
+  arguments: Record<string, unknown>;
+  fields: Record<string, FieldInspection | OmittedValueEvidence>;
+  error?: { code: string; message?: string };
+}
+
+export interface CaseLaneResult {
+  lane: "direct" | "model";
+  state: AutomatedState;
+  failure_class?: FailureClass;
+  checks: Array<{ name: string; pass: boolean; detail?: string }>;
+  calls: SafeCallEvidence[];
+  duration_ms: number;
+  usage?: { input_tokens: number; output_tokens: number; total_tokens: number };
+  returned_model?: string;
+}
+
+export interface SafeInventoryEvidence {
+  tool_names: string[];
+  ordered_names_sha256: string;
+  read_only_verified: true;
+}
+
+export interface CaseReport {
+  id: string;
+  group: ReviewGroup;
+  direct: CaseLaneResult | null;
+  model: CaseLaneResult | null;
+  interface_status: "pending" | "pass" | "fail" | "not_applicable";
+}
+
+export interface PublicReviewReport {
+  schema_version: "askrigor-public-review-eval/v1";
+  run_id: string;
+  repository: { commit: string; dirty: boolean };
+  case_file: { path: string; sha256: string };
+  endpoint_origin: "https://mcp.askrigor.com";
+  model: { requested: string; returned: string[] };
+  started_at: string;
+  finished_at: string | null;
+  inventory: SafeInventoryEvidence | null;
+  cases: CaseReport[];
+  usage: { input_tokens: number; output_tokens: number; total_tokens: number };
+  automated_result: "pass" | "fail" | "incomplete";
+}
+
+export interface EvidenceWriteOptions {
+  outputRoot: string;
+  report: PublicReviewReport;
+  activeSecret?: string;
+}
+
+export interface EvidenceBundlePaths {
+  directory: string;
+  reportJson: string;
+  summaryMarkdown: string;
+  sha256Manifest: string;
 }
 
 export function parseReviewCaseSet(value: unknown): ReviewCaseSet {
@@ -185,6 +260,57 @@ export function sha256(value: string | Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+export function digestOmittedValue(value: unknown): OmittedValueEvidence {
+  const serialized = typeof value === "string" ? value : JSON.stringify(value);
+  if (serialized === undefined) throw new Error("cannot digest an undefined value");
+  return {
+    omitted: true,
+    byte_length: Buffer.byteLength(serialized, "utf8"),
+    sha256: sha256(serialized),
+  };
+}
+
+export function scanEvidenceSafety(value: unknown, activeSecret?: string): void {
+  scanEvidenceValue(value, "$", activeSecret);
+}
+
+export async function writeEvidenceBundle(
+  options: EvidenceWriteOptions,
+): Promise<EvidenceBundlePaths> {
+  if (!/^[0-9]{8}T[0-9]{6}\.[0-9]{3}Z-[a-f0-9]{8}$/.test(options.report.run_id)) {
+    throw new Error("invalid evidence run id");
+  }
+
+  scanEvidenceSafety(options.report, options.activeSecret);
+  const reportJson = `${JSON.stringify(options.report, null, 2)}\n`;
+  const summary = renderEvidenceSummary(options.report);
+  scanEvidenceSafety({ summary }, options.activeSecret);
+
+  const outputRoot = resolve(options.outputRoot);
+  const directory = join(outputRoot, options.report.run_id);
+  await mkdir(directory, { recursive: true, mode: 0o700 });
+  await chmod(directory, 0o700);
+
+  const reportPath = join(directory, "report.json");
+  const summaryPath = join(directory, "SUMMARY.md");
+  const manifestPath = join(directory, "SHA256SUMS");
+  await writeAtomic(reportPath, reportJson);
+  await writeAtomic(summaryPath, summary);
+
+  const manifest = [
+    `${sha256(reportJson)}  ${basename(reportPath)}`,
+    `${sha256(summary)}  ${basename(summaryPath)}`,
+  ].join("\n") + "\n";
+  await writeAtomic(manifestPath, manifest);
+
+  return {
+    directory,
+    reportJson: reportPath,
+    summaryMarkdown: summaryPath,
+    sha256Manifest: manifestPath,
+  };
+}
+
 function normalizeCase(
   raw: z.infer<typeof rawReviewCaseSchema>,
   group: ReviewGroup,
@@ -266,6 +392,82 @@ function valueType(value: unknown): FieldInspection["type"] {
     return typeof value;
   }
   return undefined;
+}
+
+function scanEvidenceValue(
+  value: unknown,
+  path: string,
+  activeSecret: string | undefined,
+): void {
+  if (typeof value === "string") {
+    if (
+      activeSecret !== undefined &&
+      activeSecret.length >= 8 &&
+      value.includes(activeSecret)
+    ) {
+      throw new Error(`evidence contains the active secret at ${path}`);
+    }
+    if (/sk-[A-Za-z0-9_-]{20,}/.test(value)) {
+      throw new Error(`evidence contains a credential-like value at ${path}`);
+    }
+    if (value.includes("<?xml") || value.includes("<Protocol")) {
+      throw new Error(`evidence contains protocol XML at ${path}`);
+    }
+    if (Buffer.byteLength(value, "utf8") > 2_048) {
+      throw new Error(`evidence contains an oversized string at ${path}`);
+    }
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) =>
+      scanEvidenceValue(entry, `${path}[${index}]`, activeSecret)
+    );
+    return;
+  }
+
+  if (!isRecord(value)) return;
+  for (const [key, entry] of Object.entries(value)) {
+    const entryPath = `${path}.${key}`;
+    const normalizedKey = key.toLowerCase();
+    if (
+      normalizedKey === "authorization" ||
+      normalizedKey === "api_key" ||
+      normalizedKey === "apikey" ||
+      normalizedKey === "openai_api_key" ||
+      normalizedKey === "continuation_token"
+    ) {
+      throw new Error(`evidence contains a forbidden key at ${entryPath}`);
+    }
+    scanEvidenceValue(entry, entryPath, activeSecret);
+  }
+}
+
+function renderEvidenceSummary(report: PublicReviewReport): string {
+  const directPasses = report.cases.filter((entry) => entry.direct?.state === "pass").length;
+  const modelPasses = report.cases.filter((entry) => entry.model?.state === "pass").length;
+  return [
+    "# AskRigor public review evaluation",
+    "",
+    `Run: ${report.run_id}`,
+    `Commit: ${report.repository.commit}${report.repository.dirty ? " (dirty)" : ""}`,
+    `Automated result: ${report.automated_result.toUpperCase()}`,
+    `Direct passes: ${directPasses}`,
+    `Model passes: ${modelPasses}`,
+    `Cases selected: ${report.cases.length}`,
+    `Requested model: ${report.model.requested}`,
+    `Returned models: ${report.model.returned.join(", ") || "none"}`,
+    "ChatGPT interface check: separate manual acceptance",
+    "",
+  ].join("\n");
+}
+
+async function writeAtomic(path: string, content: string): Promise<void> {
+  const temporaryPath = `${path}.tmp-${process.pid}`;
+  await writeFile(temporaryPath, content, { encoding: "utf8", mode: 0o600 });
+  await chmod(temporaryPath, 0o600);
+  await rename(temporaryPath, path);
+  await chmod(path, 0o600);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
