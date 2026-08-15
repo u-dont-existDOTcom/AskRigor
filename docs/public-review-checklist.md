@@ -153,6 +153,16 @@ or unapproved personal data. The positive YouTube target is `4x1fl67d_Ag`; the
 distinct negative target is `00000000000` and exercises explicit `not_found`,
 not unverified comments-disabled behavior.
 
+The developer runner in `docs/public-review-automation.md` now automates the
+direct production-MCP and raw Responses API evidence for all nine cases. Its
+normal entry point is `npm run review:public-live -- --live`; ordinary CI and
+`npm run verify` do not make live or paid calls. The runner's deterministic
+tests and repository gate pass on the current task branch. A complete protected
+production run and its sanitized evidence are still pending and are not claimed
+by this paragraph. The final fresh-chat ChatGPT interface spot check remains a
+separate product acceptance step because an API model run cannot prove product
+rendering.
+
 ## Submission execution gate
 
 The publisher-matching HTTPS legal/support prerequisite was verified on
@@ -161,8 +171,9 @@ The publisher-matching HTTPS legal/support prerequisite was verified on
 1. Verify developer/business identity and complete the HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
-3. Re-run all nine cases in `docs/public-review-cases-v0.1.0.json` with the
-   production-public inputs and expected fields.
+3. Run `npm run review:public-live -- --live` through the protected server-key
+   path and require all nine direct and model lanes to pass against the exact
+   cases in `docs/public-review-cases-v0.1.0.json`.
 4. Confirm no response contains credentials, debug payloads, internal
    identifiers, or data not disclosed in the final privacy notice.
 5. Resolve or expressly accept the recorded routine-status presentation
