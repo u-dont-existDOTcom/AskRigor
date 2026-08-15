@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 import { z } from "zod";
 
@@ -145,6 +146,58 @@ export interface McpSession {
 
 export class McpInputValidationError extends Error {
   override readonly name = "McpInputValidationError";
+}
+
+export interface OpenAiResponsesRequest {
+  model: string;
+  store: false;
+  max_output_tokens: 4096;
+  input: string;
+  tools: [{
+    type: "mcp";
+    server_label: "askrigor";
+    server_url: "https://mcp.askrigor.com/mcp";
+    require_approval: "never";
+    allowed_tools: string[];
+  }];
+}
+
+export interface ResponsesTransport {
+  create(request: OpenAiResponsesRequest, signal: AbortSignal): Promise<unknown>;
+}
+
+export interface NormalizedMcpCall {
+  name: string;
+  arguments: Record<string, unknown>;
+  structuredContent: Record<string, unknown> | undefined;
+  error: string | null;
+}
+
+export interface NormalizedModelResponse {
+  status: "completed";
+  model: string;
+  calls: NormalizedMcpCall[];
+  usage: { input_tokens: number; output_tokens: number; total_tokens: number };
+}
+
+export interface ModelCaseOptions {
+  transport: ResponsesTransport;
+  inventory: SafeInventoryEvidence;
+  model: string;
+  signal: AbortSignal;
+  directSchemaRejectionPassed?: boolean;
+  now?: () => number;
+}
+
+export class OpenAiTransportError extends Error {
+  override readonly name = "OpenAiTransportError";
+
+  constructor(
+    readonly status: number,
+    readonly code: string,
+  ) {
+    super(`OpenAI transport failed with status ${status}`);
+  }
 }
 
 export interface CaseReport {
@@ -396,6 +449,173 @@ export async function runDirectCase(
   } catch {
     return failedLane("direct", "unexpected_internal_error", [], [], startedAt, now);
   }
+}
+
+export function buildResponsesRequest(
+  reviewCase: ReviewCase,
+  inventory: SafeInventoryEvidence,
+  model: string,
+): OpenAiResponsesRequest {
+  if (inventory.read_only_verified !== true || inventory.tool_names.length === 0) {
+    throw new Error("a verified read-only inventory is required");
+  }
+  if (model.trim().length === 0) throw new Error("model must not be empty");
+
+  let allowedTools: string[];
+  const firstStep = reviewCase.expected_workflow[0];
+  if (
+    reviewCase.group === "negative" &&
+    firstStep?.kind === "no_tool_call_for_unsupported_write_or_medical_action"
+  ) {
+    allowedTools = [...inventory.tool_names];
+  } else {
+    allowedTools = [];
+    for (const step of reviewCase.expected_workflow) {
+      if (step.tool !== undefined && !allowedTools.includes(step.tool)) {
+        allowedTools.push(step.tool);
+      }
+    }
+  }
+  if (allowedTools.length === 0) throw new Error("review case has no allowed tools");
+  if (allowedTools.some((name) => !inventory.tool_names.includes(name))) {
+    throw new Error("review case requests a tool absent from the verified inventory");
+  }
+
+  return {
+    model,
+    store: false,
+    max_output_tokens: 4096,
+    input: reviewCase.prompt,
+    tools: [{
+      type: "mcp",
+      server_label: "askrigor",
+      server_url: "https://mcp.askrigor.com/mcp",
+      require_approval: "never",
+      allowed_tools: allowedTools,
+    }],
+  };
+}
+
+export function normalizeMcpCalls(
+  response: unknown,
+  expectedServerLabel: string,
+): NormalizedModelResponse {
+  if (!isRecord(response) || response.status !== "completed") {
+    throw new Error("OpenAI response did not complete");
+  }
+  if (typeof response.model !== "string" || response.model.length === 0) {
+    throw new Error("OpenAI response has no model identity");
+  }
+  if (!Array.isArray(response.output)) {
+    throw new Error("OpenAI response output is not an array");
+  }
+
+  const calls: NormalizedMcpCall[] = [];
+  for (const item of response.output) {
+    if (!isRecord(item) || item.type !== "mcp_call") continue;
+    if (item.server_label !== expectedServerLabel) {
+      throw new Error("unexpected MCP server label");
+    }
+    if (typeof item.name !== "string" || item.name.length === 0) {
+      throw new Error("MCP call has no operation name");
+    }
+    const argumentsValue = parseJsonRecord(item.arguments, "MCP call arguments");
+    const error = normalizeMcpCallError(item.error);
+    const structuredContent = error === null
+      ? normalizeMcpOutput(item.output)
+      : normalizeOptionalMcpOutput(item.output);
+    calls.push({
+      name: item.name,
+      arguments: argumentsValue,
+      structuredContent,
+      error,
+    });
+  }
+
+  return {
+    status: "completed",
+    model: response.model,
+    calls,
+    usage: normalizeUsage(response.usage),
+  };
+}
+
+export async function runModelCase(
+  reviewCase: ReviewCase,
+  options: ModelCaseOptions,
+): Promise<CaseLaneResult> {
+  const now = options.now ?? Date.now;
+  const startedAt = now();
+  let normalized: NormalizedModelResponse;
+  try {
+    const request = buildResponsesRequest(reviewCase, options.inventory, options.model);
+    const response = await options.transport.create(request, options.signal);
+    normalized = normalizeMcpCalls(response, "askrigor");
+  } catch (error) {
+    if (
+      error instanceof OpenAiTransportError &&
+      (error.status === 429 || error.code === "insufficient_quota")
+    ) {
+      return blockedLane("quota_or_rate_limit", startedAt, now);
+    }
+    if (isAbortError(error)) return blockedLane("timeout", startedAt, now);
+    return failedLane("model", "model_output", [], [], startedAt, now);
+  }
+
+  if (reviewCase.group === "negative") {
+    return evaluateNegativeModelCase(reviewCase, normalized, options, startedAt, now);
+  }
+
+  const expectedSteps = reviewCase.expected_workflow;
+  const safeCalls = projectNormalizedCalls(normalized.calls, expectedSteps);
+  if (normalized.calls.length !== expectedSteps.length) {
+    return failedModelSelection(safeCalls, normalized, startedAt, now);
+  }
+
+  const results: unknown[] = [];
+  const checks: CaseLaneResult["checks"] = [];
+  for (const [index, step] of expectedSteps.entries()) {
+    const call = normalized.calls[index];
+    if (step.tool === undefined || call === undefined || call.name !== step.tool) {
+      return failedModelSelection(safeCalls, normalized, startedAt, now, checks);
+    }
+    let expectedArguments: Record<string, unknown>;
+    try {
+      expectedArguments = resolveStepArguments(step, results);
+    } catch {
+      return failedLane("model", "case_contract", safeCalls, checks, startedAt, now);
+    }
+    const argumentsPass = isDeepStrictEqual(call.arguments, expectedArguments);
+    checks.push({ name: `step_${index + 1}_arguments`, pass: argumentsPass });
+    if (!argumentsPass || call.error !== null || call.structuredContent === undefined) {
+      return failedModelSelection(safeCalls, normalized, startedAt, now, checks);
+    }
+    let fieldsPass = true;
+    for (const path of step.expected_structured_fields ?? []) {
+      if (!inspectStructuredField(call.structuredContent, path).present) fieldsPass = false;
+    }
+    checks.push({ name: `step_${index + 1}_required_fields`, pass: fieldsPass });
+    if (!fieldsPass) {
+      return failedModelOutput(safeCalls, normalized, startedAt, now, checks);
+    }
+    results.push(call.structuredContent);
+  }
+
+  const semanticChecks = validatePositiveSemantics(reviewCase, results);
+  checks.push(...semanticChecks);
+  if (semanticChecks.some((check) => !check.pass)) {
+    return failedModelOutput(safeCalls, normalized, startedAt, now, checks);
+  }
+
+  return {
+    lane: "model",
+    state: "pass",
+    checks,
+    calls: safeCalls,
+    duration_ms: elapsed(startedAt, now()),
+    usage: normalized.usage,
+    returned_model: normalized.model,
+  };
 }
 
 export function scanEvidenceSafety(value: unknown, activeSecret?: string): void {
@@ -818,6 +1038,207 @@ function renderEvidenceSummary(report: PublicReviewReport): string {
     "ChatGPT interface check: separate manual acceptance",
     "",
   ].join("\n");
+}
+
+function evaluateNegativeModelCase(
+  reviewCase: ReviewCase,
+  normalized: NormalizedModelResponse,
+  options: ModelCaseOptions,
+  startedAt: number,
+  now: () => number,
+): CaseLaneResult {
+  const step = reviewCase.expected_workflow[0];
+  const safeCalls = projectNormalizedCalls(normalized.calls, reviewCase.expected_workflow);
+  if (step?.kind === "schema_rejection_before_provider_call") {
+    const noCallPass = normalized.calls.length === 0 &&
+      options.directSchemaRejectionPassed === true;
+    const errorCallPass = normalized.calls.length === 1 &&
+      normalized.calls[0]?.name === step.tool &&
+      isDeepStrictEqual(normalized.calls[0].arguments, step.arguments ?? {}) &&
+      normalized.calls[0].error !== null &&
+      normalized.calls[0].structuredContent === undefined;
+    const pass = noCallPass || errorCallPass;
+    return modelNegativeResult(pass, safeCalls, normalized, "invalid_input_not_upstream",
+      startedAt, now);
+  }
+
+  if (step?.kind === "explicit_not_found") {
+    const call = normalized.calls[0];
+    const structured = call?.structuredContent;
+    const pass = normalized.calls.length === 1 &&
+      call?.name === step.tool &&
+      isDeepStrictEqual(call?.arguments, step.arguments ?? {}) &&
+      call?.error === null &&
+      isRecord(structured) &&
+      structured.provider === "youtube" &&
+      structured.access_status === "not_found" &&
+      isRecord(structured.data) &&
+      Object.keys(structured.data).length === 0;
+    return modelNegativeResult(pass, safeCalls, normalized, "explicit_empty_not_found",
+      startedAt, now);
+  }
+
+  if (step?.kind === "no_tool_call_for_unsupported_write_or_medical_action") {
+    const pass = normalized.calls.length === 0;
+    return modelNegativeResult(pass, safeCalls, normalized, "unsupported_action_no_call",
+      startedAt, now);
+  }
+
+  return failedLane("model", "case_contract", safeCalls, [], startedAt, now);
+}
+
+function modelNegativeResult(
+  pass: boolean,
+  calls: SafeCallEvidence[],
+  normalized: NormalizedModelResponse,
+  checkName: string,
+  startedAt: number,
+  now: () => number,
+): CaseLaneResult {
+  const checks = [{ name: checkName, pass }];
+  if (!pass) return failedModelSelection(calls, normalized, startedAt, now, checks);
+  return {
+    lane: "model",
+    state: "pass",
+    checks,
+    calls,
+    duration_ms: elapsed(startedAt, now()),
+    usage: normalized.usage,
+    returned_model: normalized.model,
+  };
+}
+
+function projectNormalizedCalls(
+  calls: readonly NormalizedMcpCall[],
+  expectedSteps: readonly WorkflowStep[],
+): SafeCallEvidence[] {
+  return calls.map((call, index) => {
+    const fields: SafeCallEvidence["fields"] = {};
+    if (call.structuredContent !== undefined) {
+      for (const path of expectedSteps[index]?.expected_structured_fields ?? []) {
+        fields[path] = inspectStructuredField(call.structuredContent, path);
+      }
+    }
+    return {
+      tool: call.name,
+      arguments: sanitizeArguments(call.arguments),
+      fields,
+      ...(call.error === null ? {} : { error: { code: call.error } }),
+    };
+  });
+}
+
+function failedModelSelection(
+  calls: SafeCallEvidence[],
+  normalized: NormalizedModelResponse,
+  startedAt: number,
+  now: () => number,
+  checks: CaseLaneResult["checks"] = [],
+): CaseLaneResult {
+  return {
+    ...failedLane("model", "model_tool_selection", calls, checks, startedAt, now),
+    usage: normalized.usage,
+    returned_model: normalized.model,
+  };
+}
+
+function failedModelOutput(
+  calls: SafeCallEvidence[],
+  normalized: NormalizedModelResponse,
+  startedAt: number,
+  now: () => number,
+  checks: CaseLaneResult["checks"],
+): CaseLaneResult {
+  return {
+    ...failedLane("model", "model_output", calls, checks, startedAt, now),
+    usage: normalized.usage,
+    returned_model: normalized.model,
+  };
+}
+
+function blockedLane(
+  failureClass: "quota_or_rate_limit" | "timeout",
+  startedAt: number,
+  now: () => number,
+): CaseLaneResult {
+  return {
+    lane: "model",
+    state: "blocked",
+    failure_class: failureClass,
+    checks: [],
+    calls: [],
+    duration_ms: elapsed(startedAt, now()),
+  };
+}
+
+function normalizeMcpCallError(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string" && value.length > 0) return "mcp_call_error";
+  if (isRecord(value) && typeof value.code === "string" && value.code.length > 0) {
+    return value.code.slice(0, 100);
+  }
+  return "mcp_call_error";
+}
+
+function normalizeMcpOutput(value: unknown): Record<string, unknown> {
+  const normalized = normalizeOptionalMcpOutput(value);
+  if (normalized === undefined) throw new Error("MCP call has no structured output");
+  return normalized;
+}
+
+function normalizeOptionalMcpOutput(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const parsed = typeof value === "string" ? parseJsonValue(value, "MCP call output") : value;
+  if (!isRecord(parsed)) throw new Error("MCP call output is not an object");
+  if (Object.hasOwn(parsed, "structuredContent")) {
+    if (!isRecord(parsed.structuredContent)) {
+      throw new Error("MCP structured content is not an object");
+    }
+    return parsed.structuredContent;
+  }
+  return parsed;
+}
+
+function parseJsonRecord(value: unknown, label: string): Record<string, unknown> {
+  const parsed = typeof value === "string" ? parseJsonValue(value, label) : value;
+  if (!isRecord(parsed)) throw new Error(`${label} is not an object`);
+  return parsed;
+}
+
+function parseJsonValue(value: string, label: string): unknown {
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new Error(`${label} is not valid JSON`);
+  }
+}
+
+function normalizeUsage(value: unknown): NormalizedModelResponse["usage"] {
+  if (!isRecord(value)) throw new Error("OpenAI response usage is missing");
+  const inputTokens = nonnegativeInteger(value.input_tokens, "input_tokens");
+  const outputTokens = nonnegativeInteger(value.output_tokens, "output_tokens");
+  const totalTokens = nonnegativeInteger(value.total_tokens, "total_tokens");
+  if (inputTokens + outputTokens !== totalTokens) {
+    throw new Error("OpenAI response token usage is inconsistent");
+  }
+  return {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    total_tokens: totalTokens,
+  };
+}
+
+function nonnegativeInteger(value: unknown, label: string): number {
+  if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    throw new Error(`OpenAI response ${label} is invalid`);
+  }
+  return value as number;
+}
+
+function isAbortError(error: unknown): boolean {
+  return isRecord(error) && error.name === "AbortError";
 }
 
 async function writeAtomic(path: string, content: string): Promise<void> {

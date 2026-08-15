@@ -7,13 +7,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertReadOnlyInventory,
+  buildResponsesRequest,
   digestOmittedValue,
   flattenReviewCases,
   inspectStructuredField,
   McpInputValidationError,
+  normalizeMcpCalls,
+  OpenAiTransportError,
   parseReviewCaseSet,
   resolveStepArguments,
   runDirectCase,
+  runModelCase,
   scanEvidenceSafety,
   selectReviewCases,
   writeEvidenceBundle,
@@ -21,6 +25,7 @@ import {
   type McpSession,
   type McpToolDescriptor,
   type PublicReviewReport,
+  type ResponsesTransport,
   type ReviewCase,
   type SafeInventoryEvidence,
 } from "../scripts/public-review-eval-lib.mts";
@@ -501,6 +506,246 @@ describe("direct public MCP review", () => {
   });
 });
 
+describe("Responses API public MCP review", () => {
+  it("builds a non-stored case-specific remote MCP request", () => {
+    const reviewCase = makeReviewCase({
+      id: "positive-2",
+      expected_workflow: [{
+        tool: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        expected_structured_fields: ["provider", "data.pmid"],
+      }],
+      fixtureInputs: { pmid: "13054692" },
+    });
+
+    expect(buildResponsesRequest(
+      reviewCase,
+      readOnlyInventoryFixture,
+      "chat-latest",
+    )).toEqual({
+      model: "chat-latest",
+      store: false,
+      max_output_tokens: 4096,
+      input: "Use AskRigor.",
+      tools: [{
+        type: "mcp",
+        server_label: "askrigor",
+        server_url: "https://mcp.askrigor.com/mcp",
+        require_approval: "never",
+        allowed_tools: ["fetch_pubmed_record"],
+      }],
+    });
+  });
+
+  it("exposes the complete read-only inventory for unsupported-action restraint", () => {
+    const reviewCase = makeNegativeCase({
+      id: "negative-3",
+      kind: "no_tool_call_for_unsupported_write_or_medical_action",
+      toolsExpectedNotToExist: ["post_youtube_comment"],
+    });
+
+    expect(buildResponsesRequest(
+      reviewCase,
+      readOnlyInventoryFixture,
+      "chat-latest",
+    ).tools[0].allowed_tools).toEqual(readOnlyInventoryFixture.tool_names);
+  });
+
+  it("normalizes exact raw MCP call records and usage", () => {
+    expect(normalizeMcpCalls(completedResponsesFixture([{
+      name: "fetch_pubmed_record",
+      arguments: { pmid: "13054692" },
+      structuredContent: pubmedResultFixture(),
+    }]), "askrigor")).toMatchObject({
+      status: "completed",
+      model: "chat-latest-2026-08-01",
+      calls: [{
+        name: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        error: null,
+      }],
+      usage: { input_tokens: 120, output_tokens: 45, total_tokens: 165 },
+    });
+  });
+
+  it("rejects an MCP call from an unexpected server label", () => {
+    const response = completedResponsesFixture([{
+      name: "fetch_pubmed_record",
+      arguments: { pmid: "13054692" },
+      structuredContent: pubmedResultFixture(),
+      serverLabel: "other-server",
+    }]);
+
+    expect(() => normalizeMcpCalls(response, "askrigor"))
+      .toThrow("unexpected MCP server label");
+  });
+
+  it("passes a model-selected PubMed call without retaining raw output", async () => {
+    const reviewCase = makeReviewCase({
+      id: "positive-2",
+      expected_workflow: [{
+        tool: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        expected_structured_fields: [
+          "provider",
+          "primary_identifier",
+          "data.pmid",
+        ],
+      }],
+      fixtureInputs: { pmid: "13054692" },
+    });
+    const response = completedResponsesFixture([{
+      name: "fetch_pubmed_record",
+      arguments: { pmid: "13054692" },
+      structuredContent: pubmedResultFixture(),
+    }]);
+
+    const result = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      now: deterministicClock(),
+    });
+
+    expect(result).toMatchObject({
+      state: "pass",
+      returned_model: "chat-latest-2026-08-01",
+      usage: { input_tokens: 120, output_tokens: 45, total_tokens: 165 },
+    });
+    expect(JSON.stringify(result)).not.toContain("Watson");
+  });
+
+  it("fails an unexpected extra model tool call", async () => {
+    const reviewCase = makeReviewCase({
+      id: "positive-2",
+      expected_workflow: [{
+        tool: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        expected_structured_fields: ["data.pmid"],
+      }],
+      fixtureInputs: { pmid: "13054692" },
+    });
+    const response = completedResponsesFixture([
+      {
+        name: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        structuredContent: pubmedResultFixture(),
+      },
+      {
+        name: "get_protocol_manifest",
+        arguments: { protocol: "hrp" },
+        structuredContent: { ok: true },
+      },
+    ]);
+
+    const result = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      now: deterministicClock(),
+    });
+
+    expect(result).toMatchObject({
+      state: "fail",
+      failure_class: "model_tool_selection",
+    });
+  });
+
+  it("passes invalid-input restraint only after direct schema proof", async () => {
+    const reviewCase = makeNegativeCase({
+      id: "negative-1",
+      kind: "schema_rejection_before_provider_call",
+      tool: "fetch_pubmed_record",
+      arguments: { pmid: "0" },
+    });
+    const response = completedResponsesFixture([]);
+
+    const passing = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directSchemaRejectionPassed: true,
+      now: deterministicClock(),
+    });
+    const failing = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directSchemaRejectionPassed: false,
+      now: deterministicClock(),
+    });
+
+    expect(passing.state).toBe("pass");
+    expect(failing).toMatchObject({
+      state: "fail",
+      failure_class: "model_tool_selection",
+    });
+  });
+
+  it("passes unsupported-action restraint only with no MCP call", async () => {
+    const reviewCase = makeNegativeCase({
+      id: "negative-3",
+      kind: "no_tool_call_for_unsupported_write_or_medical_action",
+      toolsExpectedNotToExist: ["post_youtube_comment"],
+    });
+
+    const result = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(completedResponsesFixture([])),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      now: deterministicClock(),
+    });
+
+    expect(result).toMatchObject({ state: "pass", calls: [] });
+  });
+
+  it("maps quota and timeout failures without retaining response bodies", async () => {
+    const reviewCase = makeReviewCase({
+      id: "positive-2",
+      expected_workflow: [{
+        tool: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        expected_structured_fields: ["data.pmid"],
+      }],
+      fixtureInputs: { pmid: "13054692" },
+    });
+    const quotaTransport: ResponsesTransport = {
+      async create() {
+        throw new OpenAiTransportError(429, "insufficient_quota");
+      },
+    };
+    const timeoutTransport: ResponsesTransport = {
+      async create() {
+        throw new DOMException("request timed out", "AbortError");
+      },
+    };
+
+    const quota = await runModelCase(reviewCase, {
+      transport: quotaTransport,
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      now: deterministicClock(),
+    });
+    const timeout = await runModelCase(reviewCase, {
+      transport: timeoutTransport,
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      now: deterministicClock(),
+    });
+
+    expect(quota).toMatchObject({ state: "blocked", failure_class: "quota_or_rate_limit" });
+    expect(timeout).toMatchObject({ state: "blocked", failure_class: "timeout" });
+    expect(JSON.stringify([quota, timeout])).not.toContain("request timed out");
+  });
+});
+
 function makeReviewCase(options: {
   id: string;
   expected_workflow: ReviewCase["expected_workflow"];
@@ -609,5 +854,57 @@ function auditResultFixture(
     continuation_recommended: false,
     receipt: { completion_state: "complete", synthesis_lock: "pass" },
     ...overrides,
+  };
+}
+
+function pubmedResultFixture(): Record<string, unknown> {
+  return {
+    provider: "pubmed",
+    record_type: "pubmed_record",
+    primary_identifier: "13054692",
+    retrieved_at: "2026-08-15T07:00:00.000Z",
+    source_identity: {
+      canonical_url: "https://pubmed.ncbi.nlm.nih.gov/13054692/",
+      title: "Molecular structure of nucleic acids",
+      authors_or_channel: ["J D WATSON", "F H CRICK"],
+    },
+    pagination: { exhausted: true, returned: 1 },
+    access_status: "api_visible_complete",
+    limitations: [],
+    data: { pmid: "13054692", title: "Molecular structure of nucleic acids" },
+  };
+}
+
+function completedResponsesFixture(calls: Array<{
+  name: string;
+  arguments: Record<string, unknown>;
+  structuredContent: Record<string, unknown>;
+  serverLabel?: string;
+  error?: string | null;
+}>): Record<string, unknown> {
+  return {
+    id: "resp_public_review",
+    object: "response",
+    created_at: 1_776_237_600,
+    status: "completed",
+    model: "chat-latest-2026-08-01",
+    output: calls.map((call, index) => ({
+      type: "mcp_call",
+      id: `mcp_call_${index + 1}`,
+      server_label: call.serverLabel ?? "askrigor",
+      name: call.name,
+      arguments: JSON.stringify(call.arguments),
+      output: JSON.stringify({ structuredContent: call.structuredContent }),
+      error: call.error ?? null,
+    })),
+    usage: { input_tokens: 120, output_tokens: 45, total_tokens: 165 },
+  };
+}
+
+function fixedResponsesTransport(response: unknown): ResponsesTransport {
+  return {
+    async create() {
+      return response;
+    },
   };
 }
