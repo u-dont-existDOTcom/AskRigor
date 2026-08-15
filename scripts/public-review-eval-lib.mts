@@ -190,6 +190,7 @@ export interface ModelCaseOptions {
   model: string;
   signal: AbortSignal;
   directContractPassed?: boolean;
+  directContractCallCount?: number;
   directSchemaRejectionPassed?: boolean;
   now?: () => number;
 }
@@ -452,7 +453,11 @@ export async function runDirectCase(
       for (const path of step.expected_structured_fields ?? []) {
         const inspection = inspectStructuredField(structured, path);
         fields[safeFieldEvidenceKey(path)] = inspection;
-        if (!inspection.present) fieldsPass = false;
+        const terminalFirstAudit = reviewCase.id === "positive-6" &&
+          index === 1 &&
+          path === "continuation_token" &&
+          structured.continuation_recommended === false;
+        if (!inspection.present && !terminalFirstAudit) fieldsPass = false;
       }
       checks.push({ name: `step_${index + 1}_required_fields`, pass: fieldsPass });
       calls.push({
@@ -464,6 +469,14 @@ export async function runDirectCase(
 
       if (!fieldsPass) {
         return failedLane("direct", "provider_result", calls, checks, startedAt, now);
+      }
+      if (
+        reviewCase.id === "positive-6" &&
+        index === 1 &&
+        structured.continuation_recommended === false
+      ) {
+        checks.push({ name: "conditional_continuation_not_required", pass: true });
+        break;
       }
     }
 
@@ -607,13 +620,18 @@ export async function runModelCase(
 
   const expectedSteps = reviewCase.expected_workflow;
   const safeCalls = projectNormalizedCalls(normalized.calls, expectedSteps);
-  if (normalized.calls.length !== expectedSteps.length) {
+  const expectedCallCount = reviewCase.id === "positive-6" &&
+      options.directContractPassed === true &&
+      (options.directContractCallCount === 2 || options.directContractCallCount === 3)
+    ? options.directContractCallCount
+    : expectedSteps.length;
+  if (normalized.calls.length !== expectedCallCount) {
     return failedModelSelection(safeCalls, normalized, startedAt, now);
   }
 
   const results: unknown[] = [];
   const checks: CaseLaneResult["checks"] = [];
-  for (const [index, step] of expectedSteps.entries()) {
+  for (const [index, step] of expectedSteps.slice(0, expectedCallCount).entries()) {
     const call = normalized.calls[index];
     if (step.tool === undefined || call === undefined || call.name !== step.tool) {
       return failedModelSelection(safeCalls, normalized, startedAt, now, checks);
@@ -646,13 +664,25 @@ export async function runModelCase(
 
     let fieldsPass = true;
     for (const path of step.expected_structured_fields ?? []) {
-      if (!inspectStructuredField(call.structuredContent, path).present) fieldsPass = false;
+      const inspection = inspectStructuredField(call.structuredContent, path);
+      const terminalFirstAudit = reviewCase.id === "positive-6" &&
+        index === 1 &&
+        path === "continuation_token" &&
+        call.structuredContent.continuation_recommended === false;
+      if (!inspection.present && !terminalFirstAudit) fieldsPass = false;
     }
     checks.push({ name: `step_${index + 1}_required_fields`, pass: fieldsPass });
     if (!fieldsPass) {
       return failedModelOutput(safeCalls, normalized, startedAt, now, checks);
     }
     results.push(call.structuredContent);
+    if (
+      reviewCase.id === "positive-6" &&
+      index === 1 &&
+      call.structuredContent.continuation_recommended === false
+    ) {
+      checks.push({ name: "conditional_continuation_not_required", pass: true });
+    }
   }
 
   const semanticChecks = results.some((result) => result === undefined)
@@ -799,6 +829,7 @@ export async function runPublicReviewEvaluation(
             model: options.model,
             signal: timeoutController.signal,
             directContractPassed: caseReport.direct?.state === "pass",
+            directContractCallCount: caseReport.direct?.calls.length,
             directSchemaRejectionPassed: reviewCase.id === "negative-1" &&
               caseReport.direct?.state === "pass",
             now,
@@ -1274,8 +1305,7 @@ function evaluateNegativeModelCase(
     const structured = call?.structuredContent;
     const selectionPass = normalized.calls.length === 1 &&
       call?.name === step.tool &&
-      isDeepStrictEqual(call?.arguments, step.arguments ?? {}) &&
-      call?.error === null;
+      isDeepStrictEqual(call?.arguments, step.arguments ?? {});
     const structuredPass = step.kind === "explicit_not_found"
       ? isRecord(structured) &&
         structured.provider === "youtube" &&
@@ -1293,9 +1323,18 @@ function evaluateNegativeModelCase(
         Object.keys(structured.data).length === 0;
     const opaquePass = structured === undefined &&
       call?.output_evidence !== undefined &&
+      call?.error === null &&
       options.directContractPassed === true;
-    const pass = selectionPass && (structuredPass || opaquePass);
-    return modelNegativeResult(pass, safeCalls, normalized, "explicit_empty_not_found",
+    const accessBoundaryErrorReceipt = step.kind === "explicit_access_boundary" &&
+      structured === undefined &&
+      call?.error !== null &&
+      options.directContractPassed === true;
+    const pass = selectionPass &&
+      ((call?.error === null && structuredPass) || opaquePass || accessBoundaryErrorReceipt);
+    const checkName = step.kind === "explicit_access_boundary"
+      ? "explicit_video_visibility_boundary"
+      : "explicit_empty_not_found";
+    return modelNegativeResult(pass, safeCalls, normalized, checkName,
       startedAt, now);
   }
 

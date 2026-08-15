@@ -404,6 +404,45 @@ describe("direct public MCP review", () => {
     expect(() => scanEvidenceSafety({ result })).not.toThrow();
   });
 
+  it("accepts a terminal first YouTube audit without inventing a continuation", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+    const session = scriptedMcpSession([
+      {
+        name: "survey_youtube_community",
+        arguments: reviewCase.expected_workflow[0].arguments ?? {},
+        result: { structuredContent: surveyResultFixture() },
+      },
+      {
+        name: "audit_youtube_video_community",
+        arguments: reviewCase.expected_workflow[1].arguments ?? {},
+        result: { structuredContent: auditResultFixture({
+          continuation_recommended: false,
+        }) },
+      },
+    ]);
+
+    const result = await runDirectCase(
+      reviewCase,
+      session,
+      readOnlyInventoryFixture,
+      deterministicClock(),
+    );
+
+    expect(result.state).toBe("pass");
+    expect(result.calls).toHaveLength(2);
+    expect(result.calls[1].fields).toHaveProperty("continuation_token_present", {
+      present: false,
+    });
+    expect(result.checks).toContainEqual({
+      name: "conditional_continuation_not_required",
+      pass: true,
+    });
+  });
+
   it("passes only an input-schema rejection for invalid PMID zero", async () => {
     const reviewCase = makeNegativeCase({
       id: "negative-1",
@@ -746,6 +785,78 @@ describe("Responses API public MCP review", () => {
       digestOmittedValue("PubMed returned one public metadata record."),
     );
     expect(failing).toMatchObject({ state: "fail", failure_class: "model_output" });
+  });
+
+  it("accepts a two-call opaque YouTube audit when the direct lane proved terminal completion", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+    const response = completedResponsesFixture([
+      {
+        name: "survey_youtube_community",
+        arguments: reviewCase.expected_workflow[0].arguments ?? {},
+        structuredContent: surveyResultFixture(),
+        outputText: "YouTube survey completed.",
+      },
+      {
+        name: "audit_youtube_video_community",
+        arguments: reviewCase.expected_workflow[1].arguments ?? {},
+        structuredContent: auditResultFixture({ continuation_recommended: false }),
+        outputText: "YouTube audit completed without continuation.",
+      },
+    ]);
+
+    const result = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directContractPassed: true,
+      directContractCallCount: 2,
+      now: deterministicClock(),
+    });
+
+    expect(result.state).toBe("pass");
+    expect(result.calls).toHaveLength(2);
+  });
+
+  it("accepts an MCP error receipt for an access boundary only after direct proof", async () => {
+    const reviewCase = makeNegativeCase({
+      id: "negative-2",
+      kind: "explicit_access_boundary",
+      tool: "get_youtube_video",
+      arguments: { video_id_or_url: "00000000000" },
+    });
+    const response = completedResponsesFixture([{
+      name: "get_youtube_video",
+      arguments: { video_id_or_url: "00000000000" },
+      error: "MCP tool returned an explicit access boundary.",
+    }]);
+
+    const passing = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directContractPassed: true,
+      now: deterministicClock(),
+    });
+    const failing = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directContractPassed: false,
+      now: deterministicClock(),
+    });
+
+    expect(passing.state).toBe("pass");
+    expect(failing).toMatchObject({
+      state: "fail",
+      failure_class: "model_tool_selection",
+    });
   });
 
   it("fails an unexpected extra model tool call", async () => {
@@ -1187,7 +1298,7 @@ function pubmedResultFixture(): Record<string, unknown> {
 function completedResponsesFixture(calls: Array<{
   name: string;
   arguments: Record<string, unknown>;
-  structuredContent: Record<string, unknown>;
+  structuredContent?: Record<string, unknown>;
   serverLabel?: string;
   error?: string | null;
   outputText?: string;
@@ -1198,15 +1309,20 @@ function completedResponsesFixture(calls: Array<{
     created_at: 1_776_237_600,
     status: "completed",
     model: "chat-latest-2026-08-01",
-    output: calls.map((call, index) => ({
-      type: "mcp_call",
-      id: `mcp_call_${index + 1}`,
-      server_label: call.serverLabel ?? "askrigor",
-      name: call.name,
-      arguments: JSON.stringify(call.arguments),
-      output: call.outputText ?? JSON.stringify({ structuredContent: call.structuredContent }),
-      error: call.error ?? null,
-    })),
+    output: calls.map((call, index) => {
+      const output = call.outputText ?? (call.structuredContent === undefined
+        ? undefined
+        : JSON.stringify({ structuredContent: call.structuredContent }));
+      return {
+        type: "mcp_call",
+        id: `mcp_call_${index + 1}`,
+        server_label: call.serverLabel ?? "askrigor",
+        name: call.name,
+        arguments: JSON.stringify(call.arguments),
+        ...(output === undefined ? {} : { output }),
+        error: call.error ?? null,
+      };
+    }),
     usage: { input_tokens: 120, output_tokens: 45, total_tokens: 165 },
   };
 }
