@@ -14,10 +14,9 @@ reproduction. Do not open a public issue for an undisclosed vulnerability. Do
 not send API keys, credentials, private health information, exploit payloads,
 or unnecessary personal data.
 
-GitHub private vulnerability reporting was checked through the repository API
-on 2026-08-14 and was disabled. Until that hosted control is enabled, email is
-the documented private reporting path; the hardening audit issue tracks the
-remaining GitHub setting.
+GitHub private vulnerability reporting was verified enabled through the
+repository API on 2026-08-15. The Security-tab flow is preferred; email remains
+an authenticated fallback when the hosted form cannot be used.
 
 AskRigor is not an emergency or medical-advice service. For an urgent medical
 concern, contact local emergency services or a qualified professional.

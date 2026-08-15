@@ -10,7 +10,8 @@ const BODY_TOO_LARGE_SCHEMA = actionErrorSchema({ const: "action_body_too_large"
 export function createActionOpenApiDocument(
   routes: readonly ActionRoute[]
 ): Record<string, unknown> {
-  const paths: Record<string, Record<string, unknown>> = {};
+  const paths: Record<string, Record<string, unknown>> = Object.create(null) as
+    Record<string, Record<string, unknown>>;
 
   for (const route of routes) {
     const responseSchemas: Record<number, Record<string, unknown>> = {

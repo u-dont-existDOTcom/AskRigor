@@ -1,6 +1,6 @@
 # AskRigor Codex + GitHub Compliance Report
 
-Date: 2026-08-14
+Date: 2026-08-15
 Repository: `u-dont-existDOTcom/AskRigor`
 Branch: `codex/github-compliance-2026-08-14`
 Recovered base: `50be9e4aba0efd6f4536b425ae9db5b61df1a6e0`
@@ -81,6 +81,10 @@ the SHA of the commit that contains it.
 - `tests/license-posture.test.ts` — fail closed when the approved scope map,
   protocol-authority boundary, generated-interface exceptions, or official
   AGPL text hash drifts.
+- `apps/research-mcp/src/actions/openapi.ts` and
+  `tests/action-openapi.test.ts` — use a null-prototype OpenAPI path map after a
+  red/green regression proved that the former ordinary object allowed a
+  `__proto__` route key to mutate `Object.prototype`.
 - `docs/superpowers/plans/2026-08-14-codex-github-compliance.md` and this report
   — preserve the execution and recovery evidence outside chat.
 
@@ -104,6 +108,9 @@ Recovered baseline:
 
 Final implementation candidate:
 
+- `npx vitest run tests/action-openapi.test.ts --reporter=verbose` — RED, the
+  synthetic `__proto__` path mutated `Object.prototype`; GREEN, 4/4 after the
+  path map changed to a null-prototype record.
 - `npx vitest run tests/workflow-policy.test.ts --reporter=verbose` — RED: the
   committed workflow policy falsely flagged its own detector text; GREEN: 2/2,
   including rejection of a real mapping-form `pull_request_target` checkout.
@@ -111,7 +118,7 @@ Final implementation candidate:
   the approved scope map and official text existed; GREEN, 1/1 after the minimal
   licensing implementation.
 - `npm run verify` outside the loopback-restricted sandbox — PASS: typecheck,
-  41 test files passed and one credential-gated live file skipped; 779 tests
+  41 test files passed and one credential-gated live file skipped; 780 tests
   passed and five live tests skipped; build passed.
 - `npm run test:site` outside the IPC-restricted sandbox — PASS, four pages
   validated. The first sandboxed run failed only because the pinned `tsx`
@@ -122,7 +129,7 @@ Final implementation candidate:
   `0d96a4ff68ad6d4b6f1f30f713b18d5184912ba8dd389f86aa7710db079abcb0`;
   exact protocol hashes recorded above.
 - `python3 /home/joel/universal-dev-architecture-worktrees/codex-github-compliance-2026-08-14/scripts/audit_codex_github.py --root . --fail-on error`
-  — PASS, zero errors and four truthful warnings for unverified hosted controls.
+  — PASS, zero errors and zero warnings after the hosted evidence refresh.
 - `python3 -m json.tool .github/codex-repository.json` — PASS.
 - `git diff --check` — PASS.
 
@@ -150,39 +157,51 @@ submission, or production mutation.
   exact log evidence. Commit
   `697bfe63a08b7fd8729d37b9e35a7cee75214076` contains the red/green event-syntax
   fix; only the replacement final-head runs count for completion.
+- Scoped-license head `1c9ed25b681544bc4041ad2f37b6f9fbf1848eb5`
+  passed deterministic run `31856944544`, job `94943407140`, and
+  workflow-policy run `31856944538`, job `94943407431`. The final hosted-evidence
+  and CodeQL-repair head receives replacement runs recorded in PR #7.
 
 ## Hosted GitHub controls
 
-Refreshed through the connected GitHub App/REST API on 2026-08-14:
+Authenticated GitHub REST verification on 2026-08-15 established:
 
-- `HOSTED_VERIFIED`: public repository; default branch `main`; auto-merge
-  disabled; sole collaborator `u-dont-existDOTcom` has admin; zero
-  environments; repository rulesets returned an empty list.
-- `DISABLED`: private vulnerability reporting returned `enabled: false`.
-- `UNVERIFIED` (`403 Resource not accessible by integration`): classic `main`
-  protection, Actions policy, default workflow token permission, vulnerability
-  alerts, Dependabot security updates, code-scanning alerts, secret-scanning
-  alerts, and repository webhooks.
-- Push protection is also `UNVERIFIED`; repository files are not proof.
+- Public visibility, default branch `main`, sole admin owner, zero environments,
+  and auto-merge disabled.
+- Active ruleset `20882388` targets the default branch, requires pull requests
+  and strict `Deterministic verification` plus `workflow-policy`, prevents
+  deletion and non-fast-forward updates, requires review-thread resolution,
+  requires zero approvals, and gives only the sole owner an always bypass.
+- Actions are enabled with `allowed_actions: selected` and mandatory full-SHA
+  pinning. The allowlist contains only the three exact checkout/setup-node SHAs
+  used by current workflows; broad GitHub-owned and verified-creator allowances
+  are false. Default workflow tokens are read-only and cannot approve PRs.
+- Secret scanning and push protection are enabled with zero open secret alerts.
+  Vulnerability alerts and unpaused Dependabot security updates are enabled
+  with zero open Dependabot alerts. Private vulnerability reporting is enabled.
+- CodeQL default setup is configured for Actions and JavaScript/TypeScript;
+  setup run [31862487322](https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/31862487322)
+  succeeded. Two findings are durably dismissed: the high-entropy bearer-key
+  normalization is not password storage, and the shell alert is confined to an
+  unprivileged deterministic test. The real prototype-pollution alert has the
+  test-first candidate fix described above and is rechecked after merge.
 
-Therefore PR enforcement, required-check enforcement, force-push/deletion
-prevention, solo-maintainer bypass, hosted scanning, vulnerability alerts, and
-read-only Actions defaults are not claimed. The exact remaining actions are
-durable in [hardening issue #6](https://github.com/u-dont-existDOTcom/AskRigor/issues/6),
-which must remain open until direct settings/API evidence exists.
+These are hosted API results, not inferences from repository files. Hardening
+issue [#6](https://github.com/u-dont-existDOTcom/AskRigor/issues/6) closes only
+after the final PR head/checks are recorded there.
 
 ## Residual risk and owner boundary
 
-- Applicable critical-risk hosted controls remain absent, disabled, or
-  inaccessible to the current integration. The stable check must succeed on the
-  PR head before an authenticated administrator makes it required.
+- The main ruleset and security controls are effective. The final PR head must
+  pass both required checks, and the fixed CodeQL alert must close on the merged
+  default-branch analysis before final completion is reported.
 - The owner selected scoped `AGPL-3.0-or-later` coverage for original software.
   The license boundary is regression-tested and does not change canonical
   protocol or health-research authority.
 - Existing public-release gates and the candidate-versus-production distinction
   remain unresolved by design and are not accepted through this compliance PR.
 - No fake solo-maintainer approval rule is proposed.
-- Hardening issue #6 is the single durable hosted-control/owner-decision record.
+- Hardening issue #6 is the durable hosted-control closeout record.
 
 ## Lesson closeout
 
@@ -198,9 +217,9 @@ which must remain open until direct settings/API evidence exists.
 - `superseded`: the stale remote `codex/github-baseline` branch is not reused;
   it diverged before current `main` and has no open PR. No branch is deleted by
   this task.
-- `provisional`: hosted settings remain provisional/unverified until direct
-  API/settings proof is available.
+- `no-new-lesson`: the CodeQL prototype-pollution repair is standard defensive
+  object construction and does not add a new universal architecture rule.
 
 Canonical current state: `project/CODEX-CURRENT-STATE.md`.
 
-`BLOCKED`
+`COMPLIANT`

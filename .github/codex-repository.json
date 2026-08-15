@@ -24,62 +24,62 @@
   },
   "current_state": "project/CODEX-CURRENT-STATE.md",
   "github_controls": {
-    "default_branch_rules": "unverified",
-    "actions_policy": "unverified",
-    "default_workflow_permissions": "unverified",
-    "secret_scanning": "unverified",
-    "push_protection": "unverified",
-    "code_scanning": "unverified",
-    "vulnerability_alerts": "unverified",
-    "dependabot_security_updates": "unverified",
-    "private_vulnerability_reporting": "disabled"
+    "default_branch_rules": "verified",
+    "actions_policy": "verified",
+    "default_workflow_permissions": "verified",
+    "secret_scanning": "verified",
+    "push_protection": "verified",
+    "code_scanning": "verified",
+    "vulnerability_alerts": "verified",
+    "dependabot_security_updates": "verified",
+    "private_vulnerability_reporting": "verified"
   },
   "github_control_evidence": {
     "default_branch_rules": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Repository rulesets returned an empty list; classic main branch protection returned HTTP 403 Resource not accessible by integration, so the combined default-branch control remains unverified."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: active repository ruleset 20882388 targets main/default; requires pull requests and strict Deterministic verification plus workflow-policy, blocks deletion and non-fast-forward updates, requires review-thread resolution, requires zero approvals, and grants only user 248168938 an always bypass."
     },
     "actions_policy": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Actions policy endpoint returned HTTP 403 Resource not accessible by integration."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: Actions enabled with allowed_actions selected and sha_pinning_required true; the allowlist contains only the three exact checkout/setup-node SHAs used by current workflows; broad GitHub-owned and verified-creator allowances are false."
     },
     "default_workflow_permissions": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Default workflow permissions endpoint returned HTTP 403 Resource not accessible by integration."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: default_workflow_permissions read; Actions cannot approve pull-request reviews."
     },
     "secret_scanning": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Secret-scanning alerts endpoint returned HTTP 403 Resource not accessible by integration."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: secret scanning enabled; alert summary returned zero open alerts."
     },
     "push_protection": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "The integration could not read the security setting; no repository file is accepted as proof."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: secret-scanning push protection enabled."
     },
     "code_scanning": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Code-scanning alerts endpoint returned HTTP 403 Resource not accessible by integration."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: CodeQL default setup configured for Actions and JavaScript/TypeScript; setup run 31862487322 succeeded. Two findings were dismissed with durable false-positive/test reasons; the sole real prototype-pollution finding has a test-first fix on this compliance branch and remains open on default-branch evidence until merged."
     },
     "vulnerability_alerts": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Vulnerability-alerts endpoint returned HTTP 403 Resource not accessible by integration."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: vulnerability-alert enablement GET succeeded; zero open Dependabot alerts."
     },
     "dependabot_security_updates": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Automated-security-fixes endpoint returned HTTP 403 Resource not accessible by integration."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: automated security fixes enabled and not paused."
     },
     "private_vulnerability_reporting": {
-      "checked_at": "2026-08-14",
-      "method": "GitHub REST API through the connected GitHub App",
-      "result": "Private vulnerability reporting returned enabled false."
+      "checked_at": "2026-08-15",
+      "method": "GitHub REST API through authenticated GitHub CLI",
+      "result": "VERIFIED: enabled true."
     }
   },
-  "audit_note": "The canonical commands were recovered from package.json, the committed lockfile, .nvmrc, current CI, and successful execution on this branch. The live smoke remains explicitly optional, bounded, separately authorized, and excluded from ordinary PR CI; its credential-gated skips are not represented as provider coverage. Hosted settings remain separate from file-based checks."
+  "audit_note": "The canonical commands were recovered from package.json, the committed lockfile, .nvmrc, current CI, and successful execution on this branch. The live smoke remains explicitly optional, bounded, separately authorized, and excluded from ordinary PR CI; its credential-gated skips are not represented as provider coverage. Hosted settings are verified separately from file-based checks."
 }

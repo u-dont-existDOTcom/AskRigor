@@ -36,6 +36,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `LICENSE.md` keeps complete protocols, health-research policy, evidence,
   editorial content, recorded fixtures, and archived/third-party tools outside
   that grant; the exact official license bytes are integrity-tested.
+- Hosted governance is directly verified. Active ruleset `20882388` requires
+  pull requests plus strict `Deterministic verification` and `workflow-policy`,
+  blocks deletion/force pushes, and retains the sole owner as the only bypass
+  without requiring fake independent approval.
+- Actions are limited to the three exact SHA-pinned checkout/setup-node
+  revisions used by current workflows; default workflow tokens are read-only.
+  Secret scanning, push protection, vulnerability alerts, Dependabot security
+  updates, private vulnerability reporting, and CodeQL are enabled.
+- CodeQL setup run `31862487322` succeeded. Two alerts were dismissed with
+  durable false-positive/test-only reasons. The real prototype-pollution alert
+  has a red/green regression and a null-prototype path-map fix on this branch.
 
 ## Current checkpoint
 
@@ -48,18 +59,21 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- Keep PR #7 unmerged while required hosted controls remain absent, disabled, or inaccessible.
-- Re-run the exact final gates, publish the scoped-license commit, and record
-  its exact-head CI evidence in PR #7 and issue #6.
+- Re-run the exact final gates with the CodeQL repair and hosted evidence,
+  publish the final PR #7 head, wait for both required checks, update/close
+  issue #6, and merge.
+- After merge, verify the default-branch CodeQL run closes the fixed alert.
 
 ## Blockers / unresolved
 
-- Repository rulesets are verified absent. Classic `main` protection, Actions policy/default token, secret scanning/push protection, code scanning, vulnerability alerts, and Dependabot security updates remain `UNVERIFIED` because the connected GitHub App returned `403` or could not inspect them.
-- Private vulnerability reporting is verified disabled.
-- The scoped software-license owner decision is resolved. The remaining
-  applicable critical-risk governance gaps block `COMPLIANT`; issue
+- No repository-baseline owner decision or hosted-control blocker remains.
+  Historical integration `403` results and the disabled private-reporting
+  observation are superseded by the dated authenticated API evidence in the
+  repository profile. Issue
   [#6](https://github.com/u-dont-existDOTcom/AskRigor/issues/6) is the durable
-  follow-up.
+  record and is ready for final-head evidence and closure.
+- V0.1.0 public submission remains blocked by its separate product/release
+  gates; compliance does not accept or bypass those gates.
 
 ## Evidence / artifacts
 
@@ -73,7 +87,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Re-fetch PR #7 and issue #6. If the published head differs from local `HEAD` or either required check is not green, reconcile that evidence; otherwise proceed to the next repository without merging this hosted-control-blocked PR.
+Run the full candidate gates, publish the evidence/CodeQL fix, wait for the two
+required checks, merge PR #7, and verify the default-branch CodeQL alert state.
 
 ## Recovery rule
 
