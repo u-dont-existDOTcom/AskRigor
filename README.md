@@ -248,10 +248,11 @@ now carries the schema-supported website, privacy-policy, and terms URLs; suppor
 remains submission documentation because the current manifest schema has no
 support-URL field.
 
-V0.1.0 is still **PUBLIC SUBMISSION BLOCKED** until the routine-status
-presentation regression is resolved or expressly accepted and the remaining
-portal identity, domain-verification, Scan Tools, and public submission actions
-are completed.
+V0.1.0 is still **PUBLIC SUBMISSION BLOCKED** until the remaining portal
+identity, domain-verification, Scan Tools, opaque model-receipt release decision,
+and public submission actions are completed. The fresh post-deployment ChatGPT
+interface check no longer reproduced the earlier routine-status regression; its
+bounded evidence and presentation limitation are recorded in the release packet.
 See `docs/privacy-data-map.md`, `docs/public-review-checklist.md`, and
 `docs/release-evidence-v0.1.0.md` for the reviewer packet and release gates.
 

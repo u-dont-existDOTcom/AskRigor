@@ -11,8 +11,9 @@ two separate automated lanes:
 
 The second lane defaults to `chat-latest`, the documented API model closest to
 ChatGPT's current Instant behavior. It does not prove that the ChatGPT product
-interface will use or display a tool identically. One fresh-chat interface spot
-check remains a separate final acceptance step.
+interface will use or display a tool identically. The separate fresh-chat
+interface acceptance completed on 2026-08-15 with its product-card presentation
+limitation recorded below.
 
 ## Protected normal run
 
@@ -152,11 +153,14 @@ selected API model's raw tool-call behavior for this run. It does not establish
 clinical validity, provider completeness beyond the returned access state, or
 ChatGPT interface equivalence.
 
-The remaining product check uses one fresh ChatGPT conversation. Confirm that
-the AskRigor connection is selectable, one representative read-only prompt
-completes, its visible receipt is understandable, and no write confirmation is
-shown. Record that interface result separately; do not overwrite the automated
-server or model evidence.
+The separate product check uses fresh ChatGPT conversations to confirm that the
+AskRigor connection is selectable, representative read-only calls complete,
+their visible receipts are understandable, and no write confirmation is shown.
+That check passed on 2026-08-15 for isolated integrity and load calls plus an
+ordered combined receipt. The copied combined transcript collapsed or
+mislabeled the visible tool card, so the release evidence preserves that
+presentation limitation separately; it does not overwrite the automated server
+or model evidence.
 
 Sources of truth:
 

@@ -9,8 +9,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; active task branch: `codex/public-review-automation-2026-08-15`
-- Current `origin/main` base for the public-review candidate: `9134e22784e4d26dcf3c6d24a299bb5f783455ad`
+- Canonical branch: `main`; active task branch: `codex/public-review-ui-evidence-2026-08-15`
+- Current `origin/main`: `e63a0f73ec28a4b91673eed768d8e72f41986418`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
 - Byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`
@@ -24,10 +24,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Current `main` was semantically merged without losing the Action implementation, live-acceptance evidence, privacy/release records, or compliance controls. Project-installation conflicts preserve separate MCP/Action surfaces, governance-file exclusion, and complete-protocol authority.
 - The repository profile declares only exact commands run on this candidate and distinguishes hermetic CI from the separately authorized bounded provider smoke.
 - `npm ci` passed on Node `24.18.0`: 156 packages installed, 0 audited vulnerabilities.
-- Final deterministic verification passed: 41 files passed, one credential-gated live file skipped; 779 tests passed, five skipped; typecheck and build passed.
+- Current deterministic verification passed: 42 files passed, one credential-gated live file skipped; 843 tests passed, five skipped; typecheck and build passed.
 - Site checks passed: four pages validated and 28/28 deployment tests passed. Protocol SHA-256 values match the authoritative XML bytes.
 - The opt-in live provider smoke passed separately: two public-provider tests passed and three credential-gated providers skipped truthfully.
-- `npm run lessons:status` returned available at `2026-08-14T23:02:10.872Z`: 0 open candidates, 0 needs review, 0 accepted-not-incorporated, 1 incorporated-or-closed, and 0 deletion eligible.
+- `npm run lessons:status` returned available at `2026-08-15T22:33:40.515Z`: 0 open candidates, 0 needs review, 0 accepted-not-incorporated, 1 incorporated-or-closed, and 0 deletion eligible.
 - The current universal portable audit passes with 0 errors and four truthful hosted-control warnings after token-shaped privacy fixtures were runtime-fragmented without changing their tested values.
 - Release-truth TDD now rejects stale pre-deployment claims. README, privacy map, review checklist, and release evidence consistently record the deployed Action, live August 13 notice, exact 17-tool inventory, rollback, and still-blocked public submission gates.
 - Production Action acceptance is preserved from exact code revision `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; it remains a separate consequential route and not an MCP tool. PR #8 merged the code as `f8e7ca1e10c096e050207828eeb9eb7957d7ef6f`.
@@ -64,42 +64,51 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   6 model cases passed, and 3 model cases remained honestly blocked by opaque
   remote-MCP receipts. The report/summary manifest and evidence safety scan
   passed. Exact bounded evidence is in `docs/release-evidence-v0.1.0.md`.
+- PR #9 merged into `main` as `e63a0f73ec28a4b91673eed768d8e72f41986418`.
+  Post-merge deterministic verification, workflow policy, and both CodeQL
+  analyses passed on that exact merge commit.
+- Fresh post-deployment ChatGPT interface acceptance on 2026-08-15 visibly
+  passed exact isolated integrity and load calls and returned a successful
+  ordered manifest/verify/load receipt with the current HRP identity. It did not
+  reproduce the earlier routine-status narration and showed no write
+  confirmation. The copied combined transcript collapsed or mislabeled its tool
+  card; that presentation limitation remains declared.
+- Lesson closeout for this acceptance is project-specific / no-new-lesson; the
+  three-layer proof distinction was already promoted and tested universally.
 
 ## Current checkpoint
 
-- PR #9 is the sole public-review automation PR. Its last live-evaluated code
-  and case commit is `8ed8c0f7aaab9609dfb067780c05838f98903bab`; evidence-only closeout changes
-  follow that commit and do not alter the deployed application or runner logic.
+- PR #9 is merged. Its last live-evaluated code and case commit is
+  `8ed8c0f7aaab9609dfb067780c05838f98903bab`; later evidence and CI-timeout
+  changes do not alter the deployed application or runner logic.
 - Production is healthy on the refetch-fix application image. Rollback image
   `askrigor-research:rollback-9715812` and
   `/opt/askrigor/compose.yaml.rollback-9715812` are verified.
-- V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** for the routine-status
-  presentation, portal identity/domain verification, Scan Tools/submission,
-  fresh post-deployment ChatGPT interface check, and three opaque remote-MCP
-  model receipts. The direct production contract itself is 9/9 green.
+- V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** for portal identity/domain
+  verification, Scan Tools/submission, the explicit release decision on three
+  opaque remote-MCP model receipts, and final portal response/privacy review.
+  The direct production contract is 9/9 green and the ChatGPT interface check is
+  complete with the declared card-presentation limitation.
 
 ## Remaining
 
-- Run `npm run lessons:status` and the final canonical repository gate on the
-  evidence-closeout tree; review the complete diff and secret scan; push the
-  final PR #9 head; and wait for `Deterministic verification` and
-  `workflow-policy`.
-- Merge PR #9 only if those required checks stay green and the final review has
-  no Critical or Important finding. The public-submission blocks are product
-  exceptions, not a reason to omit the automation or falsify its result.
-- Run one fresh post-deployment ChatGPT interface spot check before any public
-  submission claim. Resolve or expressly accept the three opaque remote-MCP
-  receipts at the release-decision boundary.
+- Merge this bounded UI-evidence update after its deterministic and policy
+  checks pass.
+- Confirm developer/business identity and the portal HTTPS domain challenge.
+- Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 17 tools
+  with the committed inventory, and review the portal's response/privacy output.
+- Resolve or expressly accept the three opaque remote-MCP receipts at the
+  release-decision boundary; direct proof must not be relabeled as model proof.
 
 ## Blockers / unresolved
 
-- No implementation, deployment, credential, or repository-governance blocker
-  remains for PR #9.
+- No implementation, deployment, credential, repository-governance, or ChatGPT
+  interface blocker remains.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
   output and the two tested error boundaries. The runner preserves these as
   `model_output` blocks. Direct proof does not establish model-layer semantics.
-- V0.1.0 public submission remains blocked by the separate product/release
-  gates above; merging the truthful automation does not accept or bypass them.
+- V0.1.0 public submission remains blocked by account-scoped identity/domain
+  work, Scan Tools, and the explicit opaque-receipt release decision.
 
 ## Evidence / artifacts
 
@@ -117,10 +126,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Run the final lessons-status and repository gates, publish the PR #9 evidence
-closeout, verify both required checks, and merge the PR if the final review
-remains clean.
+Verify and merge the bounded UI-evidence update, then open the OpenAI identity
+portal in the owner's signed-in browser and confirm whether `askrigor.com` is
+verified or copy the exact public DNS challenge for automated DNS validation.
 
 ## Recovery rule
 
-After interruption, inspect actual Git state, this checkpoint, complete protocol files, current release evidence, PR #9/checks, issue #6, and newer owner instructions. Resume from the latest verified boundary without touching the dirty original checkout or repeating live production acceptance.
+After interruption, inspect actual Git state, this checkpoint, complete protocol files, current release evidence, the merged PR #9, issue #6, and newer owner instructions. Resume from the latest verified boundary without touching the dirty original checkout or repeating live production acceptance.

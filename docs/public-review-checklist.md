@@ -6,9 +6,10 @@ immutable site release `f928b95e29cd`.
 The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.
 The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
-the separate routine-status presentation regression, portal identity and
-domain-verification work, Scan Tools review, and submission actions recorded in
-`docs/release-evidence-v0.1.0.md`.
+portal identity and domain-verification work, Scan Tools review, the explicit
+opaque model-receipt release decision, and submission actions recorded in
+`docs/release-evidence-v0.1.0.md`. The fresh post-deployment ChatGPT interface
+check did not reproduce the earlier routine-status regression.
 
 ## Optional lesson Action deployment truth
 
@@ -186,9 +187,20 @@ structured completion/error facts required by the contract:
 
 The direct lane proves all three server-side contracts; it does not substitute
 for the missing model-layer receipts. The sanitized report and summary passed
-their checksum manifest and repository safety scanner. The final fresh-chat
-ChatGPT interface spot check remains a separate product acceptance step because
-an API model run cannot prove product rendering.
+their checksum manifest and repository safety scanner.
+
+Fresh post-deployment ChatGPT interface acceptance ran on 2026-08-15. Isolated
+fresh chats visibly called `verify_protocol_integrity` once with the exact HRP
+digest and returned `verified:true`, then visibly called `load_protocol` once
+and returned the complete-text field with the same version, revision date, and
+SHA-256. An explicit ordered three-tool prompt returned a concise receipt for
+successful manifest, verification, and load operations. No write confirmation,
+research synthesis, or routine update/status diagnostic appeared. The copied
+combined transcript collapsed or mislabeled its visible tool card as
+`get_protocol_manifest` even though the displayed response contained the load
+tool's `text` field; the isolated tool cards and final receipt remove ambiguity
+about the tool results, but that product-card presentation limitation remains
+declared rather than rewritten as exact card-sequence proof.
 
 ## Submission execution gate
 
@@ -203,5 +215,3 @@ The publisher-matching HTTPS legal/support prerequisite was verified on
    accept that limitation. Do not relabel the 9/9 direct pass as model proof.
 4. Confirm no response contains credentials, debug payloads, internal
    identifiers, or data not disclosed in the final privacy notice.
-5. Resolve or expressly accept the recorded routine-status presentation
-   regression before claiming release-quality ChatGPT presentation.
