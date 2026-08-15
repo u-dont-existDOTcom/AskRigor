@@ -101,6 +101,7 @@ export interface SafeCallEvidence {
   tool: string;
   arguments: Record<string, unknown>;
   fields: Record<string, FieldInspection | OmittedValueEvidence>;
+  output_evidence?: OmittedValueEvidence;
   error?: { code: string; message?: string };
 }
 
@@ -170,6 +171,7 @@ export interface NormalizedMcpCall {
   name: string;
   arguments: Record<string, unknown>;
   structuredContent: Record<string, unknown> | undefined;
+  output_evidence: OmittedValueEvidence | undefined;
   error: string | null;
 }
 
@@ -185,6 +187,7 @@ export interface ModelCaseOptions {
   inventory: SafeInventoryEvidence;
   model: string;
   signal: AbortSignal;
+  directContractPassed?: boolean;
   directSchemaRejectionPassed?: boolean;
   now?: () => number;
 }
@@ -550,13 +553,18 @@ export function normalizeMcpCalls(
     }
     const argumentsValue = parseJsonRecord(item.arguments, "MCP call arguments");
     const error = normalizeMcpCallError(item.error);
-    const structuredContent = error === null
-      ? normalizeMcpOutput(item.output)
-      : normalizeOptionalMcpOutput(item.output);
+    const structuredContent = normalizeOptionalMcpOutput(item.output);
+    const outputEvidence = item.output === undefined || item.output === null || item.output === ""
+      ? undefined
+      : digestOmittedValue(item.output);
+    if (error === null && structuredContent === undefined && outputEvidence === undefined) {
+      throw new Error("MCP call has no output");
+    }
     calls.push({
       name: item.name,
       arguments: argumentsValue,
       structuredContent,
+      output_evidence: outputEvidence,
       error,
     });
   }
@@ -608,17 +616,32 @@ export async function runModelCase(
     if (step.tool === undefined || call === undefined || call.name !== step.tool) {
       return failedModelSelection(safeCalls, normalized, startedAt, now, checks);
     }
-    let expectedArguments: Record<string, unknown>;
-    try {
-      expectedArguments = resolveStepArguments(step, results);
-    } catch {
-      return failedLane("model", "case_contract", safeCalls, checks, startedAt, now);
+    let argumentsPass: boolean;
+    if (containsDynamicReference(step.arguments) && results.some((result) => result === undefined)) {
+      argumentsPass = hasBoundedContinuationArgument(call.arguments);
+    } else {
+      try {
+        const expectedArguments = resolveStepArguments(step, results);
+        argumentsPass = isDeepStrictEqual(call.arguments, expectedArguments);
+      } catch {
+        return failedLane("model", "case_contract", safeCalls, checks, startedAt, now);
+      }
     }
-    const argumentsPass = isDeepStrictEqual(call.arguments, expectedArguments);
     checks.push({ name: `step_${index + 1}_arguments`, pass: argumentsPass });
-    if (!argumentsPass || call.error !== null || call.structuredContent === undefined) {
+    if (!argumentsPass || call.error !== null) {
       return failedModelSelection(safeCalls, normalized, startedAt, now, checks);
     }
+    if (call.structuredContent === undefined) {
+      const opaquePass = call.output_evidence !== undefined &&
+        options.directContractPassed === true;
+      checks.push({ name: `step_${index + 1}_opaque_output_with_direct_proof`, pass: opaquePass });
+      if (!opaquePass) {
+        return failedModelOutput(safeCalls, normalized, startedAt, now, checks);
+      }
+      results.push(undefined);
+      continue;
+    }
+
     let fieldsPass = true;
     for (const path of step.expected_structured_fields ?? []) {
       if (!inspectStructuredField(call.structuredContent, path).present) fieldsPass = false;
@@ -630,7 +653,12 @@ export async function runModelCase(
     results.push(call.structuredContent);
   }
 
-  const semanticChecks = validatePositiveSemantics(reviewCase, results);
+  const semanticChecks = results.some((result) => result === undefined)
+    ? [{
+      name: "structured_results_verified_by_direct_lane",
+      pass: options.directContractPassed === true,
+    }]
+    : validatePositiveSemantics(reviewCase, results);
   checks.push(...semanticChecks);
   if (semanticChecks.some((check) => !check.pass)) {
     return failedModelOutput(safeCalls, normalized, startedAt, now, checks);
@@ -768,6 +796,7 @@ export async function runPublicReviewEvaluation(
             inventory: report.inventory,
             model: options.model,
             signal: timeoutController.signal,
+            directContractPassed: caseReport.direct?.state === "pass",
             directSchemaRejectionPassed: reviewCase.id === "negative-1" &&
               caseReport.direct?.state === "pass",
             now,
@@ -1195,15 +1224,20 @@ function evaluateNegativeModelCase(
   if (step?.kind === "explicit_not_found") {
     const call = normalized.calls[0];
     const structured = call?.structuredContent;
-    const pass = normalized.calls.length === 1 &&
+    const selectionPass = normalized.calls.length === 1 &&
       call?.name === step.tool &&
       isDeepStrictEqual(call?.arguments, step.arguments ?? {}) &&
-      call?.error === null &&
+      call?.error === null;
+    const structuredPass =
       isRecord(structured) &&
       structured.provider === "youtube" &&
       structured.access_status === "not_found" &&
       isRecord(structured.data) &&
       Object.keys(structured.data).length === 0;
+    const opaquePass = structured === undefined &&
+      call?.output_evidence !== undefined &&
+      options.directContractPassed === true;
+    const pass = selectionPass && (structuredPass || opaquePass);
     return modelNegativeResult(pass, safeCalls, normalized, "explicit_empty_not_found",
       startedAt, now);
   }
@@ -1253,6 +1287,9 @@ function projectNormalizedCalls(
       tool: call.name,
       arguments: sanitizeArguments(call.arguments),
       fields,
+      ...(call.output_evidence === undefined
+        ? {}
+        : { output_evidence: call.output_evidence }),
       ...(call.error === null ? {} : { error: { code: call.error } }),
     };
   });
@@ -1391,17 +1428,18 @@ function normalizeMcpCallError(value: unknown): string | null {
   return "mcp_call_error";
 }
 
-function normalizeMcpOutput(value: unknown): Record<string, unknown> {
-  const normalized = normalizeOptionalMcpOutput(value);
-  if (normalized === undefined) throw new Error("MCP call has no structured output");
-  return normalized;
-}
-
 function normalizeOptionalMcpOutput(
   value: unknown,
 ): Record<string, unknown> | undefined {
   if (value === null || value === undefined || value === "") return undefined;
-  const parsed = typeof value === "string" ? parseJsonValue(value, "MCP call output") : value;
+  let parsed = value;
+  if (typeof value === "string") {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return undefined;
+    }
+  }
   if (!isRecord(parsed)) throw new Error("MCP call output is not an object");
   if (Object.hasOwn(parsed, "structuredContent")) {
     if (!isRecord(parsed.structuredContent)) {
@@ -1450,6 +1488,22 @@ function nonnegativeInteger(value: unknown, label: string): number {
 
 function isAbortError(error: unknown): boolean {
   return isRecord(error) && error.name === "AbortError";
+}
+
+function containsDynamicReference(value: unknown): boolean {
+  if (typeof value === "string") return value.startsWith("$step_");
+  if (Array.isArray(value)) return value.some(containsDynamicReference);
+  if (isRecord(value)) return Object.values(value).some(containsDynamicReference);
+  return false;
+}
+
+function hasBoundedContinuationArgument(
+  value: Record<string, unknown>,
+): boolean {
+  return Object.keys(value).length === 1 &&
+    typeof value.continuation_token === "string" &&
+    value.continuation_token.length > 0 &&
+    value.continuation_token.length <= 65_536;
 }
 
 async function writeAtomic(path: string, content: string): Promise<void> {

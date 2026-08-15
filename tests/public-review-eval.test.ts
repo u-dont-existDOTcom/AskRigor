@@ -575,6 +575,25 @@ describe("Responses API public MCP review", () => {
     });
   });
 
+  it("normalizes the real Responses API opaque MCP output without retaining it", () => {
+    const opaqueOutput = "PubMed returned one public metadata record.";
+
+    const normalized = normalizeMcpCalls(completedResponsesFixture([{
+      name: "fetch_pubmed_record",
+      arguments: { pmid: "13054692" },
+      structuredContent: pubmedResultFixture(),
+      outputText: opaqueOutput,
+    }]), "askrigor");
+
+    expect(normalized.calls[0]).toMatchObject({
+      name: "fetch_pubmed_record",
+      structuredContent: undefined,
+      output_evidence: digestOmittedValue(opaqueOutput),
+      error: null,
+    });
+    expect(JSON.stringify(normalized)).not.toContain(opaqueOutput);
+  });
+
   it("rejects an MCP call from an unexpected server label", () => {
     const response = completedResponsesFixture([{
       name: "fetch_pubmed_record",
@@ -621,6 +640,47 @@ describe("Responses API public MCP review", () => {
       usage: { input_tokens: 120, output_tokens: 45, total_tokens: 165 },
     });
     expect(JSON.stringify(result)).not.toContain("Watson");
+  });
+
+  it("accepts opaque model tool output only after the direct contract passed", async () => {
+    const reviewCase = makeReviewCase({
+      id: "positive-2",
+      expected_workflow: [{
+        tool: "fetch_pubmed_record",
+        arguments: { pmid: "13054692" },
+        expected_structured_fields: ["provider", "primary_identifier", "data.pmid"],
+      }],
+      fixtureInputs: { pmid: "13054692" },
+    });
+    const response = completedResponsesFixture([{
+      name: "fetch_pubmed_record",
+      arguments: { pmid: "13054692" },
+      structuredContent: pubmedResultFixture(),
+      outputText: "PubMed returned one public metadata record.",
+    }]);
+
+    const passing = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directContractPassed: true,
+      now: deterministicClock(),
+    });
+    const failing = await runModelCase(reviewCase, {
+      transport: fixedResponsesTransport(response),
+      inventory: readOnlyInventoryFixture,
+      model: "chat-latest",
+      signal: new AbortController().signal,
+      directContractPassed: false,
+      now: deterministicClock(),
+    });
+
+    expect(passing.state).toBe("pass");
+    expect(passing.calls[0].output_evidence).toEqual(
+      digestOmittedValue("PubMed returned one public metadata record."),
+    );
+    expect(failing).toMatchObject({ state: "fail", failure_class: "model_output" });
   });
 
   it("fails an unexpected extra model tool call", async () => {
@@ -1064,6 +1124,7 @@ function completedResponsesFixture(calls: Array<{
   structuredContent: Record<string, unknown>;
   serverLabel?: string;
   error?: string | null;
+  outputText?: string;
 }>): Record<string, unknown> {
   return {
     id: "resp_public_review",
@@ -1077,7 +1138,7 @@ function completedResponsesFixture(calls: Array<{
       server_label: call.serverLabel ?? "askrigor",
       name: call.name,
       arguments: JSON.stringify(call.arguments),
-      output: JSON.stringify({ structuredContent: call.structuredContent }),
+      output: call.outputText ?? JSON.stringify({ structuredContent: call.structuredContent }),
       error: call.error ?? null,
     })),
     usage: { input_tokens: 120, output_tokens: 45, total_tokens: 165 },
