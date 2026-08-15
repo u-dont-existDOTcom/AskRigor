@@ -236,6 +236,35 @@ export interface EvidenceBundlePaths {
   sha256Manifest: string;
 }
 
+export type EvaluationMode = "direct" | "model" | "all";
+
+export interface RunEvaluationOptions {
+  reviewCases: ReviewCase[];
+  mode: EvaluationMode;
+  model: string;
+  mcpSession: McpSession;
+  responsesTransport?: ResponsesTransport;
+  repository: { commit: string; dirty: boolean };
+  caseFile: { path: string; sha256: string };
+  outputRoot: string;
+  runId: string;
+  startedAt: string;
+  finishedAt: () => string;
+  activeSecret?: string;
+  now?: () => number;
+}
+
+export interface RunEvaluationResult {
+  report: PublicReviewReport;
+  paths: EvidenceBundlePaths;
+  exitCode: 0 | 1;
+}
+
+export const REQUEST_TIMEOUT_MS = 45_000;
+export const CASE_TIMEOUT_MS = 180_000;
+export const FULL_RUN_TIMEOUT_MS = 1_800_000;
+export const MAX_OUTPUT_TOKENS = 4_096;
+
 export function parseReviewCaseSet(value: unknown): ReviewCaseSet {
   const parsed = reviewCaseSetSchema.parse(value);
   const ids = new Set<string>();
@@ -659,6 +688,109 @@ export async function writeEvidenceBundle(
   };
 }
 
+export async function runPublicReviewEvaluation(
+  options: RunEvaluationOptions,
+): Promise<RunEvaluationResult> {
+  const now = options.now ?? Date.now;
+  const runStartedAt = now();
+  const report: PublicReviewReport = {
+    schema_version: "askrigor-public-review-eval/v1",
+    run_id: options.runId,
+    repository: { ...options.repository },
+    case_file: { ...options.caseFile },
+    endpoint_origin: "https://mcp.askrigor.com",
+    model: { requested: options.model, returned: [] },
+    started_at: options.startedAt,
+    finished_at: null,
+    inventory: null,
+    cases: options.reviewCases.map((reviewCase) => ({
+      id: reviewCase.id,
+      group: reviewCase.group,
+      direct: null,
+      model: null,
+      interface_status: "pending",
+    })),
+    usage: { input_tokens: 0, output_tokens: 0, total_tokens: 0 },
+    automated_result: "incomplete",
+  };
+
+  let paths: EvidenceBundlePaths;
+  try {
+    const { tools } = await options.mcpSession.listTools();
+    report.inventory = assertReadOnlyInventory(tools);
+    paths = await persistReport(options, report);
+  } catch {
+    report.finished_at = options.finishedAt();
+    report.automated_result = "fail";
+    paths = await persistReport(options, report);
+    return { report, paths, exitCode: 1 };
+  }
+
+  if (options.mode === "direct" || options.mode === "all") {
+    for (const [index, reviewCase] of options.reviewCases.entries()) {
+      if (now() - runStartedAt > FULL_RUN_TIMEOUT_MS) {
+        report.cases[index].direct = timeoutLane("direct");
+      } else {
+        report.cases[index].direct = await runDirectCase(
+          reviewCase,
+          options.mcpSession,
+          report.inventory,
+          now,
+        );
+      }
+      refreshReportAggregates(report, options.mode);
+      paths = await persistReport(options, report);
+    }
+  }
+
+  if (options.mode === "model" || options.mode === "all") {
+    for (const [index, reviewCase] of options.reviewCases.entries()) {
+      const caseReport = report.cases[index];
+      if (now() - runStartedAt > FULL_RUN_TIMEOUT_MS) {
+        caseReport.model = timeoutLane("model");
+      } else if (options.mode === "all" && caseReport.direct?.state !== "pass") {
+        caseReport.model = dependencyBlockedLane(caseReport.direct?.failure_class);
+      } else if (options.responsesTransport === undefined) {
+        caseReport.model = {
+          lane: "model",
+          state: "blocked",
+          failure_class: "model_transport",
+          checks: [],
+          calls: [],
+          duration_ms: 0,
+        };
+      } else {
+        const timeoutController = new AbortController();
+        const timeout = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
+        try {
+          caseReport.model = await runModelCase(reviewCase, {
+            transport: options.responsesTransport,
+            inventory: report.inventory,
+            model: options.model,
+            signal: timeoutController.signal,
+            directSchemaRejectionPassed: reviewCase.id === "negative-1" &&
+              caseReport.direct?.state === "pass",
+            now,
+          });
+        } finally {
+          clearTimeout(timeout);
+        }
+      }
+      refreshReportAggregates(report, options.mode);
+      paths = await persistReport(options, report);
+    }
+  }
+
+  report.finished_at = options.finishedAt();
+  refreshReportAggregates(report, options.mode);
+  paths = await persistReport(options, report);
+  return {
+    report,
+    paths,
+    exitCode: report.automated_result === "pass" ? 0 : 1,
+  };
+}
+
 function normalizeCase(
   raw: z.infer<typeof rawReviewCaseSchema>,
   group: ReviewGroup,
@@ -732,13 +864,9 @@ function valueType(value: unknown): FieldInspection["type"] {
   if (value === null) return "null";
   if (Array.isArray(value)) return "array";
   if (typeof value === "object") return "object";
-  if (
-    typeof value === "boolean" ||
-    typeof value === "number" ||
-    typeof value === "string"
-  ) {
-    return typeof value;
-  }
+  if (typeof value === "boolean") return "boolean";
+  if (typeof value === "number") return "number";
+  if (typeof value === "string") return "string";
   return undefined;
 }
 
@@ -1169,6 +1297,87 @@ function blockedLane(
     calls: [],
     duration_ms: elapsed(startedAt, now()),
   };
+}
+
+function timeoutLane(lane: "direct" | "model"): CaseLaneResult {
+  return {
+    lane,
+    state: "blocked",
+    failure_class: "timeout",
+    checks: [],
+    calls: [],
+    duration_ms: 0,
+  };
+}
+
+function dependencyBlockedLane(
+  failureClass: FailureClass | undefined,
+): CaseLaneResult {
+  return {
+    lane: "model",
+    state: "blocked",
+    failure_class: failureClass ?? "provider_result",
+    checks: [{ name: "direct_lane_dependency", pass: false }],
+    calls: [],
+    duration_ms: 0,
+  };
+}
+
+async function persistReport(
+  options: RunEvaluationOptions,
+  report: PublicReviewReport,
+): Promise<EvidenceBundlePaths> {
+  return writeEvidenceBundle({
+    outputRoot: options.outputRoot,
+    report,
+    activeSecret: options.activeSecret,
+  });
+}
+
+function refreshReportAggregates(
+  report: PublicReviewReport,
+  mode: EvaluationMode,
+): void {
+  const requestedResults: CaseLaneResult[] = [];
+  const returnedModels = new Set<string>();
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let totalTokens = 0;
+
+  for (const reviewCase of report.cases) {
+    if (mode === "direct" || mode === "all") {
+      if (reviewCase.direct !== null) requestedResults.push(reviewCase.direct);
+    }
+    if (mode === "model" || mode === "all") {
+      if (reviewCase.model !== null) requestedResults.push(reviewCase.model);
+      if (reviewCase.model?.returned_model !== undefined) {
+        returnedModels.add(reviewCase.model.returned_model);
+      }
+      if (reviewCase.model?.usage !== undefined) {
+        inputTokens += reviewCase.model.usage.input_tokens;
+        outputTokens += reviewCase.model.usage.output_tokens;
+        totalTokens += reviewCase.model.usage.total_tokens;
+      }
+    }
+  }
+
+  report.model.returned = [...returnedModels];
+  report.usage = {
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    total_tokens: totalTokens,
+  };
+
+  const expectedResultCount = report.cases.length * (mode === "all" ? 2 : 1);
+  if (requestedResults.length < expectedResultCount) {
+    report.automated_result = "incomplete";
+  } else if (requestedResults.some((result) => result.state === "fail")) {
+    report.automated_result = "fail";
+  } else if (requestedResults.some((result) => result.state === "blocked")) {
+    report.automated_result = "incomplete";
+  } else {
+    report.automated_result = "pass";
+  }
 }
 
 function normalizeMcpCallError(value: unknown): string | null {

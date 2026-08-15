@@ -16,6 +16,7 @@
     "verify": "npm run typecheck && npm run test:run && npm run build",
     "generate:action-openapi": "tsx scripts/generate-action-openapi.mts",
     "lessons:status": "tsx scripts/lessons-status.mts",
+    "review:public-live": "tsx scripts/run-public-review-eval.mts",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
     "start:mcp": "node apps/research-mcp/dist/index.js"
   },

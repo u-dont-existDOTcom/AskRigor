@@ -18,6 +18,7 @@ import {
   resolveStepArguments,
   runDirectCase,
   runModelCase,
+  runPublicReviewEvaluation,
   scanEvidenceSafety,
   selectReviewCases,
   writeEvidenceBundle,
@@ -27,8 +28,14 @@ import {
   type PublicReviewReport,
   type ResponsesTransport,
   type ReviewCase,
+  type RunEvaluationResult,
   type SafeInventoryEvidence,
 } from "../scripts/public-review-eval-lib.mts";
+import {
+  main as publicReviewMain,
+  parsePublicReviewCliArgs,
+  type PublicReviewCliRuntime,
+} from "../scripts/run-public-review-eval.mts";
 
 const minimalPositiveCase = {
   id: "positive-1",
@@ -743,6 +750,182 @@ describe("Responses API public MCP review", () => {
     expect(quota).toMatchObject({ state: "blocked", failure_class: "quota_or_rate_limit" });
     expect(timeout).toMatchObject({ state: "blocked", failure_class: "timeout" });
     expect(JSON.stringify([quota, timeout])).not.toContain("request timed out");
+  });
+});
+
+describe("public review runner orchestration", () => {
+  it("parses explicit live options and rejects credential arguments", () => {
+    expect(parsePublicReviewCliArgs([
+      "--live",
+      "--mode",
+      "model",
+      "--case",
+      "positive-2",
+      "--case",
+      "negative-3",
+    ])).toEqual({
+      live: true,
+      help: false,
+      mode: "model",
+      caseIds: ["positive-2", "negative-3"],
+      model: "chat-latest",
+      caseFile: "docs/public-review-cases-v0.1.0.json",
+      outputRoot: ".artifacts/public-review-eval",
+    });
+    expect(() => parsePublicReviewCliArgs(["--api-key", "secret"]))
+      .toThrow("unknown option: --api-key");
+  });
+
+  it("stops before runtime execution without the explicit live gate", async () => {
+    let runCalls = 0;
+    const errors: string[] = [];
+    const runtime: PublicReviewCliRuntime = {
+      async run(): Promise<RunEvaluationResult> {
+        runCalls += 1;
+        throw new Error("runtime must not execute");
+      },
+      stdout() {},
+      stderr(message) { errors.push(message); },
+    };
+
+    const exitCode = await publicReviewMain([], {}, runtime);
+
+    expect(exitCode).toBe(2);
+    expect(runCalls).toBe(0);
+    expect(errors).toEqual(["Refusing network calls without --live."]);
+  });
+
+  it("requires the API key only for model execution", async () => {
+    let runCalls = 0;
+    const errors: string[] = [];
+    const runtime: PublicReviewCliRuntime = {
+      async run(): Promise<RunEvaluationResult> {
+        runCalls += 1;
+        throw new Error("runtime must not execute");
+      },
+      stdout() {},
+      stderr(message) { errors.push(message); },
+    };
+
+    const exitCode = await publicReviewMain(["--live", "--mode", "model"], {}, runtime);
+
+    expect(exitCode).toBe(2);
+    expect(runCalls).toBe(0);
+    expect(errors).toEqual(["OPENAI_API_KEY is required for model mode."]);
+  });
+
+  it("runs every direct case before beginning the model lane", async () => {
+    const events: string[] = [];
+    const root = await mkdtemp(join(tmpdir(), "askrigor-orchestrator-"));
+    try {
+      const reviewCase = makeReviewCase({
+        id: "positive-2",
+        expected_workflow: [{
+          tool: "fetch_pubmed_record",
+          arguments: { pmid: "13054692" },
+          expected_structured_fields: ["provider", "primary_identifier", "data.pmid"],
+        }],
+        fixtureInputs: { pmid: "13054692" },
+      });
+      const mcpSession: McpSession = {
+        async listTools() {
+          return {
+            tools: [{
+              name: "fetch_pubmed_record",
+              annotations: readOnlyToolAnnotations,
+            }],
+          };
+        },
+        async callTool() {
+          events.push("direct:positive-2");
+          return { structuredContent: pubmedResultFixture() };
+        },
+      };
+      const transport: ResponsesTransport = {
+        async create() {
+          events.push("model:positive-2");
+          return completedResponsesFixture([{
+            name: "fetch_pubmed_record",
+            arguments: { pmid: "13054692" },
+            structuredContent: pubmedResultFixture(),
+          }]);
+        },
+      };
+
+      const result = await runPublicReviewEvaluation({
+        reviewCases: [reviewCase],
+        mode: "all",
+        model: "chat-latest",
+        mcpSession,
+        responsesTransport: transport,
+        repository: { commit: "e".repeat(40), dirty: false },
+        caseFile: { path: "docs/public-review-cases-v0.1.0.json", sha256: "f".repeat(64) },
+        outputRoot: root,
+        runId: "20260815T070000.000Z-1234abcd",
+        startedAt: "2026-08-15T07:00:00.000Z",
+        finishedAt: () => "2026-08-15T07:01:00.000Z",
+        now: deterministicClock(),
+      });
+
+      expect(events).toEqual(["direct:positive-2", "model:positive-2"]);
+      expect(result.exitCode).toBe(0);
+      expect(result.report.automated_result).toBe("pass");
+      expect(JSON.parse(await readFile(result.paths.reportJson, "utf8")))
+        .toEqual(result.report);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("blocks a model case after its direct dependency fails", async () => {
+    let modelCalls = 0;
+    const root = await mkdtemp(join(tmpdir(), "askrigor-orchestrator-"));
+    try {
+      const reviewCase = makeReviewCase({
+        id: "positive-2",
+        expected_workflow: [{
+          tool: "fetch_pubmed_record",
+          arguments: { pmid: "13054692" },
+          expected_structured_fields: ["data.pmid"],
+        }],
+        fixtureInputs: { pmid: "13054692" },
+      });
+      const result = await runPublicReviewEvaluation({
+        reviewCases: [reviewCase],
+        mode: "all",
+        model: "chat-latest",
+        mcpSession: {
+          async listTools() {
+            return { tools: [{ name: "fetch_pubmed_record", annotations: readOnlyToolAnnotations }] };
+          },
+          async callTool() {
+            return { structuredContent: { provider: "pubmed", data: {} } };
+          },
+        },
+        responsesTransport: {
+          async create() {
+            modelCalls += 1;
+            return completedResponsesFixture([]);
+          },
+        },
+        repository: { commit: "e".repeat(40), dirty: false },
+        caseFile: { path: "docs/public-review-cases-v0.1.0.json", sha256: "f".repeat(64) },
+        outputRoot: root,
+        runId: "20260815T070000.000Z-5678abcd",
+        startedAt: "2026-08-15T07:00:00.000Z",
+        finishedAt: () => "2026-08-15T07:01:00.000Z",
+        now: deterministicClock(),
+      });
+
+      expect(modelCalls).toBe(0);
+      expect(result.exitCode).toBe(1);
+      expect(result.report.cases[0].model).toMatchObject({
+        state: "blocked",
+        failure_class: "provider_result",
+      });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });
 

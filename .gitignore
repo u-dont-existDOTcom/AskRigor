@@ -6,5 +6,6 @@ coverage/
 .env.local
 .app.json
 .worktrees/
+.artifacts/
 task-10-report.md
 task-11-report.md
