@@ -13,7 +13,7 @@ Scan Tools, and submission actions are resolved.
 | Item | Evidence |
 | --- | --- |
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
-| Production connector revision | Lesson-Action code revision `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` (`fix: preserve lesson issues with append-only occurrences`), deployed as image ID `sha256:b78653b181346727eefedc31c903e93818d51a88cd4ad967d91e936e9d8f57a8`. Prior connector revision `bb2245f04f6e1f7bfed8d146c92497364d6488f7` and its image `sha256:4d397a3c5bf5eff3c0ed350720a16e92a20786871072527732a1d9c03487ee81` remain the tested Actions-disabled rollback. |
+| Production connector revision | Public-review/refetch application tag `9715812bfbe3133a755f7ec8ffb91a870629a137`, deployed as image ID `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`. Its application bytes add the live YouTube comment-ID response-shape repair and retain the accepted Lesson-Action behavior from revision `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. The immediate rollback tag `askrigor-research:rollback-9715812` resolves to prior image `sha256:b78653b181346727eefedc31c903e93818d51a88cd4ad967d91e936e9d8f57a8`. Earlier Forum Signal revision `bb2245f04f6e1f7bfed8d146c92497364d6488f7` and the separately recorded Actions-disabled image remain historical provenance. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
 | Canonical HRP | Version `20.5.17`, revision date `2026-08-13`, SHA-256 `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; the public manifest returned this exact identity after the Lesson-Action rollout. |
 | Production source packet | Exact secret-free `git archive` from `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; SHA-256 `d128247d2aa12a830514e515c9f74666a4e0558955f3de60a301af1ec2690600`. |
@@ -47,6 +47,7 @@ run the VPS validation.
 | ChatGPT release finding | A separate **routine-status presentation regression** occurred: ChatGPT narrated a stale update-check date/status despite Universal v20.5.11 and HRP v20.5.15 prohibiting routine update diagnostics. This is not a connector retrieval failure; it must be fixed or explicitly accepted before release-quality presentation is claimed. |
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
+| Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
 
 ## Public URL gate — direct HTTPS evidence
 
@@ -88,6 +89,72 @@ port 3000 remained bound only to `127.0.0.1`. The runtime-env file remained
 `root:root`, mode `0600`; its contents were not read, copied, printed, or
 checksummed.
 
+## Automated public review and refetch rollout — 2026-08-15
+
+The first protected all-case run, from clean commit
+`9715812bfbe3133a755f7ec8ffb91a870629a137`, exposed a production defect rather
+than weakening the case: video `W42rwWD6zjw` reported 16 API-visible comments
+but returned zero records for analysis, leaving completion `incomplete` and
+`synthesis_lock:block`. The live YouTube `comments.list` ID-filter response may
+omit both `pageInfo` and `snippet.videoId`; the old parser rejected that valid
+shape. A failing fixture regression preceded the minimal parser repair. The
+focused suite, full repository gate, isolated read-only image gate, and
+independent review passed before deployment.
+
+The production research service now runs image tag
+`9715812bfbe3133a755f7ec8ffb91a870629a137`, image ID
+`sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`,
+as container `37dadae8bb20e3aba33d597b06f11bdc4ae0077054e0ed3c39636f367a0da37c`.
+Only `research-mcp` was recreated. Caddy remained
+`5d849df160bda42b924feef49a4aff26a7d8df5e5cfa7f0d5e16ac378c43c23e`;
+public and loopback health returned `200`; the Action schema returned `200`;
+an unauthenticated Action submission returned `401`; and the existing
+read-write Action-state mount remained the only service mount. The service
+still runs as `node` with a read-only root filesystem, all capabilities
+dropped, and `no-new-privileges`. Rollback is the old image through
+`askrigor-research:rollback-9715812` plus root-owned mode-`0640`
+`/opt/askrigor/compose.yaml.rollback-9715812`.
+
+The protected runner's first container stopped before network evaluation
+because the pinned Node slim image lacked Git, which the commit/case-byte proof
+requires. TDD added `Dockerfile.public-review`, pinning Node `24.18.0` by image
+digest and Debian Git `2.39.5-0+deb12u3`. The verified toolchain image ID is
+`sha256:01d6e903b4590df22e9ed3a3432ddc1ad3164ba762f63f17dc646ba3437f905b`.
+The source checkout was reconstructed from the exact Git archive, raw commit
+object, and expected tree ID before each accepted run; the runner reported a
+clean commit and compared the working case file with `git show` at that commit.
+
+Final full run `20260815T110708.728Z-baa07445` started
+`2026-08-15T11:07:08.728Z` and finished `2026-08-15T11:08:05.172Z` from clean
+commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`. The endpoint was
+`https://mcp.askrigor.com`; the case-file SHA-256 was
+`daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`.
+All 17 discovered tools were verified read-only and had ordered-name SHA-256
+`d79698ff9e1d124c17c0e7244194786fb989af6a9e96872358f9760f3cddb0f8`.
+All 9/9 direct cases passed, including the repaired terminal YouTube receipt.
+Six of nine `chat-latest` cases passed. `positive-6`, `negative-1`, and
+`negative-2` remain `BLOCKED` at the model layer because OpenAI returned only
+opaque success/error receipts, which cannot prove conditional continuation,
+pre-provider schema rejection, or the explicit video-visibility boundary.
+Their exact tool selections are present; the direct results pass; neither is
+misrepresented as model proof. Total Responses usage was 6,272 tokens.
+
+The sanitized `report.json` SHA-256 is
+`5f624939b877c39eb5274e16c4a13044d0a3edc49b231e067413365bee5c66bc`;
+the sanitized `SUMMARY.md` SHA-256 is
+`f7a24bf50b502b9d3f558fa51d21c9719a6ee82373b0a50ad7b8f800bfd4fe2e`.
+`SHA256SUMS` verified both files, and `scanEvidenceSafety` passed without a
+secret value. Raw protocol text, comments, provider bodies, model text,
+continuation tokens, credentials, and private health data are not retained in
+the repository.
+
+Lesson closeout: the YouTube response-shape repair is project-specific. The
+separation of direct server proof, API-model selection proof, and product-UI
+proof, plus the requirement that a commit-verifying runner actually package
+Git, were already explicit in the approved architecture; this run adds
+project evidence and no new universal rule. No universal-lesson change is
+claimed from this acceptance.
+
 ## Required submission work remaining
 
 - Complete/confirm verified developer or business identity, listing URLs,
@@ -95,8 +162,11 @@ checksummed.
 - Submit the fixed production URL, select **Scan Tools**, and compare discovered
   tool metadata with `docs/public-review-checklist.md`. Any metadata change
   requires deploy → rescan → review.
-- Enter the five positive and three negative reviewer cases in the public-review
-  checklist, including expected result shapes and reproducible public fixtures.
+- Resolve or expressly accept the three opaque remote-MCP model receipts from
+  run `20260815T110708.728Z-baa07445`; the 9/9 direct pass must not be used as a
+  substitute for model-layer proof.
+- Run one fresh ChatGPT product-interface spot check after the deployed refetch
+  repair and record the visible receipt separately from API evidence.
 - Resolve the routine-status presentation regression, or document a deliberate
   product decision with fresh ChatGPT evidence before asserting presentation
   readiness.
@@ -116,6 +186,7 @@ checks run only with safely available credentials; credentials are never printed
 | Current credential-bound live suite | Controller-run v6 evidence at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`: clean archive/image build, server-side scan, ANSI-safe parser exit 0 with exactly `Test Files 1 passed (1)` and `Tests 5 passed (5)` and zero skips, relative evidence checksum, and `Live suite v6 accepted` status all passed. The controller's runner accessed server-side runtime environment without exposing, reading back, or logging provider keys; evidence was read only after the fail-closed scan. This worktree contains no secret and did not independently rerun the remote suite. |
 | `npm audit --omit=dev` | Passed outside the restricted sandbox: 0 production-dependency vulnerabilities. The sandbox could not resolve `registry.npmjs.org`. |
 | `npm outdated` | Exit 0 with no output; no outdated packages reported. No dependency upgrades were attempted. |
+| Public-review automation candidate | TDD observed the missing-Git toolchain and underspecified compound prompt fail before their fixes. Focused review/release tests passed 69/69. The pre-evidence canonical `npm run verify` passed typecheck/build with 42 passing files, one skipped credential-gated file, 842 passing tests, and five credential-gated skips. Final post-evidence verification is recorded by the public-review PR checks rather than this pre-evidence row. |
 
 ## Live-runner status-parser repair
 
