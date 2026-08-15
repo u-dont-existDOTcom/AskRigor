@@ -120,6 +120,33 @@ export interface SafeInventoryEvidence {
   read_only_verified: true;
 }
 
+export interface McpToolDescriptor {
+  name: string;
+  annotations?: {
+    readOnlyHint?: boolean;
+    destructiveHint?: boolean;
+    openWorldHint?: boolean;
+  };
+}
+
+export interface McpCallResult {
+  isError?: boolean;
+  structuredContent?: unknown;
+  content?: unknown;
+}
+
+export interface McpSession {
+  listTools(): Promise<{ tools: McpToolDescriptor[] }>;
+  callTool(input: {
+    name: string;
+    arguments: Record<string, unknown>;
+  }): Promise<McpCallResult>;
+}
+
+export class McpInputValidationError extends Error {
+  override readonly name = "McpInputValidationError";
+}
+
 export interface CaseReport {
   id: string;
   group: ReviewGroup;
@@ -268,6 +295,107 @@ export function digestOmittedValue(value: unknown): OmittedValueEvidence {
     byte_length: Buffer.byteLength(serialized, "utf8"),
     sha256: sha256(serialized),
   };
+}
+
+export function assertReadOnlyInventory(
+  tools: readonly McpToolDescriptor[],
+): SafeInventoryEvidence {
+  if (tools.length === 0) throw new Error("MCP tool inventory is empty");
+  const names = new Set<string>();
+  for (const tool of tools) {
+    if (tool.name.length === 0) throw new Error("MCP tool inventory has an empty name");
+    if (names.has(tool.name)) throw new Error(`duplicate MCP tool: ${tool.name}`);
+    names.add(tool.name);
+    if (
+      tool.annotations?.readOnlyHint !== true ||
+      tool.annotations.destructiveHint !== false ||
+      tool.annotations.openWorldHint !== false
+    ) {
+      throw new Error(`tool ${tool.name} is not strictly read-only`);
+    }
+  }
+  const toolNames = [...names];
+  return {
+    tool_names: toolNames,
+    ordered_names_sha256: sha256(toolNames.join("\n")),
+    read_only_verified: true,
+  };
+}
+
+export async function runDirectCase(
+  reviewCase: ReviewCase,
+  session: McpSession,
+  inventory: SafeInventoryEvidence,
+  now: () => number = Date.now,
+): Promise<CaseLaneResult> {
+  const startedAt = now();
+  try {
+    if (reviewCase.group === "negative") {
+      return await runNegativeDirectCase(reviewCase, session, inventory, startedAt, now);
+    }
+
+    const calls: SafeCallEvidence[] = [];
+    const results: unknown[] = [];
+    const checks: CaseLaneResult["checks"] = [];
+
+    for (const [index, step] of reviewCase.expected_workflow.entries()) {
+      if (step.tool === undefined) {
+        return failedLane("direct", "case_contract", calls, checks, startedAt, now);
+      }
+      let argumentsValue: Record<string, unknown>;
+      try {
+        argumentsValue = resolveStepArguments(step, results);
+      } catch {
+        return failedLane("direct", "case_contract", calls, checks, startedAt, now);
+      }
+
+      let callResult: McpCallResult;
+      try {
+        callResult = await session.callTool({ name: step.tool, arguments: argumentsValue });
+      } catch {
+        return failedLane("direct", "provider_result", calls, checks, startedAt, now);
+      }
+      if (callResult.isError === true || !isRecord(callResult.structuredContent)) {
+        return failedLane("direct", "provider_result", calls, checks, startedAt, now);
+      }
+
+      const structured = callResult.structuredContent;
+      const fields: SafeCallEvidence["fields"] = {};
+      let fieldsPass = true;
+      for (const path of step.expected_structured_fields ?? []) {
+        const inspection = inspectStructuredField(structured, path);
+        fields[path] = inspection;
+        if (!inspection.present) fieldsPass = false;
+      }
+      checks.push({ name: `step_${index + 1}_required_fields`, pass: fieldsPass });
+      calls.push({
+        tool: step.tool,
+        arguments: sanitizeArguments(argumentsValue),
+        fields,
+      });
+      results.push(structured);
+
+      if (!fieldsPass) {
+        return failedLane("direct", "provider_result", calls, checks, startedAt, now);
+      }
+    }
+
+    const semanticChecks = validatePositiveSemantics(reviewCase, results);
+    checks.push(...semanticChecks);
+    if (semanticChecks.some((check) => !check.pass)) {
+      return failedLane("direct", "provider_result", calls, checks, startedAt, now);
+    }
+
+    return {
+      lane: "direct",
+      state: "pass",
+      checks,
+      calls,
+      duration_ms: elapsed(startedAt, now()),
+    };
+  } catch {
+    return failedLane("direct", "unexpected_internal_error", [], [], startedAt, now);
+  }
 }
 
 export function scanEvidenceSafety(value: unknown, activeSecret?: string): void {
@@ -441,6 +569,236 @@ function scanEvidenceValue(
     }
     scanEvidenceValue(entry, entryPath, activeSecret);
   }
+}
+
+async function runNegativeDirectCase(
+  reviewCase: ReviewCase,
+  session: McpSession,
+  inventory: SafeInventoryEvidence,
+  startedAt: number,
+  now: () => number,
+): Promise<CaseLaneResult> {
+  const step = reviewCase.expected_workflow[0];
+  if (step === undefined || step.kind === undefined) {
+    return failedLane("direct", "case_contract", [], [], startedAt, now);
+  }
+
+  if (step.kind === "no_tool_call_for_unsupported_write_or_medical_action") {
+    const absent = (step.tools_expected_not_to_exist ?? []).every(
+      (name) => !inventory.tool_names.includes(name),
+    );
+    const checks = [{ name: "unsupported_tools_absent", pass: absent }];
+    return absent
+      ? {
+        lane: "direct",
+        state: "pass",
+        checks,
+        calls: [],
+        duration_ms: elapsed(startedAt, now()),
+      }
+      : failedLane("direct", "mcp_discovery", [], checks, startedAt, now);
+  }
+
+  if (step.tool === undefined) {
+    return failedLane("direct", "case_contract", [], [], startedAt, now);
+  }
+  const argumentsValue = step.arguments ?? {};
+
+  if (step.kind === "schema_rejection_before_provider_call") {
+    try {
+      await session.callTool({ name: step.tool, arguments: argumentsValue });
+      return failedLane(
+        "direct",
+        "mcp_schema",
+        [],
+        [{ name: "input_schema_rejected", pass: false }],
+        startedAt,
+        now,
+      );
+    } catch (error) {
+      const pass = error instanceof McpInputValidationError;
+      const checks = [{ name: "input_schema_rejected", pass }];
+      return pass
+        ? {
+          lane: "direct",
+          state: "pass",
+          checks,
+          calls: [],
+          duration_ms: elapsed(startedAt, now()),
+        }
+        : failedLane("direct", "mcp_schema", [], checks, startedAt, now);
+    }
+  }
+
+  if (step.kind === "explicit_not_found") {
+    let result: McpCallResult;
+    try {
+      result = await session.callTool({ name: step.tool, arguments: argumentsValue });
+    } catch {
+      return failedLane("direct", "provider_result", [], [], startedAt, now);
+    }
+    const structured = result.structuredContent;
+    const pass = isRecord(structured) &&
+      structured.provider === "youtube" &&
+      structured.access_status === "not_found" &&
+      isRecord(structured.data) &&
+      Object.keys(structured.data).length === 0;
+    const fields: SafeCallEvidence["fields"] = isRecord(structured)
+      ? {
+        provider: inspectStructuredField(structured, "provider"),
+        access_status: inspectStructuredField(structured, "access_status"),
+        data: inspectStructuredField(structured, "data"),
+      }
+      : {};
+    const calls = [{
+      tool: step.tool,
+      arguments: sanitizeArguments(argumentsValue),
+      fields,
+    }];
+    const checks = [{ name: "explicit_empty_not_found", pass }];
+    return pass
+      ? {
+        lane: "direct",
+        state: "pass",
+        checks,
+        calls,
+        duration_ms: elapsed(startedAt, now()),
+      }
+      : failedLane("direct", "provider_result", calls, checks, startedAt, now);
+  }
+
+  return failedLane("direct", "case_contract", [], [], startedAt, now);
+}
+
+function validatePositiveSemantics(
+  reviewCase: ReviewCase,
+  results: readonly unknown[],
+): CaseLaneResult["checks"] {
+  const checks: CaseLaneResult["checks"] = [];
+  if (reviewCase.id === "positive-1") {
+    const expectedSha = reviewCase.fixture.inputs.expected_sha256;
+    if (typeof expectedSha === "string") {
+      const matchingDigests = results.every((result) => {
+        const digest = getDottedValue(result, "manifest.sha256");
+        return digest === undefined || digest === expectedSha;
+      });
+      checks.push({ name: "protocol_sha256_matches_fixture", pass: matchingDigests });
+    }
+    const verificationIndex = reviewCase.expected_workflow.findIndex(
+      (step) => step.tool === "verify_protocol_integrity",
+    );
+    if (verificationIndex >= 0) {
+      checks.push({
+        name: "protocol_integrity_verified",
+        pass: getDottedValue(results[verificationIndex], "verified") === true,
+      });
+    }
+    const loadIndex = reviewCase.expected_workflow.findIndex(
+      (step) => step.tool === "load_protocol",
+    );
+    if (loadIndex >= 0) {
+      const text = getDottedValue(results[loadIndex], "text");
+      checks.push({
+        name: "complete_protocol_text_returned",
+        pass: typeof text === "string" && text.length > 0,
+      });
+    }
+  }
+
+  if (reviewCase.id === "positive-2") {
+    const pmid = reviewCase.fixture.inputs.pmid;
+    checks.push({
+      name: "pubmed_identity_matches_fixture",
+      pass: results.length === 1 &&
+        getDottedValue(results[0], "provider") === "pubmed" &&
+        getDottedValue(results[0], "primary_identifier") === pmid &&
+        getDottedValue(results[0], "data.pmid") === pmid,
+    });
+  }
+
+  if (reviewCase.id === "positive-3") {
+    const nctId = reviewCase.fixture.inputs.nct_id;
+    checks.push({
+      name: "clinical_trial_identity_matches_fixture",
+      pass: results.length === 1 &&
+        getDottedValue(results[0], "provider") === "clinicaltrials_gov" &&
+        getDottedValue(results[0], "primary_identifier") === nctId &&
+        getDottedValue(results[0], "data.nct_id") === nctId,
+    });
+  }
+
+  if (reviewCase.id === "positive-4") {
+    const identifier = reviewCase.fixture.inputs.identifier;
+    const returnedDoi = getDottedValue(results[0], "data.doi");
+    checks.push({
+      name: "crossref_identity_matches_fixture",
+      pass: results.length === 1 &&
+        getDottedValue(results[0], "provider") === "crossref" &&
+        typeof identifier === "string" &&
+        typeof returnedDoi === "string" &&
+        returnedDoi.toLowerCase() === identifier.toLowerCase(),
+    });
+  }
+
+  if (reviewCase.id === "positive-5") {
+    checks.push({
+      name: "youtube_comment_provider_preserved",
+      pass: results.length === 1 && getDottedValue(results[0], "provider") === "youtube",
+    });
+  }
+
+  if (reviewCase.id === "positive-6") {
+    const final = results.at(-1);
+    checks.push({
+      name: "terminal_youtube_audit_receipt",
+      pass: getDottedValue(final, "continuation_recommended") === false &&
+        getDottedValue(final, "receipt.synthesis_lock") === "pass" &&
+        getDottedValue(final, "receipt.completion_state") === "complete",
+    });
+  }
+  return checks;
+}
+
+function failedLane(
+  lane: "direct" | "model",
+  failureClass: FailureClass,
+  calls: SafeCallEvidence[],
+  checks: CaseLaneResult["checks"],
+  startedAt: number,
+  now: () => number,
+): CaseLaneResult {
+  return {
+    lane,
+    state: "fail",
+    failure_class: failureClass,
+    checks,
+    calls,
+    duration_ms: elapsed(startedAt, now()),
+  };
+}
+
+function sanitizeArguments(
+  value: Record<string, unknown>,
+): Record<string, unknown> {
+  const output: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (key === "continuation_token") {
+      output.continuation_token_omitted = digestOmittedValue(entry);
+    } else if (Array.isArray(entry)) {
+      output[key] = entry.map((item) =>
+        isRecord(item) ? sanitizeArguments(item) : item
+      );
+    } else if (isRecord(entry)) {
+      output[key] = sanitizeArguments(entry);
+    } else {
+      output[key] = entry;
+    }
+  }
+  return output;
+}
+
+function elapsed(startedAt: number, endedAt: number): number {
+  return Math.max(0, Math.round(endedAt - startedAt));
 }
 
 function renderEvidenceSummary(report: PublicReviewReport): string {
