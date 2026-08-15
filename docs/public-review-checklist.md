@@ -12,8 +12,14 @@ domain-verification work, Scan Tools review, and submission actions recorded in
 
 ## Optional lesson Action deployment truth
 
-The consequential Custom GPT lesson Action is deployed from exact revision
-`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. The August 13, 2026 privacy/terms
+The consequential Custom GPT lesson Action remains deployed and was reverified
+after the research service moved to application image tag
+`9715812bfbe3133a755f7ec8ffb91a870629a137`, image ID
+`sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`.
+The Action implementation itself remains the accepted behavior from revision
+`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; the newer application image changes
+the public YouTube comment-ID refetch parser and adds no Action or MCP tool. The
+August 13, 2026 privacy/terms
 notice, private queue provisioning, exact GitHub App permission audit, protected
 server credentials, synthetic submission and append-only duplicate, live
 `npm run lessons:status`, failure isolation, and rollback evidence passed the
@@ -149,9 +155,40 @@ Each case instead declares a distinct, concrete production-public input—no
 repository fixture or internal context is required. Run its literal prompt
 against the production endpoint and record selected tools, arguments, result
 shape, errors, and confirmation/no-state outcome without exposing credentials
-or unapproved personal data. The positive YouTube target is `4x1fl67d_Ag`; the
-distinct negative target is `00000000000` and exercises explicit `not_found`,
-not unverified comments-disabled behavior.
+or unapproved personal data. The positive YouTube targets are `4x1fl67d_Ag`
+for general comment retrieval and survey-selected patient-story video
+`W42rwWD6zjw` for the compound audit. The distinct negative target is
+`00000000000` and exercises the explicit
+`inaccessible` video-visibility boundary. An empty successful `videos.list`
+result cannot distinguish deleted, private, restricted, and otherwise
+unavailable states, so it must not be relabeled `not_found` or replaced with a
+scraping fallback.
+
+The developer runner in `docs/public-review-automation.md` automates the direct
+production-MCP and raw Responses API evidence for all nine cases. Its normal
+entry point is `npm run review:public-live -- --live`; ordinary CI and
+`npm run verify` do not make live or paid calls. The protected run
+`20260815T110708.728Z-baa07445` used clean commit
+`8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256
+`daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`,
+and requested and received `chat-latest`. All 9/9 direct production cases
+passed. Six of nine model cases passed; three are honestly `BLOCKED` because
+the Responses remote-MCP layer returned opaque receipts that do not expose the
+structured completion/error facts required by the contract:
+
+- `positive-6`: exact survey and audit selections were visible, but the opaque
+  outputs cannot prove whether authenticated continuation was conditionally
+  required;
+- `negative-1`: exact invalid PubMed selection was visible, but the generic
+  `mcp_call_error` does not prove pre-provider schema rejection; and
+- `negative-2`: exact inaccessible-video selection was visible, but the generic
+  `mcp_call_error` does not prove the explicit visibility boundary.
+
+The direct lane proves all three server-side contracts; it does not substitute
+for the missing model-layer receipts. The sanitized report and summary passed
+their checksum manifest and repository safety scanner. The final fresh-chat
+ChatGPT interface spot check remains a separate product acceptance step because
+an API model run cannot prove product rendering.
 
 ## Submission execution gate
 
@@ -161,8 +198,9 @@ The publisher-matching HTTPS legal/support prerequisite was verified on
 1. Verify developer/business identity and complete the HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
-3. Re-run all nine cases in `docs/public-review-cases-v0.1.0.json` with the
-   production-public inputs and expected fields.
+3. Resolve the three opaque remote-MCP model receipts recorded by run
+   `20260815T110708.728Z-baa07445`, or make an explicit release decision to
+   accept that limitation. Do not relabel the 9/9 direct pass as model proof.
 4. Confirm no response contains credentials, debug payloads, internal
    identifiers, or data not disclosed in the final privacy notice.
 5. Resolve or expressly accept the recorded routine-status presentation

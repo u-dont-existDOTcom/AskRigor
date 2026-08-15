@@ -29,6 +29,7 @@ complete XML protocol.
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
 - `public-review-cases-v0.1.0.json`: machine-readable review cases
+- `public-review-automation.md`: bounded direct-MCP and Responses API review runner
 - `tool-inventory-v0.1.0.json`: generated tool inventory
 
 ## Privacy

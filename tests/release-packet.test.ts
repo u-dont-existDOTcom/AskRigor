@@ -28,6 +28,22 @@ const TOOL_NAMES = [
 ];
 
 describe("AskRigor public-review packet", () => {
+  it("pins the Git-capable toolchain required by the protected live runner", async () => {
+    const [dockerfile, automation] = await Promise.all([
+      readFile(rootFile("Dockerfile.public-review"), "utf8"),
+      readFile(rootFile("docs/public-review-automation.md"), "utf8"),
+    ]);
+
+    expect(dockerfile).toContain(
+      "FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d",
+    );
+    expect(dockerfile).toContain("ARG GIT_VERSION=1:2.39.5-0+deb12u3");
+    expect(dockerfile).toContain('"git=${GIT_VERSION}"');
+    expect(dockerfile).toContain("WORKDIR /work");
+    expect(automation).toContain("Dockerfile.public-review");
+    expect(automation).toContain("Git is required at runtime");
+  });
+
   it("documents the exact lesson data, setup, and rollback boundary", async () => {
     const [setup, privacyMap, privacySite, readme, checklist, openApi, releaseEvidence] = await Promise.all([
       readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
@@ -356,13 +372,29 @@ describe("AskRigor public-review packet", () => {
     expect(JSON.stringify(cases)).not.toMatch(/continuation_secret/i);
     expect(cases.negative.map(({ expected_workflow }) => expected_workflow[0].kind)).toEqual([
       "schema_rejection_before_provider_call",
-      "explicit_not_found",
+      "explicit_access_boundary",
       "no_tool_call_for_unsupported_write_or_medical_action"
     ]);
     expect(cases.negative[1].expected_workflow[0]).toMatchObject({
       tool: "get_youtube_video",
       arguments: { video_id_or_url: "00000000000" }
     });
+    const positive6FixtureInputs = cases.positive[5].fixture.inputs as {
+      searches: Array<Record<string, unknown>>;
+    };
+    const positive6SurveyArguments = cases.positive[5].expected_workflow[0].arguments as {
+      searches: Array<Record<string, unknown>>;
+    };
+    expect(positive6FixtureInputs.searches.every((search) =>
+      typeof search.direction === "string" && search.label === undefined
+    )).toBe(true);
+    expect(positive6SurveyArguments.searches.every((search) =>
+      typeof search.direction === "string" && search.label === undefined
+    )).toBe(true);
+    expect(cases.positive[5].expected_workflow[0].expected_structured_fields)
+      .toContain("searches");
+    expect(cases.positive[5].expected_workflow[0].expected_structured_fields)
+      .not.toContain("queries");
     expect(JSON.stringify(cases)).not.toContain("local-recorded-fixture");
     expect(JSON.stringify(cases)).not.toContain("comments_disabled");
     const positiveYoutubeIds = cases.positive.flatMap(({ expected_workflow }) =>
@@ -378,7 +410,7 @@ describe("AskRigor public-review packet", () => {
         return typeof args?.video_id_or_url === "string" ? [args.video_id_or_url] : [];
       })
     );
-    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag", "4x1fl67d_Ag"]);
+    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag", "W42rwWD6zjw"]);
     expect(negativeYoutubeIds).toEqual(["00000000000"]);
     expect(positiveYoutubeIds.some((id) => negativeYoutubeIds.includes(id))).toBe(false);
 

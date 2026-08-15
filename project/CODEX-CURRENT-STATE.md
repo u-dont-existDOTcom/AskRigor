@@ -9,8 +9,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; active task branch: `codex/github-compliance-2026-08-14`
-- Current main integrated into the compliance candidate: `f8e7ca1e10c096e050207828eeb9eb7957d7ef6f`
+- Canonical branch: `main`; active task branch: `codex/public-review-automation-2026-08-15`
+- Current `origin/main` base for the public-review candidate: `9134e22784e4d26dcf3c6d24a299bb5f783455ad`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
 - Byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`
@@ -47,33 +47,59 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - CodeQL setup run `31862487322` succeeded. Two alerts were dismissed with
   durable false-positive/test-only reasons. The real prototype-pollution alert
   has a red/green regression and a null-prototype path-map fix on this branch.
+- Public-review automation now binds every run to the exact Git commit and
+  committed case-file bytes, separates direct MCP and raw Responses evidence,
+  enforces serial request/case/full-run limits, and writes only checksum-covered
+  sanitized artifacts. A Git-capable runner image is pinned by Node digest and
+  Debian Git version after the first end-to-end attempt exposed the missing Git
+  executable before network evaluation.
+- The live YouTube comment-ID response-shape regression has a failing-then-green
+  fixture test. Production research image
+  `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`
+  is healthy; the prior image and Compose file remain explicit rollback points.
+  Caddy was not recreated, the Action state/auth boundary is unchanged, and all
+  17 public MCP tools remain read-only.
+- Final protected run `20260815T110708.728Z-baa07445` used clean commit
+  `8ed8c0f7aaab9609dfb067780c05838f98903bab`: all 9 direct cases passed,
+  6 model cases passed, and 3 model cases remained honestly blocked by opaque
+  remote-MCP receipts. The report/summary manifest and evidence safety scan
+  passed. Exact bounded evidence is in `docs/release-evidence-v0.1.0.md`.
 
 ## Current checkpoint
 
-- PR #7 is the sole AskRigor compliance PR.
-- The semantic merge is resolved and the final deterministic, live, site,
-  protocol, portable-audit, metadata, workflow, and diff matrix is green. The
-  exact published head and CI IDs are intentionally external evidence in PR #7;
-  re-fetch them rather than trusting a self-referential state-file SHA.
-- V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** for the separate routine-status, portal identity/domain verification, Scan Tools, and submission gates.
+- PR #9 is the sole public-review automation PR. Its last live-evaluated code
+  and case commit is `8ed8c0f7aaab9609dfb067780c05838f98903bab`; evidence-only closeout changes
+  follow that commit and do not alter the deployed application or runner logic.
+- Production is healthy on the refetch-fix application image. Rollback image
+  `askrigor-research:rollback-9715812` and
+  `/opt/askrigor/compose.yaml.rollback-9715812` are verified.
+- V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** for the routine-status
+  presentation, portal identity/domain verification, Scan Tools/submission,
+  fresh post-deployment ChatGPT interface check, and three opaque remote-MCP
+  model receipts. The direct production contract itself is 9/9 green.
 
 ## Remaining
 
-- Re-run the exact final gates with the CodeQL repair and hosted evidence,
-  publish the final PR #7 head, wait for both required checks, update/close
-  issue #6, and merge.
-- After merge, verify the default-branch CodeQL run closes the fixed alert.
+- Run `npm run lessons:status` and the final canonical repository gate on the
+  evidence-closeout tree; review the complete diff and secret scan; push the
+  final PR #9 head; and wait for `Deterministic verification` and
+  `workflow-policy`.
+- Merge PR #9 only if those required checks stay green and the final review has
+  no Critical or Important finding. The public-submission blocks are product
+  exceptions, not a reason to omit the automation or falsify its result.
+- Run one fresh post-deployment ChatGPT interface spot check before any public
+  submission claim. Resolve or expressly accept the three opaque remote-MCP
+  receipts at the release-decision boundary.
 
 ## Blockers / unresolved
 
-- No repository-baseline owner decision or hosted-control blocker remains.
-  Historical integration `403` results and the disabled private-reporting
-  observation are superseded by the dated authenticated API evidence in the
-  repository profile. Issue
-  [#6](https://github.com/u-dont-existDOTcom/AskRigor/issues/6) is the durable
-  record and is ready for final-head evidence and closure.
-- V0.1.0 public submission remains blocked by its separate product/release
-  gates; compliance does not accept or bypass those gates.
+- No implementation, deployment, credential, or repository-governance blocker
+  remains for PR #9.
+- OpenAI's remote-MCP Responses receipts are opaque for conditional successful
+  output and the two tested error boundaries. The runner preserves these as
+  `model_output` blocks. Direct proof does not establish model-layer semantics.
+- V0.1.0 public submission remains blocked by the separate product/release
+  gates above; merging the truthful automation does not accept or bypass them.
 
 ## Evidence / artifacts
 
@@ -82,14 +108,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Compliance report: `docs/audits/2026-08-14-codex-github-compliance.md`
 - Release/production receipt: `docs/release-evidence-v0.1.0.md`
 - Privacy/reviewer truth: `docs/privacy-data-map.md` and `docs/public-review-checklist.md`
+- Public-review runner/cases: `docs/public-review-automation.md` and
+  `docs/public-review-cases-v0.1.0.json`
+- Ignored local sanitized evidence:
+  `.artifacts/public-review-eval/20260815T110708.728Z-baa07445/`
 - Hosted follow-up: issue #6
 - Universal promotion: `u-dont-existDOTcom/universal-dev-architecture/audits/2026-08-14-askrigor-transferable-controls.md`
 
 ## Next safe action
 
-Run the full candidate gates, publish the evidence/CodeQL fix, wait for the two
-required checks, merge PR #7, and verify the default-branch CodeQL alert state.
+Run the final lessons-status and repository gates, publish the PR #9 evidence
+closeout, verify both required checks, and merge the PR if the final review
+remains clean.
 
 ## Recovery rule
 
-After interruption, inspect actual Git state, this checkpoint, complete protocol files, current release evidence, PR #7/checks, issue #6, and newer owner instructions. Resume from the latest verified boundary without touching the dirty original checkout or repeating live production acceptance.
+After interruption, inspect actual Git state, this checkpoint, complete protocol files, current release evidence, PR #9/checks, issue #6, and newer owner instructions. Resume from the latest verified boundary without touching the dirty original checkout or repeating live production acceptance.
