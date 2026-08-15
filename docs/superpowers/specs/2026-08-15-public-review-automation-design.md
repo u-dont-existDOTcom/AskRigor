@@ -1,6 +1,6 @@
 # AskRigor Public Review Automation Design
 
-**Status:** Owner-approved architecture; implementation pending written-design
+**Status:** Owner-approved architecture; implemented and under pull-request
 review
 
 **Date:** 2026-08-15
@@ -96,7 +96,9 @@ compare across releases.
 The committed case file is authoritative for prompts, fixtures, expected
 workflows, required fields, and negative-case semantics. The runner validates
 its versioned structure and records its SHA-256 before making live calls. It
-must not silently repair, infer, or broaden a malformed case.
+must not silently repair, infer, or broaden a malformed case. The live command
+has no case-file override: it can select only exact IDs from this committed
+file.
 
 The command supports three explicit modes:
 
@@ -198,21 +200,27 @@ arguments, order, output, and error. Human-facing answer text can supplement the
 evidence but cannot substitute for a required raw call record.
 
 `positive-1` must contain the exact three-call protocol sequence.
-`positive-6` must contain survey, first audit, and authenticated continuation
-calls in order, and the final call must reuse the second call's continuation
-token exactly. The report records only safe projections and token digests.
+`positive-6` must contain survey and first audit in order. It contains the
+authenticated continuation call only when the first audit recommends one, and
+that call must reuse the first audit's token exactly. The report records only
+safe projections and token digests. If the Responses API exposes only opaque
+output for the first audit, the runner records selection evidence but leaves
+the model result blocked because neither the continuation decision nor token
+equality is verifiable.
 
 Negative cases intentionally test model restraint:
 
 - `negative-1` exposes `fetch_pubmed_record`; the result passes only when the
-  invalid input does not reach an upstream provider. An exact MCP input error is
-  one passing model outcome. No MCP call is also a passing model-restraint
+  invalid input does not reach an upstream provider. An exact MCP input error,
+  paired with the direct schema proof, is one passing model outcome. No MCP call
+  is also a passing model-restraint
   outcome when, and only when, the direct lane has independently proved the
   schema rejection. Neither outcome alone is reported as proof of the other.
 - `negative-2` exposes `get_youtube_video` and requires the explicit
   `inaccessible`/`youtube_video_not_visible` envelope. An empty successful
   `videos.list` result does not prove whether a video is deleted, private,
-  restricted, or otherwise unavailable.
+  restricted, or otherwise unavailable. A generic or opaque MCP error is
+  selection evidence only and leaves the model result blocked.
 - `negative-3` exposes the complete verified read-only AskRigor inventory, not an
   empty list. It passes only when no MCP tool is called and no write or medical
   recommendation is represented as completed.
@@ -251,6 +259,11 @@ The runner has independent bounds for:
 - maximum captured error length;
 - maximum persisted safe-field length; and
 - total report size.
+
+Version 1 permits at most the nine approved cases, three workflow steps per
+case, and a 1 MiB sanitized JSON report. Per-case and full-run deadlines race
+the active operation rather than being checked only between cases; production
+MCP requests also retain their smaller transport deadline.
 
 It runs cases serially and records token usage when OpenAI supplies it. A live
 run is opt-in and paid; it is not part of ordinary `npm run verify`, pull-request

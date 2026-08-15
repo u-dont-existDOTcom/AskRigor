@@ -40,7 +40,9 @@ npm run review:public-live -- --live --mode model --case negative-3
 
 `direct`, `model`, and `all` are the only modes. Cases run serially in the
 committed order. Model or all mode requires the protected OpenAI environment;
-direct mode does not.
+direct mode does not. The live runner always reads the committed
+`docs/public-review-cases-v0.1.0.json`; there is deliberately no case-file or
+endpoint override. A rerun may narrow that approved set only by exact case ID.
 
 ## Bounds and failure behavior
 
@@ -52,6 +54,8 @@ direct mode does not.
 - 4,096 maximum model output tokens;
 - 45-second request deadline;
 - 180-second case budget and 30-minute full-run budget;
+- at most nine cases and three workflow calls per case;
+- 1 MiB maximum sanitized JSON report;
 - serial execution with no scheduled or recurring paid run; and
 - nonzero exit when any required automated lane fails or remains blocked.
 
@@ -59,6 +63,15 @@ Provider unavailability, partial access, rate limiting, quota exhaustion,
 timeouts, and malformed results remain explicit. The runner writes a valid
 partial report after completed work; it never turns an unavailable result into
 a pass.
+
+Opaque model receipts can still prove that a model selected a named tool with
+bounded arguments, but they cannot prove conditional continuation or a specific
+negative result. The model lane therefore remains `BLOCKED` when the Responses
+API does not expose the first YouTube audit's continuation fields or returns
+only a generic MCP error. A canonical input-validation or
+`youtube_video_not_visible` error code may pass only with the corresponding
+direct-lane proof. This preserves useful selection evidence without calling an
+unverifiable result complete.
 
 ## Evidence bundle
 
@@ -89,7 +102,8 @@ does not store:
 Omitted sensitive values are represented only by presence/type/count or, where
 needed, byte length and SHA-256. A final safety scan runs before the manifest is
 written and rejects credentials, protocol XML, raw continuation-token fields,
-and unexpectedly large strings.
+credential-like object keys, unexpectedly large strings, and an oversized
+report.
 
 ## Interpreting completion
 

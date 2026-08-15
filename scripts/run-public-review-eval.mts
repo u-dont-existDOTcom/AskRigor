@@ -85,9 +85,6 @@ export function parsePublicReviewCliArgs(
       case "--model":
         options.model = requireOptionValue(argv, ++index, "--model");
         break;
-      case "--case-file":
-        options.caseFile = requireOptionValue(argv, ++index, "--case-file");
-        break;
       case "--output-root":
         options.outputRoot = requireOptionValue(argv, ++index, "--output-root");
         break;
@@ -304,7 +301,6 @@ function renderHelp(): string {
     "  --mode direct|model|all",
     "  --case <case-id>            repeatable",
     "  --model <model-id>",
-    "  --case-file <path>",
     "  --output-root <path>",
     "  --help",
   ].join("\n");

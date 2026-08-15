@@ -673,7 +673,6 @@ Supported arguments are exactly:
 --mode direct|model|all
 --case <positive-N|negative-N>   (repeatable)
 --model <nonempty-model-id>
---case-file <path>
 --output-root <path>
 --help
 ```
@@ -681,6 +680,8 @@ Supported arguments are exactly:
 Defaults are `mode=all`, `model=chat-latest`, the committed case file, and
 `.artifacts/public-review-eval`. `--live` is mandatory before any network call.
 The CLI reads only the presence/value of `OPENAI_API_KEY` for model/all modes.
+The accepted design's committed-case requirement is enforced by omitting a
+case-file override; `--case` can only select an exact committed case ID.
 
 The MCP adapter uses `Client` plus `StreamableHTTPClientTransport`, closes in a
 `finally`, and connects only to the exact constant endpoint. The OpenAI adapter

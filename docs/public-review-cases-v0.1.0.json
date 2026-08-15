@@ -135,7 +135,7 @@
             ],
             "results_per_search": 10
           },
-          "expected_structured_fields": ["provider", "record_type", "research_question", "searches", "candidates", "candidates[].canonical_url", "candidates[].metadata_access_status", "limitations"]
+          "expected_structured_fields": ["provider", "record_type", "research_question", "searches", "candidates", "candidates[].video_id", "candidates[].canonical_url", "candidates[].metadata_access_status", "limitations"]
         },
         {
           "tool": "audit_youtube_video_community",

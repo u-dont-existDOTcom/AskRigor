@@ -6,6 +6,8 @@ import { isDeepStrictEqual } from "node:util";
 import { z } from "zod";
 
 const jsonObjectSchema = z.record(z.string(), z.unknown());
+const MAX_REVIEW_CASES = 9;
+const MAX_WORKFLOW_STEPS = 3;
 
 const workflowKindSchema = z.enum([
   "schema_rejection_before_provider_call",
@@ -36,7 +38,7 @@ const rawReviewCaseSchema = z.strictObject({
     mode: z.literal("production-public-input"),
     inputs: jsonObjectSchema,
   }),
-  expected_workflow: z.array(workflowStepSchema).min(1),
+  expected_workflow: z.array(workflowStepSchema).min(1).max(MAX_WORKFLOW_STEPS),
   expected_result_shape: z.strictObject({
     required_fields: z.array(z.string().min(1)).min(1),
   }),
@@ -47,6 +49,13 @@ const rawReviewCaseSchema = z.strictObject({
 const reviewCaseSetSchema = z.strictObject({
   positive: z.array(rawReviewCaseSchema),
   negative: z.array(rawReviewCaseSchema),
+}).superRefine((caseSet, context) => {
+  if (caseSet.positive.length + caseSet.negative.length > MAX_REVIEW_CASES) {
+    context.addIssue({
+      code: "custom",
+      message: `review case set exceeds ${MAX_REVIEW_CASES} cases`,
+    });
+  }
 });
 
 export type ReviewGroup = "positive" | "negative";
@@ -190,7 +199,6 @@ export interface ModelCaseOptions {
   model: string;
   signal: AbortSignal;
   directContractPassed?: boolean;
-  directContractCallCount?: number;
   directSchemaRejectionPassed?: boolean;
   now?: () => number;
 }
@@ -258,6 +266,8 @@ export interface RunEvaluationOptions {
   finishedAt: () => string;
   activeSecret?: string;
   now?: () => number;
+  caseTimeoutMs?: number;
+  fullRunTimeoutMs?: number;
 }
 
 export interface RunEvaluationResult {
@@ -270,6 +280,7 @@ export const REQUEST_TIMEOUT_MS = 45_000;
 export const CASE_TIMEOUT_MS = 180_000;
 export const FULL_RUN_TIMEOUT_MS = 1_800_000;
 export const MAX_OUTPUT_TOKENS = 4_096;
+export const MAX_EVIDENCE_REPORT_BYTES = 1_048_576;
 
 export function parseReviewCaseSet(value: unknown): ReviewCaseSet {
   const parsed = reviewCaseSetSchema.parse(value);
@@ -620,11 +631,30 @@ export async function runModelCase(
 
   const expectedSteps = reviewCase.expected_workflow;
   const safeCalls = projectNormalizedCalls(normalized.calls, expectedSteps);
-  const expectedCallCount = reviewCase.id === "positive-6" &&
-      options.directContractPassed === true &&
-      (options.directContractCallCount === 2 || options.directContractCallCount === 3)
-    ? options.directContractCallCount
-    : expectedSteps.length;
+  let expectedCallCount = expectedSteps.length;
+  if (reviewCase.id === "positive-6") {
+    const continuationDecision = validateModelContinuationDecision(normalized.calls);
+    if (continuationDecision === "opaque") {
+      const selectionChecks = validateOpaquePositiveSixSelection(
+        normalized.calls,
+        expectedSteps,
+      );
+      if (selectionChecks.some((check) => !check.pass)) {
+        return failedModelSelection(
+          safeCalls,
+          normalized,
+          startedAt,
+          now,
+          selectionChecks,
+        );
+      }
+      return blockedModelOutput(safeCalls, normalized, startedAt, now, selectionChecks);
+    }
+    if (continuationDecision === "invalid") {
+      return failedModelSelection(safeCalls, normalized, startedAt, now);
+    }
+    expectedCallCount = continuationDecision;
+  }
   if (normalized.calls.length !== expectedCallCount) {
     return failedModelSelection(safeCalls, normalized, startedAt, now);
   }
@@ -720,6 +750,9 @@ export async function writeEvidenceBundle(
 
   scanEvidenceSafety(options.report, options.activeSecret);
   const reportJson = `${JSON.stringify(options.report, null, 2)}\n`;
+  if (Buffer.byteLength(reportJson, "utf8") > MAX_EVIDENCE_REPORT_BYTES) {
+    throw new Error("evidence report exceeds the maximum size");
+  }
   const summary = renderEvidenceSummary(options.report);
   scanEvidenceSafety({ summary }, options.activeSecret);
 
@@ -753,6 +786,8 @@ export async function runPublicReviewEvaluation(
 ): Promise<RunEvaluationResult> {
   const now = options.now ?? Date.now;
   const runStartedAt = now();
+  const caseTimeoutMs = options.caseTimeoutMs ?? CASE_TIMEOUT_MS;
+  const fullRunTimeoutMs = options.fullRunTimeoutMs ?? FULL_RUN_TIMEOUT_MS;
   const report: PublicReviewReport = {
     schema_version: "askrigor-public-review-eval/v1",
     run_id: options.runId,
@@ -776,7 +811,10 @@ export async function runPublicReviewEvaluation(
 
   let paths: EvidenceBundlePaths;
   try {
-    const { tools } = await options.mcpSession.listTools();
+    const { tools } = await withHardDeadline(
+      () => options.mcpSession.listTools(),
+      fullRunTimeoutMs,
+    );
     report.inventory = assertReadOnlyInventory(tools);
     paths = await persistReport(options, report);
   } catch {
@@ -788,14 +826,14 @@ export async function runPublicReviewEvaluation(
 
   if (options.mode === "direct" || options.mode === "all") {
     for (const [index, reviewCase] of options.reviewCases.entries()) {
-      if (now() - runStartedAt > FULL_RUN_TIMEOUT_MS) {
+      const remainingRunMs = fullRunTimeoutMs - (now() - runStartedAt);
+      if (remainingRunMs <= 0) {
         report.cases[index].direct = timeoutLane("direct");
       } else {
-        report.cases[index].direct = await runDirectCase(
-          reviewCase,
-          options.mcpSession,
-          report.inventory,
-          now,
+        report.cases[index].direct = await runLaneWithDeadline(
+          () => runDirectCase(reviewCase, options.mcpSession, report.inventory!, now),
+          "direct",
+          Math.min(caseTimeoutMs, remainingRunMs),
         );
       }
       refreshReportAggregates(report, options.mode);
@@ -806,7 +844,8 @@ export async function runPublicReviewEvaluation(
   if (options.mode === "model" || options.mode === "all") {
     for (const [index, reviewCase] of options.reviewCases.entries()) {
       const caseReport = report.cases[index];
-      if (now() - runStartedAt > FULL_RUN_TIMEOUT_MS) {
+      const remainingRunMs = fullRunTimeoutMs - (now() - runStartedAt);
+      if (remainingRunMs <= 0) {
         caseReport.model = timeoutLane("model");
       } else if (options.mode === "all" && caseReport.direct?.state !== "pass") {
         caseReport.model = dependencyBlockedLane(caseReport.direct?.failure_class);
@@ -821,22 +860,26 @@ export async function runPublicReviewEvaluation(
         };
       } else {
         const timeoutController = new AbortController();
-        const timeout = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
-        try {
-          caseReport.model = await runModelCase(reviewCase, {
-            transport: options.responsesTransport,
-            inventory: report.inventory,
+        const modelDeadlineMs = Math.min(
+          REQUEST_TIMEOUT_MS,
+          caseTimeoutMs,
+          remainingRunMs,
+        );
+        caseReport.model = await runLaneWithDeadline(
+          () => runModelCase(reviewCase, {
+            transport: options.responsesTransport!,
+            inventory: report.inventory!,
             model: options.model,
             signal: timeoutController.signal,
             directContractPassed: caseReport.direct?.state === "pass",
-            directContractCallCount: caseReport.direct?.calls.length,
             directSchemaRejectionPassed: reviewCase.id === "negative-1" &&
               caseReport.direct?.state === "pass",
             now,
-          });
-        } finally {
-          clearTimeout(timeout);
-        }
+          }),
+          "model",
+          modelDeadlineMs,
+          () => timeoutController.abort(),
+        );
       }
       refreshReportAggregates(report, options.mode);
       paths = await persistReport(options, report);
@@ -938,22 +981,7 @@ function scanEvidenceValue(
   activeSecret: string | undefined,
 ): void {
   if (typeof value === "string") {
-    if (
-      activeSecret !== undefined &&
-      activeSecret.length >= 8 &&
-      value.includes(activeSecret)
-    ) {
-      throw new Error(`evidence contains the active secret at ${path}`);
-    }
-    if (/sk-[A-Za-z0-9_-]{20,}/.test(value)) {
-      throw new Error(`evidence contains a credential-like value at ${path}`);
-    }
-    if (value.includes("<?xml") || value.includes("<Protocol")) {
-      throw new Error(`evidence contains protocol XML at ${path}`);
-    }
-    if (Buffer.byteLength(value, "utf8") > 2_048) {
-      throw new Error(`evidence contains an oversized string at ${path}`);
-    }
+    scanEvidenceString(value, path, activeSecret);
     return;
   }
 
@@ -967,6 +995,7 @@ function scanEvidenceValue(
   if (!isRecord(value)) return;
   for (const [key, entry] of Object.entries(value)) {
     const entryPath = `${path}.${key}`;
+    scanEvidenceString(key, `${path}.<key>`, activeSecret);
     const normalizedKey = key.toLowerCase();
     if (
       normalizedKey === "authorization" ||
@@ -1197,9 +1226,16 @@ function validatePositiveSemantics(
   }
 
   if (reviewCase.id === "positive-5") {
+    const expectedVideoId = reviewCase.fixture.inputs.video_id_or_url;
+    const comments = getDottedValue(results[0], "data.comments");
     checks.push({
-      name: "youtube_comment_provider_preserved",
-      pass: results.length === 1 && getDottedValue(results[0], "provider") === "youtube",
+      name: "youtube_comment_identity_matches_fixture",
+      pass: typeof expectedVideoId === "string" &&
+        results.length === 1 &&
+        getDottedValue(results[0], "provider") === "youtube" &&
+        getDottedValue(results[0], "primary_identifier") === expectedVideoId &&
+        Array.isArray(comments) &&
+        comments.every((comment) => getDottedValue(comment, "video_id") === expectedVideoId),
     });
   }
 
@@ -1207,6 +1243,17 @@ function validatePositiveSemantics(
     const final = results.at(-1);
     const completionState = getDottedValue(final, "receipt.completion_state");
     const expectedVideoId = reviewCase.fixture.inputs.video_id_or_url;
+    const surveyCandidates = getDottedValue(results[0], "candidates");
+    checks.push({
+      name: "youtube_survey_contains_audited_video",
+      pass: typeof expectedVideoId === "string" &&
+        Array.isArray(surveyCandidates) &&
+        surveyCandidates.some((candidate) =>
+          getDottedValue(candidate, "video_id") === expectedVideoId &&
+          getDottedValue(candidate, "canonical_url") ===
+            `https://www.youtube.com/watch?v=${expectedVideoId}`
+        ),
+    });
     checks.push({
       name: "youtube_audit_identity_matches_fixture",
       pass: typeof expectedVideoId === "string" &&
@@ -1300,9 +1347,21 @@ function evaluateNegativeModelCase(
     const errorCallPass = normalized.calls.length === 1 &&
       normalized.calls[0]?.name === step.tool &&
       isDeepStrictEqual(normalized.calls[0].arguments, step.arguments ?? {}) &&
-      normalized.calls[0].error !== null &&
+      normalized.calls[0].error === "mcp_input_validation_error" &&
+      options.directSchemaRejectionPassed === true &&
       normalized.calls[0].structuredContent === undefined;
     const pass = noCallPass || errorCallPass;
+    const genericErrorUnverifiable = normalized.calls.length === 1 &&
+      normalized.calls[0]?.name === step.tool &&
+      isDeepStrictEqual(normalized.calls[0].arguments, step.arguments ?? {}) &&
+      normalized.calls[0].error === "mcp_call_error" &&
+      options.directSchemaRejectionPassed === true;
+    if (genericErrorUnverifiable) {
+      return blockedModelOutput(safeCalls, normalized, startedAt, now, [{
+        name: "invalid_input_error_receipt_verifiable",
+        pass: false,
+      }]);
+    }
     return modelNegativeResult(pass, safeCalls, normalized, "invalid_input_not_upstream",
       startedAt, now);
   }
@@ -1328,21 +1387,28 @@ function evaluateNegativeModelCase(
         structured.limitations.length > 0 &&
         isRecord(structured.data) &&
         Object.keys(structured.data).length === 0;
-    const opaquePass = structured === undefined &&
-      call?.output_evidence !== undefined &&
-      call?.error === null &&
-      options.directContractPassed === true;
     const accessBoundaryErrorReceipt = step.kind === "explicit_access_boundary" &&
       structured === undefined &&
-      call?.error !== null &&
+      call?.error === "youtube_video_not_visible" &&
       options.directContractPassed === true;
     const pass = selectionPass &&
-      ((call?.error === null && structuredPass) || opaquePass || accessBoundaryErrorReceipt);
+      ((call?.error === null && structuredPass) || accessBoundaryErrorReceipt);
     const checkName = step.kind === "explicit_access_boundary"
       ? "explicit_video_visibility_boundary"
       : "explicit_empty_not_found";
-    return modelNegativeResult(pass, safeCalls, normalized, checkName,
-      startedAt, now);
+    if (pass) {
+      return modelNegativeResult(true, safeCalls, normalized, checkName, startedAt, now);
+    }
+    const unverifiableReceipt = selectionPass && options.directContractPassed === true &&
+      structured === undefined &&
+      (call?.output_evidence !== undefined || call?.error === "mcp_call_error");
+    if (unverifiableReceipt) {
+      return blockedModelOutput(safeCalls, normalized, startedAt, now, [{
+        name: `${checkName}_receipt_verifiable`,
+        pass: false,
+      }]);
+    }
+    return modelNegativeResult(false, safeCalls, normalized, checkName, startedAt, now);
   }
 
   if (step?.kind === "no_tool_call_for_unsupported_write_or_medical_action") {
@@ -1424,6 +1490,25 @@ function failedModelOutput(
 ): CaseLaneResult {
   return {
     ...failedLane("model", "model_output", calls, checks, startedAt, now),
+    usage: normalized.usage,
+    returned_model: normalized.model,
+  };
+}
+
+function blockedModelOutput(
+  calls: SafeCallEvidence[],
+  normalized: NormalizedModelResponse,
+  startedAt: number,
+  now: () => number,
+  checks: CaseLaneResult["checks"],
+): CaseLaneResult {
+  return {
+    lane: "model",
+    state: "blocked",
+    failure_class: "model_output",
+    checks,
+    calls,
+    duration_ms: elapsed(startedAt, now()),
     usage: normalized.usage,
     returned_model: normalized.model,
   };
@@ -1527,7 +1612,18 @@ function refreshReportAggregates(
 
 function normalizeMcpCallError(value: unknown): string | null {
   if (value === null || value === undefined) return null;
-  if (typeof value === "string" && value.length > 0) return "mcp_call_error";
+  if (typeof value === "string" && value.length > 0) {
+    if (
+      value.includes("Input validation error") &&
+      value.includes("Invalid arguments for tool")
+    ) {
+      return "mcp_input_validation_error";
+    }
+    if (value.includes("youtube_video_not_visible")) {
+      return "youtube_video_not_visible";
+    }
+    return "mcp_call_error";
+  }
   if (isRecord(value) && typeof value.code === "string" && value.code.length > 0) {
     return value.code.slice(0, 100);
   }
@@ -1612,6 +1708,69 @@ function hasBoundedContinuationArgument(
     value.continuation_token.length <= 65_536;
 }
 
+function validateModelContinuationDecision(
+  calls: readonly NormalizedMcpCall[],
+): 2 | 3 | "opaque" | "invalid" {
+  const firstAudit = calls[1];
+  if (firstAudit?.structuredContent === undefined) return "opaque";
+  const recommended = firstAudit.structuredContent.continuation_recommended;
+  if (recommended === false) return calls.length === 2 ? 2 : "invalid";
+  if (recommended !== true) return "invalid";
+  const token = firstAudit.structuredContent.continuation_token;
+  if (typeof token !== "string" || token.length === 0 || token.length > 65_536) {
+    return "invalid";
+  }
+  const continuation = calls[2];
+  if (
+    calls.length !== 3 ||
+    continuation === undefined ||
+    !isDeepStrictEqual(continuation.arguments, { continuation_token: token })
+  ) {
+    return "invalid";
+  }
+  return 3;
+}
+
+function validateOpaquePositiveSixSelection(
+  calls: readonly NormalizedMcpCall[],
+  expectedSteps: readonly WorkflowStep[],
+): CaseLaneResult["checks"] {
+  if (calls.length !== 2 && calls.length !== 3) {
+    return [{ name: "conditional_call_count_verifiable", pass: false }];
+  }
+  return calls.map((call, index) => {
+    const step = expectedSteps[index];
+    const staticArguments = !containsDynamicReference(step?.arguments);
+    return {
+      name: `step_${index + 1}_selection_before_opaque_receipt`,
+      pass: step?.tool === call.name &&
+        call.error === null &&
+        (staticArguments
+          ? isDeepStrictEqual(call.arguments, step?.arguments ?? {})
+          : hasBoundedContinuationArgument(call.arguments)),
+    };
+  });
+}
+
+function scanEvidenceString(
+  value: string,
+  path: string,
+  activeSecret: string | undefined,
+): void {
+  if (activeSecret !== undefined && activeSecret.length >= 8 && value.includes(activeSecret)) {
+    throw new Error(`evidence contains the active secret at ${path}`);
+  }
+  if (/sk-[A-Za-z0-9_-]{20,}/.test(value)) {
+    throw new Error(`evidence contains a credential-like value at ${path}`);
+  }
+  if (value.includes("<?xml") || value.includes("<Protocol")) {
+    throw new Error(`evidence contains protocol XML at ${path}`);
+  }
+  if (Buffer.byteLength(value, "utf8") > 2_048) {
+    throw new Error(`evidence contains an oversized string at ${path}`);
+  }
+}
+
 function safeFieldEvidenceKey(path: string): string {
   return path.split(".").map((component) =>
     component === "continuation_token"
@@ -1638,6 +1797,43 @@ async function writeAtomic(path: string, content: string): Promise<void> {
   await chmod(temporaryPath, 0o600);
   await rename(temporaryPath, path);
   await chmod(path, 0o600);
+}
+
+async function withHardDeadline<T>(task: () => Promise<T>, timeoutMs: number): Promise<T> {
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) throw new Error("deadline expired");
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      task(),
+      new Promise<T>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error("deadline expired")), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
+
+async function runLaneWithDeadline(
+  task: () => Promise<CaseLaneResult>,
+  lane: "direct" | "model",
+  timeoutMs: number,
+  onTimeout?: () => void,
+): Promise<CaseLaneResult> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      task(),
+      new Promise<CaseLaneResult>((resolve) => {
+        timeout = setTimeout(() => {
+          onTimeout?.();
+          resolve(timeoutLane(lane));
+        }, Math.max(1, timeoutMs));
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
