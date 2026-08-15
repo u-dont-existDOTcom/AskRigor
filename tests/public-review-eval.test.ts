@@ -179,6 +179,27 @@ describe("public review case contracts", () => {
     ]);
   });
 
+  it("states every fixed positive-6 model argument in the literal review prompt", async () => {
+    const value = JSON.parse(await readFile(
+      new URL("../docs/public-review-cases-v0.1.0.json", import.meta.url),
+      "utf8",
+    ));
+    const reviewCase = parseReviewCaseSet(value).positive[5];
+
+    for (const fragment of [
+      "Which approaches do people with severe hip osteoarthritis report as improving pain or function?",
+      "hip osteoarthritis treatment success experience",
+      "hip osteoarthritis treatment did not work",
+      "hip osteoarthritis treatment worse complications",
+      "hip osteoarthritis stopped treatment side effects",
+      "10 results per search",
+      "W42rwWD6zjw",
+      "analysis limit 500",
+    ]) {
+      expect(reviewCase.prompt).toContain(fragment);
+    }
+  });
+
   it("rejects more than the nine approved public review cases", () => {
     expect(() => parseReviewCaseSet({
       positive: Array.from({ length: 10 }, (_, index) => ({

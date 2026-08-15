@@ -107,7 +107,7 @@
     },
     {
       "id": "positive-6",
-      "prompt": "Use AskRigor to survey YouTube for firsthand hip-osteoarthritis treatment experiences, show clickable promising videos and provider comment counts, then deeply audit the survey-selected patient-story video W42rwWD6zjw and continue its authenticated acquisition when the first call recommends continuation.",
+      "prompt": "Use AskRigor to call survey_youtube_community with the research question exactly 'Which approaches do people with severe hip osteoarthritis report as improving pain or function?', exactly these four direction/query pairs: benefit / 'hip osteoarthritis treatment success experience'; no_effect / 'hip osteoarthritis treatment did not work'; harm / 'hip osteoarthritis treatment worse complications'; discontinuation / 'hip osteoarthritis stopped treatment side effects'; and 10 results per search. Show clickable promising videos and provider comment counts. Then call audit_youtube_video_community for the survey-selected patient-story video W42rwWD6zjw with analysis limit 500 and continue its authenticated acquisition only when the first audit recommends continuation.",
       "fixture": {
         "mode": "production-public-input",
         "inputs": {
