@@ -463,7 +463,10 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597");
     expect(document).toContain("Inspector");
     expect(document).toContain("PUBLIC SUBMISSION BLOCKED");
-    expect(document).toContain("routine-status presentation regression");
+    expect(document).toContain("Historical ChatGPT release finding");
+    expect(document).toContain("Fresh ChatGPT interface acceptance");
+    expect(document).toContain("did not reproduce it");
+    expect(document).toContain("exact combined card rendering remains a declared product presentation limitation");
     expect(document).toContain("live-suite-20260811T172130Z-71611");
     expect(document).toContain("5/5 passed");
     expect(document).toContain("youtube-20260811T172256Z");
@@ -514,7 +517,7 @@ describe("AskRigor public-review packet", () => {
     }
 
     for (const fragment of [
-      "routine-status presentation regression",
+      "opaque model-receipt release decision",
       "portal",
       "domain-verification",
       "Scan Tools",
@@ -522,7 +525,12 @@ describe("AskRigor public-review packet", () => {
     ]) {
       expect(releaseEvidence).toContain(fragment);
     }
-    expect(reviewChecklist).toContain("routine-status presentation");
+    expect(reviewChecklist).toContain("Fresh post-deployment ChatGPT interface acceptance");
+    expect(reviewChecklist).toContain("routine update/status diagnostic");
+    expect(reviewChecklist).toContain("product-card presentation limitation");
+    expect(reviewChecklist).not.toContain(
+      "Resolve or expressly accept the recorded routine-status presentation regression",
+    );
     expect(reviewChecklist).toContain("Scan Tools");
     expect(releaseEvidence).not.toContain("manifest remains unchanged");
   });

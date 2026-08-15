@@ -1,12 +1,13 @@
 
 # AskRigor v0.1.0 release evidence
 
-Release disposition at 2026-08-12: **PUBLIC SUBMISSION BLOCKED**. Developer
+Release disposition at 2026-08-15: **PUBLIC SUBMISSION BLOCKED**. Developer
 Mode connector retrieval is ready based on the recorded production Inspector and
 ChatGPT evidence below, and the public website/support/privacy/terms URL gate is
-now resolved. Public publication still cannot proceed until the separate
-routine-status presentation finding and portal identity, domain-verification,
-Scan Tools, and submission actions are resolved.
+now resolved. The fresh post-deployment ChatGPT interface check did not reproduce
+the earlier routine-status presentation finding. Public publication still cannot
+proceed until portal identity, domain verification, Scan Tools, the explicit
+opaque model-receipt release decision, and submission actions are resolved.
 
 ## Artifact and endpoint identity
 
@@ -44,10 +45,16 @@ run the VPS validation.
 | Historical live providers | The provider test process at `/opt/askrigor/validation/live-suite-20260811T172130Z-71611` exited 0 and 5/5 passed, including PubMed, Crossref, and YouTube; the fail-closed server-side secret scan found no match. Its original wrapper exit 1 was an ANSI status-parser false negative only. |
 | Current fresh live providers | Controller-run v6 validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845` passed the clean image build, server-side scanner, ANSI-safe parser (exit 0, exactly one passing file and five passing tests, zero skips), and evidence-side relative checksum. `status.txt` reported `Live suite v6 accepted`. |
 | ChatGPT Developer Mode | End-to-end smoke passed protocol integrity, PubMed, and complete YouTube 2+1 replies through the deployed connector. No AskRigor write tools were exposed or called. |
-| ChatGPT release finding | A separate **routine-status presentation regression** occurred: ChatGPT narrated a stale update-check date/status despite Universal v20.5.11 and HRP v20.5.15 prohibiting routine update diagnostics. This is not a connector retrieval failure; it must be fixed or explicitly accepted before release-quality presentation is claimed. |
+| Historical ChatGPT release finding | An earlier ChatGPT run narrated a stale update-check date/status despite the routine-status prohibition. The fresh 2026-08-15 post-deployment acceptance below did not reproduce it; the historical finding remains provenance rather than a current release block. |
+| Fresh ChatGPT interface acceptance | Fresh isolated calls visibly ran `verify_protocol_integrity` once with the exact HRP digest and returned `verified:true`, then ran `load_protocol` once and returned the complete-text field with HRP `20.5.17`, revision `2026-08-13`, and SHA-256 `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`. An ordered manifest/verify/load prompt returned all three successful receipts, no write confirmation, no research synthesis, and no routine status diagnostic. Its copied combined transcript collapsed or mislabeled the visible card as `get_protocol_manifest` while displaying the load response's `text` field; isolated cards prove the individual tool identities, but exact combined card rendering remains a declared product presentation limitation. |
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
+
+Interface-evidence lesson closeout: **project-specific / no-new-lesson**. The
+separation of direct server proof, API-model proof, and product-interface proof
+is already part of the approved architecture; this acceptance adds bounded
+AskRigor evidence and does not justify a new universal rule.
 
 ## Public URL gate — direct HTTPS evidence
 
@@ -165,11 +172,8 @@ claimed from this acceptance.
 - Resolve or expressly accept the three opaque remote-MCP model receipts from
   run `20260815T110708.728Z-baa07445`; the 9/9 direct pass must not be used as a
   substitute for model-layer proof.
-- Run one fresh ChatGPT product-interface spot check after the deployed refetch
-  repair and record the visible receipt separately from API evidence.
-- Resolve the routine-status presentation regression, or document a deliberate
-  product decision with fresh ChatGPT evidence before asserting presentation
-  readiness.
+- Confirm the portal's final scanned responses expose no credentials, debug
+  payloads, internal identifiers, or data outside the reviewed privacy notice.
 
 ## Local release verification record
 
