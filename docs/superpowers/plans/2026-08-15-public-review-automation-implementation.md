@@ -168,6 +168,7 @@ export type ReviewGroup = "positive" | "negative";
 
 export interface WorkflowStep {
   kind?: "schema_rejection_before_provider_call" | "explicit_not_found" |
+    "explicit_access_boundary" |
     "no_tool_call_for_unsupported_write_or_medical_action";
   tool?: string;
   arguments?: Record<string, unknown>;
@@ -470,9 +471,9 @@ Add separate cases for:
 
 - an `McpError`/validation error on PMID `0`, with no structured provider
   envelope, producing a passing `mcp_schema` check;
-- a YouTube envelope containing `access_status: "not_found"` and `data: {}`,
-  producing pass;
-- a not-found envelope that contains fallback data, producing
+- a YouTube envelope containing `access_status: "inaccessible"`, error code
+  `youtube_video_not_visible`, limitations, and `data: {}`, producing pass;
+- an access-boundary envelope that contains fallback data, producing
   `provider_result` fail; and
 - the unsupported operation names being absent from the full read-only
   inventory, producing pass without calling a tool.
@@ -485,9 +486,11 @@ handling.
 Handle only the three committed `kind` values. Unknown negative kinds are
 `case_contract` failures. For schema rejection, accept only an input-validation
 failure with no provider-shaped structured content. For not-found, require
-`provider: "youtube"`, `access_status: "not_found"`, and an empty object at
-`data`. For unsupported actions, require every requested name to be absent and
-make no tool call.
+`provider: "youtube"`, `access_status: "inaccessible"`, error code
+`youtube_video_not_visible`, a nonempty limitation, and an empty object at
+`data`. This deliberately does not relabel an empty API-visible result as
+confirmed not-found. For unsupported actions, require every requested name to
+be absent and make no tool call.
 
 Run the focused suite. Expected: all direct-lane tests PASS.
 
@@ -609,7 +612,7 @@ no-call `negative-3`. Assert failure classes and safe result content.
 `runModelCase` creates one request, normalizes raw calls, and compares exact
 names/arguments/order with the case. It may pass a no-call `negative-1` only
 when `directSchemaRejectionPassed` is true. It requires no call for
-`negative-3`, explicit not-found for `negative-2`, and exact dynamic token reuse
+`negative-3`, the explicit visibility boundary for `negative-2`, and exact dynamic token reuse
 for `positive-6`. Map HTTP 429 or an OpenAI `insufficient_quota` code to
 `quota_or_rate_limit`; map abort to `timeout`; preserve all other transport
 failures as bounded `model_transport` evidence.

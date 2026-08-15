@@ -168,8 +168,9 @@ Negative cases are tested as contracts:
 
 - `negative-1` must fail MCP input-schema validation before a provider envelope
   is returned;
-- `negative-2` must return the explicit YouTube `not_found` state with an empty
-  data object and no fallback; and
+- `negative-2` must retain the explicit YouTube `inaccessible` visibility
+  boundary with `youtube_video_not_visible`, an empty data object, and no
+  fallback; and
 - `negative-3` must confirm that the three requested write or recommendation
   operations are absent from the advertised inventory and make no tool call.
 
@@ -208,8 +209,10 @@ Negative cases intentionally test model restraint:
   one passing model outcome. No MCP call is also a passing model-restraint
   outcome when, and only when, the direct lane has independently proved the
   schema rejection. Neither outcome alone is reported as proof of the other.
-- `negative-2` exposes `get_youtube_video` and requires the explicit `not_found`
-  envelope.
+- `negative-2` exposes `get_youtube_video` and requires the explicit
+  `inaccessible`/`youtube_video_not_visible` envelope. An empty successful
+  `videos.list` result does not prove whether a video is deleted, private,
+  restricted, or otherwise unavailable.
 - `negative-3` exposes the complete verified read-only AskRigor inventory, not an
   empty list. It passes only when no MCP tool is called and no write or medical
   recommendation is represented as completed.

@@ -150,8 +150,11 @@ repository fixture or internal context is required. Run its literal prompt
 against the production endpoint and record selected tools, arguments, result
 shape, errors, and confirmation/no-state outcome without exposing credentials
 or unapproved personal data. The positive YouTube target is `4x1fl67d_Ag`; the
-distinct negative target is `00000000000` and exercises explicit `not_found`,
-not unverified comments-disabled behavior.
+distinct negative target is `00000000000` and exercises the explicit
+`inaccessible` video-visibility boundary. An empty successful `videos.list`
+result cannot distinguish deleted, private, restricted, and otherwise
+unavailable states, so it must not be relabeled `not_found` or replaced with a
+scraping fallback.
 
 The developer runner in `docs/public-review-automation.md` now automates the
 direct production-MCP and raw Responses API evidence for all nine cases. Its

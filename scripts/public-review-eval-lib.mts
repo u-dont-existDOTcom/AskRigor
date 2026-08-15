@@ -10,6 +10,7 @@ const jsonObjectSchema = z.record(z.string(), z.unknown());
 const workflowKindSchema = z.enum([
   "schema_rejection_before_provider_call",
   "explicit_not_found",
+  "explicit_access_boundary",
   "no_tool_call_for_unsupported_write_or_medical_action",
 ]);
 
@@ -52,6 +53,7 @@ export type ReviewGroup = "positive" | "negative";
 
 export interface WorkflowStep {
   kind?: "schema_rejection_before_provider_call" | "explicit_not_found" |
+    "explicit_access_boundary" |
     "no_tool_call_for_unsupported_write_or_medical_action";
   tool?: string;
   arguments?: Record<string, unknown>;
@@ -983,15 +985,18 @@ async function runNegativeDirectCase(
 
   if (step.kind === "schema_rejection_before_provider_call") {
     try {
-      await session.callTool({ name: step.tool, arguments: argumentsValue });
-      return failedLane(
-        "direct",
-        "mcp_schema",
-        [],
-        [{ name: "input_schema_rejected", pass: false }],
-        startedAt,
-        now,
-      );
+      const result = await session.callTool({ name: step.tool, arguments: argumentsValue });
+      const pass = isInputValidationToolResult(result);
+      const checks = [{ name: "input_schema_rejected", pass }];
+      return pass
+        ? {
+          lane: "direct",
+          state: "pass",
+          checks,
+          calls: [],
+          duration_ms: elapsed(startedAt, now()),
+        }
+        : failedLane("direct", "mcp_schema", [], checks, startedAt, now);
     } catch (error) {
       const pass = error instanceof McpInputValidationError;
       const checks = [{ name: "input_schema_rejected", pass }];
@@ -1033,6 +1038,49 @@ async function runNegativeDirectCase(
       fields,
     }];
     const checks = [{ name: "explicit_empty_not_found", pass }];
+    return pass
+      ? {
+        lane: "direct",
+        state: "pass",
+        checks,
+        calls,
+        duration_ms: elapsed(startedAt, now()),
+      }
+      : failedLane("direct", "provider_result", calls, checks, startedAt, now);
+  }
+
+  if (step.kind === "explicit_access_boundary") {
+    let result: McpCallResult;
+    try {
+      result = await session.callTool({ name: step.tool, arguments: argumentsValue });
+    } catch {
+      return failedLane("direct", "provider_result", [], [], startedAt, now);
+    }
+    const structured = result.structuredContent;
+    const pass = isRecord(structured) &&
+      structured.provider === "youtube" &&
+      structured.access_status === "inaccessible" &&
+      isRecord(structured.error) &&
+      structured.error.code === "youtube_video_not_visible" &&
+      Array.isArray(structured.limitations) &&
+      structured.limitations.length > 0 &&
+      isRecord(structured.data) &&
+      Object.keys(structured.data).length === 0;
+    const fields: SafeCallEvidence["fields"] = isRecord(structured)
+      ? {
+        provider: inspectStructuredField(structured, "provider"),
+        access_status: inspectStructuredField(structured, "access_status"),
+        limitations: inspectStructuredField(structured, "limitations"),
+        error_code: inspectStructuredField(structured, "error.code"),
+        data: inspectStructuredField(structured, "data"),
+      }
+      : {};
+    const calls = [{
+      tool: step.tool,
+      arguments: sanitizeArguments(argumentsValue),
+      fields,
+    }];
+    const checks = [{ name: "explicit_video_visibility_boundary", pass }];
     return pass
       ? {
         lane: "direct",
@@ -1221,19 +1269,28 @@ function evaluateNegativeModelCase(
       startedAt, now);
   }
 
-  if (step?.kind === "explicit_not_found") {
+  if (step?.kind === "explicit_not_found" || step?.kind === "explicit_access_boundary") {
     const call = normalized.calls[0];
     const structured = call?.structuredContent;
     const selectionPass = normalized.calls.length === 1 &&
       call?.name === step.tool &&
       isDeepStrictEqual(call?.arguments, step.arguments ?? {}) &&
       call?.error === null;
-    const structuredPass =
-      isRecord(structured) &&
-      structured.provider === "youtube" &&
-      structured.access_status === "not_found" &&
-      isRecord(structured.data) &&
-      Object.keys(structured.data).length === 0;
+    const structuredPass = step.kind === "explicit_not_found"
+      ? isRecord(structured) &&
+        structured.provider === "youtube" &&
+        structured.access_status === "not_found" &&
+        isRecord(structured.data) &&
+        Object.keys(structured.data).length === 0
+      : isRecord(structured) &&
+        structured.provider === "youtube" &&
+        structured.access_status === "inaccessible" &&
+        isRecord(structured.error) &&
+        structured.error.code === "youtube_video_not_visible" &&
+        Array.isArray(structured.limitations) &&
+        structured.limitations.length > 0 &&
+        isRecord(structured.data) &&
+        Object.keys(structured.data).length === 0;
     const opaquePass = structured === undefined &&
       call?.output_evidence !== undefined &&
       options.directContractPassed === true;
@@ -1504,6 +1561,18 @@ function hasBoundedContinuationArgument(
     typeof value.continuation_token === "string" &&
     value.continuation_token.length > 0 &&
     value.continuation_token.length <= 65_536;
+}
+
+function isInputValidationToolResult(result: McpCallResult): boolean {
+  if (result.isError !== true || result.structuredContent !== undefined) return false;
+  if (!Array.isArray(result.content)) return false;
+  return result.content.some((item) =>
+    isRecord(item) &&
+    item.type === "text" &&
+    typeof item.text === "string" &&
+    item.text.includes("Input validation error") &&
+    item.text.includes("Invalid arguments for tool")
+  );
 }
 
 async function writeAtomic(path: string, content: string): Promise<void> {

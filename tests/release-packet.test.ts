@@ -356,13 +356,29 @@ describe("AskRigor public-review packet", () => {
     expect(JSON.stringify(cases)).not.toMatch(/continuation_secret/i);
     expect(cases.negative.map(({ expected_workflow }) => expected_workflow[0].kind)).toEqual([
       "schema_rejection_before_provider_call",
-      "explicit_not_found",
+      "explicit_access_boundary",
       "no_tool_call_for_unsupported_write_or_medical_action"
     ]);
     expect(cases.negative[1].expected_workflow[0]).toMatchObject({
       tool: "get_youtube_video",
       arguments: { video_id_or_url: "00000000000" }
     });
+    const positive6FixtureInputs = cases.positive[5].fixture.inputs as {
+      searches: Array<Record<string, unknown>>;
+    };
+    const positive6SurveyArguments = cases.positive[5].expected_workflow[0].arguments as {
+      searches: Array<Record<string, unknown>>;
+    };
+    expect(positive6FixtureInputs.searches.every((search) =>
+      typeof search.direction === "string" && search.label === undefined
+    )).toBe(true);
+    expect(positive6SurveyArguments.searches.every((search) =>
+      typeof search.direction === "string" && search.label === undefined
+    )).toBe(true);
+    expect(cases.positive[5].expected_workflow[0].expected_structured_fields)
+      .toContain("searches");
+    expect(cases.positive[5].expected_workflow[0].expected_structured_fields)
+      .not.toContain("queries");
     expect(JSON.stringify(cases)).not.toContain("local-recorded-fixture");
     expect(JSON.stringify(cases)).not.toContain("comments_disabled");
     const positiveYoutubeIds = cases.positive.flatMap(({ expected_workflow }) =>

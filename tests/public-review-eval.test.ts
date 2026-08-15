@@ -425,6 +425,36 @@ describe("direct public MCP review", () => {
     expect(JSON.stringify(result)).not.toContain("invalid MCP tool arguments");
   });
 
+  it("accepts the SDK isError form of an input-schema rejection", async () => {
+    const reviewCase = makeNegativeCase({
+      id: "negative-1",
+      kind: "schema_rejection_before_provider_call",
+      tool: "fetch_pubmed_record",
+      arguments: { pmid: "0" },
+    });
+    const session = scriptedMcpSession([{
+      name: "fetch_pubmed_record",
+      arguments: { pmid: "0" },
+      result: {
+        isError: true,
+        content: [{
+          type: "text",
+          text: "MCP error -32602: Input validation error: Invalid arguments for tool fetch_pubmed_record",
+        }],
+      },
+    }]);
+
+    const result = await runDirectCase(
+      reviewCase,
+      session,
+      readOnlyInventoryFixture,
+      deterministicClock(),
+    );
+
+    expect(result).toMatchObject({ state: "pass", calls: [] });
+    expect(JSON.stringify(result)).not.toContain("Invalid arguments for tool");
+  });
+
   it("requires an explicit empty YouTube not-found envelope", async () => {
     const reviewCase = makeNegativeCase({
       id: "negative-2",
@@ -481,6 +511,38 @@ describe("direct public MCP review", () => {
     );
 
     expect(result).toMatchObject({ state: "fail", failure_class: "provider_result" });
+  });
+
+  it("preserves an explicit video-not-visible access boundary", async () => {
+    const reviewCase = makeNegativeCase({
+      id: "negative-2",
+      kind: "explicit_access_boundary",
+      tool: "get_youtube_video",
+      arguments: { video_id_or_url: "00000000000" },
+    });
+    const session = scriptedMcpSession([{
+      name: "get_youtube_video",
+      arguments: { video_id_or_url: "00000000000" },
+      result: {
+        isError: true,
+        structuredContent: {
+          provider: "youtube",
+          access_status: "inaccessible",
+          limitations: ["YouTube returned no API-visible video."],
+          error: { code: "youtube_video_not_visible" },
+          data: {},
+        },
+      },
+    }]);
+
+    const result = await runDirectCase(
+      reviewCase,
+      session,
+      readOnlyInventoryFixture,
+      deterministicClock(),
+    );
+
+    expect(result.state).toBe("pass");
   });
 
   it("passes unsupported actions only when every requested operation is absent", async () => {
@@ -1067,13 +1129,14 @@ function surveyResultFixture(): Record<string, unknown> {
     provider: "youtube",
     record_type: "youtube_community_survey",
     research_question: "Which approaches improve pain or function?",
-    queries: [],
+    searches: [],
     candidates: [{
       canonical_url: "https://www.youtube.com/watch?v=4x1fl67d_Ag",
       title: "Hip osteoarthritis experience",
       channel_title: "Public channel",
       published_at: "2020-01-01T00:00:00Z",
-      provider_reported_comments: 100,
+      provider_reported_comments: "100",
+      metadata_access_status: "api_visible_complete",
     }],
     limitations: [],
   };
