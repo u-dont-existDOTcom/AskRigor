@@ -28,6 +28,22 @@ const TOOL_NAMES = [
 ];
 
 describe("AskRigor public-review packet", () => {
+  it("pins the Git-capable toolchain required by the protected live runner", async () => {
+    const [dockerfile, automation] = await Promise.all([
+      readFile(rootFile("Dockerfile.public-review"), "utf8"),
+      readFile(rootFile("docs/public-review-automation.md"), "utf8"),
+    ]);
+
+    expect(dockerfile).toContain(
+      "FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d",
+    );
+    expect(dockerfile).toContain("ARG GIT_VERSION=1:2.39.5-0+deb12u3");
+    expect(dockerfile).toContain('"git=${GIT_VERSION}"');
+    expect(dockerfile).toContain("WORKDIR /work");
+    expect(automation).toContain("Dockerfile.public-review");
+    expect(automation).toContain("Git is required at runtime");
+  });
+
   it("documents the exact lesson data, setup, and rollback boundary", async () => {
     const [setup, privacyMap, privacySite, readme, checklist, openApi, releaseEvidence] = await Promise.all([
       readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),

@@ -22,6 +22,25 @@ The normal entry point is:
 npm run review:public-live -- --live
 ```
 
+The protected server run uses the toolchain defined by
+`Dockerfile.public-review`. Git is required at runtime because the runner
+derives the reported commit from the mounted checkout and compares the working
+case-file bytes with that exact commit before any network call. The toolchain
+therefore pins both the Node base-image digest and the Debian Git package
+version; a generic Node slim image is not sufficient.
+
+Build that toolchain from the repository root with:
+
+```sh
+docker build --pull=false --file Dockerfile.public-review \
+  --tag askrigor-public-review-runner:node24-git2.39.5 .
+```
+
+The verified source checkout remains a read-write `/work` mount so `npm ci`
+and the ignored evidence bundle can be created there. The protected API-key
+file remains a separate read-only mount and is read only inside the one
+ephemeral process; it is never a Docker environment argument or image layer.
+
 This is an explicit paid live run. Before starting it, the operator must load
 `OPENAI_API_KEY` through the protected server mechanism. Never paste the key
 into the command, shell history, a command-line option, a repository file, or a
