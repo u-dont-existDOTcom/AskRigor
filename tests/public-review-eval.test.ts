@@ -381,7 +381,7 @@ describe("direct public MCP review", () => {
         arguments: { continuation_token: token },
         result: { structuredContent: auditResultFixture({
           continuation_recommended: false,
-          completion_state: "complete",
+          completion_state: "api_visible_complete",
           sample: [],
         }) },
       },
@@ -1035,7 +1035,7 @@ function auditResultFixture(
     records_retrieved_cumulative: 50,
     records_returned_for_analysis: 50,
     continuation_recommended: false,
-    receipt: { completion_state: "complete", synthesis_lock: "pass" },
+    receipt: { completion_state: "api_visible_complete", synthesis_lock: "pass" },
     ...overrides,
   };
 }

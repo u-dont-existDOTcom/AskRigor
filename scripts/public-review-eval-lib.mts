@@ -1097,11 +1097,13 @@ function validatePositiveSemantics(
 
   if (reviewCase.id === "positive-6") {
     const final = results.at(-1);
+    const completionState = getDottedValue(final, "receipt.completion_state");
     checks.push({
       name: "terminal_youtube_audit_receipt",
       pass: getDottedValue(final, "continuation_recommended") === false &&
         getDottedValue(final, "receipt.synthesis_lock") === "pass" &&
-        getDottedValue(final, "receipt.completion_state") === "complete",
+        (completionState === "api_visible_complete" ||
+          completionState === "completed_with_access_boundary"),
     });
   }
   return checks;
