@@ -451,7 +451,7 @@ export async function runDirectCase(
       let fieldsPass = true;
       for (const path of step.expected_structured_fields ?? []) {
         const inspection = inspectStructuredField(structured, path);
-        fields[path] = inspection;
+        fields[safeFieldEvidenceKey(path)] = inspection;
         if (!inspection.present) fieldsPass = false;
       }
       checks.push({ name: `step_${index + 1}_required_fields`, pass: fieldsPass });
@@ -1337,7 +1337,10 @@ function projectNormalizedCalls(
     const fields: SafeCallEvidence["fields"] = {};
     if (call.structuredContent !== undefined) {
       for (const path of expectedSteps[index]?.expected_structured_fields ?? []) {
-        fields[path] = inspectStructuredField(call.structuredContent, path);
+        fields[safeFieldEvidenceKey(path)] = inspectStructuredField(
+          call.structuredContent,
+          path,
+        );
       }
     }
     return {
@@ -1561,6 +1564,14 @@ function hasBoundedContinuationArgument(
     typeof value.continuation_token === "string" &&
     value.continuation_token.length > 0 &&
     value.continuation_token.length <= 65_536;
+}
+
+function safeFieldEvidenceKey(path: string): string {
+  return path.split(".").map((component) =>
+    component === "continuation_token"
+      ? "continuation_token_present"
+      : component
+  ).join(".");
 }
 
 function isInputValidationToolResult(result: McpCallResult): boolean {

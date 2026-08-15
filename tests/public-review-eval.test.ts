@@ -399,6 +399,9 @@ describe("direct public MCP review", () => {
     expect(result.calls[2].arguments).toEqual({
       continuation_token_omitted: digestOmittedValue(token),
     });
+    expect(result.calls[1].fields).toHaveProperty("continuation_token_present");
+    expect(result.calls[1].fields).not.toHaveProperty("continuation_token");
+    expect(() => scanEvidenceSafety({ result })).not.toThrow();
   });
 
   it("passes only an input-schema rejection for invalid PMID zero", async () => {
