@@ -16,7 +16,9 @@
 - Do not make any live provider call in ordinary tests or Phase 1 CI.
 - Tail hypotheses begin as `speculative` and cannot raise a claim's warrant.
 - Patient-experience reports cannot establish population rates, causation, comparative effectiveness, or safety.
-- PatientsLikeMe and every permission-required source must fail closed before any transport is invoked.
+- PatientsLikeMe is excluded by owner decision and must fail closed before any
+  transport is invoked. Do not create outreach, licensing, or adapter work for
+  it.
 - Preserve existing `AccessStatus` values and source limitations; do not invent completeness.
 - Never place credentials, raw private health material, identifying patient data, or unrestricted provider output in fixtures or receipts.
 - Use TDD for every behavioral task and run `npm run verify` on the final candidate.
@@ -284,10 +286,10 @@ import { describe, expect, it, vi } from "vitest";
 import { getSourcePolicy, runAuthorizedSource } from "@askrigor/calibrated-discovery";
 
 describe("calibrated-discovery source policy", () => {
-  it("keeps PatientsLikeMe permission-required and never invokes transport", async () => {
+  it("keeps PatientsLikeMe owner-excluded and never invokes transport", async () => {
     const transport = vi.fn(async () => ({ records: ["forbidden"] }));
     await expect(runAuthorizedSource("patientslikeme", transport)).rejects.toMatchObject({
-      code: "source_permission_required",
+      code: "source_excluded",
     });
     expect(transport).not.toHaveBeenCalled();
   });
@@ -319,7 +321,11 @@ Expected: FAIL because the policy functions do not exist.
 In `contracts.ts` define:
 
 ```ts
-export type SourceAuthorization = "authorized" | "discovery_only" | "permission_required";
+export type SourceAuthorization =
+  | "authorized"
+  | "discovery_only"
+  | "permission_required"
+  | "excluded_by_owner";
 
 export interface SourcePolicy {
   source_id: string;
@@ -331,7 +337,10 @@ export interface SourcePolicy {
 }
 
 export class SourcePolicyError extends Error {
-  constructor(public readonly code: "source_discovery_only" | "source_permission_required") {
+  constructor(public readonly code:
+    | "source_discovery_only"
+    | "source_permission_required"
+    | "source_excluded") {
     super(code);
   }
 }
@@ -350,10 +359,12 @@ export type PhaseOneSourceId =
   | "openfda_drug_events";
 ```
 
-Set PatientsLikeMe to `permission_required`; CURE ID and Open Humans to
-`discovery_only`; PsyTAR and openFDA to `authorized`. Unknown strings must throw
-before any transport call. `runAuthorizedSource()` calls its injected transport
-only for `authorized`.
+Set PatientsLikeMe to `excluded_by_owner`; CURE ID and Open Humans to
+`discovery_only`; PsyTAR and openFDA to `authorized`. Record the owner's
+2026-08-16 signed-in tirzepatide observation as a limitation without
+generalizing it to platform-wide coverage. Unknown strings must throw before
+any transport call. `runAuthorizedSource()` calls its injected transport only
+for `authorized`.
 
 - [ ] **Step 5: Run the policy tests**
 
@@ -872,7 +883,8 @@ private fixture question -> local deterministic runner -> ignored bounded receip
 ```
 
 State explicitly: no live third party, no identifying health data, no persistent
-patient corpus, PatientsLikeMe disabled, and public v0.1 unaffected.
+patient corpus, PatientsLikeMe excluded by owner decision, and public v0.1
+unaffected.
 
 - [ ] **Step 2: Update the documentation index**
 

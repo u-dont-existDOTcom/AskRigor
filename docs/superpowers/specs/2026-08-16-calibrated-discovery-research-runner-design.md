@@ -30,9 +30,11 @@ evidence. Novel-hypothesis yield is secondary.
 - Treat patient reports as a separate structured treatment-experience evidence
   lane. Never convert them into population effectiveness, incidence, or causal
   estimates.
-- Do not scrape PatientsLikeMe. Its current agreement prohibits automated
-  access. A future adapter requires written permission or another explicitly
-  authorized interface.
+- Exclude PatientsLikeMe from the v0.2 source strategy. Its current agreement
+  prohibits automated access, and the owner reported that a signed-in
+  tirzepatide search exposed only 10 treatment reports on 2026-08-16. Do not
+  pursue outreach, licensing, scraping, or an adapter unless the owner later
+  reverses this decision.
 
 ## Current baseline and provenance
 
@@ -255,7 +257,7 @@ must be rechecked before adapter activation.
 
 | Source | Approved v0.2 use | Boundary |
 | --- | --- | --- |
-| PatientsLikeMe | `permission_required` | Its agreement prohibits robots, scrapers, and other automated access for any purpose. No direct or proxy scraping. Activate only through written permission, licensed data, or an explicitly authorized interface. |
+| PatientsLikeMe | `excluded_by_owner` | Its agreement prohibits automated access, and the owner's signed-in tirzepatide check found only 10 treatment reports. This observed query does not establish platform-wide coverage, but it is insufficient for AskRigor's intended use. Do not contact, license, scrape, or implement an adapter. |
 | CURE ID | Public discovery and manually verified case exploration | FDA/NIH describe it as a public, curated treatment registry focused on repurposed drugs. A supported public programmatic interface was not verified. Do not scrape; verify an API or obtain permission before automated ingestion. |
 | PsyTAR | Offline benchmark corpus with attribution | The published 891-review psychiatric-treatment corpus declares CC BY 4.0. It is historical, covers four drugs, and cannot represent current or general patient experience. |
 | Open Humans | Public API discovery and separately authorized data | A public unauthenticated API exists for member-elected public files. Follow its public-data guidelines and each dataset's consent/use boundary; it is not a ready-made treatment-review corpus. |
@@ -430,8 +432,6 @@ The design is implemented only when:
 
 ## Remaining external opportunities, not blockers
 
-- Ask PatientsLikeMe for written research/API or licensed-data access. Until an
-  agreement exists, it remains disabled.
 - Investigate a documented CURE ID data interface or request permission from its
   maintainers. Public browsing alone does not authorize an undocumented scraper.
 - Use PsyTAR as the first openly licensed treatment-review fixture, while
