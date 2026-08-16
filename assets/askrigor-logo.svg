@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="AskRigor AR monogram">
+  <rect width="512" height="512" rx="104" fill="#145A8D"/>
+  <path fill="#F7F4EC" fill-rule="evenodd" clip-rule="evenodd" d="M52 382 142 130h40l90 252h-50l-20-62h-80l-20 62H52Zm85-108h50l-25-76-25 76Z"/>
+  <path fill="#F7F4EC" fill-rule="evenodd" clip-rule="evenodd" d="M277 130h91c53 0 84 29 84 77 0 35-18 60-50 71l59 104h-58l-52-94h-24v94h-50V130Zm50 45v70h37c25 0 38-12 38-36 0-23-13-34-38-34h-37Z"/>
+</svg>

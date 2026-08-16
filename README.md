@@ -171,12 +171,12 @@ The production MCP endpoint is `https://mcp.askrigor.com/mcp`. In ChatGPT,
 enable developer mode for unverified connectors, create a connector using that
 endpoint, and retain the generated technical connection ID.
 
-The local plugin package maps that exact `asdk_app_...` connection ID in the
-root `.app.json`, while `.codex-plugin/plugin.json` references
-`./.app.json`. The mapping file is deliberately git-ignored because connection
-IDs are environment-specific; regenerate it when installing the plugin in a
-different ChatGPT environment. Never add provider API keys or deployment
-credentials to either manifest.
+Local or workspace testing may map that exact `asdk_app_...` connection ID in a
+root `.app.json`. The mapping file is deliberately git-ignored because
+connection IDs are environment-specific. The public directory package does not
+reference that local mapping: submit the production server directly through
+the portal's **With MCP** flow. Never add connection IDs, provider API keys, or
+deployment credentials to the distributable manifest.
 
 ## ChatGPT Project router
 
@@ -244,16 +244,22 @@ was later deployed and reverified before Action activation:
 `https://askrigor.com/`,
 `https://askrigor.com/privacy`, `https://askrigor.com/terms`, and
 `https://askrigor.com/support` all passed direct HTTPS acceptance. The manifest
-now carries the schema-supported website, privacy-policy, and terms URLs; support
-remains submission documentation because the current manifest schema has no
-support-URL field.
+carries the schema-supported website, privacy-policy, and terms URLs. The
+portal-only support URL and the exact remaining external-gate states are
+maintained separately in `docs/public-submission-packet-v0.1.0.json` because the
+current package-manifest schema has no support-URL field. The distributable
+manifest also includes the required square logo and composer icon and no longer
+publishes a local `.app.json` reference.
 
 V0.1.0 is still **PUBLIC SUBMISSION BLOCKED** until the remaining portal
-identity, domain-verification, Scan Tools, opaque model-receipt release decision,
-and public submission actions are completed. The fresh post-deployment ChatGPT
-interface check no longer reproduced the earlier routine-status regression; its
-bounded evidence and presentation limitation are recorded in the release packet.
-See `docs/privacy-data-map.md`, `docs/public-review-checklist.md`, and
+identity, domain-verification, Scan Tools, demo-recording, opaque model-receipt
+release decision, final portal review, and public submission actions are
+completed. The fresh post-deployment ChatGPT interface check no longer
+reproduced the earlier routine-status regression; its bounded evidence and
+presentation limitation are recorded in the release packet. See
+`docs/privacy-data-map.md`, `docs/public-review-checklist.md`,
+`docs/public-submission-packet-v0.1.0.json`,
+`docs/public-submission-demo-recording.md`, and
 `docs/release-evidence-v0.1.0.md` for the reviewer packet and release gates.
 
 ## License
