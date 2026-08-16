@@ -1,15 +1,21 @@
 # AskRigor v0 public-review checklist
 
-This packet is prepared for a future plugin draft. It is not permission to submit
-or publish. The website/privacy/terms/support gate passed on 2026-08-12 for
+This packet is prepared for a future public-directory submission. It is not
+permission to submit or publish. The machine-readable portal handoff is
+`docs/public-submission-packet-v0.1.0.json`; its unverified external gates remain
+explicit. The website/privacy/terms/support gate passed on 2026-08-12 for
 immutable site release `f928b95e29cd`.
 The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.
 The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
-portal identity and domain-verification work, Scan Tools review, the explicit
-opaque model-receipt release decision, and submission actions recorded in
-`docs/release-evidence-v0.1.0.md`. The fresh post-deployment ChatGPT interface
-check did not reproduce the earlier routine-status regression.
+portal identity and domain-verification work, Scan Tools review, the demo
+recording, the explicit opaque model-receipt release decision, final portal
+review, and submission actions recorded in
+`docs/public-submission-packet-v0.1.0.json` and
+`docs/release-evidence-v0.1.0.md`. The owner reported that identity remains
+`Verifying identity` on 2026-08-16; that is an in-progress report, not a
+completion receipt. The fresh post-deployment ChatGPT interface check did not
+reproduce the earlier routine-status regression.
 
 ## Optional lesson Action deployment truth
 
@@ -140,10 +146,10 @@ semantics. Provider-unavailable results must retain an explicit access status or
 error rather than appear as a successful empty result. No tool requires
 confirmation and no tool may make a state change.
 
-## Portal test cases
+## Extended regression cases and portal selection
 
-`docs/public-review-cases-v0.1.0.json` is the reviewer-ready, mechanically
-validated case set:
+`docs/public-review-cases-v0.1.0.json` is the mechanically validated extended
+regression suite:
 
 - six positive cases and three negative cases, with fixed IDs/counts;
 - literal user prompts, production-public input values, exact expected tool
@@ -151,6 +157,14 @@ validated case set:
 - explicit no-state-change expectation for every case; and
 - a rationale for every negative case explaining why the plugin must not
   complete it.
+
+OpenAI's final portal requires exactly five positive and three negative cases.
+`docs/public-submission-packet-v0.1.0.json` therefore selects
+`positive-1` through `positive-5` and `negative-1` through `negative-3` for the
+portal. `positive-6` remains in the extended suite and historical runner
+evidence as the compound YouTube survey/audit regression; it is not deleted or
+relabelled. Its longest model-layer receipt remains opaque, so it is not one of
+the five final portal positives.
 
 Each case instead declares a distinct, concrete production-public input—no
 repository fixture or internal context is required. Run its literal prompt
@@ -210,8 +224,14 @@ The publisher-matching HTTPS legal/support prerequisite was verified on
 1. Verify developer/business identity and complete the HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
-3. Resolve the three opaque remote-MCP model receipts recorded by run
+3. Record the privacy-safe reviewer demo using
+   `docs/public-submission-demo-recording.md`, host it at an accepted HTTPS URL,
+   and publish its verified receipt through the protected repository workflow.
+4. Resolve the three opaque remote-MCP model receipts recorded by run
    `20260815T110708.728Z-baa07445`, or make an explicit release decision to
    accept that limitation. Do not relabel the 9/9 direct pass as model proof.
-4. Confirm no response contains credentials, debug payloads, internal
+5. Confirm no response contains credentials, debug payloads, internal
    identifiers, or data not disclosed in the final privacy notice.
+6. Reconcile each portal-only state in
+   `docs/public-submission-packet-v0.1.0.json` from direct evidence before
+   submission; repository files alone do not prove portal completion.

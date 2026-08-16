@@ -1,13 +1,17 @@
 
 # AskRigor v0.1.0 release evidence
 
-Release disposition at 2026-08-15: **PUBLIC SUBMISSION BLOCKED**. Developer
+Release disposition at 2026-08-16: **PUBLIC SUBMISSION BLOCKED**. Developer
 Mode connector retrieval is ready based on the recorded production Inspector and
 ChatGPT evidence below, and the public website/support/privacy/terms URL gate is
 now resolved. The fresh post-deployment ChatGPT interface check did not reproduce
 the earlier routine-status presentation finding. Public publication still cannot
-proceed until portal identity, domain verification, Scan Tools, the explicit
-opaque model-receipt release decision, and submission actions are resolved.
+proceed until portal identity, domain verification, Scan Tools, the demo
+recording, the explicit opaque model-receipt release decision, final portal
+review, and submission actions are resolved. The repository candidate now
+separates the validated distributable package from the portal-only handoff in
+`docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
+state.
 
 ## Artifact and endpoint identity
 
@@ -25,7 +29,7 @@ opaque model-receipt release decision, and submission actions are resolved.
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Current lesson-disclosure source `56d13b73e74c377cfd6d513a5f4ceeec9949e0bf` (`fix: scope lesson logging disclosure`), activated as site release `56d13b73e74c`; prior immutable research-only release `/opt/askrigor/site/releases/f928b95e29cd` remains historical rollback evidence. |
 | Public site packet | SHA-256 `ac49ecccf264f821e75212ad817dc9e3070600c931732222cc72ca552b25919e`; initial TLS-bootstrap evidence `/opt/askrigor/site/bootstrap/20260812T043156Z-3nU8HLDE/evidence`. |
-| Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs. The support URL remains release/submission documentation because the schema exposes no support-URL field. |
+| Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
 successful deployment/validation work. The controller's validation runner
@@ -169,11 +173,17 @@ claimed from this acceptance.
 - Submit the fixed production URL, select **Scan Tools**, and compare discovered
   tool metadata with `docs/public-review-checklist.md`. Any metadata change
   requires deploy → rescan → review.
+- Record and host the privacy-safe reviewer demo using
+  `docs/public-submission-demo-recording.md`, then publish the real URL and
+  non-secret receipt through the protected repository workflow.
 - Resolve or expressly accept the three opaque remote-MCP model receipts from
   run `20260815T110708.728Z-baa07445`; the 9/9 direct pass must not be used as a
   substitute for model-layer proof.
 - Confirm the portal's final scanned responses expose no credentials, debug
   payloads, internal identifiers, or data outside the reviewed privacy notice.
+- Update each portal-only state in
+  `docs/public-submission-packet-v0.1.0.json` from direct evidence; do not infer
+  hosted completion from repository files.
 
 ## Local release verification record
 

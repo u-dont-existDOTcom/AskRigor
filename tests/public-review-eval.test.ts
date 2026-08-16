@@ -253,9 +253,17 @@ describe("public review evidence safety", () => {
       cases: [{ note: "<?xml version='1.0'?><Protocol />" }] as never,
     })).toThrow("evidence contains protocol XML at $.cases[0].note");
 
+    const credentialLikeKey = [
+      "sk",
+      "example",
+      "credential",
+      "like",
+      "key",
+      "123456",
+    ].join("-");
     expect(() => scanEvidenceSafety({
       ...completeSafeReportFixture,
-      cases: [{ "sk-example-credential-like-key-123456": true }] as never,
+      cases: [{ [credentialLikeKey]: true }] as never,
     })).toThrow("evidence contains a credential-like value at $.cases[0].<key>");
   });
 

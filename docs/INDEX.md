@@ -28,7 +28,11 @@ complete XML protocol.
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
-- `public-review-cases-v0.1.0.json`: machine-readable review cases
+- `public-review-cases-v0.1.0.json`: extended 6+3 machine-readable regression cases
+- `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
+  handoff, and external-gate states
+- `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
+  script
 - `public-review-automation.md`: bounded direct-MCP and Responses API review runner
 - `tool-inventory-v0.1.0.json`: generated tool inventory
 
