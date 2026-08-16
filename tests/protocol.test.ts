@@ -34,9 +34,44 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.17",
-      revisionDate: "2026-08-13"
+      version: "20.5.18",
+      revisionDate: "2026-08-16"
     });
+  });
+
+  it("requires the HRP 20.5.18 premise-integrity and truth-priority gate", async () => {
+    const text = await loadProtocol("hrp");
+
+    for (const required of [
+      '<Revision version="20.5.18" priority="Critical">',
+      '<PremiseIntegrityAndTruthPriorityGate priority="Critical">',
+      'id="premise_integrity_and_truth_priority"',
+      "Accuracy outranks agreement",
+      "factual assertions embedded in a prompt",
+      "This does not exist.",
+      "I could not verify that this exists",
+      "I cannot independently verify this source/data.",
+      "Labeled inference and estimation remain permitted"
+    ]) {
+      expect(text).toContain(required);
+    }
+
+    for (const id of [
+      "FalsePremiseCompliance",
+      "NonexistentSourceHallucination",
+      "SearchFailureIsNotNonexistence",
+      "ConfidentUserAssertionStillChecked",
+      "ForcedCausalConnection",
+      "CitationDoesNotEntailPromptPremise",
+      "ArithmeticContradictionBlocksSynthesis",
+      "LegitimateLabeledInferenceRemainsAllowed"
+    ]) {
+      expect(text).toContain(`<Case id="${id}">`);
+    }
+
+    for (let id = 164; id <= 171; id += 1) {
+      expect(text).toContain(`<Check id="FS${id}">`);
+    }
   });
 
   it("preserves the HRP community corpus completion gate and regression", async () => {
@@ -227,9 +262,27 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.11",
-      revisionDate: "2026-08-07"
+      version: "20.5.12",
+      revisionDate: "2026-08-16"
     });
+  });
+
+  it("requires the Universal 20.5.12 premise-integrity and truth-priority gate", async () => {
+    const text = await loadProtocol("universal");
+
+    for (const required of [
+      '<revision version="20.5.12" priority="Critical">',
+      '<premise_integrity_and_truth_priority_gate priority="Critical">',
+      "Accuracy outranks agreement",
+      "factual assertions embedded in a prompt",
+      "This does not exist.",
+      "I could not verify that this exists",
+      "I cannot independently verify this source/data.",
+      "Labeled inference and estimation remain permitted",
+      "Premise-integrity check:"
+    ]) {
+      expect(text).toContain(required);
+    }
   });
 
   it("returns the original Universal file text unchanged", async () => {
