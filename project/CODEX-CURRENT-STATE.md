@@ -56,7 +56,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   generated Action operation declares the router-owned 500
   `action_internal_error` response. Focused red/green coverage passes 81/81.
   Commit `4eb6021` awaits a previously leaked durable-budget assertion after
-  the full gate exposed the warning and resource-sensitive timeout.
+  the full gate exposed the warning and resource-sensitive timeout. Full-suite
+  parallel load then reproduced a valid durable `fsync` case at 5.743 seconds;
+  commit `4f19cc1` gives only that durable-filesystem suite a 20-second ceiling
+  without changing runtime behavior or assertions.
 - The complete candidate gate passes: `npm run verify` produced 48 passing
   files, one credential-gated file skipped, 878 passing tests, five skipped,
   and successful typecheck and build.
