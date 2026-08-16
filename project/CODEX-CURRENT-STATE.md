@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-Updated: 2026-08-15
+Updated: 2026-08-16
 
 ## Goal
 
@@ -9,8 +9,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; no active application change remains
-- Verified main boundary containing the interface evidence: `287bac798f9e61568b56194385e43a21b899a4f8`
+- Canonical branch: `main`; active task branch:
+  `codex/public-submission-packet-repair-2026-08-16`
+- Current `origin/main`: `57340f4ee2d9165fc7d680fe01cae9c8ca0f251a`
+- Last verified local content boundary before this checkpoint update:
+  `2c6ef2802187f7097fd0e51ab1a2911dadc1c46f`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
 - Byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`
@@ -79,38 +82,85 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `287bac798f9e61568b56194385e43a21b899a4f8`. Post-merge deterministic
   verification, workflow policy, and both CodeQL analyses passed on that exact
   merge commit.
+- PR #11 merged the bounded interface-state closeout into `main` as
+  `57340f4ee2d9165fc7d680fe01cae9c8ca0f251a`.
+- OpenAI's current primary submission documentation was rechecked on
+  2026-08-16. The owner approved Approach A and confirmed the durable design at
+  `docs/superpowers/specs/2026-08-16-public-submission-packet-repair-design.md`.
+- The public plugin package no longer references environment-specific
+  `.app.json`, uses the 28-character `Auditable research retrieval` short
+  description, and includes self-contained square SVG logo/composer assets.
+  The current local `plugin-creator` validator passes on the clean package.
+- `docs/public-submission-packet-v0.1.0.json` now separates portal-only fields
+  from package metadata, selects exactly `positive-1` through `positive-5` and
+  `negative-1` through `negative-3`, and keeps every hosted gate explicit.
+  The extended 6+3 case file and all historical receipts remain unchanged;
+  `positive-6` remains extended regression evidence.
+- TDD observed seven expected failures before the package/packet/assets
+  existed. The final focused package/packet gate passes 12/12. The existing
+  public-review safety suite passes 61/61 after its deliberately credential-
+  shaped runtime fixture was assembled from safe source fragments so the
+  portable repository audit does not mistake the test source for a credential.
+- Final bootstrap passed on Node `24.18.0`: `npm ci` added 156 packages, audited
+  161, and found zero vulnerabilities. `npm run lessons:status` returned
+  available at `2026-08-16T00:49:00.120Z`: 0 open, 0 needs review, 0 accepted
+  not incorporated, 1 incorporated-or-closed, and 0 deletion eligible.
+- Final deterministic verification passes: 43 files passed, one live-provider
+  file skipped; 848 tests passed, five credential-gated tests skipped;
+  typecheck and build passed. Site validation covered four pages and deployment
+  tests passed 28/28. The current universal portable audit passes with no
+  findings. No live provider call, production deployment, portal submission,
+  credential access, or protocol/application behavior change occurred.
+- Lesson closeout for this repair is project-specific / no-new-lesson. The
+  distinction between repository-visible and hosted proof and the runtime-
+  fragmented credential-fixture pattern were already promoted and tested in
+  the universal repository.
 
 ## Current checkpoint
 
-- PR #9 is merged. Its last live-evaluated code and case commit is
+- PR #9 remains the last live-evaluated code/case release. Its exact commit is
   `8ed8c0f7aaab9609dfb067780c05838f98903bab`; later evidence and CI-timeout
-  changes do not alter the deployed application or runner logic.
+  changes and this packet-only repair do not alter deployed application or
+  runner behavior.
 - Production is healthy on the refetch-fix application image. Rollback image
   `askrigor-research:rollback-9715812` and
   `/opt/askrigor/compose.yaml.rollback-9715812` are verified.
-- V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** for portal identity/domain
-  verification, Scan Tools/submission, the explicit release decision on three
-  opaque remote-MCP model receipts, and final portal response/privacy review.
+- Repository-controlled packet repair is complete on
+  `codex/public-submission-packet-repair-2026-08-16`; its protected PR and merge
+  remain to be completed. V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** for
+  portal identity/domain verification, Scan Tools, a real demo-recording URL,
+  the explicit release decision on three opaque remote-MCP model receipts,
+  final portal response/privacy review, and submission.
   The direct production contract is 9/9 green and the ChatGPT interface check is
   complete with the declared card-presentation limitation.
+- The owner reported `Verifying identity` in the OpenAI portal. The packet
+  records this as `in_progress`; it does not claim completion or an identity
+  service-level time.
 
 ## Remaining
 
-- Confirm developer/business identity and the portal HTTPS domain challenge.
+- Open one focused PR for the packet repair, verify the exact head through
+  `Deterministic verification`, `workflow-policy`, and CodeQL, and merge it.
+- Observe developer/business identity completion and complete the portal HTTPS
+  domain challenge.
 - Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 17 tools
   with the committed inventory, and review the portal's response/privacy output.
+- Record and host the bounded demo from
+  `docs/public-submission-demo-recording.md`; publish only its verified HTTPS
+  URL and non-secret receipt.
 - Resolve or expressly accept the three opaque remote-MCP receipts at the
   release-decision boundary; direct proof must not be relabeled as model proof.
 
 ## Blockers / unresolved
 
-- No implementation, deployment, credential, repository-governance, or ChatGPT
-  interface blocker remains.
+- No repository implementation, dependency, test, audit, deployment,
+  credential, governance, or ChatGPT interface blocker remains.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
   output and the two tested error boundaries. The runner preserves these as
   `model_output` blocks. Direct proof does not establish model-layer semantics.
 - V0.1.0 public submission remains blocked by account-scoped identity/domain
-  work, Scan Tools, and the explicit opaque-receipt release decision.
+  work, Scan Tools, a real demo recording, final portal review, and the explicit
+  opaque-receipt release decision.
 
 ## Evidence / artifacts
 
@@ -119,6 +169,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Compliance report: `docs/audits/2026-08-14-codex-github-compliance.md`
 - Release/production receipt: `docs/release-evidence-v0.1.0.md`
 - Privacy/reviewer truth: `docs/privacy-data-map.md` and `docs/public-review-checklist.md`
+- Portal handoff: `docs/public-submission-packet-v0.1.0.json`
+- Demo recording script: `docs/public-submission-demo-recording.md`
+- Repair design and plan:
+  `docs/superpowers/specs/2026-08-16-public-submission-packet-repair-design.md`
+  and
+  `docs/superpowers/plans/2026-08-16-public-submission-packet-repair-implementation.md`
 - Public-review runner/cases: `docs/public-review-automation.md` and
   `docs/public-review-cases-v0.1.0.json`
 - Ignored local sanitized evidence:
@@ -128,10 +184,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Open the OpenAI identity portal in the owner's signed-in browser and confirm
-whether `askrigor.com` is verified or copy the exact public DNS challenge for
-automated DNS validation.
+Push the packet-repair branch, open one focused PR, wait for the protected
+required checks, and merge only if they pass. After merge, return to the
+signed-in OpenAI portal; if identity is complete, proceed to the publisher-
+domain challenge and **Scan Tools**. If it still says `Verifying identity`, do
+not restart it; prepare the bounded demo recording while it remains pending.
 
 ## Recovery rule
 
-After interruption, inspect actual Git state, this checkpoint, complete protocol files, current release evidence, merged PRs #9 and #10, issue #6, and newer owner instructions. Resume from the latest verified boundary without touching the dirty original checkout or repeating live production acceptance.
+After interruption, inspect actual Git state, this checkpoint, complete protocol
+files, current release evidence, merged PRs #9 through #11, this packet-repair
+branch/PR, closed issue #6, and newer owner instructions. Resume from the latest
+verified boundary without touching the dirty original checkout or repeating
+live production acceptance.
