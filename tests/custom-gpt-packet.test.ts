@@ -81,6 +81,8 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "`complete: true`",
       "`continuation_recommended: true`",
       "`synthesis_lock: pass`",
+      "`youtube_action_continuation_invalid_or_expired`",
+      "restart only that video audit from its video identifier",
       "`search_youtube_comments`",
       "query-bounded `partial`",
       "Submit this anonymized lesson to improve AskRigor?",
