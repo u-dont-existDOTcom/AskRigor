@@ -10,15 +10,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 - Repository: `u-dont-existDOTcom/AskRigor`
 - Canonical branch: `main`; active isolated task branch
-  `codex/calibrated-discovery-v0.2-design-2026-08-16` is based on
-  `33cb5d0004974caea82738c64faffa06d1d15ae4`.
+  `codex/calibrated-discovery-v0.2-design-2026-08-16` cleanly integrates
+  current `main` `265205c6b127d29848e6f56c61012a5b87436d5a` through local merge
+  `da3919afd2eb615b08e8b7caf8d8a84bee8609d6`. Recovery branch
+  `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the exact pre-merge
+  bridge candidate.
 - Verified main boundary containing the packet repair:
   `0d8ef69fa7fd73c34c571a07723b5a6b5bad5fec`
 - Exact packet-repair head merged by PR #12:
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`
+- Byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.12` / 2026-08-16 / `3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
 
@@ -60,9 +63,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   parallel load then reproduced a valid durable `fsync` case at 5.743 seconds;
   commit `4f19cc1` gives only that durable-filesystem suite a 20-second ceiling
   without changing runtime behavior or assertions.
-- The complete candidate gate passes: `npm run verify` produced 48 passing
-  files, one credential-gated file skipped, 878 passing tests, five skipped,
-  and successful typecheck and build.
+- After the new premise-integrity protocol authority on `main` was merged, the
+  complete candidate gate passed again: `npm run verify` produced 49 passing
+  files, one credential-gated file skipped, 881 passing tests, five skipped,
+  and successful typecheck and build. The generated Custom GPT packet remained
+  byte-identical because it loads the canonical protocols at runtime rather
+  than embedding stale protocol copies.
 - Final repository-visible gates also pass: the public-site validator covered
   four pages, the deployment suite passed 28/28, and the current universal
   portable audit returned `PASS: no findings.` The lesson checkpoint at
