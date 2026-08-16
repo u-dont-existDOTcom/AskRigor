@@ -148,6 +148,33 @@ export class YoutubeAuditContinuationError extends Error {
   }
 }
 
+export interface YoutubeAuditRestartSnapshot {
+  video_id: string;
+  analysis_limit: number;
+  segment_index: number;
+  provider_reported_comments?: string;
+  top_level_comments_retrieved: number;
+  replies_retrieved: number;
+  comment_thread_pages: number;
+  reply_pages: number;
+  records_retrieved_cumulative: number;
+  rolling_sha256: string;
+  reply_count_mismatches: YoutubeReplyCountMismatch[];
+}
+
+export class YoutubeAuditRestartRequiredError extends Error {
+  constructor(
+    public readonly code:
+      "youtube_video_audit_continuation_migration_restart_required" |
+      "youtube_video_audit_identifier_membership_restart_required",
+    message: string,
+    public readonly snapshot: YoutubeAuditRestartSnapshot
+  ) {
+    super(message);
+    this.name = "YoutubeAuditRestartRequiredError";
+  }
+}
+
 export interface YoutubeVideoAuditContinuationState {
   version: 1;
   video_id: string;
@@ -231,7 +258,8 @@ export function decodeYoutubeAuditContinuation(
   let state: YoutubeVideoAuditContinuationState;
   try {
     state = parseState(payload);
-  } catch {
+  } catch (error) {
+    if (error instanceof YoutubeAuditRestartRequiredError) throw error;
     throw invalidContinuation("Invalid YouTube audit continuation token state");
   }
   if (nowMs >= state.expires_at_ms) {
@@ -276,14 +304,20 @@ export function advanceYoutubeAuditState(
   const membership = decodeIdentifierMembership(state.seen_identifier_membership);
   for (const { comment_id } of comments) {
     if (identifiers.has(comment_id)) {
-      throw new Error("Duplicate YouTube comment identifier in continuation chain");
+      throw new YoutubeAuditRestartRequiredError(
+        "youtube_video_audit_identifier_membership_restart_required",
+        "Duplicate YouTube comment identifier in continuation chain; restart the audit from the video ID",
+        createRestartSnapshot(state)
+      );
     }
     if (
       identifierMembershipPossiblyContains(membership, comment_id) &&
       !exactIdentifiersCoverPriorCorpus
     ) {
-      throw new Error(
-        "Possible duplicate YouTube comment identifier at a non-adjacent membership boundary"
+      throw new YoutubeAuditRestartRequiredError(
+        "youtube_video_audit_identifier_membership_restart_required",
+        "Possible duplicate YouTube comment identifier at a non-adjacent membership boundary; restart the audit from the video ID",
+        createRestartSnapshot(state)
       );
     }
     identifiers.add(comment_id);
@@ -339,7 +373,11 @@ function parseState(value: unknown): YoutubeVideoAuditContinuationState {
   let seenIdentifierMembership = parsed.seen_identifier_membership;
   if (seenIdentifierMembership === undefined) {
     if (parsed.sample_identifiers.length !== parsed.records_retrieved_cumulative) {
-      throw new Error("Invalid YouTube audit continuation state");
+      throw new YoutubeAuditRestartRequiredError(
+        "youtube_video_audit_continuation_migration_restart_required",
+        "YouTube audit continuation predates the full-corpus identifier-membership upgrade; restart the audit from the video ID",
+        createRestartSnapshot(parsed)
+      );
     }
     seenIdentifierMembership = createYoutubeAuditIdentifierMembership(
       parsed.sample_identifiers
@@ -355,6 +393,38 @@ function parseState(value: unknown): YoutubeVideoAuditContinuationState {
     ...parsed,
     seen_identifier_membership: seenIdentifierMembership
   } as YoutubeVideoAuditContinuationState;
+}
+
+function createRestartSnapshot(state: {
+  video_id: string;
+  analysis_limit: number;
+  segment_index: number;
+  provider_reported_comments?: string;
+  top_level_comments_retrieved: number;
+  replies_retrieved: number;
+  comment_thread_pages: number;
+  reply_pages: number;
+  records_retrieved_cumulative: number;
+  rolling_sha256: string;
+  reply_count_mismatches: readonly YoutubeReplyCountMismatch[];
+}): YoutubeAuditRestartSnapshot {
+  return {
+    video_id: state.video_id,
+    analysis_limit: state.analysis_limit,
+    segment_index: state.segment_index,
+    ...(state.provider_reported_comments === undefined
+      ? {}
+      : { provider_reported_comments: state.provider_reported_comments }),
+    top_level_comments_retrieved: state.top_level_comments_retrieved,
+    replies_retrieved: state.replies_retrieved,
+    comment_thread_pages: state.comment_thread_pages,
+    reply_pages: state.reply_pages,
+    records_retrieved_cumulative: state.records_retrieved_cumulative,
+    rolling_sha256: state.rolling_sha256,
+    reply_count_mismatches: state.reply_count_mismatches.map((mismatch) => ({
+      ...mismatch
+    }))
+  };
 }
 
 export function createYoutubeAuditIdentifierMembership(

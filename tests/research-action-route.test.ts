@@ -280,6 +280,44 @@ describe("read-only research Action routes", () => {
       });
   });
 
+  it("consumes a claimed handle when identifier membership requires a nonretryable restart", async () => {
+    const statelessToken = `payload.${"s".repeat(43)}`;
+    let calls = 0;
+    const operation: ResearchOperation = youtubeAuditOperation(async (input) => {
+      calls += 1;
+      if (calls === 1) return youtubeAuditContinuationOutput(statelessToken);
+      expect(input).toEqual({ continuation_token: statelessToken });
+      return youtubeAuditRestartRequiredFailureOutput();
+    });
+    const [route] = createResearchActionRoutes({ operations: [operation] });
+    const first = await route!.handle(context({
+      video_id_or_url: "XpZHKGGCK-o",
+      analysis_limit: 100
+    }));
+    const handle = (first.body as { continuation_token: string }).continuation_token;
+
+    const failed = await route!.handle(context({ continuation_token: handle }));
+    expect(failed).toMatchObject({
+      status: 200,
+      body: {
+        error: {
+          code: "youtube_video_audit_identifier_membership_restart_required",
+          retryable: false
+        },
+        records_retrieved_cumulative: 501,
+        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+      }
+    });
+    await expect(route!.handle(context({ continuation_token: handle })))
+      .resolves.toMatchObject({
+        status: 422,
+        body: {
+          error: { code: "youtube_action_continuation_invalid_or_expired" }
+        }
+      });
+    expect(calls).toBe(2);
+  });
+
   it("allows only one concurrent request to claim an Action continuation handle", async () => {
     const statelessToken = `payload.${"s".repeat(43)}`;
     let calls = 0;
@@ -703,6 +741,36 @@ function youtubeAuditFailureOutput() {
       replies_reconciled: false,
       query_bounded_comments_used_as_corpus: false,
       blockers: ["YouTube video community audit failed before reaching a valid completion state."]
+    }
+  });
+}
+
+function youtubeAuditRestartRequiredFailureOutput() {
+  const limitation =
+    "A possible non-adjacent duplicate was detected after the exact identifier sample became bounded; restart the audit from the video ID. No rejected record was added to cumulative counts.";
+  return youtubeVideoCommunityAuditOutputSchema.parse({
+    ...youtubeAuditFailureOutput(),
+    video_id: "XpZHKGGCK-o",
+    canonical_url: "https://www.youtube.com/watch?v=XpZHKGGCK-o",
+    segment_index: 6,
+    limitations: [limitation],
+    error: {
+      code: "youtube_video_audit_identifier_membership_restart_required",
+      message: limitation,
+      retryable: false
+    },
+    top_level_comments_retrieved_cumulative: 501,
+    records_retrieved_cumulative: 501,
+    comment_thread_pages_cumulative: 26,
+    corpus_rolling_sha256: "b".repeat(64),
+    receipt: {
+      completion_state: "incomplete",
+      synthesis_lock: "block",
+      chain_started_at_first_page: true,
+      top_level_pagination_exhausted: false,
+      replies_reconciled: false,
+      query_bounded_comments_used_as_corpus: false,
+      blockers: [limitation]
     }
   });
 }

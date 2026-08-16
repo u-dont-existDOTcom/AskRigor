@@ -7,6 +7,7 @@ import {
   createYoutubeAuditIdentifierMembership,
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
+  YoutubeAuditRestartRequiredError,
   type YoutubeVideoAuditContinuationState
 } from "../apps/research-mcp/src/youtube-audit-continuation.js";
 import type { YoutubeComment } from "@askrigor/sources";
@@ -99,6 +100,39 @@ describe("YouTube audit continuation tokens", () => {
       SECRET,
       NOW
     )).toEqual(STATE);
+  });
+
+  it("requires an explicit restart for a signed legacy corpus whose exact sample was bounded", () => {
+    const identifiers = Array.from(
+      { length: 500 },
+      (_, index) => `legacy-${String(index).padStart(4, "0")}`
+    );
+    const legacyPayload = Buffer.from(JSON.stringify({
+      ...STATE,
+      segment_index: 6,
+      top_level_comments_retrieved: 501,
+      comment_thread_pages: 26,
+      records_retrieved_cumulative: 501,
+      sample_identifiers: identifiers.map((comment_id) => ({ comment_id })),
+      seen_identifier_membership: undefined
+    }), "utf8").toString("base64url");
+    const signature = createHmac("sha256", SECRET).update(legacyPayload).digest("base64url");
+
+    try {
+      decodeYoutubeAuditContinuation(`${legacyPayload}.${signature}`, SECRET, NOW);
+      throw new Error("Expected the legacy continuation to require a restart");
+    } catch (error) {
+      expect(error).toBeInstanceOf(YoutubeAuditRestartRequiredError);
+      expect(error).toMatchObject({
+        code: "youtube_video_audit_continuation_migration_restart_required",
+        snapshot: {
+          video_id: "XpZHKGGCK-o",
+          segment_index: 6,
+          records_retrieved_cumulative: 501,
+          comment_thread_pages: 26
+        }
+      });
+    }
   });
 
   it("rejects changed signatures, changed payloads, wrong secrets, and expiry", () => {
@@ -397,18 +431,32 @@ describe("YouTube audit continuation tokens", () => {
     expect(omitted).toBeDefined();
     const { cursor: _firstCursor, ...firstWithoutCursor } = first;
 
-    expect(() => advanceYoutubeAuditState(
-      firstWithoutCursor,
-      [omitted!],
-      {
-        top_level_comments_retrieved: 1,
-        replies_retrieved: 0,
-        comment_thread_pages: 1,
-        reply_pages: 0,
-        reply_count_mismatches: []
-      },
-      { thread_offset: 2, top_level_emitted: false }
-    )).toThrow(/duplicate|membership/i);
+    try {
+      advanceYoutubeAuditState(
+        firstWithoutCursor,
+        [omitted!],
+        {
+          top_level_comments_retrieved: 1,
+          replies_retrieved: 0,
+          comment_thread_pages: 1,
+          reply_pages: 0,
+          reply_count_mismatches: []
+        },
+        { thread_offset: 2, top_level_emitted: false }
+      );
+      throw new Error("Expected the possible duplicate to require a restart");
+    } catch (error) {
+      expect(error).toBeInstanceOf(YoutubeAuditRestartRequiredError);
+      expect(error).toMatchObject({
+        code: "youtube_video_audit_identifier_membership_restart_required",
+        snapshot: {
+          video_id: "XpZHKGGCK-o",
+          segment_index: 1,
+          records_retrieved_cumulative: 501,
+          comment_thread_pages: 26
+        }
+      });
+    }
   });
 
   it("allows a resumable cursor to exceed a stale provider reply count", () => {

@@ -117,7 +117,11 @@ holds at most 2,048 entries and 16 MiB, contains no comment text, author
 identity, provider credential, or protocol text, and is never written to disk
 or application logs. A missing, expired, restarted, or evicted handle returns
 `youtube_action_continuation_invalid_or_expired`; restart that audit from its
-video identifier.
+video identifier. A valid continuation that returns
+`youtube_video_audit_continuation_migration_restart_required` or
+`youtube_video_audit_identifier_membership_restart_required` also requires a
+fresh audit from the video identifier. Its reported cumulative counts stop at
+the last accepted segment and must not be combined with the restarted chain.
 
 Every research Action response is limited to exactly **60,000 serialized UTF-8
 bytes**. `load_protocol` returns at most **48,000 UTF-8 bytes** of exact protocol

@@ -25,7 +25,12 @@ then threw `Duplicate YouTube comment identifier in continuation chain`.
    A fixed-size signed membership filter covers every accepted identifier after
    the exact deterministic sample becomes bounded at 500. A possible
    non-adjacent match fails closed; a filter false positive may therefore force
-   restart, but cannot inflate the corpus count.
+   restart, but cannot inflate the corpus count. Return a typed restart-required
+   failure that preserves the prior accepted counters, and consume an unusable
+   Custom GPT Action handle so retrying it cannot loop. Signed pre-upgrade
+   continuations whose exact corpus already exceeded 500 receive a distinct
+   migration/restart-required result; small pre-upgrade continuations remain
+   resumable during their one-hour lifetime.
 4. Count reconciled overlaps in the signed continuation state. When pagination
    eventually exhausts after any overlap, return bounded evidence as
    `completed_with_access_boundary`, keep the synthesis lock passable, and state
