@@ -9,13 +9,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; active isolated task branch
-  `codex/calibrated-discovery-v0.2-design-2026-08-16` cleanly integrates
-  current `main` `265205c6b127d29848e6f56c61012a5b87436d5a` through local merge
-  `da3919afd2eb615b08e8b7caf8d8a84bee8609d6`. Recovery branch
-  `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the exact pre-merge
-  bridge candidate.
-- Verified main boundary containing the packet repair:
+- Canonical branch: `main` at Custom GPT bridge merge
+  `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; active isolated evidence branch
+  `codex/custom-gpt-live-acceptance-2026-08-16` starts from that exact commit.
+  Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
+  pre-integration bridge candidate.
+- Verified packet-repair boundary:
   `0d8ef69fa7fd73c34c571a07723b5a6b5bad5fec`
 - Exact packet-repair head merged by PR #12:
   `9c2c78e86391457c4b1bcd81a862456661db216e`
@@ -25,65 +24,60 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
 
-## Active Custom GPT research bridge candidate
+## Active Custom GPT research bridge acceptance
 
-- The owner approved a Custom GPT compatibility bridge and preapproved clear,
-  reversible specifications. The 17-tool MCP v0.1 inventory remains frozen.
-- Design and execution plan commits are `5c149c7` and `eaaf671`. Implemented
-  slices are registry `2a2a988`, read-only Action routes `1ea0c0b`, exact
-  protocol chunks `b6575d1`, shared traffic/response limits `1387c2d`, truthful
-  YouTube transport bounding `b441382`, generated GPT packet `ee52876`,
-  documentation/privacy reconciliation `fbd9c28`, and installation-source
-  classification `d14f530`.
-- `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` independently enables research
-  Actions. They share MCP's transient provider flow, per-client token bucket,
-  and 16-request concurrency pool. Responses are limited to **60,000 serialized
-  UTF-8 bytes** and protocol chunks to **48,000 UTF-8 bytes**.
-- `npm run generate:custom-gpt` twice produced identical OpenAPI, instruction,
-  and sync hashes. The final candidate hashes are OpenAPI
+- The owner approved the compatibility bridge and clear reversible changes.
+  PR #15 merged accepted head `be641bf568c401992ff4aa9fe885552d6cfb2dca`
+  as `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; its deterministic,
+  workflow-policy, and CodeQL checks passed before merge and again on the merge
+  commit. The 17-tool MCP v0.1 inventory remains frozen.
+- Design/implementation provenance remains `5c149c7`, `eaaf671`, `2a2a988`,
+  `1ea0c0b`, `b6575d1`, `1387c2d`, `b441382`, `ee52876`, `fbd9c28`, and
+  `d14f530`. Independent review's two Important findings were fixed before
+  merge: enabled research Actions now require the server-only continuation
+  secret at startup, and all operations declare the router-owned 500 response.
+- Production runs image
+  `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`
+  from the merge commit in healthy container
+  `3106e8ffe627a2d8dc53fbe651b35488ccd08a691b4ad24625494f78ea517bb4`.
+  Rollback is `askrigor-research:rollback-dd73d7d` plus
+  `/opt/askrigor/compose.yaml.rollback-dd73d7d`. Only the research service was
+  recreated for the application switch.
+- `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active. Research Actions share
+  MCP's transient provider flow, per-client token bucket, and 16-request
+  concurrency pool. Responses remain limited to **60,000 serialized UTF-8
+  bytes** and exact protocol chunks to **48,000 UTF-8 bytes**.
+- The generated packet remains reproducible: committed OpenAPI SHA-256
   `d281f5727ab57a9edb0a63276bf51e08b2fdd9ff1ba9722725fc1800d58fd1ec`,
   Instructions
   `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`,
   and sync ledger
   `f87b63127ee95732ed92e289134ae583bfadd12d0a40e030e866569c0c6b13f7`.
-  The generated Instructions source is
-  `docs/custom-gpt-instructions.md`; Knowledge must remain empty.
-- Focused gates passed: registry/MCP 237 tests; Action composition 84 tests;
-  traffic/response boundaries 158 tests; YouTube/bridge 51 tests; generated
-  packet 8 tests. Typecheck passed after each behavioral slice. The branch
-  baseline `npm run verify` passed before implementation with 43 files, 848
-  tests, five skips, typecheck, and build.
-- Independent code review found two Important issues and no Critical issues.
-  Commit `6df7784` now rejects research-Action startup unless the existing
-  server-only continuation secret contains at least 32 UTF-8 bytes, and every
-  generated Action operation declares the router-owned 500
-  `action_internal_error` response. Focused red/green coverage passes 81/81.
-  Commit `4eb6021` awaits a previously leaked durable-budget assertion after
-  the full gate exposed the warning and resource-sensitive timeout. Full-suite
-  parallel load then reproduced a valid durable `fsync` case at 5.743 seconds;
-  commit `4f19cc1` gives only that durable-filesystem suite a 20-second ceiling
-  without changing runtime behavior or assertions. Post-merge full-suite load
-  likewise measured the multi-process Compose-delta policy test at 5.013
-  seconds; that single integration case now uses the same 15-second ceiling as
-  its adjacent Compose-render test, with all policy assertions unchanged.
-- After the new premise-integrity protocol authority on `main` was merged, the
-  complete candidate gate passed again: `npm run verify` produced 49 passing
-  files, one credential-gated file skipped, 881 passing tests, five skipped,
-  and successful typecheck and build. The generated Custom GPT packet remained
-  byte-identical because it loads the canonical protocols at runtime rather
-  than embedding stale protocol copies.
-- Final repository-visible gates also pass: the public-site validator covered
-  four pages, the deployment suite passed 28/28, and the current universal
-  portable audit returned `PASS: no findings.` The lesson checkpoint at
-  `2026-08-16T06:32:42.747Z` remained available with zero open, needs-review,
-  accepted-not-incorporated, or deletion-eligible candidates and one
-  incorporated-or-closed record.
-- This work is unpushed, unmerged, and not deployed. Existing production lesson
-  Action and MCP evidence below is unchanged. The research bridge has pending GPT editor work and all live acceptance fields remain `pending`.
-- Current task: run the final site and diff gates, publish through one focused
-  PR, wait for protected checks, merge, and preserve a production rollback
-  point before the reversible deployment. The GPT-editor acceptance remains a
-  separate irreducible product step after the server is live.
+  The sole editor instruction source is `docs/custom-gpt-instructions.md`;
+  Knowledge must remain empty.
+- The transactional site release is
+  `/opt/askrigor/site/releases/dd73d7dccb6b-v2/site`. All four pages returned
+  200, and live privacy bytes match SHA-256
+  `3dbe92623be62da3fd18edcbe20e71fa710b3f8f40419b2b91f3ce01459ad35e`.
+- Direct production acceptance passed complete Universal 2/2 and HRP 11/11
+  byte coverage, PubMed, ClinicalTrials.gov, Crossref, YouTube survey/audit,
+  malformed/oversized requests, rate limiting/recovery, exact 18-operation
+  Action security, health, and the 17-tool MCP inventory. Detailed sanitized
+  receipts are in `docs/custom-gpt-action-live-acceptance.md`.
+- `AskRigor-lessons` is private again. The exact selected-repository GitHub App
+  path created synthetic `ARL-0006`; the duplicate returned the same ID with
+  occurrence count 2 while preserving the issue body byte-for-byte. The issue
+  was labeled rejected and closed as not planned. Final queue status has 0
+  open, 0 needs review, 0 accepted-not-incorporated, 2 incorporated-or-closed,
+  and 0 deletion eligible.
+- GitHub Free cannot protect a private personal repository: the hosted API
+  returned HTTP 403 with the exact Pro/public requirement. This is a declared
+  `AskRigor-lessons` governance exception, not a claim of protection.
+- Custom GPT editor/UI acceptance remains pending. The editor must use
+  `docs/custom-gpt-instructions.md`, empty Knowledge, the live OpenAPI URL,
+  Bearer authentication, and a new unpublished chat. `gpt.askrigor.com` must
+  not be repointed until the UI cases pass and the actual direct `/g/...` URL is
+  verified.
 
 ## Completed
 
@@ -187,14 +181,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Current checkpoint
 
-- PR #9 remains the last live-evaluated code/case release. Its exact commit is
-  `8ed8c0f7aaab9609dfb067780c05838f98903bab`; later evidence and CI-timeout
-  changes and this packet-only repair do not alter deployed application or
-  runner behavior.
-- Production is healthy on the refetch-fix application image. Rollback image
-  `askrigor-research:rollback-9715812` and
-  `/opt/askrigor/compose.yaml.rollback-9715812` are verified.
-- Repository-controlled packet repair is merged and verified. V0.1.0 remains
+- PR #15 is the current deployed code release. Production is healthy on the
+  Custom GPT bridge image, with the exact rollback image/config and active site
+  release recorded above. Server-side direct acceptance is complete.
+- Repository-controlled packet repair and bridge implementation are merged and
+  verified. V0.1.0 remains
   **PUBLIC SUBMISSION BLOCKED** for
   portal identity/domain verification, Scan Tools, a real demo-recording URL,
   the explicit release decision on three opaque remote-MCP model receipts,
@@ -204,9 +195,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - The owner reported `Verifying identity` in the OpenAI portal. The packet
   records this as `in_progress`; it does not claim completion or an identity
   service-level time.
+- The separate Custom GPT compatibility surface is deployed but unpublished.
+  Its new-chat editor/UI acceptance and direct `/g/...` URL remain pending.
 
 ## Remaining
 
+- Install the generated Custom GPT instructions/schema in the unpublished GPT,
+  keep Knowledge empty, configure the existing Action key as Bearer auth, and
+  run the product-interface cases in a new chat.
+- After those cases pass, publish the Custom GPT, verify its direct `/g/...`
+  URL, and only then repoint `gpt.askrigor.com`.
 - Observe developer/business identity completion and complete the portal HTTPS
   domain challenge.
 - Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 17 tools
@@ -219,8 +217,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- No repository implementation, dependency, test, audit, deployment,
-  credential, governance, or ChatGPT interface blocker remains.
+- No repository implementation, dependency, test, audit, deployment, or
+  credential blocker remains for the Custom GPT bridge. Its UI acceptance
+  requires the owner's authenticated ChatGPT editor session.
+- `AskRigor-lessons` is private on GitHub Free, so private `main` branch
+  protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
   output and the two tested error boundaries. The runner preserves these as
   `model_output` blocks. Direct proof does not establish model-layer semantics.
@@ -250,15 +251,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Review and publish the one Custom GPT bridge task branch, wait for the protected
-checks, merge it, then preserve a production rollback point before enabling
-`ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true`. The irreducible GPT-editor step uses
-`docs/custom-gpt-instructions.md`, empty Knowledge, and the generated Action
-schema; no live state may be inferred before the 11-case record is complete.
+Merge the focused direct-acceptance evidence PR after its protected checks pass.
+Then complete the irreducible Custom GPT editor step using
+`docs/custom-gpt-instructions.md`, empty Knowledge, the deployed Action schema,
+Bearer authentication, and a new unpublished chat. Do not repoint the GPT
+subdomain until the UI receipts and direct `/g/...` URL are verified.
 
 ## Recovery rule
 
 After interruption, inspect actual Git state, this checkpoint, complete protocol
-files, current release evidence, merged PRs #9 through #12, closed issue #6, and
-newer owner instructions. Resume from the latest verified boundary without
-touching the dirty original checkout or repeating live production acceptance.
+files, current release evidence, merged PRs #9 through #15, AskRigor hardening
+issue #6, private synthetic lesson `ARL-0006`, and newer owner instructions.
+Resume from the latest verified boundary without touching the dirty original
+checkout or repeating direct production acceptance.

@@ -23,10 +23,10 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.17` (2026-08-13), SHA-256
-`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
-and Universal Instructions `20.5.11` (2026-08-07), SHA-256
-`1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`.
+The current canonical files identify HRP `20.5.18` (2026-08-16), SHA-256
+`4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`,
+and Universal Instructions `20.5.12` (2026-08-16), SHA-256
+`3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently
@@ -212,14 +212,15 @@ ChatGPT billing and is capped server-side at $50.00 per UTC month.
 After deployment, refresh the developer-mode connection and start a new Project
 chat so the new tool metadata and Project instructions are active.
 
-## Custom GPT research Action candidate
+## Custom GPT research Action bridge
 
-The repository now contains a verified local compatibility candidate exposing
-the frozen 17 read-only research operations as public Custom GPT Actions. It is
-not production evidence until the deployment and the 11-case live acceptance
-are recorded. `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this
-research surface; disabling it does not disable the existing lesson Action or
-MCP.
+Production now exposes the frozen 17 read-only research operations as public
+Custom GPT Actions from merge
+`dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. The direct server acceptance has
+passed; Custom GPT editor/UI acceptance and the actual direct `/g/...` URL are
+still pending and must not be inferred from server proof.
+`ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
+disabling it does not disable the existing lesson Action or MCP.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application
@@ -259,9 +260,9 @@ new lessons while MCP remains available and unchanged.
 ## Public-review status
 
 The deployed MCP connector serves the exact existing 17-tool read-only inventory
-and the separate Action route. Production serves canonical HRP `20.5.17`
-(2026-08-13), SHA-256
-`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
+and the separate Action route. Production serves canonical HRP `20.5.18`
+(2026-08-16), SHA-256
+`4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`,
 with the independent community-evidence weighting invariant and adaptive
 YouTube regressions. The original website/privacy/terms/support gate passed on
 2026-08-12 for site release `f928b95e29cd`, and the August 13 lesson disclosure
