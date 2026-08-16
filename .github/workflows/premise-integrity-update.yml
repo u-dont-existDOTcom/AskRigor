@@ -23,13 +23,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/apply-premise-integrity-update.mjs
+      - run: node scripts/update-premise-integrity-mcp-expectations.mjs
       - run: npm run verify
       - run: git diff --check
       - name: Commit generated canonical protocols
         shell: bash
         run: |
           set -euo pipefail
-          git add protocols/Universal_Instructions.xml protocols/HRP_Full.xml tests/protocol.test.ts
+          git add protocols/Universal_Instructions.xml protocols/HRP_Full.xml tests/protocol.test.ts tests/mcp-tools.test.ts
           if git diff --cached --quiet; then
             echo "No generated changes."
             exit 0
