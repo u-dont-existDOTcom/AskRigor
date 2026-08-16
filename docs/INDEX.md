@@ -51,5 +51,9 @@ complete XML protocol.
   approved private-v0.2 design for uncertainty calibration, Creative Tail
   Sampling integration, authorized treatment-experience evidence, and an
   AskRigor-owned bounded research runner; it does not change public v0.1
+- `superpowers/specs/2026-08-16-custom-gpt-action-bridge-design.md`: approved
+  design for a generated, bounded Custom GPT Action compatibility surface that
+  preserves the frozen 17-tool MCP, exact protocol loading, community
+  completion receipts, and the isolated consequential lesson write
 
 Current owner requirements and verified code/evidence outrank stale plans or summaries.
