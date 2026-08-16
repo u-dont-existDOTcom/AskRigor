@@ -1,0 +1,40 @@
+name: Premise integrity protocol update
+
+on:
+  push:
+    branches:
+      - codex/premise-integrity-truth-priority-2026-08-16
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f544cf836dc
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@1e60f620b9541d3a3e0a1f589f9ef29009d3b2e
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: node scripts/apply-premise-integrity-update.mjs
+      - run: npm run verify
+      - run: git diff --check
+      - name: Commit generated canonical protocols
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add protocols/Universal_Instructions.xml protocols/HRP_Full.xml tests/protocol.test.ts
+          if git diff --cached --quiet; then
+            echo "No generated changes."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "protocols: add premise integrity truth priority"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
