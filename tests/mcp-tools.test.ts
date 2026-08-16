@@ -646,6 +646,93 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("reports an exact duplicate below 500 without claiming the sample was bounded", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    const secret = "mcp-continuation-secret-value-32-bytes";
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = secret;
+    const duplicateId = "corpus-0000";
+    const now = Date.now();
+    const continuation = encodeYoutubeAuditContinuation({
+      version: 1,
+      video_id: "XpZHKGGCK-o",
+      analysis_limit: 500,
+      started_at_ms: now,
+      expires_at_ms: now + 3_600_000,
+      segment_index: 1,
+      cursor: { thread_offset: 0, top_level_emitted: false },
+      provider_reported_comments: "1",
+      top_level_comments_retrieved: 1,
+      replies_retrieved: 0,
+      comment_thread_pages: 1,
+      reply_pages: 0,
+      pagination_overlaps_reconciled: 0,
+      records_retrieved_cumulative: 1,
+      rolling_sha256: "c".repeat(64),
+      sample_identifiers: [duplicateId],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([duplicateId]),
+      reply_count_mismatches: []
+    }, secret);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      return Response.json({
+        pageInfo: { totalResults: 1, resultsPerPage: 1 },
+        items: [{
+          kind: "youtube#commentThread",
+          id: "UgxThreadExactDuplicate",
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            topLevelComment: {
+              kind: "youtube#comment",
+              id: duplicateId,
+              snippet: {
+                videoId: "XpZHKGGCK-o",
+                textDisplay: "Exact duplicate",
+                textOriginal: "Exact duplicate",
+                authorDisplayName: "Recorded Author",
+                likeCount: 0,
+                publishedAt: "2025-02-01T10:00:00Z",
+                updatedAt: "2025-02-01T10:00:00Z"
+              }
+            },
+            totalReplyCount: 0
+          }
+        }]
+      });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { continuation_token: continuation }
+      });
+
+      expect(result.structuredContent).toMatchObject({
+        video_id: "XpZHKGGCK-o",
+        segment_index: 1,
+        error: {
+          code: "youtube_video_audit_identifier_membership_restart_required",
+          retryable: false
+        },
+        records_retrieved_cumulative: 1,
+        corpus_rolling_sha256: "c".repeat(64),
+        limitations: [expect.stringMatching(/duplicate.*restart/i)]
+      });
+      expect(JSON.stringify(result.structuredContent)).not.toContain(
+        "exact identifier sample became bounded"
+      );
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await server.close();
+    }
+  });
+
   it("reports a signed legacy corpus continuation as migration restart required", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;

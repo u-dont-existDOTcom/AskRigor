@@ -7,6 +7,7 @@ import {
   createYoutubeAuditIdentifierMembership,
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
+  YoutubeAuditContinuationError,
   YoutubeAuditRestartRequiredError,
   type YoutubeVideoAuditContinuationState
 } from "../apps/research-mcp/src/youtube-audit-continuation.js";
@@ -132,6 +133,37 @@ describe("YouTube audit continuation tokens", () => {
           comment_thread_pages: 26
         }
       });
+    }
+  });
+
+  it("enforces expiry before classifying a signed legacy corpus migration", () => {
+    const identifiers = Array.from(
+      { length: 500 },
+      (_, index) => `expired-legacy-${String(index).padStart(4, "0")}`
+    );
+    const legacyPayload = Buffer.from(JSON.stringify({
+      ...STATE,
+      started_at_ms: NOW - 3_600_001,
+      expires_at_ms: NOW - 1,
+      segment_index: 6,
+      top_level_comments_retrieved: 501,
+      comment_thread_pages: 26,
+      records_retrieved_cumulative: 501,
+      sample_identifiers: identifiers.map((comment_id) => ({ comment_id })),
+      seen_identifier_membership: undefined
+    }), "utf8").toString("base64url");
+    const signature = createHmac("sha256", SECRET).update(legacyPayload).digest("base64url");
+
+    try {
+      decodeYoutubeAuditContinuation(`${legacyPayload}.${signature}`, SECRET, NOW);
+      throw new Error("Expected the legacy continuation to be expired");
+    } catch (error) {
+      expect(error).toBeInstanceOf(YoutubeAuditContinuationError);
+      expect(error).toMatchObject({
+        code: "youtube_video_audit_continuation_expired"
+      });
+      expect(error).not.toBeInstanceOf(YoutubeAuditRestartRequiredError);
+      expect(error).not.toHaveProperty("snapshot");
     }
   });
 

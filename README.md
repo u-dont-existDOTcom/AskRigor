@@ -238,9 +238,10 @@ minimized token in process memory for no longer than one hour. The map stores no
 comment text, author identity, provider credential, or protocol text; it is
 bounded to 2,048 entries and 16 MiB, and restart, expiry, or eviction requires
 the audit to restart from the video identifier. A pre-upgrade continuation
-whose exact corpus already exceeded 500 records, or a possible non-adjacent
-identifier repeat after the exact sample becomes bounded, fails closed with a
-typed restart-required result. That result preserves only the prior accepted
+whose exact corpus already exceeded 500 records, an exact duplicate outside an
+approved adjacent-page overlap, or a possible non-adjacent identifier match
+after the exact sample becomes bounded fails closed with a typed
+restart-required result. That result preserves only the prior accepted
 cumulative counts; the unusable Action handle is consumed. Action responses are
 limited to **60,000 serialized UTF-8 bytes**. Exact canonical protocol text is
 returned in ordered authenticated chunks of no more than **48,000 UTF-8

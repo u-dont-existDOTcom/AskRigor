@@ -255,18 +255,22 @@ export function decodeYoutubeAuditContinuation(
   } catch {
     throw invalidContinuation("Invalid YouTube audit continuation token payload");
   }
-  let state: YoutubeVideoAuditContinuationState;
-  try {
-    state = parseState(payload);
-  } catch (error) {
-    if (error instanceof YoutubeAuditRestartRequiredError) throw error;
+  const structurallyValidState = continuationStateSchema.safeParse(payload);
+  if (!structurallyValidState.success) {
     throw invalidContinuation("Invalid YouTube audit continuation token state");
   }
-  if (nowMs >= state.expires_at_ms) {
+  if (nowMs >= structurallyValidState.data.expires_at_ms) {
     throw new YoutubeAuditContinuationError(
       "youtube_video_audit_continuation_expired",
       "YouTube audit continuation token expired"
     );
+  }
+  let state: YoutubeVideoAuditContinuationState;
+  try {
+    state = parseState(structurallyValidState.data);
+  } catch (error) {
+    if (error instanceof YoutubeAuditRestartRequiredError) throw error;
+    throw invalidContinuation("Invalid YouTube audit continuation token state");
   }
   return state;
 }
