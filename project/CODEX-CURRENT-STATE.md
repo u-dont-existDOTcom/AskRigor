@@ -62,7 +62,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   the full gate exposed the warning and resource-sensitive timeout. Full-suite
   parallel load then reproduced a valid durable `fsync` case at 5.743 seconds;
   commit `4f19cc1` gives only that durable-filesystem suite a 20-second ceiling
-  without changing runtime behavior or assertions.
+  without changing runtime behavior or assertions. Post-merge full-suite load
+  likewise measured the multi-process Compose-delta policy test at 5.013
+  seconds; that single integration case now uses the same 15-second ceiling as
+  its adjacent Compose-render test, with all policy assertions unchanged.
 - After the new premise-integrity protocol authority on `main` was merged, the
   complete candidate gate passed again: `npm run verify` produced 49 passing
   files, one credential-gated file skipped, 881 passing tests, five skipped,

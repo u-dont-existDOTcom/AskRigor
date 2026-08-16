@@ -962,7 +962,7 @@ JSON
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("rejects a forbidden delta without executing a candidate-supplied verifier", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "askrigor-malicious-verifier-"));
