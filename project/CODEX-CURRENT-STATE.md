@@ -9,9 +9,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main` at direct-acceptance evidence merge
-  `2b9de54b75581dd285e9ae0da3e613a1e743ad1d`; active isolated compatibility
-  branch `codex/openai-action-schema-compat-2026-08-16` starts from that exact
+- Canonical branch: `main` at OpenAI Action compatibility merge
+  `6639086a33b44f029c9f8405f69bd06b725e78d0`; active isolated evidence branch
+  `codex/openai-action-schema-live-evidence-2026-08-16` starts from that exact
   commit.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
@@ -37,22 +37,24 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `d14f530`. Independent review's two Important findings were fixed before
   merge: enabled research Actions now require the server-only continuation
   secret at startup, and all operations declare the router-owned 500 response.
-- Production runs image
-  `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`
-  from the merge commit in healthy container
-  `3106e8ffe627a2d8dc53fbe651b35488ccd08a691b4ad24625494f78ea517bb4`.
-  Rollback is `askrigor-research:rollback-dd73d7d` plus
-  `/opt/askrigor/compose.yaml.rollback-dd73d7d`. Only the research service was
-  recreated for the application switch.
+- Production runs compatibility merge
+  `6639086a33b44f029c9f8405f69bd06b725e78d0` as image
+  `sha256:05225a8210238f8099af90ba5e8525a142e50e04018547f0d0c6186f6d30544d`
+  in healthy container
+  `427d0ffc2a75275d4113d9ad1baf89275774a40774e6653be1e4c5283aad8220`.
+  Rollback is `askrigor-research:rollback-6639086` plus
+  `/opt/askrigor/compose.yaml.rollback-6639086`, restoring image
+  `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`.
+  Only the research service was recreated for the application switch.
 - `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active. Research Actions share
   MCP's transient provider flow, per-client token bucket, and 16-request
   concurrency pool. Responses remain limited to **60,000 serialized UTF-8
   bytes** and exact protocol chunks to **48,000 UTF-8 bytes**.
-- The generated packet remains reproducible: committed OpenAPI SHA-256
-  candidate `ca7abeb54ee688f4837637abe2c08cfa9de4565d013d49f267df9bbe2c08f377`,
+- The generated packet remains reproducible: deployed committed OpenAPI SHA-256
+  `ca7abeb54ee688f4837637abe2c08cfa9de4565d013d49f267df9bbe2c08f377`,
   Instructions
   `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`,
-  and candidate sync ledger
+  and sync ledger
   `e6f309e14152dc9b1c6c167ed908e1a73caa8dce568cd44c49bee98b750291c1`.
   The sole editor instruction source is `docs/custom-gpt-instructions.md`;
   Knowledge must remain empty.
@@ -76,16 +78,31 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `AskRigor-lessons` governance exception, not a claim of protection.
 - The first Custom GPT schema import exposed three editor-compatibility defects:
   missing object-valued `components.schemas`, plus 357- and 493-character
-  descriptions over OpenAI's 300-character operation limit. The isolated
-  candidate now emits `schemas: {}`, gives both legacy YouTube Action routes
+  descriptions over OpenAI's 300-character operation limit. The deployed repair
+  emits `schemas: {}`, gives both legacy YouTube Action routes
   exact 201-character descriptions, and rejects any future exported description
   over 300. Focused red/green coverage passed 16/16; complete verification
   passed 49 files and 881 tests with one file and five tests skipped as declared,
   typecheck/build passed, site validation covered four pages, deployment-policy
-  tests passed 28/28, and the portable audit returned no findings. The candidate
-  is not merged or deployed yet.
-- Custom GPT editor/UI acceptance remains pending. After the compatibility
-  candidate is merged and deployed, the editor must use
+  tests passed 28/28, and the portable audit returned no findings. PR #17 merged
+  the exact repair head `b4d3db5d2b3f05debc4dd2c37cfa0d12290f67af` as
+  `6639086a33b44f029c9f8405f69bd06b725e78d0`; protected and post-merge
+  deterministic, workflow-policy, and CodeQL checks all passed.
+- The exact merge is deployed. Fresh public OpenAPI validation found 18
+  operations, object-valued `components.schemas`, no description over 300
+  characters, and both affected descriptions at exactly 201 characters. Health,
+  unauthenticated lesson isolation, current protocol identities, and the frozen
+  17-tool MCP inventory passed without provider calls or lesson writes.
+- The first unused build candidate failed its disposable non-root smoke test
+  because the staging workflow made archived source files unreadable to the
+  runtime user. It never received traffic. Re-extracting the verified archive
+  while preserving internal file modes produced the accepted image. This is a
+  provisional transferable deployment lesson pending universal disposition;
+  the OpenAI 300-character constraint remains project-specific evidence.
+- Final lesson status for this evidence boundary was `available` at
+  `2026-08-16T08:46:10.911Z`: 0 open, 0 needs review, 0 accepted not
+  incorporated, 2 incorporated or closed, and 0 deletion eligible.
+- Custom GPT editor/UI acceptance remains pending. The editor must now use
   `docs/custom-gpt-instructions.md`, empty Knowledge, the live OpenAPI URL,
   Bearer authentication, and a new unpublished chat. `gpt.askrigor.com` must
   not be repointed until the UI cases pass and the actual direct `/g/...` URL is
@@ -193,7 +210,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Current checkpoint
 
-- PR #15 is the current deployed code release. Production is healthy on the
+- PR #17 is the current deployed code release. Production is healthy on the
   Custom GPT bridge image, with the exact rollback image/config and active site
   release recorded above. Server-side direct acceptance is complete.
 - Repository-controlled packet repair and bridge implementation are merged and
@@ -209,14 +226,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   service-level time.
 - The separate Custom GPT compatibility surface is deployed but unpublished.
   Its first schema import rejected the deployed document for the three exact
-  compatibility defects recorded above. The tested repair is local only; its
-  merge, deployment, re-import, new-chat acceptance, and direct `/g/...` URL
-  remain pending.
+  compatibility defects recorded above. The tested repair is merged, deployed,
+  and public-server verified; re-import, new-chat acceptance, and the direct
+  `/g/...` URL remain pending.
 
 ## Remaining
 
-- Merge and deploy the OpenAI Action schema compatibility candidate, then
-  re-import the generated Custom GPT instructions/schema in the unpublished GPT,
+- Re-import the generated Custom GPT instructions/schema in the unpublished GPT,
   keep Knowledge empty, configure the existing Action key as Bearer auth, and
   run the product-interface cases in a new chat.
 - After those cases pass, publish the Custom GPT, verify its direct `/g/...`
@@ -233,9 +249,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- The Custom GPT bridge implementation is green locally, but the importer fix
-  remains unmerged and undeployed. Final UI acceptance still requires the
-  owner's authenticated ChatGPT editor session after deployment.
+- The importer fix is merged, green, deployed, and passes the public server-side
+  constraints. Final UI acceptance still requires the owner's authenticated
+  ChatGPT editor session because only the product can prove its own importer.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -267,9 +283,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Commit and merge the focused OpenAI Action schema compatibility repair after
-its protected checks pass, deploy the exact merge reversibly, and then repeat
-the irreducible Custom GPT editor import using
+Merge this focused live-evidence checkpoint after its protected checks pass,
+then repeat the irreducible Custom GPT editor import using
 `docs/custom-gpt-instructions.md`, empty Knowledge, the deployed Action schema,
 Bearer authentication, and a new unpublished chat. Do not repoint the GPT
 subdomain until the UI receipts and direct `/g/...` URL are verified.
@@ -280,4 +295,5 @@ After interruption, inspect actual Git state, this checkpoint, complete protocol
 files, current release evidence, merged PRs #9 through #16, AskRigor hardening
 issue #6, private synthetic lesson `ARL-0006`, and newer owner instructions.
 Resume from the latest verified boundary without touching the dirty original
-checkout or repeating direct production acceptance.
+checkout or repeating direct production acceptance. The recovery audit includes
+merged PR #17 and this evidence branch in addition to merged PRs #9 through #16.

@@ -17,7 +17,10 @@ state.
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
-`dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. Production now exposes the frozen
+`dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. Compatibility PR #17 then merged
+exact head `b4d3db5d2b3f05debc4dd2c37cfa0d12290f67af` as
+`6639086a33b44f029c9f8405f69bd06b725e78d0`, which is the current production
+revision. Production exposes the frozen
 17 read-only operations through Custom GPT Actions while retaining the separate
 consequential lesson write. `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active;
 the Actions use MCP's same transient provider flow, shared public token bucket
@@ -38,10 +41,10 @@ yet.
 | Item | Evidence |
 | --- | --- |
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
-| Production connector revision | Custom GPT bridge merge `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`, image tag `askrigor-research:dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`, image ID `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`, healthy container `3106e8ffe627a2d8dc53fbe651b35488ccd08a691b4ad24625494f78ea517bb4`. Immediate rollback: `askrigor-research:rollback-dd73d7d` plus `/opt/askrigor/compose.yaml.rollback-dd73d7d`, restoring prior image `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`. |
+| Production connector revision | OpenAI Action compatibility merge `6639086a33b44f029c9f8405f69bd06b725e78d0`, image tag `askrigor-research:6639086a33b44f029c9f8405f69bd06b725e78d0`, image ID `sha256:05225a8210238f8099af90ba5e8525a142e50e04018547f0d0c6186f6d30544d`, healthy container `427d0ffc2a75275d4113d9ad1baf89275774a40774e6653be1e4c5283aad8220`. Immediate rollback: `askrigor-research:rollback-6639086` plus `/opt/askrigor/compose.yaml.rollback-6639086`, restoring prior image `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
 | Canonical protocols | HRP `20.5.18`, revision `2026-08-16`, SHA-256 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.12`, revision `2026-08-16`, SHA-256 `3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`. Direct Action loading covered every exact byte. |
-| Production source packet | Exact secret-free `git archive` from `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; SHA-256 `415ec31cdd4e1393ec403dc7314b7fcbdb2de1ddaad9a914e6d9b7fe58e203e2`. |
+| Production source packet | Exact secret-free `git archive` from `6639086a33b44f029c9f8405f69bd06b725e78d0`; SHA-256 `0a5725f57a9fd73c42ed35165e37afcc1d0a97134f82b03d9f4bf6ef9296b3af`. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
@@ -49,7 +52,7 @@ yet.
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Custom GPT disclosure from merge `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`, active at `/opt/askrigor/site/releases/dd73d7dccb6b-v2/site`; live privacy bytes SHA-256 `3dbe92623be62da3fd18edcbe20e71fa710b3f8f40419b2b91f3ce01459ad35e`. |
 | Public site packet | SHA-256 `7033719202391ad384976fb0c7dbf30ca197445b549bc68f7009e736643f9b07`; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. |
-| Custom GPT packet | Live compact OpenAPI SHA-256 `6babf4d56e37219a23b6865934d8a07ac3d9748a03e950dd5b6b3fbca67b32b6`; committed pretty OpenAPI `d281f5727ab57a9edb0a63276bf51e08b2fdd9ff1ba9722725fc1800d58fd1ec`; instructions `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`; sync ledger `f87b63127ee95732ed92e289134ae583bfadd12d0a40e030e866569c0c6b13f7`. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `fece1c89971fed1273fbc64eb3b62cfa4a458af1691009e6899e76c92f10ce53`; committed pretty OpenAPI `ca7abeb54ee688f4837637abe2c08cfa9de4565d013d49f267df9bbe2c08f377`; instructions `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`; sync ledger `e6f309e14152dc9b1c6c167ed908e1a73caa8dce568cd44c49bee98b750291c1`. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -76,6 +79,15 @@ run the VPS validation.
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
 | Custom GPT bridge direct acceptance | Universal loaded in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Final health and the exact 17-tool MCP inventory passed. GPT editor/UI cases remain pending. |
+| OpenAI Action importer compatibility | Exact merge `6639086a33b44f029c9f8405f69bd06b725e78d0` is live. Public schema checks found 18 operations, object-valued `components.schemas`, every summary/description within 300 characters, and both repaired legacy descriptions at 201 characters. Health, unauthenticated lesson isolation, exact current protocol identities, and the frozen 17-tool MCP inventory passed. No provider or write case was repeated because behavior did not change; GPT editor re-import remains pending. |
+
+The first compatibility build was rejected in a disposable pre-traffic smoke
+test: over-restricting the extracted archive made source modules unreadable to
+the runtime `node` user. Production was never switched to that image. The
+verified archive was re-extracted with its internal modes preserved, and the
+replacement passed the same non-root, read-only, capability-dropped smoke test
+before the research service alone was recreated. The rejected image is retained
+as `askrigor-research:rejected-permissions-6639086`; it is not a release.
 
 Interface-evidence lesson closeout: **project-specific / no-new-lesson**. The
 separation of direct server proof, API-model proof, and product-interface proof
