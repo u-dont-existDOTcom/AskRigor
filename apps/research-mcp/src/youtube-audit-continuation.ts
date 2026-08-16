@@ -18,6 +18,10 @@ const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 20;
 const MAX_REPLY_PAGE_IDENTIFIERS = 100;
+const IDENTIFIER_MEMBERSHIP_BYTES = 2_048;
+const IDENTIFIER_MEMBERSHIP_BITS = IDENTIFIER_MEMBERSHIP_BYTES * 8;
+const IDENTIFIER_MEMBERSHIP_HASHES = 11;
+const IDENTIFIER_MEMBERSHIP_CHARACTERS = 2_731;
 
 const boundedInteger = z.number().int().min(0).max(MAX_SAFE_INTEGER);
 const youtubeProviderIdentifierSchema = z.string().min(1).max(512);
@@ -69,6 +73,14 @@ const sampleIdentifierSchema = z.union([
   youtubeProviderIdentifierSchema,
   legacySampleIdentifierSchema
 ]).transform((value) => typeof value === "string" ? value : value.comment_id);
+const identifierMembershipSchema = z.string()
+  .length(IDENTIFIER_MEMBERSHIP_CHARACTERS)
+  .regex(BASE64URL_PATTERN)
+  .refine((value) => {
+    const decoded = Buffer.from(value, "base64url");
+    return decoded.length === IDENTIFIER_MEMBERSHIP_BYTES &&
+      decoded.toString("base64url") === value;
+  }, { message: "Identifier membership filter is invalid" });
 const replyMismatchSchema = z.object({
   parent_comment_id: youtubeProviderIdentifierSchema,
   expected: boundedInteger,
@@ -92,6 +104,7 @@ const continuationStateSchema = z.object({
   records_retrieved_cumulative: boundedInteger,
   rolling_sha256: z.string().regex(SHA256_PATTERN),
   sample_identifiers: z.array(sampleIdentifierSchema).max(MAX_ANALYSIS_RECORDS),
+  seen_identifier_membership: identifierMembershipSchema.optional(),
   reply_count_mismatches: z.array(replyMismatchSchema)
 }).strict().superRefine((state, context) => {
   if (state.expires_at_ms !== state.started_at_ms + TOKEN_LIFETIME_MS) {
@@ -152,6 +165,7 @@ export interface YoutubeVideoAuditContinuationState {
   records_retrieved_cumulative: number;
   rolling_sha256: string;
   sample_identifiers: string[];
+  seen_identifier_membership: string;
   reply_count_mismatches: YoutubeReplyCountMismatch[];
 }
 
@@ -257,11 +271,23 @@ export function advanceYoutubeAuditState(
     throw new Error("Invalid YouTube audit continuation advance");
   }
   const identifiers = new Set(state.sample_identifiers);
+  const exactIdentifiersCoverPriorCorpus =
+    state.sample_identifiers.length === state.records_retrieved_cumulative;
+  const membership = decodeIdentifierMembership(state.seen_identifier_membership);
   for (const { comment_id } of comments) {
     if (identifiers.has(comment_id)) {
       throw new Error("Duplicate YouTube comment identifier in continuation chain");
     }
+    if (
+      identifierMembershipPossiblyContains(membership, comment_id) &&
+      !exactIdentifiersCoverPriorCorpus
+    ) {
+      throw new Error(
+        "Possible duplicate YouTube comment identifier at a non-adjacent membership boundary"
+      );
+    }
     identifiers.add(comment_id);
+    addIdentifierToMembership(membership, comment_id);
   }
   const sampleIdentifiers = [...identifiers]
     .sort((left, right) =>
@@ -298,6 +324,7 @@ export function advanceYoutubeAuditState(
       .update(`${state.rolling_sha256}\n${commentPayload}`)
       .digest("hex"),
     sample_identifiers: sampleIdentifiers,
+    seen_identifier_membership: membership.toString("base64url"),
     reply_count_mismatches: [...mismatchByParent.values()]
   };
   return parseState(candidate);
@@ -308,7 +335,68 @@ function parseState(value: unknown): YoutubeVideoAuditContinuationState {
   if (!result.success) {
     throw new Error("Invalid YouTube audit continuation state");
   }
-  return result.data as YoutubeVideoAuditContinuationState;
+  const parsed = result.data;
+  let seenIdentifierMembership = parsed.seen_identifier_membership;
+  if (seenIdentifierMembership === undefined) {
+    if (parsed.sample_identifiers.length !== parsed.records_retrieved_cumulative) {
+      throw new Error("Invalid YouTube audit continuation state");
+    }
+    seenIdentifierMembership = createYoutubeAuditIdentifierMembership(
+      parsed.sample_identifiers
+    );
+  }
+  const membership = decodeIdentifierMembership(seenIdentifierMembership);
+  if (parsed.sample_identifiers.some((identifier) =>
+    !identifierMembershipPossiblyContains(membership, identifier)
+  )) {
+    throw new Error("Invalid YouTube audit continuation state");
+  }
+  return {
+    ...parsed,
+    seen_identifier_membership: seenIdentifierMembership
+  } as YoutubeVideoAuditContinuationState;
+}
+
+export function createYoutubeAuditIdentifierMembership(
+  identifiers: readonly string[]
+): string {
+  const membership = Buffer.alloc(IDENTIFIER_MEMBERSHIP_BYTES);
+  for (const identifier of identifiers) addIdentifierToMembership(membership, identifier);
+  return membership.toString("base64url");
+}
+
+function decodeIdentifierMembership(value: string): Buffer {
+  const membership = Buffer.from(value, "base64url");
+  if (
+    membership.length !== IDENTIFIER_MEMBERSHIP_BYTES ||
+    membership.toString("base64url") !== value
+  ) {
+    throw new Error("Invalid YouTube audit identifier membership filter");
+  }
+  return membership;
+}
+
+function identifierMembershipPossiblyContains(
+  membership: Buffer,
+  identifier: string
+): boolean {
+  return identifierMembershipIndexes(identifier).every((index) =>
+    (membership[index >>> 3]! & (1 << (index & 7))) !== 0
+  );
+}
+
+function addIdentifierToMembership(membership: Buffer, identifier: string): void {
+  for (const index of identifierMembershipIndexes(identifier)) {
+    membership[index >>> 3] = membership[index >>> 3]! | (1 << (index & 7));
+  }
+}
+
+function identifierMembershipIndexes(identifier: string): number[] {
+  const digest = createHash("sha256").update(identifier).digest();
+  return Array.from(
+    { length: IDENTIFIER_MEMBERSHIP_HASHES },
+    (_, index) => digest.readUInt16BE(index * 2) & (IDENTIFIER_MEMBERSHIP_BITS - 1)
+  );
 }
 
 function validateSecret(secret: string): void {

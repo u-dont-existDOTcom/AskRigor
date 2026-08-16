@@ -22,6 +22,10 @@ then threw `Duplicate YouTube comment identifier in continuation chain`.
 3. Skip a provider record only when its stable identifier fingerprint occurred
    in the immediately preceding adjacent page. Continue rejecting duplicates
    within one page/segment and duplicates not justified by this cursor state.
+   A fixed-size signed membership filter covers every accepted identifier after
+   the exact deterministic sample becomes bounded at 500. A possible
+   non-adjacent match fails closed; a filter false positive may therefore force
+   restart, but cannot inflate the corpus count.
 4. Count reconciled overlaps in the signed continuation state. When pagination
    eventually exhausts after any overlap, return bounded evidence as
    `completed_with_access_boundary`, keep the synthesis lock passable, and state
@@ -44,4 +48,7 @@ then threw `Duplicate YouTube comment identifier in continuation chain`.
 
 Adjacent-page de-duplication cannot prove that a mutable public corpus was a
 perfect point-in-time snapshot. It prevents observed duplicate inflation while
-preserving that uncertainty as an explicit access boundary.
+preserving that uncertainty as an explicit access boundary. The bounded
+membership filter has no false negatives for inserted identifiers but can have
+false positives; those stop the chain rather than accepting a possibly repeated
+record.

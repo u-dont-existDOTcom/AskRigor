@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   advanceYoutubeAuditState,
+  createYoutubeAuditIdentifierMembership,
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
   type YoutubeVideoAuditContinuationState
@@ -29,6 +30,9 @@ const STATE: YoutubeVideoAuditContinuationState = {
   records_retrieved_cumulative: 1,
   rolling_sha256: "a".repeat(64),
   sample_identifiers: ["UgxTop00000000000000001"],
+  seen_identifier_membership: createYoutubeAuditIdentifierMembership([
+    "UgxTop00000000000000001"
+  ]),
   reply_count_mismatches: []
 };
 
@@ -85,6 +89,7 @@ describe("YouTube audit continuation tokens", () => {
   it("decodes one-hour legacy object-shaped identifier tokens during migration", () => {
     const legacyPayload = Buffer.from(JSON.stringify({
       ...STATE,
+      seen_identifier_membership: undefined,
       sample_identifiers: STATE.sample_identifiers.map((comment_id) => ({ comment_id }))
     }), "utf8").toString("base64url");
     const signature = createHmac("sha256", SECRET).update(legacyPayload).digest("base64url");
@@ -157,11 +162,22 @@ describe("YouTube audit continuation tokens", () => {
     }, SECRET)).toThrow(/state/i);
   });
 
+  it("rejects a signed membership filter that omits a retained sample identifier", () => {
+    expect(() => encodeYoutubeAuditContinuation({
+      ...STATE,
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([])
+    }, SECRET)).toThrow(/state/i);
+  });
+
   it("keeps the worst-case supported continuation below the public token limit", () => {
     const identifier = (prefix: string, index: number) =>
       `${prefix}${String(index).padStart(4, "0")}`.padEnd(64, "x");
     const fingerprint = (prefix: string, index: number) =>
       createHash("sha256").update(`${prefix}-${index}`).digest("base64url");
+    const worstCaseIdentifiers = Array.from(
+      { length: 500 },
+      (_, index) => identifier("comment", index)
+    );
     const worstCase: YoutubeVideoAuditContinuationState = {
       ...STATE,
       cursor: {
@@ -186,10 +202,9 @@ describe("YouTube audit continuation tokens", () => {
       top_level_comments_retrieved: 500,
       replies_retrieved: 0,
       records_retrieved_cumulative: 500,
-      sample_identifiers: Array.from(
-        { length: 500 },
-        (_, index) => identifier("comment", index)
-      ),
+      sample_identifiers: worstCaseIdentifiers,
+      seen_identifier_membership:
+        createYoutubeAuditIdentifierMembership(worstCaseIdentifiers),
       reply_count_mismatches: Array.from(
         { length: 16 },
         (_, index) => ({
@@ -202,6 +217,7 @@ describe("YouTube audit continuation tokens", () => {
 
     const token = encodeYoutubeAuditContinuation(worstCase, SECRET);
 
+    expect(token.length).toBeLessThanOrEqual(64_000);
     expect(token.length).toBeLessThanOrEqual(65_536);
     expect(decodeYoutubeAuditContinuation(token, SECRET, NOW)).toEqual(worstCase);
   });
@@ -217,7 +233,8 @@ describe("YouTube audit continuation tokens", () => {
       reply_pages: 0,
       records_retrieved_cumulative: 0,
       rolling_sha256: "0".repeat(64),
-      sample_identifiers: []
+      sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([])
     };
     const { cursor: _cursor, ...withoutCursor } = base;
     const comments = [comment("UgxC", "my hip stopped hurting"), comment("UgxA"), comment("UgxB")];
@@ -271,7 +288,8 @@ describe("YouTube audit continuation tokens", () => {
       reply_pages: 0,
       records_retrieved_cumulative: 0,
       rolling_sha256: "0".repeat(64),
-      sample_identifiers: []
+      sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([])
     };
     const { cursor: _cursor, ...withoutCursor } = empty;
     const reply = {
@@ -312,7 +330,8 @@ describe("YouTube audit continuation tokens", () => {
       reply_pages: 0,
       records_retrieved_cumulative: 0,
       rolling_sha256: "0".repeat(64),
-      sample_identifiers: []
+      sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([])
     };
     const { cursor: _emptyCursor, ...emptyWithoutCursor } = empty;
     expect(() => advanceYoutubeAuditState(
@@ -341,6 +360,55 @@ describe("YouTube audit continuation tokens", () => {
       },
       { thread_offset: 2, top_level_emitted: false }
     )).toThrow(/duplicate/i);
+  });
+
+  it("fails closed on a non-adjacent duplicate omitted from a corpus sample over 500", () => {
+    const empty = {
+      ...STATE,
+      segment_index: 0,
+      top_level_comments_retrieved: 0,
+      replies_retrieved: 0,
+      comment_thread_pages: 0,
+      reply_pages: 0,
+      records_retrieved_cumulative: 0,
+      rolling_sha256: "0".repeat(64),
+      sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([])
+    };
+    const { cursor: _emptyCursor, ...emptyWithoutCursor } = empty;
+    const corpus = Array.from({ length: 501 }, (_, index) =>
+      comment(`corpus-${String(index).padStart(4, "0")}`)
+    );
+    const first = advanceYoutubeAuditState(
+      emptyWithoutCursor,
+      corpus,
+      {
+        top_level_comments_retrieved: corpus.length,
+        replies_retrieved: 0,
+        comment_thread_pages: 26,
+        reply_pages: 0,
+        reply_count_mismatches: []
+      },
+      { thread_offset: 1, top_level_emitted: false }
+    );
+    const omitted = corpus.find(({ comment_id }) =>
+      !first.sample_identifiers.includes(comment_id)
+    );
+    expect(omitted).toBeDefined();
+    const { cursor: _firstCursor, ...firstWithoutCursor } = first;
+
+    expect(() => advanceYoutubeAuditState(
+      firstWithoutCursor,
+      [omitted!],
+      {
+        top_level_comments_retrieved: 1,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0,
+        reply_count_mismatches: []
+      },
+      { thread_offset: 2, top_level_emitted: false }
+    )).toThrow(/duplicate|membership/i);
   });
 
   it("allows a resumable cursor to exceed a stale provider reply count", () => {

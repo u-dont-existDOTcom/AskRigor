@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import {
   advanceYoutubeAuditState,
+  createYoutubeAuditIdentifierMembership,
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
   type YoutubeVideoAuditContinuationState
@@ -200,6 +201,7 @@ export async function auditYoutubeVideoCommunity(
       records_retrieved_cumulative: 0,
       rolling_sha256: ZERO_SHA256,
       sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([]),
       reply_count_mismatches: []
     };
   }

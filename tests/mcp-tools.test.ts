@@ -16,7 +16,10 @@ import {
   PUBLIC_TOOL_LIMITS,
   SERVER_INSTRUCTIONS
 } from "../apps/research-mcp/src/config.js";
-import { encodeYoutubeAuditContinuation } from
+import {
+  createYoutubeAuditIdentifierMembership,
+  encodeYoutubeAuditContinuation
+} from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 
@@ -516,6 +519,7 @@ describe("AskRigor MCP tools", () => {
       records_retrieved_cumulative: 0,
       rolling_sha256: "0".repeat(64),
       sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([]),
       reply_count_mismatches: []
     }, secret);
 
