@@ -116,6 +116,16 @@ minutes when expected information gain remains positive. The legacy
 `audit_youtube_community` remains advertised for compatibility. None of these
 tools makes an efficacy, safety, causality, prevalence, or treatment judgment.
 
+That paragraph describes the frozen MCP operation. The Custom GPT Action form
+keeps the MCP token and operation schema unchanged internally but relays a
+short one-hour handle backed by a bounded process-memory map. The map contains
+only the existing signed minimized token, never comment text, author identity,
+provider credentials, or protocol text; it is capped at 2,048 entries and 16
+MiB and is not written to disk or application logs. An unavailable handle must
+fail closed and restart from the video identifier. Product acceptance requires
+a real continued audit ending with nonzero analyzed records, reconciled replies,
+and `synthesis_lock:pass`; a short first response alone is insufficient.
+
 Fresh production acceptance on 2026-08-12 discovered the prior exact 15 tools and
 annotations at `https://mcp.askrigor.com/mcp`. The compound tool returned
 `api_visible_complete` plus `synthesis_lock:pass` for the recorded small

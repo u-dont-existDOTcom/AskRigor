@@ -90,9 +90,11 @@ Do not commit provider credentials. See `.env.example` for the provider
 configuration variables; `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` is test-only and may
 be set directly in the shell running the smoke test. Production adaptive
 YouTube audits also require `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET`, supplied at
-runtime with at least 32 UTF-8 bytes. It authenticates client-carried,
-one-hour continuation state—including bounded comment/reply identifiers and
-reply-reconciliation counts—and is never returned by a tool.
+runtime with at least 32 UTF-8 bytes. It authenticates one-hour continuation
+state—including bounded comment/reply identifiers and reply-reconciliation
+counts. Direct MCP clients carry the signed state. The Custom GPT Action keeps
+the same signed state in bounded process memory and returns only a short handle;
+the secret itself is never returned by a tool or Action.
 
 ## Run the local MCP server
 
@@ -205,8 +207,10 @@ executable work is still likely to improve the answer. The legacy
 `audit_youtube_community` remains available for compatibility.
 
 The read-only research path uses ChatGPT as the existing reasoning engine. It
-adds no OpenAI API model call, local model, n8n workflow, database, comment
-persistence, or additional paid inference. The separate lesson Action uses the
+adds no OpenAI API model call, local model, n8n workflow, database, durable
+comment persistence, or additional paid inference. The sole cross-request
+research state is the bounded one-hour Custom GPT YouTube handle map described
+below. The separate lesson Action uses the
 fixed OpenAI API privacy check documented below; API billing is separate from
 ChatGPT billing and is capped server-side at $50.00 per UTC month.
 After deployment, refresh the developer-mode connection and start a new Project
@@ -217,14 +221,23 @@ chat so the new tool metadata and Project instructions are active.
 Production now exposes the frozen 17 read-only research operations as public
 Custom GPT Actions from merge
 `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. The direct server acceptance has
-passed; Custom GPT editor/UI acceptance and the actual direct `/g/...` URL are
-still pending and must not be inferred from server proof.
+passed. Custom GPT protocol and formal-source cases passed, but the first real
+multi-call YouTube product test exposed unreliable relay of the previous
+multi-kilobyte token. The short-handle repair remains candidate behavior until
+its merge, deployment, and fresh product retest are recorded. The actual direct
+`/g/...` URL is still pending and must not be inferred from server proof.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application
-request and response bodies are not logged or persisted. Action responses are
+request and response bodies are not logged or written to durable storage.
+Direct MCP continuation remains stateless. For only Custom GPT YouTube
+continuation, the server maps a 37-character handle to the existing signed,
+minimized token in process memory for no longer than one hour. The map stores no
+comment text, author identity, provider credential, or protocol text; it is
+bounded to 2,048 entries and 16 MiB, and restart, expiry, or eviction requires
+the audit to restart from the video identifier. Action responses are
 limited to **60,000 serialized UTF-8 bytes**. Exact canonical protocol text is
 returned in ordered authenticated chunks of no more than **48,000 UTF-8
 bytes**, and the client must continue through `complete: true`. A large

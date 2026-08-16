@@ -8420,7 +8420,7 @@
       "post": {
         "operationId": "audit_youtube_video_community",
         "summary": "AskRigor audit youtube video community",
-        "description": "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation, returning exact retrieved-versus-analyzed counts and a blocking completion receipt; no medical conclusions are generated.",
+        "description": "Retrieve one video's bounded API-visible YouTube discussion. Custom GPT continuation uses a short one-hour in-memory handle; continue while requested and require synthesis_lock pass. Retrieval only; no medical conclusions.",
         "x-openai-isConsequential": false,
         "responses": {
           "200": {
@@ -8963,29 +8963,58 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "error"
-                  ],
-                  "properties": {
-                    "error": {
+                  "oneOf": [
+                    {
                       "type": "object",
                       "additionalProperties": false,
                       "required": [
-                        "code",
-                        "retryable"
+                        "error"
                       ],
                       "properties": {
-                        "code": {
-                          "const": "action_input_invalid"
-                        },
-                        "retryable": {
-                          "const": false
+                        "error": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "code",
+                            "retryable"
+                          ],
+                          "properties": {
+                            "code": {
+                              "const": "action_input_invalid"
+                            },
+                            "retryable": {
+                              "const": false
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "error"
+                      ],
+                      "properties": {
+                        "error": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "code",
+                            "retryable"
+                          ],
+                          "properties": {
+                            "code": {
+                              "const": "youtube_action_continuation_invalid_or_expired"
+                            },
+                            "retryable": {
+                              "const": false
+                            }
+                          }
                         }
                       }
                     }
-                  }
+                  ]
                 }
               }
             }

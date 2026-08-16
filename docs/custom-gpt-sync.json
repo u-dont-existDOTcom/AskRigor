@@ -2,7 +2,7 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "ca7abeb54ee688f4837637abe2c08cfa9de4565d013d49f267df9bbe2c08f377"
+      "sha256": "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
