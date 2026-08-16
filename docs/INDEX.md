@@ -44,5 +44,9 @@ complete XML protocol.
 
 - `superpowers/plans/`: implementation plans
 - `superpowers/specs/`: accepted design specifications
+- `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
+  approved private-v0.2 design for uncertainty calibration, Creative Tail
+  Sampling integration, authorized treatment-experience evidence, and an
+  AskRigor-owned bounded research runner; it does not change public v0.1
 
 Current owner requirements and verified code/evidence outrank stale plans or summaries.
