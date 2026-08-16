@@ -204,7 +204,7 @@ function createResearchActionRoute(
           try {
             operationInput = {
               ...operationInput,
-              continuation_token: youtubeContinuationHandles.resolve(
+              continuation_token: youtubeContinuationHandles.claim(
                 suppliedContinuation
               )
             };
@@ -225,23 +225,42 @@ function createResearchActionRoute(
           }
         }
       }
-      const result = await operation.execute(operationInput);
-      const parsedOutput = outputSchema.safeParse(result.structuredContent);
-      if (!parsedOutput.success) {
-        throw new Error("Research operation returned invalid structured output");
+      try {
+        const result = await operation.execute(operationInput);
+        const parsedOutput = outputSchema.safeParse(result.structuredContent);
+        if (!parsedOutput.success) {
+          throw new Error("Research operation returned invalid structured output");
+        }
+        const actionOutput = operation.name === "audit_youtube_video_community"
+          ? youtubeAuditActionOutput(
+              youtubeVideoCommunityAuditOutputSchema.parse(parsedOutput.data),
+              youtubeContinuationHandles
+            )
+          : parsedOutput.data;
+        const validatedActionOutput = outputSchema.safeParse(actionOutput);
+        if (!validatedActionOutput.success) {
+          throw new Error("Research Action adapter returned invalid structured output");
+        }
+        if (previousHandle !== undefined) {
+          const youtubeOutput = youtubeVideoCommunityAuditOutputSchema.parse(
+            validatedActionOutput.data
+          );
+          if (
+            youtubeOutput.continuation_token !== undefined ||
+            youtubeOutput.receipt.synthesis_lock === "pass"
+          ) {
+            youtubeContinuationHandles.commit(previousHandle);
+          } else {
+            youtubeContinuationHandles.rollback(previousHandle);
+          }
+        }
+        return { status: 200, body: validatedActionOutput.data };
+      } catch (error) {
+        if (previousHandle !== undefined) {
+          youtubeContinuationHandles.rollback(previousHandle);
+        }
+        throw error;
       }
-      const actionOutput = operation.name === "audit_youtube_video_community"
-        ? youtubeAuditActionOutput(
-            youtubeVideoCommunityAuditOutputSchema.parse(parsedOutput.data),
-            youtubeContinuationHandles,
-            previousHandle
-          )
-        : parsedOutput.data;
-      const validatedActionOutput = outputSchema.safeParse(actionOutput);
-      if (!validatedActionOutput.success) {
-        throw new Error("Research Action adapter returned invalid structured output");
-      }
-      return { status: 200, body: validatedActionOutput.data };
     }
   });
 }
@@ -261,8 +280,7 @@ function researchActionDescription(operation: ResearchOperation): string {
 
 function youtubeAuditActionOutput(
   output: z.output<typeof youtubeVideoCommunityAuditOutputSchema>,
-  handles: YoutubeActionContinuationHandleStore,
-  previousHandle: string | undefined
+  handles: YoutubeActionContinuationHandleStore
 ): z.output<typeof youtubeVideoCommunityAuditOutputSchema> {
   const statelessToken = output.continuation_token;
   let nextHandle: string | undefined;
@@ -277,7 +295,6 @@ function youtubeAuditActionOutput(
       youtubeVideoCommunityAuditOutputSchema.parse(transportOutput),
       RESEARCH_ACTION_RESPONSE_MAX_BYTES
     );
-    if (previousHandle !== undefined) handles.revoke(previousHandle);
     return bounded;
   } catch (error) {
     if (nextHandle !== undefined) handles.revoke(nextHandle);

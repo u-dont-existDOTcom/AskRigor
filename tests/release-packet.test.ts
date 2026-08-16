@@ -285,6 +285,8 @@ describe("AskRigor public-review packet", () => {
       "no longer than one hour",
       "no comment text, author identity, provider credential, or protocol text",
       "server restart, expiry, or capacity eviction",
+      "single application replica",
+      "must not be horizontally scaled",
       "no durable research-session store",
       "not persistently stored",
       "Infrastructure providers may independently process operational"

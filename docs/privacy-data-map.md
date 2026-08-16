@@ -84,7 +84,10 @@ stores only that already minimized signed token in process memory and returns a
 hour; the map is hard-bounded to 2,048 entries and 16 MiB of token-plus-handle
 bytes. A server restart, expiry, or capacity eviction invalidates the handle
 and requires restart from the video identifier. The map is never written to
-disk or application logs and is not a durable research-session store.
+disk or application logs and is not a durable research-session store. This
+process-local design is limited to a single application replica and
+must not be horizontally scaled unless an approved sticky-routing or shared-state design
+preserves every continuation chain.
 
 The ordered protocol Action cursor contains only protocol identity, digest, byte offset, chunk index, and expiry. It contains no protocol text, health content, or secret. It is authenticated with a protocol-specific key derived
 from the existing server-only continuation secret. The Action returns each
@@ -96,7 +99,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | --- | --- | --- |
 | MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map row below. No database, file store, account profile, queue, transcript store, or server-side comment corpus is implemented. |
 | MCP client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking MCP client and processed transiently if resubmitted within one hour. The server keeps no matching MCP session record. |
-| Custom GPT Action continuation handle map | A short random handle mapped to the existing signed minimized token; no comment/reply text, author identity, provider credential, or protocol text | Process memory only, no longer than one hour, at most 2,048 handles and 16 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. |
+| Custom GPT Action continuation handle map | A short random handle mapped to the existing signed minimized token; no comment/reply text, author identity, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 16 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires an approved sticky-routing or shared-state design. |
 | MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol loads use exact ordered chunks; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |

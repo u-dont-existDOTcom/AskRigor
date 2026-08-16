@@ -113,9 +113,11 @@ Extend `CreateResearchActionRoutesOptions` with an injectable handle store.
 Instantiate one default store per factory call. For
 `audit_youtube_video_community`, resolve only values matching/prefixed as
 Action handles; pass other tokens through unchanged for backward compatibility.
-After successful shared execution, issue a new short handle before response
-bounding, revoke the preceding handle only after a valid successor or terminal
-response exists, and preserve the preceding handle if execution throws.
+Atomically claim a handle so concurrent reuse cannot execute the same segment
+twice. After successful shared execution, issue a new short handle before
+response bounding, commit the preceding handle only after a valid successor or
+terminal response exists, and roll the claim back if execution throws or the
+shared operation returns a tokenless incomplete/provider-error receipt.
 
 - [ ] **Step 3: Declare the stable 422 Action error and truthful description**
 
@@ -155,7 +157,8 @@ Require the privacy site and data map to state: direct MCP remains
 client-carried/stateless; Custom GPT stores only the signed minimized token in
 process memory; maximum one hour; hard entry/byte bounds; no comment text,
 credentials, disk, or application logs; and restart/expiry/eviction invalidates
-the handle. Remove the obsolete universal assertion that no server-side
+the handle. Require a single application replica and prohibit horizontal
+scaling without sticky routing or shared state. Remove the obsolete universal assertion that no server-side
 research-session record exists.
 
 - [ ] **Step 2: Run the privacy tests red**

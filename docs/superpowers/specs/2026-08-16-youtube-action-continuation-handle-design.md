@@ -49,6 +49,9 @@ Add a focused Action continuation-handle store with these invariants:
 - the store is bounded to 2,048 entries and 16 MiB of token-plus-handle bytes;
 - expired entries are removed lazily and the oldest entry is evicted when a
   hard bound would otherwise be exceeded;
+- each handle is atomically claimed by at most one request, committed only after
+  a successor or valid terminal receipt, and rolled back after an exception or
+  tokenless incomplete/provider-error receipt;
 - nothing is written to disk or application logs; and
 - an unknown, expired, evicted, or malformed Action handle fails closed with a
   stable non-retryable 422 error that tells the controller to restart from the
@@ -76,6 +79,8 @@ evidence must distinguish the unchanged stateless MCP path from the Custom GPT
 Action's bounded in-memory handle map. The notice must explain the one-hour
 maximum, minimized fields, no text/credentials, no disk or log persistence,
 and restart/eviction limitation before the new behavior is activated.
+The current deployment is one application replica; horizontal scaling is
+prohibited unless sticky routing or shared state preserves each handle chain.
 
 No new environment secret is required. The existing server-side YouTube
 continuation secret continues to authenticate the underlying token. The short

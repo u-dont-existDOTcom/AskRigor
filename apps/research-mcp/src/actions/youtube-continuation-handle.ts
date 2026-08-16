@@ -12,11 +12,14 @@ interface HandleEntry {
   token: string;
   expiresAt: number;
   bytes: number;
+  claimed: boolean;
 }
 
 export interface YoutubeActionContinuationHandleStore {
   issue(token: string): string;
-  resolve(handle: string): string;
+  claim(handle: string): string;
+  commit(handle: string): void;
+  rollback(handle: string): void;
   revoke(handle: string): void;
 }
 
@@ -73,32 +76,45 @@ export function createYoutubeActionContinuationHandleStore(
       entries.set(handle, {
         token,
         expiresAt: issuedAt + ttlMs,
-        bytes: entryBytes
+        bytes: entryBytes,
+        claimed: false
       });
       totalBytes += entryBytes;
       return handle;
     },
 
-    resolve(handle: string): string {
+    claim(handle: string): string {
       const currentTime = readNow(now);
       pruneExpired(currentTime);
       if (!isYoutubeActionContinuationHandle(handle)) {
         throw new YoutubeActionContinuationHandleError();
       }
       const entry = entries.get(handle);
-      if (entry === undefined) {
+      if (entry === undefined || entry.claimed) {
         throw new YoutubeActionContinuationHandleError();
       }
+      entry.claimed = true;
       entries.delete(handle);
       entries.set(handle, entry);
       return entry.token;
     },
 
-    revoke(handle: string): void {
+    commit(handle: string): void {
+      remove(handle);
+    },
+
+    rollback(handle: string): void {
+      const currentTime = readNow(now);
+      pruneExpired(currentTime);
       const entry = entries.get(handle);
-      if (entry === undefined) return;
+      if (entry === undefined || !entry.claimed) return;
+      entry.claimed = false;
       entries.delete(handle);
-      totalBytes -= entry.bytes;
+      entries.set(handle, entry);
+    },
+
+    revoke(handle: string): void {
+      remove(handle);
     }
   });
 
@@ -111,13 +127,20 @@ export function createYoutubeActionContinuationHandleStore(
   }
 
   function evictOldest(): void {
-    const oldest = entries.entries().next().value as
-      [string, HandleEntry] | undefined;
-    if (oldest === undefined) {
-      throw new Error("YouTube Action continuation store cannot satisfy its bounds");
+    for (const [handle, entry] of entries) {
+      if (entry.claimed) continue;
+      entries.delete(handle);
+      totalBytes -= entry.bytes;
+      return;
     }
-    entries.delete(oldest[0]);
-    totalBytes -= oldest[1].bytes;
+    throw new Error("YouTube Action continuation store cannot satisfy its bounds");
+  }
+
+  function remove(handle: string): void {
+    const entry = entries.get(handle);
+    if (entry === undefined) return;
+    entries.delete(handle);
+    totalBytes -= entry.bytes;
   }
 }
 

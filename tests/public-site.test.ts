@@ -46,6 +46,8 @@ describe("AskRigor public site", () => {
     expect(privacy).toContain("never written to disk or application logs");
     expect(privacy).toContain("restart, expiry, or capacity eviction");
     expect(privacy).toContain("restart from the video identifier");
+    expect(privacy).toContain("single application replica");
+    expect(privacy).toContain("must not be horizontally scaled");
     expect(privacy).toContain("separately consented lesson-feedback path");
   });
 
