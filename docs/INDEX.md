@@ -46,6 +46,9 @@ complete XML protocol.
 - `superpowers/plans/2026-08-16-calibrated-discovery-phase-1-implementation.md`:
   TDD plan for the private deterministic calibrated-discovery benchmark; live
   providers and public v0.2 remain outside Phase 1
+- `superpowers/plans/2026-08-16-custom-gpt-action-bridge-implementation.md`:
+  test-driven implementation, deployment, rollback, and live-acceptance plan
+  for the approved Custom GPT Action bridge
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail
