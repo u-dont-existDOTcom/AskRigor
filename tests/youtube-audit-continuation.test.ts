@@ -386,7 +386,7 @@ describe("YouTube audit continuation tokens", () => {
     )).toEqual(advanced);
   });
 
-  it("rejects duplicate record IDs within or across continuation segments", () => {
+  it("reconciles exact duplicate record IDs within or across continuation segments", () => {
     const empty = {
       ...STATE,
       segment_index: 0,
@@ -400,7 +400,7 @@ describe("YouTube audit continuation tokens", () => {
       seen_identifier_membership: createYoutubeAuditIdentifierMembership([])
     };
     const { cursor: _emptyCursor, ...emptyWithoutCursor } = empty;
-    expect(() => advanceYoutubeAuditState(
+    const withinSegment = advanceYoutubeAuditState(
       emptyWithoutCursor,
       [comment("UgxDuplicate"), comment("UgxDuplicate")],
       {
@@ -411,10 +411,16 @@ describe("YouTube audit continuation tokens", () => {
         reply_count_mismatches: []
       },
       { thread_offset: 2, top_level_emitted: false }
-    )).toThrow(/duplicate/i);
+    );
+    expect(withinSegment).toMatchObject({
+      top_level_comments_retrieved: 1,
+      records_retrieved_cumulative: 1,
+      pagination_overlaps_reconciled: 1,
+      sample_identifiers: ["UgxDuplicate"]
+    });
 
     const { cursor: _stateCursor, ...stateWithoutCursor } = STATE;
-    expect(() => advanceYoutubeAuditState(
+    const acrossSegments = advanceYoutubeAuditState(
       stateWithoutCursor,
       [comment("UgxTop00000000000000001")],
       {
@@ -425,7 +431,15 @@ describe("YouTube audit continuation tokens", () => {
         reply_count_mismatches: []
       },
       { thread_offset: 2, top_level_emitted: false }
-    )).toThrow(/duplicate/i);
+    );
+    expect(acrossSegments).toMatchObject({
+      segment_index: 2,
+      top_level_comments_retrieved: 1,
+      records_retrieved_cumulative: 1,
+      pagination_overlaps_reconciled: 1,
+      rolling_sha256: STATE.rolling_sha256,
+      sample_identifiers: STATE.sample_identifiers
+    });
   });
 
   it("fails closed on a non-adjacent duplicate omitted from a corpus sample over 500", () => {

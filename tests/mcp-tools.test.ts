@@ -646,7 +646,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("reports an exact duplicate below 500 without claiming the sample was bounded", async () => {
+  it("reconciles an exact duplicate below 500 as a moving-pagination boundary", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;
     const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
@@ -679,6 +679,13 @@ describe("AskRigor MCP tools", () => {
       const url = new URL(String(input));
       if (url.pathname.endsWith("/videos")) {
         return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      if (url.searchParams.has("id")) return mcpCommentIdResponse(url);
+      if (url.pathname.endsWith("/comments")) {
+        return Response.json({
+          pageInfo: { totalResults: 0, resultsPerPage: 0 },
+          items: []
+        });
       }
       return Response.json({
         pageInfo: { totalResults: 1, resultsPerPage: 1 },
@@ -714,18 +721,21 @@ describe("AskRigor MCP tools", () => {
 
       expect(result.structuredContent).toMatchObject({
         video_id: "XpZHKGGCK-o",
-        segment_index: 1,
-        error: {
-          code: "youtube_video_audit_identifier_membership_restart_required",
-          retryable: false
-        },
+        segment_index: 2,
+        access_status: "partial",
+        extraction_coverage: "completed_with_access_boundary",
+        top_level_comments_retrieved_this_call: 0,
+        records_retrieved_this_call: 0,
         records_retrieved_cumulative: 1,
+        records_returned_for_analysis: 1,
         corpus_rolling_sha256: "c".repeat(64),
-        limitations: [expect.stringMatching(/duplicate.*restart/i)]
+        limitations: [expect.stringMatching(/moving provider pagination/i)],
+        receipt: {
+          completion_state: "completed_with_access_boundary",
+          synthesis_lock: "pass"
+        }
       });
-      expect(JSON.stringify(result.structuredContent)).not.toContain(
-        "exact identifier sample became bounded"
-      );
+      expect(result.structuredContent).not.toHaveProperty("error");
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
       restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);

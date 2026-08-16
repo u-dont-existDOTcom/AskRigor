@@ -2,16 +2,19 @@
 
 ## Objective
 
-Allow the resumable YouTube community audit to finish when YouTube repeats a
-comment thread or reply at an adjacent pagination boundary, without double
-counting records or overstating corpus completeness.
+Allow the resumable YouTube community audit to finish when moving YouTube
+pagination repeats a stable comment identifier at an adjacent page boundary or
+later in the continuation chain, without double counting records or overstating
+corpus completeness.
 
 ## Verified failure
 
 The deployed continuation handle was accepted, but the second provider segment
 repeated two prior records: one top-level comment and its reply. The segment was
-otherwise internally unique and exhausted all provider page tokens. The audit
-then threw `Duplicate YouTube comment identifier in continuation chain`.
+otherwise internally unique and exhausted all provider page tokens. The first
+repair only recognized adjacent-page overlap, so the live chain still threw
+`youtube_video_audit_identifier_membership_restart_required` instead of
+reconciling those exact prior identifiers.
 
 ## Design
 
@@ -19,11 +22,13 @@ then threw `Duplicate YouTube comment identifier in continuation chain`.
 2. Retain only SHA-256 fingerprints of identifiers from the immediately
    preceding top-level page and reply page in the signed one-hour continuation
    cursor. Keep the arrays bounded by provider page maxima (20 and 100).
-3. Skip a provider record only when its stable identifier fingerprint occurred
-   in the immediately preceding adjacent page. Continue rejecting duplicates
-   within one page/segment and duplicates not justified by this cursor state.
-   A fixed-size signed membership filter covers every accepted identifier after
-   the exact deterministic sample becomes bounded at 500. A possible
+3. Use the immediately preceding page fingerprints to suppress adjacent repeats
+   inside the source adapter before they cause redundant reply work. Across the
+   signed continuation chain, reconcile any exact repeated stable identifier
+   retained in the deterministic identifier set and count it as a moving-
+   pagination boundary. A fixed-size signed membership filter covers every
+   accepted identifier after the exact deterministic sample becomes bounded at
+   500. A possible
    non-adjacent match fails closed; a filter false positive may therefore force
    restart, but cannot inflate the corpus count. Return a typed restart-required
    failure that preserves the prior accepted counters, and consume an unusable
@@ -51,9 +56,10 @@ then threw `Duplicate YouTube comment identifier in continuation chain`.
 
 ## Limits
 
-Adjacent-page de-duplication cannot prove that a mutable public corpus was a
+Stable-identifier de-duplication cannot prove that a mutable public corpus was a
 perfect point-in-time snapshot. It prevents observed duplicate inflation while
-preserving that uncertainty as an explicit access boundary. The bounded
-membership filter has no false negatives for inserted identifiers but can have
-false positives; those stop the chain rather than accepting a possibly repeated
-record.
+preserving that uncertainty as an explicit access boundary. Once the exact
+identifier sample is bounded at 500, an identifier omitted from that sample can
+only be checked against the fixed-size membership filter. The filter has no
+false negatives for inserted identifiers but can have false positives; those
+stop the chain rather than accepting a possibly repeated record.

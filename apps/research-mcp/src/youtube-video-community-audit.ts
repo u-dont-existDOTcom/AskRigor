@@ -419,6 +419,11 @@ export async function auditYoutubeVideoCommunity(
       : retryLater
         ? segment.access_status
         : "partial";
+  const acceptedTopLevelThisCall =
+    state.top_level_comments_retrieved - baseState.top_level_comments_retrieved;
+  const acceptedRepliesThisCall = state.replies_retrieved - baseState.replies_retrieved;
+  const acceptedRecordsThisCall =
+    state.records_retrieved_cumulative - baseState.records_retrieved_cumulative;
 
   return youtubeVideoCommunityAuditOutputSchema.parse({
     provider: "youtube",
@@ -447,9 +452,9 @@ export async function auditYoutubeVideoCommunity(
         : "partial",
     limitations,
     ...(segment.error === undefined ? {} : { error: segment.error }),
-    top_level_comments_retrieved_this_call: segment.top_level_comments_retrieved,
-    replies_retrieved_this_call: segment.replies_retrieved,
-    records_retrieved_this_call: segment.comments.length,
+    top_level_comments_retrieved_this_call: acceptedTopLevelThisCall,
+    replies_retrieved_this_call: acceptedRepliesThisCall,
+    records_retrieved_this_call: acceptedRecordsThisCall,
     comment_thread_pages_this_call: segment.comment_thread_pages,
     reply_pages_this_call: segment.reply_pages,
     top_level_comments_retrieved_cumulative: state.top_level_comments_retrieved,
