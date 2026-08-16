@@ -9,11 +9,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; active task branch:
-  `codex/public-submission-packet-repair-2026-08-16`
-- Current `origin/main`: `57340f4ee2d9165fc7d680fe01cae9c8ca0f251a`
-- Last verified local content boundary before this checkpoint update:
-  `2c6ef2802187f7097fd0e51ab1a2911dadc1c46f`
+- Canonical branch: `main`; no repository implementation branch remains active.
+- Verified main boundary containing the packet repair:
+  `0d8ef69fa7fd73c34c571a07723b5a6b5bad5fec`
+- Exact packet-repair head merged by PR #12:
+  `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
 - Byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`
@@ -115,6 +115,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   distinction between repository-visible and hosted proof and the runtime-
   fragmented credential-fixture pattern were already promoted and tested in
   the universal repository.
+- PR #12 merged the exact packet-repair head into `main` as
+  `0d8ef69fa7fd73c34c571a07723b5a6b5bad5fec`. Post-merge deterministic
+  verification run `31918684165`, workflow-policy run `31918685565`, and both
+  CodeQL analyses in run `31918683952` passed on that exact merge commit.
 
 ## Current checkpoint
 
@@ -125,9 +129,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Production is healthy on the refetch-fix application image. Rollback image
   `askrigor-research:rollback-9715812` and
   `/opt/askrigor/compose.yaml.rollback-9715812` are verified.
-- Repository-controlled packet repair is complete on
-  `codex/public-submission-packet-repair-2026-08-16`; its protected PR and merge
-  remain to be completed. V0.1.0 remains **PUBLIC SUBMISSION BLOCKED** for
+- Repository-controlled packet repair is merged and verified. V0.1.0 remains
+  **PUBLIC SUBMISSION BLOCKED** for
   portal identity/domain verification, Scan Tools, a real demo-recording URL,
   the explicit release decision on three opaque remote-MCP model receipts,
   final portal response/privacy review, and submission.
@@ -139,8 +142,6 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- Open one focused PR for the packet repair, verify the exact head through
-  `Deterministic verification`, `workflow-policy`, and CodeQL, and merge it.
 - Observe developer/business identity completion and complete the portal HTTPS
   domain challenge.
 - Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 17 tools
@@ -184,16 +185,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Push the packet-repair branch, open one focused PR, wait for the protected
-required checks, and merge only if they pass. After merge, return to the
-signed-in OpenAI portal; if identity is complete, proceed to the publisher-
-domain challenge and **Scan Tools**. If it still says `Verifying identity`, do
-not restart it; prepare the bounded demo recording while it remains pending.
+Return to the signed-in OpenAI portal. If identity is complete, proceed to the
+publisher-domain challenge and **Scan Tools** for
+`https://mcp.askrigor.com/mcp`. If it still says `Verifying identity`, do not
+restart it; record and host the bounded demo using
+`docs/public-submission-demo-recording.md` while verification remains pending.
 
 ## Recovery rule
 
 After interruption, inspect actual Git state, this checkpoint, complete protocol
-files, current release evidence, merged PRs #9 through #11, this packet-repair
-branch/PR, closed issue #6, and newer owner instructions. Resume from the latest
-verified boundary without touching the dirty original checkout or repeating
-live production acceptance.
+files, current release evidence, merged PRs #9 through #12, closed issue #6, and
+newer owner instructions. Resume from the latest verified boundary without
+touching the dirty original checkout or repeating live production acceptance.
