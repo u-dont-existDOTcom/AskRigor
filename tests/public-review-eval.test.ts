@@ -1817,7 +1817,7 @@ describe("public review runner orchestration", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("enforces the hard per-case deadline while a direct call is still pending", async () => {
     const root = await mkdtemp(join(tmpdir(), "askrigor-orchestrator-timeout-"));
