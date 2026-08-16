@@ -40,6 +40,9 @@ reconciling those exact prior identifiers.
    eventually exhausts after any overlap, return bounded evidence as
    `completed_with_access_boundary`, keep the synthesis lock passable, and state
    that moving provider pagination prevents a stable complete-snapshot claim.
+   Track cross-segment reply repeats separately and keep `replies_reconciled`
+   false because raw provider reply totals cannot prove the accepted unique
+   per-parent count after such a repeat.
 5. Do not add a public tool input/output field or change the frozen MCP v0.1
    inventory. The existing `limitations`, `extraction_coverage`, and receipt
    fields carry the boundary truthfully.

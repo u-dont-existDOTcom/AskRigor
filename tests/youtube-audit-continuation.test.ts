@@ -29,6 +29,7 @@ const STATE: YoutubeVideoAuditContinuationState = {
   comment_thread_pages: 1,
   reply_pages: 0,
   pagination_overlaps_reconciled: 0,
+  continuation_reply_overlaps_reconciled: 0,
   records_retrieved_cumulative: 1,
   rolling_sha256: "a".repeat(64),
   sample_identifiers: ["UgxTop00000000000000001"],
@@ -416,6 +417,7 @@ describe("YouTube audit continuation tokens", () => {
       top_level_comments_retrieved: 1,
       records_retrieved_cumulative: 1,
       pagination_overlaps_reconciled: 1,
+      continuation_reply_overlaps_reconciled: 0,
       sample_identifiers: ["UgxDuplicate"]
     });
 
@@ -437,6 +439,7 @@ describe("YouTube audit continuation tokens", () => {
       top_level_comments_retrieved: 1,
       records_retrieved_cumulative: 1,
       pagination_overlaps_reconciled: 1,
+      continuation_reply_overlaps_reconciled: 0,
       rolling_sha256: STATE.rolling_sha256,
       sample_identifiers: STATE.sample_identifiers
     });

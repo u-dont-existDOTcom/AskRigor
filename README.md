@@ -239,7 +239,10 @@ comment text, author identity, provider credential, or protocol text; it is
 bounded to 2,048 entries and 16 MiB, and restart, expiry, or eviction requires
 the audit to restart from the video identifier. An exact repeated identifier is
 reconciled anywhere in the chain and marks the result as a moving-pagination
-access boundary. A pre-upgrade continuation whose exact corpus already exceeded
+access boundary. If that repeat is a reply, the receipt also keeps
+`replies_reconciled` false because the provider's per-parent reply total can no
+longer be independently proven. A pre-upgrade continuation whose exact corpus
+already exceeded
 500 records, or a possible non-adjacent membership match after the exact sample
 becomes bounded, fails closed with a typed restart-required result. That result
 preserves only the prior accepted cumulative counts; the unusable Action handle

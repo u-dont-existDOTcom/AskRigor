@@ -101,6 +101,7 @@ const continuationStateSchema = z.object({
   comment_thread_pages: boundedInteger,
   reply_pages: boundedInteger,
   pagination_overlaps_reconciled: boundedInteger.default(0),
+  continuation_reply_overlaps_reconciled: boundedInteger.default(0),
   records_retrieved_cumulative: boundedInteger,
   rolling_sha256: z.string().regex(SHA256_PATTERN),
   sample_identifiers: z.array(sampleIdentifierSchema).max(MAX_ANALYSIS_RECORDS),
@@ -189,6 +190,7 @@ export interface YoutubeVideoAuditContinuationState {
   comment_thread_pages: number;
   reply_pages: number;
   pagination_overlaps_reconciled: number;
+  continuation_reply_overlaps_reconciled: number;
   records_retrieved_cumulative: number;
   rolling_sha256: string;
   sample_identifiers: string[];
@@ -368,6 +370,8 @@ export function advanceYoutubeAuditState(
       state.pagination_overlaps_reconciled +
       (counters.pagination_overlaps_reconciled ?? 0) +
       reconciledTopLevel + reconciledReplies,
+    continuation_reply_overlaps_reconciled:
+      state.continuation_reply_overlaps_reconciled + reconciledReplies,
     records_retrieved_cumulative:
       state.records_retrieved_cumulative + acceptedComments.length,
     rolling_sha256: acceptedComments.length === 0

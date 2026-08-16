@@ -38,6 +38,8 @@ const TERMINAL_REPLY_MISMATCH_LIMITATION =
   "All top-level pages and accessible reply-page tokens were exhausted, but one or more provider-reported reply totals did not reconcile; the retained sample is usable as bounded evidence, not a complete API-visible corpus.";
 const TERMINAL_PAGINATION_OVERLAP_LIMITATION =
   "YouTube pagination overlap was reconciled by stable identifier, but the moving provider pagination prevents a stable complete-snapshot claim; any retained sample is bounded evidence.";
+const CONTINUATION_REPLY_OVERLAP_LIMITATION =
+  "An exact reply repeated across continuation segments; the repeat was removed from unique counts, but provider-reported per-parent reply totals could not be independently proven.";
 
 export const youtubeVideoCommunityAuditInputSchema = z.object({
   video_id_or_url: z.string().min(1).max(2_048).optional(),
@@ -198,6 +200,7 @@ export async function auditYoutubeVideoCommunity(
       comment_thread_pages: 0,
       reply_pages: 0,
       pagination_overlaps_reconciled: 0,
+      continuation_reply_overlaps_reconciled: 0,
       records_retrieved_cumulative: 0,
       rolling_sha256: ZERO_SHA256,
       sample_identifiers: [],
@@ -252,6 +255,8 @@ export async function auditYoutubeVideoCommunity(
 
   const mismatchBlock = state.reply_count_mismatches.length > 0;
   const paginationOverlapBoundary = state.pagination_overlaps_reconciled > 0;
+  const continuationReplyOverlapBoundary =
+    state.continuation_reply_overlaps_reconciled > 0;
   const apiReportedExhaustion =
     segment.access_status === "api_visible_complete" &&
     segment.exhausted &&
@@ -404,6 +409,7 @@ export async function auditYoutubeVideoCommunity(
     ...(countMismatch ? [PROVIDER_COUNT_MISMATCH_LIMITATION] : []),
     ...(terminalReplyMismatchBoundary ? [TERMINAL_REPLY_MISMATCH_LIMITATION] : []),
     ...(paginationOverlapBoundary ? [TERMINAL_PAGINATION_OVERLAP_LIMITATION] : []),
+    ...(continuationReplyOverlapBoundary ? [CONTINUATION_REPLY_OVERLAP_LIMITATION] : []),
     ...(continuationStateTooLarge
       ? ["The exact continuation state exceeded the safe stateless-token limit."]
       : []),
@@ -477,7 +483,8 @@ export async function auditYoutubeVideoCommunity(
       chain_started_at_first_page: true,
       top_level_pagination_exhausted: topLevelPaginationExhausted,
       replies_reconciled:
-        !mismatchBlock && (apiVisibleComplete || terminalPaginationOverlapBoundary),
+        !mismatchBlock && !continuationReplyOverlapBoundary &&
+        (apiVisibleComplete || terminalPaginationOverlapBoundary),
       query_bounded_comments_used_as_corpus: false,
       blockers
     }
