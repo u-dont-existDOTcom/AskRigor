@@ -1545,7 +1545,7 @@ describe("Responses API public MCP review", () => {
   });
 });
 
-describe("public review runner orchestration", () => {
+describe("public review runner orchestration", { timeout: 15_000 }, () => {
   it("bounds and aborts a hanging MCP initialization request", async () => {
     let capturedOptions: {
       signal: AbortSignal;
@@ -1817,7 +1817,7 @@ describe("public review runner orchestration", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
-  }, 15_000);
+  });
 
   it("enforces the hard per-case deadline while a direct call is still pending", async () => {
     const root = await mkdtemp(join(tmpdir(), "askrigor-orchestrator-timeout-"));
