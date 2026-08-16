@@ -32,6 +32,8 @@ import {
 } from "./actions/router.js";
 import type { ActionRoute } from "./actions/types.js";
 import { createResearchActionRoutes } from "./actions/research-routes.js";
+import { validateProtocolActionContinuationSecret } from
+  "./actions/protocol-continuation.js";
 import { createEnabledActionRoutes } from "./actions/runtime.js";
 import {
   isLessonActionJsonContentType,
@@ -62,6 +64,7 @@ export interface AskRigorHttpServerOptions {
   publicServerEnabled?: boolean;
   actionsEnabled?: boolean;
   researchActionsEnabled?: boolean;
+  researchActionContinuationSecret?: string;
   actionApiKey?: string;
   actionRoutes?: readonly ActionRoute[];
   trustedClientIpHeader?: TrustedClientIpHeader;
@@ -77,6 +80,13 @@ export function createAskRigorHttpServer(
   const actionsEnabled = options.actionsEnabled ?? actionsAreEnabled();
   const researchActionsEnabled = options.researchActionsEnabled ??
     researchActionsAreEnabled();
+  if (researchActionsEnabled) {
+    validateProtocolActionContinuationSecret(
+      options.researchActionContinuationSecret ??
+      process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET ??
+      ""
+    );
+  }
   const actionApiKey = options.actionApiKey ?? actionApiKeyFromEnv();
   const configuredActionRoutes = options.actionRoutes ?? [
     ...(researchActionsEnabled ? createResearchActionRoutes() : []),

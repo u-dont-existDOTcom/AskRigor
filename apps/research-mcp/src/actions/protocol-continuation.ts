@@ -100,7 +100,7 @@ export async function createProtocolActionChunk(
   input: ProtocolActionChunkInput,
   dependencies: ProtocolActionChunkDependencies
 ): Promise<ProtocolActionChunk> {
-  validateSecret(dependencies.continuationSecret);
+  validateProtocolActionContinuationSecret(dependencies.continuationSecret);
   const nowMs = readNow(dependencies.now);
   const [text, rawManifest] = await Promise.all([
     dependencies.loadProtocol(input.protocol),
@@ -268,7 +268,7 @@ function signingKey(secret: string): Buffer {
     .digest();
 }
 
-function validateSecret(secret: string): void {
+export function validateProtocolActionContinuationSecret(secret: string): void {
   if (Buffer.byteLength(secret, "utf8") < MIN_SECRET_BYTES) {
     throw new Error("Protocol continuation secret must contain at least 32 UTF-8 bytes");
   }

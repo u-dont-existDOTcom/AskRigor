@@ -53,7 +53,7 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
       },
     });
     expect(Object.keys(operation?.responses as object)).toEqual([
-      "200", "400", "401", "413", "415", "422", "429", "503"
+      "200", "400", "401", "413", "415", "422", "429", "500", "503"
     ]);
     expect((operation?.responses as Record<string, unknown>)["429"]).toMatchObject({
       headers: {

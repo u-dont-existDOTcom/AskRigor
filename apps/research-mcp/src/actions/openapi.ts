@@ -6,6 +6,7 @@ const BAD_REQUEST_SCHEMA = actionErrorSchema({
 });
 const AUTH_REQUIRED_SCHEMA = actionErrorSchema({ const: "action_auth_required" });
 const BODY_TOO_LARGE_SCHEMA = actionErrorSchema({ const: "action_body_too_large" });
+const INTERNAL_ERROR_SCHEMA = actionErrorSchema({ const: "action_internal_error" });
 const RESEARCH_RATE_LIMIT_SCHEMA = actionErrorSchema(
   { const: "action_rate_limit_exceeded" },
   true
@@ -32,6 +33,7 @@ export function createActionOpenApiDocument(
       responseSchemas[400] = BAD_REQUEST_SCHEMA;
       responseSchemas[413] = BODY_TOO_LARGE_SCHEMA;
     }
+    responseSchemas[500] = INTERNAL_ERROR_SCHEMA;
     if (!route.public) {
       responseSchemas[401] = AUTH_REQUIRED_SCHEMA;
     }
@@ -87,7 +89,8 @@ export function createActionOpenApiDocument(
 }
 
 function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
-  return (route.method === "POST" && (status === 400 || status === 413)) ||
+  return status === 500 ||
+    (route.method === "POST" && (status === 400 || status === 413)) ||
     (!route.public && status === 401) ||
     (route.publicResearch === true && [429, 502, 503].includes(status));
 }

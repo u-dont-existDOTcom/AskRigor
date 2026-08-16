@@ -213,7 +213,8 @@ function hasValidRequiredResponseHeaders(route: ActionRoute, result: ActionResul
 }
 
 function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
-  return (route.method === "POST" && (status === 400 || status === 413)) ||
+  return status === 500 ||
+    (route.method === "POST" && (status === 400 || status === 413)) ||
     (!route.public && status === 401) ||
     (route.publicResearch === true && [429, 502, 503].includes(status));
 }

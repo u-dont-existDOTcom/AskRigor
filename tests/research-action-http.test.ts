@@ -28,6 +28,8 @@ const publicResearchRoute = (handle?: ActionRoute["handle"]): ActionRoute => ({
   handle: handle ?? (async () => ({ status: 200, body: { ok: true } }))
 });
 
+const TEST_CONTINUATION_SECRET = "research-action-test-secret-32-bytes";
+
 const lessonLikeRoute: ActionRoute = {
   method: "POST",
   path: "/actions/test_write",
@@ -44,6 +46,28 @@ const lessonLikeRoute: ActionRoute = {
 };
 
 describe("research Action HTTP boundaries", () => {
+  it("fails during construction when research Actions lack a usable continuation secret", () => {
+    for (const researchActionContinuationSecret of [undefined, "short"]) {
+      expect(() => createAskRigorHttpServer({
+        publicServerEnabled: true,
+        researchActionsEnabled: true,
+        researchActionContinuationSecret
+      } as Parameters<typeof createAskRigorHttpServer>[0] & {
+        researchActionContinuationSecret?: string;
+      })).toThrow(
+        "Protocol continuation secret must contain at least 32 UTF-8 bytes"
+      );
+    }
+
+    expect(() => createAskRigorHttpServer({
+      publicServerEnabled: true,
+      researchActionsEnabled: false,
+      researchActionContinuationSecret: "short"
+    } as Parameters<typeof createAskRigorHttpServer>[0] & {
+      researchActionContinuationSecret?: string;
+    })).not.toThrow();
+  });
+
   it("controls research and lesson routes with independent switches", async () => {
     for (const [researchEnabled, lessonsEnabled, expected] of [
       [false, false, []],
@@ -212,8 +236,11 @@ async function withServer<T>(
   const server = createAskRigorHttpServer({
     publicServerEnabled: true,
     actionApiKey: "test-action-secret",
+    researchActionContinuationSecret: TEST_CONTINUATION_SECRET,
     ...options
-  } as Parameters<typeof createAskRigorHttpServer>[0]);
+  } as Parameters<typeof createAskRigorHttpServer>[0] & {
+    researchActionContinuationSecret: string;
+  });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(0, "127.0.0.1", resolve);

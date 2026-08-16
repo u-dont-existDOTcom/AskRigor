@@ -235,7 +235,7 @@ describe("read-only research Action routes", () => {
       "/actions/research/get_protocol_manifest"
     ]!.post as unknown as { responses: Record<string, unknown> };
     expect(Object.keys(manifestOperation.responses)).toEqual([
-      "200", "400", "413", "422", "429", "502", "503"
+      "200", "400", "413", "422", "429", "500", "502", "503"
     ]);
     expect(manifestOperation.responses).toMatchObject({
       429: {
@@ -250,6 +250,14 @@ describe("read-only research Action routes", () => {
         content: { "application/json": { schema: {
           properties: { error: { properties: {
             code: { const: "action_response_too_large" },
+            retryable: { const: false }
+          } } }
+        } } }
+      },
+      500: {
+        content: { "application/json": { schema: {
+          properties: { error: { properties: {
+            code: { const: "action_internal_error" },
             retryable: { const: false }
           } } }
         } } }
