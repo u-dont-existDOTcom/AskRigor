@@ -16,9 +16,9 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242";
+  "4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5";
 const UNIVERSAL_SHA_256 =
-  "1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa";
+  "3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -34,9 +34,44 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.17",
-      revisionDate: "2026-08-13"
+      version: "20.5.18",
+      revisionDate: "2026-08-16"
     });
+  });
+
+  it("requires the HRP 20.5.18 premise-integrity and truth-priority gate", async () => {
+    const text = await loadProtocol("hrp");
+
+    for (const required of [
+      '<Revision version="20.5.18" priority="Critical">',
+      '<PremiseIntegrityAndTruthPriorityGate priority="Critical">',
+      'id="premise_integrity_and_truth_priority"',
+      "Accuracy outranks agreement",
+      "factual assertions embedded in a prompt",
+      "This does not exist.",
+      "I could not verify that this exists",
+      "I cannot independently verify this source/data.",
+      "Labeled inference and estimation remain permitted"
+    ]) {
+      expect(text).toContain(required);
+    }
+
+    for (const id of [
+      "FalsePremiseCompliance",
+      "NonexistentSourceHallucination",
+      "SearchFailureIsNotNonexistence",
+      "ConfidentUserAssertionStillChecked",
+      "ForcedCausalConnection",
+      "CitationDoesNotEntailPromptPremise",
+      "ArithmeticContradictionBlocksSynthesis",
+      "LegitimateLabeledInferenceRemainsAllowed"
+    ]) {
+      expect(text).toContain(`<Case id="${id}">`);
+    }
+
+    for (let id = 164; id <= 171; id += 1) {
+      expect(text).toContain(`<Check id="FS${id}">`);
+    }
   });
 
   it("preserves the HRP community corpus completion gate and regression", async () => {
@@ -227,9 +262,27 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.11",
-      revisionDate: "2026-08-07"
+      version: "20.5.12",
+      revisionDate: "2026-08-16"
     });
+  });
+
+  it("requires the Universal 20.5.12 premise-integrity and truth-priority gate", async () => {
+    const text = await loadProtocol("universal");
+
+    for (const required of [
+      '<revision version="20.5.12" priority="Critical">',
+      '<premise_integrity_and_truth_priority_gate priority="Critical">',
+      "Accuracy outranks agreement",
+      "factual assertions embedded in a prompt",
+      "This does not exist.",
+      "I could not verify that this exists",
+      "I cannot independently verify this source/data.",
+      "Labeled inference and estimation remain permitted",
+      "Premise-integrity check:"
+    ]) {
+      expect(text).toContain(required);
+    }
   });
 
   it("returns the original Universal file text unchanged", async () => {
