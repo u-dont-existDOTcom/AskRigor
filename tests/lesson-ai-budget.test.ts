@@ -99,7 +99,9 @@ describe("persistent lesson AI budget", () => {
     const secondStat = await lstat(ledgerPath);
     expect(firstStat.ino).not.toBe(secondStat.ino);
     expect(secondStat.mode & 0o777).toBe(0o600);
-    expect((await import("node:fs/promises")).readdir(directory)).resolves.toEqual(["ai-budget.json"]);
+    await expect((await import("node:fs/promises")).readdir(directory)).resolves.toEqual([
+      "ai-budget.json"
+    ]);
 
     const restartedBudget = createFileAiBudget(options);
     expect(await restartedBudget.reserve("privacy_generalization", 45_000_000_000)).toBeDefined();
