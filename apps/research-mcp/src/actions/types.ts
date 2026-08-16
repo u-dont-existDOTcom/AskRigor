@@ -12,6 +12,13 @@ export interface ActionResult {
   headers?: Readonly<Record<string, string>>;
 }
 
+export class ActionResponseTooLargeError extends Error {
+  constructor(message = "Valid Action output cannot fit the response byte limit") {
+    super(message);
+    this.name = "ActionResponseTooLargeError";
+  }
+}
+
 export interface ActionRequiredResponseHeader {
   required: true;
   description: string;

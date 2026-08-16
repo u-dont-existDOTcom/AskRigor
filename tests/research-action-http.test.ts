@@ -10,6 +10,8 @@ import {
   createConcurrencyLimiter,
   createTokenBucketLimiter
 } from "../apps/research-mcp/src/rate-limit.js";
+import { ActionResponseTooLargeError } from
+  "../apps/research-mcp/src/actions/types.js";
 
 const publicResearchRoute = (handle?: ActionRoute["handle"]): ActionRoute => ({
   method: "POST",
@@ -167,6 +169,22 @@ describe("research Action HTTP boundaries", () => {
       researchActionsEnabled: true,
       actionsEnabled: false,
       actionRoutes: [route(59_990)]
+    }, async (baseUrl) => {
+      const response = await researchRequest(baseUrl);
+      expect(response.status).toBe(502);
+      expect(await response.json()).toEqual({
+        error: { code: "action_response_too_large", retryable: false }
+      });
+    });
+  });
+
+  it("maps an irreducible Action adapter overflow to the declared 502 boundary", async () => {
+    await withServer({
+      researchActionsEnabled: true,
+      actionsEnabled: false,
+      actionRoutes: [publicResearchRoute(async () => {
+        throw new ActionResponseTooLargeError("Valid research output cannot fit the Action ceiling");
+      })]
     }, async (baseUrl) => {
       const response = await researchRequest(baseUrl);
       expect(response.status).toBe(502);

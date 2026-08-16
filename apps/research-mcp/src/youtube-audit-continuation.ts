@@ -241,7 +241,10 @@ export function advanceYoutubeAuditState(
     identifiers.add(comment_id);
   }
   const sampleIdentifiers = [...identifiers]
-    .sort((left, right) => sampleRank(left).localeCompare(sampleRank(right)) || left.localeCompare(right))
+    .sort((left, right) =>
+      rankYoutubeCommentIdentifier(left).localeCompare(rankYoutubeCommentIdentifier(right)) ||
+      left.localeCompare(right)
+    )
     .slice(0, MAX_ANALYSIS_RECORDS)
     .map((comment_id) => ({ comment_id }));
   const mismatchByParent = new Map(
@@ -297,7 +300,7 @@ function invalidContinuation(message: string): YoutubeAuditContinuationError {
   );
 }
 
-function sampleRank(commentId: string): string {
+export function rankYoutubeCommentIdentifier(commentId: string): string {
   return createHash("sha256").update(commentId).digest("hex");
 }
 

@@ -7,6 +7,8 @@ import {
 import { RESEARCH_OPERATIONS } from "../register-tools.js";
 import type { ResearchOperation } from "../research-operation.js";
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
+import { youtubeVideoCommunityAuditOutputSchema } from
+  "../youtube-video-community-audit.js";
 import {
   createProtocolActionChunk,
   ProtocolActionContinuationError,
@@ -14,6 +16,7 @@ import {
   protocolActionChunkOutputSchema,
   type ProtocolActionChunkDependencies
 } from "./protocol-continuation.js";
+import { boundYoutubeAuditForAction } from "./research-output.js";
 import type {
   ActionRequestContext,
   ActionResult,
@@ -137,7 +140,7 @@ function createResearchActionRoute(operation: ResearchOperation): ActionRoute {
     path: operation.actionPath,
     operationId: operation.name,
     summary: `AskRigor ${operation.name.replaceAll("_", " ")}`,
-    description: operation.description,
+    description: researchActionDescription(operation),
     consequential: false,
     public: true,
     publicResearch: true,
@@ -162,9 +165,29 @@ function createResearchActionRoute(operation: ResearchOperation): ActionRoute {
       if (!parsedOutput.success) {
         throw new Error("Research operation returned invalid structured output");
       }
-      return { status: 200, body: parsedOutput.data };
+      const actionOutput = operation.name === "audit_youtube_video_community"
+        ? boundYoutubeAuditForAction(
+            youtubeVideoCommunityAuditOutputSchema.parse(parsedOutput.data),
+            RESEARCH_ACTION_RESPONSE_MAX_BYTES
+          )
+        : parsedOutput.data;
+      const validatedActionOutput = outputSchema.safeParse(actionOutput);
+      if (!validatedActionOutput.success) {
+        throw new Error("Research Action adapter returned invalid structured output");
+      }
+      return { status: 200, body: validatedActionOutput.data };
     }
   });
+}
+
+function researchActionDescription(operation: ResearchOperation): string {
+  if (
+    operation.name === "get_youtube_comments" ||
+    operation.name === "audit_youtube_community"
+  ) {
+    return `${operation.description} This legacy envelope is never trimmed; if it returns action_response_too_large, use survey_youtube_community followed by the resumable audit_youtube_video_community operation.`;
+  }
+  return operation.description;
 }
 
 function objectSchema(

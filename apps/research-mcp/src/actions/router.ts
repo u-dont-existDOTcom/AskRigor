@@ -12,7 +12,11 @@ import {
   readActionJsonBody
 } from "./body.js";
 import { isCanonicalRawPath } from "./path.js";
-import type { ActionResult, ActionRoute } from "./types.js";
+import {
+  ActionResponseTooLargeError,
+  type ActionResult,
+  type ActionRoute
+} from "./types.js";
 
 const OPENAPI_PATH = "/actions/openapi.json";
 const RESERVED_PATHS = new Set(["/mcp", "/healthz", OPENAPI_PATH]);
@@ -151,7 +155,13 @@ export async function dispatchActionRequest(
       return true;
     }
     writeSerializedJson(response, result.status, serialized, result.headers);
-  } catch {
+  } catch (error) {
+    if (error instanceof ActionResponseTooLargeError) {
+      writeJson(response, 502, {
+        error: { code: "action_response_too_large", retryable: false }
+      });
+      return true;
+    }
     writeJson(response, 500, { error: { code: "action_internal_error", retryable: false } });
   } finally {
     releasePermit();
