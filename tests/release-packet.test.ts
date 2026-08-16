@@ -199,7 +199,7 @@ describe("AskRigor public-review packet", () => {
     expect(setup).toContain("direct `/g/...`");
     expect(release).toContain("DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PENDING");
     expect(release).toContain("dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4");
-    expect(state).toContain("codex/custom-gpt-live-acceptance-2026-08-16");
+    expect(state).toContain("codex/openai-action-schema-compat-2026-08-16");
     expect(state).toContain("Custom GPT editor/UI acceptance remains pending");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);

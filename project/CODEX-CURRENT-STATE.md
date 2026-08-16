@@ -9,9 +9,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main` at Custom GPT bridge merge
-  `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; active isolated evidence branch
-  `codex/custom-gpt-live-acceptance-2026-08-16` starts from that exact commit.
+- Canonical branch: `main` at direct-acceptance evidence merge
+  `2b9de54b75581dd285e9ae0da3e613a1e743ad1d`; active isolated compatibility
+  branch `codex/openai-action-schema-compat-2026-08-16` starts from that exact
+  commit.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -48,11 +49,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   concurrency pool. Responses remain limited to **60,000 serialized UTF-8
   bytes** and exact protocol chunks to **48,000 UTF-8 bytes**.
 - The generated packet remains reproducible: committed OpenAPI SHA-256
-  `d281f5727ab57a9edb0a63276bf51e08b2fdd9ff1ba9722725fc1800d58fd1ec`,
+  candidate `ca7abeb54ee688f4837637abe2c08cfa9de4565d013d49f267df9bbe2c08f377`,
   Instructions
   `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`,
-  and sync ledger
-  `f87b63127ee95732ed92e289134ae583bfadd12d0a40e030e866569c0c6b13f7`.
+  and candidate sync ledger
+  `e6f309e14152dc9b1c6c167ed908e1a73caa8dce568cd44c49bee98b750291c1`.
   The sole editor instruction source is `docs/custom-gpt-instructions.md`;
   Knowledge must remain empty.
 - The transactional site release is
@@ -73,7 +74,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - GitHub Free cannot protect a private personal repository: the hosted API
   returned HTTP 403 with the exact Pro/public requirement. This is a declared
   `AskRigor-lessons` governance exception, not a claim of protection.
-- Custom GPT editor/UI acceptance remains pending. The editor must use
+- The first Custom GPT schema import exposed three editor-compatibility defects:
+  missing object-valued `components.schemas`, plus 357- and 493-character
+  descriptions over OpenAI's 300-character operation limit. The isolated
+  candidate now emits `schemas: {}`, gives both legacy YouTube Action routes
+  exact 201-character descriptions, and rejects any future exported description
+  over 300. Focused red/green coverage passed 16/16; complete verification
+  passed 49 files and 881 tests with one file and five tests skipped as declared,
+  typecheck/build passed, site validation covered four pages, deployment-policy
+  tests passed 28/28, and the portable audit returned no findings. The candidate
+  is not merged or deployed yet.
+- Custom GPT editor/UI acceptance remains pending. After the compatibility
+  candidate is merged and deployed, the editor must use
   `docs/custom-gpt-instructions.md`, empty Knowledge, the live OpenAPI URL,
   Bearer authentication, and a new unpublished chat. `gpt.askrigor.com` must
   not be repointed until the UI cases pass and the actual direct `/g/...` URL is
@@ -196,11 +208,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   records this as `in_progress`; it does not claim completion or an identity
   service-level time.
 - The separate Custom GPT compatibility surface is deployed but unpublished.
-  Its new-chat editor/UI acceptance and direct `/g/...` URL remain pending.
+  Its first schema import rejected the deployed document for the three exact
+  compatibility defects recorded above. The tested repair is local only; its
+  merge, deployment, re-import, new-chat acceptance, and direct `/g/...` URL
+  remain pending.
 
 ## Remaining
 
-- Install the generated Custom GPT instructions/schema in the unpublished GPT,
+- Merge and deploy the OpenAI Action schema compatibility candidate, then
+  re-import the generated Custom GPT instructions/schema in the unpublished GPT,
   keep Knowledge empty, configure the existing Action key as Bearer auth, and
   run the product-interface cases in a new chat.
 - After those cases pass, publish the Custom GPT, verify its direct `/g/...`
@@ -217,9 +233,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- No repository implementation, dependency, test, audit, deployment, or
-  credential blocker remains for the Custom GPT bridge. Its UI acceptance
-  requires the owner's authenticated ChatGPT editor session.
+- The Custom GPT bridge implementation is green locally, but the importer fix
+  remains unmerged and undeployed. Final UI acceptance still requires the
+  owner's authenticated ChatGPT editor session after deployment.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -251,8 +267,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Merge the focused direct-acceptance evidence PR after its protected checks pass.
-Then complete the irreducible Custom GPT editor step using
+Commit and merge the focused OpenAI Action schema compatibility repair after
+its protected checks pass, deploy the exact merge reversibly, and then repeat
+the irreducible Custom GPT editor import using
 `docs/custom-gpt-instructions.md`, empty Knowledge, the deployed Action schema,
 Bearer authentication, and a new unpublished chat. Do not repoint the GPT
 subdomain until the UI receipts and direct `/g/...` URL are verified.
@@ -260,7 +277,7 @@ subdomain until the UI receipts and direct `/g/...` URL are verified.
 ## Recovery rule
 
 After interruption, inspect actual Git state, this checkpoint, complete protocol
-files, current release evidence, merged PRs #9 through #15, AskRigor hardening
+files, current release evidence, merged PRs #9 through #16, AskRigor hardening
 issue #6, private synthetic lesson `ARL-0006`, and newer owner instructions.
 Resume from the latest verified boundary without touching the dirty original
 checkout or repeating direct production acceptance.
