@@ -29,24 +29,49 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Design and execution plan commits are `5c149c7` and `eaaf671`. Implemented
   slices are registry `2a2a988`, read-only Action routes `1ea0c0b`, exact
   protocol chunks `b6575d1`, shared traffic/response limits `1387c2d`, truthful
-  YouTube transport bounding `b441382`, and generated GPT packet `ee52876`.
+  YouTube transport bounding `b441382`, generated GPT packet `ee52876`,
+  documentation/privacy reconciliation `fbd9c28`, and installation-source
+  classification `d14f530`.
 - `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` independently enables research
   Actions. They share MCP's transient provider flow, per-client token bucket,
   and 16-request concurrency pool. Responses are limited to **60,000 serialized
   UTF-8 bytes** and protocol chunks to **48,000 UTF-8 bytes**.
 - `npm run generate:custom-gpt` twice produced identical OpenAPI, instruction,
-  and sync hashes. The generated Instructions source is
+  and sync hashes. The final candidate hashes are OpenAPI
+  `d281f5727ab57a9edb0a63276bf51e08b2fdd9ff1ba9722725fc1800d58fd1ec`,
+  Instructions
+  `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`,
+  and sync ledger
+  `f87b63127ee95732ed92e289134ae583bfadd12d0a40e030e866569c0c6b13f7`.
+  The generated Instructions source is
   `docs/custom-gpt-instructions.md`; Knowledge must remain empty.
 - Focused gates passed: registry/MCP 237 tests; Action composition 84 tests;
   traffic/response boundaries 158 tests; YouTube/bridge 51 tests; generated
   packet 8 tests. Typecheck passed after each behavioral slice. The branch
   baseline `npm run verify` passed before implementation with 43 files, 848
   tests, five skips, typecheck, and build.
+- Independent code review found two Important issues and no Critical issues.
+  Commit `6df7784` now rejects research-Action startup unless the existing
+  server-only continuation secret contains at least 32 UTF-8 bytes, and every
+  generated Action operation declares the router-owned 500
+  `action_internal_error` response. Focused red/green coverage passes 81/81.
+  Commit `4eb6021` awaits a previously leaked durable-budget assertion after
+  the full gate exposed the warning and resource-sensitive timeout.
+- The complete candidate gate passes: `npm run verify` produced 48 passing
+  files, one credential-gated file skipped, 878 passing tests, five skipped,
+  and successful typecheck and build.
+- Final repository-visible gates also pass: the public-site validator covered
+  four pages, the deployment suite passed 28/28, and the current universal
+  portable audit returned `PASS: no findings.` The lesson checkpoint at
+  `2026-08-16T06:32:42.747Z` remained available with zero open, needs-review,
+  accepted-not-incorporated, or deletion-eligible candidates and one
+  incorporated-or-closed record.
 - This work is unpushed, unmerged, and not deployed. Existing production lesson
   Action and MCP evidence below is unchanged. The research bridge has pending GPT editor work and all live acceptance fields remain `pending`.
-- Current task: finish documentation/site reconciliation, run the final local
-  gates, review the complete diff, then publish through one focused PR before
-  any reversible production deployment.
+- Current task: run the final site and diff gates, publish through one focused
+  PR, wait for protected checks, merge, and preserve a production rollback
+  point before the reversible deployment. The GPT-editor acceptance remains a
+  separate irreducible product step after the server is live.
 
 ## Completed
 
@@ -213,9 +238,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Complete the Custom GPT bridge documentation/site gates, run the full
-deterministic verification on the final candidate, review and publish the one
-task branch, then preserve a production rollback point before enabling
+Review and publish the one Custom GPT bridge task branch, wait for the protected
+checks, merge it, then preserve a production rollback point before enabling
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true`. The irreducible GPT-editor step uses
 `docs/custom-gpt-instructions.md`, empty Knowledge, and the generated Action
 schema; no live state may be inferred before the 11-case record is complete.
