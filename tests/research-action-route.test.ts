@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -199,5 +201,74 @@ describe("read-only research Action routes", () => {
         "Invalid public research Action route"
       );
     }
+  });
+
+  it("uses exact bounded continuation only for the Action load_protocol form", async () => {
+    const module = await import("../apps/research-mcp/src/index.js") as
+      Record<string, unknown>;
+    const factory = module.createResearchActionRoutes as (options: {
+      protocolChunkDependencies: {
+        continuationSecret: string;
+        now: () => number;
+        loadProtocol: () => Promise<string>;
+        getProtocolManifest: () => Promise<{
+          name: string;
+          version: string;
+          revisionDate: string;
+          sha256: string;
+        }>;
+      };
+    }) => readonly ActionRoute[];
+    const protocolText = `<Protocol>${"x".repeat(60_000)}</Protocol>`;
+    const digest = createHash("sha256")
+      .update(Buffer.from(protocolText, "utf8"))
+      .digest("hex");
+    const routes = factory({
+      protocolChunkDependencies: {
+        continuationSecret: "c".repeat(32),
+        now: () => 1_787_000_000_000,
+        async loadProtocol() {
+          return protocolText;
+        },
+        async getProtocolManifest() {
+          return {
+            name: "AskRigor HRP",
+            version: "test",
+            revisionDate: "2026-08-16",
+            sha256: digest
+          };
+        }
+      }
+    });
+    const route = routes.find(({ operationId }) => operationId === "load_protocol");
+    expect(route).toBeDefined();
+
+    const first = await route!.handle(context({ protocol: "hrp" }));
+    expect(first.status).toBe(200);
+    expect(first.body).toMatchObject({
+      ok: true,
+      protocol: "hrp",
+      chunk_index: 0,
+      chunk_count: 2,
+      complete: false
+    });
+    expect(Buffer.byteLength(
+      (first.body as { text: string }).text,
+      "utf8"
+    )).toBeLessThanOrEqual(48_000);
+
+    const invalid = await route!.handle(context({
+      protocol: "hrp",
+      cursor: "not-a-valid-token"
+    }));
+    expect(invalid).toEqual({
+      status: 422,
+      body: {
+        error: {
+          code: "protocol_action_continuation_invalid",
+          retryable: false
+        }
+      }
+    });
   });
 });

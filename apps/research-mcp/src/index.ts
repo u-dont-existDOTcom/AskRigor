@@ -6,6 +6,7 @@ import { createAskRigorHttpServer } from "./server.js";
 
 export { createAskRigorHttpServer, createAskRigorServer } from "./server.js";
 export { createActionOpenApiDocument } from "./actions/openapi.js";
+export { createProtocolActionChunk } from "./actions/protocol-continuation.js";
 export { createResearchActionRoutes } from "./actions/research-routes.js";
 export { createEnabledActionRoutes } from "./actions/runtime.js";
 export { RESEARCH_OPERATIONS } from "./register-tools.js";
