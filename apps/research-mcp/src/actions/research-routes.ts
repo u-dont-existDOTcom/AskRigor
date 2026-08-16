@@ -185,7 +185,7 @@ function researchActionDescription(operation: ResearchOperation): string {
     operation.name === "get_youtube_comments" ||
     operation.name === "audit_youtube_community"
   ) {
-    return `${operation.description} This legacy envelope is never trimmed; if it returns action_response_too_large, use survey_youtube_community followed by the resumable audit_youtube_video_community operation.`;
+    return "Legacy untrimmed YouTube community response; it may return action_response_too_large. Use survey_youtube_community, then resumable audit_youtube_video_community. Retrieval only; no medical conclusions.";
   }
   return operation.description;
 }

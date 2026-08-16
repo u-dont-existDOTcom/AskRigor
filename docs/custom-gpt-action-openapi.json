@@ -10,6 +10,7 @@
     }
   ],
   "components": {
+    "schemas": {},
     "securitySchemes": {
       "bearerAuth": {
         "type": "http",
@@ -5472,7 +5473,7 @@
       "post": {
         "operationId": "get_youtube_comments",
         "summary": "AskRigor get youtube comments",
-        "description": "Retrieve all API-visible YouTube top-level comments and, by default, every independently paginated reply with explicit completeness accounting; no medical conclusions are generated. This legacy envelope is never trimmed; if it returns action_response_too_large, use survey_youtube_community followed by the resumable audit_youtube_video_community operation.",
+        "description": "Legacy untrimmed YouTube community response; it may return action_response_too_large. Use survey_youtube_community, then resumable audit_youtube_video_community. Retrieval only; no medical conclusions.",
         "x-openai-isConsequential": false,
         "responses": {
           "200": {
@@ -6753,7 +6754,7 @@
       "post": {
         "operationId": "audit_youtube_community",
         "summary": "AskRigor audit youtube community",
-        "description": "Use before synthesis whenever firsthand community evidence could plausibly matter. In one read-only call, search YouTube, deduplicate bounded provider-ranked videos, retrieve metadata, unfiltered comments and all accessible replies, and return a deterministic completion receipt; no medical conclusions are generated. This legacy envelope is never trimmed; if it returns action_response_too_large, use survey_youtube_community followed by the resumable audit_youtube_video_community operation.",
+        "description": "Legacy untrimmed YouTube community response; it may return action_response_too_large. Use survey_youtube_community, then resumable audit_youtube_video_community. Retrieval only; no medical conclusions.",
         "x-openai-isConsequential": false,
         "responses": {
           "200": {

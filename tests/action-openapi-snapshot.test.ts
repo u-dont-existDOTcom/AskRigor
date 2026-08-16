@@ -39,8 +39,12 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
       "x-openai-isConsequential": true,
       security: [{ bearerAuth: [] }],
     });
-    expect(String(operation?.summary).length).toBeLessThanOrEqual(300);
-    expect(String(operation?.description).length).toBeLessThanOrEqual(700);
+    for (const methods of Object.values(document.paths)) {
+      for (const candidate of Object.values(methods)) {
+        expect(String(candidate.summary).length).toBeLessThanOrEqual(300);
+        expect(String(candidate.description).length).toBeLessThanOrEqual(300);
+      }
+    }
     expect(operation?.requestBody).toMatchObject({
       required: true,
       content: {

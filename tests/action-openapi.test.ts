@@ -27,6 +27,7 @@ describe("Action OpenAPI document", () => {
     expect(document.openapi).toBe("3.1.0");
     expect(document.servers).toEqual([{ url: "https://mcp.askrigor.com" }]);
     expect(document.components).toEqual({
+      schemas: {},
       securitySchemes: {
         bearerAuth: { type: "http", scheme: "bearer" }
       }
