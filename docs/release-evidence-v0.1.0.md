@@ -13,40 +13,43 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — LOCAL CANDIDATE — NOT DEPLOYED
+## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PENDING
 
-The current task branch contains a locally verified candidate that exposes the
-same frozen 17 read-only research operations through Custom GPT Actions while
-retaining the existing consequential lesson write. It is independently gated
-by `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true`, uses the same transient provider
-flow and shared public rate/concurrency limits as MCP, caps serialized Action
-responses at **60,000 UTF-8 bytes**, and caps each exact protocol-text chunk at
-**48,000 UTF-8 bytes**. The generated schema/instructions/sync packet passed its
-focused deterministic tests. This paragraph is not production, GPT-editor, or
-public-GPT proof.
+PR #15 merged exact implementation head
+`be641bf568c401992ff4aa9fe885552d6cfb2dca` as
+`dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. Production now exposes the frozen
+17 read-only operations through Custom GPT Actions while retaining the separate
+consequential lesson write. `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active;
+the Actions use MCP's same transient provider flow, shared public token bucket
+and concurrency pool, **60,000-byte** serialized-response ceiling, and
+**48,000-byte** exact protocol chunks.
 
-Historical production evidence below remains historical and continues to prove
-only the revisions and lesson/MCP behavior it names. The research Action bridge
-requires a merged commit, immutable deployment, fresh live schema, all 11
-synthetic acceptance cases, post-test MCP inventory equality, privacy-site
-activation, and the actual direct GPT URL before it can be called live.
+The exact deployed server passed direct protocol, PubMed, ClinicalTrials.gov,
+Crossref, YouTube, malformed/oversized transport, rate/recovery, private lesson,
+append-only duplicate, authentication isolation, health, and frozen MCP checks.
+The complete sanitized receipts are in
+`docs/custom-gpt-action-live-acceptance.md`. Custom GPT editor/UI acceptance and
+the actual direct `/g/...` URL remain pending; direct server evidence does not
+prove product-interface behavior, and `gpt.askrigor.com` must not be repointed
+yet.
 
 ## Artifact and endpoint identity
 
 | Item | Evidence |
 | --- | --- |
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
-| Production connector revision | Public-review/refetch application tag `9715812bfbe3133a755f7ec8ffb91a870629a137`, deployed as image ID `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`. Its application bytes add the live YouTube comment-ID response-shape repair and retain the accepted Lesson-Action behavior from revision `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`. The immediate rollback tag `askrigor-research:rollback-9715812` resolves to prior image `sha256:b78653b181346727eefedc31c903e93818d51a88cd4ad967d91e936e9d8f57a8`. Earlier Forum Signal revision `bb2245f04f6e1f7bfed8d146c92497364d6488f7` and the separately recorded Actions-disabled image remain historical provenance. |
+| Production connector revision | Custom GPT bridge merge `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`, image tag `askrigor-research:dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`, image ID `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`, healthy container `3106e8ffe627a2d8dc53fbe651b35488ccd08a691b4ad24625494f78ea517bb4`. Immediate rollback: `askrigor-research:rollback-dd73d7d` plus `/opt/askrigor/compose.yaml.rollback-dd73d7d`, restoring prior image `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
-| Canonical HRP | Version `20.5.17`, revision date `2026-08-13`, SHA-256 `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; the public manifest returned this exact identity after the Lesson-Action rollout. |
-| Production source packet | Exact secret-free `git archive` from `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; SHA-256 `d128247d2aa12a830514e515c9f74666a4e0558955f3de60a301af1ec2690600`. |
+| Canonical protocols | HRP `20.5.18`, revision `2026-08-16`, SHA-256 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.12`, revision `2026-08-16`, SHA-256 `3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`. Direct Action loading covered every exact byte. |
+| Production source packet | Exact secret-free `git archive` from `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; SHA-256 `415ec31cdd4e1393ec403dc7314b7fcbdb2de1ddaad9a914e6d9b7fe58e203e2`. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
 | Historical live-provider suite | `/opt/askrigor/validation/live-suite-20260811T172130Z-71611`; source `9d1d751`; retained as the initial provider-green run whose wrapper had an ANSI false negative. |
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
-| Public site source | Current lesson-disclosure source `56d13b73e74c377cfd6d513a5f4ceeec9949e0bf` (`fix: scope lesson logging disclosure`), activated as site release `56d13b73e74c`; prior immutable research-only release `/opt/askrigor/site/releases/f928b95e29cd` remains historical rollback evidence. |
-| Public site packet | SHA-256 `ac49ecccf264f821e75212ad817dc9e3070600c931732222cc72ca552b25919e`; initial TLS-bootstrap evidence `/opt/askrigor/site/bootstrap/20260812T043156Z-3nU8HLDE/evidence`. |
+| Public site source | Custom GPT disclosure from merge `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`, active at `/opt/askrigor/site/releases/dd73d7dccb6b-v2/site`; live privacy bytes SHA-256 `3dbe92623be62da3fd18edcbe20e71fa710b3f8f40419b2b91f3ce01459ad35e`. |
+| Public site packet | SHA-256 `7033719202391ad384976fb0c7dbf30ca197445b549bc68f7009e736643f9b07`; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `6babf4d56e37219a23b6865934d8a07ac3d9748a03e950dd5b6b3fbca67b32b6`; committed pretty OpenAPI `d281f5727ab57a9edb0a63276bf51e08b2fdd9ff1ba9722725fc1800d58fd1ec`; instructions `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`; sync ledger `f87b63127ee95732ed92e289134ae583bfadd12d0a40e030e866569c0c6b13f7`. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -72,6 +75,7 @@ run the VPS validation.
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
+| Custom GPT bridge direct acceptance | Universal loaded in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Final health and the exact 17-tool MCP inventory passed. GPT editor/UI cases remain pending. |
 
 Interface-evidence lesson closeout: **project-specific / no-new-lesson**. The
 separation of direct server proof, API-model proof, and product-interface proof
@@ -110,7 +114,8 @@ file remained `root:root`, mode `0600`, with unchanged mtime; its contents were
 not read, copied, printed, or checksummed.
 
 The Forum Signal rollout later recreated only `research-mcp` as container
-`4f72903f8789` from revision `bb2245f04f6e`; Caddy remained
+`4f72903f8789` from revision
+`bb2245f04f6e1f7bfed8d146c92497364d6488f7`; Caddy remained
 `81b212e28866`, the active site remained
 `/opt/askrigor/site/releases/f928b95e29cd/site`, all five public health/site
 checks returned `200`, the MCP transport probe returned the expected `406`, and

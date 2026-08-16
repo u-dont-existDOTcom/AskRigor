@@ -164,7 +164,7 @@ describe("AskRigor public-review packet", () => {
     expect(releaseEvidence).toContain("56d13b73e74c377cfd6d513a5f4ceeec9949e0bf");
   });
 
-  it("keeps the research Action bridge documented as a verified local candidate until live acceptance", async () => {
+  it("records deployed direct acceptance without claiming unfinished Custom GPT UI proof", async () => {
     const [setup, privacyMap, privacySite, readme, index, release, state, acceptance] =
       await Promise.all([
         readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
@@ -197,19 +197,20 @@ describe("AskRigor public-review packet", () => {
     expect(privacySite).toContain("public provider metadata and comment text");
     expect(setup).toContain("does not disable lesson capture or MCP");
     expect(setup).toContain("direct `/g/...`");
-    expect(release).toContain("LOCAL CANDIDATE — NOT DEPLOYED");
-    expect(release).toContain("Historical production evidence below remains historical");
-    expect(state).toContain("codex/calibrated-discovery-v0.2-design-2026-08-16");
-    expect(state).toContain("pending GPT editor work");
+    expect(release).toContain("DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PENDING");
+    expect(release).toContain("dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4");
+    expect(state).toContain("codex/custom-gpt-live-acceptance-2026-08-16");
+    expect(state).toContain("Custom GPT editor/UI acceptance remains pending");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
-    expect(acceptance).toContain("Result: `pending`");
+    expect(acceptance).toContain("DIRECT PASS");
+    expect(acceptance).toContain("GPT UI pending");
     for (const field of [
       "UTC time", "deployed commit", "deployed image", "OpenAPI SHA-256",
-      "instructions SHA-256", "request class", "sanitized result", "limitation"
+      "instructions SHA-256", "Request class", "Sanitized result", "Limitation"
     ]) expect(acceptance).toContain(field);
-    expect(acceptance).toContain("post-test MCP inventory");
-    expect(acceptance).toContain("protocol chunk coverage");
+    expect(acceptance).toContain("Post-test MCP inventory");
+    expect(acceptance).toContain("Protocol chunk coverage");
   });
 
   it("distinguishes transient research logs from the aggregate lesson budget ledger", async () => {
