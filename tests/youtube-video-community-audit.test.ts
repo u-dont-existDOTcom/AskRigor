@@ -598,6 +598,35 @@ describe("adaptive per-video YouTube community audit", () => {
     ]));
   });
 
+  it("fails closed when a malformed terminal refetch retains earlier valid records", async () => {
+    const comments = makeComments(3);
+    const dependencies = completeDependencies(comments);
+    dependencies.get_comments_by_ids = vi.fn(async () => ({
+      access_status: "error" as const,
+      comments: comments.slice(0, 2),
+      limitations: ["YouTube returned an invalid comment-ID refetch response."]
+    }));
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      extraction_coverage: "partial",
+      records_retrieved_cumulative: 3,
+      records_returned_for_analysis: 0,
+      receipt: {
+        completion_state: "incomplete",
+        synthesis_lock: "block",
+        top_level_pagination_exhausted: true,
+        blockers: [expect.stringMatching(/restart.*video/i)]
+      }
+    });
+    expect(result.sample).toBeUndefined();
+  });
+
   it("does not recommend an unretryable continuation cursor", async () => {
     const dependencies: YoutubeVideoCommunityAuditDependencies = {
       get_video: vi.fn(async () => videoEnvelope("400")),

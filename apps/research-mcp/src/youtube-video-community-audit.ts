@@ -332,6 +332,7 @@ export async function auditYoutubeVideoCommunity(
       );
       const returnedIds = refetched.comments.map(({ comment_id }) => comment_id);
       if (
+        refetched.access_status === "error" ||
         new Set(returnedIds).size !== returnedIds.length ||
         returnedIds.some((id) => !sampleIds.includes(id)) ||
         refetched.comments.some(({ video_id }) => video_id !== videoId)
