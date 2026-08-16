@@ -185,6 +185,39 @@ describe("read-only research Action routes", () => {
       operation.security === undefined &&
       operation["x-openai-isConsequential"] === false
     )).toBe(true);
+
+    const manifestOperation = document.paths[
+      "/actions/research/get_protocol_manifest"
+    ]!.post as unknown as { responses: Record<string, unknown> };
+    expect(Object.keys(manifestOperation.responses)).toEqual([
+      "200", "400", "413", "422", "429", "502", "503"
+    ]);
+    expect(manifestOperation.responses).toMatchObject({
+      429: {
+        content: { "application/json": { schema: {
+          properties: { error: { properties: {
+            code: { const: "action_rate_limit_exceeded" },
+            retryable: { const: true }
+          } } }
+        } } }
+      },
+      502: {
+        content: { "application/json": { schema: {
+          properties: { error: { properties: {
+            code: { const: "action_response_too_large" },
+            retryable: { const: false }
+          } } }
+        } } }
+      },
+      503: {
+        content: { "application/json": { schema: {
+          properties: { error: { properties: {
+            code: { const: "action_concurrency_limit_exceeded" },
+            retryable: { const: true }
+          } } }
+        } } }
+      }
+    });
   });
 
   it("rejects contradictory public-research route metadata", () => {
@@ -200,6 +233,23 @@ describe("read-only research Action routes", () => {
       expect(() => validateActionRoutes([route])).toThrow(
         "Invalid public research Action route"
       );
+    }
+  });
+
+  it("rejects nonpositive or unsafe Action response byte limits", () => {
+    const [base] = createResearchActionRoutes().slice(0, 1);
+    expect(base).toBeDefined();
+
+    for (const maximumResponseBytes of [
+      0,
+      -1,
+      1.5,
+      Number.MAX_SAFE_INTEGER + 1
+    ]) {
+      expect(() => validateActionRoutes([{
+        ...base!,
+        maximumResponseBytes
+      }])).toThrow("Invalid Action response byte limit");
     }
   });
 

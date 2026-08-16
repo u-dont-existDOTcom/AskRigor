@@ -6,6 +6,7 @@ import {
 
 import { RESEARCH_OPERATIONS } from "../register-tools.js";
 import type { ResearchOperation } from "../research-operation.js";
+import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
 import {
   createProtocolActionChunk,
   ProtocolActionContinuationError,
@@ -92,6 +93,7 @@ function createProtocolActionRoute(
     consequential: false,
     public: true,
     publicResearch: true,
+    maximumResponseBytes: RESEARCH_ACTION_RESPONSE_MAX_BYTES,
     requestSchema: actionJsonSchema(protocolActionChunkInputSchema),
     responseSchemas: {
       200: actionJsonSchema(protocolActionChunkOutputSchema),
@@ -139,6 +141,7 @@ function createResearchActionRoute(operation: ResearchOperation): ActionRoute {
     consequential: false,
     public: true,
     publicResearch: true,
+    maximumResponseBytes: RESEARCH_ACTION_RESPONSE_MAX_BYTES,
     requestSchema: actionJsonSchema(inputSchema),
     responseSchemas: {
       200: actionJsonSchema(outputSchema),

@@ -2,6 +2,9 @@ export const SERVICE_NAME = "askrigor-research";
 export const SERVICE_VERSION = "0.1.0";
 export const DEFAULT_PORT = 3000;
 export const MAX_MCP_REQUEST_BYTES = 1_048_576;
+export const ACTION_REQUEST_MAX_BYTES = 8_192;
+export const RESEARCH_ACTION_RESPONSE_MAX_BYTES = 60_000;
+export const PROTOCOL_ACTION_TEXT_MAX_BYTES = 48_000;
 export const PUBLIC_MCP_CONCURRENCY_LIMIT = 16;
 
 export const PUBLIC_RATE_LIMIT = {
@@ -38,6 +41,12 @@ export function publicServerIsEnabled(
 
 export function actionsAreEnabled(
   value = process.env.ASKRIGOR_ACTIONS_ENABLED
+): boolean {
+  return value === "true";
+}
+
+export function researchActionsAreEnabled(
+  value = process.env.ASKRIGOR_RESEARCH_ACTIONS_ENABLED
 ): boolean {
   return value === "true";
 }

@@ -6,6 +6,17 @@ const BAD_REQUEST_SCHEMA = actionErrorSchema({
 });
 const AUTH_REQUIRED_SCHEMA = actionErrorSchema({ const: "action_auth_required" });
 const BODY_TOO_LARGE_SCHEMA = actionErrorSchema({ const: "action_body_too_large" });
+const RESEARCH_RATE_LIMIT_SCHEMA = actionErrorSchema(
+  { const: "action_rate_limit_exceeded" },
+  true
+);
+const RESEARCH_RESPONSE_TOO_LARGE_SCHEMA = actionErrorSchema({
+  const: "action_response_too_large"
+});
+const RESEARCH_CONCURRENCY_SCHEMA = actionErrorSchema(
+  { const: "action_concurrency_limit_exceeded" },
+  true
+);
 
 export function createActionOpenApiDocument(
   routes: readonly ActionRoute[]
@@ -23,6 +34,11 @@ export function createActionOpenApiDocument(
     }
     if (!route.public) {
       responseSchemas[401] = AUTH_REQUIRED_SCHEMA;
+    }
+    if (route.publicResearch === true) {
+      responseSchemas[429] = RESEARCH_RATE_LIMIT_SCHEMA;
+      responseSchemas[502] = RESEARCH_RESPONSE_TOO_LARGE_SCHEMA;
+      responseSchemas[503] = RESEARCH_CONCURRENCY_SCHEMA;
     }
 
     const operation: Record<string, unknown> = {
@@ -72,10 +88,14 @@ export function createActionOpenApiDocument(
 
 function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
   return (route.method === "POST" && (status === 400 || status === 413)) ||
-    (!route.public && status === 401);
+    (!route.public && status === 401) ||
+    (route.publicResearch === true && [429, 502, 503].includes(status));
 }
 
-function actionErrorSchema(codeSchema: Record<string, unknown>): Record<string, unknown> {
+function actionErrorSchema(
+  codeSchema: Record<string, unknown>,
+  retryable = false
+): Record<string, unknown> {
   return {
     type: "object",
     additionalProperties: false,
@@ -87,7 +107,7 @@ function actionErrorSchema(codeSchema: Record<string, unknown>): Record<string, 
         required: ["code", "retryable"],
         properties: {
           code: codeSchema,
-          retryable: { const: false }
+          retryable: { const: retryable }
         }
       }
     }
