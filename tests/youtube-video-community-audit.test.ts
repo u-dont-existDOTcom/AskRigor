@@ -557,6 +557,47 @@ describe("adaptive per-video YouTube community audit", () => {
     });
   });
 
+  it("returns a disclosed bounded sample when some terminal sample IDs are no longer refetchable", async () => {
+    const comments = makeComments(3);
+    const availableComments = comments.slice(0, 2);
+    const dependencies = completeDependencies(comments);
+    dependencies.get_comments_by_ids = vi.fn(async () => ({
+      access_status: "partial" as const,
+      comments: availableComments,
+      limitations: ["YouTube no longer exposed every requested sampled comment identifier."]
+    }));
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      extraction_coverage: "completed_with_access_boundary",
+      records_retrieved_cumulative: 3,
+      records_returned_for_analysis: 2,
+      sample: {
+        mode: "deterministic_hash_chronological",
+        corpus_count: 3,
+        sampled_count: 2,
+        comments: availableComments
+      },
+      receipt: {
+        completion_state: "completed_with_access_boundary",
+        synthesis_lock: "pass",
+        top_level_pagination_exhausted: true,
+        replies_reconciled: true,
+        blockers: []
+      }
+    });
+    expect(result.limitations).toEqual(expect.arrayContaining([
+      "YouTube no longer exposed every requested sampled comment identifier.",
+      expect.stringMatching(/sample.*partially refetched.*bounded evidence/i)
+    ]));
+  });
+
   it("does not recommend an unretryable continuation cursor", async () => {
     const dependencies: YoutubeVideoCommunityAuditDependencies = {
       get_video: vi.fn(async () => videoEnvelope("400")),

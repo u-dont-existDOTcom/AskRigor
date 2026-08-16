@@ -762,6 +762,90 @@ describe("resumable YouTube comment segments", () => {
     });
   });
 
+  it("isolates a missing sampled identifier without discarding accessible batch peers", async () => {
+    const ids = [
+      "UgxAvailable0001",
+      "UgxMissing00002",
+      "UgxAvailable0003",
+      "UgxAvailable0004"
+    ];
+    const requests: string[][] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const requested = new URL(String(input)).searchParams.get("id")?.split(",") ?? [];
+      requests.push(requested);
+      if (requested.includes(ids[1]!)) {
+        return Response.json({
+          error: {
+            code: 404,
+            errors: [{ reason: "commentNotFound" }],
+            message: "A requested comment was not found."
+          }
+        }, { status: 404 });
+      }
+      return Response.json({
+        items: requested.map((id) => ({
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            textDisplay: `comment ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }))
+      });
+    }));
+
+    const result = await getYoutubeCommentsByIds("XpZHKGGCK-o", ids, YOUTUBE);
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      comments: [
+        { comment_id: ids[0] },
+        { comment_id: ids[2] },
+        { comment_id: ids[3] }
+      ],
+      limitations: ["YouTube no longer exposed every requested sampled comment identifier."]
+    });
+    expect(requests).toEqual([
+      ids,
+      ids.slice(0, 2),
+      ids.slice(0, 1),
+      ids.slice(1, 2),
+      ids.slice(2)
+    ]);
+  });
+
+  it("bounds missing-ID isolation by an explicit provider-request budget", async () => {
+    const ids = ["UgxMissing00001", "UgxMissing00002"];
+    const requests: string[][] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const requested = new URL(String(input)).searchParams.get("id")?.split(",") ?? [];
+      requests.push(requested);
+      return Response.json({
+        error: {
+          code: 404,
+          errors: [{ reason: "commentNotFound" }],
+          message: "A requested comment was not found."
+        }
+      }, { status: 404 });
+    }));
+
+    const result = await getYoutubeCommentsByIds(
+      "XpZHKGGCK-o",
+      ids,
+      YOUTUBE,
+      { max_provider_requests: 1 }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      comments: [],
+      limitations: [expect.stringMatching(/provider-request budget/i)]
+    });
+    expect(requests).toEqual([ids]);
+  });
+
   it("refetches provider-valid dotted reply IDs", async () => {
     const id = "UgxRequested.replyPart";
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({

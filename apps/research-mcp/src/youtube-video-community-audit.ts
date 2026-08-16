@@ -40,6 +40,8 @@ const TERMINAL_PAGINATION_OVERLAP_LIMITATION =
   "YouTube pagination overlap was reconciled by stable identifier, but the moving provider pagination prevents a stable complete-snapshot claim; any retained sample is bounded evidence.";
 const CONTINUATION_REPLY_OVERLAP_LIMITATION =
   "An exact reply repeated across continuation segments; the repeat was removed from unique counts, but provider-reported per-parent reply totals could not be independently proven.";
+const PARTIAL_SAMPLE_REFETCH_LIMITATION =
+  "The deterministic analysis sample could only be partially refetched; unavailable sampled identifiers were excluded, so the retained records are bounded evidence and may not represent the full acquired corpus.";
 
 export const youtubeVideoCommunityAuditInputSchema = z.object({
   video_id_or_url: z.string().min(1).max(2_048).optional(),
@@ -304,6 +306,8 @@ export async function auditYoutubeVideoCommunity(
 
   let sample: YoutubeVideoCommunityAuditOutput["sample"];
   let sampleFailure: string | undefined;
+  let sampleRefetchBoundary = false;
+  let sampleRefetchLimitations: string[] = [];
   if (
     apiVisibleComplete ||
     terminalAccessBoundary ||
@@ -328,17 +332,25 @@ export async function auditYoutubeVideoCommunity(
       );
       const returnedIds = refetched.comments.map(({ comment_id }) => comment_id);
       if (
-        refetched.access_status !== "api_visible_complete" ||
-        returnedIds.length !== sampleIds.length ||
-        new Set(returnedIds).size !== sampleIds.length ||
-        sampleIds.some((id) => !returnedIds.includes(id))
+        new Set(returnedIds).size !== returnedIds.length ||
+        returnedIds.some((id) => !sampleIds.includes(id)) ||
+        refetched.comments.some(({ video_id }) => video_id !== videoId)
       ) {
         sampleFailure =
           "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
+      } else if (returnedIds.length === 0) {
+        sampleFailure =
+          "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
       } else {
+        sampleRefetchBoundary =
+          refetched.access_status !== "api_visible_complete" ||
+          returnedIds.length !== sampleIds.length ||
+          sampleIds.some((id) => !returnedIds.includes(id));
+        sampleRefetchLimitations = refetched.limitations;
         const comments = chronological(refetched.comments);
         sample = {
-          mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT
+          mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT &&
+              !sampleRefetchBoundary
             ? "all"
             : "deterministic_hash_chronological",
           corpus_count: state.records_retrieved_cumulative,
@@ -350,11 +362,13 @@ export async function auditYoutubeVideoCommunity(
   }
 
   const completionState = apiVisibleComplete && sampleFailure === undefined
+      && !sampleRefetchBoundary
     ? "api_visible_complete" as const
     : (
       terminalAccessBoundary ||
       terminalReplyMismatchBoundary ||
-      terminalPaginationOverlapBoundary
+      terminalPaginationOverlapBoundary ||
+      (topLevelPaginationExhausted && sampleRefetchBoundary)
     ) && sampleFailure === undefined
       ? "completed_with_access_boundary" as const
       : "incomplete" as const;
@@ -410,6 +424,8 @@ export async function auditYoutubeVideoCommunity(
     ...(terminalReplyMismatchBoundary ? [TERMINAL_REPLY_MISMATCH_LIMITATION] : []),
     ...(paginationOverlapBoundary ? [TERMINAL_PAGINATION_OVERLAP_LIMITATION] : []),
     ...(continuationReplyOverlapBoundary ? [CONTINUATION_REPLY_OVERLAP_LIMITATION] : []),
+    ...sampleRefetchLimitations,
+    ...(sampleRefetchBoundary ? [PARTIAL_SAMPLE_REFETCH_LIMITATION] : []),
     ...(continuationStateTooLarge
       ? ["The exact continuation state exceeded the safe stateless-token limit."]
       : []),

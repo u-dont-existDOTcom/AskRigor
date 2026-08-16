@@ -200,10 +200,15 @@ gain is positive.
 
 Each per-video result distinguishes the provider-reported comment count, the
 API-visible comments/replies actually retrieved, and the records returned for
-analysis. Complete corpora of 500 or fewer are all returned; larger complete
-corpora receive a deterministic 500-record sample. The final report names and
-links the videos worth watching, and it cannot synthesize while wider or deeper
-executable work is still likely to improve the answer. The legacy
+analysis. Terminal corpora of 500 or fewer normally return every refetchable
+record; larger terminal corpora receive a deterministic 500-record sample. If
+YouTube stops exposing one or more already acquired sampled identifiers, the
+refetch isolates them under the same request/time bounds and returns only the
+still-verifiable deterministic subset as `completed_with_access_boundary`.
+The limitations state that the sample may not represent the full acquired
+corpus; zero refetchable records still block synthesis. The final report names
+and links the videos worth watching, and it cannot synthesize while wider or
+deeper executable work is still likely to improve the answer. The legacy
 `audit_youtube_community` remains available for compatibility.
 
 The read-only research path uses ChatGPT as the existing reasoning engine. It
@@ -252,6 +257,10 @@ returned in ordered authenticated chunks of no more than **48,000 UTF-8
 bytes**, and the client must continue through `complete: true`. A large
 per-video YouTube result may reduce only the deterministic analysis sample; it
 does not change corpus counts, digest, access state, or completion receipt.
+Likewise, a terminal refetch that can no longer retrieve every sampled stable
+identifier keeps the acquired corpus count and digest, returns only the
+verified subset, and changes the access/completion state to an explicit bounded
+boundary rather than claiming a complete snapshot.
 
 Run `npm run generate:custom-gpt` to reproduce the Action schema, compact
 instructions, and hash ledger. The sole instruction artifact is
