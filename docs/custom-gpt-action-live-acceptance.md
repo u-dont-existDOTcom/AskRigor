@@ -15,14 +15,44 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Research container started `2026-08-16T07:06:55.875981826Z`; direct acceptance completed through `2026-08-16T07:34:43.932Z`. |
-| deployed commit | Merge commit `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; exact accepted PR head `be641bf568c401992ff4aa9fe885552d6cfb2dca`. |
-| deployed image | `askrigor-research:dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; image ID `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`; healthy container `3106e8ffe627a2d8dc53fbe651b35488ccd08a691b4ad24625494f78ea517bb4`. |
-| rollback image/config | `askrigor-research:rollback-dd73d7d` resolves the prior production image `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`; `/opt/askrigor/compose.yaml.rollback-dd73d7d` is present. |
-| OpenAPI SHA-256 | Committed pretty artifact: `d281f5727ab57a9edb0a63276bf51e08b2fdd9ff1ba9722725fc1800d58fd1ec`; semantically identical compact live response: `6babf4d56e37219a23b6865934d8a07ac3d9748a03e950dd5b6b3fbca67b32b6`. |
+| UTC time | Original direct acceptance completed through `2026-08-16T07:34:43.932Z`; compatibility container started `2026-08-16T08:36:23.509309507Z`. |
+| deployed commit | Compatibility merge `6639086a33b44f029c9f8405f69bd06b725e78d0`; exact accepted PR #17 head `b4d3db5d2b3f05debc4dd2c37cfa0d12290f67af`. The full direct behavior cases below were accepted on bridge merge `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. |
+| deployed image | `askrigor-research:6639086a33b44f029c9f8405f69bd06b725e78d0`; image ID `sha256:05225a8210238f8099af90ba5e8525a142e50e04018547f0d0c6186f6d30544d`; healthy container `427d0ffc2a75275d4113d9ad1baf89275774a40774e6653be1e4c5283aad8220`. |
+| rollback image/config | `askrigor-research:rollback-6639086` resolves the immediately prior production image `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`; `/opt/askrigor/compose.yaml.rollback-6639086` is present. |
+| OpenAPI SHA-256 | Committed pretty artifact: `ca7abeb54ee688f4837637abe2c08cfa9de4565d013d49f267df9bbe2c08f377`; semantically identical compact live response: `fece1c89971fed1273fbc64eb3b62cfa4a458af1691009e6899e76c92f10ce53`. |
 | instructions SHA-256 | `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `3dbe92623be62da3fd18edcbe20e71fa710b3f8f40419b2b91f3ce01459ad35e`, with the Custom GPT transient-flow disclosure. Active site release: `/opt/askrigor/site/releases/dd73d7dccb6b-v2/site`. |
 | direct GPT URL | `pending` — requires saving/publishing the tested Custom GPT and copying its direct `/g/...` URL. |
+
+## OpenAI Action importer compatibility deployment — 2026-08-16
+
+The first GPT-editor import rejected the earlier schema for three exact reasons:
+`components.schemas` was not an object, and the descriptions for
+`get_youtube_comments` and `audit_youtube_community` exceeded OpenAI's
+300-character operation-description limit. PR #17 added the explicit
+`components.schemas` object, shortened both legacy descriptions to **201
+characters**, and added generated-schema regression checks covering every
+operation summary and description.
+
+The exact merge was deployed reversibly. A disposable non-root smoke test
+rejected the first unused candidate image before traffic because an
+over-restrictive staging step had removed the runtime user's read permission
+from archived source files. Production remained untouched. Re-extracting the
+verified archive while preserving its internal file modes produced the final
+image recorded above; its read-only, capability-dropped smoke test passed.
+The rejected pre-traffic image remains tagged
+`askrigor-research:rejected-permissions-6639086` for diagnosis.
+
+Fresh public checks found 18 operations, an object-valued
+`components.schemas`, no summary or description over 300 characters, and both
+affected descriptions at exactly 201 characters. Health returned `200`, the
+unauthenticated consequential lesson route still returned exact
+`401 action_auth_required`, both protocol identities remained unchanged, and
+the MCP inventory remained frozen at 17 tools. No provider call or lesson write
+was repeated because this deployment changed only exported OpenAPI structure
+and two descriptions. The 11 direct behavioral cases below therefore remain
+evidence from the immediately preceding bridge deployment; GPT editor re-import
+is still the required product-layer proof.
 
 ### Case 1 — Universal complete protocol loading
 

@@ -198,9 +198,12 @@ describe("AskRigor public-review packet", () => {
     expect(setup).toContain("does not disable lesson capture or MCP");
     expect(setup).toContain("direct `/g/...`");
     expect(release).toContain("DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PENDING");
-    expect(release).toContain("dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4");
-    expect(state).toContain("codex/openai-action-schema-compat-2026-08-16");
+    expect(release).toContain("6639086a33b44f029c9f8405f69bd06b725e78d0");
+    expect(state).toContain("codex/openai-action-schema-live-evidence-2026-08-16");
     expect(state).toContain("Custom GPT editor/UI acceptance remains pending");
+    expect(acceptance).toContain("components.schemas");
+    expect(acceptance).toContain("201 characters");
+    expect(acceptance).toContain("sha256:05225a8210238f8099af90ba5e8525a142e50e04018547f0d0c6186f6d30544d");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
     expect(acceptance).toContain("DIRECT PASS");
