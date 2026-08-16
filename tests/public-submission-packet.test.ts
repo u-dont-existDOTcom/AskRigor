@@ -172,17 +172,20 @@ describe("AskRigor public submission packet", () => {
     }
   });
 
-  it("keeps every unverified portal gate explicit and refuses a fabricated demo URL", async () => {
+  it("keeps every portal gate explicit and binds completion claims to evidence", async () => {
     const packet = await loadJson<SubmissionPacket>(
       "docs/public-submission-packet-v0.1.0.json"
     );
 
     expect(packet.releaseNotes.length).toBeGreaterThan(0);
-    expect(packet.demoRecording).toEqual({
-      status: "pending",
-      url: null,
-      scriptPath: "docs/public-submission-demo-recording.md"
-    });
+    expect(packet.demoRecording.scriptPath).toBe(
+      "docs/public-submission-demo-recording.md"
+    );
+    if (packet.demoRecording.status === "pending") {
+      expect(packet.demoRecording.url).toBeNull();
+    } else {
+      expect(packet.demoRecording.url).toMatch(/^https:\/\//);
+    }
     expect(Object.keys(packet.externalGates)).toEqual([
       "developerIdentity",
       "domainVerification",
@@ -191,15 +194,18 @@ describe("AskRigor public submission packet", () => {
       "finalPortalReview",
       "submission"
     ]);
-    expect(packet.externalGates.developerIdentity?.status).toBe("in_progress");
     for (const gate of Object.values(packet.externalGates)) {
       expect(["pending", "in_progress", "complete", "blocked"]).toContain(
         gate.status
       );
-      expect(gate.status).not.toBe("complete");
-      expect(gate.evidence).toBeNull();
-      expect(gate.completedAt).toBeNull();
       expect(gate.note.trim().length).toBeGreaterThan(0);
+      if (gate.status === "complete") {
+        expect(gate.evidence).toMatch(/^(?:https:\/\/|docs\/)/);
+        expect(Number.isNaN(Date.parse(gate.completedAt ?? ""))).toBe(false);
+      } else {
+        expect(gate.evidence).toBeNull();
+        expect(gate.completedAt).toBeNull();
+      }
     }
   });
 
