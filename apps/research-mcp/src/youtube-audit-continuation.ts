@@ -101,6 +101,7 @@ const continuationStateSchema = z.object({
   comment_thread_pages: boundedInteger,
   reply_pages: boundedInteger,
   pagination_overlaps_reconciled: boundedInteger.default(0),
+  continuation_reply_overlaps_reconciled: boundedInteger.default(0),
   records_retrieved_cumulative: boundedInteger,
   rolling_sha256: z.string().regex(SHA256_PATTERN),
   sample_identifiers: z.array(sampleIdentifierSchema).max(MAX_ANALYSIS_RECORDS),
@@ -189,6 +190,7 @@ export interface YoutubeVideoAuditContinuationState {
   comment_thread_pages: number;
   reply_pages: number;
   pagination_overlaps_reconciled: number;
+  continuation_reply_overlaps_reconciled: number;
   records_retrieved_cumulative: number;
   rolling_sha256: string;
   sample_identifiers: string[];
@@ -306,13 +308,15 @@ export function advanceYoutubeAuditState(
   const exactIdentifiersCoverPriorCorpus =
     state.sample_identifiers.length === state.records_retrieved_cumulative;
   const membership = decodeIdentifierMembership(state.seen_identifier_membership);
-  for (const { comment_id } of comments) {
+  const acceptedComments: YoutubeComment[] = [];
+  let reconciledTopLevel = 0;
+  let reconciledReplies = 0;
+  for (const comment of comments) {
+    const { comment_id } = comment;
     if (identifiers.has(comment_id)) {
-      throw new YoutubeAuditRestartRequiredError(
-        "youtube_video_audit_identifier_membership_restart_required",
-        "Duplicate YouTube comment identifier in continuation chain; restart the audit from the video ID",
-        createRestartSnapshot(state)
-      );
+      if (comment.is_reply) reconciledReplies += 1;
+      else reconciledTopLevel += 1;
+      continue;
     }
     if (
       identifierMembershipPossiblyContains(membership, comment_id) &&
@@ -326,7 +330,12 @@ export function advanceYoutubeAuditState(
     }
     identifiers.add(comment_id);
     addIdentifierToMembership(membership, comment_id);
+    acceptedComments.push(comment);
   }
+  if (
+    reconciledTopLevel > counters.top_level_comments_retrieved ||
+    reconciledReplies > counters.replies_retrieved
+  ) throw new Error("Invalid YouTube audit continuation overlap counters");
   const sampleIdentifiers = [...identifiers]
     .sort((left, right) =>
       rankYoutubeCommentIdentifier(left).localeCompare(rankYoutubeCommentIdentifier(right)) ||
@@ -345,22 +354,31 @@ export function advanceYoutubeAuditState(
     }
     mismatchByParent.set(mismatch.parent_comment_id, mismatch);
   }
-  const commentPayload = comments.map(canonicalCommentJson).join("\n");
+  const commentPayload = acceptedComments.map(canonicalCommentJson).join("\n");
   const candidate: YoutubeVideoAuditContinuationState = {
     ...state,
     segment_index: state.segment_index + 1,
     cursor,
     top_level_comments_retrieved:
-      state.top_level_comments_retrieved + counters.top_level_comments_retrieved,
-    replies_retrieved: state.replies_retrieved + counters.replies_retrieved,
+      state.top_level_comments_retrieved + counters.top_level_comments_retrieved -
+      reconciledTopLevel,
+    replies_retrieved: state.replies_retrieved + counters.replies_retrieved -
+      reconciledReplies,
     comment_thread_pages: state.comment_thread_pages + counters.comment_thread_pages,
     reply_pages: state.reply_pages + counters.reply_pages,
     pagination_overlaps_reconciled:
-      state.pagination_overlaps_reconciled + (counters.pagination_overlaps_reconciled ?? 0),
-    records_retrieved_cumulative: state.records_retrieved_cumulative + comments.length,
-    rolling_sha256: createHash("sha256")
-      .update(`${state.rolling_sha256}\n${commentPayload}`)
-      .digest("hex"),
+      state.pagination_overlaps_reconciled +
+      (counters.pagination_overlaps_reconciled ?? 0) +
+      reconciledTopLevel + reconciledReplies,
+    continuation_reply_overlaps_reconciled:
+      state.continuation_reply_overlaps_reconciled + reconciledReplies,
+    records_retrieved_cumulative:
+      state.records_retrieved_cumulative + acceptedComments.length,
+    rolling_sha256: acceptedComments.length === 0
+      ? state.rolling_sha256
+      : createHash("sha256")
+          .update(`${state.rolling_sha256}\n${commentPayload}`)
+          .digest("hex"),
     sample_identifiers: sampleIdentifiers,
     seen_identifier_membership: membership.toString("base64url"),
     reply_count_mismatches: [...mismatchByParent.values()]

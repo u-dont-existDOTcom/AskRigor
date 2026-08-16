@@ -1335,7 +1335,7 @@ function youtubeVideoCommunityAuditFailure(
     ? "This continuation predates the full-corpus identifier-membership upgrade and cannot be resumed safely; restart the audit from the video ID."
     : restartError?.code ===
         "youtube_video_audit_identifier_membership_restart_required"
-      ? "A duplicate or possible non-adjacent identifier match was detected outside an approved pagination overlap; restart the audit from the video ID. No rejected record was added to cumulative counts."
+      ? "A possible non-adjacent identifier match was detected after the exact identifier sample became bounded; restart the audit from the video ID. No rejected record was added to cumulative counts."
       : continuationError?.code === "youtube_video_audit_continuation_expired"
         ? "The YouTube video audit continuation expired; restart the audit from the video ID."
         : continuationError === undefined
