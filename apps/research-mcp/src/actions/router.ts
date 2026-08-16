@@ -31,6 +31,17 @@ export function validateActionRoutes(routes: readonly ActionRoute[]): void {
     ) {
       throw new Error(`Invalid Action route path: ${route.path}`);
     }
+    if (
+      route.publicResearch === true &&
+      (
+        route.method !== "POST" ||
+        route.public !== true ||
+        route.consequential !== false ||
+        route.path !== `/actions/research/${route.operationId}`
+      )
+    ) {
+      throw new Error(`Invalid public research Action route: ${route.operationId}`);
+    }
 
     validateResponseHeaders(route);
 
