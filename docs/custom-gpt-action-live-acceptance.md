@@ -1,6 +1,6 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PENDING**. The exact
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION BLOCKED**. The exact
 production Action boundary has passed the sanitized direct checks below. A new
 unpublished Custom GPT still must import the deployed schema and run the
 product-interface cases. Direct server proof is not relabeled as ChatGPT UI
@@ -53,6 +53,38 @@ was repeated because this deployment changed only exported OpenAPI structure
 and two descriptions. The 11 direct behavioral cases below therefore remain
 evidence from the immediately preceding bridge deployment; GPT editor re-import
 is still the required product-layer proof.
+
+## Custom GPT product-interface evidence — 2026-08-16
+
+The owner successfully imported the repaired schema. In a new private Custom
+GPT chat with empty Knowledge, Universal loaded with exact 2/2 chunks and HRP
+with exact 11/11 chunks, contiguous byte ranges, matching manifests, and final
+complete receipts. PubMed search/fetch, ClinicalTrials.gov search/fetch, DOI
+resolution, and conservative Crossref retraction-marker reporting also passed
+without clinical inference.
+
+The first real survey-first YouTube continuation case did not pass. Four
+bounded search directions returned 15 candidates. The selected video
+`nIRABXSJwSw` had 148 provider-reported comments. After one invalid
+continuation and a restart, 66 API-visible records were retrieved cumulatively,
+but the next continuation also failed. The terminal receipt returned zero
+records for analysis, left top-level pagination unexhausted and replies
+unreconciled, and correctly kept `synthesis_lock:block`. No health conclusion or
+population-incidence estimate was produced.
+
+The server's exact programmatic continuation tests pass; the failing product
+path required ChatGPT to reproduce a several-thousand-character opaque token
+exactly. The owner approved an Action-only, one-hour, bounded process-memory
+handle repair. That repair is not live evidence until its merge, deployment,
+direct two-call acceptance, and fresh Custom GPT continuation test pass.
+
+Lesson disposition: **provisional transferable**. The evidence supports a
+bounded warning about model-mediated relay of large opaque tool arguments, not
+a rule that all continuations require server state. Direct programmatic MCP
+clients are the explicit counterexample; any handle design must disclose its
+privacy, restart, expiry, eviction, and horizontal-scaling limits. Promotion to
+`universal-dev-architecture` waits for the exact repair's deployment and
+product-interface retest.
 
 ### Case 1 — Universal complete protocol loading
 

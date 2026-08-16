@@ -17,6 +17,11 @@ import {
   type ProtocolActionChunkDependencies
 } from "./protocol-continuation.js";
 import { boundYoutubeAuditForAction } from "./research-output.js";
+import {
+  createYoutubeActionContinuationHandleStore,
+  YoutubeActionContinuationHandleError,
+  type YoutubeActionContinuationHandleStore
+} from "./youtube-continuation-handle.js";
 import type {
   ActionRequestContext,
   ActionResult,
@@ -64,22 +69,42 @@ const PROTOCOL_CONTINUATION_ERROR_SCHEMA = {
   }
 } as const;
 
+const YOUTUBE_ACTION_CONTINUATION_ERROR_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["error"],
+  properties: {
+    error: {
+      type: "object",
+      additionalProperties: false,
+      required: ["code", "retryable"],
+      properties: {
+        code: { const: "youtube_action_continuation_invalid_or_expired" },
+        retryable: { const: false }
+      }
+    }
+  }
+} as const;
+
 export interface CreateResearchActionRoutesOptions {
   operations?: readonly ResearchOperation[];
   protocolChunkDependencies?: ProtocolActionChunkDependencies;
+  youtubeContinuationHandles?: YoutubeActionContinuationHandleStore;
 }
 
 export function createResearchActionRoutes(
   options: CreateResearchActionRoutesOptions = {}
 ): readonly ActionRoute[] {
   const operations = options.operations ?? RESEARCH_OPERATIONS;
+  const youtubeContinuationHandles = options.youtubeContinuationHandles ??
+    createYoutubeActionContinuationHandleStore();
   return Object.freeze(operations.map((operation) =>
     operation.name === "load_protocol"
       ? createProtocolActionRoute(
           operation,
           options.protocolChunkDependencies ?? defaultProtocolChunkDependencies()
         )
-      : createResearchActionRoute(operation)
+      : createResearchActionRoute(operation, youtubeContinuationHandles)
   ));
 }
 
@@ -132,7 +157,10 @@ function createProtocolActionRoute(
   });
 }
 
-function createResearchActionRoute(operation: ResearchOperation): ActionRoute {
+function createResearchActionRoute(
+  operation: ResearchOperation,
+  youtubeContinuationHandles: YoutubeActionContinuationHandleStore
+): ActionRoute {
   const inputSchema = objectSchema(operation.inputSchema, operation.name, "input");
   const outputSchema = objectSchema(operation.outputSchema, operation.name, "output");
   return Object.freeze({
@@ -148,7 +176,14 @@ function createResearchActionRoute(operation: ResearchOperation): ActionRoute {
     requestSchema: actionJsonSchema(inputSchema),
     responseSchemas: {
       200: actionJsonSchema(outputSchema),
-      422: ACTION_INPUT_INVALID_SCHEMA
+      422: operation.name === "audit_youtube_video_community"
+        ? {
+            oneOf: [
+              ACTION_INPUT_INVALID_SCHEMA,
+              YOUTUBE_ACTION_CONTINUATION_ERROR_SCHEMA
+            ]
+          }
+        : ACTION_INPUT_INVALID_SCHEMA
     },
     async handle({ body }: ActionRequestContext): Promise<ActionResult> {
       const parsedInput = inputSchema.safeParse(body);
@@ -158,24 +193,74 @@ function createResearchActionRoute(operation: ResearchOperation): ActionRoute {
           body: { error: { code: "action_input_invalid", retryable: false } }
         };
       }
-      const result = await operation.execute(
-        parsedInput.data as Record<string, unknown>
-      );
-      const parsedOutput = outputSchema.safeParse(result.structuredContent);
-      if (!parsedOutput.success) {
-        throw new Error("Research operation returned invalid structured output");
+      let operationInput = parsedInput.data as Record<string, unknown>;
+      let previousHandle: string | undefined;
+      if (operation.name === "audit_youtube_video_community") {
+        const suppliedContinuation = operationInput.continuation_token;
+        if (
+          typeof suppliedContinuation === "string" &&
+          suppliedContinuation.startsWith("arh1_")
+        ) {
+          try {
+            operationInput = {
+              ...operationInput,
+              continuation_token: youtubeContinuationHandles.claim(
+                suppliedContinuation
+              )
+            };
+            previousHandle = suppliedContinuation;
+          } catch (error) {
+            if (error instanceof YoutubeActionContinuationHandleError) {
+              return {
+                status: 422,
+                body: {
+                  error: {
+                    code: "youtube_action_continuation_invalid_or_expired",
+                    retryable: false
+                  }
+                }
+              };
+            }
+            throw error;
+          }
+        }
       }
-      const actionOutput = operation.name === "audit_youtube_video_community"
-        ? boundYoutubeAuditForAction(
-            youtubeVideoCommunityAuditOutputSchema.parse(parsedOutput.data),
-            RESEARCH_ACTION_RESPONSE_MAX_BYTES
-          )
-        : parsedOutput.data;
-      const validatedActionOutput = outputSchema.safeParse(actionOutput);
-      if (!validatedActionOutput.success) {
-        throw new Error("Research Action adapter returned invalid structured output");
+      try {
+        const result = await operation.execute(operationInput);
+        const parsedOutput = outputSchema.safeParse(result.structuredContent);
+        if (!parsedOutput.success) {
+          throw new Error("Research operation returned invalid structured output");
+        }
+        const actionOutput = operation.name === "audit_youtube_video_community"
+          ? youtubeAuditActionOutput(
+              youtubeVideoCommunityAuditOutputSchema.parse(parsedOutput.data),
+              youtubeContinuationHandles
+            )
+          : parsedOutput.data;
+        const validatedActionOutput = outputSchema.safeParse(actionOutput);
+        if (!validatedActionOutput.success) {
+          throw new Error("Research Action adapter returned invalid structured output");
+        }
+        if (previousHandle !== undefined) {
+          const youtubeOutput = youtubeVideoCommunityAuditOutputSchema.parse(
+            validatedActionOutput.data
+          );
+          if (
+            youtubeOutput.continuation_token !== undefined ||
+            youtubeOutput.receipt.synthesis_lock === "pass"
+          ) {
+            youtubeContinuationHandles.commit(previousHandle);
+          } else {
+            youtubeContinuationHandles.rollback(previousHandle);
+          }
+        }
+        return { status: 200, body: validatedActionOutput.data };
+      } catch (error) {
+        if (previousHandle !== undefined) {
+          youtubeContinuationHandles.rollback(previousHandle);
+        }
+        throw error;
       }
-      return { status: 200, body: validatedActionOutput.data };
     }
   });
 }
@@ -187,7 +272,34 @@ function researchActionDescription(operation: ResearchOperation): string {
   ) {
     return "Legacy untrimmed YouTube community response; it may return action_response_too_large. Use survey_youtube_community, then resumable audit_youtube_video_community. Retrieval only; no medical conclusions.";
   }
+  if (operation.name === "audit_youtube_video_community") {
+    return "Retrieve one video's bounded API-visible YouTube discussion. Custom GPT continuation uses a short one-hour in-memory handle; continue while requested and require synthesis_lock pass. Retrieval only; no medical conclusions.";
+  }
   return operation.description;
+}
+
+function youtubeAuditActionOutput(
+  output: z.output<typeof youtubeVideoCommunityAuditOutputSchema>,
+  handles: YoutubeActionContinuationHandleStore
+): z.output<typeof youtubeVideoCommunityAuditOutputSchema> {
+  const statelessToken = output.continuation_token;
+  let nextHandle: string | undefined;
+  try {
+    const transportOutput = statelessToken === undefined
+      ? output
+      : {
+          ...output,
+          continuation_token: nextHandle = handles.issue(statelessToken)
+        };
+    const bounded = boundYoutubeAuditForAction(
+      youtubeVideoCommunityAuditOutputSchema.parse(transportOutput),
+      RESEARCH_ACTION_RESPONSE_MAX_BYTES
+    );
+    return bounded;
+  } catch (error) {
+    if (nextHandle !== undefined) handles.revoke(nextHandle);
+    throw error;
+  }
 }
 
 function objectSchema(

@@ -50,7 +50,8 @@ For community evidence, prefer `survey_youtube_community`, then
 `audit_youtube_video_community`. Automatically continue with each returned
 token while `continuation_recommended: true`; require `synthesis_lock: pass`
 for full synthesis. Transport-bounded samples do not change retrieved corpus
-counts. `search_youtube_comments` returns a query-bounded `partial` discovery
+counts. On `youtube_action_continuation_invalid_or_expired`, restart only that video audit from its video identifier, keep prior output classified as
+incomplete, and keep synthesis blocked. `search_youtube_comments` returns a query-bounded `partial` discovery
 subset and never proves full corpus coverage. If `get_youtube_comments` or
 `audit_youtube_community` returns `action_response_too_large`, use the
 resumable survey and per-video audit path.

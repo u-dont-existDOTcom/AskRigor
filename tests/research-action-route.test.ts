@@ -16,6 +16,8 @@ import { validateActionRoutes } from
   "../apps/research-mcp/src/actions/router.js";
 import { youtubeVideoCommunityAuditOutputSchema } from
   "../apps/research-mcp/src/youtube-video-community-audit.js";
+import { youtubeVideoCommunityAuditInputSchema } from
+  "../apps/research-mcp/src/youtube-video-community-audit.js";
 
 const context = (body: unknown) => ({
   request: {} as never,
@@ -156,6 +158,198 @@ describe("read-only research Action routes", () => {
     expect(bounded.sample!.comments.length).toBeLessThan(original.sample.comments.length);
     expect(bounded.receipt).toEqual(original.receipt);
     expect(original.sample.comments).toHaveLength(100);
+  });
+
+  it("relays a short Action handle while the shared YouTube operation receives the exact stateless token", async () => {
+    const statelessToken = `payload.${"s".repeat(6_000)}`;
+    const receivedInputs: Record<string, unknown>[] = [];
+    const operation: ResearchOperation = {
+      name: "audit_youtube_video_community",
+      actionPath: "/actions/research/audit_youtube_video_community",
+      description: "Retrieve a complete per-video community audit.",
+      inputSchema: youtubeVideoCommunityAuditInputSchema,
+      outputSchema: youtubeVideoCommunityAuditOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false
+      },
+      mcpConfig: {},
+      async execute(input) {
+        receivedInputs.push(input);
+        return {
+          content: [{ type: "text", text: "bounded continuation" }],
+          structuredContent: receivedInputs.length === 1
+            ? youtubeAuditContinuationOutput(statelessToken)
+            : oversizedYoutubeAuditOutput()
+        };
+      }
+    };
+    const [route] = createResearchActionRoutes({ operations: [operation] });
+
+    const first = await route!.handle(context({
+      video_id_or_url: "XpZHKGGCK-o",
+      analysis_limit: 100
+    }));
+    const handle = (first.body as { continuation_token: string }).continuation_token;
+
+    expect(handle).toMatch(/^arh1_[A-Za-z0-9_-]{32}$/u);
+    expect(handle).toHaveLength(37);
+    expect(handle).not.toContain(statelessToken);
+
+    const second = await route!.handle(context({ continuation_token: handle }));
+
+    expect(second.status).toBe(200);
+    expect(receivedInputs).toEqual([
+      { video_id_or_url: "XpZHKGGCK-o", analysis_limit: 100 },
+      { continuation_token: statelessToken }
+    ]);
+
+    await expect(route!.handle(context({ continuation_token: handle })))
+      .resolves.toMatchObject({
+        status: 422,
+        body: {
+          error: {
+            code: "youtube_action_continuation_invalid_or_expired"
+          }
+        }
+      });
+  });
+
+  it("accepts a pre-deployment stateless token without Action-handle translation", async () => {
+    const statelessToken = `payload.${"s".repeat(43)}`;
+    let receivedInput: Record<string, unknown> | undefined;
+    const operation: ResearchOperation = {
+      name: "audit_youtube_video_community",
+      actionPath: "/actions/research/audit_youtube_video_community",
+      description: "Retrieve a complete per-video community audit.",
+      inputSchema: youtubeVideoCommunityAuditInputSchema,
+      outputSchema: youtubeVideoCommunityAuditOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false
+      },
+      mcpConfig: {},
+      async execute(input) {
+        receivedInput = input;
+        return {
+          content: [{ type: "text", text: "complete" }],
+          structuredContent: oversizedYoutubeAuditOutput()
+        };
+      }
+    };
+    const [route] = createResearchActionRoutes({ operations: [operation] });
+
+    const result = await route!.handle(context({
+      continuation_token: statelessToken
+    }));
+
+    expect(result.status).toBe(200);
+    expect(receivedInput).toEqual({ continuation_token: statelessToken });
+  });
+
+  it("preserves a claimed handle when the shared provider operation returns its failure envelope", async () => {
+    const statelessToken = `payload.${"s".repeat(43)}`;
+    let calls = 0;
+    const operation: ResearchOperation = youtubeAuditOperation(async (input) => {
+      calls += 1;
+      if (calls === 1) return youtubeAuditContinuationOutput(statelessToken);
+      expect(input).toEqual({ continuation_token: statelessToken });
+      return calls === 2 ? youtubeAuditFailureOutput() : oversizedYoutubeAuditOutput();
+    });
+    const [route] = createResearchActionRoutes({ operations: [operation] });
+    const first = await route!.handle(context({
+      video_id_or_url: "XpZHKGGCK-o",
+      analysis_limit: 100
+    }));
+    const handle = (first.body as { continuation_token: string }).continuation_token;
+
+    const failed = await route!.handle(context({ continuation_token: handle }));
+    expect(failed).toMatchObject({
+      status: 200,
+      body: {
+        access_status: "error",
+        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+      }
+    });
+    await expect(route!.handle(context({ continuation_token: handle })))
+      .resolves.toMatchObject({
+        status: 200,
+        body: { receipt: { synthesis_lock: "pass" } }
+      });
+  });
+
+  it("allows only one concurrent request to claim an Action continuation handle", async () => {
+    const statelessToken = `payload.${"s".repeat(43)}`;
+    let calls = 0;
+    let release!: () => void;
+    const blocked = new Promise<void>((resolve) => { release = resolve; });
+    const operation: ResearchOperation = youtubeAuditOperation(async () => {
+      calls += 1;
+      if (calls === 1) return youtubeAuditContinuationOutput(statelessToken);
+      await blocked;
+      return oversizedYoutubeAuditOutput();
+    });
+    const [route] = createResearchActionRoutes({ operations: [operation] });
+    const first = await route!.handle(context({
+      video_id_or_url: "XpZHKGGCK-o",
+      analysis_limit: 100
+    }));
+    const handle = (first.body as { continuation_token: string }).continuation_token;
+
+    const claimed = route!.handle(context({ continuation_token: handle }));
+    const replay = await route!.handle(context({ continuation_token: handle }));
+    expect(replay).toMatchObject({
+      status: 422,
+      body: {
+        error: { code: "youtube_action_continuation_invalid_or_expired" }
+      }
+    });
+    expect(calls).toBe(2);
+    release();
+    await expect(claimed).resolves.toMatchObject({ status: 200 });
+    expect(calls).toBe(2);
+  });
+
+  it("fails closed with a stable 422 when an Action handle is unavailable", async () => {
+    let executions = 0;
+    const operation: ResearchOperation = {
+      name: "audit_youtube_video_community",
+      actionPath: "/actions/research/audit_youtube_video_community",
+      description: "Retrieve a complete per-video community audit.",
+      inputSchema: youtubeVideoCommunityAuditInputSchema,
+      outputSchema: youtubeVideoCommunityAuditOutputSchema,
+      annotations: {
+        readOnlyHint: true,
+        destructiveHint: false,
+        openWorldHint: false
+      },
+      mcpConfig: {},
+      async execute() {
+        executions += 1;
+        return {
+          content: [{ type: "text", text: "must not execute" }],
+          structuredContent: oversizedYoutubeAuditOutput()
+        };
+      }
+    };
+    const [route] = createResearchActionRoutes({ operations: [operation] });
+
+    const result = await route!.handle(context({
+      continuation_token: `arh1_${"x".repeat(32)}`
+    }));
+
+    expect(result).toEqual({
+      status: 422,
+      body: {
+        error: {
+          code: "youtube_action_continuation_invalid_or_expired",
+          retryable: false
+        }
+      }
+    });
+    expect(executions).toBe(0);
   });
 
   it("composes research and lesson routes under independent switches", async () => {
@@ -431,6 +625,84 @@ function oversizedYoutubeAuditOutput() {
       replies_reconciled: true,
       query_bounded_comments_used_as_corpus: false,
       blockers: []
+    }
+  });
+}
+
+function youtubeAuditContinuationOutput(continuationToken: string) {
+  return youtubeVideoCommunityAuditOutputSchema.parse({
+    ...oversizedYoutubeAuditOutput(),
+    segment_index: 1,
+    access_status: "partial",
+    extraction_coverage: "partial",
+    continuation_recommended: true,
+    continuation_token: continuationToken,
+    receipt: {
+      completion_state: "incomplete",
+      synthesis_lock: "block",
+      chain_started_at_first_page: true,
+      top_level_pagination_exhausted: false,
+      replies_reconciled: false,
+      query_bounded_comments_used_as_corpus: false,
+      blockers: ["Continue with the returned continuation token."]
+    }
+  });
+}
+
+function youtubeAuditOperation(
+  execute: (input: Record<string, unknown>) => Promise<unknown>
+): ResearchOperation {
+  return {
+    name: "audit_youtube_video_community",
+    actionPath: "/actions/research/audit_youtube_video_community",
+    description: "Retrieve a complete per-video community audit.",
+    inputSchema: youtubeVideoCommunityAuditInputSchema,
+    outputSchema: youtubeVideoCommunityAuditOutputSchema,
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      openWorldHint: false
+    },
+    mcpConfig: {},
+    async execute(input) {
+      return {
+        content: [{ type: "text", text: "YouTube audit fixture" }],
+        structuredContent: await execute(input)
+      };
+    }
+  };
+}
+
+function youtubeAuditFailureOutput() {
+  return youtubeVideoCommunityAuditOutputSchema.parse({
+    ...oversizedYoutubeAuditOutput(),
+    segment_index: 0,
+    metadata_access_status: "error",
+    access_status: "error",
+    extraction_coverage: "partial",
+    limitations: ["YouTube video community audit failed before reaching a valid completion state."],
+    error: {
+      code: "youtube_video_community_audit_failed",
+      message: "YouTube video community audit failed",
+      retryable: false
+    },
+    top_level_comments_retrieved_this_call: 0,
+    replies_retrieved_this_call: 0,
+    records_retrieved_this_call: 0,
+    records_returned_for_analysis: 0,
+    top_level_records_returned_for_analysis: 0,
+    reply_records_returned_for_analysis: 0,
+    continuation_recommended: false,
+    continuation_token: undefined,
+    sample: undefined,
+    receipt: {
+      completion_state: "incomplete",
+      synthesis_lock: "block",
+      chain_started_at_first_page: false,
+      top_level_pagination_exhausted: false,
+      replies_reconciled: false,
+      query_bounded_comments_used_as_corpus: false,
+      blockers: ["YouTube video community audit failed before reaching a valid completion state."]
     }
   });
 }

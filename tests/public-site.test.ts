@@ -35,7 +35,19 @@ describe("AskRigor public site", () => {
     expect(privacy).toContain("same transient research retrieval path");
     expect(privacy).toContain("search terms and public identifiers");
     expect(privacy).toContain("public provider metadata and comment text");
-    expect(privacy).toContain("does not log or persist request or response bodies");
+    expect(privacy).toContain("does not log full request or response bodies");
+    expect(privacy).toContain("Direct MCP continuation remains client-carried and stateless");
+    expect(privacy).toContain("Custom GPT YouTube continuation");
+    expect(privacy).toContain("process memory");
+    expect(privacy).toContain("no longer than one hour");
+    expect(privacy).toContain("2,048 handles");
+    expect(privacy).toContain("16 MiB");
+    expect(privacy).toContain("no comment or reply text");
+    expect(privacy).toContain("never written to disk or application logs");
+    expect(privacy).toContain("restart, expiry, or capacity eviction");
+    expect(privacy).toContain("restart from the video identifier");
+    expect(privacy).toContain("single application replica");
+    expect(privacy).toContain("must not be horizontally scaled");
     expect(privacy).toContain("separately consented lesson-feedback path");
   });
 

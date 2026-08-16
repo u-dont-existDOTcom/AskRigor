@@ -13,7 +13,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PENDING
+## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION BLOCKED
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -34,7 +34,20 @@ The complete sanitized receipts are in
 `docs/custom-gpt-action-live-acceptance.md`. Custom GPT editor/UI acceptance and
 the actual direct `/g/...` URL remain pending; direct server evidence does not
 prove product-interface behavior, and `gpt.askrigor.com` must not be repointed
-yet.
+yet. Product-interface protocol and formal-source cases passed on 2026-08-16.
+The first real multi-call YouTube case failed closed after ChatGPT altered the
+several-thousand-character continuation token twice. Sixty-six records had been
+retrieved after restart, but zero were returned for analysis, replies were not
+reconciled, and `synthesis_lock:block` prevented a conclusion. The approved
+short-handle repair remains undeployed candidate behavior until its exact merge
+and acceptance are recorded.
+
+Continuation-relay lesson disposition: **provisional transferable**. The
+several-thousand-character model relay failure is preserved with its
+counterexample and limits: direct MCP clients remain stateless, while a short
+Action handle adds bounded transient server memory, restart/eviction loss, and
+a privacy-disclosure obligation. Universal promotion is deferred until the
+exact merged repair passes direct and product-interface continuation tests.
 
 ## Artifact and endpoint identity
 

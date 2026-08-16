@@ -197,12 +197,17 @@ describe("AskRigor public-review packet", () => {
     expect(privacySite).toContain("public provider metadata and comment text");
     expect(setup).toContain("does not disable lesson capture or MCP");
     expect(setup).toContain("direct `/g/...`");
-    expect(release).toContain("DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PENDING");
+    expect(release).toContain(
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION BLOCKED"
+    );
     expect(release).toContain("6639086a33b44f029c9f8405f69bd06b725e78d0");
-    expect(state).toContain("codex/openai-action-schema-live-evidence-2026-08-16");
-    expect(state).toContain("Custom GPT editor/UI acceptance remains pending");
+    expect(state).toContain("codex/youtube-continuation-chain-repair-2026-08-16");
+    expect(state).toContain("Remaining Custom GPT editor/UI acceptance");
+    expect(state).toContain("This is candidate behavior, not a production claim");
     expect(acceptance).toContain("components.schemas");
     expect(acceptance).toContain("201 characters");
+    expect(acceptance).toContain("66 API-visible records");
+    expect(acceptance).toContain("synthesis_lock:block");
     expect(acceptance).toContain("sha256:05225a8210238f8099af90ba5e8525a142e50e04018547f0d0c6186f6d30544d");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
@@ -272,7 +277,17 @@ describe("AskRigor public-review packet", () => {
       "one hour",
       "active request only",
       "continuation secret is never returned",
-      "no server-side comment corpus or research-session persistence",
+      "MCP client-carried continuation state",
+      "Custom GPT Action continuation handle map",
+      "2,048",
+      "16 MiB",
+      "process memory",
+      "no longer than one hour",
+      "no comment text, author identity, provider credential, or protocol text",
+      "server restart, expiry, or capacity eviction",
+      "single application replica",
+      "must not be horizontally scaled",
+      "no durable research-session store",
       "not persistently stored",
       "Infrastructure providers may independently process operational"
     ]) {
