@@ -6,7 +6,7 @@
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "616a9b4f9e66531e757cc66215b5c4e108c8aee006f59749bf6010c616f8a805"
+      "sha256": "ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad"
     }
   ],
   "consequential_operation_ids": [
@@ -47,7 +47,7 @@
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",
-      "sha256": "c62bcde8ddf633edcb4d6ce7a96f00b75e37a29c39f28e9e8c5da24aa39fda43"
+      "sha256": "b50d8d9239b056fa9baa4f7bf62aad3e26bfc6c30d5e3c630ea942270886f0fb"
     }
   ]
 }

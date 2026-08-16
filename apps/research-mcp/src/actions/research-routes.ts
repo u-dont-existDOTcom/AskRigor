@@ -86,6 +86,11 @@ const YOUTUBE_ACTION_CONTINUATION_ERROR_SCHEMA = {
   }
 } as const;
 
+const YOUTUBE_AUDIT_RESTART_REQUIRED_CODES = new Set([
+  "youtube_video_audit_continuation_migration_restart_required",
+  "youtube_video_audit_identifier_membership_restart_required"
+]);
+
 export interface CreateResearchActionRoutesOptions {
   operations?: readonly ResearchOperation[];
   protocolChunkDependencies?: ProtocolActionChunkDependencies;
@@ -247,7 +252,11 @@ function createResearchActionRoute(
           );
           if (
             youtubeOutput.continuation_token !== undefined ||
-            youtubeOutput.receipt.synthesis_lock === "pass"
+            youtubeOutput.receipt.synthesis_lock === "pass" ||
+            (
+              youtubeOutput.error?.retryable === false &&
+              YOUTUBE_AUDIT_RESTART_REQUIRED_CODES.has(youtubeOutput.error.code)
+            )
           ) {
             youtubeContinuationHandles.commit(previousHandle);
           } else {

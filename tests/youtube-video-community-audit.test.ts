@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { YoutubeComment } from "@askrigor/sources";
@@ -940,6 +942,136 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(result.sample).toMatchObject({ mode: "all", corpus_count: 20, sampled_count: 20 });
     expect(result.limitations).toEqual(expect.arrayContaining([
       expect.stringMatching(/retained sample is usable as bounded evidence/i)
+    ]));
+  });
+
+  it("passes bounded synthesis after reconciling moving provider pagination overlap", async () => {
+    const comments = makeComments(3);
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("3")),
+      get_segment: vi.fn(async () => ({
+        video_id: VIDEO_ID,
+        comments,
+        top_level_comments_retrieved: 3,
+        replies_retrieved: 0,
+        comment_thread_pages: 2,
+        reply_pages: 3,
+        pagination_overlaps_reconciled: 1,
+        reply_count_mismatches: [],
+        exhausted: true,
+        access_status: "partial" as const,
+        limitations: [
+          "YouTube pagination overlap was reconciled; this is not a stable complete snapshot."
+        ]
+      })),
+      get_comments_by_ids: vi.fn(async () => ({
+        access_status: "api_visible_complete" as const,
+        comments,
+        limitations: []
+      }))
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      extraction_coverage: "completed_with_access_boundary",
+      records_retrieved_cumulative: 3,
+      records_returned_for_analysis: 3,
+      continuation_recommended: false,
+      receipt: {
+        completion_state: "completed_with_access_boundary",
+        synthesis_lock: "pass",
+        top_level_pagination_exhausted: true,
+        replies_reconciled: true,
+        blockers: []
+      }
+    });
+    expect(result.limitations).toEqual(expect.arrayContaining([
+      expect.stringMatching(/not a stable complete snapshot/i)
+    ]));
+  });
+
+  it("carries a reconciled pagination boundary through a later terminal segment", async () => {
+    const firstComments = makeComments(2);
+    const secondComments = makeComments(1, 2);
+    const getSegment = vi.fn(async (input: { cursor?: unknown }) => input.cursor === undefined
+      ? {
+          video_id: VIDEO_ID,
+          comments: firstComments,
+          top_level_comments_retrieved: 2,
+          replies_retrieved: 0,
+          comment_thread_pages: 2,
+          reply_pages: 2,
+          pagination_overlaps_reconciled: 1,
+          reply_count_mismatches: [],
+          exhausted: false,
+          next_cursor: {
+            top_level_page_token: "next",
+            previous_top_level_page_sha256: [
+              createHash("sha256").update("prior").digest("base64url")
+            ],
+            thread_offset: 0,
+            top_level_emitted: false
+          },
+          access_status: "partial" as const,
+          limitations: ["YouTube pagination overlap was reconciled."]
+        }
+      : {
+          video_id: VIDEO_ID,
+          comments: secondComments,
+          top_level_comments_retrieved: 1,
+          replies_retrieved: 0,
+          comment_thread_pages: 1,
+          reply_pages: 1,
+          pagination_overlaps_reconciled: 0,
+          reply_count_mismatches: [],
+          exhausted: true,
+          access_status: "api_visible_complete" as const,
+          limitations: []
+        });
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("3")),
+      get_segment: getSegment,
+      get_comments_by_ids: vi.fn(async () => ({
+        access_status: "api_visible_complete" as const,
+        comments: [...firstComments, ...secondComments],
+        limitations: []
+      }))
+    };
+
+    const first = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+    expect(first).toMatchObject({
+      continuation_recommended: true,
+      receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+    });
+
+    const second = await auditYoutubeVideoCommunity(
+      { continuation_token: first.continuation_token },
+      CONFIG,
+      { now: () => NOW + 1, dependencies }
+    );
+    expect(second).toMatchObject({
+      records_retrieved_cumulative: 3,
+      records_returned_for_analysis: 3,
+      extraction_coverage: "completed_with_access_boundary",
+      receipt: {
+        completion_state: "completed_with_access_boundary",
+        synthesis_lock: "pass",
+        top_level_pagination_exhausted: true,
+        replies_reconciled: true
+      }
+    });
+    expect(second.limitations).toEqual(expect.arrayContaining([
+      expect.stringMatching(/moving provider pagination/i)
     ]));
   });
 

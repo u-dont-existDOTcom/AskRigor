@@ -152,6 +152,158 @@ describe("resumable YouTube comment segments", () => {
       .toSatisfy((urls: URL[]) => urls.every((url) => !url.searchParams.has("searchTerms")));
   });
 
+  it("reconciles a repeated thread at an adjacent top-level page boundary", async () => {
+    const thread = (id: string, replyCount: number) => ({
+      id: `thread-${id}`,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        topLevelComment: {
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            textDisplay: `Top level ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T10:00:00Z",
+            updatedAt: "2025-02-01T10:00:00Z"
+          }
+        },
+        totalReplyCount: replyCount
+      }
+    });
+    const reply = (id: string, parentId: string) => ({
+      id,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        parentId,
+        textDisplay: `Reply ${id}`,
+        likeCount: 0,
+        publishedAt: "2025-02-01T11:00:00Z",
+        updatedAt: "2025-02-01T11:00:00Z"
+      }
+    });
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      if (url.pathname.endsWith("/commentThreads")) {
+        const secondPage = url.searchParams.get("pageToken") === "page-2";
+        return Response.json({
+          ...(secondPage ? {} : { nextPageToken: "page-2" }),
+          pageInfo: { totalResults: 2, resultsPerPage: secondPage ? 2 : 1 },
+          items: secondPage
+            ? [thread("top-overlap", 1), thread("top-new", 0)]
+            : [thread("top-overlap", 1)]
+        });
+      }
+      const parentId = url.searchParams.get("parentId")!;
+      return Response.json({
+        pageInfo: { totalResults: parentId === "top-overlap" ? 1 : 0, resultsPerPage: 1 },
+        items: parentId === "top-overlap" ? [reply("reply-overlap", parentId)] : []
+      });
+    }));
+
+    const first = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 2, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+    const second = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o", cursor: first.next_cursor },
+      YOUTUBE,
+      { max_provider_requests: 10, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(first.comments.map(({ comment_id }) => comment_id)).toEqual([
+      "top-overlap", "reply-overlap"
+    ]);
+    expect(second.comments.map(({ comment_id }) => comment_id)).toEqual(["top-new"]);
+    expect(second).toMatchObject({
+      access_status: "partial",
+      exhausted: true,
+      top_level_comments_retrieved: 1,
+      replies_retrieved: 0,
+      pagination_overlaps_reconciled: 1,
+      limitations: [expect.stringMatching(/pagination.*overlap/i)]
+    });
+    expect(requests.filter((url) =>
+      url.pathname.endsWith("/comments") &&
+      url.searchParams.get("parentId") === "top-overlap"
+    )).toHaveLength(1);
+  });
+
+  it("reconciles a repeated reply at an adjacent reply-page boundary", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      if (url.pathname.endsWith("/commentThreads")) {
+        return Response.json({
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{
+            id: "thread-reply-overlap",
+            snippet: {
+              videoId: "XpZHKGGCK-o",
+              topLevelComment: {
+                id: "top-replies",
+                snippet: {
+                  videoId: "XpZHKGGCK-o",
+                  textDisplay: "Top level",
+                  likeCount: 0,
+                  publishedAt: "2025-02-01T10:00:00Z",
+                  updatedAt: "2025-02-01T10:00:00Z"
+                }
+              },
+              totalReplyCount: 3
+            }
+          }]
+        });
+      }
+      const secondPage = url.searchParams.get("pageToken") === "reply-page-2";
+      const ids = secondPage ? ["reply-2", "reply-3"] : ["reply-1", "reply-2"];
+      return Response.json({
+        ...(secondPage ? {} : { nextPageToken: "reply-page-2" }),
+        pageInfo: { totalResults: 3, resultsPerPage: 2 },
+        items: ids.map((id) => ({
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            parentId: "top-replies",
+            textDisplay: `Reply ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }))
+      });
+    }));
+
+    const first = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 2, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+    const second = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o", cursor: first.next_cursor },
+      YOUTUBE,
+      { max_provider_requests: 10, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(first.comments.map(({ comment_id }) => comment_id)).toEqual([
+      "top-replies", "reply-1", "reply-2"
+    ]);
+    expect(second.comments.map(({ comment_id }) => comment_id)).toEqual(["reply-3"]);
+    expect(second).toMatchObject({
+      access_status: "partial",
+      exhausted: true,
+      top_level_comments_retrieved: 0,
+      replies_retrieved: 1,
+      reply_count_mismatches: [],
+      pagination_overlaps_reconciled: 1,
+      limitations: [expect.stringMatching(/pagination.*overlap/i)]
+    });
+    expect(requests).toHaveLength(4);
+  });
+
   it("processes every thread from a fetched page without refetching that page", async () => {
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {

@@ -54,7 +54,10 @@ import {
   type YoutubeVideoCommunityAuditInput,
   type YoutubeVideoCommunityAuditOutput
 } from "./youtube-video-community-audit.js";
-import { YoutubeAuditContinuationError } from "./youtube-audit-continuation.js";
+import {
+  YoutubeAuditContinuationError,
+  YoutubeAuditRestartRequiredError
+} from "./youtube-audit-continuation.js";
 import type {
   ResearchOperation,
   ResearchOperationHandler
@@ -1320,17 +1323,28 @@ function youtubeVideoCommunityAuditFailure(
 ): YoutubeVideoCommunityAuditOutput {
   const parsed = youtubeVideoCommunityAuditInputSchema.parse(input);
   const videoId = parsed.video_id_or_url === undefined
-    ? "unknown0000"
+    ? cause instanceof YoutubeAuditRestartRequiredError
+      ? cause.snapshot.video_id
+      : "unknown0000"
     : parseYoutubeVideoId(parsed.video_id_or_url) ?? "unknown0000";
   const continuationError = cause instanceof YoutubeAuditContinuationError ? cause : undefined;
-  const limitation = continuationError?.code === "youtube_video_audit_continuation_expired"
-    ? "The YouTube video audit continuation expired; restart the audit from the video ID."
-    : continuationError === undefined
-      ? "YouTube video community audit failed before reaching a valid completion state."
-      : "The YouTube video audit continuation is invalid; restart the audit from the video ID.";
+  const restartError = cause instanceof YoutubeAuditRestartRequiredError ? cause : undefined;
+  const snapshot = restartError?.snapshot;
+  const limitation = restartError?.code ===
+    "youtube_video_audit_continuation_migration_restart_required"
+    ? "This continuation predates the full-corpus identifier-membership upgrade and cannot be resumed safely; restart the audit from the video ID."
+    : restartError?.code ===
+        "youtube_video_audit_identifier_membership_restart_required"
+      ? "A duplicate or possible non-adjacent identifier match was detected outside an approved pagination overlap; restart the audit from the video ID. No rejected record was added to cumulative counts."
+      : continuationError?.code === "youtube_video_audit_continuation_expired"
+        ? "The YouTube video audit continuation expired; restart the audit from the video ID."
+        : continuationError === undefined
+          ? "YouTube video community audit failed before reaching a valid completion state."
+          : "The YouTube video audit continuation is invalid; restart the audit from the video ID.";
   const error: ProviderErrorShape = {
-    code: continuationError?.code ?? "youtube_video_community_audit_failed",
-    message: continuationError === undefined
+    code: restartError?.code ?? continuationError?.code ??
+      "youtube_video_community_audit_failed",
+    message: continuationError === undefined && restartError === undefined
       ? "YouTube video community audit failed"
       : limitation,
     retryable: false
@@ -1341,10 +1355,13 @@ function youtubeVideoCommunityAuditFailure(
     retrieved_at: new Date().toISOString(),
     video_id: videoId,
     canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
-    analysis_limit: parsed.analysis_limit ?? 500,
-    segment_index: 0,
+    analysis_limit: snapshot?.analysis_limit ?? parsed.analysis_limit ?? 500,
+    segment_index: snapshot?.segment_index ?? 0,
     metadata_access_status: "error",
     metadata_error: error,
+    ...(snapshot?.provider_reported_comments === undefined
+      ? {}
+      : { provider_reported_comments: snapshot.provider_reported_comments }),
     access_status: "error",
     extraction_coverage: "partial",
     limitations: [limitation],
@@ -1354,22 +1371,24 @@ function youtubeVideoCommunityAuditFailure(
     records_retrieved_this_call: 0,
     comment_thread_pages_this_call: 0,
     reply_pages_this_call: 0,
-    top_level_comments_retrieved_cumulative: 0,
-    replies_retrieved_cumulative: 0,
-    records_retrieved_cumulative: 0,
-    comment_thread_pages_cumulative: 0,
-    reply_pages_cumulative: 0,
+    top_level_comments_retrieved_cumulative:
+      snapshot?.top_level_comments_retrieved ?? 0,
+    replies_retrieved_cumulative: snapshot?.replies_retrieved ?? 0,
+    records_retrieved_cumulative: snapshot?.records_retrieved_cumulative ?? 0,
+    comment_thread_pages_cumulative: snapshot?.comment_thread_pages ?? 0,
+    reply_pages_cumulative: snapshot?.reply_pages ?? 0,
     records_returned_for_analysis: 0,
     top_level_records_returned_for_analysis: 0,
     reply_records_returned_for_analysis: 0,
-    reply_count_mismatches: [],
-    corpus_rolling_sha256: "0".repeat(64),
+    reply_count_mismatches: snapshot?.reply_count_mismatches ?? [],
+    corpus_rolling_sha256: snapshot?.rolling_sha256 ?? "0".repeat(64),
     insufficient_depth: false,
     continuation_recommended: false,
     receipt: {
       completion_state: "incomplete",
       synthesis_lock: "block",
-      chain_started_at_first_page: parsed.video_id_or_url !== undefined,
+      chain_started_at_first_page:
+        snapshot !== undefined || parsed.video_id_or_url !== undefined,
       top_level_pagination_exhausted: false,
       replies_reconciled: false,
       query_bounded_comments_used_as_corpus: false,
