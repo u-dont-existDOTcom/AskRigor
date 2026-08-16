@@ -29,6 +29,16 @@ describe("AskRigor public site", () => {
     expect(result.internalLinks).toBe(35);
   });
 
+  it("discloses the Custom GPT research Action as the same transient retrieval path", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    expect(privacy).toContain("Custom GPT Actions");
+    expect(privacy).toContain("same transient research retrieval path");
+    expect(privacy).toContain("search terms and public identifiers");
+    expect(privacy).toContain("public provider metadata and comment text");
+    expect(privacy).toContain("does not log or persist request or response bodies");
+    expect(privacy).toContain("separately consented lesson-feedback path");
+  });
+
   it.each(pages)("gives %s its exact identity", async (file, title, canonical) => {
     const html = await pageHtml(file);
     expect(html).toContain(`<title>${title}</title>`);
@@ -97,7 +107,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 13, 2026",
+      "Effective August 16, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",

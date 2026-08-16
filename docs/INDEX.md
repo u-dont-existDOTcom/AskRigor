@@ -35,6 +35,15 @@ complete XML protocol.
   script
 - `public-review-automation.md`: bounded direct-MCP and Responses API review runner
 - `tool-inventory-v0.1.0.json`: generated tool inventory
+- `custom-gpt-instructions.md` (repository path
+  `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
+  artifact; Knowledge remains empty
+- `custom-gpt-action-openapi.json`: generated 17-read/one-write Action schema
+- `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
+- `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
+  synthetic test handoff
+- `custom-gpt-action-live-acceptance.md`: 11-case synthetic live-acceptance
+  record; pending fields are not deployment evidence
 
 ## Privacy
 

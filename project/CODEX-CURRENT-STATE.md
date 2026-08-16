@@ -9,7 +9,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; no repository implementation branch remains active.
+- Canonical branch: `main`; active isolated task branch
+  `codex/calibrated-discovery-v0.2-design-2026-08-16` is based on
+  `33cb5d0004974caea82738c64faffa06d1d15ae4`.
 - Verified main boundary containing the packet repair:
   `0d8ef69fa7fd73c34c571a07723b5a6b5bad5fec`
 - Exact packet-repair head merged by PR #12:
@@ -19,6 +21,32 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Byte receipts: HRP `20.5.17` / 2026-08-13 / `d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`; Universal `20.5.11` / 2026-08-07 / `1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
+
+## Active Custom GPT research bridge candidate
+
+- The owner approved a Custom GPT compatibility bridge and preapproved clear,
+  reversible specifications. The 17-tool MCP v0.1 inventory remains frozen.
+- Design and execution plan commits are `5c149c7` and `eaaf671`. Implemented
+  slices are registry `2a2a988`, read-only Action routes `1ea0c0b`, exact
+  protocol chunks `b6575d1`, shared traffic/response limits `1387c2d`, truthful
+  YouTube transport bounding `b441382`, and generated GPT packet `ee52876`.
+- `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` independently enables research
+  Actions. They share MCP's transient provider flow, per-client token bucket,
+  and 16-request concurrency pool. Responses are limited to **60,000 serialized
+  UTF-8 bytes** and protocol chunks to **48,000 UTF-8 bytes**.
+- `npm run generate:custom-gpt` twice produced identical OpenAPI, instruction,
+  and sync hashes. The generated Instructions source is
+  `docs/custom-gpt-instructions.md`; Knowledge must remain empty.
+- Focused gates passed: registry/MCP 237 tests; Action composition 84 tests;
+  traffic/response boundaries 158 tests; YouTube/bridge 51 tests; generated
+  packet 8 tests. Typecheck passed after each behavioral slice. The branch
+  baseline `npm run verify` passed before implementation with 43 files, 848
+  tests, five skips, typecheck, and build.
+- This work is unpushed, unmerged, and not deployed. Existing production lesson
+  Action and MCP evidence below is unchanged. The research bridge has pending GPT editor work and all live acceptance fields remain `pending`.
+- Current task: finish documentation/site reconciliation, run the final local
+  gates, review the complete diff, then publish through one focused PR before
+  any reversible production deployment.
 
 ## Completed
 
@@ -185,11 +213,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Return to the signed-in OpenAI portal. If identity is complete, proceed to the
-publisher-domain challenge and **Scan Tools** for
-`https://mcp.askrigor.com/mcp`. If it still says `Verifying identity`, do not
-restart it; record and host the bounded demo using
-`docs/public-submission-demo-recording.md` while verification remains pending.
+Complete the Custom GPT bridge documentation/site gates, run the full
+deterministic verification on the final candidate, review and publish the one
+task branch, then preserve a production rollback point before enabling
+`ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true`. The irreducible GPT-editor step uses
+`docs/custom-gpt-instructions.md`, empty Knowledge, and the generated Action
+schema; no live state may be inferred before the 11-case record is complete.
 
 ## Recovery rule
 

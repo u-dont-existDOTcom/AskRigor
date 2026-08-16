@@ -212,6 +212,31 @@ ChatGPT billing and is capped server-side at $50.00 per UTC month.
 After deployment, refresh the developer-mode connection and start a new Project
 chat so the new tool metadata and Project instructions are active.
 
+## Custom GPT research Action candidate
+
+The repository now contains a verified local compatibility candidate exposing
+the frozen 17 read-only research operations as public Custom GPT Actions. It is
+not production evidence until the deployment and the 11-case live acceptance
+are recorded. `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this
+research surface; disabling it does not disable the existing lesson Action or
+MCP.
+
+The Actions use the same transient provider-retrieval implementation and one
+shared per-client token bucket and concurrency pool with MCP. Application
+request and response bodies are not logged or persisted. Action responses are
+limited to **60,000 serialized UTF-8 bytes**. Exact canonical protocol text is
+returned in ordered authenticated chunks of no more than **48,000 UTF-8
+bytes**, and the client must continue through `complete: true`. A large
+per-video YouTube result may reduce only the deterministic analysis sample; it
+does not change corpus counts, digest, access state, or completion receipt.
+
+Run `npm run generate:custom-gpt` to reproduce the Action schema, compact
+instructions, and hash ledger. The sole instruction artifact is
+`docs/custom-gpt-instructions.md`; Custom GPT Knowledge must remain empty so a
+stale upload cannot replace runtime-verified protocol bytes. Exact editor,
+rollback, and acceptance steps are in `docs/custom-gpt-actions-setup.md` and
+`docs/custom-gpt-action-live-acceptance.md`.
+
 ## Custom GPT lesson Action
 
 The lesson Action accepts only a separately consented, generalized candidate,
