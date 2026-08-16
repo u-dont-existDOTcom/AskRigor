@@ -13,6 +13,10 @@ const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 20;
 const DEFAULT_MAX_PROVIDER_REQUESTS = 50;
 const DEFAULT_MAX_ELAPSED_MS = 15_000;
+const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 20;
+const MAX_REPLY_PAGE_IDENTIFIERS = 100;
+const PAGINATION_OVERLAP_LIMITATION =
+  "YouTube pagination overlap repeated one or more stable identifiers at an adjacent page boundary; repeats were reconciled, so the retained corpus is bounded evidence rather than a stable complete snapshot.";
 
 const providerCommentSchema = z.object({
   id: z.string().min(1),
@@ -67,9 +71,11 @@ const commentIdListSchema = z.object({
 export interface YoutubeCommentSegmentCursor {
   top_level_page_token?: string;
   page_fingerprint?: string;
+  previous_top_level_page_sha256?: string[];
   thread_offset: number;
   top_level_emitted: boolean;
   reply_page_token?: string;
+  previous_reply_page_sha256?: string[];
   current_parent_id?: string;
   current_expected_replies?: number;
   current_replies_retrieved?: number;
@@ -91,6 +97,7 @@ export interface YoutubeCommentSegmentResult {
   replies_retrieved: number;
   comment_thread_pages: number;
   reply_pages: number;
+  pagination_overlaps_reconciled?: number;
   reply_count_mismatches: YoutubeReplyCountMismatch[];
   exhausted: boolean;
   next_cursor?: YoutubeCommentSegmentCursor;
@@ -162,6 +169,7 @@ export async function getYoutubeCommentSegment(
   let replyCount = 0;
   let commentThreadPages = 0;
   let replyPages = 0;
+  let paginationOverlapsReconciled = 0;
   let cursor: YoutubeCommentSegmentCursor = input.cursor ?? {
     thread_offset: 0,
     top_level_emitted: false
@@ -179,6 +187,11 @@ export async function getYoutubeCommentSegment(
       const page = await fetchThreadPage(videoId, pageSize, cursor.top_level_page_token, config, accounting);
       commentThreadPages += 1;
       const fingerprint = await threadPageFingerprint(page.items.map(({ id }) => id));
+      const topLevelPageHashes = await identifierFingerprints(
+        page.items.map(({ snippet }) => snippet.topLevelComment.id),
+        MAX_TOP_LEVEL_PAGE_IDENTIFIERS
+      );
+      const previousTopLevelPageHashes = new Set(cursor.previous_top_level_page_sha256 ?? []);
       if (cursor.page_fingerprint !== undefined && cursor.page_fingerprint !== fingerprint) {
         return partialResult({
           videoId,
@@ -187,6 +200,7 @@ export async function getYoutubeCommentSegment(
           replyCount,
           commentThreadPages,
           replyPages,
+          paginationOverlapsReconciled,
           mismatches,
           cursor,
           limitation: "YouTube comment-thread page changed before continuation could resume.",
@@ -206,6 +220,7 @@ export async function getYoutubeCommentSegment(
           replies_retrieved: replyCount,
           comment_thread_pages: commentThreadPages,
           reply_pages: replyPages,
+          pagination_overlaps_reconciled: paginationOverlapsReconciled,
           reply_count_mismatches: mismatches,
           exhausted: true,
           access_status: "api_visible_complete",
@@ -224,6 +239,7 @@ export async function getYoutubeCommentSegment(
         const topLevel = thread.snippet.topLevelComment;
         const parentId = topLevel.id;
         const expectedReplies = thread.snippet.totalReplyCount;
+        const topLevelHash = topLevelPageHashes[cursor.thread_offset]!;
         if (thread.snippet.videoId !== videoId || topLevel.snippet.videoId !== videoId) {
           throw new SegmentFatalError("youtube_comment_segment_response_invalid");
         }
@@ -233,6 +249,22 @@ export async function getYoutubeCommentSegment(
             cursor.current_expected_replies !== expectedReplies)
         ) {
           throw new SegmentFatalError("youtube_comment_segment_cursor_invalid");
+        }
+
+        if (!cursor.top_level_emitted && previousTopLevelPageHashes.has(topLevelHash)) {
+          paginationOverlapsReconciled += 1;
+          const nextThreadOffset = cursor.thread_offset + 1;
+          if (nextThreadOffset < page.items.length) {
+            cursor = {
+              top_level_page_token: cursor.top_level_page_token,
+              page_fingerprint: fingerprint,
+              previous_top_level_page_sha256: cursor.previous_top_level_page_sha256,
+              thread_offset: nextThreadOffset,
+              top_level_emitted: false
+            };
+            continue;
+          }
+          break;
         }
 
         if (!cursor.top_level_emitted) {
@@ -250,6 +282,7 @@ export async function getYoutubeCommentSegment(
 
         let replyPageToken = cursor.reply_page_token;
         let currentReplies = cursor.current_replies_retrieved ?? 0;
+        let previousReplyPageHashes = new Set(cursor.previous_reply_page_sha256 ?? []);
         let firstReplyProbePending = replyPageToken === undefined && currentReplies === 0;
         const requestedReplyPageTokens = new Set<string>();
         while (
@@ -275,7 +308,15 @@ export async function getYoutubeCommentSegment(
           if (replyPage.items.some((reply) => reply.snippet.parentId !== parentId)) {
             throw new SegmentFatalError("youtube_comment_segment_response_invalid");
           }
-          for (const reply of replyPage.items) {
+          const replyPageHashes = await identifierFingerprints(
+            replyPage.items.map(({ id }) => id),
+            MAX_REPLY_PAGE_IDENTIFIERS
+          );
+          for (const [index, reply] of replyPage.items.entries()) {
+            if (previousReplyPageHashes.has(replyPageHashes[index]!)) {
+              paginationOverlapsReconciled += 1;
+              continue;
+            }
             comments.push(normalizeComment(reply, videoId, parentId, true));
             replyCount += 1;
             currentReplies += 1;
@@ -285,8 +326,10 @@ export async function getYoutubeCommentSegment(
             ...cursor,
             page_fingerprint: fingerprint,
             reply_page_token: replyPageToken,
+            previous_reply_page_sha256: replyPageHashes,
             current_replies_retrieved: currentReplies
           };
+          previousReplyPageHashes = new Set(replyPageHashes);
           if (replyPageToken === undefined) break;
         }
         if (currentReplies !== expectedReplies) {
@@ -302,6 +345,7 @@ export async function getYoutubeCommentSegment(
           cursor = {
             top_level_page_token: cursor.top_level_page_token,
             page_fingerprint: fingerprint,
+            previous_top_level_page_sha256: cursor.previous_top_level_page_sha256,
             thread_offset: nextThreadOffset,
             top_level_emitted: false
           };
@@ -317,16 +361,18 @@ export async function getYoutubeCommentSegment(
           replies_retrieved: replyCount,
           comment_thread_pages: commentThreadPages,
           reply_pages: replyPages,
+          pagination_overlaps_reconciled: paginationOverlapsReconciled,
           reply_count_mismatches: mismatches,
           exhausted: mismatches.length === 0,
-          access_status: mismatches.length === 0 ? "api_visible_complete" : "partial",
-          limitations: mismatches.length === 0
-            ? []
-            : ["YouTube reply counts did not reconcile for every retrieved thread."]
+          access_status: mismatches.length === 0 && paginationOverlapsReconciled === 0
+            ? "api_visible_complete"
+            : "partial",
+          limitations: segmentLimitations(mismatches.length > 0, paginationOverlapsReconciled)
         };
       }
       cursor = {
         top_level_page_token: page.nextPageToken,
+        previous_top_level_page_sha256: topLevelPageHashes,
         thread_offset: 0,
         top_level_emitted: false
       };
@@ -340,6 +386,7 @@ export async function getYoutubeCommentSegment(
         replyCount,
         commentThreadPages,
         replyPages,
+        paginationOverlapsReconciled,
         mismatches,
         cursor,
         limitation: "YouTube comment segment reached its per-call budget; continue with next_cursor."
@@ -356,6 +403,7 @@ export async function getYoutubeCommentSegment(
             replyCount,
             commentThreadPages,
             replyPages,
+            paginationOverlapsReconciled,
             mismatches,
             cursor,
             limitation: failure.limitations[0] ?? "YouTube retrieval stopped at a provider boundary."
@@ -375,6 +423,7 @@ export async function getYoutubeCommentSegment(
           replyCount,
           commentThreadPages,
           replyPages,
+          paginationOverlapsReconciled,
           mismatches,
           cursor,
           limitation: "YouTube comment segment could not be completed.",
@@ -394,6 +443,7 @@ function partialResult(input: {
   replyCount: number;
   commentThreadPages: number;
   replyPages: number;
+  paginationOverlapsReconciled?: number;
   mismatches: YoutubeReplyCountMismatch[];
   cursor: YoutubeCommentSegmentCursor;
   limitation: string;
@@ -406,11 +456,17 @@ function partialResult(input: {
     replies_retrieved: input.replyCount,
     comment_thread_pages: input.commentThreadPages,
     reply_pages: input.replyPages,
+    pagination_overlaps_reconciled: input.paginationOverlapsReconciled ?? 0,
     reply_count_mismatches: input.mismatches,
     exhausted: false,
     next_cursor: input.cursor,
     access_status: "partial",
-    limitations: [input.limitation],
+    limitations: uniqueStrings([
+      input.limitation,
+      ...((input.paginationOverlapsReconciled ?? 0) > 0
+        ? [PAGINATION_OVERLAP_LIMITATION]
+        : [])
+    ]),
     ...(input.errorCode === undefined
       ? {}
       : {
@@ -503,6 +559,41 @@ async function threadPageFingerprint(ids: readonly string[]): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function identifierFingerprints(
+  identifiers: readonly string[],
+  maximum: number
+): Promise<string[]> {
+  if (identifiers.length > maximum || new Set(identifiers).size !== identifiers.length) {
+    throw new SegmentFatalError("youtube_comment_segment_response_invalid");
+  }
+  return Promise.all(identifiers.map(async (identifier) => {
+    const digest = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(identifier)
+    );
+    return btoa(String.fromCharCode(...new Uint8Array(digest)))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replace(/=+$/, "");
+  }));
+}
+
+function segmentLimitations(
+  hasReplyMismatch: boolean,
+  paginationOverlapsReconciled: number
+): string[] {
+  return [
+    ...(hasReplyMismatch
+      ? ["YouTube reply counts did not reconcile for every retrieved thread."]
+      : []),
+    ...(paginationOverlapsReconciled > 0 ? [PAGINATION_OVERLAP_LIMITATION] : [])
+  ];
+}
+
+function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values)];
+}
+
 function normalizeComment(
   item: z.infer<typeof providerCommentSchema>,
   videoId: string,
@@ -536,6 +627,7 @@ function segmentFailure(videoId: string, code: string): YoutubeCommentSegmentRes
     replies_retrieved: 0,
     comment_thread_pages: 0,
     reply_pages: 0,
+    pagination_overlaps_reconciled: 0,
     reply_count_mismatches: [],
     exhausted: false,
     access_status: "error",

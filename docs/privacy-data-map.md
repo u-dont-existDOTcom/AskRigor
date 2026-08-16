@@ -70,11 +70,13 @@ lesson boundary.
 
 The optional continuation token contains only the video identifier, upstream
 pagination cursor, one-hour issue/expiry timestamps, analysis limit, page and
-record counters, bounded deterministic-sample comment identifiers, plus bounded reply-parent identifiers with provider-reported versus retrieved reply counts,
-and rolling corpus digest. It contains no comment text, author identity,
-provider credential, or continuation secret. The token is authenticated by a
-server-side secret. As a control, the continuation secret is never returned or
-logged.
+record counters, bounded deterministic-sample comment identifiers, bounded
+SHA-256 fingerprints of comment identifiers from the immediately preceding
+top-level and reply pages, bounded reply-parent identifiers with provider-reported versus retrieved reply counts,
+and a rolling corpus digest.
+It contains no comment text, author identity, provider credential, or
+continuation secret. The token is authenticated by a server-side secret. As a
+control, the continuation secret is never returned or logged.
 
 For MCP client-carried continuation state, the invoking client receives that
 token and may resend it during the active request chain; the server keeps no

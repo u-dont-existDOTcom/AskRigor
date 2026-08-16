@@ -15,15 +15,32 @@ const MIN_SECRET_BYTES = 32;
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
+const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 20;
+const MAX_REPLY_PAGE_IDENTIFIERS = 100;
 
 const boundedInteger = z.number().int().min(0).max(MAX_SAFE_INTEGER);
 const youtubeProviderIdentifierSchema = z.string().min(1).max(512);
+const pageFingerprintArraySchema = (maximum: number) =>
+  z.array(z.string().regex(SHA256_BASE64URL_PATTERN)).max(maximum)
+    .superRefine((values, context) => {
+      if (new Set(values).size !== values.length) {
+        context.addIssue({
+          code: "custom",
+          message: "Page identifier fingerprints are not unique"
+        });
+      }
+    });
 const cursorSchema = z.object({
   top_level_page_token: z.string().min(1).max(1_024).optional(),
   page_fingerprint: z.string().regex(SHA256_PATTERN).optional(),
+  previous_top_level_page_sha256:
+    pageFingerprintArraySchema(MAX_TOP_LEVEL_PAGE_IDENTIFIERS).optional(),
   thread_offset: boundedInteger,
   top_level_emitted: z.boolean(),
   reply_page_token: z.string().min(1).max(1_024).optional(),
+  previous_reply_page_sha256:
+    pageFingerprintArraySchema(MAX_REPLY_PAGE_IDENTIFIERS).optional(),
   current_parent_id: youtubeProviderIdentifierSchema.optional(),
   current_expected_replies: boundedInteger.optional(),
   current_replies_retrieved: boundedInteger.optional()
@@ -37,15 +54,21 @@ const cursorSchema = z.object({
     context.addIssue({ code: "custom", message: "Emitted thread cursor is incomplete" });
   }
   if (!cursor.top_level_emitted && (
-    currentFields.some((value) => value !== undefined) || cursor.reply_page_token !== undefined
+    currentFields.some((value) => value !== undefined) ||
+    cursor.reply_page_token !== undefined ||
+    cursor.previous_reply_page_sha256 !== undefined
   )) {
     context.addIssue({ code: "custom", message: "Unemitted thread cursor has reply state" });
   }
 });
 
-const sampleIdentifierSchema = z.object({
+const legacySampleIdentifierSchema = z.object({
   comment_id: youtubeProviderIdentifierSchema
 }).strict();
+const sampleIdentifierSchema = z.union([
+  youtubeProviderIdentifierSchema,
+  legacySampleIdentifierSchema
+]).transform((value) => typeof value === "string" ? value : value.comment_id);
 const replyMismatchSchema = z.object({
   parent_comment_id: youtubeProviderIdentifierSchema,
   expected: boundedInteger,
@@ -65,6 +88,7 @@ const continuationStateSchema = z.object({
   replies_retrieved: boundedInteger,
   comment_thread_pages: boundedInteger,
   reply_pages: boundedInteger,
+  pagination_overlaps_reconciled: boundedInteger.default(0),
   records_retrieved_cumulative: boundedInteger,
   rolling_sha256: z.string().regex(SHA256_PATTERN),
   sample_identifiers: z.array(sampleIdentifierSchema).max(MAX_ANALYSIS_RECORDS),
@@ -88,7 +112,7 @@ const continuationStateSchema = z.object({
       message: "Continuation sample count does not reconcile with retrieved records"
     });
   }
-  const identifiers = state.sample_identifiers.map(({ comment_id }) => comment_id);
+  const identifiers = state.sample_identifiers;
   if (new Set(identifiers).size !== identifiers.length) {
     context.addIssue({ code: "custom", message: "Continuation sample identifiers are not unique" });
   }
@@ -99,10 +123,6 @@ const continuationStateSchema = z.object({
     context.addIssue({ code: "custom", message: "Continuation reply mismatches are not unique" });
   }
 });
-
-export interface YoutubeAuditSampleIdentifier {
-  comment_id: string;
-}
 
 export class YoutubeAuditContinuationError extends Error {
   constructor(
@@ -128,9 +148,10 @@ export interface YoutubeVideoAuditContinuationState {
   replies_retrieved: number;
   comment_thread_pages: number;
   reply_pages: number;
+  pagination_overlaps_reconciled: number;
   records_retrieved_cumulative: number;
   rolling_sha256: string;
-  sample_identifiers: YoutubeAuditSampleIdentifier[];
+  sample_identifiers: string[];
   reply_count_mismatches: YoutubeReplyCountMismatch[];
 }
 
@@ -216,6 +237,7 @@ export function advanceYoutubeAuditState(
     replies_retrieved: number;
     comment_thread_pages: number;
     reply_pages: number;
+    pagination_overlaps_reconciled?: number;
     reply_count_mismatches: YoutubeReplyCountMismatch[];
   },
   cursor: YoutubeCommentSegmentCursor
@@ -224,7 +246,8 @@ export function advanceYoutubeAuditState(
     counters.top_level_comments_retrieved,
     counters.replies_retrieved,
     counters.comment_thread_pages,
-    counters.reply_pages
+    counters.reply_pages,
+    counters.pagination_overlaps_reconciled ?? 0
   ];
   if (
     numericCounters.some((value) => !Number.isSafeInteger(value) || value < 0) ||
@@ -233,7 +256,7 @@ export function advanceYoutubeAuditState(
   ) {
     throw new Error("Invalid YouTube audit continuation advance");
   }
-  const identifiers = new Set(state.sample_identifiers.map(({ comment_id }) => comment_id));
+  const identifiers = new Set(state.sample_identifiers);
   for (const { comment_id } of comments) {
     if (identifiers.has(comment_id)) {
       throw new Error("Duplicate YouTube comment identifier in continuation chain");
@@ -245,8 +268,7 @@ export function advanceYoutubeAuditState(
       rankYoutubeCommentIdentifier(left).localeCompare(rankYoutubeCommentIdentifier(right)) ||
       left.localeCompare(right)
     )
-    .slice(0, MAX_ANALYSIS_RECORDS)
-    .map((comment_id) => ({ comment_id }));
+    .slice(0, MAX_ANALYSIS_RECORDS);
   const mismatchByParent = new Map(
     state.reply_count_mismatches.map((mismatch) => [mismatch.parent_comment_id, mismatch])
   );
@@ -269,6 +291,8 @@ export function advanceYoutubeAuditState(
     replies_retrieved: state.replies_retrieved + counters.replies_retrieved,
     comment_thread_pages: state.comment_thread_pages + counters.comment_thread_pages,
     reply_pages: state.reply_pages + counters.reply_pages,
+    pagination_overlaps_reconciled:
+      state.pagination_overlaps_reconciled + (counters.pagination_overlaps_reconciled ?? 0),
     records_retrieved_cumulative: state.records_retrieved_cumulative + comments.length,
     rolling_sha256: createHash("sha256")
       .update(`${state.rolling_sha256}\n${commentPayload}`)

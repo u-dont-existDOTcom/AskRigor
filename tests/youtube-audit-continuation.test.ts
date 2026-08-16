@@ -25,9 +25,10 @@ const STATE: YoutubeVideoAuditContinuationState = {
   replies_retrieved: 0,
   comment_thread_pages: 1,
   reply_pages: 0,
+  pagination_overlaps_reconciled: 0,
   records_retrieved_cumulative: 1,
   rolling_sha256: "a".repeat(64),
-  sample_identifiers: [{ comment_id: "UgxTop00000000000000001" }],
+  sample_identifiers: ["UgxTop00000000000000001"],
   reply_count_mismatches: []
 };
 
@@ -57,6 +58,44 @@ describe("YouTube audit continuation tokens", () => {
     expect(payload).not.toContain(SECRET);
   });
 
+  it("authenticates bounded adjacent-page fingerprints and the cumulative overlap boundary", () => {
+    const stateWithOverlap = {
+      ...STATE,
+      pagination_overlaps_reconciled: 2,
+      cursor: {
+        previous_top_level_page_sha256: ["b".repeat(43)],
+        thread_offset: 0,
+        top_level_emitted: true,
+        reply_page_token: "reply-page-2",
+        previous_reply_page_sha256: ["c".repeat(43)],
+        current_parent_id: "UgxTop00000000000000001",
+        current_expected_replies: 3,
+        current_replies_retrieved: 2
+      }
+    } as YoutubeVideoAuditContinuationState;
+
+    const token = encodeYoutubeAuditContinuation(stateWithOverlap, SECRET);
+
+    expect(decodeYoutubeAuditContinuation(token, SECRET, NOW)).toEqual(stateWithOverlap);
+    const payload = Buffer.from(token.split(".")[0]!, "base64url").toString("utf8");
+    expect(payload).not.toContain("top-overlap");
+    expect(payload).not.toContain("reply-overlap");
+  });
+
+  it("decodes one-hour legacy object-shaped identifier tokens during migration", () => {
+    const legacyPayload = Buffer.from(JSON.stringify({
+      ...STATE,
+      sample_identifiers: STATE.sample_identifiers.map((comment_id) => ({ comment_id }))
+    }), "utf8").toString("base64url");
+    const signature = createHmac("sha256", SECRET).update(legacyPayload).digest("base64url");
+
+    expect(decodeYoutubeAuditContinuation(
+      `${legacyPayload}.${signature}`,
+      SECRET,
+      NOW
+    )).toEqual(STATE);
+  });
+
   it("rejects changed signatures, changed payloads, wrong secrets, and expiry", () => {
     const token = encodeYoutubeAuditContinuation(STATE, SECRET);
     const [payload, signature] = token.split(".") as [string, string];
@@ -84,22 +123,61 @@ describe("YouTube audit continuation tokens", () => {
       ...STATE,
       sample_identifiers: Array.from(
         { length: 501 },
-        (_, index) => ({ comment_id: `Ugx${index}` })
+        (_, index) => `Ugx${index}`
       )
+    }, SECRET)).toThrow(/state/i);
+  });
+
+  it("rejects overlong, duplicate, and structurally misplaced page fingerprints", () => {
+    const fingerprint = (index: number) =>
+      createHash("sha256").update(String(index)).digest("base64url");
+    expect(() => encodeYoutubeAuditContinuation({
+      ...STATE,
+      cursor: {
+        ...STATE.cursor,
+        previous_top_level_page_sha256: Array.from(
+          { length: 21 },
+          (_, index) => fingerprint(index)
+        )
+      }
+    }, SECRET)).toThrow(/state/i);
+    expect(() => encodeYoutubeAuditContinuation({
+      ...STATE,
+      cursor: {
+        ...STATE.cursor,
+        previous_top_level_page_sha256: [fingerprint(0), fingerprint(0)]
+      }
+    }, SECRET)).toThrow(/state/i);
+    expect(() => encodeYoutubeAuditContinuation({
+      ...STATE,
+      cursor: {
+        ...STATE.cursor,
+        previous_reply_page_sha256: [fingerprint(0)]
+      }
     }, SECRET)).toThrow(/state/i);
   });
 
   it("keeps the worst-case supported continuation below the public token limit", () => {
     const identifier = (prefix: string, index: number) =>
       `${prefix}${String(index).padStart(4, "0")}`.padEnd(64, "x");
+    const fingerprint = (prefix: string, index: number) =>
+      createHash("sha256").update(`${prefix}-${index}`).digest("base64url");
     const worstCase: YoutubeVideoAuditContinuationState = {
       ...STATE,
       cursor: {
         top_level_page_token: "t".repeat(1_024),
         page_fingerprint: "f".repeat(64),
+        previous_top_level_page_sha256: Array.from(
+          { length: 20 },
+          (_, index) => fingerprint("top", index)
+        ),
         thread_offset: Number.MAX_SAFE_INTEGER,
         top_level_emitted: true,
         reply_page_token: "r".repeat(1_024),
+        previous_reply_page_sha256: Array.from(
+          { length: 100 },
+          (_, index) => fingerprint("reply", index)
+        ),
         current_parent_id: identifier("parent", 0),
         current_expected_replies: Number.MAX_SAFE_INTEGER,
         current_replies_retrieved: Number.MAX_SAFE_INTEGER
@@ -110,7 +188,7 @@ describe("YouTube audit continuation tokens", () => {
       records_retrieved_cumulative: 500,
       sample_identifiers: Array.from(
         { length: 500 },
-        (_, index) => ({ comment_id: identifier("comment", index) })
+        (_, index) => identifier("comment", index)
       ),
       reply_count_mismatches: Array.from(
         { length: 16 },
@@ -172,7 +250,7 @@ describe("YouTube audit continuation tokens", () => {
       reply_pages: 0,
       records_retrieved_cumulative: 3,
       cursor: { thread_offset: 3, top_level_emitted: false },
-      sample_identifiers: expectedIds.map((comment_id) => ({ comment_id }))
+      sample_identifiers: expectedIds
     });
     expect(advanced.rolling_sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(advanced.rolling_sha256).not.toBe(base.rolling_sha256);
@@ -216,9 +294,7 @@ describe("YouTube audit continuation tokens", () => {
       { thread_offset: 1, top_level_emitted: false }
     );
 
-    expect(advanced.sample_identifiers).toEqual([
-      { comment_id: "UgxReply.replyPart" }
-    ]);
+    expect(advanced.sample_identifiers).toEqual(["UgxReply.replyPart"]);
     expect(decodeYoutubeAuditContinuation(
       encodeYoutubeAuditContinuation(advanced, SECRET),
       SECRET,
