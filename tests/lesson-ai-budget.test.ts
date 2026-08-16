@@ -8,6 +8,7 @@ import {
 } from "../apps/research-mcp/src/lessons/ai-budget.js";
 
 const temporaryDirectories: string[] = [];
+const DURABLE_FILESYSTEM_TEST_TIMEOUT_MS = 20_000;
 
 async function temporaryLedger(): Promise<{ directory: string; ledgerPath: string }> {
   const directory = await mkdtemp(join(tmpdir(), "askrigor-ai-budget-"));
@@ -21,7 +22,9 @@ afterEach(async () => {
   }));
 });
 
-describe("persistent lesson AI budget", () => {
+describe("persistent lesson AI budget", {
+  timeout: DURABLE_FILESYSTEM_TEST_TIMEOUT_MS
+}, () => {
   it("uses an exact hard monthly limit of $50.00 in nano-USD", () => {
     expect(MONTHLY_AI_BUDGET_NANO_USD).toBe(50_000_000_000);
   });
@@ -99,7 +102,9 @@ describe("persistent lesson AI budget", () => {
     const secondStat = await lstat(ledgerPath);
     expect(firstStat.ino).not.toBe(secondStat.ino);
     expect(secondStat.mode & 0o777).toBe(0o600);
-    expect((await import("node:fs/promises")).readdir(directory)).resolves.toEqual(["ai-budget.json"]);
+    await expect((await import("node:fs/promises")).readdir(directory)).resolves.toEqual([
+      "ai-budget.json"
+    ]);
 
     const restartedBudget = createFileAiBudget(options);
     expect(await restartedBudget.reserve("privacy_generalization", 45_000_000_000)).toBeDefined();

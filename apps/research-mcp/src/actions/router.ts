@@ -1,5 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
+import { ACTION_REQUEST_MAX_BYTES } from "../config.js";
+import type {
+  ConcurrencyLimiter,
+  TokenBucketLimiter
+} from "../rate-limit.js";
 import { hasValidActionAuthorization } from "./auth.js";
 import {
   ActionBodyTooLargeError,
@@ -7,9 +12,12 @@ import {
   readActionJsonBody
 } from "./body.js";
 import { isCanonicalRawPath } from "./path.js";
-import type { ActionResult, ActionRoute } from "./types.js";
+import {
+  ActionResponseTooLargeError,
+  type ActionResult,
+  type ActionRoute
+} from "./types.js";
 
-const ACTION_BODY_MAX_BYTES = 8_192;
 const OPENAPI_PATH = "/actions/openapi.json";
 const RESERVED_PATHS = new Set(["/mcp", "/healthz", OPENAPI_PATH]);
 
@@ -19,6 +27,8 @@ export interface DispatchActionRequestOptions {
   actionApiKey: string | undefined;
   routes: readonly ActionRoute[];
   createOpenApiDocument: () => Record<string, unknown>;
+  publicRateLimiter: TokenBucketLimiter;
+  publicConcurrencyLimiter: ConcurrencyLimiter;
 }
 
 export function validateActionRoutes(routes: readonly ActionRoute[]): void {
@@ -31,7 +41,26 @@ export function validateActionRoutes(routes: readonly ActionRoute[]): void {
     ) {
       throw new Error(`Invalid Action route path: ${route.path}`);
     }
-
+    if (
+      route.publicResearch === true &&
+      (
+        route.method !== "POST" ||
+        route.public !== true ||
+        route.consequential !== false ||
+        route.path !== `/actions/research/${route.operationId}`
+      )
+    ) {
+      throw new Error(`Invalid public research Action route: ${route.operationId}`);
+    }
+    if (
+      route.maximumResponseBytes !== undefined &&
+      (
+        !Number.isSafeInteger(route.maximumResponseBytes) ||
+        route.maximumResponseBytes < 1
+      )
+    ) {
+      throw new Error(`Invalid Action response byte limit: ${route.operationId}`);
+    }
     validateResponseHeaders(route);
 
     const key = `${route.method} ${route.path}`;
@@ -68,10 +97,20 @@ export async function dispatchActionRequest(
     return true;
   }
 
+  if (
+    route.publicResearch === true &&
+    !options.publicRateLimiter.consume(options.clientIp)
+  ) {
+    writeJson(response, 429, {
+      error: { code: "action_rate_limit_exceeded", retryable: true }
+    });
+    return true;
+  }
+
   let body: unknown = undefined;
   if (route.method === "POST") {
     try {
-      body = await readActionJsonBody(request, ACTION_BODY_MAX_BYTES);
+      body = await readActionJsonBody(request, ACTION_REQUEST_MAX_BYTES);
     } catch (error) {
       if (error instanceof ActionBodyTooLargeError) {
         writeJson(response, 413, { error: { code: "action_body_too_large", retryable: false } });
@@ -86,6 +125,16 @@ export async function dispatchActionRequest(
     }
   }
 
+  const releasePermit = route.publicResearch === true
+    ? options.publicConcurrencyLimiter.tryAcquire()
+    : () => {};
+  if (releasePermit === undefined) {
+    writeJson(response, 503, {
+      error: { code: "action_concurrency_limit_exceeded", retryable: true }
+    });
+    return true;
+  }
+
   try {
     const result = await route.handle({ request, clientIp: options.clientIp, body });
     if (
@@ -95,9 +144,27 @@ export async function dispatchActionRequest(
       writeJson(response, 500, { error: { code: "action_internal_error", retryable: false } });
       return true;
     }
-    writeJson(response, result.status, result.body, result.headers);
-  } catch {
+    const serialized = JSON.stringify(result.body);
+    if (
+      route.maximumResponseBytes !== undefined &&
+      Buffer.byteLength(serialized, "utf8") > route.maximumResponseBytes
+    ) {
+      writeJson(response, 502, {
+        error: { code: "action_response_too_large", retryable: false }
+      });
+      return true;
+    }
+    writeSerializedJson(response, result.status, serialized, result.headers);
+  } catch (error) {
+    if (error instanceof ActionResponseTooLargeError) {
+      writeJson(response, 502, {
+        error: { code: "action_response_too_large", retryable: false }
+      });
+      return true;
+    }
     writeJson(response, 500, { error: { code: "action_internal_error", retryable: false } });
+  } finally {
+    releasePermit();
   }
   return true;
 }
@@ -146,8 +213,10 @@ function hasValidRequiredResponseHeaders(route: ActionRoute, result: ActionResul
 }
 
 function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
-  return (route.method === "POST" && (status === 400 || status === 413)) ||
-    (!route.public && status === 401);
+  return status === 500 ||
+    (route.method === "POST" && (status === 400 || status === 413)) ||
+    (!route.public && status === 401) ||
+    (route.publicResearch === true && [429, 502, 503].includes(status));
 }
 
 function isHttpToken(value: string): boolean {
@@ -166,6 +235,15 @@ function writeJson(
   body: unknown,
   headers: Readonly<Record<string, string>> = {}
 ): void {
+  writeSerializedJson(response, status, JSON.stringify(body), headers);
+}
+
+function writeSerializedJson(
+  response: ServerResponse,
+  status: number,
+  serializedBody: string,
+  headers: Readonly<Record<string, string>> = {}
+): void {
   response.writeHead(status, { "content-type": "application/json", ...headers });
-  response.end(JSON.stringify(body));
+  response.end(serializedBody);
 }

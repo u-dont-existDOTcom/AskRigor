@@ -61,6 +61,8 @@ describe("AskRigor public-review packet", () => {
     );
     expect(Object.fromEntries(environmentRows)).toEqual({
       ASKRIGOR_ACTIONS_ENABLED: "Exact literal `true` only when ready to accept Actions.",
+      ASKRIGOR_RESEARCH_ACTIONS_ENABLED: "Exact literal `true` only when ready to expose public read-only research Actions.",
+      ASKRIGOR_YOUTUBE_CONTINUATION_SECRET: "Server-only secret containing at least 32 UTF-8 bytes; required at startup when research Actions are enabled and never returned or logged.",
       ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
       OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
       ASKRIGOR_AI_BUDGET_LEDGER: "Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`.",
@@ -80,9 +82,9 @@ describe("AskRigor public-review packet", () => {
       "Bearer",
       "https://askrigor.com/privacy",
       "Submit this anonymized lesson to improve AskRigor?",
-      "PROJECT_INSTRUCTIONS.md",
-      "FORUM_SIGNAL_MODULE.md",
-      "LESSON_CAPTURE_MODULE.md",
+      "docs/custom-gpt-instructions.md",
+      "Knowledge: empty",
+      "direct `/g/...`",
       "synthetic",
       "ARL-####",
       "npm run lessons:status",
@@ -150,7 +152,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 13, 2026");
+    expect(privacySite).toContain("Effective August 16, 2026");
     expect(privacySite).toContain("Optional lesson feedback");
     expect(readme).toContain("The lesson Action is deployed and live-accepted");
     expect(checklist).toContain(
@@ -160,6 +162,54 @@ describe("AskRigor public-review packet", () => {
       "The August 13 lesson notice is deployed and live-accepted.",
     );
     expect(releaseEvidence).toContain("56d13b73e74c377cfd6d513a5f4ceeec9949e0bf");
+  });
+
+  it("keeps the research Action bridge documented as a verified local candidate until live acceptance", async () => {
+    const [setup, privacyMap, privacySite, readme, index, release, state, acceptance] =
+      await Promise.all([
+        readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
+        readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
+        readFile(rootFile("site/privacy/index.html"), "utf8"),
+        readFile(rootFile("README.md"), "utf8"),
+        readFile(rootFile("docs/INDEX.md"), "utf8"),
+        readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
+        readFile(rootFile("project/CODEX-CURRENT-STATE.md"), "utf8"),
+        readFile(rootFile("docs/custom-gpt-action-live-acceptance.md"), "utf8")
+      ]);
+
+    for (const document of [setup, privacyMap, privacySite, readme, release, state]) {
+      expect(document).toContain("ASKRIGOR_RESEARCH_ACTIONS_ENABLED");
+      expect(document).toContain("60,000");
+      expect(document).toContain("48,000");
+    }
+    for (const document of [setup, privacyMap, privacySite, readme]) {
+      expect(document).toContain("shared");
+      expect(document).toContain("transient");
+    }
+    for (const document of [setup, readme, index, state]) {
+      expect(document).toContain("docs/custom-gpt-instructions.md");
+      expect(document).toContain("Knowledge");
+      expect(document).toContain("empty");
+    }
+    expect(privacyMap).toContain("protocol identity, digest, byte offset, chunk index, and expiry");
+    expect(privacyMap).toContain("no protocol text, health content, or secret");
+    expect(privacySite).toContain("Custom GPT Actions");
+    expect(privacySite).toContain("public provider metadata and comment text");
+    expect(setup).toContain("does not disable lesson capture or MCP");
+    expect(setup).toContain("direct `/g/...`");
+    expect(release).toContain("LOCAL CANDIDATE — NOT DEPLOYED");
+    expect(release).toContain("Historical production evidence below remains historical");
+    expect(state).toContain("codex/calibrated-discovery-v0.2-design-2026-08-16");
+    expect(state).toContain("pending GPT editor work");
+
+    expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
+    expect(acceptance).toContain("Result: `pending`");
+    for (const field of [
+      "UTC time", "deployed commit", "deployed image", "OpenAPI SHA-256",
+      "instructions SHA-256", "request class", "sanitized result", "limitation"
+    ]) expect(acceptance).toContain(field);
+    expect(acceptance).toContain("post-test MCP inventory");
+    expect(acceptance).toContain("protocol chunk coverage");
   });
 
   it("distinguishes transient research logs from the aggregate lesson budget ledger", async () => {

@@ -141,6 +141,28 @@ describe("Action OpenAPI document", () => {
           }
         }
       },
+      500: {
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["error"],
+              properties: {
+                error: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["code", "retryable"],
+                  properties: {
+                    code: { const: "action_internal_error" },
+                    retryable: { const: false }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       429: {
         headers: {
           "Retry-After": {

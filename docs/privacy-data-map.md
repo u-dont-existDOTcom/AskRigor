@@ -1,6 +1,6 @@
 # AskRigor v0 data map and privacy review
 
-Status at 2026-08-14: this remains the detailed engineering inventory.
+Status at 2026-08-16: this remains the detailed engineering inventory.
 The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.
 The August 13, 2026 lesson notice is live and was reverified before the lesson Action was enabled.
 
@@ -8,10 +8,14 @@ The August 13, 2026 lesson notice is live and was reverified before the lesson A
 
 AskRigor has two deliberately separate processing paths:
 
-- **Research retrieval path:** the existing MCP research operations remain
-  stateless, read-only, and transient. They return provider data to the invoking
-  client and make no provider write or medical conclusion. Provider content is
-  untrusted input; it is parsed as data and never executed as instructions.
+- **Research retrieval path:** the existing MCP research operations and, when
+  independently enabled, their public read-only Custom GPT Action forms use the
+  same stateless, transient provider-retrieval implementation. Requests may
+  contain user search terms and public identifiers. Responses may contain
+  public provider metadata and comment text. They return provider data to the
+  invoking client and make no provider write or medical conclusion. Provider
+  content is untrusted input; it is parsed as data and never executed as
+  instructions.
 - **Optional lesson path:** after AskRigor validates a concrete criticism and
   obtains separate consent, the consequential Custom GPT Action accepts a
   derived candidate, screens it, sends the derived fields to a fixed OpenAI
@@ -23,7 +27,16 @@ The lesson path is deployed from exact code revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` and passed its bounded synthetic
 submission, append-only duplicate, failure-isolation, and rollback acceptance.
 
-## Data returned to the MCP client
+The research Action bridge is gated by the exact literal
+`ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true`, separately from the deployed lesson
+switch. Its local candidate limits are **60,000 serialized UTF-8 bytes** per
+response and **48,000 UTF-8 bytes** of exact protocol text per ordered chunk.
+Research Actions and MCP use one shared per-client rate limit and concurrency
+pool.
+These statements describe candidate behavior until deployment and live
+acceptance are separately recorded; they do not claim that the bridge is live.
+
+## Data returned to the MCP or Custom GPT Action client
 
 | Category | Examples returned | Why it is returned |
 | --- | --- | --- |
@@ -64,15 +77,23 @@ The invoking client receives the token and may resend it during the active
 request chain; the server keeps no
 matching session record.
 
+The ordered protocol Action cursor contains only protocol identity, digest, byte offset, chunk index, and expiry. It contains no protocol text, health content, or secret. It is authenticated with a protocol-specific key derived
+from the existing server-only continuation secret. The Action returns each
+exact UTF-8 chunk transiently and keeps no protocol-loading session record.
+
 ## Research processing and retention
 
 | Location | Data handled | Persistent storage in v0 |
 | --- | --- | --- |
-| MCP request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only. No database, file store, account profile, queue, transcript store, server-side comment corpus, or research-session persistence is implemented. |
+| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only. No database, file store, account profile, queue, transcript store, server-side comment corpus, or research-session persistence is implemented. |
 | Client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking client and processed transiently if resubmitted within one hour. There is no server-side comment corpus or research-session persistence. |
-| MCP response | The normalized fields in the table above | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
+| MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol loads use exact ordered chunks; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
+
+Application request bodies and response bodies are not logged or persisted for
+either research transport. Infrastructure and upstream providers may retain
+separately controlled operational or request data under their own policies.
 
 ## Optional lesson request and result contract
 
@@ -200,5 +221,7 @@ verified on 2026-08-12 against immutable release `f928b95e29cd` for the
 read-only research service. The August 13, 2026 lesson disclosure from source
 commit `56d13b73e74c377cfd6d513a5f4ceeec9949e0bf` was later deployed and
 reverified before the lesson Action was enabled. Keep this internal map as the
-more detailed implementation inventory and re-review the live notice whenever
-processing changes.
+more detailed implementation inventory. The August 16 Custom GPT research
+transport disclosure in `site/privacy/index.html` is candidate source, not a
+live-policy claim, until its transactional deployment is recorded. Re-review
+the live notice whenever processing changes.

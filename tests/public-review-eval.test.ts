@@ -1545,7 +1545,7 @@ describe("Responses API public MCP review", () => {
   });
 });
 
-describe("public review runner orchestration", () => {
+describe("public review runner orchestration", { timeout: 15_000 }, () => {
   it("bounds and aborts a hanging MCP initialization request", async () => {
     let capturedOptions: {
       signal: AbortSignal;

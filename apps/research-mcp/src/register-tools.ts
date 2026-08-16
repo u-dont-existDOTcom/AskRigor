@@ -55,6 +55,10 @@ import {
   type YoutubeVideoCommunityAuditOutput
 } from "./youtube-video-community-audit.js";
 import { YoutubeAuditContinuationError } from "./youtube-audit-continuation.js";
+import type {
+  ResearchOperation,
+  ResearchOperationHandler
+} from "./research-operation.js";
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -388,8 +392,8 @@ const MAX_CLINICAL_TRIALS_PAGE_SIZE = 100;
 const PUBMED_EFETCH_LIMITATION =
   "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated.";
 
-export function registerTools(server: McpServer): void {
-  server.registerTool(
+function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): void {
+  registrar.registerTool(
     "get_protocol_manifest",
     {
       description: "Return canonical protocol identity and SHA-256 metadata.",
@@ -417,7 +421,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "load_protocol",
     {
       description: "Load the complete, unmodified canonical protocol text.",
@@ -449,7 +453,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "verify_protocol_integrity",
     {
       description: "Validate canonical protocol structure and optionally match its SHA-256.",
@@ -483,7 +487,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "search_pubmed",
     {
       description:
@@ -516,7 +520,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "fetch_pubmed_record",
     {
       description:
@@ -543,7 +547,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "search_europe_pmc",
     {
       description:
@@ -573,7 +577,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "search_clinical_trials",
     {
       description:
@@ -602,7 +606,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "fetch_clinical_trial",
     {
       description:
@@ -629,7 +633,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "resolve_doi",
     {
       description:
@@ -658,7 +662,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "check_retraction_status",
     {
       description:
@@ -687,7 +691,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "search_youtube",
     {
       description:
@@ -716,7 +720,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "get_youtube_video",
     {
       description:
@@ -745,7 +749,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "get_youtube_comments",
     {
       description:
@@ -775,7 +779,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "search_youtube_comments",
     {
       description:
@@ -806,7 +810,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "audit_youtube_community",
     {
       description:
@@ -833,7 +837,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "survey_youtube_community",
     {
       description:
@@ -856,7 +860,7 @@ export function registerTools(server: McpServer): void {
     }
   );
 
-  server.registerTool(
+  registrar.registerTool(
     "audit_youtube_video_community",
     {
       description:
@@ -886,6 +890,66 @@ export function registerTools(server: McpServer): void {
       );
     }
   );
+}
+
+export const RESEARCH_OPERATIONS = Object.freeze(collectResearchOperations());
+
+export function registerTools(server: McpServer): void {
+  const register = server.registerTool.bind(server) as unknown as (
+    name: string,
+    config: unknown,
+    execute: ResearchOperationHandler
+  ) => unknown;
+  for (const operation of RESEARCH_OPERATIONS) {
+    register(operation.name, operation.mcpConfig, operation.execute);
+  }
+}
+
+function collectResearchOperations(): readonly ResearchOperation[] {
+  const operations: ResearchOperation[] = [];
+  const registrar = {
+    registerTool(
+      name: string,
+      config: {
+        description?: string;
+        inputSchema?: unknown;
+        outputSchema?: unknown;
+        annotations?: ToolAnnotations;
+      },
+      execute: ResearchOperationHandler
+    ) {
+      if (
+        config.description === undefined ||
+        config.inputSchema === undefined ||
+        config.outputSchema === undefined ||
+        config.annotations === undefined
+      ) {
+        throw new Error(`Incomplete research operation definition: ${name}`);
+      }
+      const annotations = Object.freeze({ ...config.annotations });
+      const mcpConfig = Object.freeze({ ...config, annotations });
+      operations.push(Object.freeze({
+        name,
+        actionPath: `/actions/research/${name}`,
+        description: config.description,
+        inputSchema: config.inputSchema,
+        outputSchema: config.outputSchema,
+        annotations,
+        execute,
+        mcpConfig
+      }));
+      return undefined;
+    }
+  } as unknown as Pick<McpServer, "registerTool">;
+
+  defineResearchOperations(registrar);
+  if (operations.length !== 17) {
+    throw new Error(`Expected 17 research operations; received ${operations.length}`);
+  }
+  if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
+    throw new Error("Research operation names must be unique");
+  }
+  return operations;
 }
 
 async function verifyIntegrity(

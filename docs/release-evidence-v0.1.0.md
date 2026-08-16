@@ -13,6 +13,24 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
+## Custom GPT research bridge — LOCAL CANDIDATE — NOT DEPLOYED
+
+The current task branch contains a locally verified candidate that exposes the
+same frozen 17 read-only research operations through Custom GPT Actions while
+retaining the existing consequential lesson write. It is independently gated
+by `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true`, uses the same transient provider
+flow and shared public rate/concurrency limits as MCP, caps serialized Action
+responses at **60,000 UTF-8 bytes**, and caps each exact protocol-text chunk at
+**48,000 UTF-8 bytes**. The generated schema/instructions/sync packet passed its
+focused deterministic tests. This paragraph is not production, GPT-editor, or
+public-GPT proof.
+
+Historical production evidence below remains historical and continues to prove
+only the revisions and lesson/MCP behavior it names. The research Action bridge
+requires a merged commit, immutable deployment, fresh live schema, all 11
+synthetic acceptance cases, post-test MCP inventory equality, privacy-site
+activation, and the actual direct GPT URL before it can be called live.
+
 ## Artifact and endpoint identity
 
 | Item | Evidence |

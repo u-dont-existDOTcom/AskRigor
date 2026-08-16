@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { YoutubeComment } from "@askrigor/sources";
+import { boundYoutubeAuditForAction } from
+  "../apps/research-mcp/src/actions/research-output.js";
 import {
   auditYoutubeVideoCommunity,
   youtubeVideoCommunityAuditInputSchema,
@@ -155,6 +157,68 @@ describe("adaptive per-video YouTube community audit", () => {
       CONFIG.youtube,
       { max_elapsed_ms: 15_000, now: expect.any(Function) }
     );
+  });
+
+  it("deterministically bounds an oversized terminal sample without changing retrieval truth", async () => {
+    const comments = makeComments(500).map((comment, index) => ({
+      ...comment,
+      text: `${comment.text} ${String(index).padStart(3, "0")} ${"evidence ".repeat(120)}`
+    }));
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(comments) }
+    );
+
+    expect(Buffer.byteLength(JSON.stringify(original), "utf8")).toBeGreaterThan(60_000);
+    const first = boundYoutubeAuditForAction(original, 60_000);
+    const second = boundYoutubeAuditForAction(original, 60_000);
+
+    expect(Buffer.byteLength(JSON.stringify(first), "utf8")).toBeLessThanOrEqual(60_000);
+    expect(JSON.stringify(first)).toBe(JSON.stringify(second));
+    expect(first.sample?.comments.map(({ comment_id }) => comment_id)).toEqual(
+      second.sample?.comments.map(({ comment_id }) => comment_id)
+    );
+    expect(first.records_retrieved_cumulative).toBe(original.records_retrieved_cumulative);
+    expect(first.top_level_comments_retrieved_cumulative).toBe(
+      original.top_level_comments_retrieved_cumulative
+    );
+    expect(first.replies_retrieved_cumulative).toBe(original.replies_retrieved_cumulative);
+    expect(first.corpus_rolling_sha256).toBe(original.corpus_rolling_sha256);
+    expect(first.reply_count_mismatches).toEqual(original.reply_count_mismatches);
+    expect(first.access_status).toBe(original.access_status);
+    expect(first.extraction_coverage).toBe(original.extraction_coverage);
+    expect(first.receipt).toEqual(original.receipt);
+    expect(first.canonical_url).toBe(original.canonical_url);
+    expect(first.sample?.corpus_count).toBe(original.sample?.corpus_count);
+    expect(first.sample?.comments.length).toBeLessThan(original.sample!.comments.length);
+    expect(first.records_returned_for_analysis).toBe(first.sample?.comments.length);
+    expect(first.top_level_records_returned_for_analysis).toBe(
+      first.sample?.comments.filter(({ is_reply }) => !is_reply).length
+    );
+    expect(first.reply_records_returned_for_analysis).toBe(
+      first.sample?.comments.filter(({ is_reply }) => is_reply).length
+    );
+    expect(first.limitations).toContain(
+      "The Custom GPT Action returned a deterministic transport-bounded analysis sample; retrieval coverage and corpus counts are reported separately."
+    );
+  });
+
+  it("fails closed when fixed non-comment fields cannot fit the Action response ceiling", async () => {
+    const original = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies: completeDependencies(makeComments(1)) }
+    );
+    const oversizedFixedEnvelope = {
+      ...original,
+      limitations: ["x".repeat(60_000)]
+    };
+    const receiptBefore = structuredClone(oversizedFixedEnvelope.receipt);
+
+    expect(() => boundYoutubeAuditForAction(oversizedFixedEnvelope, 60_000))
+      .toThrow(/cannot fit/i);
+    expect(oversizedFixedEnvelope.receipt).toEqual(receiptBefore);
   });
 
   it("uses a lower analysis limit only after a complete corpus exceeds 500 records", async () => {
