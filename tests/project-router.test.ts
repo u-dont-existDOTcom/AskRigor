@@ -24,7 +24,8 @@ describe("AskRigor ChatGPT Project router", () => {
 
     const repositoryControlFiles = new Set([
       "AGENTS.md",
-      "CODEX-CURRENT-STATE.md"
+      "CODEX-CURRENT-STATE.md",
+      "CUSTOM_GPT_ACTION_MODULE.md"
     ]);
     expect(files.filter((file) => !repositoryControlFiles.has(file)).sort()).toEqual([
       "FORUM_SIGNAL_MODULE.md",
@@ -34,12 +35,16 @@ describe("AskRigor ChatGPT Project router", () => {
     ]);
     expect(files.filter((file) => repositoryControlFiles.has(file)).sort()).toEqual([
       "AGENTS.md",
-      "CODEX-CURRENT-STATE.md"
+      "CODEX-CURRENT-STATE.md",
+      "CUSTOM_GPT_ACTION_MODULE.md"
     ]);
 
     const readme = await projectFile("README.md");
     expect(readme).toContain(
       "`AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs."
+    );
+    expect(readme).toContain(
+      "`CUSTOM_GPT_ACTION_MODULE.md` is a generator source, not a direct ChatGPT installation input."
     );
   });
 
@@ -229,7 +234,9 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(readme).toContain("## ChatGPT Project with MCP");
     expect(readme).toContain("This MCP Project package is the read-only research integration.");
     expect(readme).toContain("The lesson submission Action is not an MCP tool");
-    expect(readme).toContain("## Custom GPT with the lesson Action");
+    expect(readme).toContain("## Custom GPT with research and lesson Actions");
+    expect(readme).toContain("`../docs/custom-gpt-instructions.md`");
+    expect(readme).toContain("keep Knowledge empty");
     expect(readme).toContain("Action authentication and import are separate from the MCP Project connection.");
     expect(readme).toContain("Existing chats do not acquire the new standing-consent behavior");
     expect(readme).toContain("consent from an old chat never carries into a new one");
