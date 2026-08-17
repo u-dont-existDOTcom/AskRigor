@@ -29,8 +29,8 @@
 - Consumes: complete `protocols/Universal_Instructions.xml` bytes.
 - Produces: a structural contract for version/date, revision, gate, core rules, behavior/context preservation, selective-feedback preservation, exact repair contract, and point-of-generation check.
 
-- [ ] Write the regression against the desired Universal 20.5.13 state.
-- [ ] Push and confirm deterministic verification fails because 20.5.12 lacks the new gate.
+- [x] Write the regression against the desired Universal 20.5.13 state.
+- [x] Push and confirm deterministic verification fails because 20.5.12 lacks the new gate.
 
 ### Task 2: Generate the canonical protocol update transactionally
 
@@ -46,11 +46,11 @@
 - Consumes: exact base XML and current SHA-256.
 - Produces: Universal 20.5.13, its SHA-256, synchronized current manifests/tests/state, and a complete deterministic verification receipt.
 
-- [ ] Implement exact-once root, revision, gate, and point-check transformations.
-- [ ] Compute the resulting SHA-256 and update current identity dependents.
-- [ ] Fail closed on unexpected base state, duplicate markers, missing markers, or unhandled active old-digest references.
-- [ ] Run `npm ci`, updater, `npm run verify`, and `git diff --check` in the temporary workflow.
-- [ ] Confirm the generated commit is green and the HRP digest remains unchanged.
+- [x] Implement exact-once root, revision, gate, and point-check transformations.
+- [x] Compute the resulting SHA-256 and update current identity dependents.
+- [x] Fail closed on unexpected base state, duplicate markers, missing markers, or unhandled active old-digest references.
+- [x] Run `npm ci`, updater, `npm run verify`, and `git diff --check` in the temporary workflow.
+- [x] Confirm the generated commit is green and the HRP digest remains unchanged.
 
 ### Task 3: Remove one-off machinery and close the durable state
 
@@ -63,8 +63,8 @@
 **Interfaces:**
 - Produces: a clean permanent diff containing only canonical instructions, durable tests/spec/plan/state, and exact identity updates.
 
-- [ ] Remove temporary update machinery.
-- [ ] Run or observe fresh full verification on the exact cleanup head.
-- [ ] Review the complete diff and confirm no HRP/application/runtime change.
+- [x] Remove temporary update machinery.
+- [x] Run or observe fresh full verification on the exact cleanup head.
+- [x] Review the complete diff and confirm no HRP/application/runtime change.
 - [ ] Open a pull request, wait for required checks, and merge the exact green head.
 - [ ] Verify merged `main` reports Universal 20.5.13 and its new digest.
