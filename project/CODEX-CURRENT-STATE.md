@@ -9,8 +9,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; verified GitHub main is PR #28 merge
-  `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`, while production remains exact
+- Canonical branch: `main`; the consent-shell repair started from PR #28 merge
+  `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`. Exact PR #29 head
+  `81328fc439b6cd6a199a9b707aeafe5b9881fadc` merged as
+  `25849647969a4bf333659feaa30f0b418cc24d57`, while production remains exact
   revision `5585a9ca34ce01403044b1085b85d4f2de9783f4`. The continuation implementation
   passed direct and Custom GPT UI two-call acceptance, and current Universal
   `20.5.13` passed fresh direct production acceptance.
@@ -301,6 +303,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Current checkpoint
 
+- PR #29 merged the hardened consent-shell packet as
+  `25849647969a4bf333659feaa30f0b418cc24d57`. Its protected PR checks and exact
+  post-merge deterministic, workflow-policy, and both CodeQL analyses passed.
+  This was an instruction/documentation artifact change; no server deployment
+  was required or performed.
 - The 2026-08-17 consent-shell repair was test-first: the generated-packet
   regression failed against the incomplete shell, then the focused Custom GPT,
   release-packet, and conversation-contract suite passed 26/26. The complete
@@ -411,6 +418,6 @@ checkpoint, complete protocol files, current release evidence, merged PRs #9
 through #28, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
 and newer owner instructions. Resume from the latest verified boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. This evidence branch is reconciled
-with GitHub main `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`;
-production remains `5585a9ca34ce01403044b1085b85d4f2de9783f4`.
+unless production identity has changed. Current GitHub main contains PR #29
+merge `25849647969a4bf333659feaa30f0b418cc24d57`; production remains
+`5585a9ca34ce01403044b1085b85d4f2de9783f4`.
