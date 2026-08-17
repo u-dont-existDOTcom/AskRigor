@@ -696,13 +696,22 @@ describe("resumable YouTube comment segments", () => {
     });
   });
 
-  it("refetches requested comment IDs in 100-record batches and keeps them video-scoped", async () => {
+  it("keeps comment-ID refetch batches within YouTube's 50-ID filter ceiling", async () => {
     const ids = Array.from({ length: 101 }, (_, index) => `UgxRequested${String(index).padStart(4, "0")}`);
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));
       requests.push(url);
       const requested = url.searchParams.get("id")?.split(",") ?? [];
+      if (requested.length > 50) {
+        return Response.json({
+          error: {
+            code: 400,
+            errors: [{ reason: "invalidFilters" }],
+            message: "The request contains an invalid combination of filters."
+          }
+        }, { status: 400 });
+      }
       return Response.json({
         pageInfo: { totalResults: requested.length, resultsPerPage: requested.length },
         items: requested.map((id, index) => ({
@@ -723,8 +732,8 @@ describe("resumable YouTube comment segments", () => {
 
     expect(result.access_status).toBe("api_visible_complete");
     expect(result.comments.map(({ comment_id }) => comment_id)).toEqual(ids);
-    expect(requests).toHaveLength(2);
-    expect(requests.map((url) => url.searchParams.get("id")!.split(",").length)).toEqual([100, 1]);
+    expect(requests).toHaveLength(3);
+    expect(requests.map((url) => url.searchParams.get("id")!.split(",").length)).toEqual([50, 50, 1]);
     expect(requests.every((url) => url.searchParams.get("part") === "snippet")).toBe(true);
     expect(requests.every((url) => !url.searchParams.has("maxResults"))).toBe(true);
     expect(JSON.stringify(result)).not.toContain(YOUTUBE.apiKey);
@@ -910,7 +919,7 @@ describe("resumable YouTube comment segments", () => {
       comments: expect.any(Array),
       limitations: [expect.stringContaining("elapsed-time budget")]
     });
-    expect(result.comments).toHaveLength(100);
+    expect(result.comments).toHaveLength(50);
     expect(requests).toHaveLength(1);
   });
 
