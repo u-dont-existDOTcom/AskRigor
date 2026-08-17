@@ -23,10 +23,10 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.17` (2026-08-13), SHA-256
-`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
-and Universal Instructions `20.5.11` (2026-08-07), SHA-256
-`1a4c61627b593a8ddabbc68608f69d4c7062896535b480056b6b5efe5f47d9aa`.
+The current canonical files identify HRP `20.5.18` (2026-08-16), SHA-256
+`4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`,
+and Universal Instructions `20.5.12` (2026-08-16), SHA-256
+`3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently
@@ -90,9 +90,11 @@ Do not commit provider credentials. See `.env.example` for the provider
 configuration variables; `ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID` is test-only and may
 be set directly in the shell running the smoke test. Production adaptive
 YouTube audits also require `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET`, supplied at
-runtime with at least 32 UTF-8 bytes. It authenticates client-carried,
-one-hour continuation state—including bounded comment/reply identifiers and
-reply-reconciliation counts—and is never returned by a tool.
+runtime with at least 32 UTF-8 bytes. It authenticates one-hour continuation
+state—including bounded comment/reply identifiers and reply-reconciliation
+counts. Direct MCP clients carry the signed state. The Custom GPT Action keeps
+the same signed state in bounded process memory and returns only a short handle;
+the secret itself is never returned by a tool or Action.
 
 ## Run the local MCP server
 
@@ -198,37 +200,67 @@ gain is positive.
 
 Each per-video result distinguishes the provider-reported comment count, the
 API-visible comments/replies actually retrieved, and the records returned for
-analysis. Complete corpora of 500 or fewer are all returned; larger complete
-corpora receive a deterministic 500-record sample. The final report names and
-links the videos worth watching, and it cannot synthesize while wider or deeper
-executable work is still likely to improve the answer. The legacy
+analysis. Terminal corpora of 500 or fewer normally return every refetchable
+record; larger terminal corpora receive a deterministic 500-record sample. If
+YouTube stops exposing one or more already acquired sampled identifiers, the
+refetch isolates them under the same request/time bounds and returns only the
+still-verifiable deterministic subset as `completed_with_access_boundary`.
+The limitations state that the sample may not represent the full acquired
+corpus; zero refetchable records still block synthesis. The final report names
+and links the videos worth watching, and it cannot synthesize while wider or
+deeper executable work is still likely to improve the answer. The legacy
 `audit_youtube_community` remains available for compatibility.
 
 The read-only research path uses ChatGPT as the existing reasoning engine. It
-adds no OpenAI API model call, local model, n8n workflow, database, comment
-persistence, or additional paid inference. The separate lesson Action uses the
+adds no OpenAI API model call, local model, n8n workflow, database, durable
+comment persistence, or additional paid inference. The sole cross-request
+research state is the bounded one-hour Custom GPT YouTube handle map described
+below. The separate lesson Action uses the
 fixed OpenAI API privacy check documented below; API billing is separate from
 ChatGPT billing and is capped server-side at $50.00 per UTC month.
 After deployment, refresh the developer-mode connection and start a new Project
 chat so the new tool metadata and Project instructions are active.
 
-## Custom GPT research Action candidate
+## Custom GPT research Action bridge
 
-The repository now contains a verified local compatibility candidate exposing
-the frozen 17 read-only research operations as public Custom GPT Actions. It is
-not production evidence until the deployment and the 11-case live acceptance
-are recorded. `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this
-research surface; disabling it does not disable the existing lesson Action or
-MCP.
+Production now exposes the frozen 17 read-only research operations as public
+Custom GPT Actions from merge
+`dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. The direct server acceptance has
+passed. Custom GPT protocol and formal-source cases passed, but the first real
+multi-call YouTube product test exposed unreliable relay of the previous
+multi-kilobyte token. The short-handle repair remains candidate behavior until
+its merge, deployment, and fresh product retest are recorded. The actual direct
+`/g/...` URL is still pending and must not be inferred from server proof.
+`ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
+disabling it does not disable the existing lesson Action or MCP.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application
-request and response bodies are not logged or persisted. Action responses are
+request and response bodies are not logged or written to durable storage.
+Direct MCP continuation remains stateless. For only Custom GPT YouTube
+continuation, the server maps a 37-character handle to the existing signed,
+minimized token in process memory for no longer than one hour. The map stores no
+comment text, author identity, provider credential, or protocol text; it is
+bounded to 2,048 entries and 16 MiB, and restart, expiry, or eviction requires
+the audit to restart from the video identifier. An exact repeated identifier is
+reconciled anywhere in the chain and marks the result as a moving-pagination
+access boundary. If that repeat is a reply, the receipt also keeps
+`replies_reconciled` false because the provider's per-parent reply total can no
+longer be independently proven. A pre-upgrade continuation whose exact corpus
+already exceeded
+500 records, or a possible non-adjacent membership match after the exact sample
+becomes bounded, fails closed with a typed restart-required result. That result
+preserves only the prior accepted cumulative counts; the unusable Action handle
+is consumed. Action responses are
 limited to **60,000 serialized UTF-8 bytes**. Exact canonical protocol text is
 returned in ordered authenticated chunks of no more than **48,000 UTF-8
 bytes**, and the client must continue through `complete: true`. A large
 per-video YouTube result may reduce only the deterministic analysis sample; it
 does not change corpus counts, digest, access state, or completion receipt.
+Likewise, a terminal refetch that can no longer retrieve every sampled stable
+identifier keeps the acquired corpus count and digest, returns only the
+verified subset, and changes the access/completion state to an explicit bounded
+boundary rather than claiming a complete snapshot.
 
 Run `npm run generate:custom-gpt` to reproduce the Action schema, compact
 instructions, and hash ledger. The sole instruction artifact is
@@ -259,9 +291,9 @@ new lessons while MCP remains available and unchanged.
 ## Public-review status
 
 The deployed MCP connector serves the exact existing 17-tool read-only inventory
-and the separate Action route. Production serves canonical HRP `20.5.17`
-(2026-08-13), SHA-256
-`d09d60c5c9b7694c08520314349007edccb6283e3d4d991f74cc209ff6934242`,
+and the separate Action route. Production serves canonical HRP `20.5.18`
+(2026-08-16), SHA-256
+`4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`,
 with the independent community-evidence weighting invariant and adaptive
 YouTube regressions. The original website/privacy/terms/support gate passed on
 2026-08-12 for site release `f928b95e29cd`, and the August 13 lesson disclosure

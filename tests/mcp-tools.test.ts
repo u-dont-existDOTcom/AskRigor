@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import type { IncomingMessage } from "node:http";
@@ -16,7 +17,10 @@ import {
   PUBLIC_TOOL_LIMITS,
   SERVER_INSTRUCTIONS
 } from "../apps/research-mcp/src/config.js";
-import { encodeYoutubeAuditContinuation } from
+import {
+  createYoutubeAuditIdentifierMembership,
+  encodeYoutubeAuditContinuation
+} from
   "../apps/research-mcp/src/youtube-audit-continuation.js";
 import { resetClinicalTrialsFreshnessCacheForTests } from "../packages/sources/src/clinical-trials.js";
 
@@ -516,6 +520,7 @@ describe("AskRigor MCP tools", () => {
       records_retrieved_cumulative: 0,
       rolling_sha256: "0".repeat(64),
       sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([]),
       reply_count_mismatches: []
     }, secret);
 
@@ -541,6 +546,253 @@ describe("AskRigor MCP tools", () => {
         error: { code: "youtube_video_audit_continuation_expired" },
         limitations: [expect.stringMatching(/restart.*video/i)],
         receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+      });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await server.close();
+    }
+  });
+
+  it("preserves prior counts when a non-adjacent identifier match requires restart", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    const secret = "mcp-continuation-secret-value-32-bytes";
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = secret;
+    const duplicateId = "corpus-0500";
+    const identifiers = Array.from(
+      { length: 501 },
+      (_, index) => `corpus-${String(index).padStart(4, "0")}`
+    );
+    const now = Date.now();
+    const continuation = encodeYoutubeAuditContinuation({
+      version: 1,
+      video_id: "XpZHKGGCK-o",
+      analysis_limit: 500,
+      started_at_ms: now,
+      expires_at_ms: now + 3_600_000,
+      segment_index: 6,
+      cursor: { thread_offset: 0, top_level_emitted: false },
+      provider_reported_comments: "501",
+      top_level_comments_retrieved: 501,
+      replies_retrieved: 0,
+      comment_thread_pages: 26,
+      reply_pages: 0,
+      pagination_overlaps_reconciled: 0,
+      records_retrieved_cumulative: 501,
+      rolling_sha256: "b".repeat(64),
+      sample_identifiers: identifiers.slice(0, 500),
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership(identifiers),
+      reply_count_mismatches: []
+    }, secret);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      return Response.json({
+        pageInfo: { totalResults: 1, resultsPerPage: 1 },
+        items: [{
+          kind: "youtube#commentThread",
+          id: "UgxThreadDuplicateBoundary",
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            topLevelComment: {
+              kind: "youtube#comment",
+              id: duplicateId,
+              snippet: {
+                videoId: "XpZHKGGCK-o",
+                textDisplay: "Repeated boundary record",
+                textOriginal: "Repeated boundary record",
+                authorDisplayName: "Recorded Author",
+                likeCount: 0,
+                publishedAt: "2025-02-01T10:00:00Z",
+                updatedAt: "2025-02-01T10:00:00Z"
+              }
+            },
+            totalReplyCount: 0
+          }
+        }]
+      });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { continuation_token: continuation }
+      });
+
+      expect(result.structuredContent).toMatchObject({
+        video_id: "XpZHKGGCK-o",
+        segment_index: 6,
+        access_status: "error",
+        error: {
+          code: "youtube_video_audit_identifier_membership_restart_required",
+          retryable: false
+        },
+        top_level_comments_retrieved_cumulative: 501,
+        records_retrieved_cumulative: 501,
+        comment_thread_pages_cumulative: 26,
+        corpus_rolling_sha256: "b".repeat(64),
+        limitations: [expect.stringMatching(/restart.*video/i)],
+        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+      });
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await server.close();
+    }
+  });
+
+  it("reconciles an exact duplicate below 500 as a moving-pagination boundary", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    const secret = "mcp-continuation-secret-value-32-bytes";
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = secret;
+    const duplicateId = "corpus-0000";
+    const now = Date.now();
+    const continuation = encodeYoutubeAuditContinuation({
+      version: 1,
+      video_id: "XpZHKGGCK-o",
+      analysis_limit: 500,
+      started_at_ms: now,
+      expires_at_ms: now + 3_600_000,
+      segment_index: 1,
+      cursor: { thread_offset: 0, top_level_emitted: false },
+      provider_reported_comments: "1",
+      top_level_comments_retrieved: 1,
+      replies_retrieved: 0,
+      comment_thread_pages: 1,
+      reply_pages: 0,
+      pagination_overlaps_reconciled: 0,
+      records_retrieved_cumulative: 1,
+      rolling_sha256: "c".repeat(64),
+      sample_identifiers: [duplicateId],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([duplicateId]),
+      reply_count_mismatches: []
+    }, secret);
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/videos")) {
+        return new Response(await youtubeFixture("video-found.json"), { status: 200 });
+      }
+      if (url.searchParams.has("id")) return mcpCommentIdResponse(url);
+      if (url.pathname.endsWith("/comments")) {
+        return Response.json({
+          pageInfo: { totalResults: 0, resultsPerPage: 0 },
+          items: []
+        });
+      }
+      return Response.json({
+        pageInfo: { totalResults: 1, resultsPerPage: 1 },
+        items: [{
+          kind: "youtube#commentThread",
+          id: "UgxThreadExactDuplicate",
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            topLevelComment: {
+              kind: "youtube#comment",
+              id: duplicateId,
+              snippet: {
+                videoId: "XpZHKGGCK-o",
+                textDisplay: "Exact duplicate",
+                textOriginal: "Exact duplicate",
+                authorDisplayName: "Recorded Author",
+                likeCount: 0,
+                publishedAt: "2025-02-01T10:00:00Z",
+                updatedAt: "2025-02-01T10:00:00Z"
+              }
+            },
+            totalReplyCount: 0
+          }
+        }]
+      });
+    }));
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { continuation_token: continuation }
+      });
+
+      expect(result.structuredContent).toMatchObject({
+        video_id: "XpZHKGGCK-o",
+        segment_index: 2,
+        access_status: "partial",
+        extraction_coverage: "completed_with_access_boundary",
+        top_level_comments_retrieved_this_call: 0,
+        records_retrieved_this_call: 0,
+        records_retrieved_cumulative: 1,
+        records_returned_for_analysis: 1,
+        corpus_rolling_sha256: "c".repeat(64),
+        limitations: [expect.stringMatching(/moving provider pagination/i)],
+        receipt: {
+          completion_state: "completed_with_access_boundary",
+          synthesis_lock: "pass"
+        }
+      });
+      expect(result.structuredContent).not.toHaveProperty("error");
+    } finally {
+      restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);
+      restoreEnvironment("ASKRIGOR_YOUTUBE_CONTINUATION_SECRET", previousContinuationSecret);
+      await server.close();
+    }
+  });
+
+  it("reports a signed legacy corpus continuation as migration restart required", async () => {
+    const { client, server } = await createInMemoryClient();
+    const previousApiKey = process.env.YOUTUBE_API_KEY;
+    const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
+    const secret = "mcp-continuation-secret-value-32-bytes";
+    process.env.YOUTUBE_API_KEY = "mcp-youtube-secret";
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET = secret;
+    const now = Date.now();
+    const payload = Buffer.from(JSON.stringify({
+      version: 1,
+      video_id: "XpZHKGGCK-o",
+      analysis_limit: 500,
+      started_at_ms: now,
+      expires_at_ms: now + 3_600_000,
+      segment_index: 6,
+      cursor: { thread_offset: 0, top_level_emitted: false },
+      provider_reported_comments: "501",
+      top_level_comments_retrieved: 501,
+      replies_retrieved: 0,
+      comment_thread_pages: 26,
+      reply_pages: 0,
+      records_retrieved_cumulative: 501,
+      rolling_sha256: "b".repeat(64),
+      sample_identifiers: Array.from(
+        { length: 500 },
+        (_, index) => ({ comment_id: `legacy-${String(index).padStart(4, "0")}` })
+      ),
+      reply_count_mismatches: []
+    }), "utf8").toString("base64url");
+    const signature = createHmac("sha256", secret).update(payload).digest("base64url");
+    const upstream = vi.fn();
+    vi.stubGlobal("fetch", upstream);
+
+    try {
+      const result = await client.callTool({
+        name: "audit_youtube_video_community",
+        arguments: { continuation_token: `${payload}.${signature}` }
+      });
+
+      expect(upstream).not.toHaveBeenCalled();
+      expect(result.structuredContent).toMatchObject({
+        video_id: "XpZHKGGCK-o",
+        segment_index: 6,
+        error: {
+          code: "youtube_video_audit_continuation_migration_restart_required",
+          retryable: false
+        },
+        records_retrieved_cumulative: 501,
+        comment_thread_pages_cumulative: 26,
+        limitations: [expect.stringMatching(/upgrade|migration/i)]
       });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);

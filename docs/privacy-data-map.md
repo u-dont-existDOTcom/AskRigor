@@ -10,7 +10,9 @@ AskRigor has two deliberately separate processing paths:
 
 - **Research retrieval path:** the existing MCP research operations and, when
   independently enabled, their public read-only Custom GPT Action forms use the
-  same stateless, transient provider-retrieval implementation. Requests may
+  same provider-retrieval implementation. MCP continuation remains stateless
+  and client-carried. The Custom GPT Action adapter uses the bounded in-memory
+  handle exception described below. Requests may
   contain user search terms and public identifiers. Responses may contain
   public provider metadata and comment text. They return provider data to the
   invoking client and make no provider write or medical conclusion. Provider
@@ -68,14 +70,27 @@ lesson boundary.
 
 The optional continuation token contains only the video identifier, upstream
 pagination cursor, one-hour issue/expiry timestamps, analysis limit, page and
-record counters, bounded deterministic-sample comment identifiers, plus bounded reply-parent identifiers with provider-reported versus retrieved reply counts,
-and rolling corpus digest. It contains no comment text, author identity,
-provider credential, or continuation secret. The token is authenticated by a
-server-side secret. As a control, the continuation secret is never returned or
-logged.
-The invoking client receives the token and may resend it during the active
-request chain; the server keeps no
-matching session record.
+record counters, bounded deterministic-sample comment identifiers, bounded
+SHA-256 fingerprints of comment identifiers from the immediately preceding
+top-level and reply pages, bounded reply-parent identifiers with provider-reported versus retrieved reply counts,
+an authenticated fixed-size identifier-membership filter, and a rolling corpus
+digest.
+It contains no comment text, author identity, provider credential, or
+continuation secret. The token is authenticated by a server-side secret. As a
+control, the continuation secret is never returned or logged.
+
+For MCP client-carried continuation state, the invoking client receives that
+token and may resend it during the active request chain; the server keeps no
+matching session record. The Custom GPT Action continuation handle map instead
+stores only that already minimized signed token in process memory and returns a
+37-character unguessable handle. It retains no comment text, author identity, provider credential, or protocol text. An entry exists for no longer than one
+hour; the map is hard-bounded to 2,048 entries and 16 MiB of token-plus-handle
+bytes. A server restart, expiry, or capacity eviction invalidates the handle
+and requires restart from the video identifier. The map is never written to
+disk or application logs and is not a durable research-session store. This
+process-local design is limited to a single application replica and
+must not be horizontally scaled unless an approved sticky-routing or shared-state design
+preserves every continuation chain.
 
 The ordered protocol Action cursor contains only protocol identity, digest, byte offset, chunk index, and expiry. It contains no protocol text, health content, or secret. It is authenticated with a protocol-specific key derived
 from the existing server-only continuation secret. The Action returns each
@@ -85,14 +100,17 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 
 | Location | Data handled | Persistent storage in v0 |
 | --- | --- | --- |
-| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only. No database, file store, account profile, queue, transcript store, server-side comment corpus, or research-session persistence is implemented. |
-| Client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking client and processed transiently if resubmitted within one hour. There is no server-side comment corpus or research-session persistence. |
+| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map row below. No database, file store, account profile, queue, transcript store, or server-side comment corpus is implemented. |
+| MCP client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking MCP client and processed transiently if resubmitted within one hour. The server keeps no matching MCP session record. |
+| Custom GPT Action continuation handle map | A short random handle mapped to the existing signed minimized token; no comment/reply text, author identity, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 16 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires an approved sticky-routing or shared-state design. |
 | MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol loads use exact ordered chunks; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
 
-Application request bodies and response bodies are not logged or persisted for
-either research transport. Infrastructure and upstream providers may retain
+Full application request bodies and response bodies are not logged or written
+to durable storage for either research transport. The Action adapter retains
+only the minimized signed continuation token under the exact bounded exception
+above. Infrastructure and upstream providers may retain
 separately controlled operational or request data under their own policies.
 
 ## Optional lesson request and result contract
@@ -189,12 +207,12 @@ retention and provider-side deletion remain governed by the provider.
 ## Research data not persistently stored in v0
 
 - User accounts, profiles, authentication sessions, or user-entered research history.
-- Search queries, research questions, directional labels, citations, protocol text, scholarly records, trial records, YouTube videos, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, continuation tokens, or completion receipts.
+- Search queries, research questions, directional labels, citations, protocol text, scholarly records, trial records, YouTube videos, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, continuation tokens beyond the bounded in-memory Custom GPT handle exception, or completion receipts.
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, YouTube transcripts, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 
-The optional lesson path is the narrow exception to the research path's
-no-persistence boundary. It stores only the screened private candidate and
+The optional lesson path is the narrow durable-storage exception to the
+research path's no-durable-persistence boundary. It stores only the screened private candidate and
 anonymous recurrence metadata listed above; it does not create a research
 history, transcript store, user profile, or automatic-learning database.
 
@@ -203,6 +221,10 @@ history, transcript store, user profile, or automatic-learning database.
 - Every tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; no tool changes provider, user, or server state.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Adaptive YouTube continuations are HMAC-authenticated, expire one hour after the chain starts, and disclose neither the server secret nor comment/author content inside the token.
+- Direct MCP clients carry that token. The Custom GPT Action returns a short
+  handle backed only by the bounded, one-hour process-memory map described
+  above; unavailable handles fail closed and require a restart from the video
+  identifier.
 - Provider access failures remain explicit (`inaccessible`, `rate_limited`, `not_found`, or `error`) and never become negative evidence.
 - The public route is fail-closed, has bounded request body/concurrency/rate limits, and does not return credentials. Source tests check that a test YouTube key never appears in results.
 - Comment retrieval reports API-visible coverage only. It does not claim access to deleted, moderated, private, hidden, held-for-review, unavailable, or never-posted material.

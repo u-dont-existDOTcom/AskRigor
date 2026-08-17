@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import {
   advanceYoutubeAuditState,
+  createYoutubeAuditIdentifierMembership,
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
   type YoutubeVideoAuditContinuationState
@@ -35,6 +36,12 @@ const PROVIDER_COUNT_MISMATCH_LIMITATION =
   "YouTube provider metadata and the complete API-visible comment/reply corpus reported different counts.";
 const TERMINAL_REPLY_MISMATCH_LIMITATION =
   "All top-level pages and accessible reply-page tokens were exhausted, but one or more provider-reported reply totals did not reconcile; the retained sample is usable as bounded evidence, not a complete API-visible corpus.";
+const TERMINAL_PAGINATION_OVERLAP_LIMITATION =
+  "YouTube pagination overlap was reconciled by stable identifier, but the moving provider pagination prevents a stable complete-snapshot claim; any retained sample is bounded evidence.";
+const CONTINUATION_REPLY_OVERLAP_LIMITATION =
+  "An exact reply repeated across continuation segments; the repeat was removed from unique counts, but provider-reported per-parent reply totals could not be independently proven.";
+const PARTIAL_SAMPLE_REFETCH_LIMITATION =
+  "The deterministic analysis sample could only be partially refetched; unavailable sampled identifiers were excluded, so the retained records are bounded evidence and may not represent the full acquired corpus.";
 
 export const youtubeVideoCommunityAuditInputSchema = z.object({
   video_id_or_url: z.string().min(1).max(2_048).optional(),
@@ -194,9 +201,12 @@ export async function auditYoutubeVideoCommunity(
       replies_retrieved: 0,
       comment_thread_pages: 0,
       reply_pages: 0,
+      pagination_overlaps_reconciled: 0,
+      continuation_reply_overlaps_reconciled: 0,
       records_retrieved_cumulative: 0,
       rolling_sha256: ZERO_SHA256,
       sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([]),
       reply_count_mismatches: []
     };
   }
@@ -239,12 +249,16 @@ export async function auditYoutubeVideoCommunity(
       replies_retrieved: segment.replies_retrieved,
       comment_thread_pages: segment.comment_thread_pages,
       reply_pages: segment.reply_pages,
+      pagination_overlaps_reconciled: segment.pagination_overlaps_reconciled ?? 0,
       reply_count_mismatches: segment.reply_count_mismatches
     },
     segment.next_cursor ?? resumeCursor ?? { thread_offset: 0, top_level_emitted: false }
   );
 
   const mismatchBlock = state.reply_count_mismatches.length > 0;
+  const paginationOverlapBoundary = state.pagination_overlaps_reconciled > 0;
+  const continuationReplyOverlapBoundary =
+    state.continuation_reply_overlaps_reconciled > 0;
   const apiReportedExhaustion =
     segment.access_status === "api_visible_complete" &&
     segment.exhausted &&
@@ -254,12 +268,26 @@ export async function auditYoutubeVideoCommunity(
     segment.error === undefined &&
     segment.next_cursor === undefined &&
     segment.reply_count_mismatches.length > 0;
+  const terminalOverlapAfterTopLevelExhaustion =
+    segment.access_status === "partial" &&
+    segment.exhausted &&
+    segment.error === undefined &&
+    segment.next_cursor === undefined &&
+    paginationOverlapBoundary;
   const topLevelPaginationExhausted =
-    apiReportedExhaustion || terminalMismatchAfterTopLevelExhaustion;
-  const apiVisibleComplete = apiReportedExhaustion && !mismatchBlock;
+    apiReportedExhaustion ||
+    terminalMismatchAfterTopLevelExhaustion ||
+    terminalOverlapAfterTopLevelExhaustion;
+  const apiVisibleComplete = apiReportedExhaustion && !mismatchBlock && !paginationOverlapBoundary;
   const terminalReplyMismatchBoundary =
     topLevelPaginationExhausted &&
     mismatchBlock &&
+    segment.error === undefined &&
+    segment.next_cursor === undefined;
+  const terminalPaginationOverlapBoundary =
+    topLevelPaginationExhausted &&
+    paginationOverlapBoundary &&
+    !mismatchBlock &&
     segment.error === undefined &&
     segment.next_cursor === undefined;
   const retryLater = segment.next_cursor !== undefined && segment.error?.retryable === true;
@@ -278,15 +306,21 @@ export async function auditYoutubeVideoCommunity(
 
   let sample: YoutubeVideoCommunityAuditOutput["sample"];
   let sampleFailure: string | undefined;
-  if (apiVisibleComplete || terminalAccessBoundary || terminalReplyMismatchBoundary) {
+  let sampleRefetchBoundary = false;
+  let sampleRefetchLimitations: string[] = [];
+  if (
+    apiVisibleComplete ||
+    terminalAccessBoundary ||
+    terminalReplyMismatchBoundary ||
+    terminalPaginationOverlapBoundary
+  ) {
     if (state.sample_identifiers.length === 0) {
       sample = { mode: "all", corpus_count: 0, sampled_count: 0, comments: [] };
     } else {
       const sampleIds = state.sample_identifiers
         .slice(0, state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT
           ? DEFAULT_ANALYSIS_LIMIT
-          : state.analysis_limit)
-        .map(({ comment_id }) => comment_id);
+          : state.analysis_limit);
       const refetched = await dependencies.get_comments_by_ids(
         videoId,
         sampleIds,
@@ -298,17 +332,26 @@ export async function auditYoutubeVideoCommunity(
       );
       const returnedIds = refetched.comments.map(({ comment_id }) => comment_id);
       if (
-        refetched.access_status !== "api_visible_complete" ||
-        returnedIds.length !== sampleIds.length ||
-        new Set(returnedIds).size !== sampleIds.length ||
-        sampleIds.some((id) => !returnedIds.includes(id))
+        refetched.access_status === "error" ||
+        new Set(returnedIds).size !== returnedIds.length ||
+        returnedIds.some((id) => !sampleIds.includes(id)) ||
+        refetched.comments.some(({ video_id }) => video_id !== videoId)
       ) {
         sampleFailure =
           "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
+      } else if (returnedIds.length === 0) {
+        sampleFailure =
+          "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
       } else {
+        sampleRefetchBoundary =
+          refetched.access_status !== "api_visible_complete" ||
+          returnedIds.length !== sampleIds.length ||
+          sampleIds.some((id) => !returnedIds.includes(id));
+        sampleRefetchLimitations = refetched.limitations;
         const comments = chronological(refetched.comments);
         sample = {
-          mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT
+          mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT &&
+              !sampleRefetchBoundary
             ? "all"
             : "deterministic_hash_chronological",
           corpus_count: state.records_retrieved_cumulative,
@@ -320,8 +363,14 @@ export async function auditYoutubeVideoCommunity(
   }
 
   const completionState = apiVisibleComplete && sampleFailure === undefined
+      && !sampleRefetchBoundary
     ? "api_visible_complete" as const
-    : (terminalAccessBoundary || terminalReplyMismatchBoundary) && sampleFailure === undefined
+    : (
+      terminalAccessBoundary ||
+      terminalReplyMismatchBoundary ||
+      terminalPaginationOverlapBoundary ||
+      (topLevelPaginationExhausted && sampleRefetchBoundary)
+    ) && sampleFailure === undefined
       ? "completed_with_access_boundary" as const
       : "incomplete" as const;
   let continuationToken: string | undefined;
@@ -362,6 +411,7 @@ export async function auditYoutubeVideoCommunity(
   const providerReportedCount = state.provider_reported_comments;
   const insufficientDepth = !segment.exhausted &&
     !terminalReplyMismatchBoundary &&
+    !terminalPaginationOverlapBoundary &&
     providerReportedCount !== undefined &&
     BigInt(providerReportedCount) >= 300n &&
     state.records_retrieved_cumulative < 300;
@@ -373,6 +423,10 @@ export async function auditYoutubeVideoCommunity(
     ...segment.limitations,
     ...(countMismatch ? [PROVIDER_COUNT_MISMATCH_LIMITATION] : []),
     ...(terminalReplyMismatchBoundary ? [TERMINAL_REPLY_MISMATCH_LIMITATION] : []),
+    ...(paginationOverlapBoundary ? [TERMINAL_PAGINATION_OVERLAP_LIMITATION] : []),
+    ...(continuationReplyOverlapBoundary ? [CONTINUATION_REPLY_OVERLAP_LIMITATION] : []),
+    ...sampleRefetchLimitations,
+    ...(sampleRefetchBoundary ? [PARTIAL_SAMPLE_REFETCH_LIMITATION] : []),
     ...(continuationStateTooLarge
       ? ["The exact continuation state exceeded the safe stateless-token limit."]
       : []),
@@ -388,6 +442,11 @@ export async function auditYoutubeVideoCommunity(
       : retryLater
         ? segment.access_status
         : "partial";
+  const acceptedTopLevelThisCall =
+    state.top_level_comments_retrieved - baseState.top_level_comments_retrieved;
+  const acceptedRepliesThisCall = state.replies_retrieved - baseState.replies_retrieved;
+  const acceptedRecordsThisCall =
+    state.records_retrieved_cumulative - baseState.records_retrieved_cumulative;
 
   return youtubeVideoCommunityAuditOutputSchema.parse({
     provider: "youtube",
@@ -416,9 +475,9 @@ export async function auditYoutubeVideoCommunity(
         : "partial",
     limitations,
     ...(segment.error === undefined ? {} : { error: segment.error }),
-    top_level_comments_retrieved_this_call: segment.top_level_comments_retrieved,
-    replies_retrieved_this_call: segment.replies_retrieved,
-    records_retrieved_this_call: segment.comments.length,
+    top_level_comments_retrieved_this_call: acceptedTopLevelThisCall,
+    replies_retrieved_this_call: acceptedRepliesThisCall,
+    records_retrieved_this_call: acceptedRecordsThisCall,
     comment_thread_pages_this_call: segment.comment_thread_pages,
     reply_pages_this_call: segment.reply_pages,
     top_level_comments_retrieved_cumulative: state.top_level_comments_retrieved,
@@ -440,7 +499,9 @@ export async function auditYoutubeVideoCommunity(
       synthesis_lock: completionState === "incomplete" ? "block" : "pass",
       chain_started_at_first_page: true,
       top_level_pagination_exhausted: topLevelPaginationExhausted,
-      replies_reconciled: apiVisibleComplete,
+      replies_reconciled:
+        !mismatchBlock && !continuationReplyOverlapBoundary &&
+        (apiVisibleComplete || terminalPaginationOverlapBoundary),
       query_bounded_comments_used_as_corpus: false,
       blockers
     }

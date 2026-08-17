@@ -42,8 +42,9 @@ complete XML protocol.
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
-- `custom-gpt-action-live-acceptance.md`: 11-case synthetic live-acceptance
-  record; pending fields are not deployment evidence
+- `custom-gpt-action-live-acceptance.md`: deployed direct production receipts
+  for the 11-case synthetic matrix, with unfinished Custom GPT editor/UI fields
+  retained as pending rather than inferred from server evidence
 
 ## Privacy
 

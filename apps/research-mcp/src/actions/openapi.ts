@@ -80,6 +80,7 @@ export function createActionOpenApiDocument(
     info: { title: "AskRigor Actions", version: "0.1.0" },
     servers: [{ url: "https://mcp.askrigor.com" }],
     components: {
+      schemas: {},
       securitySchemes: {
         bearerAuth: { type: "http", scheme: "bearer" }
       }

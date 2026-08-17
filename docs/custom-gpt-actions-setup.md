@@ -108,7 +108,20 @@ read-only `/actions/research/*` routes. It does not disable lesson capture or
 MCP when false. The research Actions and MCP use the same shared per-client token
 bucket and 16-request concurrency pool, so the compatibility surface cannot
 double the public allowance. Both are the same transient provider-retrieval
-flow; application request and response bodies are not logged or persisted.
+flow; full application request and response bodies are not logged or written to
+durable storage. Direct MCP continuation remains client-carried and stateless.
+For `audit_youtube_video_community` only, the Custom GPT Action stores the
+existing signed minimized continuation token in process memory and returns a
+37-character handle. The map expires entries after one hour without renewal,
+holds at most 2,048 entries and 16 MiB, contains no comment text, author
+identity, provider credential, or protocol text, and is never written to disk
+or application logs. A missing, expired, restarted, or evicted handle returns
+`youtube_action_continuation_invalid_or_expired`; restart that audit from its
+video identifier. A valid continuation that returns
+`youtube_video_audit_continuation_migration_restart_required` or
+`youtube_video_audit_identifier_membership_restart_required` also requires a
+fresh audit from the video identifier. Its reported cumulative counts stop at
+the last accepted segment and must not be combined with the restarted chain.
 
 Every research Action response is limited to exactly **60,000 serialized UTF-8
 bytes**. `load_protocol` returns at most **48,000 UTF-8 bytes** of exact protocol
@@ -116,7 +129,10 @@ text per ordered authenticated chunk. Continue until `complete: true`; missing,
 repeated, expired, or inconsistent chunks block complete loading. Large
 per-video YouTube results preserve the retrieval receipt, corpus counts, and
 digest while returning a deterministic transport-bounded analysis sample.
-Legacy bulk YouTube envelopes are never silently trimmed.
+Continue immediately with the returned short handle while
+`continuation_recommended:true`; do not synthesize until
+`receipt.synthesis_lock:pass`. Legacy bulk YouTube envelopes are never silently
+trimmed.
 
 ## 5. Synthetic acceptance and queue status
 
