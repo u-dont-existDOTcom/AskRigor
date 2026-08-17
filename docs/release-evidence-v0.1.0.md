@@ -13,7 +13,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION, UNIVERSAL REFRESH, AND LESSON CONSENT SHELL PASSED; LESSON AUTHENTICATION AND PUBLICATION RETEST PENDING
+## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AND AUTHENTICATION PASSED; PRIVACY-MODEL REPAIR PENDING
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -47,9 +47,13 @@ Action; no lesson was submitted. Saving that corrected Action triggered the
 public-content warning `May provide tailored medical/health advice`. The new
 public-only boundary preserves general and subgroup evidence while prohibiting
 individualized diagnosis and treatment direction; it does not alter the plugin,
-MCP, protocols, or server. Public review, authenticated lesson/duplicate
-receipts, publishing, and the actual direct `/g/...` URL remain pending, so
-`gpt.askrigor.com` must not be repointed yet.
+MCP, protocols, or server. The owner then reported successful public
+publication. In a new published-GPT chat, exact consent and ChatGPT's
+confirmation reached the authenticated Action, but the fully generalized
+source-audit lesson returned non-retryable `privacy_rejected` before GitHub. The
+private queue remained unchanged. A pinned privacy-model repair is under
+verification; successful lesson/duplicate receipts and the actual direct
+`/g/...` URL remain pending, so `gpt.askrigor.com` must not be repointed yet.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
 retrieved after restart, but zero were returned for analysis, replies were not
@@ -86,7 +90,7 @@ a separate evidence-preserving owner review.
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Bounded transient-handle disclosure active at `/opt/askrigor/site/releases/56b3dff6d7c3/site`; live privacy bytes SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`. |
 | Public site packet | SHA-256 `7033719202391ad384976fb0c7dbf30ca197445b549bc68f7009e736643f9b07`; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. |
-| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; committed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Failed-safe UI run instructions: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell instructions installed for the passing shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Public-boundary instructions awaiting editor review: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`; sync ledger `621d0795872719903ed7ed3bd4b7aab85f875c8923b17b26d1f373d15af19081`. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; committed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Failed-safe UI run instructions: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell instructions installed for the passing shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public-boundary instructions: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`; sync ledger `621d0795872719903ed7ed3bd4b7aab85f875c8923b17b26d1f373d15af19081`. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -333,14 +337,12 @@ No provider request or lesson write was repeated.
 
 ## Required submission work remaining
 
-- Replace the GPT editor Instructions with the public-boundary generated
-  artifact, keep Knowledge empty and the existing Action's Bearer authentication,
-  and retry public content review. Universal `20.5.13` product-interface
-  freshness is complete and must not be repeated. If public review passes,
-  obtain the authenticated lesson and duplicate receipts, then publish and
-  verify the direct `/g/...` URL before repointing `gpt.askrigor.com`. If review
-  still rejects the GPT, preserve the warning and use the account appeal rather
-  than narrowing the plugin or bypassing review.
+- Merge and transactionally deploy the pinned privacy-model repair, then rerun
+  only the published-GPT lesson and duplicate cases. Do not retry the
+  non-retryable rejected call against the old deployment, and do not repeat the
+  completed protocol, provider, YouTube, publication, consent, or authentication
+  checks. Capture and verify the actual direct `/g/...` URL before repointing
+  `gpt.askrigor.com`.
 - Complete/confirm verified developer or business identity, listing URLs,
   country availability, and the portal's HTTPS domain-verification challenge.
 - Submit the fixed production URL, select **Scan Tools**, and compare discovered

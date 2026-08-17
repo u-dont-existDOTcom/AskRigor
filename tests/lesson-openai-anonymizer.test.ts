@@ -104,6 +104,8 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     const requiredContract = [
       "Judge only privacy and security risk; do not treat scientific uncertainty, evidence quality, or a described product failure as privacy risk.",
       "Return safe:true with an empty risk_codes array when the candidate is already a generalized product lesson with no personal narrative, direct identifier, credential, raw conversation, unnecessary URL, or copied material.",
+      "Do not reject a generalized lesson merely because it discusses AskRigor, factual claims, evidence, source support, traceability, or auditability.",
+      "A lesson saying that material factual claims need traceable supporting sources is safe when it contains no private or identifying material.",
       "When safe is false, generalized must be null.",
       "When safe is true, preserve category, evidence_basis, askrigor_version, protocol_identities, and consent_scope exactly.",
       "Keep omitted askrigor_version and protocol_identities null; never infer or invent them.",
@@ -121,9 +123,9 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
 
     await expect(anonymizer.generalize(candidate)).resolves.toEqual({ status: "generalized", candidate: generalized });
 
-    expect(OPENAI_LESSON_MODEL).toBe("gpt-5-nano-2025-08-07");
+    expect(OPENAI_LESSON_MODEL).toBe("gpt-5.4-nano-2026-03-17");
     expect(budget.requests).toEqual([{ category: "lesson_privacy_generalization", maximumNanoUsd: 10_000_000 }]);
-    expect(budget.reservation.commits).toEqual([9_000]);
+    expect(budget.reservation.commits).toEqual([32_500]);
     expect(budget.reservation.forfeits).toBe(0);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
@@ -131,10 +133,10 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     expect(init?.method).toBe("POST");
     expect(new Headers(init?.headers).get("authorization")).toBe("Bearer test-api-key");
     expect(JSON.parse(String(init?.body))).toEqual({
-      model: "gpt-5-nano-2025-08-07",
+      model: "gpt-5.4-nano-2026-03-17",
       store: false,
       max_output_tokens: 1200,
-      reasoning: { effort: "minimal" },
+      reasoning: { effort: "none" },
       input: [
         { role: "system", content: [{ type: "input_text", text: PRIVACY_SYSTEM_PROMPT }] },
         { role: "user", content: [{ type: "input_text", text: JSON.stringify(candidate) }] },
@@ -155,7 +157,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     const { anonymizer, budget } = createSubject(fetchMock);
 
     await expect(anonymizer.generalize(candidate)).resolves.toEqual({ status: "privacy_rejected" });
-    expect(budget.reservation.commits).toEqual([9_000]);
+    expect(budget.reservation.commits).toEqual([32_500]);
     expect(budget.reservation.forfeits).toBe(0);
   });
 
@@ -168,7 +170,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     const { anonymizer, budget } = createSubject(fetchMock);
 
     await expect(anonymizer.generalize(candidate)).resolves.toEqual({ status: "privacy_rejected" });
-    expect(budget.reservation.commits).toEqual([9_000]);
+    expect(budget.reservation.commits).toEqual([32_500]);
   });
 
   it.each([
@@ -200,7 +202,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     const { anonymizer, budget } = createSubject(fetchMock);
 
     await expect(anonymizer.generalize(candidate)).resolves.toEqual({ status: "privacy_rejected" });
-    expect(budget.reservation.commits).toEqual([9_000]);
+    expect(budget.reservation.commits).toEqual([32_500]);
     expect(budget.reservation.forfeits).toBe(0);
   });
 
@@ -216,7 +218,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     const { anonymizer, budget } = createSubject(fetchMock);
 
     await expect(anonymizer.generalize(candidate)).resolves.toEqual({ status: "privacy_rejected" });
-    expect(budget.reservation.commits).toEqual([9_000]);
+    expect(budget.reservation.commits).toEqual([32_500]);
     expect(budget.reservation.forfeits).toBe(0);
   });
 

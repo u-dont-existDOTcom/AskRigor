@@ -147,7 +147,7 @@ URL, GitHub issue number, candidate text, or fingerprint.
 
 The server applies deterministic screening before and after the fixed OpenAI
 privacy check. Only already-derived fields are sent to
-`gpt-5-nano-2025-08-07`; the Responses API request uses `store:false` and strict
+`gpt-5.4-nano-2026-03-17`; the Responses API request uses `store:false` and strict
 structured output. Model uncertainty, failure, invalid output, or budget
 exhaustion fails closed before GitHub. The OpenAI check generalizes privacy risk
 but does not determine whether the lesson is scientifically correct.

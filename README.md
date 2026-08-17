@@ -244,9 +244,13 @@ Instructions now retain general and subgroup evidence, treatment and harm
 comparisons, mechanisms, guidelines, community reports, source provenance, and
 clinician questions while explicitly prohibiting individualized diagnosis or
 treatment directives. This public-only boundary does not change the plugin,
-MCP server, canonical protocols, or production research tools. Public review,
-successful lesson/duplicate UI receipts, and the actual direct `/g/...` URL
-remain pending and must not be inferred from server proof.
+MCP server, canonical protocols, or production research tools. The owner then
+reported successful public publication. The first authenticated lesson call
+reached the server privacy gate but returned `privacy_rejected` for the fully
+generalized synthetic source-audit lesson; the private queue remained
+unchanged. A pinned privacy-model repair is now under verification. Successful
+lesson/duplicate UI receipts and the actual direct `/g/...` URL remain pending
+and must not be inferred from publication or server proof.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 

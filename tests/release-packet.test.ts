@@ -84,7 +84,7 @@ describe("AskRigor public-review packet", () => {
 
     for (const fragment of [
       "$50.00",
-      "gpt-5-nano-2025-08-07",
+      "gpt-5.4-nano-2026-03-17",
       "API billing is separate from ChatGPT billing",
       "https://mcp.askrigor.com/actions/openapi.json",
       "API Key",
@@ -113,7 +113,7 @@ describe("AskRigor public-review packet", () => {
     expect(setup).not.toMatch(/https?:\/\/(?:www\.)?github\.com\//iu);
     expect(setup).not.toMatch(/(?:sk-|gh[opusr]_)[A-Za-z0-9_-]{16,}/u);
     expect(setup).toContain(
-      "The server accepts only the fixed privacy model `gpt-5-nano-2025-08-07`; no moving alias is allowed.",
+      "The server accepts only the fixed privacy model\n`gpt-5.4-nano-2026-03-17`; no moving alias is allowed.",
     );
 
     for (const fragment of [
@@ -243,7 +243,7 @@ describe("AskRigor public-review packet", () => {
     const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION, UNIVERSAL REFRESH, AND LESSON CONSENT SHELL PASSED; LESSON AUTHENTICATION AND PUBLICATION RETEST PENDING"
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AND AUTHENTICATION PASSED; PRIVACY-MODEL REPAIR PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
