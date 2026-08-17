@@ -243,7 +243,7 @@ describe("AskRigor public-review packet", () => {
     const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AND AUTHENTICATION PASSED; PRIVACY-MODEL REPAIR PENDING"
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AUTHENTICATION, AND PRIVACY-MODEL REPAIR PASSED; LESSON/DUPE UI RETEST PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -258,6 +258,7 @@ describe("AskRigor public-review packet", () => {
       /51 valid comment IDs\s+returned HTTP `400 invalidFilters` and zero items/u,
     );
     expect(state).toContain("5585a9ca34ce01403044b1085b85d4f2de9783f4");
+    expect(state).toContain("d1af238325ee1e0584574e47bbcbe7764d17cf7e");
     expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
     expect(state).toContain("Universal `20.5.13` Custom GPT UI loading passed");
     expect(state).toContain("lesson-consent shell failed safe");
@@ -297,18 +298,17 @@ describe("AskRigor public-review packet", () => {
     expect(acceptance).toContain("reuse exactly the same previously displayed generalized candidate");
 
     for (const exactIdentity of [
-      "5585a9ca34ce01403044b1085b85d4f2de9783f4",
-      "a745979af07a6931324887023ce5b63f2991a2a6",
-      "sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953",
-      "5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b",
-      "cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf",
+      "d1af238325ee1e0584574e47bbcbe7764d17cf7e",
+      "87433b8829da835f1e8c2b1bd5cd613ac14046b6",
+      "sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd",
+      "9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51",
+      "f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4",
       "06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1",
-      "askrigor-research:rollback-5585a9c",
-      "/opt/askrigor/compose.yaml.rollback-5585a9c",
-      "sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067",
-      "c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9",
-      "024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283",
-      "81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0",
+      "askrigor-research:rollback-d1af238",
+      "/opt/askrigor/compose.yaml.rollback-d1af238",
+      "sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953",
+      "cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf",
+      "8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d",
       "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94",
       "402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2",
       "ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad",
@@ -320,7 +320,8 @@ describe("AskRigor public-review packet", () => {
     }
     expect(deploymentIdentity).toContain("3 contiguous");
     expect(deploymentIdentity).toContain("98,154 bytes");
-    expect(releaseIdentity).toContain("81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0");
+    expect(releaseIdentity).toContain("8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d");
+    expect(releaseIdentity).toContain("no image archive was created");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
     expect(acceptance).toContain("DIRECT PASS");

@@ -21,8 +21,8 @@ reproduce the earlier routine-status regression.
 
 The consequential Custom GPT lesson Action remains deployed and was reverified
 after the research service moved to application image tag
-`5585a9ca34ce01403044b1085b85d4f2de9783f4`, image ID
-`sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`.
+`d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image ID
+`sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`.
 The Action implementation itself remains the accepted behavior from revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; the newer application image retains
 the repaired YouTube continuation and current Universal bytes while adding no
@@ -46,9 +46,10 @@ and public-content review passed; the owner reported successful publication.
 The public-only boundary preserves general and subgroup evidence while
 prohibiting individualized diagnosis or treatment direction; it does not
 narrow the plugin, MCP server, canonical protocols, or production tools. The
-first authenticated published-GPT lesson call failed closed at the deployed
-privacy model before GitHub, and its pinned-model repair must pass deployment
-and lesson/duplicate acceptance before the direct GPT URL is promoted.
+first authenticated published-GPT lesson call failed closed at the old privacy
+model before GitHub. Its pinned-model repair is now deployed and passes the
+exact-code non-stored privacy probe; fresh-chat lesson/duplicate acceptance must
+still pass before the direct GPT URL is promoted.
 
 ## Source-generated MCP tools/list inventory
 

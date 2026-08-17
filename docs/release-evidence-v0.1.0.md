@@ -13,7 +13,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AND AUTHENTICATION PASSED; PRIVACY-MODEL REPAIR PENDING
+## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AUTHENTICATION, AND PRIVACY-MODEL REPAIR PASSED; LESSON/DUPE UI RETEST PENDING
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -23,8 +23,9 @@ then landed through PRs #19 through #23. PR #23 exact head
 `11f3a68a73bc68bc23f1854b6bd8d4c06f9b843f` merged as
 `905ac22ab42479c15ff0d6385a51de864271f862`. PR #27 merged the sanitized UI
 receipt and current Universal `20.5.13` ancestry as
-`5585a9ca34ce01403044b1085b85d4f2de9783f4`, which is the current production
-revision. Production exposes the frozen
+`5585a9ca34ce01403044b1085b85d4f2de9783f4`. PR #32 then merged and deployed
+the pinned privacy-model repair as current production revision
+`d1af238325ee1e0584574e47bbcbe7764d17cf7e`. Production exposes the frozen
 17 read-only operations through Custom GPT Actions while retaining the separate
 consequential lesson write. `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active;
 the Actions use MCP's same transient provider flow, shared public token bucket
@@ -51,8 +52,10 @@ MCP, protocols, or server. The owner then reported successful public
 publication. In a new published-GPT chat, exact consent and ChatGPT's
 confirmation reached the authenticated Action, but the fully generalized
 source-audit lesson returned non-retryable `privacy_rejected` before GitHub. The
-private queue remained unchanged. A pinned privacy-model repair is under
-verification; successful lesson/duplicate receipts and the actual direct
+private queue remained unchanged. A pinned privacy-model repair was prepared
+and verified. Exact merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e` is now
+deployed, and its exact-code non-stored safe-candidate probe returns
+`generalized`. Successful lesson/duplicate UI receipts and the actual direct
 `/g/...` URL remain pending, so `gpt.askrigor.com` must not be repointed yet.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
@@ -79,10 +82,10 @@ a separate evidence-preserving owner review.
 | Item | Evidence |
 | --- | --- |
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
-| Production connector revision | Universal-freshness/UI-evidence merge `5585a9ca34ce01403044b1085b85d4f2de9783f4`, image tag `askrigor-research:5585a9ca34ce01403044b1085b85d4f2de9783f4`, image ID `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`, healthy container `5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b`. Immediate rollback: `askrigor-research:rollback-5585a9c` plus `/opt/askrigor/compose.yaml.rollback-5585a9c`, restoring prior image `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; rollback Compose SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`. |
+| Production connector revision | Privacy-model repair merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image tag `askrigor-research:d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image ID `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`, healthy container `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`. Immediate rollback: `askrigor-research:rollback-d1af238` plus `/opt/askrigor/compose.yaml.rollback-d1af238`, restoring prior image `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`; rollback Compose SHA-256 `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
 | Canonical protocols | HRP `20.5.18`, revision `2026-08-16`, SHA-256 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.13`, revision `2026-08-17`, SHA-256 `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`. Direct Action loading covered every exact byte. |
-| Production source packet | Exact secret-free `git archive` from `5585a9ca34ce01403044b1085b85d4f2de9783f4`; SHA-256 `024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283`. Exact built image archive SHA-256 `81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0`. |
+| Production source packet | Exact secret-free `git archive` from `d1af238325ee1e0584574e47bbcbe7764d17cf7e`; SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`, 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
@@ -116,7 +119,7 @@ run the VPS validation.
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
-| Custom GPT bridge direct acceptance | Current Universal `20.5.13` loaded in 3/3 chunks through both direct and Custom GPT UI checks, and HRP `20.5.18` retained its verified manifest; the prior full bridge release loaded Universal in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed on the prior application release. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Fresh health, exact OpenAPI, unauthenticated lesson isolation, privacy, and exact 17-tool MCP inventory passed after the Universal-only runtime change. The repaired two-call YouTube UI case passed. The hardened lesson-consent shell now passes; authenticated lesson/duplicate UI receipts and public-content eligibility remain pending. |
+| Custom GPT bridge direct acceptance | Current Universal `20.5.13` loaded in 3/3 chunks through both direct and Custom GPT UI checks, and HRP `20.5.18` retained its verified manifest; the prior full bridge release loaded Universal in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed on the prior application release. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Fresh health, exact OpenAPI, unauthenticated lesson isolation, privacy, and exact 17-tool MCP inventory passed after the Universal-only runtime change. The repaired two-call YouTube UI case, hardened lesson-consent shell, Action authentication, public content review, and owner-reported publication passed. The privacy-model repair is deployed and its GitHub-disconnected safe-candidate probe passes; published-GPT lesson/duplicate receipts remain pending. |
 | OpenAI Action importer compatibility | Exact merge `6639086a33b44f029c9f8405f69bd06b725e78d0` introduced the live-compatible schema and remains in the current release ancestry. Public schema checks found 18 operations, object-valued `components.schemas`, every summary/description within 300 characters, and both repaired legacy descriptions at 201 characters. The GPT editor subsequently imported the schema. |
 | YouTube terminal-refetch release | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862` remains in current production ancestry. A test-first provider-boundary regression limits `comments.list` ID filters to 50 after the exact provider returned `200` for 50 IDs and `400 invalidFilters` for 51. The known 16-record video remained one-call `api_visible_complete`; the formerly failing two-call video reached 149 records, returned a deterministic 111-record sample, ended `completed_with_access_boundary`, reported no error or further continuation, and passed synthesis. The repaired two-call GPT UI continuation retest passed on 2026-08-17. The subsequent Universal-only runtime rollout did not repeat provider calls. |
 
@@ -337,11 +340,10 @@ No provider request or lesson write was repeated.
 
 ## Required submission work remaining
 
-- Merge and transactionally deploy the pinned privacy-model repair, then rerun
-  only the published-GPT lesson and duplicate cases. Do not retry the
-  non-retryable rejected call against the old deployment, and do not repeat the
-  completed protocol, provider, YouTube, publication, consent, or authentication
-  checks. Capture and verify the actual direct `/g/...` URL before repointing
+- Rerun only the published-GPT lesson and duplicate cases against the deployed
+  privacy-model repair. Do not repeat the completed protocol, provider, YouTube,
+  publication, consent, authentication, deployment, or direct privacy probe.
+  Capture and verify the actual direct `/g/...` URL before repointing
   `gpt.askrigor.com`.
 - Complete/confirm verified developer or business identity, listing URLs,
   country availability, and the portal's HTTPS domain-verification challenge.
