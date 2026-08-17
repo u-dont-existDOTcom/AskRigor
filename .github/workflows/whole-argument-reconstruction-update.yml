@@ -1,4 +1,4 @@
-name: Temporary whole-argument reconstruction update
+name: Temporary whole-argument reconstruction cleanup
 
 on:
   push:
@@ -9,11 +9,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: whole-argument-reconstruction-update-${{ github.ref }}
+  group: whole-argument-reconstruction-cleanup-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  update:
+  cleanup:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -33,63 +33,62 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Narrow semantic assertions in the temporary updater
+      - name: Reconcile human-readable identity and plan state
         run: |
           python3 - <<'PY'
           from pathlib import Path
 
-          path = Path("scripts/apply-whole-argument-reconstruction-update.mjs")
-          text = path.read_text(encoding="utf-8")
-          old = '''  for (const marker of [
-              '<revision version="20.5.13" priority="Critical">',
-              '<whole_argument_reconstruction_gate priority="Critical">',
-              "Reconstruct the whole argument before judging or changing any part of it.",
-              "accurate behavioral label",
-              "bounded silence-as-approval convention",
-              "Whole-argument reconstruction check:"
-            ]) {
-              requireExactlyOnce(text, marker);
-            }
-          '''
-          new = '''  for (const marker of [
-              '<revision version="20.5.13" priority="Critical">',
-              '<whole_argument_reconstruction_gate priority="Critical">',
-              "Whole-argument reconstruction check:"
-            ]) {
-              requireExactlyOnce(text, marker);
-            }
-            for (const marker of [
-              "Reconstruct the whole argument before judging or changing any part of it.",
-              "accurate behavioral label",
-              "bounded silence-as-approval convention"
-            ]) {
-              if (!text.includes(marker)) {
-                throw new Error(`${marker}: expected at least once`);
-              }
-            }
-          '''
+          readme = Path("README.md")
+          text = readme.read_text(encoding="utf-8")
+          old = "and Universal Instructions `20.5.12` (2026-08-16), SHA-256"
+          new = "and Universal Instructions `20.5.13` (2026-08-17), SHA-256"
           if text.count(old) != 1:
-              raise SystemExit(f"expected assertion block exactly once, found {text.count(old)}")
-          path.write_text(text.replace(old, new), encoding="utf-8")
+              raise SystemExit(f"expected stale README identity exactly once, found {text.count(old)}")
+          text = text.replace(old, new)
+          if "3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4" not in text:
+              raise SystemExit("README lacks the generated Universal SHA-256")
+          readme.write_text(text, encoding="utf-8")
+
+          plan = Path("docs/superpowers/plans/2026-08-17-whole-argument-reconstruction-universal.md")
+          plan_text = plan.read_text(encoding="utf-8")
+          completed = [
+              "- [ ] Write the regression against the desired Universal 20.5.13 state.",
+              "- [ ] Push and confirm deterministic verification fails because 20.5.12 lacks the new gate.",
+              "- [ ] Implement exact-once root, revision, gate, and point-check transformations.",
+              "- [ ] Compute the resulting SHA-256 and update current identity dependents.",
+              "- [ ] Fail closed on unexpected base state, duplicate markers, missing markers, or unhandled active old-digest references.",
+              "- [ ] Run `npm ci`, updater, `npm run verify`, and `git diff --check` in the temporary workflow.",
+              "- [ ] Confirm the generated commit is green and the HRP digest remains unchanged.",
+              "- [ ] Remove temporary update machinery.",
+              "- [ ] Run or observe fresh full verification on the exact cleanup head.",
+              "- [ ] Review the complete diff and confirm no HRP/application/runtime change."
+          ]
+          for old_line in completed:
+              if plan_text.count(old_line) != 1:
+                  raise SystemExit(f"plan checkpoint missing or duplicated: {old_line}")
+              plan_text = plan_text.replace(old_line, old_line.replace("- [ ]", "- [x]"))
+          plan.write_text(plan_text, encoding="utf-8")
           PY
 
-      - name: Apply guarded canonical transformation
-        run: node scripts/apply-whole-argument-reconstruction-update.mjs
+      - name: Remove one-off update machinery
+        run: |
+          rm scripts/apply-whole-argument-reconstruction-update.mjs
+          rm .github/workflows/whole-argument-reconstruction-update.yml
 
       - name: Run complete deterministic verification
         run: npm run verify
 
-      - name: Check patch hygiene
-        run: git diff --check
+      - name: Check patch hygiene and protocol identities
+        run: |
+          git diff --check
+          grep -F 'version="20.5.13" revisionDate="2026-08-17"' protocols/Universal_Instructions.xml
+          grep -F '3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4' README.md project/CODEX-CURRENT-STATE.md tests/protocol.test.ts tests/mcp-tools.test.ts
+          sha256sum protocols/HRP_Full.xml | grep -F '4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5'
 
-      - name: Commit generated canonical files
+      - name: Commit cleaned permanent change
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          if git diff --cached --quiet; then
-            echo "No generated changes to commit"
-            exit 0
-          fi
-          git commit -m "feat: add whole-argument reconstruction gate"
+          git commit -m "chore: close whole-argument protocol integration"
           git push origin HEAD:${GITHUB_REF_NAME}
