@@ -27,6 +27,7 @@ describe("Action OpenAPI document", () => {
     expect(document.openapi).toBe("3.1.0");
     expect(document.servers).toEqual([{ url: "https://mcp.askrigor.com" }]);
     expect(document.components).toEqual({
+      schemas: {},
       securitySchemes: {
         bearerAuth: { type: "http", scheme: "bearer" }
       }
@@ -133,6 +134,28 @@ describe("Action OpenAPI document", () => {
                   required: ["code", "retryable"],
                   properties: {
                     code: { const: "action_body_too_large" },
+                    retryable: { const: false }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      500: {
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              required: ["error"],
+              properties: {
+                error: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["code", "retryable"],
+                  properties: {
+                    code: { const: "action_internal_error" },
                     retryable: { const: false }
                   }
                 }

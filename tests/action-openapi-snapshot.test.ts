@@ -4,6 +4,10 @@ import { describe, expect, it } from "vitest";
 
 import { createActionOpenApiDocument } from
   "../apps/research-mcp/src/actions/openapi.js";
+import { createResearchActionRoutes } from
+  "../apps/research-mcp/src/actions/research-routes.js";
+import { createEnabledActionRoutes } from
+  "../apps/research-mcp/src/actions/runtime.js";
 import { createDefaultActionRoutes } from
   "../apps/research-mcp/src/lessons/runtime.js";
 import { generateActionOpenApiJson } from
@@ -13,7 +17,7 @@ const committedDocumentUrl = new URL("../docs/custom-gpt-action-openapi.json", i
 
 describe("reproducible Custom GPT Action OpenAPI", () => {
   it("generates the committed deterministic two-space JSON document with a trailing newline", async () => {
-    const routes = createDefaultActionRoutes();
+    const routes = completeActionRoutes();
     const document = createActionOpenApiDocument(routes);
     const generated = generateActionOpenApiJson();
     const committed = await readFile(committedDocumentUrl, "utf8");
@@ -23,20 +27,24 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(JSON.parse(committed)).toEqual(document);
   });
 
-  it("describes one private consequential lesson operation without secrets or private repository data", () => {
-    const document = createActionOpenApiDocument(createDefaultActionRoutes()) as {
+  it("describes 17 public reads and one private consequential lesson operation without secrets", () => {
+    const document = createActionOpenApiDocument(completeActionRoutes()) as {
       paths: Record<string, Record<string, Record<string, unknown>>>;
     };
     const operation = document.paths["/actions/lessons"]?.post;
 
-    expect(Object.keys(document.paths)).toEqual(["/actions/lessons"]);
+    expect(Object.keys(document.paths)).toHaveLength(18);
     expect(operation).toMatchObject({
       operationId: "submit_lesson_candidate",
       "x-openai-isConsequential": true,
       security: [{ bearerAuth: [] }],
     });
-    expect(String(operation?.summary).length).toBeLessThanOrEqual(300);
-    expect(String(operation?.description).length).toBeLessThanOrEqual(700);
+    for (const methods of Object.values(document.paths)) {
+      for (const candidate of Object.values(methods)) {
+        expect(String(candidate.summary).length).toBeLessThanOrEqual(300);
+        expect(String(candidate.description).length).toBeLessThanOrEqual(300);
+      }
+    }
     expect(operation?.requestBody).toMatchObject({
       required: true,
       content: {
@@ -49,7 +57,7 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
       },
     });
     expect(Object.keys(operation?.responses as object)).toEqual([
-      "200", "400", "401", "413", "415", "422", "429", "503"
+      "200", "400", "401", "413", "415", "422", "429", "500", "503"
     ]);
     expect((operation?.responses as Record<string, unknown>)["429"]).toMatchObject({
       headers: {
@@ -69,6 +77,15 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(serialized).not.toContain("github.com");
   });
 });
+
+function completeActionRoutes() {
+  return createEnabledActionRoutes({
+    researchEnabled: true,
+    lessonsEnabled: true,
+    research: createResearchActionRoutes(),
+    lessons: createDefaultActionRoutes()
+  });
+}
 
 function objectKeys(value: unknown): string[] {
   if (Array.isArray(value)) return value.flatMap(objectKeys);

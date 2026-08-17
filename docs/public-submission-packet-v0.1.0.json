@@ -1,0 +1,97 @@
+{
+  "schemaVersion": "1.0",
+  "release": "0.1.0",
+  "reviewedAt": "2026-08-16",
+  "officialSources": [
+    "https://developers.openai.com/plugins/build/plugins",
+    "https://developers.openai.com/plugins/deploy/submission-errors",
+    "https://developers.openai.com/plugins/deploy/app-review"
+  ],
+  "listing": {
+    "displayName": "AskRigor",
+    "shortDescription": "Auditable research retrieval",
+    "longDescription": "Rigorous health and research workflows with deterministic, auditable source retrieval and explicit access boundaries.",
+    "developerName": "AskRigor",
+    "category": "Productivity",
+    "capabilities": [
+      "Read"
+    ],
+    "websiteURL": "https://askrigor.com",
+    "supportURL": "https://askrigor.com/support",
+    "privacyPolicyURL": "https://askrigor.com/privacy",
+    "termsOfServiceURL": "https://askrigor.com/terms",
+    "brandColor": "#145A8D",
+    "logo": "./assets/askrigor-logo.svg",
+    "composerIcon": "./assets/askrigor-composer-icon.svg",
+    "starterPrompts": [
+      "Use AskRigor to research this question with auditable evidence and explicit access gaps."
+    ]
+  },
+  "mcp": {
+    "submissionMode": "with_mcp",
+    "serverURL": "https://mcp.askrigor.com/mcp"
+  },
+  "testCases": {
+    "extendedSuite": "docs/public-review-cases-v0.1.0.json",
+    "positiveCaseIds": [
+      "positive-1",
+      "positive-2",
+      "positive-3",
+      "positive-4",
+      "positive-5"
+    ],
+    "negativeCaseIds": [
+      "negative-1",
+      "negative-2",
+      "negative-3"
+    ]
+  },
+  "releaseNotes": [
+    "Retrieves canonical AskRigor protocol files with byte-derived version and SHA-256 integrity receipts.",
+    "Provides 17 read-only tools for scholarly, trial, DOI, and public YouTube source retrieval with explicit provenance and access states.",
+    "Preserves pagination, reply reconciliation, rate limits, inaccessible sources, and partial evidence without making clinical conclusions or changing provider data."
+  ],
+  "demoRecording": {
+    "status": "pending",
+    "url": null,
+    "scriptPath": "docs/public-submission-demo-recording.md"
+  },
+  "externalGates": {
+    "developerIdentity": {
+      "status": "in_progress",
+      "evidence": null,
+      "completedAt": null,
+      "note": "The owner reported that the OpenAI portal displays Verifying identity on 2026-08-16; completion has not been observed."
+    },
+    "domainVerification": {
+      "status": "pending",
+      "evidence": null,
+      "completedAt": null,
+      "note": "Complete the publisher-domain challenge in the signed-in OpenAI portal and retain a non-secret receipt."
+    },
+    "scanTools": {
+      "status": "pending",
+      "evidence": null,
+      "completedAt": null,
+      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 17-tool inventory with the committed inventory."
+    },
+    "demoRecording": {
+      "status": "pending",
+      "evidence": null,
+      "completedAt": null,
+      "note": "Record the bounded reviewer demonstration, upload it to an HTTPS location accepted by the portal, and verify the final URL."
+    },
+    "finalPortalReview": {
+      "status": "pending",
+      "evidence": null,
+      "completedAt": null,
+      "note": "Review tool annotations, response data, privacy output, listing fields, and policy attestations in the final portal candidate."
+    },
+    "submission": {
+      "status": "pending",
+      "evidence": null,
+      "completedAt": null,
+      "note": "Submit only after every prerequisite is directly verified and the protected repository candidate is merged."
+    }
+  }
+}

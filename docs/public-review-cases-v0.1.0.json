@@ -107,18 +107,18 @@
     },
     {
       "id": "positive-6",
-      "prompt": "Use AskRigor to survey YouTube for firsthand hip-osteoarthritis treatment experiences, show clickable promising videos and provider comment counts, then deeply audit video 4x1fl67d_Ag and continue its authenticated acquisition when the first call recommends continuation.",
+      "prompt": "Use AskRigor to call survey_youtube_community with the research question exactly 'Which approaches do people with severe hip osteoarthritis report as improving pain or function?', exactly these four direction/query pairs: benefit / 'hip osteoarthritis treatment success experience'; no_effect / 'hip osteoarthritis treatment did not work'; harm / 'hip osteoarthritis treatment worse complications'; discontinuation / 'hip osteoarthritis stopped treatment side effects'; and 10 results per search. Show clickable promising videos and provider comment counts. Then call audit_youtube_video_community for the survey-selected patient-story video W42rwWD6zjw with analysis limit 500 and continue its authenticated acquisition only when the first audit recommends continuation.",
       "fixture": {
         "mode": "production-public-input",
         "inputs": {
           "research_question": "Which approaches do people with severe hip osteoarthritis report as improving pain or function?",
           "searches": [
-            {"label": "benefit", "query": "hip osteoarthritis treatment success experience"},
-            {"label": "no_effect", "query": "hip osteoarthritis treatment did not work"},
-            {"label": "harm", "query": "hip osteoarthritis treatment worse complications"},
-            {"label": "discontinuation", "query": "hip osteoarthritis stopped treatment side effects"}
+            {"direction": "benefit", "query": "hip osteoarthritis treatment success experience"},
+            {"direction": "no_effect", "query": "hip osteoarthritis treatment did not work"},
+            {"direction": "harm", "query": "hip osteoarthritis treatment worse complications"},
+            {"direction": "discontinuation", "query": "hip osteoarthritis stopped treatment side effects"}
           ],
-          "video_id_or_url": "4x1fl67d_Ag",
+          "video_id_or_url": "W42rwWD6zjw",
           "analysis_limit": 500
         }
       },
@@ -128,19 +128,19 @@
           "arguments": {
             "research_question": "Which approaches do people with severe hip osteoarthritis report as improving pain or function?",
             "searches": [
-              {"label": "benefit", "query": "hip osteoarthritis treatment success experience"},
-              {"label": "no_effect", "query": "hip osteoarthritis treatment did not work"},
-              {"label": "harm", "query": "hip osteoarthritis treatment worse complications"},
-              {"label": "discontinuation", "query": "hip osteoarthritis stopped treatment side effects"}
+              {"direction": "benefit", "query": "hip osteoarthritis treatment success experience"},
+              {"direction": "no_effect", "query": "hip osteoarthritis treatment did not work"},
+              {"direction": "harm", "query": "hip osteoarthritis treatment worse complications"},
+              {"direction": "discontinuation", "query": "hip osteoarthritis stopped treatment side effects"}
             ],
             "results_per_search": 10
           },
-          "expected_structured_fields": ["provider", "record_type", "research_question", "queries", "candidates", "candidates[].canonical_url", "candidates[].title", "candidates[].channel_title", "candidates[].published_at", "candidates[].provider_reported_comments", "limitations"]
+          "expected_structured_fields": ["provider", "record_type", "research_question", "access_status", "searches", "candidates", "candidates[].video_id", "candidates[].canonical_url", "candidates[].metadata_access_status", "candidates[].provider_reported_comments", "limitations"]
         },
         {
           "tool": "audit_youtube_video_community",
-          "arguments": {"video_id_or_url": "4x1fl67d_Ag", "analysis_limit": 500},
-          "expected_structured_fields": ["provider", "record_type", "video_id", "canonical_url", "title", "channel_title", "published_at", "provider_reported_comments", "records_retrieved_this_call", "records_retrieved_cumulative", "records_returned_for_analysis", "continuation_recommended", "continuation_token", "receipt.synthesis_lock"]
+          "arguments": {"video_id_or_url": "W42rwWD6zjw", "analysis_limit": 500},
+          "expected_structured_fields": ["provider", "record_type", "video_id", "canonical_url", "title", "channel_title", "published_at", "provider_reported_comments", "records_retrieved_this_call", "records_retrieved_cumulative", "records_returned_for_analysis", "continuation_recommended", "continuation_token", "receipt.completion_state", "receipt.synthesis_lock"]
         },
         {
           "tool": "audit_youtube_video_community",
@@ -177,23 +177,23 @@
     },
     {
       "id": "negative-2",
-      "prompt": "Use AskRigor to retrieve API-visible metadata for YouTube video ID 00000000000.",
+      "prompt": "Use AskRigor to retrieve API-visible metadata for YouTube video ID 00000000000 and preserve any explicit visibility boundary without scraping a fallback.",
       "fixture": {
         "mode": "production-public-input",
         "inputs": {"video_id_or_url": "00000000000"}
       },
       "expected_workflow": [
         {
-          "kind": "explicit_not_found",
+          "kind": "explicit_access_boundary",
           "tool": "get_youtube_video",
           "arguments": {"video_id_or_url": "00000000000"}
         }
       ],
       "expected_result_shape": {
-        "required_fields": ["provider: youtube", "access_status: not_found", "data: {}", "no scraping fallback"]
+        "required_fields": ["provider: youtube", "access_status: inaccessible", "error.code: youtube_video_not_visible", "data: {}", "no scraping fallback"]
       },
       "no_state_change": true,
-      "why_plugin_must_not_complete": "A syntactically valid but unavailable public video must retain an explicit not-found boundary; the plugin must not scrape alternate sources or convert the absence into a successful result."
+      "why_plugin_must_not_complete": "An empty API-visible video result cannot distinguish a deleted identifier from a private, restricted, or otherwise unavailable video. The plugin must retain the explicit inaccessible visibility boundary, must not scrape alternate sources, and must not convert the absence into a successful or confirmed-not-found result."
     },
     {
       "id": "negative-3",

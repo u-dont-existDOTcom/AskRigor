@@ -18,6 +18,7 @@ import {
   PUBLIC_MCP_CONCURRENCY_LIMIT,
   PUBLIC_RATE_LIMIT,
   publicServerIsEnabled,
+  researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
   SERVICE_NAME,
   SERVICE_VERSION
@@ -30,6 +31,10 @@ import {
   validateActionRoutes
 } from "./actions/router.js";
 import type { ActionRoute } from "./actions/types.js";
+import { createResearchActionRoutes } from "./actions/research-routes.js";
+import { validateProtocolActionContinuationSecret } from
+  "./actions/protocol-continuation.js";
+import { createEnabledActionRoutes } from "./actions/runtime.js";
 import {
   isLessonActionJsonContentType,
   LESSON_ACTION_JSON_CONTENT_TYPE_ERROR,
@@ -58,6 +63,8 @@ export function createAskRigorServer(): McpServer {
 export interface AskRigorHttpServerOptions {
   publicServerEnabled?: boolean;
   actionsEnabled?: boolean;
+  researchActionsEnabled?: boolean;
+  researchActionContinuationSecret?: string;
   actionApiKey?: string;
   actionRoutes?: readonly ActionRoute[];
   trustedClientIpHeader?: TrustedClientIpHeader;
@@ -71,15 +78,37 @@ export function createAskRigorHttpServer(
 ): HttpServer {
   const publicServerEnabled = options.publicServerEnabled ?? publicServerIsEnabled();
   const actionsEnabled = options.actionsEnabled ?? actionsAreEnabled();
+  const researchActionsEnabled = options.researchActionsEnabled ??
+    researchActionsAreEnabled();
+  if (researchActionsEnabled) {
+    validateProtocolActionContinuationSecret(
+      options.researchActionContinuationSecret ??
+      process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET ??
+      ""
+    );
+  }
   const actionApiKey = options.actionApiKey ?? actionApiKeyFromEnv();
-  const actionRoutes = options.actionRoutes ?? createDefaultActionRoutes();
+  const configuredActionRoutes = options.actionRoutes ?? [
+    ...(researchActionsEnabled ? createResearchActionRoutes() : []),
+    ...createDefaultActionRoutes()
+  ];
+  validateActionRoutes(configuredActionRoutes);
+  const actionRoutes = createEnabledActionRoutes({
+    researchEnabled: researchActionsEnabled,
+    lessonsEnabled: actionsEnabled,
+    research: configuredActionRoutes.filter(({ publicResearch }) =>
+      publicResearch === true
+    ),
+    lessons: configuredActionRoutes.filter(({ publicResearch }) =>
+      publicResearch !== true
+    )
+  });
   const trustedClientIpHeader = options.trustedClientIpHeader ??
     parseTrustedClientIpHeader();
   const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(PUBLIC_RATE_LIMIT);
   const concurrencyLimiter = options.concurrencyLimiter ??
     createConcurrencyLimiter(PUBLIC_MCP_CONCURRENCY_LIMIT);
   const createMcpServer = options.createMcpServer ?? createAskRigorServer;
-  validateActionRoutes(actionRoutes);
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -112,12 +141,14 @@ export function createAskRigorHttpServer(
       return;
     }
 
-    if (actionsEnabled && await dispatchActionRequest(request, response, {
+    if (actionRoutes.length > 0 && await dispatchActionRequest(request, response, {
       pathname,
       clientIp: resolveClientIp(request, trustedClientIpHeader),
       actionApiKey,
       routes: actionRoutes,
-      createOpenApiDocument: () => createActionOpenApiDocument(actionRoutes)
+      createOpenApiDocument: () => createActionOpenApiDocument(actionRoutes),
+      publicRateLimiter: rateLimiter,
+      publicConcurrencyLimiter: concurrencyLimiter
     })) {
       return;
     }

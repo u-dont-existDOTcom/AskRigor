@@ -12,6 +12,13 @@ export interface ActionResult {
   headers?: Readonly<Record<string, string>>;
 }
 
+export class ActionResponseTooLargeError extends Error {
+  constructor(message = "Valid Action output cannot fit the response byte limit") {
+    super(message);
+    this.name = "ActionResponseTooLargeError";
+  }
+}
+
 export interface ActionRequiredResponseHeader {
   required: true;
   description: string;
@@ -29,6 +36,8 @@ export interface ActionRoute {
   description: string;
   consequential: boolean;
   public: boolean;
+  publicResearch?: true;
+  maximumResponseBytes?: number;
   requestSchema?: Record<string, unknown>;
   responseSchemas: Readonly<Record<number, Record<string, unknown>>>;
   responseHeaders?: Readonly<Record<

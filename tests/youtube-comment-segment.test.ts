@@ -152,6 +152,158 @@ describe("resumable YouTube comment segments", () => {
       .toSatisfy((urls: URL[]) => urls.every((url) => !url.searchParams.has("searchTerms")));
   });
 
+  it("reconciles a repeated thread at an adjacent top-level page boundary", async () => {
+    const thread = (id: string, replyCount: number) => ({
+      id: `thread-${id}`,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        topLevelComment: {
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            textDisplay: `Top level ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T10:00:00Z",
+            updatedAt: "2025-02-01T10:00:00Z"
+          }
+        },
+        totalReplyCount: replyCount
+      }
+    });
+    const reply = (id: string, parentId: string) => ({
+      id,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        parentId,
+        textDisplay: `Reply ${id}`,
+        likeCount: 0,
+        publishedAt: "2025-02-01T11:00:00Z",
+        updatedAt: "2025-02-01T11:00:00Z"
+      }
+    });
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      if (url.pathname.endsWith("/commentThreads")) {
+        const secondPage = url.searchParams.get("pageToken") === "page-2";
+        return Response.json({
+          ...(secondPage ? {} : { nextPageToken: "page-2" }),
+          pageInfo: { totalResults: 2, resultsPerPage: secondPage ? 2 : 1 },
+          items: secondPage
+            ? [thread("top-overlap", 1), thread("top-new", 0)]
+            : [thread("top-overlap", 1)]
+        });
+      }
+      const parentId = url.searchParams.get("parentId")!;
+      return Response.json({
+        pageInfo: { totalResults: parentId === "top-overlap" ? 1 : 0, resultsPerPage: 1 },
+        items: parentId === "top-overlap" ? [reply("reply-overlap", parentId)] : []
+      });
+    }));
+
+    const first = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 2, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+    const second = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o", cursor: first.next_cursor },
+      YOUTUBE,
+      { max_provider_requests: 10, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(first.comments.map(({ comment_id }) => comment_id)).toEqual([
+      "top-overlap", "reply-overlap"
+    ]);
+    expect(second.comments.map(({ comment_id }) => comment_id)).toEqual(["top-new"]);
+    expect(second).toMatchObject({
+      access_status: "partial",
+      exhausted: true,
+      top_level_comments_retrieved: 1,
+      replies_retrieved: 0,
+      pagination_overlaps_reconciled: 1,
+      limitations: [expect.stringMatching(/pagination.*overlap/i)]
+    });
+    expect(requests.filter((url) =>
+      url.pathname.endsWith("/comments") &&
+      url.searchParams.get("parentId") === "top-overlap"
+    )).toHaveLength(1);
+  });
+
+  it("reconciles a repeated reply at an adjacent reply-page boundary", async () => {
+    const requests: URL[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      if (url.pathname.endsWith("/commentThreads")) {
+        return Response.json({
+          pageInfo: { totalResults: 1, resultsPerPage: 1 },
+          items: [{
+            id: "thread-reply-overlap",
+            snippet: {
+              videoId: "XpZHKGGCK-o",
+              topLevelComment: {
+                id: "top-replies",
+                snippet: {
+                  videoId: "XpZHKGGCK-o",
+                  textDisplay: "Top level",
+                  likeCount: 0,
+                  publishedAt: "2025-02-01T10:00:00Z",
+                  updatedAt: "2025-02-01T10:00:00Z"
+                }
+              },
+              totalReplyCount: 3
+            }
+          }]
+        });
+      }
+      const secondPage = url.searchParams.get("pageToken") === "reply-page-2";
+      const ids = secondPage ? ["reply-2", "reply-3"] : ["reply-1", "reply-2"];
+      return Response.json({
+        ...(secondPage ? {} : { nextPageToken: "reply-page-2" }),
+        pageInfo: { totalResults: 3, resultsPerPage: 2 },
+        items: ids.map((id) => ({
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            parentId: "top-replies",
+            textDisplay: `Reply ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }))
+      });
+    }));
+
+    const first = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o" },
+      YOUTUBE,
+      { max_provider_requests: 2, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+    const second = await getYoutubeCommentSegment(
+      { video: "XpZHKGGCK-o", cursor: first.next_cursor },
+      YOUTUBE,
+      { max_provider_requests: 10, max_elapsed_ms: 15_000, now: () => 1 }
+    );
+
+    expect(first.comments.map(({ comment_id }) => comment_id)).toEqual([
+      "top-replies", "reply-1", "reply-2"
+    ]);
+    expect(second.comments.map(({ comment_id }) => comment_id)).toEqual(["reply-3"]);
+    expect(second).toMatchObject({
+      access_status: "partial",
+      exhausted: true,
+      top_level_comments_retrieved: 0,
+      replies_retrieved: 1,
+      reply_count_mismatches: [],
+      pagination_overlaps_reconciled: 1,
+      limitations: [expect.stringMatching(/pagination.*overlap/i)]
+    });
+    expect(requests).toHaveLength(4);
+  });
+
   it("processes every thread from a fetched page without refetching that page", async () => {
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
@@ -544,13 +696,22 @@ describe("resumable YouTube comment segments", () => {
     });
   });
 
-  it("refetches requested comment IDs in 100-record batches and keeps them video-scoped", async () => {
+  it("keeps comment-ID refetch batches within YouTube's 50-ID filter ceiling", async () => {
     const ids = Array.from({ length: 101 }, (_, index) => `UgxRequested${String(index).padStart(4, "0")}`);
     const requests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
       const url = new URL(String(input));
       requests.push(url);
       const requested = url.searchParams.get("id")?.split(",") ?? [];
+      if (requested.length > 50) {
+        return Response.json({
+          error: {
+            code: 400,
+            errors: [{ reason: "invalidFilters" }],
+            message: "The request contains an invalid combination of filters."
+          }
+        }, { status: 400 });
+      }
       return Response.json({
         pageInfo: { totalResults: requested.length, resultsPerPage: requested.length },
         items: requested.map((id, index) => ({
@@ -571,11 +732,127 @@ describe("resumable YouTube comment segments", () => {
 
     expect(result.access_status).toBe("api_visible_complete");
     expect(result.comments.map(({ comment_id }) => comment_id)).toEqual(ids);
-    expect(requests).toHaveLength(2);
-    expect(requests.map((url) => url.searchParams.get("id")!.split(",").length)).toEqual([100, 1]);
+    expect(requests).toHaveLength(3);
+    expect(requests.map((url) => url.searchParams.get("id")!.split(",").length)).toEqual([50, 50, 1]);
     expect(requests.every((url) => url.searchParams.get("part") === "snippet")).toBe(true);
     expect(requests.every((url) => !url.searchParams.has("maxResults"))).toBe(true);
     expect(JSON.stringify(result)).not.toContain(YOUTUBE.apiKey);
+  });
+
+  it("accepts the live comments.list ID-filter shape without pageInfo or snippet.videoId", async () => {
+    const ids = ["UgxLiveShape0001", "UgxLiveShape0002"];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const requested = new URL(String(input)).searchParams.get("id")?.split(",") ?? [];
+      return Response.json({
+        kind: "youtube#commentListResponse",
+        etag: "public-response-etag",
+        items: requested.map((id) => ({
+          kind: "youtube#comment",
+          id,
+          snippet: {
+            textDisplay: `comment ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }))
+      });
+    }));
+
+    const result = await getYoutubeCommentsByIds("XpZHKGGCK-o", ids, YOUTUBE);
+
+    expect(result).toMatchObject({
+      access_status: "api_visible_complete",
+      comments: [
+        { comment_id: ids[0], video_id: "XpZHKGGCK-o" },
+        { comment_id: ids[1], video_id: "XpZHKGGCK-o" }
+      ],
+      limitations: []
+    });
+  });
+
+  it("isolates a missing sampled identifier without discarding accessible batch peers", async () => {
+    const ids = [
+      "UgxAvailable0001",
+      "UgxMissing00002",
+      "UgxAvailable0003",
+      "UgxAvailable0004"
+    ];
+    const requests: string[][] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const requested = new URL(String(input)).searchParams.get("id")?.split(",") ?? [];
+      requests.push(requested);
+      if (requested.includes(ids[1]!)) {
+        return Response.json({
+          error: {
+            code: 404,
+            errors: [{ reason: "commentNotFound" }],
+            message: "A requested comment was not found."
+          }
+        }, { status: 404 });
+      }
+      return Response.json({
+        items: requested.map((id) => ({
+          id,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            textDisplay: `comment ${id}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T11:00:00Z",
+            updatedAt: "2025-02-01T11:00:00Z"
+          }
+        }))
+      });
+    }));
+
+    const result = await getYoutubeCommentsByIds("XpZHKGGCK-o", ids, YOUTUBE);
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      comments: [
+        { comment_id: ids[0] },
+        { comment_id: ids[2] },
+        { comment_id: ids[3] }
+      ],
+      limitations: ["YouTube no longer exposed every requested sampled comment identifier."]
+    });
+    expect(requests).toEqual([
+      ids,
+      ids.slice(0, 2),
+      ids.slice(0, 1),
+      ids.slice(1, 2),
+      ids.slice(2)
+    ]);
+  });
+
+  it("bounds missing-ID isolation by an explicit provider-request budget", async () => {
+    const ids = ["UgxMissing00001", "UgxMissing00002"];
+    const requests: string[][] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const requested = new URL(String(input)).searchParams.get("id")?.split(",") ?? [];
+      requests.push(requested);
+      return Response.json({
+        error: {
+          code: 404,
+          errors: [{ reason: "commentNotFound" }],
+          message: "A requested comment was not found."
+        }
+      }, { status: 404 });
+    }));
+
+    const result = await getYoutubeCommentsByIds(
+      "XpZHKGGCK-o",
+      ids,
+      YOUTUBE,
+      { max_provider_requests: 1 }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "partial",
+      comments: [],
+      limitations: [expect.stringMatching(/provider-request budget/i)]
+    });
+    expect(requests).toEqual([ids]);
   });
 
   it("refetches provider-valid dotted reply IDs", async () => {
@@ -642,7 +919,7 @@ describe("resumable YouTube comment segments", () => {
       comments: expect.any(Array),
       limitations: [expect.stringContaining("elapsed-time budget")]
     });
-    expect(result.comments).toHaveLength(100);
+    expect(result.comments).toHaveLength(50);
     expect(requests).toHaveLength(1);
   });
 

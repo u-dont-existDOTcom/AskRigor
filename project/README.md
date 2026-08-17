@@ -3,6 +3,7 @@
 These source-controlled files serve two distinct ChatGPT installation surfaces. Updating GitHub or the MCP server does not update an existing ChatGPT Project automatically, and it does not update an existing Custom GPT automatically.
 
 `AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs.
+`CUSTOM_GPT_ACTION_MODULE.md` is a generator source, not a direct ChatGPT installation input.
 
 ## ChatGPT Project with MCP
 
@@ -12,11 +13,14 @@ These source-controlled files serve two distinct ChatGPT installation surfaces. 
 
 This MCP Project package is the read-only research integration. The lesson submission Action is not an MCP tool, and refreshing the developer-mode MCP connection does not install a Custom GPT Action.
 
-## Custom GPT with the lesson Action
+## Custom GPT with research and lesson Actions
 
-In the Custom GPT editor, install the separately configured AskRigor Action from
-its OpenAPI document and add the complete `PROJECT_INSTRUCTIONS.md`,
-`FORUM_SIGNAL_MODULE.md`, and `LESSON_CAPTURE_MODULE.md` instruction set. Action authentication and import are separate from the MCP Project connection. The lesson module alone does not create or authorize the Action.
+In the Custom GPT editor, copy only the generated
+`../docs/custom-gpt-instructions.md`, keep Knowledge empty, and import
+`https://mcp.askrigor.com/actions/openapi.json`. The generator combines the
+reviewed AskRigor skill with `CUSTOM_GPT_ACTION_MODULE.md`; do not paste that
+source module separately. Action authentication and import are separate from the MCP Project connection. The generated instructions alone do not create or
+authorize an Action.
 
 After changing either installation, start a new chat. Existing chats do not acquire the new standing-consent behavior, and consent from an old chat never carries into a new one.
 

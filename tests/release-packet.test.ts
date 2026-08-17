@@ -7,6 +7,15 @@ import { createToolInventory } from "../scripts/generate-tool-inventory.mts";
 
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
+const sectionBetween = (document: string, startHeading: string, endHeading: string) => {
+  const start = document.indexOf(startHeading);
+  const end = document.indexOf(endHeading, start + startHeading.length);
+  if (start < 0 || end < 0) {
+    throw new Error(`Missing section boundary: ${startHeading} -> ${endHeading}`);
+  }
+  return document.slice(start, end);
+};
+
 const TOOL_NAMES = [
   "get_protocol_manifest",
   "load_protocol",
@@ -28,6 +37,22 @@ const TOOL_NAMES = [
 ];
 
 describe("AskRigor public-review packet", () => {
+  it("pins the Git-capable toolchain required by the protected live runner", async () => {
+    const [dockerfile, automation] = await Promise.all([
+      readFile(rootFile("Dockerfile.public-review"), "utf8"),
+      readFile(rootFile("docs/public-review-automation.md"), "utf8"),
+    ]);
+
+    expect(dockerfile).toContain(
+      "FROM node:24.18.0-bookworm-slim@sha256:6f7b03f7c2c8e2e784dcf9295400527b9b1270fd37b7e9a7285cf83b6951452d",
+    );
+    expect(dockerfile).toContain("ARG GIT_VERSION=1:2.39.5-0+deb12u3");
+    expect(dockerfile).toContain('"git=${GIT_VERSION}"');
+    expect(dockerfile).toContain("WORKDIR /work");
+    expect(automation).toContain("Dockerfile.public-review");
+    expect(automation).toContain("Git is required at runtime");
+  });
+
   it("documents the exact lesson data, setup, and rollback boundary", async () => {
     const [setup, privacyMap, privacySite, readme, checklist, openApi, releaseEvidence] = await Promise.all([
       readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
@@ -45,6 +70,8 @@ describe("AskRigor public-review packet", () => {
     );
     expect(Object.fromEntries(environmentRows)).toEqual({
       ASKRIGOR_ACTIONS_ENABLED: "Exact literal `true` only when ready to accept Actions.",
+      ASKRIGOR_RESEARCH_ACTIONS_ENABLED: "Exact literal `true` only when ready to expose public read-only research Actions.",
+      ASKRIGOR_YOUTUBE_CONTINUATION_SECRET: "Server-only secret containing at least 32 UTF-8 bytes; required at startup when research Actions are enabled and never returned or logged.",
       ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
       OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
       ASKRIGOR_AI_BUDGET_LEDGER: "Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`.",
@@ -64,9 +91,9 @@ describe("AskRigor public-review packet", () => {
       "Bearer",
       "https://askrigor.com/privacy",
       "Submit this anonymized lesson to improve AskRigor?",
-      "PROJECT_INSTRUCTIONS.md",
-      "FORUM_SIGNAL_MODULE.md",
-      "LESSON_CAPTURE_MODULE.md",
+      "docs/custom-gpt-instructions.md",
+      "Knowledge: empty",
+      "direct `/g/...`",
       "synthetic",
       "ARL-####",
       "npm run lessons:status",
@@ -134,7 +161,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 13, 2026");
+    expect(privacySite).toContain("Effective August 16, 2026");
     expect(privacySite).toContain("Optional lesson feedback");
     expect(readme).toContain("The lesson Action is deployed and live-accepted");
     expect(checklist).toContain(
@@ -144,6 +171,138 @@ describe("AskRigor public-review packet", () => {
       "The August 13 lesson notice is deployed and live-accepted.",
     );
     expect(releaseEvidence).toContain("56d13b73e74c377cfd6d513a5f4ceeec9949e0bf");
+  });
+
+  it("records deployed direct acceptance without claiming unfinished Custom GPT UI proof", async () => {
+    const [setup, privacyMap, privacySite, readme, index, release, state, acceptance] =
+      await Promise.all([
+        readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
+        readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
+        readFile(rootFile("site/privacy/index.html"), "utf8"),
+        readFile(rootFile("README.md"), "utf8"),
+        readFile(rootFile("docs/INDEX.md"), "utf8"),
+        readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
+        readFile(rootFile("project/CODEX-CURRENT-STATE.md"), "utf8"),
+        readFile(rootFile("docs/custom-gpt-action-live-acceptance.md"), "utf8")
+      ]);
+
+    for (const document of [setup, privacyMap, privacySite, readme, release, state]) {
+      expect(document).toContain("ASKRIGOR_RESEARCH_ACTIONS_ENABLED");
+      expect(document).toContain("60,000");
+      expect(document).toContain("48,000");
+    }
+    for (const document of [setup, privacyMap, privacySite, readme]) {
+      expect(document).toContain("shared");
+      expect(document).toContain("transient");
+    }
+    for (const document of [setup, readme, index, state]) {
+      expect(document).toContain("docs/custom-gpt-instructions.md");
+      expect(document).toContain("Knowledge");
+      expect(document).toContain("empty");
+    }
+    expect(privacyMap).toContain("protocol identity, digest, byte offset, chunk index, and expiry");
+    expect(privacyMap).toContain("no protocol text, health content, or secret");
+    expect(privacySite).toContain("Custom GPT Actions");
+    expect(privacySite).toContain("public provider metadata and comment text");
+    expect(setup).toContain("does not disable lesson capture or MCP");
+    expect(setup).toContain("direct `/g/...`");
+    const releaseStatus = sectionBetween(
+      release,
+      "## Custom GPT research bridge",
+      "## Artifact and endpoint identity",
+    );
+    const releaseIdentity = sectionBetween(
+      release,
+      "## Artifact and endpoint identity",
+      "## Recorded production validation",
+    );
+    const deploymentIdentity = sectionBetween(
+      acceptance,
+      "## Deployment identity",
+      "## OpenAI Action importer compatibility deployment",
+    );
+    const terminalRefetch = sectionBetween(
+      acceptance,
+      "## YouTube continuation and terminal-refetch release",
+      "### Case 1",
+    );
+    const uiPassedCases = [
+      sectionBetween(acceptance, "### Case 1", "### Case 2"),
+      sectionBetween(acceptance, "### Case 2", "### Case 3"),
+      sectionBetween(acceptance, "### Case 3", "### Case 4"),
+      sectionBetween(acceptance, "### Case 4", "### Case 5"),
+      sectionBetween(acceptance, "### Case 5", "### Case 6"),
+    ];
+    const case6 = sectionBetween(acceptance, "### Case 6", "### Case 7");
+    const case9 = sectionBetween(acceptance, "### Case 9", "### Case 10");
+    const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
+
+    expect(releaseStatus).toContain(
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE DIRECT CONTINUATION PASSED, GPT UI RETEST PENDING"
+    );
+    expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
+    expect(releaseStatus).toMatch(/The equivalent fresh Custom GPT UI retest remains\s+pending\./u);
+    expect(releaseStatus).not.toContain("Custom GPT editor/UI acceptance and");
+    expect(terminalRefetch).toMatch(
+      /50 valid\s+comment IDs returned HTTP `200` and exactly 50 items/u,
+    );
+    expect(terminalRefetch).toMatch(
+      /51 valid comment IDs\s+returned HTTP `400 invalidFilters` and zero items/u,
+    );
+    expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
+    expect(state).toContain("Remaining Custom GPT editor/UI acceptance");
+    expect(state).toContain("This is now deployed direct behavior");
+    expect(state).not.toContain("This is candidate behavior, not a production claim");
+    expect(acceptance).toContain("components.schemas");
+    expect(acceptance).toContain("201 characters");
+    expect(acceptance).toContain("66 API-visible records");
+    expect(acceptance).toContain("synthesis_lock:block");
+    expect(case6).toContain("DIRECT PASS, INCLUDING REPAIRED TWO-CALL CHAIN — GPT UI RETEST pending");
+    expect(case6).toContain("66 records on call one");
+    expect(case6).toContain("reached 149 on call two");
+    expect(case6).toContain("returned 111 deterministic");
+    expect(case6).toContain("completed_with_access_boundary");
+    expect(case6).toContain("synthesis without an error or further continuation");
+    expect(case6).not.toContain("GPT UI PASS");
+    for (const uiPassedCase of uiPassedCases) {
+      expect(uiPassedCase).toContain("GPT UI PASS (2026-08-16)");
+      expect(uiPassedCase).not.toMatch(/GPT UI (?:RETEST )?pending/u);
+    }
+    expect(case9).toContain("GPT UI consent pending");
+    expect(case10).toContain("GPT UI pending");
+
+    for (const exactIdentity of [
+      "905ac22ab42479c15ff0d6385a51de864271f862",
+      "11f3a68a73bc68bc23f1854b6bd8d4c06f9b843f",
+      "sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067",
+      "af7689e8f55ed12e86a863e3cbe7d03b2bfd27edc00fa4860d7083bd146271df",
+      "c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9",
+      "06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1",
+      "askrigor-research:rollback-905ac22a",
+      "/opt/askrigor/compose.yaml.rollback-905ac22a",
+      "sha256:b6bf6df118e47eff766371717b48c3b732edf91053ef9e7915eb55edb5534a95",
+      "eb3b85f080d008a4ab8b93b7506e22b9759a072a94b3281f2a788d85cbe3185d",
+      "7d1463f1eac86afc7e07dac59afa05b60e7d299272e683935647a36193bba50e",
+      "b04dcc95e902e7c5b157f25d4a796964b3573c57972c3cb50cac5b65fecb8662",
+      "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94",
+      "402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2",
+      "ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad",
+      "/opt/askrigor/site/releases/56b3dff6d7c3/site",
+    ]) {
+      expect(deploymentIdentity).toContain(exactIdentity);
+    }
+    expect(releaseIdentity).toContain("b04dcc95e902e7c5b157f25d4a796964b3573c57972c3cb50cac5b65fecb8662");
+
+    expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
+    expect(acceptance).toContain("DIRECT PASS");
+    expect(acceptance).toContain("GPT UI PASS (2026-08-16)");
+    expect(acceptance).toContain("GPT UI consent pending");
+    for (const field of [
+      "UTC time", "deployed commit", "deployed image", "OpenAPI SHA-256",
+      "instructions SHA-256", "Request class", "Sanitized result", "Limitation"
+    ]) expect(acceptance).toContain(field);
+    expect(acceptance).toContain("Post-test MCP inventory");
+    expect(acceptance).toContain("Protocol chunk coverage");
   });
 
   it("distinguishes transient research logs from the aggregate lesson budget ledger", async () => {
@@ -202,7 +361,17 @@ describe("AskRigor public-review packet", () => {
       "one hour",
       "active request only",
       "continuation secret is never returned",
-      "no server-side comment corpus or research-session persistence",
+      "MCP client-carried continuation state",
+      "Custom GPT Action continuation handle map",
+      "2,048",
+      "16 MiB",
+      "process memory",
+      "no longer than one hour",
+      "no comment text, author identity, provider credential, or protocol text",
+      "server restart, expiry, or capacity eviction",
+      "single application replica",
+      "must not be horizontally scaled",
+      "no durable research-session store",
       "not persistently stored",
       "Infrastructure providers may independently process operational"
     ]) {
@@ -356,13 +525,29 @@ describe("AskRigor public-review packet", () => {
     expect(JSON.stringify(cases)).not.toMatch(/continuation_secret/i);
     expect(cases.negative.map(({ expected_workflow }) => expected_workflow[0].kind)).toEqual([
       "schema_rejection_before_provider_call",
-      "explicit_not_found",
+      "explicit_access_boundary",
       "no_tool_call_for_unsupported_write_or_medical_action"
     ]);
     expect(cases.negative[1].expected_workflow[0]).toMatchObject({
       tool: "get_youtube_video",
       arguments: { video_id_or_url: "00000000000" }
     });
+    const positive6FixtureInputs = cases.positive[5].fixture.inputs as {
+      searches: Array<Record<string, unknown>>;
+    };
+    const positive6SurveyArguments = cases.positive[5].expected_workflow[0].arguments as {
+      searches: Array<Record<string, unknown>>;
+    };
+    expect(positive6FixtureInputs.searches.every((search) =>
+      typeof search.direction === "string" && search.label === undefined
+    )).toBe(true);
+    expect(positive6SurveyArguments.searches.every((search) =>
+      typeof search.direction === "string" && search.label === undefined
+    )).toBe(true);
+    expect(cases.positive[5].expected_workflow[0].expected_structured_fields)
+      .toContain("searches");
+    expect(cases.positive[5].expected_workflow[0].expected_structured_fields)
+      .not.toContain("queries");
     expect(JSON.stringify(cases)).not.toContain("local-recorded-fixture");
     expect(JSON.stringify(cases)).not.toContain("comments_disabled");
     const positiveYoutubeIds = cases.positive.flatMap(({ expected_workflow }) =>
@@ -378,7 +563,7 @@ describe("AskRigor public-review packet", () => {
         return typeof args?.video_id_or_url === "string" ? [args.video_id_or_url] : [];
       })
     );
-    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag", "4x1fl67d_Ag"]);
+    expect(positiveYoutubeIds).toEqual(["4x1fl67d_Ag", "W42rwWD6zjw"]);
     expect(negativeYoutubeIds).toEqual(["00000000000"]);
     expect(positiveYoutubeIds.some((id) => negativeYoutubeIds.includes(id))).toBe(false);
 
@@ -431,7 +616,10 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597");
     expect(document).toContain("Inspector");
     expect(document).toContain("PUBLIC SUBMISSION BLOCKED");
-    expect(document).toContain("routine-status presentation regression");
+    expect(document).toContain("Historical ChatGPT release finding");
+    expect(document).toContain("Fresh ChatGPT interface acceptance");
+    expect(document).toContain("did not reproduce it");
+    expect(document).toContain("exact combined card rendering remains a declared product presentation limitation");
     expect(document).toContain("live-suite-20260811T172130Z-71611");
     expect(document).toContain("5/5 passed");
     expect(document).toContain("youtube-20260811T172256Z");
@@ -482,7 +670,7 @@ describe("AskRigor public-review packet", () => {
     }
 
     for (const fragment of [
-      "routine-status presentation regression",
+      "opaque model-receipt release decision",
       "portal",
       "domain-verification",
       "Scan Tools",
@@ -490,7 +678,12 @@ describe("AskRigor public-review packet", () => {
     ]) {
       expect(releaseEvidence).toContain(fragment);
     }
-    expect(reviewChecklist).toContain("routine-status presentation");
+    expect(reviewChecklist).toContain("Fresh post-deployment ChatGPT interface acceptance");
+    expect(reviewChecklist).toContain("routine update/status diagnostic");
+    expect(reviewChecklist).toContain("product-card presentation limitation");
+    expect(reviewChecklist).not.toContain(
+      "Resolve or expressly accept the recorded routine-status presentation regression",
+    );
     expect(reviewChecklist).toContain("Scan Tools");
     expect(releaseEvidence).not.toContain("manifest remains unchanged");
   });

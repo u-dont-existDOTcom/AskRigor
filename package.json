@@ -15,7 +15,9 @@
     "test:live": "NO_COLOR=1 ASKRIGOR_LIVE_TESTS=1 vitest run tests/live-smoke.test.ts",
     "verify": "npm run typecheck && npm run test:run && npm run build",
     "generate:action-openapi": "tsx scripts/generate-action-openapi.mts",
+    "generate:custom-gpt": "tsx scripts/generate-custom-gpt-packet.mts",
     "lessons:status": "tsx scripts/lessons-status.mts",
+    "review:public-live": "tsx scripts/run-public-review-eval.mts",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
     "start:mcp": "node apps/research-mcp/dist/index.js"
   },
@@ -26,7 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
-    "tsx": "4.23.1",
+    "tsx": "4.23.12",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }

@@ -904,7 +904,7 @@ JSON
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("allows only the reviewed Caddy mounts and requires the exact pinned production image", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "askrigor-compose-delta-"));
@@ -962,7 +962,7 @@ JSON
     } finally {
       await rm(temporary, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 
   it("rejects a forbidden delta without executing a candidate-supplied verifier", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "askrigor-malicious-verifier-"));

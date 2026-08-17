@@ -1,7 +1,9 @@
-# AskRigor Custom GPT lesson Action setup
+# AskRigor Custom GPT Action setup
 
-This runbook installs the optional lesson-submission Action after the reviewed
-server build and the August 13, 2026 privacy notice are ready. GPT Actions can
+This runbook installs the read-only research bridge and preserves the existing
+optional lesson-submission Action after the reviewed server build and privacy
+notice are ready. The research bridge is a verified local candidate until the
+deployment and live-acceptance record is complete. GPT Actions can
 import OpenAPI JSON or YAML and can use an API key sent as a Bearer token. A
 public GPT Action also requires a valid public privacy-policy URL, and users may
 still be asked to approve a consequential call.
@@ -48,6 +50,8 @@ The runtime requires these exact names and constraints:
 | Environment variable | Required value or boundary |
 | --- | --- |
 | `ASKRIGOR_ACTIONS_ENABLED` | Exact literal `true` only when ready to accept Actions. |
+| `ASKRIGOR_RESEARCH_ACTIONS_ENABLED` | Exact literal `true` only when ready to expose public read-only research Actions. |
+| `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET` | Server-only secret containing at least 32 UTF-8 bytes; required at startup when research Actions are enabled and never returned or logged. |
 | `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
 | `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
 | `ASKRIGOR_AI_BUDGET_LEDGER` | Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
@@ -63,20 +67,29 @@ The request uses `store: false`. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses
 screening or reaches GitHub.
 
-## 3. Configure the Custom GPT
+## 3. Configure the Custom GPT from the generated packet
 
-1. Confirm `https://askrigor.com/privacy` serves the reviewed current notice.
-2. In the Custom GPT editor, import
-   `https://mcp.askrigor.com/actions/openapi.json`. The import is an OpenAPI
-   JSON document; a YAML representation would also be accepted by GPT Actions.
-3. Select **API Key**, choose **Bearer**, and store only the dedicated Action
-   key in the editor's authentication control.
-4. Set the privacy URL to `https://askrigor.com/privacy`. A public Action must
-   have this valid privacy-policy URL.
-5. Install the complete instruction set from `PROJECT_INSTRUCTIONS.md`,
-   `FORUM_SIGNAL_MODULE.md`, and `LESSON_CAPTURE_MODULE.md`.
-6. Confirm the lesson operation remains consequential. ChatGPT may ask the user
-   to approve each call; do not weaken or bypass that safeguard.
+Use only this checked handoff:
+
+```text
+Instructions: docs/custom-gpt-instructions.md
+Knowledge: empty
+Action import: https://mcp.askrigor.com/actions/openapi.json
+Authentication: API Key -> Bearer -> existing protected Action key
+Privacy: https://askrigor.com/privacy
+```
+
+1. Confirm the privacy URL serves the reviewed current notice.
+2. Replace the complete Instructions field with the complete generated file.
+3. Remove every Knowledge file and keep Knowledge empty. Canonical protocols
+   must arrive as verified runtime Action results, not stale uploaded copies.
+4. Import the Action URL, select **API Key** then **Bearer**, and retain only
+   the existing protected Action key in the editor authentication control.
+5. Confirm the 17 research operations are non-consequential and the single
+   `submit_lesson_candidate` operation remains consequential.
+6. Save the GPT without publishing and test in a new chat.
+7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
+   Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
 
 The instructions must display this exact question before the first eligible
 submission unless conversation-local standing consent already applies:
@@ -88,7 +101,40 @@ do not acquire new standing-consent behavior after an instruction update.
 Start a new chat for acceptance testing, and never carry standing consent
 between chats.
 
-## 4. Synthetic acceptance and queue status
+## 4. Research Action behavior and limits
+
+`ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` independently exposes the public,
+read-only `/actions/research/*` routes. It does not disable lesson capture or
+MCP when false. The research Actions and MCP use the same shared per-client token
+bucket and 16-request concurrency pool, so the compatibility surface cannot
+double the public allowance. Both are the same transient provider-retrieval
+flow; full application request and response bodies are not logged or written to
+durable storage. Direct MCP continuation remains client-carried and stateless.
+For `audit_youtube_video_community` only, the Custom GPT Action stores the
+existing signed minimized continuation token in process memory and returns a
+37-character handle. The map expires entries after one hour without renewal,
+holds at most 2,048 entries and 16 MiB, contains no comment text, author
+identity, provider credential, or protocol text, and is never written to disk
+or application logs. A missing, expired, restarted, or evicted handle returns
+`youtube_action_continuation_invalid_or_expired`; restart that audit from its
+video identifier. A valid continuation that returns
+`youtube_video_audit_continuation_migration_restart_required` or
+`youtube_video_audit_identifier_membership_restart_required` also requires a
+fresh audit from the video identifier. Its reported cumulative counts stop at
+the last accepted segment and must not be combined with the restarted chain.
+
+Every research Action response is limited to exactly **60,000 serialized UTF-8
+bytes**. `load_protocol` returns at most **48,000 UTF-8 bytes** of exact protocol
+text per ordered authenticated chunk. Continue until `complete: true`; missing,
+repeated, expired, or inconsistent chunks block complete loading. Large
+per-video YouTube results preserve the retrieval receipt, corpus counts, and
+digest while returning a deterministic transport-bounded analysis sample.
+Continue immediately with the returned short handle while
+`continuation_recommended:true`; do not synthesize until
+`receipt.synthesis_lock:pass`. Legacy bulk YouTube envelopes are never silently
+trimmed.
+
+## 5. Synthetic acceptance and queue status
 
 Use only synthetic, non-personal text. A suitable test correction is:
 
@@ -109,17 +155,19 @@ Run `npm run lessons:status` with the maintainer's local GitHub authentication.
 Record either the available queue counts or the explicit unavailable reason;
 unavailable never means zero.
 
-## 5. Rollback
+## 6. Rollback
 
-Set `ASKRIGOR_ACTIONS_ENABLED` to a value other than `true` and recreate only
-the research service, or revoke the dedicated GitHub App installation to stop
-new lesson writes. Verify that `/actions/*` is unavailable while `/healthz` and
-the canonical `/mcp` endpoint remain healthy. **MCP remains available** because
-the lesson Action is isolated and is not an MCP tool. Rolling back the lesson
-Action does not delete existing private candidates or the aggregate budget
-ledger; retention and deletion remain deliberate maintainer operations.
+Set `ASKRIGOR_RESEARCH_ACTIONS_ENABLED` to a value other than `true` and
+recreate only the research service to remove public research Actions while
+preserving `/healthz`, the exact 17-tool `/mcp` inventory, and the lesson
+Action's prior enabled state. This does not disable lesson capture or MCP.
 
-## 6. Key rotation
+Separately, set `ASKRIGOR_ACTIONS_ENABLED` to a value other than `true` or
+revoke the dedicated GitHub App installation to stop new lesson writes. **MCP remains available** because the lesson Action is isolated and is not an MCP
+tool. Neither rollback deletes existing private candidates, the aggregate
+budget ledger, protocol files, or provider state.
+
+## 7. Key rotation
 
 For Action-key rotation, create a new high-entropy value through the protected
 secret workflow, update the VPS and the GPT editor without displaying it, test

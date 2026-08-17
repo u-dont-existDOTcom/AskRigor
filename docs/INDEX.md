@@ -28,8 +28,23 @@ complete XML protocol.
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
-- `public-review-cases-v0.1.0.json`: machine-readable review cases
+- `public-review-cases-v0.1.0.json`: extended 6+3 machine-readable regression cases
+- `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
+  handoff, and external-gate states
+- `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
+  script
+- `public-review-automation.md`: bounded direct-MCP and Responses API review runner
 - `tool-inventory-v0.1.0.json`: generated tool inventory
+- `custom-gpt-instructions.md` (repository path
+  `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
+  artifact; Knowledge remains empty
+- `custom-gpt-action-openapi.json`: generated 17-read/one-write Action schema
+- `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
+- `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
+  synthetic test handoff
+- `custom-gpt-action-live-acceptance.md`: deployed direct production receipts
+  for the 11-case synthetic matrix, with unfinished Custom GPT editor/UI fields
+  retained as pending rather than inferred from server evidence
 
 ## Privacy
 
@@ -38,6 +53,20 @@ complete XML protocol.
 ## Plans
 
 - `superpowers/plans/`: implementation plans
+- `superpowers/plans/2026-08-16-calibrated-discovery-phase-1-implementation.md`:
+  TDD plan for the private deterministic calibrated-discovery benchmark; live
+  providers and public v0.2 remain outside Phase 1
+- `superpowers/plans/2026-08-16-custom-gpt-action-bridge-implementation.md`:
+  test-driven implementation, deployment, rollback, and live-acceptance plan
+  for the approved Custom GPT Action bridge
 - `superpowers/specs/`: accepted design specifications
+- `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
+  approved private-v0.2 design for uncertainty calibration, Creative Tail
+  Sampling integration, authorized treatment-experience evidence, and an
+  AskRigor-owned bounded research runner; it does not change public v0.1
+- `superpowers/specs/2026-08-16-custom-gpt-action-bridge-design.md`: approved
+  design for a generated, bounded Custom GPT Action compatibility surface that
+  preserves the frozen 17-tool MCP, exact protocol loading, community
+  completion receipts, and the isolated consequential lesson write
 
 Current owner requirements and verified code/evidence outrank stale plans or summaries.
