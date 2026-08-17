@@ -68,3 +68,10 @@
 - [x] Review the complete diff and confirm no HRP/application/runtime change.
 - [ ] Open a pull request, wait for required checks, and merge the exact green head.
 - [ ] Verify merged `main` reports Universal 20.5.13 and its new digest.
+
+## Verification receipts
+
+- RED run: `32000581156` — 915 existing tests passed; the new structural regression failed only because Universal was still `20.5.12`; the HRP byte-preservation assertion passed.
+- Generated GREEN run: `32001115549` — Universal `20.5.13` / `2026-08-17`, SHA-256 `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`; HRP SHA-256 remained `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; typecheck, 916 tests, build, and `git diff --check` passed.
+- Cleanup GREEN run: `32001428300` — stale README identity repaired; one-off updater and workflow removed; full deterministic verification, identity checks, HRP byte check, and patch hygiene passed on cleanup head `f139df1c4bf26c452c5503adf373f80c86a96fe8`.
+- Pull request: `#25` against `main`.
