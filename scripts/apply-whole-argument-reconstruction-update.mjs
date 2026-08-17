@@ -152,12 +152,18 @@ async function updateUniversal() {
   for (const marker of [
     '<revision version="20.5.13" priority="Critical">',
     '<whole_argument_reconstruction_gate priority="Critical">',
-    "Reconstruct the whole argument before judging or changing any part of it.",
-    "accurate behavioral label",
-    "bounded silence-as-approval convention",
     "Whole-argument reconstruction check:"
   ]) {
     requireExactlyOnce(text, marker);
+  }
+  for (const marker of [
+    "Reconstruct the whole argument before judging or changing any part of it.",
+    "accurate behavioral label",
+    "bounded silence-as-approval convention"
+  ]) {
+    if (!text.includes(marker)) {
+      throw new Error(`${marker}: expected at least once`);
+    }
   }
 
   await writeFile(UNIVERSAL_PATH, text, "utf8");

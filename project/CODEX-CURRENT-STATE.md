@@ -21,9 +21,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.12` / 2026-08-16 / `3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`
+- Byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.13` / 2026-08-17 / `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
+- Whole-argument reconstruction integration: canonical Universal `20.5.13` adds the source-wide reconstruction gate promoted from `u-dont-existDOTcom/universal-dev-architecture/patterns/whole-argument-reconstruction.md`; HRP bytes remain unchanged.
 
 ## Active Custom GPT research bridge acceptance
 
