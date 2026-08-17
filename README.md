@@ -228,9 +228,11 @@ Custom GPT Actions from merge
 `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. The direct server acceptance has
 passed. Custom GPT protocol and formal-source cases passed, but the first real
 multi-call YouTube product test exposed unreliable relay of the previous
-multi-kilobyte token. The short-handle repair remains candidate behavior until
-its merge, deployment, and fresh product retest are recorded. The actual direct
-`/g/...` URL is still pending and must not be inferred from server proof.
+multi-kilobyte token. The bounded short-handle repair is merged, deployed,
+directly accepted, and passed the fresh two-call Custom GPT UI retest on
+2026-08-17. That UI run loaded the then-deployed Universal `20.5.12`; the
+repository canonical protocol is now `20.5.13`. The actual direct `/g/...` URL
+is still pending and must not be inferred from server or unpublished-chat proof.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 
