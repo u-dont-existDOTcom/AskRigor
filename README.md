@@ -231,8 +231,10 @@ multi-call YouTube product test exposed unreliable relay of the previous
 multi-kilobyte token. The bounded short-handle repair is merged, deployed,
 directly accepted, and passed the fresh two-call Custom GPT UI retest on
 2026-08-17. That UI run loaded the then-deployed Universal `20.5.12`; the
-repository canonical protocol is now `20.5.13`. The actual direct `/g/...` URL
-is still pending and must not be inferred from server or unpublished-chat proof.
+repository canonical protocol `20.5.13` is now deployed and directly verified,
+but still needs a fresh Custom GPT UI manifest/integrity/full-load receipt. The
+actual direct `/g/...` URL is still pending and must not be inferred from server
+or unpublished-chat proof.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 

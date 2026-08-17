@@ -1,10 +1,12 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, LESSON CONSENT PENDING**. The exact
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, PROTOCOL UI REFRESH AND LESSON CONSENT PENDING**. The exact
 production Action boundary and the formerly failing two-call YouTube chain have
 passed both the sanitized direct checks and the repaired Custom GPT UI relay
-test below. The unpublished Custom GPT still must complete the lesson-consent
-cases. Direct server proof is not relabeled as ChatGPT UI proof.
+test below. Production now serves canonical Universal `20.5.13`; the
+unpublished Custom GPT still must demonstrate those current bytes and complete
+the lesson-consent cases. Direct server proof is not relabeled as ChatGPT UI
+proof.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -15,16 +17,44 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | YouTube terminal-refetch acceptance completed through `2026-08-17T03:13:01Z`; accepted container started `2026-08-17T03:07:50.748902185Z`. |
-| deployed commit | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862`; exact accepted head `11f3a68a73bc68bc23f1854b6bd8d4c06f9b843f`. Earlier repair merges PR #19 through PR #22 remain in its ancestry. |
-| deployed image | `askrigor-research:905ac22ab42479c15ff0d6385a51de864271f862`; image ID `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; healthy container `af7689e8f55ed12e86a863e3cbe7d03b2bfd27edc00fa4860d7083bd146271df`. |
-| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained `root:root` mode `0600` and was not read. |
-| rollback image/config | `askrigor-research:rollback-905ac22a` resolves the immediately prior production image `sha256:b6bf6df118e47eff766371717b48c3b732edf91053ef9e7915eb55edb5534a95`; `/opt/askrigor/compose.yaml.rollback-905ac22a` has SHA-256 `eb3b85f080d008a4ab8b93b7506e22b9759a072a94b3281f2a788d85cbe3185d`. |
-| deployment archives | Exact secret-free source archive SHA-256 `7d1463f1eac86afc7e07dac59afa05b60e7d299272e683935647a36193bba50e`; exact loaded image archive SHA-256 `b04dcc95e902e7c5b157f25d4a796964b3573c57972c3cb50cac5b65fecb8662`. |
+| UTC time | Universal `20.5.13` production acceptance completed through `2026-08-17T19:52:27Z`; accepted container started `2026-08-17T19:49:50.291758112Z`. |
+| deployed commit | PR #27 merge `5585a9ca34ce01403044b1085b85d4f2de9783f4`; exact acceptance-evidence head `a745979af07a6931324887023ce5b63f2991a2a6`. Universal `20.5.13` integration commits `38d7b58` and `52a2201` and the repaired continuation release remain in its ancestry. |
+| deployed image | `askrigor-research:5585a9ca34ce01403044b1085b85d4f2de9783f4`; image ID `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`; healthy container `5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b`. |
+| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained `root:root` mode `0600` and was not read. |
+| rollback image/config | `askrigor-research:rollback-5585a9c` resolves the immediately prior production image `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; `/opt/askrigor/compose.yaml.rollback-5585a9c` has SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`. |
+| deployment archives | Exact secret-free source archive SHA-256 `024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283`; exact built image archive SHA-256 `81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0`. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
 | instructions SHA-256 | `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `pending` — requires saving/publishing the tested Custom GPT and copying its direct `/g/...` URL. |
+
+## Universal 20.5.13 production freshness rollout — 2026-08-17
+
+PR #27 merged the sanitized Custom GPT continuation receipt as
+`5585a9ca34ce01403044b1085b85d4f2de9783f4` after all deterministic,
+workflow-policy, and CodeQL checks passed on both the pull request and merge.
+Relative to the prior production release, runtime source and public contracts
+were unchanged; the runtime-relevant update was canonical Universal `20.5.13`,
+with documentation, structure tests, and the pinned `tsx` development update
+also in the exact source archive.
+
+The image was built from that secret-free exact Git archive. Before traffic it
+ran as `node` under a read-only root filesystem with all capabilities dropped
+and `no-new-privileges`. Its disposable gate passed health, the exact 18 Action
+operations, object-valued `components.schemas`, every description within 300
+characters, unauthenticated lesson `401`, and Universal manifest, integrity,
+and full ordered loading. The complete Universal stream used 3 contiguous
+chunks and 98,154 bytes and matched SHA-256
+`3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`.
+
+Deployment changed only the `research-mcp` image selector. An automatic failure
+trap preserved and would restore the old Compose file and image; it did not
+fire. Caddy, the active site release, runtime environment, and lesson state
+mount were unchanged. Fresh public acceptance passed health, exact OpenAPI,
+the 17-tool MCP inventory byte-for-byte, HRP `20.5.18`, Universal `20.5.13`
+manifest/integrity/full load, unauthenticated lesson isolation, and the
+unchanged privacy hash. No provider call, lesson write, or completed YouTube UI
+case was repeated because the application paths were unchanged.
 
 ## OpenAI Action importer compatibility deployment — 2026-08-16
 
@@ -105,9 +135,10 @@ remained `false` because the moving-pagination/reply boundary prevented an
 independent proof of provider-reported per-parent reply totals.
 
 This product-interface pass loaded HRP `20.5.18` and the then-deployed Universal
-`20.5.12`. The current canonical repository protocol is Universal `20.5.13`;
-the UI receipt therefore closes the short-handle continuation defect but is not
-evidence that the newer Universal bytes were loaded from production.
+`20.5.12`. Production now directly serves and verifies canonical Universal
+`20.5.13`; the UI receipt therefore closes the short-handle continuation defect
+but is not evidence that the newer Universal bytes were loaded by the Custom
+GPT.
 
 Lesson disposition: **transferable with bounded scope**. The evidence supports a
 bounded warning about model-mediated relay of large opaque tool arguments, not
@@ -162,6 +193,43 @@ continuation, and set `synthesis_lock:pass`. The three limitations remain
 truthful pagination/reply boundary disclosures rather than a false completeness
 claim. No raw comment, provider body, continuation state, or credential is
 retained here.
+
+## Remaining exact Custom GPT UI sequence
+
+Use a new chat in the same unpublished GPT with empty Knowledge. Paste this
+first block exactly:
+
+```text
+Do not perform health research, provider searches, or lesson submission yet.
+
+1. Call get_protocol_manifest for universal and require version 20.5.13, revision 2026-08-17, and SHA-256 3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4.
+2. Call verify_protocol_integrity for universal with that exact expected_sha256 and require verified:true.
+3. Call load_protocol for universal and continue with each returned cursor until complete:true. Verify contiguous byte ranges, every chunk digest, the final whole digest, exactly 3 chunks, and exactly 98,154 UTF-8 bytes. Do not quote or summarize the protocol text.
+4. Report only the sanitized manifest, integrity, chunk/range, total-byte, and completion receipts.
+
+After those checks, recheck this entirely synthetic correction: “You made a material factual claim without showing any source. After rechecking, do you agree that this is a valid AskRigor failure?” If it is valid, display the approved generalized candidate and the exact AskRigor consent question and reply options. Do not call submit_lesson_candidate until I reply with an authorized exact answer.
+```
+
+Require the complete protocol receipt and the exact lesson-consent shell, with
+no lesson Action call yet. Then paste exactly:
+
+```text
+Yes
+```
+
+Accept ChatGPT's separate consequential-Action confirmation. Require a truthful
+`submitted` or `existing_candidate` receipt with an `ARL-####` ID, anonymous
+occurrence count, and human-review notice. To exercise append-only duplicate
+handling, paste:
+
+```text
+Independently recheck the identical synthetic failure again. If it remains eligible, reuse exactly the same previously displayed generalized candidate, display the full consent shell again, and do not call submit_lesson_candidate until I reply.
+```
+
+After the exact shell appears, paste `Yes` again and accept the platform
+confirmation. Require `existing_candidate`, the same candidate ID, and an
+incremented occurrence count. Stop if the candidate text changes, consent is
+skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
 
 ### Case 1 — Universal complete protocol loading
 
@@ -235,7 +303,7 @@ retained here.
 - Limitation: search results are provider-dynamic and are not population
   incidence. The UI proof covers the deployed HRP `20.5.18` / Universal
   `20.5.12` protocol pair and does not establish a later published GPT revision
-  or production loading of canonical Universal `20.5.13`.
+  or Custom GPT loading of the now-deployed Universal `20.5.13`.
 
 ### Case 7 — Malformed and oversized requests
 
@@ -306,9 +374,11 @@ retained here.
 - Research Action operation count/security: **PASS** — 18 total operations,
   exactly 17 public non-consequential reads and one Bearer-authenticated
   consequential lesson write; all 18 declare the router-owned 500 response.
-- Protocol chunk coverage reconciliation: **PASS** — Universal 2/2 and HRP
-  11/11 with manifest, chunk, contiguous-range, total-byte, and whole-file hash
-  equality.
+- Product-interface protocol chunk reconciliation (2026-08-16): **PASS** —
+  Universal `20.5.12` in 2/2 and HRP `20.5.18` in 11/11 with manifest, chunk,
+  contiguous-range, total-byte, and whole-file hash equality. Current production
+  directly passed Universal `20.5.13` in 3/3; its fresh UI receipt remains the
+  exact sequence above.
 - Lesson queue status and synthetic cleanup: **PASS** — `ARL-0006` was labeled
   `rejected`, removed from `needs-review`, received the explicit synthetic-only
   disposition, and closed `not_planned`; its body remained unchanged. Final
