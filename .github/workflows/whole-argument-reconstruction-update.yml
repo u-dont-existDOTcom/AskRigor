@@ -33,6 +33,46 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Narrow semantic assertions in the temporary updater
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("scripts/apply-whole-argument-reconstruction-update.mjs")
+          text = path.read_text(encoding="utf-8")
+          old = '''  for (const marker of [
+              '<revision version="20.5.13" priority="Critical">',
+              '<whole_argument_reconstruction_gate priority="Critical">',
+              "Reconstruct the whole argument before judging or changing any part of it.",
+              "accurate behavioral label",
+              "bounded silence-as-approval convention",
+              "Whole-argument reconstruction check:"
+            ]) {
+              requireExactlyOnce(text, marker);
+            }
+          '''
+          new = '''  for (const marker of [
+              '<revision version="20.5.13" priority="Critical">',
+              '<whole_argument_reconstruction_gate priority="Critical">',
+              "Whole-argument reconstruction check:"
+            ]) {
+              requireExactlyOnce(text, marker);
+            }
+            for (const marker of [
+              "Reconstruct the whole argument before judging or changing any part of it.",
+              "accurate behavioral label",
+              "bounded silence-as-approval convention"
+            ]) {
+              if (!text.includes(marker)) {
+                throw new Error(`${marker}: expected at least once`);
+              }
+            }
+          '''
+          if text.count(old) != 1:
+              raise SystemExit(f"expected assertion block exactly once, found {text.count(old)}")
+          path.write_text(text.replace(old, new), encoding="utf-8")
+          PY
+
       - name: Apply guarded canonical transformation
         run: node scripts/apply-whole-argument-reconstruction-update.mjs
 
