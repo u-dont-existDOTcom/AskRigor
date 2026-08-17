@@ -43,8 +43,9 @@ complete XML protocol.
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
 - `custom-gpt-action-live-acceptance.md`: deployed direct production receipts
-  for the 11-case synthetic matrix, with unfinished Custom GPT editor/UI fields
-  retained as pending rather than inferred from server evidence
+  for the 11-case synthetic matrix, including the current-protocol UI pass,
+  lesson-consent safe failure, and remaining editor/UI fields retained as
+  pending rather than inferred from server evidence
 
 ## Privacy
 

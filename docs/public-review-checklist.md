@@ -21,11 +21,12 @@ reproduce the earlier routine-status regression.
 
 The consequential Custom GPT lesson Action remains deployed and was reverified
 after the research service moved to application image tag
-`9715812bfbe3133a755f7ec8ffb91a870629a137`, image ID
-`sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`.
+`5585a9ca34ce01403044b1085b85d4f2de9783f4`, image ID
+`sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`.
 The Action implementation itself remains the accepted behavior from revision
-`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; the newer application image changes
-the public YouTube comment-ID refetch parser and adds no Action or MCP tool. The
+`1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; the newer application image retains
+the repaired YouTube continuation and current Universal bytes while adding no
+Action or MCP tool. The
 August 13, 2026 privacy/terms
 notice, private queue provisioning, exact GitHub App permission audit, protected
 server credentials, synthetic submission and append-only duplicate, live
@@ -39,6 +40,11 @@ while MCP remains healthy. Updating instructions does not retrofit existing chat
 with standing consent; acceptance starts in a new Custom GPT chat. The
 setup runbook is `docs/custom-gpt-actions-setup.md`, and the public notice remains
 `https://askrigor.com/privacy`.
+
+The current Universal UI load passed. The first synthetic consent-shell UI case
+then failed safe before any Action call because the GPT displayed structured
+fields instead of the approved shell. The hardened generated Instructions must
+be installed and retested in a fresh chat before publication.
 
 ## Source-generated MCP tools/list inventory
 

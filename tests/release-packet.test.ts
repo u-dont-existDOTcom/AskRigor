@@ -235,15 +235,17 @@ describe("AskRigor public-review packet", () => {
     ];
     const case6 = sectionBetween(acceptance, "### Case 6", "### Case 7");
     const case9 = sectionBetween(acceptance, "### Case 9", "### Case 10");
+    const normalizedCase9 = case9.replace(/\s+/gu, " ");
     const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, PROTOCOL UI REFRESH AND LESSON CONSENT PENDING"
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION AND UNIVERSAL REFRESH PASSED, LESSON CONSENT SHELL FAILED SAFE"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
     expect(releaseStatus).toContain("Universal `20.5.12`");
-    expect(releaseStatus).toContain("canonical Universal `20.5.13` is now deployed");
+    expect(releaseStatus).toContain("Universal `20.5.13` UI load passed");
+    expect(releaseStatus).toContain("no lesson Action call occurred");
     expect(releaseStatus).not.toContain("Custom GPT editor/UI acceptance and");
     expect(terminalRefetch).toMatch(
       /50 valid\s+comment IDs returned HTTP `200` and exactly 50 items/u,
@@ -253,7 +255,8 @@ describe("AskRigor public-review packet", () => {
     );
     expect(state).toContain("5585a9ca34ce01403044b1085b85d4f2de9783f4");
     expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
-    expect(state).toContain("Remaining Custom GPT editor/UI acceptance is the lesson-consent cases");
+    expect(state).toContain("Universal `20.5.13` Custom GPT UI loading passed");
+    expect(state).toContain("lesson-consent shell failed safe");
     expect(state).toContain("This is now deployed direct behavior");
     expect(state).not.toContain("This is candidate behavior, not a production claim");
     expect(acceptance).toContain("components.schemas");
@@ -267,16 +270,18 @@ describe("AskRigor public-review packet", () => {
     expect(case6).toContain("completed_with_access_boundary");
     expect(case6).toContain("synthesis without an error or further continuation");
     expect(case6).toContain("replies_reconciled` remained `false");
-    for (const uiPassedCase of uiPassedCases) {
+    expect(uiPassedCases[0]).toContain("GPT UI PASS (2026-08-17)");
+    for (const uiPassedCase of uiPassedCases.slice(1)) {
       expect(uiPassedCase).toContain("GPT UI PASS (2026-08-16)");
       expect(uiPassedCase).not.toMatch(/GPT UI (?:RETEST )?pending/u);
     }
-    expect(case9).toContain("GPT UI consent pending");
+    expect(case9).toContain("GPT UI FAIL SAFE (2026-08-17)");
+    expect(normalizedCase9).toContain("canonical consent shell did not appear");
+    expect(normalizedCase9).toContain("no lesson Action call occurred");
     expect(case10).toContain("GPT UI pending");
     expect(acceptance).toContain("## Remaining exact Custom GPT UI sequence");
-    expect(acceptance).toContain("Call get_protocol_manifest for universal");
-    expect(acceptance).toContain("exactly 3 chunks");
-    expect(acceptance).toContain("exactly 98,154 UTF-8 bytes");
+    expect(acceptance).toContain("Do not repeat the completed protocol-freshness or YouTube tests");
+    expect(acceptance).toContain("complete canonical consent shell from your Custom GPT Instructions");
     expect(acceptance).toContain("Do not call submit_lesson_candidate until I reply");
     expect(acceptance).toContain("reuse exactly the same previously displayed generalized candidate");
 
@@ -296,6 +301,7 @@ describe("AskRigor public-review packet", () => {
       "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94",
       "402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2",
       "ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad",
+      "b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af",
       "3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4",
       "/opt/askrigor/site/releases/56b3dff6d7c3/site",
     ]) {
@@ -308,7 +314,7 @@ describe("AskRigor public-review packet", () => {
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
     expect(acceptance).toContain("DIRECT PASS");
     expect(acceptance).toContain("GPT UI PASS (2026-08-16)");
-    expect(acceptance).toContain("GPT UI consent pending");
+    expect(acceptance).toContain("GPT UI FAIL SAFE (2026-08-17)");
     for (const field of [
       "UTC time", "deployed commit", "deployed image", "OpenAPI SHA-256",
       "instructions SHA-256", "Request class", "Sanitized result", "Limitation"

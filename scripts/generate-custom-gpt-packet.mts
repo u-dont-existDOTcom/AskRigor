@@ -14,7 +14,7 @@ import { createDefaultActionRoutes } from
 import { RESEARCH_OPERATIONS } from
   "../apps/research-mcp/src/register-tools.js";
 
-const GENERATED_AT = "2026-08-16" as const;
+const GENERATED_AT = "2026-08-17" as const;
 const ROOT = new URL("../", import.meta.url);
 const SKILL_PATH = "skills/askrigor/SKILL.md" as const;
 const ACTION_MODULE_PATH = "project/CUSTOM_GPT_ACTION_MODULE.md" as const;

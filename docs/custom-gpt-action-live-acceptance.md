@@ -1,12 +1,14 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, PROTOCOL UI REFRESH AND LESSON CONSENT PENDING**. The exact
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION AND UNIVERSAL REFRESH PASSED, LESSON CONSENT SHELL FAILED SAFE**. The exact
 production Action boundary and the formerly failing two-call YouTube chain have
 passed both the sanitized direct checks and the repaired Custom GPT UI relay
-test below. Production now serves canonical Universal `20.5.13`; the
-unpublished Custom GPT still must demonstrate those current bytes and complete
-the lesson-consent cases. Direct server proof is not relabeled as ChatGPT UI
-proof.
+test below. The unpublished Custom GPT also loaded canonical Universal
+`20.5.13` completely. Its next synthetic lesson case displayed structured
+candidate fields instead of the required consent shell, incorrectly said the
+canonical wording was unavailable, and made no lesson Action call. The failure
+was therefore safe; the hardened Instructions and lesson-consent retest remain
+pending. Direct server proof is not relabeled as ChatGPT UI proof.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -24,7 +26,7 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-5585a9c` resolves the immediately prior production image `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; `/opt/askrigor/compose.yaml.rollback-5585a9c` has SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`. |
 | deployment archives | Exact secret-free source archive SHA-256 `024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283`; exact built image archive SHA-256 `81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0`. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
-| instructions SHA-256 | `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. |
+| instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Hardened generated candidate awaiting editor update and retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `pending` — requires saving/publishing the tested Custom GPT and copying its direct `/g/...` URL. |
 
@@ -88,8 +90,9 @@ was repeated because that deployment changed only exported OpenAPI structure
 and two descriptions. The editor subsequently imported the repaired schema,
 and the 2026-08-16 product-interface run passed cases 1 through 5 below. The
 2026-08-17 PR #23 release freshly reran direct health, schema, protocol, MCP,
-and both YouTube audit paths. The repaired YouTube continuation passed through
-the product interface on 2026-08-17; the lesson-consent cases remain pending.
+and both YouTube audit paths. The repaired YouTube continuation and Universal
+freshness passed through the product interface on 2026-08-17; the lesson shell
+then failed safe before any consequential call and awaits hardened retesting.
 
 ## Custom GPT product-interface evidence — 2026-08-16
 
@@ -135,10 +138,9 @@ remained `false` because the moving-pagination/reply boundary prevented an
 independent proof of provider-reported per-parent reply totals.
 
 This product-interface pass loaded HRP `20.5.18` and the then-deployed Universal
-`20.5.12`. Production now directly serves and verifies canonical Universal
-`20.5.13`; the UI receipt therefore closes the short-handle continuation defect
-but is not evidence that the newer Universal bytes were loaded by the Custom
-GPT.
+`20.5.12`. The later product-interface freshness run recorded below loaded
+canonical Universal `20.5.13`; the continuation receipt itself remains bounded
+to the earlier protocol pair.
 
 Lesson disposition: **transferable with bounded scope**. The evidence supports a
 bounded warning about model-mediated relay of large opaque tool arguments, not
@@ -147,6 +149,36 @@ clients are the explicit counterexample; any handle design must disclose its
 privacy, restart, expiry, eviction, and horizontal-scaling limits. Promotion to
 `universal-dev-architecture` is now eligible for an evidence-preserving owner
 review; this project record does not claim that promotion already occurred.
+
+## Universal freshness pass and lesson-shell safe failure — 2026-08-17
+
+The next owner-provided Custom GPT output completed the exact Universal
+freshness sequence. It returned version `20.5.13`, revision `2026-08-17`, and
+SHA-256 `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`;
+integrity was verified before loading. Three contiguous chunks covered exact
+UTF-8 byte ranges `[0, 48000)`, `[48000, 96000)`, and `[96000, 98154)`.
+Their SHA-256 digests were respectively
+`12f461edfd56c9a58b780484f091502af0212e64175f847330b1ffbbaae07432`,
+`ba39ff6311f038e3cea2c859a7e75b171e5cd8eb3021347ed3f4e32ddbd35eb3`, and
+`d4483802a9dc3e928a0e9aefd3bb9cb4420ad9a10b033a564db98e571ac7b57a`.
+Every chunk digest matched on re-retrieval, the total was 98,154 bytes, and the
+terminal whole digest matched with `complete:true`.
+
+The same run rechecked the entirely synthetic missing-source correction and
+accepted it as a valid AskRigor failure. It then displayed the structured
+candidate fields instead of the approved user-facing shell and incorrectly
+claimed that canonical consent wording was unavailable from Universal and the
+Action schema. The wording actually belongs to the Custom GPT Instructions.
+The exact consent question and reply line did not appear, no authorized reply
+was requested, and no lesson Action call occurred. No pending candidate or
+standing consent is treated as established from that invalid presentation.
+
+This is **GPT UI FAIL SAFE**: the consequential boundary held, but the
+interaction contract failed. The compact generated Instructions were hardened
+to include the complete shell verbatim, declare those Instructions as its
+authority, forbid raw Action fields as a substitute, and require an exact
+trimmed authorization before the call. The repaired instruction artifact is
+pending editor installation and a fresh-chat retest.
 
 ## YouTube continuation and terminal-refetch release — 2026-08-17
 
@@ -196,22 +228,19 @@ retained here.
 
 ## Remaining exact Custom GPT UI sequence
 
-Use a new chat in the same unpublished GPT with empty Knowledge. Paste this
-first block exactly:
+Replace the unpublished GPT editor Instructions with the complete regenerated
+`docs/custom-gpt-instructions.md`, keep Knowledge empty, and start a new chat.
+Do not repeat the completed protocol-freshness or YouTube tests. Paste this
+block exactly:
 
 ```text
-Do not perform health research, provider searches, or lesson submission yet.
+Do not perform health research, provider searches, or lesson submission yet. Do not repeat the completed protocol-freshness or YouTube acceptance tests. Follow only any normal protocol loading your Instructions require for this new chat, without reporting it as a new acceptance result.
 
-1. Call get_protocol_manifest for universal and require version 20.5.13, revision 2026-08-17, and SHA-256 3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4.
-2. Call verify_protocol_integrity for universal with that exact expected_sha256 and require verified:true.
-3. Call load_protocol for universal and continue with each returned cursor until complete:true. Verify contiguous byte ranges, every chunk digest, the final whole digest, exactly 3 chunks, and exactly 98,154 UTF-8 bytes. Do not quote or summarize the protocol text.
-4. Report only the sanitized manifest, integrity, chunk/range, total-byte, and completion receipts.
-
-After those checks, recheck this entirely synthetic correction: “You made a material factual claim without showing any source. After rechecking, do you agree that this is a valid AskRigor failure?” If it is valid, display the approved generalized candidate and the exact AskRigor consent question and reply options. Do not call submit_lesson_candidate until I reply with an authorized exact answer.
+Recheck this entirely synthetic correction: “You made a material factual claim without showing any source. After rechecking, do you agree that this is a valid AskRigor failure?” If it is valid, display one generalized lesson sentence inside the complete canonical consent shell from your Custom GPT Instructions. The shell wording comes from those Instructions, not Universal, HRP, Knowledge, or the Action schema. Do not substitute a list of Action fields. Do not call submit_lesson_candidate until I reply with an authorized exact answer. Stop immediately after displaying the shell.
 ```
 
-Require the complete protocol receipt and the exact lesson-consent shell, with
-no lesson Action call yet. Then paste exactly:
+Require the exact lesson-consent shell with no lesson Action call yet. Then
+paste exactly:
 
 ```text
 Yes
@@ -234,11 +263,11 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
 ### Case 1 — Universal complete protocol loading
 
 - Request class: manifest → integrity verification → ordered protocol chunks.
-- Result: **DIRECT PASS — GPT UI PASS (2026-08-16)**.
-- Protocol chunk coverage: 2/2 chunks, contiguous bytes `0..91599`, final
+- Result: **DIRECT PASS — GPT UI PASS (2026-08-17)**.
+- Protocol chunk coverage: 3/3 chunks, contiguous bytes `0..98154`, final
   `complete:true`, whole SHA-256
-  `3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`.
-- Sanitized result: Universal `20.5.12`, revision `2026-08-16`; every chunk and
+  `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`.
+- Sanitized result: Universal `20.5.13`, revision `2026-08-17`; every chunk and
   the whole stream matched the manifest without retaining text.
 - Limitation: the product proof is bounded to the recorded private Custom GPT
   chat and does not establish behavior in a future published GPT revision.
@@ -331,15 +360,18 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
 ### Case 9 — Separately consented synthetic lesson
 
 - Request class: consequential private-review write.
-- Result: **DIRECT BACKEND PASS — GPT UI consent pending**.
+- Result: **DIRECT BACKEND PASS — GPT UI FAIL SAFE (2026-08-17)**.
 - Sanitized result: after `AskRigor-lessons` was made private, one server-held
   Bearer submission returned `200 submitted`, candidate `ARL-0006`, occurrence
   count 1, `retryable:false`. Private sanitization verified the fixed sections,
   metadata marker, privacy gate, and exact expected labels without recording
-  the issue body.
-- Limitation: the exact consent question, explicit `Yes`, ChatGPT platform
-  confirmation, and user-facing human-review notice must still be observed in
-  a new unpublished Custom GPT chat.
+  the issue body. In the product run, the canonical consent shell did not
+  appear: structured candidate fields were shown and the GPT incorrectly said
+  the wording was unavailable. No authorized reply was requested and no lesson
+  Action call occurred.
+- Limitation: the repaired Instructions must still demonstrate the exact shell,
+  explicit `Yes`, ChatGPT platform confirmation, and user-facing human-review
+  notice in a new unpublished Custom GPT chat.
 
 ### Case 10 — Append-only duplicate synthetic lesson
 
@@ -376,9 +408,9 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
   consequential lesson write; all 18 declare the router-owned 500 response.
 - Product-interface protocol chunk reconciliation (2026-08-16): **PASS** —
   Universal `20.5.12` in 2/2 and HRP `20.5.18` in 11/11 with manifest, chunk,
-  contiguous-range, total-byte, and whole-file hash equality. Current production
-  directly passed Universal `20.5.13` in 3/3; its fresh UI receipt remains the
-  exact sequence above.
+  contiguous-range, total-byte, and whole-file hash equality. The 2026-08-17
+  UI freshness run also passed Universal `20.5.13` in 3/3 contiguous chunks and
+  98,154 bytes with the exact manifest and whole-file digest.
 - Lesson queue status and synthetic cleanup: **PASS** — `ARL-0006` was labeled
   `rejected`, removed from `needs-review`, received the explicit synthetic-only
   disposition, and closed `not_planned`; its body remained unchanged. Final
@@ -395,5 +427,8 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
 
 Lesson closeout: **project-specific / no-new-lesson**. This run reinforces the
 already-promoted distinction between server, model, and product-interface proof
-and the existing fail-closed private-queue boundary. It does not create a new
-transferable architecture rule.
+and the existing fail-closed private-queue boundary. The missing full shell was
+a Custom GPT packet defect now covered by a generated-instruction regression;
+current universal guidance already requires explicit instruction authority and
+representative final-output testing. It does not create a new transferable
+architecture rule.
