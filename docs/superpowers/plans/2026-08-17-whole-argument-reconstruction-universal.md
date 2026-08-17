@@ -1,0 +1,70 @@
+# Whole-Argument Reconstruction Universal Integration Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Integrate whole-argument reconstruction into AskRigor Universal Instructions 20.5.13 with exact-byte manifest closure and no HRP change.
+
+**Architecture:** Add a fail-closed structural regression first. Then use a temporary guarded Node updater and branch-only GitHub Actions workflow to transform the complete canonical XML in place, update all current identity dependents, execute the full deterministic gate, and commit generated output. Remove one-off machinery, reverify, review, and merge the exact green head.
+
+**Tech Stack:** XML, Node.js 24.18.0, Vitest, GitHub Actions, SHA-256 manifests.
+
+## Global Constraints
+
+- Base must be exact Universal `20.5.12` / `2026-08-16`.
+- Result must be Universal `20.5.13` / `2026-08-17`.
+- `protocols/HRP_Full.xml` must remain byte-identical.
+- The existing premise-integrity and truth-priority gate must remain intact.
+- Romance-specific content must not enter the universal XML.
+- All exact current-version and current-digest dependents must be reconciled.
+- Temporary updater/workflow files must not remain on merged `main`.
+
+---
+
+### Task 1: Add the failing protocol regression
+
+**Files:**
+- Create: `tests/whole-argument-reconstruction-structure.test.ts`
+
+**Interfaces:**
+- Consumes: complete `protocols/Universal_Instructions.xml` bytes.
+- Produces: a structural contract for version/date, revision, gate, core rules, behavior/context preservation, selective-feedback preservation, exact repair contract, and point-of-generation check.
+
+- [ ] Write the regression against the desired Universal 20.5.13 state.
+- [ ] Push and confirm deterministic verification fails because 20.5.12 lacks the new gate.
+
+### Task 2: Generate the canonical protocol update transactionally
+
+**Files:**
+- Create temporarily: `scripts/apply-whole-argument-reconstruction-update.mjs`
+- Create temporarily: `.github/workflows/whole-argument-reconstruction-update.yml`
+- Modify by generator: `protocols/Universal_Instructions.xml`
+- Modify by generator: `tests/protocol.test.ts`
+- Modify by generator: `project/CODEX-CURRENT-STATE.md`
+- Modify any other exact current-identity dependent discovered by the guarded scan.
+
+**Interfaces:**
+- Consumes: exact base XML and current SHA-256.
+- Produces: Universal 20.5.13, its SHA-256, synchronized current manifests/tests/state, and a complete deterministic verification receipt.
+
+- [ ] Implement exact-once root, revision, gate, and point-check transformations.
+- [ ] Compute the resulting SHA-256 and update current identity dependents.
+- [ ] Fail closed on unexpected base state, duplicate markers, missing markers, or unhandled active old-digest references.
+- [ ] Run `npm ci`, updater, `npm run verify`, and `git diff --check` in the temporary workflow.
+- [ ] Confirm the generated commit is green and the HRP digest remains unchanged.
+
+### Task 3: Remove one-off machinery and close the durable state
+
+**Files:**
+- Delete: `scripts/apply-whole-argument-reconstruction-update.mjs`
+- Delete: `.github/workflows/whole-argument-reconstruction-update.yml`
+- Update: this plan
+- Update: `project/CODEX-CURRENT-STATE.md` when final closeout requires it.
+
+**Interfaces:**
+- Produces: a clean permanent diff containing only canonical instructions, durable tests/spec/plan/state, and exact identity updates.
+
+- [ ] Remove temporary update machinery.
+- [ ] Run or observe fresh full verification on the exact cleanup head.
+- [ ] Review the complete diff and confirm no HRP/application/runtime change.
+- [ ] Open a pull request, wait for required checks, and merge the exact green head.
+- [ ] Verify merged `main` reports Universal 20.5.13 and its new digest.
