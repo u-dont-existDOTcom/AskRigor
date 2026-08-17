@@ -7,7 +7,7 @@ import {
 } from "./contracts.js";
 import { screenLessonCandidate } from "./privacy-screen.js";
 
-export const OPENAI_LESSON_MODEL = "gpt-5-nano-2025-08-07" as const;
+export const OPENAI_LESSON_MODEL = "gpt-5.4-nano-2026-03-17" as const;
 
 export const PRIVACY_SYSTEM_PROMPT = [
   "You are AskRigor's privacy checker and generalizer.",
@@ -16,6 +16,8 @@ export const PRIVACY_SYSTEM_PROMPT = [
   "Judge only privacy and security risk; do not treat scientific uncertainty, evidence quality, or a described product failure as privacy risk.",
   "Preserve only the general product lesson, remove personal narratives and identifiers, and invent no facts.",
   "Return safe:true with an empty risk_codes array when the candidate is already a generalized product lesson with no personal narrative, direct identifier, credential, raw conversation, unnecessary URL, or copied material.",
+  "Do not reject a generalized lesson merely because it discusses AskRigor, factual claims, evidence, source support, traceability, or auditability.",
+  "A lesson saying that material factual claims need traceable supporting sources is safe when it contains no private or identifying material.",
   "Return safe:false when uncertain.",
   "When safe is false, generalized must be null.",
   "When safe is true, preserve category, evidence_basis, askrigor_version, protocol_identities, and consent_scope exactly.",
@@ -176,8 +178,8 @@ const transportPrivacyModelResultSchema = z.strictObject({
 
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
 const MAXIMUM_REQUEST_NANO_USD = 10_000_000;
-const INPUT_TOKEN_NANO_USD = 50;
-const OUTPUT_TOKEN_NANO_USD = 400;
+const INPUT_TOKEN_NANO_USD = 200;
+const OUTPUT_TOKEN_NANO_USD = 1_250;
 const REQUEST_TIMEOUT_MS = 20_000;
 
 export function createOpenAiLessonAnonymizer(options: OpenAiLessonAnonymizerOptions): LessonAnonymizer {
@@ -207,7 +209,7 @@ export function createOpenAiLessonAnonymizer(options: OpenAiLessonAnonymizerOpti
             model: OPENAI_LESSON_MODEL,
             store: false,
             max_output_tokens: 1_200,
-            reasoning: { effort: "minimal" },
+            reasoning: { effort: "none" },
             input: [
               { role: "system", content: [{ type: "input_text", text: PRIVACY_SYSTEM_PROMPT }] },
               { role: "user", content: [{ type: "input_text", text: JSON.stringify(candidate) }] },

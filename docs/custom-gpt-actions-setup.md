@@ -62,7 +62,8 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_LESSONS_REPOSITORY` | Exact private repository name `u-dont-existDOTcom/AskRigor-lessons`. |
 
 The server enforces a hard monthly cap of **$50.00**, recorded as an aggregate
-nano-USD ledger. The server accepts only the fixed privacy model `gpt-5-nano-2025-08-07`; no moving alias is allowed.
+nano-USD ledger. The server accepts only the fixed privacy model
+`gpt-5.4-nano-2026-03-17`; no moving alias is allowed.
 The request uses `store: false`. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses
 screening or reaches GitHub.

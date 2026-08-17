@@ -1,18 +1,19 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION, UNIVERSAL REFRESH, AND LESSON CONSENT SHELL PASSED; LESSON AUTHENTICATION AND PUBLICATION RETEST PENDING**. The exact
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AND AUTHENTICATION PASSED; PRIVACY-MODEL REPAIR PENDING**. The exact
 production Action boundary and the formerly failing two-call YouTube chain have
 passed both the sanitized direct checks and the repaired Custom GPT UI relay
-test below. The unpublished Custom GPT also loaded canonical Universal
+test below. The Custom GPT also loaded canonical Universal
 `20.5.13` completely. The first synthetic lesson run failed safe before an
 Action call; the hardened shell then displayed correctly and enforced exact
 case-sensitive consent. Two approved calls returned `action_auth_required`
 because the existing Action had not yet received the editor-stored Bearer key;
 no lesson was submitted. Applying the key to that Action triggered a separate
-public-GPT content review warning. The public Custom GPT only now has an
-explicit non-tailored health-research boundary awaiting editor review; plugin,
-MCP, protocol, and server behavior are unchanged. Direct server proof is not
-relabeled as ChatGPT UI proof.
+public-GPT content review warning. The public-only non-tailored health-research
+boundary then passed publication by owner report; plugin, MCP, protocol, and
+server behavior remained unchanged. The first authenticated lesson submission
+reached the server privacy filter but was rejected before GitHub. Direct server
+proof is not relabeled as ChatGPT UI proof.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -30,9 +31,9 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-5585a9c` resolves the immediately prior production image `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; `/opt/askrigor/compose.yaml.rollback-5585a9c` has SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`. |
 | deployment archives | Exact secret-free source archive SHA-256 `024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283`; exact built image archive SHA-256 `81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0`. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
-| instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell candidate installed in the editor: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Public health-research boundary candidate awaiting editor review: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`. |
+| instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell candidate installed in the editor: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public health-research boundary: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
-| direct GPT URL | `pending` — requires saving/publishing the tested Custom GPT and copying its direct `/g/...` URL. |
+| direct GPT URL | `pending` — publication is owner-reported, but its direct `/g/...` URL still must be copied and independently verified. |
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 
@@ -206,9 +207,32 @@ public Custom GPT only: it retains general and subgroup evidence, treatment and
 harm comparisons, mechanisms, guidelines, community reports, source
 provenance, and clinician questions, while prohibiting individualized diagnosis
 or treatment directives. It does not change the plugin, MCP server, canonical
-protocols, or production tools. Public review must be retried; if the warning
-persists, use the account appeal rather than weakening the plugin or bypassing
-the platform review.
+protocols, or production tools. The owner subsequently reported successful
+public publication after installing that instruction candidate. The direct
+`/g/...` URL has not yet been captured or independently verified.
+
+## Published lesson privacy-filter result — 2026-08-17
+
+In a new published-GPT chat, the complete consent shell appeared around the
+fully generalized lesson that material factual claims need traceable supporting
+sources. Exact `Yes` plus ChatGPT's consequential confirmation reached the
+authenticated Action. The result was `privacy_rejected` with
+`unsafe_candidate`, non-retryable; no lesson was submitted. A fresh private
+queue check remained 0 open, 0 needs review, 0 accepted not incorporated, 2
+incorporated or closed, and 0 deletion eligible.
+
+The exact displayed lesson passes the deterministic privacy screen. The release
+history already records a one-off model rejection of the existing safe
+synthetic fixture followed by `safe:true` on an isolated identical-input check.
+Official OpenAI documentation now marks the deployed fixed model
+`gpt-5-nano-2025-08-07` deprecated. The repair candidate pins
+`gpt-5.4-nano-2026-03-17`, updates exact token-cost accounting and reasoning
+syntax, and adds explicit privacy-only classification guidance without weakening
+either deterministic screen or the fail-closed result contract. A non-stored,
+GitHub-disconnected compatibility probe using only synthetic inputs returned
+8/8 valid safe-case generalizations and 3/3 safely generalized-or-rejected
+identifier cases with zero identifier leakage. This is candidate evidence until
+the exact repair commit is merged and transactionally deployed.
 
 ## YouTube continuation and terminal-refetch release — 2026-08-17
 
@@ -258,10 +282,10 @@ retained here.
 
 ## Remaining exact Custom GPT UI sequence
 
-Replace the unpublished GPT editor Instructions with the complete regenerated
-`docs/custom-gpt-instructions.md`, keep Knowledge empty, and start a new chat.
-Do not repeat the completed protocol-freshness or YouTube tests. Paste this
-block exactly:
+After the privacy-model repair is deployed, keep the published GPT Instructions
+at exact `docs/custom-gpt-instructions.md`, keep Knowledge empty, and start a
+new chat. Do not repeat the completed protocol-freshness or YouTube tests. Paste
+this block exactly:
 
 ```text
 Do not perform health research, provider searches, or lesson submission yet. Do not repeat the completed protocol-freshness or YouTube acceptance tests. Follow only any normal protocol loading your Instructions require for this new chat, without reporting it as a new acceptance result.
@@ -399,9 +423,10 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
   appear: structured candidate fields were shown and the GPT incorrectly said
   the wording was unavailable. No authorized reply was requested and no lesson
   Action call occurred.
-- Limitation: the repaired Instructions must still demonstrate the exact shell,
-  explicit `Yes`, ChatGPT platform confirmation, and user-facing human-review
-  notice in a new unpublished Custom GPT chat.
+- Limitation: the repaired Instructions have demonstrated the exact shell,
+  explicit `Yes`, and ChatGPT platform confirmation in a published-GPT chat;
+  the deployed privacy model rejected the safe synthetic candidate before the
+  user-facing human-review notice.
 
 ### Case 10 — Append-only duplicate synthetic lesson
 
@@ -451,9 +476,9 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
   with `issues:write` and `metadata:read`. GitHub Free returned HTTP 403 for
   private-branch protection: `Upgrade to GitHub Pro or make this repository
   public to enable this feature.`
-- Publish/repoint decision: **pending** — do not repoint `gpt.askrigor.com`
-  until the unpublished Custom GPT cases pass and its actual direct `/g/...`
-  URL is verified.
+- Publish/repoint decision: **GPT publication owner-reported; repoint pending**
+  — do not repoint `gpt.askrigor.com` until the lesson/duplicate cases pass and
+  its actual direct `/g/...` URL is verified.
 
 Lesson closeout: **project-specific / no-new-lesson**. This run reinforces the
 already-promoted distinction between server, model, and product-interface proof

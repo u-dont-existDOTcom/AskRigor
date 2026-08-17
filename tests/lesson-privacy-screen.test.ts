@@ -28,6 +28,13 @@ describe("deterministic lesson privacy screen", () => {
     expect(screenLessonCandidate(candidate)).toEqual({ safe: true, candidate });
   });
 
+  it("accepts the published GPT's fully generalized source-audit lesson", () => {
+    const candidate = withLesson(
+      "When AskRigor makes a material factual claim, AskRigor should show the supporting source because material claims must be independently auditable and traceable to their evidence.",
+    );
+    expect(screenLessonCandidate(candidate)).toEqual({ safe: true, candidate });
+  });
+
   it.each([
     ["contact me@example.com for evidence", "direct_identifier"],
     ["call +1 (415) 555-0123 before changing the response", "direct_identifier"],
