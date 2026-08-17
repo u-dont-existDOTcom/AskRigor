@@ -1,14 +1,18 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION AND UNIVERSAL REFRESH PASSED, LESSON CONSENT SHELL FAILED SAFE**. The exact
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION, UNIVERSAL REFRESH, AND LESSON CONSENT SHELL PASSED; LESSON AUTHENTICATION AND PUBLICATION RETEST PENDING**. The exact
 production Action boundary and the formerly failing two-call YouTube chain have
 passed both the sanitized direct checks and the repaired Custom GPT UI relay
 test below. The unpublished Custom GPT also loaded canonical Universal
-`20.5.13` completely. Its next synthetic lesson case displayed structured
-candidate fields instead of the required consent shell, incorrectly said the
-canonical wording was unavailable, and made no lesson Action call. The failure
-was therefore safe; the hardened Instructions and lesson-consent retest remain
-pending. Direct server proof is not relabeled as ChatGPT UI proof.
+`20.5.13` completely. The first synthetic lesson run failed safe before an
+Action call; the hardened shell then displayed correctly and enforced exact
+case-sensitive consent. Two approved calls returned `action_auth_required`
+because the existing Action had not yet received the editor-stored Bearer key;
+no lesson was submitted. Applying the key to that Action triggered a separate
+public-GPT content review warning. The public Custom GPT only now has an
+explicit non-tailored health-research boundary awaiting editor review; plugin,
+MCP, protocol, and server behavior are unchanged. Direct server proof is not
+relabeled as ChatGPT UI proof.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -26,7 +30,7 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-5585a9c` resolves the immediately prior production image `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; `/opt/askrigor/compose.yaml.rollback-5585a9c` has SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`. |
 | deployment archives | Exact secret-free source archive SHA-256 `024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283`; exact built image archive SHA-256 `81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0`. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
-| instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Hardened generated candidate awaiting editor update and retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. |
+| instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell candidate installed in the editor: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Public health-research boundary candidate awaiting editor review: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `pending` — requires saving/publishing the tested Custom GPT and copying its direct `/g/...` URL. |
 
@@ -177,8 +181,34 @@ This is **GPT UI FAIL SAFE**: the consequential boundary held, but the
 interaction contract failed. The compact generated Instructions were hardened
 to include the complete shell verbatim, declare those Instructions as its
 authority, forbid raw Action fields as a substitute, and require an exact
-trimmed authorization before the call. The repaired instruction artifact is
-pending editor installation and a fresh-chat retest.
+trimmed authorization before the call. The following fresh-chat retest records
+that repaired interaction contract passing.
+
+## Lesson authentication and public-content follow-up — 2026-08-17
+
+The hardened Instructions were installed in a fresh chat. The complete consent
+shell appeared, lowercase `yes` was correctly rejected, and exact `Yes` reached
+ChatGPT's separate consequential confirmation. Two approved submissions then
+returned `401 action_auth_required`; no lesson was submitted. The editor key
+had not yet been applied to the existing imported Action. A production-internal
+probe used the configured key only in memory and intentionally sent the wrong
+content type; exact `415 action_json_content_type_required` proved the valid-key
+path without creating a candidate or exposing the key. The private queue
+remained 0 open, 0 needs review, 0 accepted not incorporated, 2 incorporated or
+closed, and 0 deletion eligible.
+
+After the owner applied the existing Bearer key to that Action, saving triggered
+the builder warning `May provide tailored medical/health advice`. This is a
+public-content eligibility boundary, not evidence that the lesson feature
+caused medical advice or that server authentication failed. **Only me** is not
+accepted as product completion. The new instruction candidate applies to the
+public Custom GPT only: it retains general and subgroup evidence, treatment and
+harm comparisons, mechanisms, guidelines, community reports, source
+provenance, and clinician questions, while prohibiting individualized diagnosis
+or treatment directives. It does not change the plugin, MCP server, canonical
+protocols, or production tools. Public review must be retried; if the warning
+persists, use the account appeal rather than weakening the plugin or bypassing
+the platform review.
 
 ## YouTube continuation and terminal-refetch release — 2026-08-17
 

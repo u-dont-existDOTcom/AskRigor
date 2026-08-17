@@ -41,10 +41,15 @@ with standing consent; acceptance starts in a new Custom GPT chat. The
 setup runbook is `docs/custom-gpt-actions-setup.md`, and the public notice remains
 `https://askrigor.com/privacy`.
 
-The current Universal UI load passed. The first synthetic consent-shell UI case
-then failed safe before any Action call because the GPT displayed structured
-fields instead of the approved shell. The hardened generated Instructions must
-be installed and retested in a fresh chat before publication.
+The current Universal UI load and the hardened consent shell passed. Exact
+consent reached ChatGPT's consequential confirmation, but the Action was not
+yet authenticated in the editor and no lesson was submitted. After the owner
+applied the existing Bearer key, the builder classified the GPT as potentially
+providing tailored medical or health advice. Install the current generated
+Instructions and retry public review before publication. This public-only
+boundary preserves general and subgroup evidence while prohibiting
+individualized diagnosis or treatment direction; it does not narrow the
+plugin, MCP server, canonical protocols, or production tools.
 
 ## Source-generated MCP tools/list inventory
 

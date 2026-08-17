@@ -9,7 +9,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; the consent-shell repair started from PR #28 merge
+- Canonical branch: `main`; current hosted head before the public-boundary task
+  is PR #30 merge `8ac8b068cbf316d9a9802674ec27df0b55467afb`. The
+  consent-shell repair started from PR #28 merge
   `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`. Exact PR #29 head
   `81328fc439b6cd6a199a9b707aeafe5b9881fadc` merged as
   `25849647969a4bf333659feaa30f0b418cc24d57`, while production remains exact
@@ -68,10 +70,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   bytes** and exact protocol chunks to **48,000 UTF-8 bytes**.
 - The generated packet remains reproducible: deployed committed OpenAPI SHA-256
   `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`,
-  hardened Instructions
-  `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`,
+  current public-boundary Instructions
+  `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`,
   and sync ledger
-  `768a2d61ed3eae05cfe76fdbf7b6f017f7d62a75d4c3e5d27fecf74025f19470`.
+  `621d0795872719903ed7ed3bd4b7aab85f875c8923b17b26d1f373d15af19081`.
+  The consent-shell candidate installed for the latest UI run was
+  `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`.
   The failed-safe UI run used the prior Instructions digest
   `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`.
   The sole editor instruction source is `docs/custom-gpt-instructions.md`;
@@ -169,6 +173,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   Bearer authentication, and a new unpublished chat. `gpt.askrigor.com` must
   not be repointed until the consent/duplicate cases pass and the actual direct
   `/g/...` URL is verified.
+- The hardened shell subsequently displayed correctly and rejected lowercase
+  `yes`; exact `Yes` reached ChatGPT's consequential confirmation. Two calls
+  then failed safe as `action_auth_required` because the existing editor Action
+  had not yet been configured with the Bearer key. Production health remained
+  `ok`; a no-write authenticated probe reached the expected `415
+  action_json_content_type_required` boundary, proving the current server key
+  path; and the lesson queue remained 0 open, 0 needs review, 0 accepted not
+  incorporated, 2 incorporated or closed, and 0 deletion eligible.
+- After the owner applied the existing key to that Action, the builder blocked
+  public listing with `May provide tailored medical/health advice`. **Only me**
+  is not the product goal. The generated public Custom GPT now preserves all
+  general and subgroup evidence while prohibiting only individualized diagnosis
+  and treatment direction. This public Custom GPT boundary does not alter the
+  plugin, MCP server, canonical protocols, or production tools.
 
 ## Completed
 
@@ -341,16 +359,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - The separate Custom GPT compatibility surface is deployed but unpublished.
   The corrected schema imported successfully, and protocol/formal-source UI
   cases, the repaired two-call YouTube handle UI chain, and canonical Universal
-  `20.5.13` UI loading passed. The lesson-consent shell failed safe before any
-  Action call. Hardened generated Instructions now await editor installation;
-  their consent/duplicate retest, publishing, and the direct `/g/...` URL remain
-  pending.
+  `20.5.13` UI loading passed. The hardened consent shell now passes, while
+  successful authenticated lesson/duplicate receipts and public content review
+  remain pending. The public-boundary Instructions await editor installation;
+  publishing and the direct `/g/...` URL remain pending.
 
 ## Remaining
 
-- Install the hardened generated Instructions in the unpublished GPT editor and
-  exercise the lesson-consent and duplicate cases in a fresh chat with empty
-  Knowledge. Protocol freshness and the YouTube continuation UI proof are
+- Install the public-boundary generated Instructions in the GPT editor, retain
+  the configured Bearer authentication and empty Knowledge, and retry public
+  content review. Then exercise the lesson submission and duplicate cases in a
+  fresh chat. Protocol freshness and the YouTube continuation UI proof are
   complete and must not be repeated as acceptance requirements.
 - After the lesson-consent cases pass, publish the Custom GPT, verify its direct `/g/...`
   URL, and only then repoint `gpt.askrigor.com`.
@@ -370,8 +389,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   Protocol and formal-source UI cases passed. The short-handle and terminal
   refetch repairs are deployed and accepted through both direct and fresh
   product-interface tests. Universal `20.5.13` also passed the fresh product
-  interface. Only the hardened lesson-consent shell and duplicate UI cases
-  remain on this unpublished surface.
+  interface. The hardened consent shell now passes. Authenticated lesson and
+  duplicate UI receipts plus public content eligibility remain on this
+  unpublished surface.
+- Public listing is currently blocked by the builder's `May provide tailored
+  medical/health advice` classification. Review the public-only non-tailored
+  boundary in the editor; if the classification remains, use the account appeal
+  rather than narrowing the plugin or attempting a bypass.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -403,13 +427,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Replace the unpublished GPT editor Instructions with
-`docs/custom-gpt-instructions.md`, keep empty Knowledge and the already imported
-live Action schema/Bearer authentication, then paste the exact lesson-only
-sequence under `Remaining exact Custom GPT UI sequence` in
-`docs/custom-gpt-action-live-acceptance.md` into a new chat. Do not repeat the
-completed protocol-freshness or YouTube tests. Do not repoint the GPT subdomain
-until the consent/duplicate receipts and direct `/g/...` URL are verified.
+Replace the GPT editor Instructions with `docs/custom-gpt-instructions.md`, keep
+empty Knowledge and the configured live Action schema/Bearer authentication,
+and retry public content review. If accepted, run the exact lesson-only sequence
+under `Remaining exact Custom GPT UI sequence` in
+`docs/custom-gpt-action-live-acceptance.md` in a new chat. If rejected, preserve
+the warning and use the account appeal. Do not repeat the completed protocol or
+YouTube tests, treat **Only me** as product completion, or repoint the GPT
+subdomain before public eligibility, lesson/duplicate receipts, and the direct
+`/g/...` URL are verified.
 
 ## Recovery rule
 
@@ -418,6 +444,7 @@ checkpoint, complete protocol files, current release evidence, merged PRs #9
 through #28, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
 and newer owner instructions. Resume from the latest verified boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. Current GitHub main contains PR #29
-merge `25849647969a4bf333659feaa30f0b418cc24d57`; production remains
+unless production identity has changed. Current GitHub main is PR #30 merge
+`8ac8b068cbf316d9a9802674ec27df0b55467afb`, containing PR #29 merge
+`25849647969a4bf333659feaa30f0b418cc24d57`; production remains
 `5585a9ca34ce01403044b1085b85d4f2de9783f4`.

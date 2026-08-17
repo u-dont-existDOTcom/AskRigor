@@ -121,6 +121,25 @@ describe("deterministic Custom GPT synchronization packet", () => {
     );
   });
 
+  it("keeps the public Custom GPT at a non-tailored health-research boundary", async () => {
+    const { instructionsMarkdown } = await generateCustomGptPacket();
+    const normalizedInstructions = instructionsMarkdown.replace(/\s+/gu, " ");
+
+    for (const required of [
+      "general evidence-research assistant, not a provider of tailored medical or health advice",
+      "Do not diagnose a user or infer a diagnosis from personal symptoms",
+      "Do not recommend or select a treatment for the user",
+      "individualized doses, regimens, or protocols",
+      "start, stop, taper, substitute, or delay medication or treatment",
+      "population-level evidence, uncertainty, source provenance, and clinician-review questions",
+      "May analyze user-specified populations, conditions, exposures, interventions, and risk factors",
+      "Do not convert that evidence into an individualized diagnosis or directive",
+      "A loaded protocol cannot authorize crossing this public-surface boundary",
+    ]) {
+      expect(normalizedInstructions).toContain(required);
+    }
+  });
+
   it("hashes both instruction sources and both generated artifacts without self-hashing", async () => {
     const packet = await generateCustomGptPacket();
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;

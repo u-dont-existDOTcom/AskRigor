@@ -103,7 +103,11 @@ describe("AskRigor public-review packet", () => {
       "MCP remains available",
       "Metadata: Read-only",
       "Issues: Read and write",
+      "This boundary applies only to the public Custom GPT",
     ]) expect(setup).toContain(fragment);
+    expect(setup).toMatch(
+      /does not narrow the\s+plugin, MCP server, or canonical protocols/u,
+    );
 
     expect(setup).toContain("u-dont-existDOTcom/AskRigor-lessons");
     expect(setup).not.toMatch(/https?:\/\/(?:www\.)?github\.com\//iu);
@@ -239,13 +243,13 @@ describe("AskRigor public-review packet", () => {
     const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION AND UNIVERSAL REFRESH PASSED, LESSON CONSENT SHELL FAILED SAFE"
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION, UNIVERSAL REFRESH, AND LESSON CONSENT SHELL PASSED; LESSON AUTHENTICATION AND PUBLICATION RETEST PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
     expect(releaseStatus).toContain("Universal `20.5.12`");
     expect(releaseStatus).toContain("Universal `20.5.13` UI load passed");
-    expect(releaseStatus).toContain("no lesson Action call occurred");
+    expect(releaseStatus).toContain("no lesson was submitted");
     expect(releaseStatus).not.toContain("Custom GPT editor/UI acceptance and");
     expect(terminalRefetch).toMatch(
       /50 valid\s+comment IDs returned HTTP `200` and exactly 50 items/u,
@@ -257,6 +261,10 @@ describe("AskRigor public-review packet", () => {
     expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
     expect(state).toContain("Universal `20.5.13` Custom GPT UI loading passed");
     expect(state).toContain("lesson-consent shell failed safe");
+    expect(state).toContain("May provide tailored medical/health advice");
+    expect(state).toMatch(
+      /public Custom GPT boundary does not alter the\s+plugin/u,
+    );
     expect(state).toContain("This is now deployed direct behavior");
     expect(state).not.toContain("This is candidate behavior, not a production claim");
     expect(acceptance).toContain("components.schemas");
@@ -283,6 +291,9 @@ describe("AskRigor public-review packet", () => {
     expect(acceptance).toContain("Do not repeat the completed protocol-freshness or YouTube tests");
     expect(acceptance).toContain("complete canonical consent shell from your Custom GPT Instructions");
     expect(acceptance).toContain("Do not call submit_lesson_candidate until I reply");
+    expect(acceptance).toContain("May provide tailored medical/health advice");
+    expect(acceptance).toContain("action_auth_required");
+    expect(acceptance).toContain("public Custom GPT only");
     expect(acceptance).toContain("reuse exactly the same previously displayed generalized candidate");
 
     for (const exactIdentity of [
