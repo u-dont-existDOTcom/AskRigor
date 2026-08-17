@@ -238,12 +238,12 @@ describe("AskRigor public-review packet", () => {
     const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, LESSON CONSENT PENDING"
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, PROTOCOL UI REFRESH AND LESSON CONSENT PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
     expect(releaseStatus).toContain("Universal `20.5.12`");
-    expect(releaseStatus).toContain("current canonical Universal `20.5.13`");
+    expect(releaseStatus).toContain("canonical Universal `20.5.13` is now deployed");
     expect(releaseStatus).not.toContain("Custom GPT editor/UI acceptance and");
     expect(terminalRefetch).toMatch(
       /50 valid\s+comment IDs returned HTTP `200` and exactly 50 items/u,
@@ -251,6 +251,7 @@ describe("AskRigor public-review packet", () => {
     expect(terminalRefetch).toMatch(
       /51 valid comment IDs\s+returned HTTP `400 invalidFilters` and zero items/u,
     );
+    expect(state).toContain("5585a9ca34ce01403044b1085b85d4f2de9783f4");
     expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
     expect(state).toContain("Remaining Custom GPT editor/UI acceptance is the lesson-consent cases");
     expect(state).toContain("This is now deployed direct behavior");
@@ -272,28 +273,37 @@ describe("AskRigor public-review packet", () => {
     }
     expect(case9).toContain("GPT UI consent pending");
     expect(case10).toContain("GPT UI pending");
+    expect(acceptance).toContain("## Remaining exact Custom GPT UI sequence");
+    expect(acceptance).toContain("Call get_protocol_manifest for universal");
+    expect(acceptance).toContain("exactly 3 chunks");
+    expect(acceptance).toContain("exactly 98,154 UTF-8 bytes");
+    expect(acceptance).toContain("Do not call submit_lesson_candidate until I reply");
+    expect(acceptance).toContain("reuse exactly the same previously displayed generalized candidate");
 
     for (const exactIdentity of [
-      "905ac22ab42479c15ff0d6385a51de864271f862",
-      "11f3a68a73bc68bc23f1854b6bd8d4c06f9b843f",
-      "sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067",
-      "af7689e8f55ed12e86a863e3cbe7d03b2bfd27edc00fa4860d7083bd146271df",
-      "c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9",
+      "5585a9ca34ce01403044b1085b85d4f2de9783f4",
+      "a745979af07a6931324887023ce5b63f2991a2a6",
+      "sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953",
+      "5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b",
+      "cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf",
       "06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1",
-      "askrigor-research:rollback-905ac22a",
-      "/opt/askrigor/compose.yaml.rollback-905ac22a",
-      "sha256:b6bf6df118e47eff766371717b48c3b732edf91053ef9e7915eb55edb5534a95",
-      "eb3b85f080d008a4ab8b93b7506e22b9759a072a94b3281f2a788d85cbe3185d",
-      "7d1463f1eac86afc7e07dac59afa05b60e7d299272e683935647a36193bba50e",
-      "b04dcc95e902e7c5b157f25d4a796964b3573c57972c3cb50cac5b65fecb8662",
+      "askrigor-research:rollback-5585a9c",
+      "/opt/askrigor/compose.yaml.rollback-5585a9c",
+      "sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067",
+      "c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9",
+      "024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283",
+      "81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0",
       "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94",
       "402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2",
       "ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad",
+      "3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4",
       "/opt/askrigor/site/releases/56b3dff6d7c3/site",
     ]) {
       expect(deploymentIdentity).toContain(exactIdentity);
     }
-    expect(releaseIdentity).toContain("b04dcc95e902e7c5b157f25d4a796964b3573c57972c3cb50cac5b65fecb8662");
+    expect(deploymentIdentity).toContain("3 contiguous");
+    expect(deploymentIdentity).toContain("98,154 bytes");
+    expect(releaseIdentity).toContain("81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
     expect(acceptance).toContain("DIRECT PASS");

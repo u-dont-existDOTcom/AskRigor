@@ -9,10 +9,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; the isolated evidence branch starts from verified
-  GitHub main `52a2201bee023228bc57928319386789ef3be04e`. Production application
-  revision remains `905ac22ab42479c15ff0d6385a51de864271f862` and passed the
-  direct and Custom GPT UI two-call YouTube release acceptance.
+- Canonical branch: `main`; the isolated deployment-evidence branch starts from
+  verified GitHub main and production revision
+  `5585a9ca34ce01403044b1085b85d4f2de9783f4`. The continuation implementation
+  passed direct and Custom GPT UI two-call acceptance, and current Universal
+  `20.5.13` passed fresh direct production acceptance.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -28,12 +29,14 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Active Custom GPT research bridge acceptance
 
-- PRs #19 through #23 are merged. The current release merge is
+- PRs #19 through #23 are merged. The continuation release merge is
   `905ac22ab42479c15ff0d6385a51de864271f862`, exact PR #23 head
   `11f3a68a73bc68bc23f1854b6bd8d4c06f9b843f`. The exact formerly failing
   YouTube video now completes its direct two-call Action chain with a
   deterministic terminal sample and `synthesis_lock:pass`; the repaired
-  two-call Custom GPT UI retest passed on 2026-08-17.
+  two-call Custom GPT UI retest passed on 2026-08-17. PR #27 then merged its
+  sanitized receipt and the current Universal ancestry as production revision
+  `5585a9ca34ce01403044b1085b85d4f2de9783f4`.
 - The owner approved the compatibility bridge and clear reversible changes.
   PR #15 merged accepted head `be641bf568c401992ff4aa9fe885552d6cfb2dca`
   as `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`; its deterministic,
@@ -44,15 +47,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `d14f530`. Independent review's two Important findings were fixed before
   merge: enabled research Actions now require the server-only continuation
   secret at startup, and all operations declare the router-owned 500 response.
-- Production runs terminal-refetch merge
-  `905ac22ab42479c15ff0d6385a51de864271f862` as image
-  `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`
+- Production runs exact application revision
+  `5585a9ca34ce01403044b1085b85d4f2de9783f4` as image
+  `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`
   in healthy container
-  `af7689e8f55ed12e86a863e3cbe7d03b2bfd27edc00fa4860d7083bd146271df`.
-  Rollback is `askrigor-research:rollback-905ac22a` plus
-  `/opt/askrigor/compose.yaml.rollback-905ac22a`, restoring image
-  `sha256:b6bf6df118e47eff766371717b48c3b732edf91053ef9e7915eb55edb5534a95`.
-  Only the research service was recreated for the application switch.
+  `5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b`.
+  Rollback is `askrigor-research:rollback-5585a9c` plus
+  `/opt/askrigor/compose.yaml.rollback-5585a9c`, restoring image
+  `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`.
+  Current Compose SHA-256 is
+  `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`;
+  rollback Compose SHA-256 is
+  `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`.
+  Only the research service was recreated for the protocol switch.
 - `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active. Research Actions share
   MCP's transient provider flow, per-client token bucket, and 16-request
   concurrency pool. Responses remain limited to **60,000 serialized UTF-8
@@ -69,13 +76,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `/opt/askrigor/site/releases/56b3dff6d7c3/site`. All four pages returned
   200, and live privacy bytes match SHA-256
   `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`.
-- Direct production acceptance passed complete Universal 2/2 and HRP 11/11
-  byte coverage, PubMed, ClinicalTrials.gov, Crossref, YouTube survey/audit,
+- The bridge release's direct production acceptance passed complete Universal
+  2/2 and HRP 11/11 byte coverage, PubMed, ClinicalTrials.gov, Crossref,
+  YouTube survey/audit,
   malformed/oversized requests, rate limiting/recovery, exact 18-operation
   Action security, health, and the 17-tool MCP inventory. Detailed sanitized
   receipts are in `docs/custom-gpt-action-live-acceptance.md`. The 2026-08-17
   release reverified health, schema, protocols, inventory, the 16-record
-  one-call audit, and the exact 149-record two-call terminal-refetch chain.
+  one-call audit, and the exact 149-record two-call terminal-refetch chain. The
+  later Universal-only rollout freshly passed health, exact OpenAPI, current
+  Universal `20.5.13` manifest/integrity/3-chunk full load, unchanged HRP
+  `20.5.18`, lesson `401`, privacy hash, and the exact 17-tool inventory without
+  repeating provider calls or lesson writes.
 - `AskRigor-lessons` is private again. The exact selected-repository GitHub App
   path created synthetic `ARL-0006`; the duplicate returned the same ID with
   occurrence count 2 while preserving the issue body byte-for-byte. The issue
@@ -129,13 +141,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   while preserving internal file modes produced the accepted image. This is a
   provisional transferable deployment lesson pending universal disposition;
   the OpenAI 300-character constraint remains project-specific evidence.
-- Final lesson status for the deployed continuation repair was `available` at
-  `2026-08-17T03:13:06.118Z`: 0 open, 0 needs review, 0 accepted not
+- Final pre-deployment lesson status was `available` at
+  `2026-08-17T19:32:19.089Z`: 0 open, 0 needs review, 0 accepted not
   incorporated, 2 incorporated or closed, and 0 deletion eligible.
 - Lesson closeout: the AskRigor product failure, repaired UI pass, and exact
   limits are preserved in `docs/custom-gpt-action-live-acceptance.md`. The
-  model-mediated
-  relay finding is **transferable with bounded scope**: multi-kilobyte opaque,
+  model-mediated relay finding is **transferable with bounded scope**:
+  multi-kilobyte opaque,
   high-entropy continuation state can be mutated when an AI controller must
   reproduce it as a tool argument. The bounded short-handle adapter is not a
   universal default—it trades stateless restart resilience for short-lived
@@ -144,9 +156,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   acceptance, and product-interface continuation now pass. Direct MCP clients
   remain the counterexample that should stay stateless.
 - Remaining Custom GPT editor/UI acceptance is the lesson-consent cases and a
-  fresh manifest/integrity/full-load receipt after canonical Universal `20.5.13`
-  reaches production. The successful continuation UI run loaded production
-  Universal `20.5.12`. The editor must use
+  fresh manifest/integrity/full-load receipt for the now-deployed canonical
+  Universal `20.5.13`. The successful continuation UI run loaded the prior
+  production Universal `20.5.12`. The editor must use
   `docs/custom-gpt-instructions.md`, empty Knowledge, the live OpenAPI URL,
   Bearer authentication, and a new unpublished chat. `gpt.askrigor.com` must
   not be repointed until those cases pass and the actual direct `/g/...` URL is
@@ -285,7 +297,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Current checkpoint
 
-- PR #23 is the current deployed code release. Production is healthy on the
+- PR #27 merge `5585a9ca34ce01403044b1085b85d4f2de9783f4` is the current
+  deployed release. Production is healthy on the
   exact merged image, with the rollback image/config and active site release
   recorded above. Server-side direct acceptance, including the exact repaired
   two-call YouTube chain, is complete.
@@ -303,14 +316,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - The separate Custom GPT compatibility surface is deployed but unpublished.
   The corrected schema imported successfully, and protocol/formal-source UI
   cases and the repaired two-call YouTube handle UI chain passed. Canonical
-  Universal `20.5.13` production loading, the lesson-consent cases, publishing,
-  and the direct `/g/...` URL remain pending.
+  Universal `20.5.13` passed direct production loading; its fresh Custom GPT UI
+  loading, the lesson-consent cases, publishing, and the direct `/g/...` URL
+  remain pending.
 
 ## Remaining
 
-- Deploy canonical Universal `20.5.13`, then verify its manifest, exact digest,
-  complete ordered load, and the lesson-consent cases in a fresh unpublished
-  GPT chat with empty Knowledge. The YouTube continuation UI proof is complete.
+- Verify the now-deployed Universal `20.5.13` manifest, exact digest, complete
+  ordered load, and the lesson-consent cases in a fresh unpublished GPT chat
+  with empty Knowledge. The YouTube continuation UI proof is complete.
 - After the protocol-freshness and lesson-consent cases pass, publish the Custom GPT, verify its direct `/g/...`
   URL, and only then repoint `gpt.askrigor.com`.
 - Observe developer/business identity completion and complete the portal HTTPS
@@ -328,8 +342,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - The importer fix is merged, green, deployed, and passed the product importer.
   Protocol and formal-source UI cases passed. The short-handle and terminal
   refetch repairs are deployed and accepted through both direct and fresh
-  product-interface tests. Production still serves Universal `20.5.12` while
-  canonical main contains `20.5.13`.
+  product-interface tests. Production now directly serves and verifies
+  Universal `20.5.13`; only the fresh product-interface receipt for those bytes
+  remains.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -361,20 +376,22 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Deploy canonical Universal `20.5.13` through the reversible production path,
-then use `docs/custom-gpt-instructions.md`, empty Knowledge, the already
-imported live Action schema, Bearer authentication, and a new unpublished chat
-to verify the Universal manifest, exact digest, complete ordered load, and the
-lesson-consent cases. Do not repeat the completed YouTube continuation test or
-repoint the GPT subdomain until the remaining UI receipts and direct `/g/...`
-URL are verified.
+Paste the exact sequence under `Remaining exact Custom GPT UI sequence` in
+`docs/custom-gpt-action-live-acceptance.md` into a new unpublished GPT chat
+using `docs/custom-gpt-instructions.md`, empty Knowledge, the already imported
+live Action schema, and Bearer authentication. It verifies the now-deployed
+Universal `20.5.13` bytes and exercises explicit one-time lesson consent plus
+the append-only duplicate. Do not repeat the completed YouTube continuation
+test or repoint the GPT subdomain until those UI receipts and the direct
+`/g/...` URL are verified.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #23, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
+through #27, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
 and newer owner instructions. Resume from the latest verified boundary without
 touching the dirty original checkout or repeating direct production acceptance
 unless production identity has changed. This evidence branch starts from
-verified GitHub main `52a2201bee023228bc57928319386789ef3be04e`.
+verified GitHub main and production
+`5585a9ca34ce01403044b1085b85d4f2de9783f4`.
