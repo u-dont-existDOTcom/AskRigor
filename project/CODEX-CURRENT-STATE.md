@@ -9,10 +9,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main` at deployed code merge
-  `905ac22ab42479c15ff0d6385a51de864271f862`; the isolated evidence branch
-  starts from that exact commit. Production runs the same merge and passed the
-  direct two-call YouTube release acceptance.
+- Canonical branch: `main`. Production application revision
+  `905ac22ab42479c15ff0d6385a51de864271f862` is the base of the isolated
+  evidence branch. Production runs that exact code merge and passed the direct
+  two-call YouTube release acceptance.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -133,7 +133,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   reproduce it as a tool argument. The bounded short-handle adapter is not a
   universal default—it trades stateless restart resilience for short-lived
   server memory and needs truthful privacy disclosure. Promote only after the
-  the fresh product retest establishes the UI relay; exact merge, deployment,
+  fresh product retest establishes the UI relay; exact merge, deployment,
   and direct acceptance now pass. Direct MCP clients remain the counterexample
   that should stay stateless.
 - Remaining Custom GPT editor/UI acceptance is the repaired multi-call YouTube
@@ -147,14 +147,23 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 - Recovery inspected the complete instruction chain, profile/state/README/indexes, scripts/lock/runtime, workflows, ownership/dependency/security posture, recent commits, PR #7, and hardening issue #6.
 - The dirty original `main` checkout and its unrelated untracked files remain untouched; all work is isolated here.
-- Current `main` was semantically merged without losing the Action implementation, live-acceptance evidence, privacy/release records, or compliance controls. Project-installation conflicts preserve separate MCP/Action surfaces, governance-file exclusion, and complete-protocol authority.
+- During the initial 2026-08-15 recovery, then-current `main` was semantically
+  merged without losing the Action implementation, live-acceptance evidence,
+  privacy/release records, or compliance controls. Project-installation
+  conflicts preserved separate MCP/Action surfaces, governance-file exclusion,
+  and complete-protocol authority.
 - The repository profile declares only exact commands run on this candidate and distinguishes hermetic CI from the separately authorized bounded provider smoke.
 - `npm ci` passed on Node `24.18.0`: 156 packages installed, 0 audited vulnerabilities.
-- Current deterministic verification passed: 42 files passed, one credential-gated live file skipped; 843 tests passed, five skipped; typecheck and build passed.
+- At that 2026-08-15 recovery checkpoint, deterministic verification passed 42
+  files with one credential-gated live file skipped; 843 tests passed with five
+  skipped; typecheck and build passed. The current PR #23 release verification
+  is recorded separately below.
 - Site checks passed: four pages validated and 28/28 deployment tests passed. Protocol SHA-256 values match the authoritative XML bytes.
 - The opt-in live provider smoke passed separately: two public-provider tests passed and three credential-gated providers skipped truthfully.
 - `npm run lessons:status` returned available at `2026-08-15T22:33:40.515Z`: 0 open candidates, 0 needs review, 0 accepted-not-incorporated, 1 incorporated-or-closed, and 0 deletion eligible.
-- The current universal portable audit passes with 0 errors and four truthful hosted-control warnings after token-shaped privacy fixtures were runtime-fragmented without changing their tested values.
+- At that same recovery checkpoint, the universal portable audit passed with 0
+  errors and four truthful hosted-control warnings after token-shaped privacy
+  fixtures were runtime-fragmented without changing their tested values.
 - Release-truth TDD now rejects stale pre-deployment claims. README, privacy map, review checklist, and release evidence consistently record the deployed Action, live August 13 notice, exact 17-tool inventory, rollback, and still-blocked public submission gates.
 - Production Action acceptance is preserved from exact code revision `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; it remains a separate consequential route and not an MCP tool. PR #8 merged the code as `f8e7ca1e10c096e050207828eeb9eb7957d7ef6f`.
 - Universal PR #4 exact head `1d1e6d03a92bbcec65bdc02ea6490af6e640eda8` contains the promoted AskRigor controls and passed run `31848203559`, job `94918801742`.
@@ -179,12 +188,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   sanitized artifacts. A Git-capable runner image is pinned by Node digest and
   Debian Git version after the first end-to-end attempt exposed the missing Git
   executable before network evaluation.
-- The live YouTube comment-ID response-shape regression has a failing-then-green
-  fixture test. Production research image
+- At the 2026-08-15 automated-review rollout, the live YouTube comment-ID
+  response-shape regression had a failing-then-green fixture test. That rollout's
+  production research image
   `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`
-  is healthy; the prior image and Compose file remain explicit rollback points.
-  Caddy was not recreated, the Action state/auth boundary is unchanged, and all
-  17 public MCP tools remain read-only.
+  was healthy at acceptance and is now superseded by the PR #23 image recorded
+  above. Caddy was not recreated, the Action state/auth boundary was unchanged,
+  and all 17 public MCP tools remained read-only.
 - Final protected run `20260815T110708.728Z-baa07445` used clean commit
   `8ed8c0f7aaab9609dfb067780c05838f98903bab`: all 9 direct cases passed,
   6 model cases passed, and 3 model cases remained honestly blocked by opaque
@@ -224,16 +234,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   public-review safety suite passes 61/61 after its deliberately credential-
   shaped runtime fixture was assembled from safe source fragments so the
   portable repository audit does not mistake the test source for a credential.
-- Final bootstrap passed on Node `24.18.0`: `npm ci` added 156 packages, audited
+- For the 2026-08-16 PR #12 packet-repair checkpoint, bootstrap passed on Node
+  `24.18.0`: `npm ci` added 156 packages, audited
   161, and found zero vulnerabilities. `npm run lessons:status` returned
   available at `2026-08-16T00:49:00.120Z`: 0 open, 0 needs review, 0 accepted
   not incorporated, 1 incorporated-or-closed, and 0 deletion eligible.
-- Final deterministic verification passes: 43 files passed, one live-provider
+- That PR #12 packet-repair verification passed 43 files, with one live-provider
   file skipped; 848 tests passed, five credential-gated tests skipped;
-  typecheck and build passed. Site validation covered four pages and deployment
-  tests passed 28/28. The current universal portable audit passes with no
+  typecheck and build passed. Site validation covered four pages, deployment
+  tests passed 28/28, and the universal portable audit at that checkpoint had no
   findings. No live provider call, production deployment, portal submission,
-  credential access, or protocol/application behavior change occurred.
+  credential access, or protocol/application behavior change occurred in that
+  packet-repair task.
 - Lesson closeout for this repair is project-specific / no-new-lesson. The
   distinction between repository-visible and hosted proof and the runtime-
   fragmented credential-fixture pattern were already promoted and tested in

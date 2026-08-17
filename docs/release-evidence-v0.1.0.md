@@ -33,10 +33,11 @@ The exact deployed server passed direct protocol, PubMed, ClinicalTrials.gov,
 Crossref, YouTube, malformed/oversized transport, rate/recovery, private lesson,
 append-only duplicate, authentication isolation, health, and frozen MCP checks.
 The complete sanitized receipts are in
-`docs/custom-gpt-action-live-acceptance.md`. Custom GPT editor/UI acceptance and
-the actual direct `/g/...` URL remain pending; direct server evidence does not
-prove product-interface behavior, and `gpt.askrigor.com` must not be repointed
-yet. Product-interface protocol and formal-source cases passed on 2026-08-16.
+`docs/custom-gpt-action-live-acceptance.md`. Product-interface protocol and
+formal-source cases passed on 2026-08-16. The repaired YouTube continuation,
+lesson-consent cases, publishing, and actual direct `/g/...` URL remain pending;
+direct server evidence does not prove those product-interface behaviors, and
+`gpt.askrigor.com` must not be repointed yet.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
 retrieved after restart, but zero were returned for analysis, replies were not
@@ -98,7 +99,7 @@ run the VPS validation.
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
-| Custom GPT bridge direct acceptance | Universal loaded in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Final health and the exact 17-tool MCP inventory passed. GPT editor/UI cases remain pending. |
+| Custom GPT bridge direct acceptance | Universal loaded in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Final health and the exact 17-tool MCP inventory passed. Protocol and formal-source UI cases passed; repaired YouTube continuation and lesson-consent UI cases remain pending. |
 | OpenAI Action importer compatibility | Exact merge `6639086a33b44f029c9f8405f69bd06b725e78d0` introduced the live-compatible schema and remains in the current release ancestry. Public schema checks found 18 operations, object-valued `components.schemas`, every summary/description within 300 characters, and both repaired legacy descriptions at 201 characters. The GPT editor subsequently imported the schema. |
 | YouTube terminal-refetch release | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862` is live. A test-first provider-boundary regression limits `comments.list` ID filters to 50 after the exact provider returned `200` for 50 IDs and `400 invalidFilters` for 51. The known 16-record video remains one-call `api_visible_complete`; the formerly failing two-call video reached 149 records, returned a deterministic 111-record sample, ended `completed_with_access_boundary`, reported no error or further continuation, and passed synthesis. Public health/schema/privacy/auth, both protocol identities, and the frozen 17-tool MCP inventory passed. GPT UI continuation retest remains pending. |
 
@@ -168,10 +169,11 @@ shape. A failing fixture regression preceded the minimal parser repair. The
 focused suite, full repository gate, isolated read-only image gate, and
 independent review passed before deployment.
 
-The production research service now runs image tag
+At that 2026-08-15 rollout, the production research service ran image tag
 `9715812bfbe3133a755f7ec8ffb91a870629a137`, image ID
 `sha256:e4838746679323050adb636f132ee3c4f72eb8d6c7765906357718531c54578b`,
-as container `37dadae8bb20e3aba33d597b06f11bdc4ae0077054e0ed3c39636f367a0da37c`.
+as container `37dadae8bb20e3aba33d597b06f11bdc4ae0077054e0ed3c39636f367a0da37c`;
+that deployment is superseded by the current identity table above.
 Only `research-mcp` was recreated. Caddy remained
 `5d849df160bda42b924feef49a4aff26a7d8df5e5cfa7f0d5e16ac378c43c23e`;
 public and loopback health returned `200`; the Action schema returned `200`;
