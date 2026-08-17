@@ -29,6 +29,12 @@ const READ_OPERATION_IDS = [
   "audit_youtube_video_community"
 ].sort();
 
+const EXACT_LESSON_CONSENT_SHELL = `**Proposed anonymized lesson**
+When [general situation], AskRigor should [correct behavior] because [reason].
+
+**Submit this anonymized lesson to improve AskRigor?**
+Reply: **Yes**, **Yes always in this chat**, or **No**.`;
+
 describe("deterministic Custom GPT synchronization packet", () => {
   it("exactly reproduces every committed generated artifact", async () => {
     const packet = await generateCustomGptPacket();
@@ -96,12 +102,31 @@ describe("deterministic Custom GPT synchronization packet", () => {
     }
   });
 
+  it("makes the complete lesson-consent shell authoritative at the Custom GPT boundary", async () => {
+    const { instructionsMarkdown } = await generateCustomGptPacket();
+    const normalizedInstructions = instructionsMarkdown.replace(/\s+/gu, " ");
+
+    expect(instructionsMarkdown).toContain(EXACT_LESSON_CONSENT_SHELL);
+    expect(normalizedInstructions).toContain(
+      "This shell is canonical Custom GPT interaction text from these Instructions",
+    );
+    expect(normalizedInstructions).toContain(
+      "do not look for it in Universal, HRP, Knowledge, or the Action schema",
+    );
+    expect(normalizedInstructions).toContain(
+      "Structured Action fields are not a substitute for this shell.",
+    );
+    expect(normalizedInstructions).toContain(
+      "do not call `submit_lesson_candidate` until the user's entire trimmed reply is exactly `Yes` or `Yes always in this chat`",
+    );
+  });
+
   it("hashes both instruction sources and both generated artifacts without self-hashing", async () => {
     const packet = await generateCustomGptPacket();
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync).toMatchObject({
       schema_version: 1,
-      generated_at: "2026-08-16",
+      generated_at: "2026-08-17",
       research_operation_ids: READ_OPERATION_IDS,
       consequential_operation_ids: ["submit_lesson_candidate"],
       editor: {

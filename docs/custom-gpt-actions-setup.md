@@ -91,15 +91,20 @@ Privacy: https://askrigor.com/privacy
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
 
-The instructions must display this exact question before the first eligible
-submission unless conversation-local standing consent already applies:
+The editor Instructions—not Universal, HRP, Knowledge, or the Action schema—are
+the authority for this complete shell before the first eligible submission
+unless conversation-local standing consent already applies:
 
-> Submit this anonymized lesson to improve AskRigor?
+> **Proposed anonymized lesson**
+> When [general situation], AskRigor should [correct behavior] because [reason].
+>
+> **Submit this anonymized lesson to improve AskRigor?**
+> Reply: **Yes**, **Yes always in this chat**, or **No**.
 
-The reply choices are `Yes`, `Yes always in this chat`, or `No`. Existing chats
-do not acquire new standing-consent behavior after an instruction update.
-Start a new chat for acceptance testing, and never carry standing consent
-between chats.
+Replace the bracketed line with one generalized lesson sentence. A raw list of
+Action fields is not the shell. Existing chats do not acquire new
+standing-consent behavior after an instruction update. Start a new chat for
+acceptance testing, and never carry standing consent between chats.
 
 ## 4. Research Action behavior and limits
 

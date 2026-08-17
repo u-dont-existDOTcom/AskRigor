@@ -9,9 +9,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; the isolated deployment-evidence branch starts from
-  verified GitHub main and production revision
-  `5585a9ca34ce01403044b1085b85d4f2de9783f4`. The continuation implementation
+- Canonical branch: `main`; verified GitHub main is PR #28 merge
+  `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`, while production remains exact
+  revision `5585a9ca34ce01403044b1085b85d4f2de9783f4`. The continuation implementation
   passed direct and Custom GPT UI two-call acceptance, and current Universal
   `20.5.13` passed fresh direct production acceptance.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
@@ -66,10 +66,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   bytes** and exact protocol chunks to **48,000 UTF-8 bytes**.
 - The generated packet remains reproducible: deployed committed OpenAPI SHA-256
   `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`,
-  Instructions
-  `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`,
+  hardened Instructions
+  `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`,
   and sync ledger
-  `2ad66c7929cf86714fd45f421df2f21db3bd8928c4036eb6ebe18fb941cb9e97`.
+  `768a2d61ed3eae05cfe76fdbf7b6f017f7d62a75d4c3e5d27fecf74025f19470`.
+  The failed-safe UI run used the prior Instructions digest
+  `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`.
   The sole editor instruction source is `docs/custom-gpt-instructions.md`;
   Knowledge must remain empty.
 - The transactional site release is
@@ -141,8 +143,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   while preserving internal file modes produced the accepted image. This is a
   provisional transferable deployment lesson pending universal disposition;
   the OpenAI 300-character constraint remains project-specific evidence.
-- Final pre-deployment lesson status was `available` at
-  `2026-08-17T19:32:19.089Z`: 0 open, 0 needs review, 0 accepted not
+- Current lesson status was `available` at
+  `2026-08-17T20:43:57.136Z`: 0 open, 0 needs review, 0 accepted not
   incorporated, 2 incorporated or closed, and 0 deletion eligible.
 - Lesson closeout: the AskRigor product failure, repaired UI pass, and exact
   limits are preserved in `docs/custom-gpt-action-live-acceptance.md`. The
@@ -155,14 +157,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   evidence-preserving universal review; exact merge, deployment, direct
   acceptance, and product-interface continuation now pass. Direct MCP clients
   remain the counterexample that should stay stateless.
-- Remaining Custom GPT editor/UI acceptance is the lesson-consent cases and a
-  fresh manifest/integrity/full-load receipt for the now-deployed canonical
-  Universal `20.5.13`. The successful continuation UI run loaded the prior
-  production Universal `20.5.12`. The editor must use
+- Universal `20.5.13` Custom GPT UI loading passed with exact 3-chunk,
+  98,154-byte coverage and matching chunk/whole digests. The following
+  synthetic lesson-consent shell failed safe: the GPT displayed raw candidate
+  fields, falsely treated the shell wording as unavailable, and made no lesson
+  Action call. The generated Instructions now contain the complete canonical
+  shell and explicit authority routing. The editor must use
   `docs/custom-gpt-instructions.md`, empty Knowledge, the live OpenAPI URL,
   Bearer authentication, and a new unpublished chat. `gpt.askrigor.com` must
-  not be repointed until those cases pass and the actual direct `/g/...` URL is
-  verified.
+  not be repointed until the consent/duplicate cases pass and the actual direct
+  `/g/...` URL is verified.
 
 ## Completed
 
@@ -297,6 +301,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Current checkpoint
 
+- The 2026-08-17 consent-shell repair was test-first: the generated-packet
+  regression failed against the incomplete shell, then the focused Custom GPT,
+  release-packet, and conversation-contract suite passed 26/26. The complete
+  Node `24.18.0` gate passed 51 files with one credential-gated file skipped,
+  917 tests with five declared skips, typecheck, and build. The initial sandbox
+  run failed only on prohibited local loopback/IPC listeners; the exact host-
+  boundary rerun passed.
+- Current production was reverified before this repair: public health was
+  `ok`; Universal remained exact `20.5.13`; live OpenAPI remained SHA-256
+  `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`
+  with 17 non-consequential reads and one consequential write; and the VPS
+  retained healthy container `5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b`
+  on image `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`.
+  Current and rollback Compose hashes remained unchanged.
 - PR #27 merge `5585a9ca34ce01403044b1085b85d4f2de9783f4` is the current
   deployed release. Production is healthy on the
   exact merged image, with the rollback image/config and active site release
@@ -315,17 +333,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   service-level time.
 - The separate Custom GPT compatibility surface is deployed but unpublished.
   The corrected schema imported successfully, and protocol/formal-source UI
-  cases and the repaired two-call YouTube handle UI chain passed. Canonical
-  Universal `20.5.13` passed direct production loading; its fresh Custom GPT UI
-  loading, the lesson-consent cases, publishing, and the direct `/g/...` URL
-  remain pending.
+  cases, the repaired two-call YouTube handle UI chain, and canonical Universal
+  `20.5.13` UI loading passed. The lesson-consent shell failed safe before any
+  Action call. Hardened generated Instructions now await editor installation;
+  their consent/duplicate retest, publishing, and the direct `/g/...` URL remain
+  pending.
 
 ## Remaining
 
-- Verify the now-deployed Universal `20.5.13` manifest, exact digest, complete
-  ordered load, and the lesson-consent cases in a fresh unpublished GPT chat
-  with empty Knowledge. The YouTube continuation UI proof is complete.
-- After the protocol-freshness and lesson-consent cases pass, publish the Custom GPT, verify its direct `/g/...`
+- Install the hardened generated Instructions in the unpublished GPT editor and
+  exercise the lesson-consent and duplicate cases in a fresh chat with empty
+  Knowledge. Protocol freshness and the YouTube continuation UI proof are
+  complete and must not be repeated as acceptance requirements.
+- After the lesson-consent cases pass, publish the Custom GPT, verify its direct `/g/...`
   URL, and only then repoint `gpt.askrigor.com`.
 - Observe developer/business identity completion and complete the portal HTTPS
   domain challenge.
@@ -342,9 +362,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - The importer fix is merged, green, deployed, and passed the product importer.
   Protocol and formal-source UI cases passed. The short-handle and terminal
   refetch repairs are deployed and accepted through both direct and fresh
-  product-interface tests. Production now directly serves and verifies
-  Universal `20.5.13`; only the fresh product-interface receipt for those bytes
-  remains.
+  product-interface tests. Universal `20.5.13` also passed the fresh product
+  interface. Only the hardened lesson-consent shell and duplicate UI cases
+  remain on this unpublished surface.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -376,22 +396,21 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Paste the exact sequence under `Remaining exact Custom GPT UI sequence` in
-`docs/custom-gpt-action-live-acceptance.md` into a new unpublished GPT chat
-using `docs/custom-gpt-instructions.md`, empty Knowledge, the already imported
-live Action schema, and Bearer authentication. It verifies the now-deployed
-Universal `20.5.13` bytes and exercises explicit one-time lesson consent plus
-the append-only duplicate. Do not repeat the completed YouTube continuation
-test or repoint the GPT subdomain until those UI receipts and the direct
-`/g/...` URL are verified.
+Replace the unpublished GPT editor Instructions with
+`docs/custom-gpt-instructions.md`, keep empty Knowledge and the already imported
+live Action schema/Bearer authentication, then paste the exact lesson-only
+sequence under `Remaining exact Custom GPT UI sequence` in
+`docs/custom-gpt-action-live-acceptance.md` into a new chat. Do not repeat the
+completed protocol-freshness or YouTube tests. Do not repoint the GPT subdomain
+until the consent/duplicate receipts and direct `/g/...` URL are verified.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #27, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
+through #28, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
 and newer owner instructions. Resume from the latest verified boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. This evidence branch starts from
-verified GitHub main and production
-`5585a9ca34ce01403044b1085b85d4f2de9783f4`.
+unless production identity has changed. This evidence branch is reconciled
+with GitHub main `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`;
+production remains `5585a9ca34ce01403044b1085b85d4f2de9783f4`.
