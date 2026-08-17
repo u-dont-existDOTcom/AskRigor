@@ -198,17 +198,22 @@ describe("AskRigor public-review packet", () => {
     expect(setup).toContain("does not disable lesson capture or MCP");
     expect(setup).toContain("direct `/g/...`");
     expect(release).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION BLOCKED"
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE DIRECT CONTINUATION PASSED, GPT UI RETEST PENDING"
     );
-    expect(release).toContain("6639086a33b44f029c9f8405f69bd06b725e78d0");
-    expect(state).toContain("codex/youtube-continuation-chain-repair-2026-08-16");
+    expect(release).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
+    expect(release).toContain("50 valid comment IDs returned HTTP `200`");
+    expect(release).toContain("51 returned HTTP `400 invalidFilters`");
+    expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
     expect(state).toContain("Remaining Custom GPT editor/UI acceptance");
-    expect(state).toContain("This is candidate behavior, not a production claim");
+    expect(state).toContain("This is now deployed direct behavior");
+    expect(state).not.toContain("This is candidate behavior, not a production claim");
     expect(acceptance).toContain("components.schemas");
     expect(acceptance).toContain("201 characters");
     expect(acceptance).toContain("66 API-visible records");
     expect(acceptance).toContain("synthesis_lock:block");
-    expect(acceptance).toContain("sha256:05225a8210238f8099af90ba5e8525a142e50e04018547f0d0c6186f6d30544d");
+    expect(acceptance).toContain("111-record");
+    expect(acceptance).toContain("synthesis_lock:pass");
+    expect(acceptance).toContain("sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
     expect(acceptance).toContain("DIRECT PASS");
