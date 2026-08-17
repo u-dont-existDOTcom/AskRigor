@@ -235,9 +235,18 @@ later Custom GPT UI freshness run loaded repository canonical protocol
 `20.5.13` completely in three verified chunks. The following synthetic lesson
 case failed safe before any write because the GPT displayed Action fields
 instead of the canonical consent shell. The generated Instructions now contain
-the full shell and explicit authority routing; editor installation and a fresh
-lesson-only retest remain pending. The actual direct `/g/...` URL is still
-pending and must not be inferred from server or unpublished-chat proof.
+the full shell and explicit authority routing. The retest displayed that shell
+and enforced exact consent, but the Action returned `action_auth_required`
+before its existing editor entry was configured with the Bearer key. Saving the
+corrected Action then triggered a public-content warning that the GPT may
+provide tailored medical or health advice. The generated public Custom GPT
+Instructions now retain general and subgroup evidence, treatment and harm
+comparisons, mechanisms, guidelines, community reports, source provenance, and
+clinician questions while explicitly prohibiting individualized diagnosis or
+treatment directives. This public-only boundary does not change the plugin,
+MCP server, canonical protocols, or production research tools. Public review,
+successful lesson/duplicate UI receipts, and the actual direct `/g/...` URL
+remain pending and must not be inferred from server proof.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 

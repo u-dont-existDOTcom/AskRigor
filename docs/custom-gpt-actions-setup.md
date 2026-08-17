@@ -91,6 +91,19 @@ Privacy: https://askrigor.com/privacy
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
 
+This boundary applies only to the public Custom GPT. It does not narrow the
+plugin, MCP server, or canonical protocols.
+Those surfaces retain their existing behavior; the public GPT is limited to
+general evidence research, source-grounded synthesis, and clinician-question
+preparation rather than personalized diagnosis or treatment direction.
+
+If the builder reports that the GPT may provide tailored medical or health
+advice, do not treat **Only me** as public completion and do not try to evade the
+review. Preserve the exact warning, install the current generated Instructions,
+and retry public review. If the explicit boundary is still rejected, use the
+account's appeal route and keep public publication and `gpt.askrigor.com`
+repointing blocked pending the decision.
+
 The editor Instructions—not Universal, HRP, Knowledge, or the Action schema—are
 the authority for this complete shell before the first eligible submission
 unless conversation-local standing consent already applies:
