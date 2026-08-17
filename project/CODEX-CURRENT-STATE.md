@@ -9,15 +9,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current hosted head before the privacy-model repair
-  is PR #31 merge `ed45bf42dfaea9f57bbf9268fabdbcd4a64b34c5`. The
+- Canonical branch: `main`; current hosted head is PR #32 merge
+  `d1af238325ee1e0584574e47bbcbe7764d17cf7e`. The privacy-model repair head
+  `87433b8829da835f1e8c2b1bd5cd613ac14046b6` passed all protected checks before
+  merge and all exact post-merge checks afterward. The
   public-boundary task started from PR #30 merge
   `8ac8b068cbf316d9a9802674ec27df0b55467afb`. The
   consent-shell repair started from PR #28 merge
   `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`. Exact PR #29 head
   `81328fc439b6cd6a199a9b707aeafe5b9881fadc` merged as
-  `25849647969a4bf333659feaa30f0b418cc24d57`, while production remains exact
-  revision `5585a9ca34ce01403044b1085b85d4f2de9783f4`. The continuation implementation
+  `25849647969a4bf333659feaa30f0b418cc24d57`, while production now runs exact
+  revision `d1af238325ee1e0584574e47bbcbe7764d17cf7e`. The continuation implementation
   passed direct and Custom GPT UI two-call acceptance, and current Universal
   `20.5.13` passed fresh direct production acceptance.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
@@ -54,18 +56,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   merge: enabled research Actions now require the server-only continuation
   secret at startup, and all operations declare the router-owned 500 response.
 - Production runs exact application revision
-  `5585a9ca34ce01403044b1085b85d4f2de9783f4` as image
-  `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`
+  `d1af238325ee1e0584574e47bbcbe7764d17cf7e` as image
+  `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`
   in healthy container
-  `5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b`.
-  Rollback is `askrigor-research:rollback-5585a9c` plus
-  `/opt/askrigor/compose.yaml.rollback-5585a9c`, restoring image
-  `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`.
+  `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`.
+  Rollback is `askrigor-research:rollback-d1af238` plus
+  `/opt/askrigor/compose.yaml.rollback-d1af238`, restoring image
+  `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`.
   Current Compose SHA-256 is
-  `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`;
+  `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`;
   rollback Compose SHA-256 is
-  `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`.
-  Only the research service was recreated for the protocol switch.
+  `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`.
+  Only the research service was recreated for the privacy-model repair.
 - `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active. Research Actions share
   MCP's transient provider flow, per-client token bucket, and 16-request
   concurrency pool. Responses remain limited to **60,000 serialized UTF-8
@@ -152,7 +154,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   provisional transferable deployment lesson pending universal disposition;
   the OpenAI 300-character constraint remains project-specific evidence.
 - Current lesson status was `available` at
-  `2026-08-17T20:43:57.136Z`: 0 open, 0 needs review, 0 accepted not
+  `2026-08-17T23:45:43.207Z`: 0 open, 0 needs review, 0 accepted not
   incorporated, 2 incorporated or closed, and 0 deletion eligible.
 - Lesson closeout: the AskRigor product failure, repaired UI pass, and exact
   limits are preserved in `docs/custom-gpt-action-live-acceptance.md`. The
@@ -197,14 +199,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `privacy_rejected` for the fully generalized source-audit lesson. No private
   candidate was created; the queue remained 0 open, 0 needs review, 0 accepted
   not incorporated, 2 incorporated or closed, and 0 deletion eligible.
-- The displayed lesson passes the deterministic privacy screen. The fixed
+- The displayed lesson passes the deterministic privacy screen. The previously
   deployed model `gpt-5-nano-2025-08-07` is now deprecated in official OpenAI
   documentation and has a recorded prior one-off rejection of the existing safe
-  fixture. The repair candidate pins `gpt-5.4-nano-2026-03-17`, updates exact
+  fixture. PR #32 pins `gpt-5.4-nano-2026-03-17`, updates exact
   token accounting and reasoning syntax, and adds explicit privacy-only
   guidance. Its non-stored synthetic compatibility probe passed 8/8 safe cases
-  and 3/3 identifier cases with zero identifier leakage. This remains candidate
-  behavior until merge and transactional deployment.
+  and 3/3 identifier cases with zero identifier leakage. Exact merged code is
+  now deployed; its GitHub-disconnected, non-stored safe-candidate probe returned
+  `generalized` without touching the production lesson ledger or GitHub.
 
 ## Completed
 
@@ -351,18 +354,27 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   917 tests with five declared skips, typecheck, and build. The initial sandbox
   run failed only on prohibited local loopback/IPC listeners; the exact host-
   boundary rerun passed.
-- Current production was reverified before this repair: public health was
-  `ok`; Universal remained exact `20.5.13`; live OpenAPI remained SHA-256
+- Current production passed the privacy-model rollout: public health was `ok`;
+  Universal remained exact `20.5.13`; live OpenAPI remained SHA-256
   `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`
   with 17 non-consequential reads and one consequential write; and the VPS
-  retained healthy container `5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b`
-  on image `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`.
-  Current and rollback Compose hashes remained unchanged.
-- PR #27 merge `5585a9ca34ce01403044b1085b85d4f2de9783f4` is the current
+  runs healthy container
+  `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`
+  on image `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`.
+  The exact state mount, read-only root filesystem, dropped capabilities,
+  no-new-privileges, Caddy identity, and image-only Compose delta passed.
+- PR #32 merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e` is the current
   deployed release. Production is healthy on the
   exact merged image, with the rollback image/config and active site release
   recorded above. Server-side direct acceptance, including the exact repaired
-  two-call YouTube chain, is complete.
+  two-call YouTube chain, is complete. The first privacy rollout transaction
+  restored the prior healthy release after detecting a short-versus-full Caddy
+  ID comparison mismatch; the corrected full-ID transaction then passed.
+- The privacy repair was test-first. Its focused suite passed 63/63, the broader
+  affected suite passed 144/144, and the complete Node `24.18.0` gate passed 51
+  test files with one credential-gated file skipped, 919 tests with five
+  declared skips, typecheck, and build. Protected PR and exact post-merge
+  deterministic, workflow-policy, and CodeQL checks passed.
 - Repository-controlled packet repair and bridge implementation are merged and
   verified. V0.1.0 remains
   **PUBLIC SUBMISSION BLOCKED** for
@@ -379,17 +391,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   The corrected schema imported successfully, and protocol/formal-source UI
   cases, the repaired two-call YouTube handle UI chain, and canonical Universal
   `20.5.13` UI loading passed. The hardened consent shell, Action
-  authentication, and public-content review now pass. The first authenticated
-  lesson reached the privacy model and failed closed before GitHub; successful
+  authentication, public-content review, privacy-model repair, and exact
+  deployment probe now pass. The first authenticated lesson reached the old
+  privacy model and failed closed before GitHub; successful fresh-chat
   lesson/duplicate receipts and the direct `/g/...` URL remain pending.
 
 ## Remaining
 
-- Merge and transactionally deploy the pinned privacy-model repair. Then rerun
-  only the lesson submission and duplicate cases in a fresh published-GPT chat;
-  do not retry the non-retryable rejected call against the old deployment.
-  Protocol freshness, YouTube continuation, publication, consent, and
-  authentication are complete and must not be repeated as acceptance
+- Rerun only the lesson submission and duplicate cases in a fresh published-GPT
+  chat against the deployed privacy-model repair. Do not retry the
+  non-retryable rejected call in its old chat. Protocol freshness, YouTube
+  continuation, publication, consent, authentication, deployment, and the
+  direct privacy probe are complete and must not be repeated as acceptance
   requirements.
 - Verify the published GPT's direct `/g/...` URL before repointing
   `gpt.askrigor.com`.
@@ -409,10 +422,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   Protocol and formal-source UI cases passed. The short-handle and terminal
   refetch repairs are deployed and accepted through both direct and fresh
   product-interface tests. Universal `20.5.13` also passed the fresh product
-  interface. The hardened consent shell, authentication, and public publication
-  now pass. The safe synthetic lesson is blocked at the deployed fixed privacy
-  model; the repair candidate is not yet merged or deployed. Successful lesson
-  and duplicate UI receipts remain pending.
+  interface. The hardened consent shell, authentication, public publication,
+  privacy-model repair, exact deployment, and direct non-stored probe now pass.
+  Successful fresh-chat lesson and duplicate UI receipts remain pending.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -444,21 +456,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Complete the pinned privacy-model repair, merge it after hosted checks, deploy
-the exact merge transactionally with rollback, and validate health plus a
-GitHub-disconnected non-stored privacy probe. Then rerun only the lesson and
-duplicate UI sequence in a new published-GPT chat. Do not retry against the old
-deployment or repeat the completed protocol, provider, YouTube, publication,
-consent, or authentication tests. Do not repoint the GPT subdomain before
-lesson/duplicate receipts and the direct `/g/...` URL are verified.
+Rerun only the lesson and duplicate UI sequence in a new published-GPT chat
+against the deployed privacy-model repair. Do not retry in the old chat or
+repeat the completed protocol, provider, YouTube, publication, consent,
+authentication, deployment, or direct privacy-probe tests. Do not repoint the
+GPT subdomain before lesson/duplicate receipts and the direct `/g/...` URL are
+verified.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #31, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
+through #32, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
 and newer owner instructions. Resume from the latest verified boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. Current GitHub main is PR #31 merge
-`ed45bf42dfaea9f57bbf9268fabdbcd4a64b34c5`; production remains
-`5585a9ca34ce01403044b1085b85d4f2de9783f4`.
+unless production identity has changed. Current GitHub main and production are
+PR #32 merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e`.

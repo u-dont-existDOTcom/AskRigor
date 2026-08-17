@@ -1,6 +1,6 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AND AUTHENTICATION PASSED; PRIVACY-MODEL REPAIR PENDING**. The exact
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AUTHENTICATION, AND PRIVACY-MODEL REPAIR PASSED; LESSON/DUPE UI RETEST PENDING**. The exact
 production Action boundary and the formerly failing two-call YouTube chain have
 passed both the sanitized direct checks and the repaired Custom GPT UI relay
 test below. The Custom GPT also loaded canonical Universal
@@ -24,12 +24,12 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Universal `20.5.13` production acceptance completed through `2026-08-17T19:52:27Z`; accepted container started `2026-08-17T19:49:50.291758112Z`. |
-| deployed commit | PR #27 merge `5585a9ca34ce01403044b1085b85d4f2de9783f4`; exact acceptance-evidence head `a745979af07a6931324887023ce5b63f2991a2a6`. Universal `20.5.13` integration commits `38d7b58` and `52a2201` and the repaired continuation release remain in its ancestry. |
-| deployed image | `askrigor-research:5585a9ca34ce01403044b1085b85d4f2de9783f4`; image ID `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`; healthy container `5dd468499d6806b506f69e003bf45d76e773682c549e735e6519eb92bdba8d5b`. |
-| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained `root:root` mode `0600` and was not read. |
-| rollback image/config | `askrigor-research:rollback-5585a9c` resolves the immediately prior production image `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; `/opt/askrigor/compose.yaml.rollback-5585a9c` has SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`. |
-| deployment archives | Exact secret-free source archive SHA-256 `024cb1f552fddc82b24c89a6c2ca84ba5d8de4a66f76e50e88c4c2e77f0cf283`; exact built image archive SHA-256 `81da2e8e5c9e727e884c20dd560c76537072c5913380334130cd7bc7d14b0cf0`. |
+| UTC time | Privacy-model repair accepted through `2026-08-17T23:45:43Z`; accepted container started `2026-08-17T23:43:10.519715525Z`. |
+| deployed commit | PR #32 head `87433b8829da835f1e8c2b1bd5cd613ac14046b6` merged as exact `d1af238325ee1e0584574e47bbcbe7764d17cf7e`; the previous Universal/continuation release remains in its ancestry. |
+| deployed image | `askrigor-research:d1af238325ee1e0584574e47bbcbe7764d17cf7e`; image ID `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`; healthy container `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`. |
+| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained `root:root` mode `0600` and was not read. |
+| rollback image/config | `askrigor-research:rollback-d1af238` resolves the immediately prior production image `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`; `/opt/askrigor/compose.yaml.rollback-d1af238` has SHA-256 `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`. |
+| deployment archive | Exact secret-free source archive SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`; 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
 | instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell candidate installed in the editor: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public health-research boundary: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
@@ -224,15 +224,37 @@ incorporated or closed, and 0 deletion eligible.
 The exact displayed lesson passes the deterministic privacy screen. The release
 history already records a one-off model rejection of the existing safe
 synthetic fixture followed by `safe:true` on an isolated identical-input check.
-Official OpenAI documentation now marks the deployed fixed model
-`gpt-5-nano-2025-08-07` deprecated. The repair candidate pins
+Official OpenAI documentation now marks the previously deployed fixed model
+`gpt-5-nano-2025-08-07` deprecated. PR #32 pins
 `gpt-5.4-nano-2026-03-17`, updates exact token-cost accounting and reasoning
 syntax, and adds explicit privacy-only classification guidance without weakening
 either deterministic screen or the fail-closed result contract. A non-stored,
 GitHub-disconnected compatibility probe using only synthetic inputs returned
 8/8 valid safe-case generalizations and 3/3 safely generalized-or-rejected
-identifier cases with zero identifier leakage. This is candidate evidence until
-the exact repair commit is merged and transactionally deployed.
+identifier cases with zero identifier leakage.
+
+PR #32 merged exact repair head
+`87433b8829da835f1e8c2b1bd5cd613ac14046b6` as
+`d1af238325ee1e0584574e47bbcbe7764d17cf7e` after the pull-request and
+post-merge deterministic, workflow-policy, and CodeQL checks passed. The first
+transactional switch deliberately rolled back to the healthy prior image when
+a post-check compared Docker's short Caddy ID with the recorded full ID. The
+rollback restored the exact prior Compose hash, image, loopback/public health,
+and full Caddy identity. Repeating the same exact image switch with a full-ID
+comparison succeeded; only the research container was recreated.
+
+Post-deployment checks passed the immutable image identity, loopback/public
+health, unchanged 18-operation OpenAPI SHA-256, unauthenticated lesson `401`,
+read-only root filesystem, dropped capabilities, no-new-privileges, exact state
+mount, image-only Compose delta, unchanged Caddy identity, and exact 17-tool
+ordered-name SHA-256
+`5719a8539fbf75c8bb2db58fc5aa7849c8ed307216544c221ab602bf7b983b29`.
+One exact-code, non-stored, GitHub-disconnected safe-candidate probe returned
+`generalized`; its in-memory accounting was 348,500 nano-USD and did not touch
+the production budget ledger. The private queue remained 0 open, 0 needs
+review, 0 accepted not incorporated, 2 incorporated or closed, and 0 deletion
+eligible. The published-GPT lesson and duplicate cases remain the only required
+UI retest.
 
 ## YouTube continuation and terminal-refetch release — 2026-08-17
 
@@ -282,7 +304,7 @@ retained here.
 
 ## Remaining exact Custom GPT UI sequence
 
-After the privacy-model repair is deployed, keep the published GPT Instructions
+With the privacy-model repair deployed, keep the published GPT Instructions
 at exact `docs/custom-gpt-instructions.md`, keep Knowledge empty, and start a
 new chat. Do not repeat the completed protocol-freshness or YouTube tests. Paste
 this block exactly:

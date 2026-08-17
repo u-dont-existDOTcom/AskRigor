@@ -248,7 +248,9 @@ MCP server, canonical protocols, or production research tools. The owner then
 reported successful public publication. The first authenticated lesson call
 reached the server privacy gate but returned `privacy_rejected` for the fully
 generalized synthetic source-audit lesson; the private queue remained
-unchanged. A pinned privacy-model repair is now under verification. Successful
+unchanged. PR #32 migrated the privacy check to pinned
+`gpt-5.4-nano-2026-03-17`; exact merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e`
+is deployed and its non-stored safe-candidate probe passes. Successful
 lesson/duplicate UI receipts and the actual direct `/g/...` URL remain pending
 and must not be inferred from publication or server proof.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;

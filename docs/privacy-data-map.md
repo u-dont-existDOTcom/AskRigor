@@ -1,6 +1,6 @@
 # AskRigor v0 data map and privacy review
 
-Status at 2026-08-16: this remains the detailed engineering inventory.
+Status at 2026-08-17: this remains the detailed engineering inventory.
 The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.
 The August 13, 2026 lesson notice is live and was reverified before the lesson Action was enabled.
 
@@ -35,8 +35,9 @@ switch. Its local candidate limits are **60,000 serialized UTF-8 bytes** per
 response and **48,000 UTF-8 bytes** of exact protocol text per ordered chunk.
 Research Actions and MCP use one shared per-client rate limit and concurrency
 pool.
-These statements describe candidate behavior until deployment and live
-acceptance are separately recorded; they do not claim that the bridge is live.
+The bridge is live; its exact deployment and acceptance identities are recorded
+separately in `docs/custom-gpt-action-live-acceptance.md` and
+`docs/release-evidence-v0.1.0.md`.
 
 ## Data returned to the MCP or Custom GPT Action client
 
