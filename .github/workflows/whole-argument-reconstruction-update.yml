@@ -1,0 +1,55 @@
+name: Temporary whole-argument reconstruction update
+
+on:
+  push:
+    branches:
+      - codex/whole-argument-reconstruction-2026-08-17
+
+permissions:
+  contents: write
+
+concurrency:
+  group: whole-argument-reconstruction-update-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out task branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Set up exact Node runtime
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Apply guarded canonical transformation
+        run: node scripts/apply-whole-argument-reconstruction-update.mjs
+
+      - name: Run complete deterministic verification
+        run: npm run verify
+
+      - name: Check patch hygiene
+        run: git diff --check
+
+      - name: Commit generated canonical files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No generated changes to commit"
+            exit 0
+          fi
+          git commit -m "feat: add whole-argument reconstruction gate"
+          git push origin HEAD:${GITHUB_REF_NAME}
