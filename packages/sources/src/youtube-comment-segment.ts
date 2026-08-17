@@ -118,6 +118,7 @@ export interface YoutubeCommentSegmentRuntime {
 }
 
 export interface YoutubeCommentRefetchRuntime {
+  max_provider_requests?: number;
   max_elapsed_ms?: number;
   now?: () => number;
 }
@@ -731,10 +732,16 @@ export async function getYoutubeCommentsByIds(
   }
 
   const comments: YoutubeComment[] = [];
+  let missingRequestedIdentifier = false;
   const now = runtime.now ?? Date.now;
   const startedAt = now();
   const maxElapsedMs = runtime.max_elapsed_ms ?? DEFAULT_MAX_ELAPSED_MS;
-  if (!Number.isInteger(maxElapsedMs) || maxElapsedMs < 1) {
+  const maxProviderRequests = runtime.max_provider_requests ?? DEFAULT_MAX_PROVIDER_REQUESTS;
+  let providerRequests = 0;
+  if (
+    !Number.isInteger(maxElapsedMs) || maxElapsedMs < 1 ||
+    !Number.isSafeInteger(maxProviderRequests) || maxProviderRequests < 1
+  ) {
     return {
       access_status: "error",
       comments: [],
@@ -742,7 +749,11 @@ export async function getYoutubeCommentsByIds(
     };
   }
   try {
+    const pendingBatches: string[][] = [];
     for (let offset = 0; offset < commentIds.length; offset += 100) {
+      pendingBatches.push(commentIds.slice(offset, offset + 100));
+    }
+    while (pendingBatches.length > 0) {
       const elapsedMs = refetchElapsed(now, startedAt);
       if (elapsedMs >= maxElapsedMs) {
         return {
@@ -751,17 +762,44 @@ export async function getYoutubeCommentsByIds(
           limitations: ["Comment-ID refetch reached its per-call elapsed-time budget."]
         };
       }
-      const batch = commentIds.slice(offset, offset + 100);
+      if (providerRequests >= maxProviderRequests) {
+        return {
+          access_status: "partial",
+          comments,
+          limitations: ["Comment-ID refetch reached its per-call provider-request budget."]
+        };
+      }
+      const batch = pendingBatches.shift()!;
       const requested = new Set(batch);
       const url = new URL(`${YOUTUBE_API_URL}/comments`);
       url.searchParams.set("part", "snippet");
       url.searchParams.set("id", batch.join(","));
       url.searchParams.set("textFormat", "plainText");
       url.searchParams.set("key", config.apiKey);
-      const payload = await fetchJson(url.toString(), {
-        maxRetries: 0,
-        timeoutMs: Math.max(1, maxElapsedMs - elapsedMs)
-      });
+      let payload: unknown;
+      try {
+        providerRequests += 1;
+        payload = await fetchJson(url.toString(), {
+          maxRetries: 0,
+          timeoutMs: Math.max(1, maxElapsedMs - elapsedMs)
+        });
+      } catch (error) {
+        if (
+          error instanceof UpstreamHttpError &&
+          error.status === 404 &&
+          error.reason === "commentNotFound"
+        ) {
+          if (batch.length === 1) {
+            missingRequestedIdentifier = true;
+          } else {
+            const midpoint = Math.ceil(batch.length / 2);
+            pendingBatches.unshift(batch.slice(midpoint));
+            pendingBatches.unshift(batch.slice(0, midpoint));
+          }
+          continue;
+        }
+        throw error;
+      }
       const parsed = commentIdListSchema.safeParse(payload);
       if (!parsed.success || parsed.data.nextPageToken !== undefined) {
         return invalidCommentIdRefetch(comments);
@@ -781,11 +819,7 @@ export async function getYoutubeCommentsByIds(
         comments.push(normalizeComment(item, videoId, parentId ?? item.id, parentId !== undefined));
       }
       if (returned.size !== batch.length) {
-        return {
-          access_status: "partial",
-          comments,
-          limitations: ["YouTube no longer exposed every requested sampled comment identifier."]
-        };
+        missingRequestedIdentifier = true;
       }
     }
   } catch (error) {
@@ -800,6 +834,13 @@ export async function getYoutubeCommentsByIds(
       };
     }
     return invalidCommentIdRefetch(comments);
+  }
+  if (missingRequestedIdentifier) {
+    return {
+      access_status: "partial",
+      comments,
+      limitations: ["YouTube no longer exposed every requested sampled comment identifier."]
+    };
   }
   return {
     access_status: "api_visible_complete",

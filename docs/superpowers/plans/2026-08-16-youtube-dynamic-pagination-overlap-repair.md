@@ -47,6 +47,33 @@ reconciling those exact prior identifiers.
    inventory. The existing `limitations`, `extraction_coverage`, and receipt
    fields carry the boundary truthfully.
 
+## Post-merge live finding and terminal-refetch repair
+
+The first exact-merge production acceptance acquired 66 then 82 unique records
+for the selected 148-comment video and exhausted top-level pagination. The
+terminal deterministic-ID refetch returned no analysis sample, so the receipt
+correctly remained `incomplete` with `synthesis_lock:block`; the deployment was
+rolled back. No comment text, identifier, continuation handle, or credential
+was persisted in the acceptance evidence.
+
+The follow-up repair must preserve the already accepted corpus count and digest
+while distinguishing acquisition from later sample availability:
+
+1. A `commentNotFound` response for a multi-ID refetch batch is split until the
+   unavailable stable identifier is isolated, without discarding accessible
+   peers. Splitting remains bounded by the existing 15-second ceiling and an
+   explicit 50-request ceiling.
+2. A nonempty verified subset may finish only as
+   `completed_with_access_boundary`, with deterministic sample ordering,
+   `synthesis_lock:pass`, the full acquired `corpus_count`, the smaller exact
+   `sampled_count`, provider refetch limitations, and an explicit warning that
+   the retained sample may not represent the full acquired corpus.
+3. Zero refetchable records, duplicate/unrequested IDs, or a wrong-video record
+   still fail closed and require restart.
+4. No comment text or identifier is added to the Custom GPT handle map, logs,
+   durable state, or committed evidence; the frozen MCP/Action schemas remain
+   unchanged.
+
 ## Verification
 
 - Failing tests first for top-level and reply overlap.

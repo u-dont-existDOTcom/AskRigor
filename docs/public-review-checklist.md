@@ -123,8 +123,13 @@ only the existing signed minimized token, never comment text, author identity,
 provider credentials, or protocol text; it is capped at 2,048 entries and 16
 MiB and is not written to disk or application logs. An unavailable handle must
 fail closed and restart from the video identifier. Product acceptance requires
-a real continued audit ending with nonzero analyzed records, reconciled replies,
-and `synthesis_lock:pass`; a short first response alone is insufficient.
+a real continued audit ending with nonzero analyzed records and
+`synthesis_lock:pass`; a short first response alone is insufficient.
+`replies_reconciled:false` is acceptable only when an explicit terminal access
+boundary explains the unresolved provider totals. If terminal sampled
+identifiers are no longer all refetchable, the returned subset must remain
+nonzero and deterministic, the acquired corpus count/digest must remain
+unchanged, and the receipt/limitations must not claim a complete snapshot.
 
 Fresh production acceptance on 2026-08-12 discovered the prior exact 15 tools and
 annotations at `https://mcp.askrigor.com/mcp`. The compound tool returned
