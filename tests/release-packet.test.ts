@@ -173,7 +173,7 @@ describe("AskRigor public-review packet", () => {
     expect(releaseEvidence).toContain("56d13b73e74c377cfd6d513a5f4ceeec9949e0bf");
   });
 
-  it("records deployed direct acceptance without claiming unfinished Custom GPT UI proof", async () => {
+  it("records the repaired Custom GPT UI continuation proof without overstating remaining acceptance", async () => {
     const [setup, privacyMap, privacySite, readme, index, release, state, acceptance] =
       await Promise.all([
         readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
@@ -238,10 +238,12 @@ describe("AskRigor public-review packet", () => {
     const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE DIRECT CONTINUATION PASSED, GPT UI RETEST PENDING"
+      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, LESSON CONSENT PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
-    expect(releaseStatus).toMatch(/The equivalent fresh Custom GPT UI retest remains\s+pending\./u);
+    expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
+    expect(releaseStatus).toContain("Universal `20.5.12`");
+    expect(releaseStatus).toContain("current canonical Universal `20.5.13`");
     expect(releaseStatus).not.toContain("Custom GPT editor/UI acceptance and");
     expect(terminalRefetch).toMatch(
       /50 valid\s+comment IDs returned HTTP `200` and exactly 50 items/u,
@@ -250,20 +252,20 @@ describe("AskRigor public-review packet", () => {
       /51 valid comment IDs\s+returned HTTP `400 invalidFilters` and zero items/u,
     );
     expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
-    expect(state).toContain("Remaining Custom GPT editor/UI acceptance");
+    expect(state).toContain("Remaining Custom GPT editor/UI acceptance is the lesson-consent cases");
     expect(state).toContain("This is now deployed direct behavior");
     expect(state).not.toContain("This is candidate behavior, not a production claim");
     expect(acceptance).toContain("components.schemas");
     expect(acceptance).toContain("201 characters");
     expect(acceptance).toContain("66 API-visible records");
     expect(acceptance).toContain("synthesis_lock:block");
-    expect(case6).toContain("DIRECT PASS, INCLUDING REPAIRED TWO-CALL CHAIN — GPT UI RETEST pending");
+    expect(case6).toContain("DIRECT PASS — GPT UI PASS (2026-08-17), INCLUDING REPAIRED TWO-CALL CHAIN");
     expect(case6).toContain("66 records on call one");
     expect(case6).toContain("reached 149 on call two");
     expect(case6).toContain("returned 111 deterministic");
     expect(case6).toContain("completed_with_access_boundary");
     expect(case6).toContain("synthesis without an error or further continuation");
-    expect(case6).not.toContain("GPT UI PASS");
+    expect(case6).toContain("replies_reconciled` remained `false");
     for (const uiPassedCase of uiPassedCases) {
       expect(uiPassedCase).toContain("GPT UI PASS (2026-08-16)");
       expect(uiPassedCase).not.toMatch(/GPT UI (?:RETEST )?pending/u);

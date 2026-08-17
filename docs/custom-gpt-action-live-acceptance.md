@@ -1,10 +1,10 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE DIRECT CONTINUATION PASSED, GPT UI RETEST PENDING**. The exact
-production Action boundary, including the formerly failing two-call YouTube
-chain, has passed the sanitized direct checks below. The unpublished Custom GPT
-still must repeat the repaired continuation and lesson-consent cases in a fresh
-chat. Direct server proof is not relabeled as ChatGPT UI proof.
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, LESSON CONSENT PENDING**. The exact
+production Action boundary and the formerly failing two-call YouTube chain have
+passed both the sanitized direct checks and the repaired Custom GPT UI relay
+test below. The unpublished Custom GPT still must complete the lesson-consent
+cases. Direct server proof is not relabeled as ChatGPT UI proof.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -58,8 +58,8 @@ was repeated because that deployment changed only exported OpenAPI structure
 and two descriptions. The editor subsequently imported the repaired schema,
 and the 2026-08-16 product-interface run passed cases 1 through 5 below. The
 2026-08-17 PR #23 release freshly reran direct health, schema, protocol, MCP,
-and both YouTube audit paths. The repaired YouTube continuation and lesson
-consent cases remain the product-interface work still pending.
+and both YouTube audit paths. The repaired YouTube continuation passed through
+the product interface on 2026-08-17; the lesson-consent cases remain pending.
 
 ## Custom GPT product-interface evidence — 2026-08-16
 
@@ -83,15 +83,39 @@ The failing product path required ChatGPT to reproduce a
 several-thousand-character opaque token exactly. The owner approved an
 Action-only, one-hour, bounded process-memory handle repair. That repair and
 the follow-up overlap/refetch corrections are now merged, deployed, and direct
-two-call accepted. A fresh Custom GPT continuation test is still required for
-product-layer proof.
+two-call accepted.
 
-Lesson disposition: **provisional transferable**. The evidence supports a
+## Custom GPT product-interface continuation evidence — 2026-08-17
+
+The owner-provided output from a fresh Custom GPT run establishes the repaired
+product-layer relay without retaining comment text, provider bodies, or the
+continuation value. The required video `nIRABXSJwSw` was intentionally
+off-topic for the health question, and the GPT kept that mismatch separate
+from its substantive synthesis.
+
+Call one retrieved 66 unique API-visible records, returned zero records for
+analysis, recommended continuation, kept `synthesis_lock:block`, and returned
+the expected 37-character Action handle. The unchanged handle was relayed into
+call two. That call retrieved 83 more records, reached 149 cumulative unique
+records, returned the deterministic 111-record analysis sample, recommended no
+further continuation, reported no error, ended
+`completed_with_access_boundary`, and set `synthesis_lock:pass`.
+`reply_count_mismatches` was empty, while `replies_reconciled` truthfully
+remained `false` because the moving-pagination/reply boundary prevented an
+independent proof of provider-reported per-parent reply totals.
+
+This product-interface pass loaded HRP `20.5.18` and the then-deployed Universal
+`20.5.12`. The current canonical repository protocol is Universal `20.5.13`;
+the UI receipt therefore closes the short-handle continuation defect but is not
+evidence that the newer Universal bytes were loaded from production.
+
+Lesson disposition: **transferable with bounded scope**. The evidence supports a
 bounded warning about model-mediated relay of large opaque tool arguments, not
 a rule that all continuations require server state. Direct programmatic MCP
 clients are the explicit counterexample; any handle design must disclose its
 privacy, restart, expiry, eviction, and horizontal-scaling limits. Promotion to
-`universal-dev-architecture` still waits for the product-interface retest.
+`universal-dev-architecture` is now eligible for an evidence-preserving owner
+review; this project record does not claim that promotion already occurred.
 
 ## YouTube continuation and terminal-refetch release — 2026-08-17
 
@@ -196,7 +220,7 @@ retained here.
 ### Case 6 — YouTube survey and terminal per-video audit
 
 - Request class: public community-evidence discovery and continuation.
-- Result: **DIRECT PASS, INCLUDING REPAIRED TWO-CALL CHAIN — GPT UI RETEST pending**.
+- Result: **DIRECT PASS — GPT UI PASS (2026-08-17), INCLUDING REPAIRED TWO-CALL CHAIN**.
 - Sanitized result: four directional searches returned `complete` with 22
   current candidates; all 22 had valid public URLs and valid provider comment
   counts, and target `W42rwWD6zjw` was present. Its audit retrieved all 16
@@ -205,10 +229,13 @@ retained here.
   `synthesis_lock:pass`. The repaired `nIRABXSJwSw` chain separately retained
   66 records on call one, reached 149 on call two, returned 111 deterministic
   analysis records, ended `completed_with_access_boundary`, and passed
-  synthesis without an error or further continuation.
+  synthesis without an error or further continuation. The product-interface
+  receipt matched those counts and states; `reply_count_mismatches` was empty
+  while `replies_reconciled` remained `false` at the declared access boundary.
 - Limitation: search results are provider-dynamic and are not population
-  incidence. The GPT must still demonstrate the repaired short-handle relay in
-  a fresh product session; direct Action proof does not establish UI behavior.
+  incidence. The UI proof covers the deployed HRP `20.5.18` / Universal
+  `20.5.12` protocol pair and does not establish a later published GPT revision
+  or production loading of canonical Universal `20.5.13`.
 
 ### Case 7 — Malformed and oversized requests
 

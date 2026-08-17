@@ -13,7 +13,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE DIRECT CONTINUATION PASSED, GPT UI RETEST PENDING
+## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION PASSED, LESSON CONSENT PENDING
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -34,10 +34,11 @@ Crossref, YouTube, malformed/oversized transport, rate/recovery, private lesson,
 append-only duplicate, authentication isolation, health, and frozen MCP checks.
 The complete sanitized receipts are in
 `docs/custom-gpt-action-live-acceptance.md`. Product-interface protocol and
-formal-source cases passed on 2026-08-16. The repaired YouTube continuation,
-lesson-consent cases, publishing, and actual direct `/g/...` URL remain pending;
-direct server evidence does not prove those product-interface behaviors, and
-`gpt.askrigor.com` must not be repointed yet.
+formal-source cases passed on 2026-08-16.
+The repaired two-call Custom GPT UI retest passed on 2026-08-17.
+Lesson-consent cases, publishing, and the actual
+direct `/g/...` URL remain pending, so `gpt.askrigor.com` must not be repointed
+yet.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
 retrieved after restart, but zero were returned for analysis, replies were not
@@ -46,16 +47,18 @@ short-handle, overlap reconciliation, fail-closed terminal sample, and 50-ID
 refetch repairs are now merged and deployed. Fresh direct acceptance on the
 same video completed the two-call chain with 149 cumulative records, a
 111-record deterministic sample, no error or further continuation, and
-`synthesis_lock:pass`. The equivalent fresh Custom GPT UI retest remains
-pending.
+`synthesis_lock:pass`. The fresh Custom GPT UI retest matched the two-call
+counts and terminal state. It loaded the then-deployed Universal `20.5.12`;
+the current canonical Universal `20.5.13` still requires production rollout
+and fresh manifest/integrity/load proof.
 
-Continuation-relay lesson disposition: **provisional transferable**. The
+Continuation-relay lesson disposition: **transferable with bounded scope**. The
 several-thousand-character model relay failure is preserved with its
 counterexample and limits: direct MCP clients remain stateless, while a short
 Action handle adds bounded transient server memory, restart/eviction loss, and
-a privacy-disclosure obligation. Universal promotion is deferred until the
-exact merged repair passes the product-interface continuation retest; direct
-acceptance now passes.
+a privacy-disclosure obligation. The exact merged repair now passes both direct
+and product-interface continuation acceptance; any universal promotion remains
+a separate evidence-preserving owner review.
 
 ## Artifact and endpoint identity
 
@@ -99,9 +102,9 @@ run the VPS validation.
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
-| Custom GPT bridge direct acceptance | Universal loaded in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Final health and the exact 17-tool MCP inventory passed. Protocol and formal-source UI cases passed; repaired YouTube continuation and lesson-consent UI cases remain pending. |
+| Custom GPT bridge direct acceptance | Universal loaded in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Final health and the exact 17-tool MCP inventory passed. Protocol, formal-source, and repaired two-call YouTube UI cases passed; lesson-consent UI cases remain pending. |
 | OpenAI Action importer compatibility | Exact merge `6639086a33b44f029c9f8405f69bd06b725e78d0` introduced the live-compatible schema and remains in the current release ancestry. Public schema checks found 18 operations, object-valued `components.schemas`, every summary/description within 300 characters, and both repaired legacy descriptions at 201 characters. The GPT editor subsequently imported the schema. |
-| YouTube terminal-refetch release | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862` is live. A test-first provider-boundary regression limits `comments.list` ID filters to 50 after the exact provider returned `200` for 50 IDs and `400 invalidFilters` for 51. The known 16-record video remains one-call `api_visible_complete`; the formerly failing two-call video reached 149 records, returned a deterministic 111-record sample, ended `completed_with_access_boundary`, reported no error or further continuation, and passed synthesis. Public health/schema/privacy/auth, both protocol identities, and the frozen 17-tool MCP inventory passed. GPT UI continuation retest remains pending. |
+| YouTube terminal-refetch release | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862` is live. A test-first provider-boundary regression limits `comments.list` ID filters to 50 after the exact provider returned `200` for 50 IDs and `400 invalidFilters` for 51. The known 16-record video remains one-call `api_visible_complete`; the formerly failing two-call video reached 149 records, returned a deterministic 111-record sample, ended `completed_with_access_boundary`, reported no error or further continuation, and passed synthesis. Public health/schema/privacy/auth, both deployed protocol identities, and the frozen 17-tool MCP inventory passed. The repaired two-call GPT UI continuation retest passed on 2026-08-17. |
 
 The first compatibility build was rejected in a disposable pre-traffic smoke
 test: over-restricting the extracted archive made source modules unreadable to
@@ -281,15 +284,17 @@ credentials were not retained.
 
 The current lesson aggregate at `2026-08-17T03:13:06.118Z` remains available:
 0 open, 0 needs review, 0 accepted not incorporated, 2 incorporated or closed,
-and 0 deletion eligible. The continuation-relay lesson remains provisional
-transferable until a fresh Custom GPT product session proves the short-handle
-relay; direct server acceptance is not substituted for that UI evidence.
+and 0 deletion eligible. The fresh Custom GPT product session now proves the
+short-handle relay. The lesson is transferable only with the recorded stateless
+MCP counterexample and the privacy, expiry, eviction, restart, and scaling
+limits of transient Action state.
 
 ## Required submission work remaining
 
-- Repeat the exact repaired multi-call YouTube case and lesson-consent cases in
-  a fresh unpublished Custom GPT chat with empty Knowledge. Publish only after
-  the product receipts pass, then verify the direct `/g/...` URL before
+- Deploy canonical Universal `20.5.13`, then verify its manifest, exact digest,
+  and complete ordered load through a fresh unpublished Custom GPT chat with
+  empty Knowledge. Complete the lesson-consent cases there. Publish only after
+  those product receipts pass, then verify the direct `/g/...` URL before
   repointing `gpt.askrigor.com`.
 - Complete/confirm verified developer or business identity, listing URLs,
   country availability, and the portal's HTTPS domain-verification challenge.
