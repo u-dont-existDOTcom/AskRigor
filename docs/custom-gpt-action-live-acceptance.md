@@ -1,10 +1,10 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE CONTINUATION BLOCKED**. The exact
-production Action boundary has passed the sanitized direct checks below. A new
-unpublished Custom GPT still must import the deployed schema and run the
-product-interface cases. Direct server proof is not relabeled as ChatGPT UI
-proof.
+Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; YOUTUBE DIRECT CONTINUATION PASSED, GPT UI RETEST PENDING**. The exact
+production Action boundary, including the formerly failing two-call YouTube
+chain, has passed the sanitized direct checks below. The unpublished Custom GPT
+still must repeat the repaired continuation and lesson-consent cases in a fresh
+chat. Direct server proof is not relabeled as ChatGPT UI proof.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -15,13 +15,15 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Original direct acceptance completed through `2026-08-16T07:34:43.932Z`; compatibility container started `2026-08-16T08:36:23.509309507Z`. |
-| deployed commit | Compatibility merge `6639086a33b44f029c9f8405f69bd06b725e78d0`; exact accepted PR #17 head `b4d3db5d2b3f05debc4dd2c37cfa0d12290f67af`. The full direct behavior cases below were accepted on bridge merge `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. |
-| deployed image | `askrigor-research:6639086a33b44f029c9f8405f69bd06b725e78d0`; image ID `sha256:05225a8210238f8099af90ba5e8525a142e50e04018547f0d0c6186f6d30544d`; healthy container `427d0ffc2a75275d4113d9ad1baf89275774a40774e6653be1e4c5283aad8220`. |
-| rollback image/config | `askrigor-research:rollback-6639086` resolves the immediately prior production image `sha256:7e30222754d6e0c30d0b7fe1e02b206e68f87bdaa986c15ad5ef0985d88254cf`; `/opt/askrigor/compose.yaml.rollback-6639086` is present. |
-| OpenAPI SHA-256 | Committed pretty artifact: `ca7abeb54ee688f4837637abe2c08cfa9de4565d013d49f267df9bbe2c08f377`; semantically identical compact live response: `fece1c89971fed1273fbc64eb3b62cfa4a458af1691009e6899e76c92f10ce53`. |
-| instructions SHA-256 | `e319343102b047c8a0a238c26db5325da0d27f934cf80cf17bd34df1f8ca3bdb`. |
-| privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `3dbe92623be62da3fd18edcbe20e71fa710b3f8f40419b2b91f3ce01459ad35e`, with the Custom GPT transient-flow disclosure. Active site release: `/opt/askrigor/site/releases/dd73d7dccb6b-v2/site`. |
+| UTC time | YouTube terminal-refetch acceptance completed through `2026-08-17T03:13:01Z`; accepted container started `2026-08-17T03:07:50.748902185Z`. |
+| deployed commit | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862`; exact accepted head `11f3a68a73bc68bc23f1854b6bd8d4c06f9b843f`. Earlier repair merges PR #19 through PR #22 remain in its ancestry. |
+| deployed image | `askrigor-research:905ac22ab42479c15ff0d6385a51de864271f862`; image ID `sha256:b7273c24f568bbd8d9c9f5a4758a89e08b9142af4d23a18d79a62e6df0b3b067`; healthy container `af7689e8f55ed12e86a863e3cbe7d03b2bfd27edc00fa4860d7083bd146271df`. |
+| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `c806aabe2949f976ab882baabae19c28216233b915b62f36a5ed3cc5c51284d9`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained `root:root` mode `0600` and was not read. |
+| rollback image/config | `askrigor-research:rollback-905ac22a` resolves the immediately prior production image `sha256:b6bf6df118e47eff766371717b48c3b732edf91053ef9e7915eb55edb5534a95`; `/opt/askrigor/compose.yaml.rollback-905ac22a` has SHA-256 `eb3b85f080d008a4ab8b93b7506e22b9759a072a94b3281f2a788d85cbe3185d`. |
+| deployment archives | Exact secret-free source archive SHA-256 `7d1463f1eac86afc7e07dac59afa05b60e7d299272e683935647a36193bba50e`; exact loaded image archive SHA-256 `b04dcc95e902e7c5b157f25d4a796964b3573c57972c3cb50cac5b65fecb8662`. |
+| OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
+| instructions SHA-256 | `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. |
+| privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `pending` — requires saving/publishing the tested Custom GPT and copying its direct `/g/...` URL. |
 
 ## OpenAI Action importer compatibility deployment — 2026-08-16
@@ -34,12 +36,15 @@ The first GPT-editor import rejected the earlier schema for three exact reasons:
 characters**, and added generated-schema regression checks covering every
 operation summary and description.
 
-The exact merge was deployed reversibly. A disposable non-root smoke test
+At the 2026-08-16 compatibility rollout, the exact PR #17 merge was deployed
+reversibly. A disposable non-root smoke test
 rejected the first unused candidate image before traffic because an
 over-restrictive staging step had removed the runtime user's read permission
 from archived source files. Production remained untouched. Re-extracting the
 verified archive while preserving its internal file modes produced the final
-image recorded above; its read-only, capability-dropped smoke test passed.
+compatibility-rollout image; its read-only, capability-dropped smoke test
+passed. That historical image was superseded by the PR #23 image in the current
+deployment-identity table above.
 The rejected pre-traffic image remains tagged
 `askrigor-research:rejected-permissions-6639086` for diagnosis.
 
@@ -49,10 +54,12 @@ affected descriptions at exactly 201 characters. Health returned `200`, the
 unauthenticated consequential lesson route still returned exact
 `401 action_auth_required`, both protocol identities remained unchanged, and
 the MCP inventory remained frozen at 17 tools. No provider call or lesson write
-was repeated because this deployment changed only exported OpenAPI structure
-and two descriptions. The 11 direct behavioral cases below therefore remain
-evidence from the immediately preceding bridge deployment; GPT editor re-import
-is still the required product-layer proof.
+was repeated because that deployment changed only exported OpenAPI structure
+and two descriptions. The editor subsequently imported the repaired schema,
+and the 2026-08-16 product-interface run passed cases 1 through 5 below. The
+2026-08-17 PR #23 release freshly reran direct health, schema, protocol, MCP,
+and both YouTube audit paths. The repaired YouTube continuation and lesson
+consent cases remain the product-interface work still pending.
 
 ## Custom GPT product-interface evidence — 2026-08-16
 
@@ -72,86 +79,136 @@ records for analysis, left top-level pagination unexhausted and replies
 unreconciled, and correctly kept `synthesis_lock:block`. No health conclusion or
 population-incidence estimate was produced.
 
-The server's exact programmatic continuation tests pass; the failing product
-path required ChatGPT to reproduce a several-thousand-character opaque token
-exactly. The owner approved an Action-only, one-hour, bounded process-memory
-handle repair. That repair is not live evidence until its merge, deployment,
-direct two-call acceptance, and fresh Custom GPT continuation test pass.
+The failing product path required ChatGPT to reproduce a
+several-thousand-character opaque token exactly. The owner approved an
+Action-only, one-hour, bounded process-memory handle repair. That repair and
+the follow-up overlap/refetch corrections are now merged, deployed, and direct
+two-call accepted. A fresh Custom GPT continuation test is still required for
+product-layer proof.
 
 Lesson disposition: **provisional transferable**. The evidence supports a
 bounded warning about model-mediated relay of large opaque tool arguments, not
 a rule that all continuations require server state. Direct programmatic MCP
 clients are the explicit counterexample; any handle design must disclose its
 privacy, restart, expiry, eviction, and horizontal-scaling limits. Promotion to
-`universal-dev-architecture` waits for the exact repair's deployment and
-product-interface retest.
+`universal-dev-architecture` still waits for the product-interface retest.
+
+## YouTube continuation and terminal-refetch release — 2026-08-17
+
+PR #19 merged the bounded 37-character Action continuation handle as
+`56b3dff6d7c32b732f37c6a59bf9e3a9c5506829`. PR #20 (`f03e38b`), PR #21
+(`3b50000`), and PR #22 (`0d181be`) then repaired moving pagination overlap,
+exact continuation-chain overlap, and fail-closed terminal sample handling.
+All protected and post-merge deterministic, workflow-policy, and CodeQL checks
+passed.
+
+The first PR #22 production candidate was deliberately rolled back after the
+exact product video `nIRABXSJwSw` reached 149 API-visible records but could not
+refetch its terminal deterministic sample. A private, bounded provider probe
+showed the root cause without retaining identifiers or comment text: 50 valid
+comment IDs returned HTTP `200` and exactly 50 items; 51 valid comment IDs
+returned HTTP `400 invalidFilters` and zero items. The old implementation sent
+batches of 100.
+
+PR #23 added the provider-boundary regression first, observed it fail against
+the 100-ID implementation, and then limited comment-ID refetches to 50. Exact
+head `11f3a68a73bc68bc23f1854b6bd8d4c06f9b843f` merged as
+`905ac22ab42479c15ff0d6385a51de864271f862`. Focused tests passed 22/22; the
+affected segment-plus-audit suites passed 49/49 under independent review; the
+complete host-boundary gate passed 914 tests with five credential-gated skips,
+plus typecheck and build. PR and post-merge checks passed, and independent
+review found no Critical, Important, or Minor issue.
+
+The exact merge image passed the disposable read-only, capability-dropped,
+`no-new-privileges` gate with health `200`, 18 Action operations,
+unauthenticated lesson `401`, and startup-only logs. Deployment recreated only
+`research-mcp`; Caddy remained
+`06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`.
+The image archive SHA-256 is
+`b04dcc95e902e7c5b157f25d4a796964b3573c57972c3cb50cac5b65fecb8662`.
+
+Fresh direct acceptance passed health, the exact 18-operation schema, both
+canonical protocol identities, and the frozen 17-tool MCP inventory. The known
+one-call video `W42rwWD6zjw` remained `api_visible_complete`, returning all 16
+records with `synthesis_lock:pass`. The formerly failing video completed in two
+Action calls: call one retained 66 records and returned a 37-character handle;
+call two reached 149 cumulative records, returned a deterministic 111-record
+sample, ended `completed_with_access_boundary`, reported no error or further
+continuation, and set `synthesis_lock:pass`. The three limitations remain
+truthful pagination/reply boundary disclosures rather than a false completeness
+claim. No raw comment, provider body, continuation state, or credential is
+retained here.
 
 ### Case 1 — Universal complete protocol loading
 
 - Request class: manifest → integrity verification → ordered protocol chunks.
-- Result: **DIRECT PASS — GPT UI pending**.
+- Result: **DIRECT PASS — GPT UI PASS (2026-08-16)**.
 - Protocol chunk coverage: 2/2 chunks, contiguous bytes `0..91599`, final
   `complete:true`, whole SHA-256
   `3413c1e400c9cbc78c2be81baee6de49b41e3587ce449e1dd7cb04cda17681c7`.
 - Sanitized result: Universal `20.5.12`, revision `2026-08-16`; every chunk and
   the whole stream matched the manifest without retaining text.
-- Limitation: not yet repeated through a new unpublished Custom GPT chat.
+- Limitation: the product proof is bounded to the recorded private Custom GPT
+  chat and does not establish behavior in a future published GPT revision.
 
 ### Case 2 — HRP before bounded health research
 
 - Request class: HRP manifest → integrity verification → ordered chunks.
-- Result: **DIRECT PASS for protocol transport — GPT UI pending**.
+- Result: **DIRECT PASS for protocol transport — GPT UI PASS (2026-08-16)**.
 - Protocol chunk coverage: 11/11 chunks, contiguous bytes `0..490256`, final
   `complete:true`, whole SHA-256
   `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`.
 - Sanitized result: HRP `20.5.18`, revision `2026-08-16`; all byte and hash
   invariants passed before any health-research prompt was sent.
-- Limitation: the product-layer ordering and harmless synthetic health answer
-  remain for the unpublished Custom GPT test.
+- Limitation: the product-layer proof establishes ordered HRP loading; it is not
+  evidence for any clinical claim or for a future published GPT revision.
 
 ### Case 3 — PubMed search and fetch
 
 - Request class: public scholarly metadata retrieval.
-- Result: **DIRECT PASS — GPT UI pending**.
+- Result: **DIRECT PASS — GPT UI PASS (2026-08-16)**.
 - Sanitized result: PMID `13054692`, provider `pubmed`,
   `access_status:api_visible_complete`, pagination exhausted; full text was not
   claimed or evaluated.
-- Limitation: current provider metadata only; the Custom GPT presentation is
-  not yet tested.
+- Limitation: current provider metadata only; the recorded UI result did not
+  claim or evaluate full text.
 
 ### Case 4 — ClinicalTrials.gov search and fetch
 
 - Request class: public trial-registry metadata retrieval.
-- Result: **DIRECT PASS — GPT UI pending**.
+- Result: **DIRECT PASS — GPT UI PASS (2026-08-16)**.
 - Sanitized result: `NCT04280705`, provider `clinicaltrials_gov`,
   `access_status:api_visible_complete`, registry status `COMPLETED`; no efficacy
   inference was made.
-- Limitation: registry metadata is not clinical-validity proof; the Custom GPT
-  presentation is pending.
+- Limitation: registry metadata and its recorded UI presentation are not
+  clinical-validity proof.
 
 ### Case 5 — DOI resolution and retraction metadata
 
 - Request class: public Crossref metadata retrieval.
-- Result: **DIRECT PASS — GPT UI pending**.
+- Result: **DIRECT PASS — GPT UI PASS (2026-08-16)**.
 - Sanitized result: DOI `10.1056/nejmoa2034577`, provider `crossref`,
   `access_status:metadata_only`, status `no_retraction_record_found`; no
   clinical-validity inference was made.
 - Limitation: absence of a Crossref marker does not prove that no update exists
-  elsewhere; the Custom GPT wording remains to be tested.
+  elsewhere; the recorded UI response preserved that boundary.
 
 ### Case 6 — YouTube survey and terminal per-video audit
 
 - Request class: public community-evidence discovery and continuation.
-- Result: **DIRECT PASS — GPT UI pending**.
+- Result: **DIRECT PASS, INCLUDING REPAIRED TWO-CALL CHAIN — GPT UI RETEST pending**.
 - Sanitized result: four directional searches returned `complete` with 22
   current candidates; all 22 had valid public URLs and valid provider comment
   counts, and target `W42rwWD6zjw` was present. Its audit retrieved all 16
   API-visible comments/replies in one call, returned all 16 for analysis,
   recommended no continuation, and ended `api_visible_complete` with
-  `synthesis_lock:pass`.
+  `synthesis_lock:pass`. The repaired `nIRABXSJwSw` chain separately retained
+  66 records on call one, reached 149 on call two, returned 111 deterministic
+  analysis records, ended `completed_with_access_boundary`, and passed
+  synthesis without an error or further continuation.
 - Limitation: search results are provider-dynamic and are not population
-  incidence. The GPT must still demonstrate survey-first selection and obey a
-  continuation token if a future corpus requires one.
+  incidence. The GPT must still demonstrate the repaired short-handle relay in
+  a fresh product session; direct Action proof does not establish UI behavior.
 
 ### Case 7 — Malformed and oversized requests
 
@@ -228,7 +285,7 @@ product-interface retest.
 - Lesson queue status and synthetic cleanup: **PASS** — `ARL-0006` was labeled
   `rejected`, removed from `needs-review`, received the explicit synthetic-only
   disposition, and closed `not_planned`; its body remained unchanged. Final
-  queue status at `2026-08-16T07:34:43.932Z`: 0 open, 0 needs review, 0 accepted
+  queue status at `2026-08-17T03:13:06.118Z`: 0 open, 0 needs review, 0 accepted
   not incorporated, 2 incorporated or closed, 0 deletion eligible.
 - Hosted privacy boundary: **PASS WITH DECLARED EXCEPTION** —
   `AskRigor-lessons` is private and the GitHub App is selected-repository only
