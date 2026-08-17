@@ -15,6 +15,7 @@ const DEFAULT_MAX_PROVIDER_REQUESTS = 50;
 const DEFAULT_MAX_ELAPSED_MS = 15_000;
 const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 20;
 const MAX_REPLY_PAGE_IDENTIFIERS = 100;
+const COMMENT_ID_FILTER_BATCH_SIZE = 50;
 const PAGINATION_OVERLAP_LIMITATION =
   "YouTube pagination overlap repeated one or more stable identifiers at an adjacent page boundary; repeats were reconciled, so the retained corpus is bounded evidence rather than a stable complete snapshot.";
 
@@ -750,8 +751,8 @@ export async function getYoutubeCommentsByIds(
   }
   try {
     const pendingBatches: string[][] = [];
-    for (let offset = 0; offset < commentIds.length; offset += 100) {
-      pendingBatches.push(commentIds.slice(offset, offset + 100));
+    for (let offset = 0; offset < commentIds.length; offset += COMMENT_ID_FILTER_BATCH_SIZE) {
+      pendingBatches.push(commentIds.slice(offset, offset + COMMENT_ID_FILTER_BATCH_SIZE));
     }
     while (pendingBatches.length > 0) {
       const elapsedMs = refetchElapsed(now, startedAt);
