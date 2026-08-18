@@ -48,8 +48,11 @@ prohibiting individualized diagnosis or treatment direction; it does not
 narrow the plugin, MCP server, canonical protocols, or production tools. The
 first authenticated published-GPT lesson call failed closed at the old privacy
 model before GitHub. Its pinned-model repair is now deployed and passes the
-exact-code non-stored privacy probe; fresh-chat lesson/duplicate acceptance must
-still pass before the direct GPT URL is promoted.
+exact-code non-stored privacy probe. Fresh-chat lesson acceptance submitted
+`ARL-0007`; a separately consented identical duplicate returned the same ID
+with occurrence count 2. The aggregate private queue independently confirmed
+one open candidate awaiting review. The direct GPT URL must still be captured
+and verified before promotion.
 
 ## Source-generated MCP tools/list inventory
 

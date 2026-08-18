@@ -250,9 +250,11 @@ reached the server privacy gate but returned `privacy_rejected` for the fully
 generalized synthetic source-audit lesson; the private queue remained
 unchanged. PR #32 migrated the privacy check to pinned
 `gpt-5.4-nano-2026-03-17`; exact merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e`
-is deployed and its non-stored safe-candidate probe passes. Successful
-lesson/duplicate UI receipts and the actual direct `/g/...` URL remain pending
-and must not be inferred from publication or server proof.
+is deployed and its non-stored safe-candidate probe passes. A fresh published-
+GPT chat then submitted `ARL-0007`; the separately consented identical duplicate
+returned the same ID with occurrence count 2. The aggregate private queue
+confirmed one open candidate awaiting review. Only the actual direct `/g/...`
+URL remains pending and must not be inferred from publication or server proof.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 

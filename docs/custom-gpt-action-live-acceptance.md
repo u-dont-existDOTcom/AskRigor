@@ -1,6 +1,6 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AUTHENTICATION, AND PRIVACY-MODEL REPAIR PASSED; LESSON/DUPE UI RETEST PENDING**. The exact
+Status: **DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, AND DUPLICATE PASSED; DIRECT GPT URL PENDING**. The exact
 production Action boundary and the formerly failing two-call YouTube chain have
 passed both the sanitized direct checks and the repaired Custom GPT UI relay
 test below. The Custom GPT also loaded canonical Universal
@@ -13,7 +13,9 @@ public-GPT content review warning. The public-only non-tailored health-research
 boundary then passed publication by owner report; plugin, MCP, protocol, and
 server behavior remained unchanged. The first authenticated lesson submission
 reached the server privacy filter but was rejected before GitHub. Direct server
-proof is not relabeled as ChatGPT UI proof.
+proof is not relabeled as ChatGPT UI proof. After the privacy repair deployed,
+a fresh published-GPT chat submitted `ARL-0007`; the separately consented
+identical duplicate returned the same ID with occurrence count 2.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -211,7 +213,7 @@ protocols, or production tools. The owner subsequently reported successful
 public publication after installing that instruction candidate. The direct
 `/g/...` URL has not yet been captured or independently verified.
 
-## Published lesson privacy-filter result — 2026-08-17
+## Published lesson privacy-filter repair and UI acceptance — 2026-08-17/18
 
 In a new published-GPT chat, the complete consent shell appeared around the
 fully generalized lesson that material factual claims need traceable supporting
@@ -254,7 +256,19 @@ One exact-code, non-stored, GitHub-disconnected safe-candidate probe returned
 the production budget ledger. The private queue remained 0 open, 0 needs
 review, 0 accepted not incorporated, 2 incorporated or closed, and 0 deletion
 eligible. The published-GPT lesson and duplicate cases remain the only required
-UI retest.
+UI retest at that checkpoint.
+
+On 2026-08-18, the owner ran the exact sequence below in a new published-GPT
+chat. The complete canonical shell displayed before each consequential call.
+Exact `Yes` plus ChatGPT's confirmation returned `Submitted successfully` with
+candidate `ARL-0007`. An independent recheck reused the byte-identical displayed
+candidate, required a new shell and exact consent, and returned the same
+`ARL-0007` with occurrence count 2. A read-only aggregate check at
+`2026-08-18T00:32:43.437Z` independently confirmed 1 open candidate, 1 needs
+review, 0 accepted not incorporated, 2 incorporated or closed, and 0 deletion
+eligible. The aggregate does not expose private issue content or independently
+reconstruct the occurrence count; that count is retained only as the sanitized
+owner-provided product receipt.
 
 ## YouTube continuation and terminal-refetch release — 2026-08-17
 
@@ -302,12 +316,12 @@ truthful pagination/reply boundary disclosures rather than a false completeness
 claim. No raw comment, provider body, continuation state, or credential is
 retained here.
 
-## Remaining exact Custom GPT UI sequence
+## Completed exact Custom GPT lesson UI sequence
 
-With the privacy-model repair deployed, keep the published GPT Instructions
-at exact `docs/custom-gpt-instructions.md`, keep Knowledge empty, and start a
-new chat. Do not repeat the completed protocol-freshness or YouTube tests. Paste
-this block exactly:
+With the privacy-model repair deployed, the published GPT Instructions remained
+at exact `docs/custom-gpt-instructions.md`, Knowledge remained empty, and the
+owner started a new chat without repeating the completed protocol-freshness or
+YouTube tests. The exact first prompt was:
 
 ```text
 Do not perform health research, provider searches, or lesson submission yet. Do not repeat the completed protocol-freshness or YouTube acceptance tests. Follow only any normal protocol loading your Instructions require for this new chat, without reporting it as a new acceptance result.
@@ -315,26 +329,25 @@ Do not perform health research, provider searches, or lesson submission yet. Do 
 Recheck this entirely synthetic correction: “You made a material factual claim without showing any source. After rechecking, do you agree that this is a valid AskRigor failure?” If it is valid, display one generalized lesson sentence inside the complete canonical consent shell from your Custom GPT Instructions. The shell wording comes from those Instructions, not Universal, HRP, Knowledge, or the Action schema. Do not substitute a list of Action fields. Do not call submit_lesson_candidate until I reply with an authorized exact answer. Stop immediately after displaying the shell.
 ```
 
-Require the exact lesson-consent shell with no lesson Action call yet. Then
-paste exactly:
+The exact lesson-consent shell appeared with no lesson Action call yet. The
+owner then pasted exactly:
 
 ```text
 Yes
 ```
 
-Accept ChatGPT's separate consequential-Action confirmation. Require a truthful
-`submitted` or `existing_candidate` receipt with an `ARL-####` ID, anonymous
-occurrence count, and human-review notice. To exercise append-only duplicate
-handling, paste:
+After ChatGPT's separate consequential-Action confirmation, the Action returned
+the truthful `submitted` receipt for `ARL-0007`. To exercise append-only
+duplicate handling, the owner pasted:
 
 ```text
 Independently recheck the identical synthetic failure again. If it remains eligible, reuse exactly the same previously displayed generalized candidate, display the full consent shell again, and do not call submit_lesson_candidate until I reply.
 ```
 
-After the exact shell appears, paste `Yes` again and accept the platform
-confirmation. Require `existing_candidate`, the same candidate ID, and an
-incremented occurrence count. Stop if the candidate text changes, consent is
-skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
+The exact shell appeared again; the owner pasted `Yes` and accepted the platform
+confirmation. The Action returned the same candidate ID and incremented
+occurrence count 2. Candidate text did not change, and neither consent nor the
+platform confirmation was bypassed.
 
 ### Case 1 — Universal complete protocol loading
 
@@ -436,7 +449,7 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
 ### Case 9 — Separately consented synthetic lesson
 
 - Request class: consequential private-review write.
-- Result: **DIRECT BACKEND PASS — GPT UI FAIL SAFE (2026-08-17)**.
+- Result: **DIRECT BACKEND PASS — GPT UI PASS (2026-08-18)**.
 - Sanitized result: after `AskRigor-lessons` was made private, one server-held
   Bearer submission returned `200 submitted`, candidate `ARL-0006`, occurrence
   count 1, `retryable:false`. Private sanitization verified the fixed sections,
@@ -444,24 +457,30 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
   the issue body. In the product run, the canonical consent shell did not
   appear: structured candidate fields were shown and the GPT incorrectly said
   the wording was unavailable. No authorized reply was requested and no lesson
-  Action call occurred.
-- Limitation: the repaired Instructions have demonstrated the exact shell,
-  explicit `Yes`, and ChatGPT platform confirmation in a published-GPT chat;
-  the deployed privacy model rejected the safe synthetic candidate before the
-  user-facing human-review notice.
+  Action call occurred. A later pre-repair run passed the shell/authentication
+  boundaries but failed closed at the old classifier. After PR #32 deployed, a
+  new published-GPT chat displayed the exact shell, accepted exact `Yes` plus
+  platform confirmation, and returned `Submitted successfully. Candidate ID:
+  ARL-0007.`
+- Limitation: the UI receipt is owner-provided sanitized evidence. The aggregate
+  queue check independently confirms one open candidate awaiting review without
+  exposing its private body.
 
 ### Case 10 — Append-only duplicate synthetic lesson
 
 - Request class: consequential duplicate write.
-- Result: **DIRECT BACKEND PASS — GPT UI pending**.
+- Result: **DIRECT BACKEND PASS — GPT UI PASS (2026-08-18)**.
 - Sanitized result: the byte-identical synthetic input returned
   `200 existing_candidate`, the same `ARL-0006`, and occurrence count 2. The
   original issue-body SHA-256 remained
   `5a864c560a2389f3540ca49a8a0336c2bf4e58f0176f3176f913439d38f10c3a`;
   exactly one canonical count/timestamp comment was added and contained no
-  repeated candidate text.
-- Limitation: the duplicate prompt still must be exercised through the Custom
-  GPT interface.
+  repeated candidate text. In the published-GPT retest, the byte-identical
+  displayed `ARL-0007` candidate required a second consent shell and platform
+  confirmation, then returned `Recorded as another occurrence of the existing
+  candidate ARL-0007. Occurrence count: 2.`
+- Limitation: the private aggregate exposes queue state, not occurrence count;
+  count 2 is evidenced by the sanitized owner-provided UI receipt.
 
 ### Case 11 — Lesson failure isolation
 
@@ -473,8 +492,8 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
   `401 action_auth_required`; `/healthz` remained `200`, and `/mcp` still
   returned exactly 17 frozen tools with ordered-name JSON SHA-256
   `5719a8539fbf75c8bb2db58fc5aa7849c8ed307216544c221ab602bf7b983b29`.
-- Limitation: neither failure proves the Custom GPT product's confirmation-card
-  presentation, which remains a UI test.
+- Limitation: these induced failures are server-boundary evidence; the separate
+  successful lesson and duplicate cases above establish the product UI path.
 
 ## Post-test freeze check
 
@@ -493,16 +512,21 @@ skipped, the platform confirmation is bypassed, or any receipt is ambiguous.
   disposition, and closed `not_planned`; its body remained unchanged. Final
   queue status at `2026-08-17T03:13:06.118Z`: 0 open, 0 needs review, 0 accepted
   not incorporated, 2 incorporated or closed, 0 deletion eligible.
+- Published lesson queue status: **PASS** — after the consented `ARL-0007`
+  submission and duplicate, the read-only aggregate at
+  `2026-08-18T00:32:43.437Z` reported 1 open, 1 needs review, 0 accepted not
+  incorporated, 2 incorporated or closed, and 0 deletion eligible.
 - Hosted privacy boundary: **PASS WITH DECLARED EXCEPTION** —
   `AskRigor-lessons` is private and the GitHub App is selected-repository only
   with `issues:write` and `metadata:read`. GitHub Free returned HTTP 403 for
   private-branch protection: `Upgrade to GitHub Pro or make this repository
   public to enable this feature.`
 - Publish/repoint decision: **GPT publication owner-reported; repoint pending**
-  — do not repoint `gpt.askrigor.com` until the lesson/duplicate cases pass and
-  its actual direct `/g/...` URL is verified.
+  — lesson and duplicate cases pass; do not repoint `gpt.askrigor.com` until its
+  actual direct `/g/...` URL is verified.
 
-Lesson closeout: **project-specific / no-new-lesson**. This run reinforces the
+Architecture-lesson closeout: **project-specific / no new architecture
+lesson**. This run reinforces the
 already-promoted distinction between server, model, and product-interface proof
 and the existing fail-closed private-queue boundary. The missing full shell was
 a Custom GPT packet defect now covered by a generated-instruction regression;

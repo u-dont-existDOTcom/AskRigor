@@ -241,9 +241,10 @@ describe("AskRigor public-review packet", () => {
     const case9 = sectionBetween(acceptance, "### Case 9", "### Case 10");
     const normalizedCase9 = case9.replace(/\s+/gu, " ");
     const case10 = sectionBetween(acceptance, "### Case 10", "### Case 11");
+    const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AUTHENTICATION, AND PRIVACY-MODEL REPAIR PASSED; LESSON/DUPE UI RETEST PENDING"
+      "DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, AND DUPLICATE PASSED; DIRECT GPT URL PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -259,6 +260,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(state).toContain("5585a9ca34ce01403044b1085b85d4f2de9783f4");
     expect(state).toContain("d1af238325ee1e0584574e47bbcbe7764d17cf7e");
+    expect(state).toContain("ARL-0007");
     expect(state).toContain("905ac22ab42479c15ff0d6385a51de864271f862");
     expect(state).toContain("Universal `20.5.13` Custom GPT UI loading passed");
     expect(state).toContain("lesson-consent shell failed safe");
@@ -284,12 +286,13 @@ describe("AskRigor public-review packet", () => {
       expect(uiPassedCase).toContain("GPT UI PASS (2026-08-16)");
       expect(uiPassedCase).not.toMatch(/GPT UI (?:RETEST )?pending/u);
     }
-    expect(case9).toContain("GPT UI FAIL SAFE (2026-08-17)");
+    expect(case9).toContain("GPT UI PASS (2026-08-18)");
     expect(normalizedCase9).toContain("canonical consent shell did not appear");
-    expect(normalizedCase9).toContain("no lesson Action call occurred");
-    expect(case10).toContain("GPT UI pending");
-    expect(acceptance).toContain("## Remaining exact Custom GPT UI sequence");
-    expect(acceptance).toContain("Do not repeat the completed protocol-freshness or YouTube tests");
+    expect(normalizedCase9).toContain("Submitted successfully. Candidate ID: ARL-0007.");
+    expect(case10).toContain("GPT UI PASS (2026-08-18)");
+    expect(normalizedCase10).toContain("candidate ARL-0007. Occurrence count: 2.");
+    expect(acceptance).toContain("## Completed exact Custom GPT lesson UI sequence");
+    expect(acceptance).toContain("Do not repeat the completed protocol-freshness or YouTube acceptance tests");
     expect(acceptance).toContain("complete canonical consent shell from your Custom GPT Instructions");
     expect(acceptance).toContain("Do not call submit_lesson_candidate until I reply");
     expect(acceptance).toContain("May provide tailored medical/health advice");
@@ -326,7 +329,7 @@ describe("AskRigor public-review packet", () => {
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
     expect(acceptance).toContain("DIRECT PASS");
     expect(acceptance).toContain("GPT UI PASS (2026-08-16)");
-    expect(acceptance).toContain("GPT UI FAIL SAFE (2026-08-17)");
+    expect(acceptance).toContain("This is **GPT UI FAIL SAFE**");
     for (const field of [
       "UTC time", "deployed commit", "deployed image", "OpenAPI SHA-256",
       "instructions SHA-256", "Request class", "Sanitized result", "Limitation"
