@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { LessonCandidate } from "../apps/research-mcp/src/lessons/contracts.js";
+import {
+  generalizedLessonSchema,
+  lessonCandidateSchema,
+  type LessonCandidate,
+} from "../apps/research-mcp/src/lessons/contracts.js";
 import type { AiBudget, BudgetReservation } from "../apps/research-mcp/src/lessons/ai-budget.js";
 import {
   LESSON_PRIVACY_JSON_SCHEMA,
@@ -7,6 +11,7 @@ import {
   PRIVACY_SYSTEM_PROMPT,
   createOpenAiLessonAnonymizer,
 } from "../apps/research-mcp/src/lessons/openai-anonymizer.js";
+import { screenLessonCandidate } from "../apps/research-mcp/src/lessons/privacy-screen.js";
 
 const candidate: LessonCandidate = {
   category: "missing_sources",
@@ -17,6 +22,18 @@ const candidate: LessonCandidate = {
   evidence_basis: "assistant_self_check",
   askrigor_version: "0.1.0",
   protocol_identities: [{ name: "HRP", version: "20.5.17", sha256: "a".repeat(64) }],
+  consent_scope: "once",
+};
+
+const generalizedProtocolExecutionCandidate: LessonCandidate = {
+  category: "protocol_execution",
+  general_lesson: "When a required research module applies, AskRigor should complete it before claiming protocol compliance.",
+  expected_behavior: "Execute required formal retrieval and module work, verify every completion receipt, and label any unfinished result as incomplete.",
+  failure_reason: "The response claimed completion even though required retrieval and receipt gates had not been executed.",
+  synthetic_regression_example: "A response loads its protocols, skips a required evidence module, and labels the result complete without a passing receipt.",
+  evidence_basis: "instruction_mismatch",
+  askrigor_version: "0.1.0",
+  protocol_identities: [{ name: "HRP", version: "20.5.18", sha256: "b".repeat(64) }],
   consent_scope: "once",
 };
 
@@ -106,6 +123,7 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
       "Return safe:true with an empty risk_codes array when the candidate is already a generalized product lesson with no personal narrative, direct identifier, credential, raw conversation, unnecessary URL, or copied material.",
       "Do not reject a generalized lesson merely because it discusses AskRigor, factual claims, evidence, source support, traceability, or auditability.",
       "A lesson saying that material factual claims need traceable supporting sources is safe when it contains no private or identifying material.",
+      "An already-generalized protocol-execution lesson about required modules, formal retrieval, completion receipts, or inaccurate completion labels is safe when it contains no private or identifying material.",
       "When safe is false, generalized must be null.",
       "When safe is true, preserve category, evidence_basis, askrigor_version, protocol_identities, and consent_scope exactly.",
       "Keep omitted askrigor_version and protocol_identities null; never infer or invent them.",
@@ -114,6 +132,33 @@ describe("fixed-model OpenAI lesson anonymizer", () => {
     for (const statement of requiredContract) {
       expect(PRIVACY_SYSTEM_PROMPT).toContain(statement);
     }
+  });
+
+  it("keeps a synthetic protocol-execution regression inside the deterministic privacy boundary", () => {
+    expect(lessonCandidateSchema.parse(generalizedProtocolExecutionCandidate))
+      .toEqual(generalizedProtocolExecutionCandidate);
+    expect(generalizedLessonSchema.parse(generalizedProtocolExecutionCandidate))
+      .toEqual(generalizedProtocolExecutionCandidate);
+    expect(screenLessonCandidate(generalizedProtocolExecutionCandidate)).toMatchObject({ safe: true });
+    expect(JSON.stringify(generalizedProtocolExecutionCandidate)).not.toMatch(
+      /https?:|User:|Assistant:|turn|replacement|surgery|medical|patient/iu,
+    );
+  });
+
+  it("returns the screened synthetic protocol-execution lesson unchanged after a safe model result", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(responseFor({
+      safe: true,
+      risk_codes: [],
+      generalized: generalizedProtocolExecutionCandidate,
+    }));
+    const { anonymizer, budget } = createSubject(fetchMock);
+
+    await expect(anonymizer.generalize(generalizedProtocolExecutionCandidate)).resolves.toEqual({
+      status: "generalized",
+      candidate: generalizedProtocolExecutionCandidate,
+    });
+    expect(budget.reservation.commits).toEqual([32_500]);
+    expect(budget.reservation.forfeits).toBe(0);
   });
 
   it("sends the exact fixed, non-stored structured-output request and returns screened output", async () => {

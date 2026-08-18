@@ -8,6 +8,8 @@ Record `HRP`, `DIRECT_HUMAN`, `EXTENDED_GREY`, `FORUM_SIGNAL`, `BIDIRECTIONAL_IT
 
 Mark `FORUM_SIGNAL REQUIRED` if firsthand experience, implementation differences, treatment tolerability, real-world outcomes, adherence, harms, discontinuation, or patient decision-making could plausibly affect the answer. Use a sensitive threshold. When uncertain, mark FORUM_SIGNAL REQUIRED.
 
+Questions about treatment alternatives, avoiding replacement, avoiding joint replacement, or avoiding surgery are explicit `FORUM_SIGNAL REQUIRED` examples.
+
 After the ledger is fixed, REQUIRED cannot become NOT REQUIRED because another layer produced strong evidence. Finding an excellent RCT does not satisfy or deselect FORUM_SIGNAL.
 
 ## 2. Execute required modules
@@ -21,6 +23,8 @@ The Forum Signal module returns a receipt and per-video `synthesis_lock: pass | 
 ## 3. Synthesis gate
 
 Do not emit a final verdict while any required module is incomplete. Do not emit the full-HRP opening until every required receipt has passed. A genuine access boundary requires HRP's bounded label and its confidence effect.
+
+Do not label an answer `HRP-complete` until all formal retrieval required by the applicability ledger has executed and every required receipt has passed. When Forum Signal is required, that includes a Forum Signal receipt with no `incomplete` directional or bidirectional field, `youtube_synthesis_lock: pass`, and every selected video's `synthesis_lock: pass`.
 
 If `further_expansion_likely_to_improve_answer` would be `yes` and the work is executable, continue researching. A final answer may report only `no` or `blocked` with a reason.
 

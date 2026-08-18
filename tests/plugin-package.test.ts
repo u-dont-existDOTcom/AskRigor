@@ -159,9 +159,11 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("`survey_youtube_community`");
     expect(skill).toContain("`audit_youtube_video_community`");
     expect(skill).toContain("could plausibly affect the answer");
-    expect(skill).toContain("When uncertain, require Forum Signal");
+    expect(skill).toContain("Before HRP, use the Project router if installed; otherwise require Forum Signal");
+    expect(skill).toContain("If uncertain, require it");
+    expect(skill).toContain("When required, call `survey_youtube_community`");
     expect(skill).toContain("A strong formal result cannot deselect it");
-    expect(skill).toContain("`synthesis_lock: pass`");
+    expect(skill).toContain("`receipt.synthesis_lock: pass`");
     expect(skill).toContain("`complete_no_candidates`");
     expect(skill).toContain("`completed_with_access_boundary`");
     expect(skill).toContain("`reply_count_mismatches`");
@@ -184,6 +186,17 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("`support_not_located`");
     expect(skill).toContain("cannot by itself downgrade the community signal");
     expect(skill).toContain("Videos worth watching");
+    for (const explicitRequiredExample of [
+      "treatment alternatives",
+      "avoiding replacement",
+      "avoiding joint replacement",
+      "avoiding surgery",
+    ]) {
+      expect(skill).toContain(explicitRequiredExample);
+    }
+    expect(skill).toContain("`HRP-complete` and the full-HRP opening require all ledger-required formal retrieval and passing receipts");
+    expect(skill).toContain("a passing Forum Signal receipt with no incomplete direction/transfer");
+    expect(skill).toContain("every selected video's Action-returned `receipt.synthesis_lock: pass`");
 
     for (const judgment of [
       "efficacy",

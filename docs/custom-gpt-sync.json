@@ -6,7 +6,7 @@
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8"
+      "sha256": "ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f"
     }
   ],
   "consequential_operation_ids": [
@@ -19,7 +19,7 @@
     "privacy_url": "https://askrigor.com/privacy",
     "schema_url": "https://mcp.askrigor.com/actions/openapi.json"
   },
-  "generated_at": "2026-08-17",
+  "generated_at": "2026-08-18",
   "research_operation_ids": [
     "audit_youtube_community",
     "audit_youtube_video_community",
@@ -43,7 +43,7 @@
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "adf84bde98249c7f993d187534791caf9533cbd59f40d79ff5e29d0ddd145212"
+      "sha256": "8916d73962828536a6a559a641e38ec026489334b68ac44b75a9fc6c8c04935f"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",

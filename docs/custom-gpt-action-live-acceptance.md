@@ -1,9 +1,10 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, DUPLICATE, DIRECT GPT URL, AND SHORT DOMAIN PASSED**. The exact
-production Action boundary and the formerly failing two-call YouTube chain have
-passed both the sanitized direct checks and the repaired Custom GPT UI relay
-test below. The Custom GPT also loaded canonical Universal
+Status: **DEPLOYED BASELINE — PRIOR DIRECT/UI ACCEPTANCE PASSED; CURRENT FORUM SIGNAL COMPLETION REPAIR LOCAL, NOT DEPLOYED OR GPT-UI RETESTED**. The exact
+production Action boundary and the formerly failing two-call YouTube chain
+retain the sanitized direct and repaired Custom GPT UI evidence below. That
+evidence does not cover the later treatment-alternatives completion regression
+recorded below. The Custom GPT also loaded canonical Universal
 `20.5.13` completely. The first synthetic lesson run failed safe before an
 Action call; the hardened shell then displayed correctly and enforced exact
 case-sensitive consent. Two approved calls returned `action_auth_required`
@@ -36,6 +37,49 @@ issue content, or health details.
 | instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell candidate installed in the editor: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public health-research boundary: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
+
+## Treatment-alternatives completion regression and local repair — 2026-08-18
+
+A later fresh published-GPT run loaded and verified Universal and HRP, then
+answered a treatment-alternatives question without executing PubMed, Europe
+PMC, ClinicalTrials.gov, or the required Forum Signal YouTube survey/audits.
+It nevertheless labeled the answer HRP-complete. A later audit correctly
+identified the missing formal retrieval, missing community module, and failed
+completion ledger, but that later work does not retroactively validate the
+first answer.
+
+The GPT separately attempted to submit the validated product failure as a
+lesson, and the Action returned non-retryable `privacy_rejected`. That failed
+candidate was not retried or resubmitted. The public receipt cannot identify
+which fail-closed privacy stage rejected it, and no request body, raw prompt,
+health topic, private model output, or lesson text is retained here.
+
+The local test-first repair makes treatment alternatives and avoiding
+replacement or surgery explicit Forum Signal triggers. It blocks both an
+`HRP-complete` label and the full-HRP opening until all formal retrieval
+required by the applicability ledger and every required receipt pass. For the
+Custom GPT, the Forum Signal gate is grounded in each selected video's
+Action-returned `receipt.synthesis_lock: pass`, not a fabricated aggregate
+Action field. The fixed privacy model receives one additional privacy-qualified
+example explaining that an already-generalized protocol-execution lesson about
+required modules, formal retrieval, completion receipts, or inaccurate
+completion labels is safe only when it contains no private or identifying
+material. Strict parsing, deterministic pre/post screening, exact metadata
+preservation, `store:false`, and fail-closed uncertainty remain unchanged.
+
+The generated local Instructions are 7,800 characters with SHA-256
+`ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f`;
+the synchronization ledger SHA-256 is
+`420f313c2ab7cf22cfe351dd3761772e7fef6c81beb51c0b0a23ee9cbd43f869`.
+The final focused suite passed 64/64; the exact affected host-boundary
+suite passed 178/178. The complete Node `24.18.0` gate passed typecheck, 51
+test files with one declared credential-gated file skipped, 922 tests with five
+declared skips, and build. Skill/plugin validation and patch hygiene passed.
+The OpenAPI artifact, 18-operation Action surface, frozen 17-tool MCP inventory,
+canonical protocol bytes, production deployment, and currently installed GPT
+Instructions are unchanged. Merge, privacy-model deployment, editor
+installation with empty Knowledge, and a fresh product-interface regression
+test remain pending. Static repository tests are not GPT-behavior acceptance.
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 

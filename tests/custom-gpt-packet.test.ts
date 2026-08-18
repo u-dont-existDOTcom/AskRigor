@@ -91,6 +91,15 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "restart only that video audit from its video identifier",
       "`search_youtube_comments`",
       "query-bounded `partial`",
+      "Before HRP, use the Project router if installed; otherwise require Forum Signal",
+      "When required, call `survey_youtube_community`",
+      "treatment alternatives",
+      "avoiding replacement",
+      "avoiding joint replacement",
+      "avoiding surgery",
+      "`HRP-complete` and the full-HRP opening require all ledger-required formal retrieval and passing receipts",
+      "a passing Forum Signal receipt with no incomplete direction/transfer",
+      "every selected video's Action-returned `receipt.synthesis_lock: pass`",
       "Submit this anonymized lesson to improve AskRigor?",
       "`Yes`",
       "`Yes always in this chat`",
@@ -145,7 +154,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync).toMatchObject({
       schema_version: 1,
-      generated_at: "2026-08-17",
+      generated_at: "2026-08-18",
       research_operation_ids: READ_OPERATION_IDS,
       consequential_operation_ids: ["submit_lesson_candidate"],
       editor: {

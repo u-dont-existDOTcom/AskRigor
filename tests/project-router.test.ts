@@ -70,6 +70,21 @@ describe("AskRigor ChatGPT Project router", () => {
     }
     expect(instructions).toContain("When uncertain, mark FORUM_SIGNAL REQUIRED");
     expect(instructions).toContain("REQUIRED cannot become NOT REQUIRED");
+    for (const explicitRequiredExample of [
+      "treatment alternatives",
+      "avoiding replacement",
+      "avoiding joint replacement",
+      "avoiding surgery",
+    ]) {
+      expect(instructions).toContain(explicitRequiredExample);
+    }
+    expect(instructions).toContain(
+      "Do not label an answer `HRP-complete` until all formal retrieval required by the applicability ledger has executed and every required receipt has passed."
+    );
+    expect(instructions).toContain("Do not emit the full-HRP opening until every required receipt has passed.");
+    expect(instructions).toContain("no `incomplete` directional or bidirectional field");
+    expect(instructions).toContain("`youtube_synthesis_lock: pass`");
+    expect(instructions).toContain("every selected video's `synthesis_lock: pass`");
   });
 
   it("permanently blocks the exact hip/RCT early-synthesis failure", async () => {

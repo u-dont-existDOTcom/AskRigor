@@ -335,10 +335,16 @@ current package-manifest schema has no support-URL field. The distributable
 manifest also includes the required square logo and composer icon and no longer
 publishes a local `.app.json` reference.
 
-V0.1.0 is still **PUBLIC SUBMISSION BLOCKED** until the remaining portal
-identity, domain-verification, Scan Tools, demo-recording, opaque model-receipt
-release decision, final portal review, and public submission actions are
-completed. The fresh post-deployment ChatGPT interface check no longer
+V0.1.0 is still **PUBLIC SUBMISSION BLOCKED**. A later fresh published-GPT
+treatment-alternatives run skipped required formal retrieval and Forum Signal
+work, then mislabeled the answer HRP-complete. Its test-first repair is local;
+merge, privacy-model deployment, exact generated-Instructions installation with
+empty Knowledge, and a fresh product-interface regression remain pending. The
+associated lesson attempt returned non-retryable `privacy_rejected` and was not
+resubmitted. After that
+gate closes, remaining work includes the publisher-identity/domain path, Scan
+Tools, demo recording, opaque model-receipt release decision, final portal
+review, and public submission. The fresh post-deployment ChatGPT interface check no longer
 reproduced the earlier routine-status regression; its bounded evidence and
 presentation limitation are recorded in the release packet. See
 `docs/privacy-data-map.md`, `docs/public-review-checklist.md`,

@@ -61,7 +61,7 @@
       "status": "in_progress",
       "evidence": null,
       "completedAt": null,
-      "note": "The owner reported that the OpenAI portal displays Verifying identity on 2026-08-16; completion has not been observed."
+      "note": "The owner reports that individual identity is verified as of 2026-08-18, while business/organization verification is unavailable after a signup timeout. Publisher identity selection remains pending; no independent portal receipt is recorded."
     },
     "domainVerification": {
       "status": "pending",

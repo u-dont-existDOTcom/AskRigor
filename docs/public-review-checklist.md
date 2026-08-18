@@ -8,14 +8,17 @@ immutable site release `f928b95e29cd`.
 The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.
 The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
-portal identity and domain-verification work, Scan Tools review, the demo
-recording, the explicit opaque model-receipt release decision, final portal
-review, and submission actions recorded in
+the current treatment-alternatives formal-retrieval/Forum Signal completion
+regression, the publisher-identity and domain-verification path, Scan Tools
+review, the demo recording, the explicit opaque model-receipt release decision,
+final portal review, and submission actions recorded in
 `docs/public-submission-packet-v0.1.0.json` and
-`docs/release-evidence-v0.1.0.md`. The owner reported that identity remains
-`Verifying identity` on 2026-08-16; that is an in-progress report, not a
-completion receipt. The fresh post-deployment ChatGPT interface check did not
-reproduce the earlier routine-status regression.
+`docs/release-evidence-v0.1.0.md`. The owner now reports that individual
+identity is verified, while business/organization verification is unavailable
+after a signup timeout. The publisher identity remains an owner choice, and no
+independent portal receipt or business retry interval is recorded. The fresh
+post-deployment ChatGPT interface check did not reproduce the earlier
+routine-status regression.
 
 ## Optional lesson Action deployment truth
 
@@ -56,6 +59,20 @@ one open candidate awaiting review. The direct published GPT URL is
 The reversible `gpt.askrigor.com` HTTP/HTTPS forward was independently verified
 at `2026-08-18T01:34:40Z`: one temporary redirect reached that exact URL and
 the final response was HTTP `200`.
+
+A later fresh published-GPT treatment-alternatives run skipped all formal
+provider retrieval and the required Forum Signal survey/audits, then mislabeled
+the result HRP-complete. A later audit cannot retroactively complete that
+answer. The associated generalized lesson attempt failed closed as
+non-retryable `privacy_rejected` and must not be retried. A local test-first
+repair now makes treatment alternatives and avoiding replacement or surgery
+explicit triggers and blocks `HRP-complete` plus the full-HRP opening until all
+formal retrieval required by the applicability ledger and every required
+receipt pass. The generated Instructions, privacy-model prompt, merge,
+deployment, editor installation, and fresh UI regression must all be verified
+before Scan Tools or submission resumes. The current local instruction digest
+is `ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f`;
+it is not the installed digest or production acceptance evidence.
 
 ## Source-generated MCP tools/list inventory
 
@@ -253,7 +270,8 @@ declared rather than rewritten as exact card-sequence proof.
 The publisher-matching HTTPS legal/support prerequisite was verified on
 2026-08-12 at release `f928b95e29cd`. Remaining execution steps are:
 
-1. Verify developer/business identity and complete the HTTPS domain challenge.
+1. Select the verified individual publisher or wait for business verification,
+   then complete the matching HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
 3. Record the privacy-safe reviewer demo using
