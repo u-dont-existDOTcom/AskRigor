@@ -491,7 +491,21 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   unofficial YouTube interface. Production availability, caption accuracy, and
   corpus visibility are explicitly unverified; transcript text is not retained
   between requests.
-- The required lesson checkpoint at `2026-08-18T14:20:35.593Z` remained
+- Owner-authorized isolated Gemini/YouTube evaluation is recorded in
+  `docs/audits/2026-08-18-gemini-youtube-discovery-evaluation.md`. With generic,
+  de-identified prompts, Gemini 3.6 produced materially more specific and
+  diverse search directions than the static query families across the failed
+  hip case and two unrelated cases. Ungrounded Gemini URL generation failed
+  independent validation for all 14 generated identifiers and is prohibited by
+  the recommended design. Direct summaries of five real public URLs were rich
+  but took 22.7-33.9 seconds and 82,152-171,688 prompt tokens per video; initial
+  transcript acquisition was `api_visible_complete` and took 2.8-12.2 seconds.
+  Later transcript retries returned `rate_limited`, and an independent subtitle
+  request returned HTTP 429, so the matched transcript-plus-model timing test
+  and the apparent hydration substring remain unresolved rather than negative
+  evidence. No API key, raw transcript, or unrestricted provider response was
+  retained in the repository, and no production or protocol behavior changed.
+- The required lesson checkpoint at `2026-08-18T17:39:21.001Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
@@ -554,6 +568,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
+- After the transcript-provider rate limit resets, finish the matched
+  transcript-plus-Gemini versus direct-video comparison on one or two identical
+  videos. Do not integrate Gemini before that latency/recall comparison and an
+  owner decision on the Google privacy/data-flow boundary. If approved later,
+  use Gemini for query planning, real-candidate selection, and bounded summary;
+  never accept an ungrounded generated YouTube identifier.
 - Complete local verification and review, branch publication, protected PR
   review, and merge. Then deploy the changed runtime and privacy notice, import
   the 19-operation Action schema, install the exact generated Instructions with
@@ -618,6 +638,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`
 - Universal transcript/evidence-frontier repair plan:
   `docs/superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`
+- Gemini YouTube discovery evaluation:
+  `docs/audits/2026-08-18-gemini-youtube-discovery-evaluation.md`
 - Public-review runner/cases: `docs/public-review-automation.md` and
   `docs/public-review-cases-v0.1.0.json`
 - Ignored local sanitized evidence:
@@ -627,10 +649,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Finish exact local verification and diff review, commit the integrated
-follow-up, then inspect GitHub before any push or PR update. Do not
-retry the failed lesson, call live providers, change production, update the GPT
-editor, deploy, or resume portal Scan Tools before the protected merge sequence.
+Finish the matched Gemini/transcript timing comparison after the recorded
+provider rate limit resets, then make the owner privacy/data-flow decision
+before any production integration. Separately finish exact local verification
+and diff review of the existing transcript/evidence-frontier follow-up, commit
+the durable evaluation note, and inspect GitHub before any push or PR update.
+Do not retry the failed lesson, change production, update the GPT editor,
+deploy, or resume portal Scan Tools before the protected merge sequence.
 
 ## Recovery rule
 

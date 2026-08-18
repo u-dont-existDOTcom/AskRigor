@@ -25,6 +25,10 @@ complete XML protocol.
 
 - `audits/2026-08-14-codex-github-compliance.md`: repository compliance report,
   exact gates, hosted evidence, residual risk, and lesson closeout
+- `audits/2026-08-18-gemini-youtube-discovery-evaluation.md`: isolated Gemini
+  API comparison without paid Search grounding, covering planned discovery,
+  validated URL generation, direct video summaries, transcript latency/access
+  boundaries, and the recommended lazy-escalation architecture
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
