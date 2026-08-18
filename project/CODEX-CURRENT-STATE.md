@@ -9,8 +9,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; this evidence branch starts from PR #33 merge
-  `05969b1d84b714e414ee61ee5000581cb412c261`. Production runs PR #32 merge
+- Canonical branch: `main`; this evidence branch starts from PR #34 merge
+  `a8c5ea9e22a15dd674e58f14c867a284ae61311f`. Production runs PR #32 merge
   `d1af238325ee1e0584574e47bbcbe7764d17cf7e`. The privacy-model repair head
   `87433b8829da835f1e8c2b1bd5cd613ac14046b6` passed all protected checks before
   merge and all exact post-merge checks afterward. The
@@ -175,9 +175,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   Action call. The generated Instructions now contain the complete canonical
   shell and explicit authority routing. The later retest used
   `docs/custom-gpt-instructions.md`, empty Knowledge, the live OpenAPI URL,
-  Bearer authentication, and a new chat. `gpt.askrigor.com` must not be
-  repointed until the consent/duplicate cases pass and the actual direct
-  `/g/...` URL is verified.
+  Bearer authentication, and a new chat. At that checkpoint,
+  `gpt.askrigor.com` could not be repointed until the consent/duplicate cases
+  passed and the actual direct `/g/...` URL was verified; the 2026-08-18 direct
+  URL and routing acceptance below closes that gate.
 - The hardened shell subsequently displayed correctly and rejected lowercase
   `yes`; exact `Yes` reached ChatGPT's consequential confirmation. Two calls
   then failed safe as `action_auth_required` because the existing editor Action
@@ -215,6 +216,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with occurrence count 2. The read-only aggregate at
   `2026-08-18T00:32:43.437Z` confirmed 1 open candidate, 1 needs review, 0
   accepted not incorporated, 2 incorporated or closed, and 0 deletion eligible.
+- The published GPT direct URL is
+  `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`.
+  The public page returned HTTP `200` and identified **AskRigor.com Heterodox
+  Research Protocol**. At `2026-08-18T01:34:40Z`, both HTTP and HTTPS for
+  `gpt.askrigor.com` returned one temporary `302` redirect to that exact URL and
+  ended at HTTP `200`. The prior `/share/...` destination is the rollback
+  target. DNS remains Porkbun forwarding; production VPS/Caddy/application
+  state was unchanged and public health remained `200`.
+- The required lesson checkpoint at `2026-08-18T01:37:36.024Z` reported 1 open
+  candidate, 1 needs review, 0 accepted not incorporated, 2 incorporated or
+  closed, and 0 deletion eligible.
 
 ## Completed
 
@@ -400,13 +412,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `20.5.13` UI loading passed. The hardened consent shell, Action
   authentication, public-content review, privacy-model repair, and exact
   deployment probe now pass. The fresh-chat lesson and separately consented
-  duplicate also pass with `ARL-0007` occurrence count 2. Only the direct
-  `/g/...` URL remains pending for this Custom GPT acceptance surface.
+  duplicate also pass with `ARL-0007` occurrence count 2. The direct `/g/...`
+  page and reversible `gpt.askrigor.com` route also pass.
 
 ## Remaining
 
-- Verify the published GPT's direct `/g/...` URL before repointing
-  `gpt.askrigor.com`.
 - Observe developer/business identity completion and complete the portal HTTPS
   domain challenge.
 - Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 17 tools
@@ -425,8 +435,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   product-interface tests. Universal `20.5.13` also passed the fresh product
   interface. The hardened consent shell, authentication, public publication,
   privacy-model repair, exact deployment, direct non-stored probe, fresh-chat
-  lesson, and separately consented duplicate now pass. The direct `/g/...` URL
-  remains pending.
+  lesson, separately consented duplicate, direct `/g/...` page, and reversible
+  `gpt.askrigor.com` route now pass.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -458,19 +468,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Copy the published GPT's actual direct `/g/...` URL, verify that it opens the
-published AskRigor GPT, and only then repoint `gpt.askrigor.com`. Do not repeat
-the completed protocol, provider, YouTube, publication, consent, authentication,
-lesson, duplicate, deployment, or direct privacy-probe tests.
+Observe developer/business identity completion, complete the portal HTTPS domain
+challenge, and then run Scan Tools against `https://mcp.askrigor.com/mcp`.
+Do not repeat the completed protocol, provider, YouTube, publication, consent,
+authentication, lesson, duplicate, direct-GPT routing, deployment, or direct
+privacy-probe tests.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #33, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #34, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. The recorded GitHub baseline is PR #33
-merge `05969b1d84b714e414ee61ee5000581cb412c261`; production is PR #32 merge
+unless production identity has changed. The recorded GitHub baseline is PR #34
+merge `a8c5ea9e22a15dd674e58f14c867a284ae61311f`; production is PR #32 merge
 `d1af238325ee1e0584574e47bbcbe7764d17cf7e`.
