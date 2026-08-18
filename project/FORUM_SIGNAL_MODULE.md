@@ -49,7 +49,7 @@ Before `support_not_located`, distinguish exact matched outcome support from adj
 
 For the exact old-hip regression, repeated firsthand improvement with gelatin, keto, or swimming may be promising for the specific reported outcome. If matched formal support was not located, that signal must not become `weak`, `ineffective`, or `disproved` merely because the formal pass was empty. A low-risk, low-cost, reversible option may justify a measured time-bounded trial when opportunity cost and diagnostic delay are controlled.
 
-Separate gelatin/collagen, hydration, swimming/aquatic exercise, and distinct preoperative PT programs. A generic PT/exercise or postoperative-rehabilitation video satisfies none; require matched video or explicit no-candidate/access disposition to complete. Discovery is not endorsement: preserve exact, indirect, mechanistic, grey, and community lanes and their uncertainty.
+For hip-arthritis/replacement reviews, separate gelatin/collagen, hydration, swimming/aquatic exercise, and distinct preoperative PT programs. A generic PT/exercise or postoperative-rehabilitation video satisfies none; require matched video or explicit no-candidate/access disposition to complete. Discovery is not endorsement: preserve exact, indirect, mechanistic, grey, and community lanes and their uncertainty.
 
 ## Bidirectional and adaptive iteration
 

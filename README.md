@@ -25,8 +25,8 @@ AskRigor uses this order when sources disagree:
 
 The current canonical files identify HRP `20.5.18` (2026-08-16), SHA-256
 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`,
-and Universal Instructions `20.5.13` (2026-08-17), SHA-256
-`3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`.
+and Universal Instructions `20.5.14` (2026-08-18), SHA-256
+`8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
 Those values are descriptive receipts derived from the exact XML bytes, not
 substitutes for the files. A README, manifest, router, lesson, checkpoint,
 release record, generated excerpt, or remembered summary never silently
@@ -345,12 +345,12 @@ but still selected shallow YouTube pools, collapsed distinct exercise/PT
 programs, under-audited decisive trial comparators, and underweighted plausible
 heterodox signals when exact studies were absent. A first discovery/weighting
 repair added candidate-selection, intervention-decomposition, comparator-scope,
-and steelman gates. Its fresh product retest still chose one generic
+and steelman gates, then merged as PR #37. Its fresh product retest still chose one generic
 conservative-care video plus NSAID and postoperative-rehabilitation pools,
 omitted gelatin/collagen and hydration, and treated PT as one intervention while
 claiming HRP-complete. The current local follow-up requires separate hip
 subhypotheses and program-matched videos or explicit no-candidate/access
-dispositions; merge, installation, and fresh product acceptance remain pending. The
+dispositions; its merge, installation, and fresh product acceptance remain pending. The
 associated lesson attempt returned non-retryable `privacy_rejected` and was not
 resubmitted. After that
 gate closes, remaining work includes the publisher-identity/domain path, Scan

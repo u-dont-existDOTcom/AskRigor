@@ -9,10 +9,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current verified GitHub baseline is PR #36 merge
-  `cfce806345fe65a13fd0330aa7e8f000c1587d01`. The isolated discovery/weighting
-  repair branch `agent/gpt-heterodox-discovery-weighting-20260818` starts from
-  that exact commit. Production runs the same PR #36 merge on image ID
+- Canonical branch: `main`; current verified GitHub baseline is PR #39 merge
+  `793c331ad90b9918246105e5f998ab9d1a258de9`. PR #37 merged the first
+  discovery/weighting repair as
+  `d49cad990f21dfdf9649951248798293650f2a4a`; PRs #38 and #39 then advanced
+  canonical Universal source to `20.5.14`. Production still runs PR #36 merge
+  `cfce806345fe65a13fd0330aa7e8f000c1587d01` on image ID
   `sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360`;
   rollback tag `askrigor-research:rollback-cfce806` resolves the prior PR #32
   image. The privacy-model repair head
@@ -25,7 +27,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `81328fc439b6cd6a199a9b707aeafe5b9881fadc` merged as
   `25849647969a4bf333659feaa30f0b418cc24d57`, while production now runs exact
   revision `cfce806345fe65a13fd0330aa7e8f000c1587d01`. The continuation implementation
-  passed direct and Custom GPT UI two-call acceptance, and current Universal
+  passed direct and Custom GPT UI two-call acceptance, and deployed Universal
   `20.5.13` passed fresh direct production acceptance.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
@@ -35,10 +37,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.13` / 2026-08-17 / `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`
+- Canonical source byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.14` / 2026-08-18 / `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Production remains separately verified at Universal `20.5.13` / 2026-08-17 / `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4` pending the recorded rollout boundary.
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
-- Whole-argument reconstruction integration: canonical Universal `20.5.13` adds the source-wide reconstruction gate promoted from `u-dont-existDOTcom/universal-dev-architecture/patterns/whole-argument-reconstruction.md`; HRP bytes remain unchanged.
+- Universal integration: `20.5.13` added the source-wide whole-argument reconstruction gate; canonical source `20.5.14` adds the research-before-reinvention gate. HRP bytes remain unchanged.
 
 ## Active 2026-08-18 treatment-decision regressions
 
@@ -108,21 +110,21 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   labeled the result HRP-complete. This owner-provided UI receipt disproves the
   sufficiency of the first follow-up; tool execution and passing per-video locks
   did not establish option-space coverage.
-- The first local test-first follow-up was completed on the isolated branch. RED was
+- The first test-first follow-up merged as PR #37. RED was
   observed because the Project router, Forum module, plugin skill, and generated
   Custom GPT packet lacked the new executable controls. The candidate adds a
   candidate-selection ledger, exact intervention/comparator decomposition,
   preoperative/postoperative separation, comparator-bounded inference, and
   steelman-without-inflation rules, plus regenerated Instructions/sync artifacts
   and a new seven-case discovery/weighting matrix. No canonical
-  protocol, OpenAPI operation, MCP tool, production deployment, GPT editor
-  state, or private lesson changed in that follow-up. The rejected lesson was
-  not retried. Establish the follow-up's current merge and editor-installation
-  state from Git/GitHub and UI receipts; do not infer it from this implementation
-  paragraph. The
+  protocol, OpenAPI operation, MCP tool, production deployment, or private
+  lesson changed in that follow-up. The owner installed and product-tested its
+  exact generated Instructions; that test produced the failure immediately
+  above. The rejected lesson was not retried. The
   dirty original checkout and its unrelated credential-looking files remain
   untouched.
-- A second local test-first follow-up is active in the same isolated worktree.
+- A second local test-first follow-up is active in the same isolated worktree
+  on a dedicated branch integrated with current `origin/main`.
   Its plan is
   `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`.
   RED showed that all four execution surfaces lacked an explicit requirement to
@@ -468,19 +470,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 - The current repair plan is
   `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`.
-  The generated local Instructions are 7,768 characters (7,780 UTF-8 bytes), SHA-256
-  `f34d8943fed02cd33be5277b738b124de3801bb5530a1ff0ad43503eecd8c888`;
+  The generated local Instructions are 7,787 characters (7,799 UTF-8 bytes), SHA-256
+  `346725b25b263d570e58125eef96e72c3a31da32093ee7efde6315afbf6f7a5f`;
   local sync SHA-256 is
-  `a1cdbd46c8dcf5208d3f5d5f8ff3630561356d7a77e752a9cc9dfe3b527f6a93`.
+  `e6819a6e8cc1fd0d2ff8dd8ddc4de2269edf2cea0c963680949b6a9ae529aa30`.
   The generated OpenAPI remains byte-identical. The Forum Signal matrix has 15
   required and 9 not-required cases; the option-space matrix has 9 broad-review
   and 6 narrow-review controls; the new discovery/weighting matrix has seven
   cases across four review modes. The final focused
-  source/packet/matrix/release suite passed 48/48. The complete Node `24.18.0`
-  gate passed typecheck, 54 test files with one declared credential-gated file
-  skipped, 940 tests with five declared skips, and build.
+  source/packet/matrix/release suite passed 53/53. The complete Node `24.18.0`
+  gate passed typecheck, 56 test files with one declared credential-gated file
+  skipped, 942 tests with five declared skips, and build.
   Static tests do not establish deployed or GPT UI behavior.
-- The required lesson checkpoint at `2026-08-18T12:35:40.794Z` remained
+- The required lesson checkpoint at `2026-08-18T14:20:35.593Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
@@ -563,9 +565,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- The completion and option-space failures were merged, deployed, and installed;
-  the ensuing discovery/weighting and subhypothesis/video-match failures remain
-  a public-submission blocker
+- The completion and option-space failures were merged, deployed, and installed.
+  The first discovery/weighting repair merged as PR #37 but failed its product
+  retest; the resulting subhypothesis/video-match gap remains a public-submission blocker
   until the follow-up is merged, installed, and passes fresh GPT UI cases.
   Static instruction assertions do not prove model obedience. The rejected
   lesson is non-retryable.
@@ -615,8 +617,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Finish exact local verification and diff review, commit the second follow-up,
-then inspect GitHub before any push or PR update. Do not
+Finish exact local verification and diff review, commit the integrated
+follow-up, then inspect GitHub before any push or PR update. Do not
 retry the failed lesson, call live providers, change production, update the GPT
 editor, deploy, or resume portal Scan Tools before the protected merge sequence.
 
@@ -624,10 +626,10 @@ editor, deploy, or resume portal Scan Tools before the protected merge sequence.
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #36, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #39, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. The recorded GitHub baseline and
-production revision are PR #36 merge
-`cfce806345fe65a13fd0330aa7e8f000c1587d01`.
+unless production identity has changed. The recorded GitHub source baseline is
+PR #39 merge `793c331ad90b9918246105e5f998ab9d1a258de9`; production remains PR #36
+merge `cfce806345fe65a13fd0330aa7e8f000c1587d01`.

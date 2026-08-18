@@ -24,7 +24,7 @@ When required, read `FORUM_SIGNAL_MODULE.md` completely. Call `survey_youtube_co
 
 Build a candidate-selection ledger: query/direction, unique hypothesis, decision usefulness, independence, nonredundancy; provider rank/popularity are context, not credibility. Audit exact intervention and comparator programs and state what the contrast can and cannot establish; weak or mismatched comparator narrows inference. Separate preoperative conservative care from postoperative rehabilitation. Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation.
 
-Separate gelatin/collagen, hydration, swimming/aquatic exercise, and distinct preoperative PT programs. A generic PT/exercise or postoperative-rehabilitation video satisfies none; require matched video or explicit no-candidate/access disposition to complete.
+For hip-arthritis/replacement reviews, separate gelatin/collagen, hydration, swimming/aquatic exercise, and distinct preoperative PT programs. A generic PT/exercise or postoperative-rehabilitation video satisfies none; require matched video or explicit no-candidate/access disposition to complete.
 
 ## 3. Synthesis gate
 

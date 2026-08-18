@@ -342,8 +342,18 @@ describe("AskRigor public-review packet", () => {
       "Static repository tests are not GPT-behavior acceptance.",
     );
     expect(release).toContain("repository-candidate evidence only");
+    expect(readme).toContain("Universal Instructions `20.5.14`");
+    expect(readme).toContain(
+      "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221",
+    );
+    expect(release).toContain("Canonical source protocols");
+    expect(release).toContain("it does not prove deployment of `20.5.14`");
+    expect(state).toContain("PR #37");
     expect(state.replace(/\s+/gu, " ")).toContain(
-      "Establish the follow-up's current merge and editor-installation state from Git/GitHub and UI receipts",
+      "The owner installed and product-tested its exact generated Instructions",
+    );
+    expect(state).not.toContain(
+      "Establish the follow-up's current merge and editor-installation state",
     );
     expect(acceptance).toContain("components.schemas");
     expect(acceptance).toContain("201 characters");

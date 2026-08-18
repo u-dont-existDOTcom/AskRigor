@@ -34,7 +34,7 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-cfce806` resolves the prior image `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`; `/opt/askrigor/compose.yaml.rollback-cfce806` has SHA-256 `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`. |
 | deployment archive | Exact secret-free source archive SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`; 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
-| instructions SHA-256 | Historical failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`; consent-shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`, 7,753 characters, Knowledge empty. First discovery/weighting candidate tested through the product: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`, 7,799 characters. Current local hip subhypothesis/video-match candidate: `f34d8943fed02cd33be5277b738b124de3801bb5530a1ff0ad43503eecd8c888`, 7,768 characters (7,780 UTF-8 bytes). |
+| instructions SHA-256 | Historical failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`; consent-shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`, 7,753 characters, Knowledge empty. First discovery/weighting candidate tested through the product: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`, 7,799 characters. Current local hip subhypothesis/video-match candidate: `346725b25b263d570e58125eef96e72c3a31da32093ee7efde6315afbf6f7a5f`, 7,787 characters (7,799 UTF-8 bytes). |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
 
@@ -72,8 +72,9 @@ steelman analysis after exact matched studies were not located. The run's 1,179
 retrieved and 418 analyzed records establish corpus work, not adequate discovery
 or weighting.
 
-The owner then supplied the complete first discovery/weighting candidate and a
-fresh initialization receipt before returning another broad-pathway product
+PR #37 merged the complete first discovery/weighting candidate, after which the
+owner supplied an installation receipt and a fresh initialization receipt
+before returning another broad-pathway product
 result. The editor does not independently expose an instruction digest, so this
 remains an owner-provided product receipt rather than a host-verified hash. The
 run selected only three community pools: generic conservative care
@@ -114,13 +115,13 @@ model behavior. The current follow-up makes the permanent hip regression
 executable: gelatin/collagen, hydration, swimming/aquatic exercise, and distinct
 preoperative PT programs require separate dispositions; generic PT/exercise or
 postoperative-rehabilitation videos satisfy none. The generated local
-Instructions are 7,768 characters (7,780 UTF-8 bytes) with SHA-256
-`f34d8943fed02cd33be5277b738b124de3801bb5530a1ff0ad43503eecd8c888`;
+Instructions are 7,787 characters (7,799 UTF-8 bytes) with SHA-256
+`346725b25b263d570e58125eef96e72c3a31da32093ee7efde6315afbf6f7a5f`;
 the synchronization ledger SHA-256 is
-`a1cdbd46c8dcf5208d3f5d5f8ff3630561356d7a77e752a9cc9dfe3b527f6a93`.
-The final focused source/packet/matrix/release suite passed 48/48. The complete
-Node `24.18.0` gate passed typecheck, 54 test files with one declared
-credential-gated file skipped, 940 tests with five declared skips, and build.
+`e6819a6e8cc1fd0d2ff8dd8ddc4de2269edf2cea0c963680949b6a9ae529aa30`.
+The final focused source/packet/matrix/release suite passed 53/53. The complete
+Node `24.18.0` gate passed typecheck, 56 test files with one declared
+credential-gated file skipped, 942 tests with five declared skips, and build.
 The OpenAPI artifact, 18-operation Action surface, frozen 17-tool MCP inventory,
 canonical protocol bytes, production deployment, and currently installed GPT
 Instructions are unchanged by this follow-up. Establish current merge and editor

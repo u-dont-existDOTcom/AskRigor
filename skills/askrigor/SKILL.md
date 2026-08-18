@@ -31,7 +31,7 @@ When required, call `survey_youtube_community`. Survey up to 6 general/preventio
 
 Audit exact intervention and comparator programs: components/dose/frequency/duration, supervision/adherence/cointerventions, stage/outcome/horizon; state what the contrast can and cannot establish; assess transportability; weak or mismatched comparator narrows inference; preoperative conservative care ≠ postoperative rehabilitation. Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation. It cannot alone downgrade community signal.
 
-Separate: gelatin/collagen; hydration; swimming/aquatic exercise; distinct preoperative PT programs. Generic PT/exercise or postoperative-rehabilitation video satisfies none; matched video or explicit no-candidate/access disposition required.
+Hip-OA/replacement: separate gelatin/collagen; hydration; swimming/aquatic exercise; distinct preoperative PT programs. Generic PT/exercise or postoperative-rehabilitation video satisfies none; matched video or explicit no-candidate/access disposition required.
 
 `HRP-complete`/full-HRP opening require ledger formal retrieval and passing receipts. Forum Signal needs no incomplete direction/transfer; each selected video's Action-returned `receipt.synthesis_lock: pass`. `complete_no_candidates`: no unseen-signal claims; `completed_with_access_boundary`: gap/confidence effect.
 

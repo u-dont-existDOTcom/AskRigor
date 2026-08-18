@@ -136,6 +136,7 @@ describe("heterodox discovery and weighting matrix", () => {
 
     for (const compactSurface of [skill, generated]) {
       for (const compactControl of [
+        "Hip-OA/replacement",
         "Survey up to 6 general/prevention/exact-variant/contrarian-practitioner/benefit/failure/harm-discontinuation/formal-discriminator searches",
         "rewrite/use-cursor/new-batch if redundant",
         "components/dose/frequency/duration",
@@ -145,6 +146,10 @@ describe("heterodox discovery and weighting matrix", () => {
       ]) {
         expect(compactSurface, compactControl).toContain(compactControl);
       }
+    }
+
+    for (const detailedSurface of [project, forum]) {
+      expect(detailedSurface).toContain("For hip-arthritis/replacement reviews");
     }
     expect(forum).toContain("Prepare up to six YouTube searches across the general landscape");
     expect(forum).toContain("rewrite queries, use cursors, or start another batch");
