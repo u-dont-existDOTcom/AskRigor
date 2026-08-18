@@ -1,0 +1,36 @@
+name: TEMP apply Universal 20.5.14 patch
+
+on:
+  push:
+    branches:
+      - codex/research-before-reinvention-20-5-14
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out task branch
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: codex/research-before-reinvention-20-5-14
+          persist-credentials: true
+
+      - name: Apply fail-closed protocol patch
+        run: |
+          python3 scripts/protocol/apply_universal_20_5_13_to_20_5_14.py protocols/Universal_Instructions.xml --in-place | tee /tmp/protocol-patch-receipt.txt
+          grep -F 'version=20.5.14 revisionDate=2026-08-18' /tmp/protocol-patch-receipt.txt
+          grep -F 'xml_validation=pass' /tmp/protocol-patch-receipt.txt
+          grep -F '<research_before_reinvention_gate priority="Critical">' protocols/Universal_Instructions.xml
+
+      - name: Commit generated canonical XML to task branch
+        run: |
+          git config user.name 'askrigor-protocol-bootstrap'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add protocols/Universal_Instructions.xml
+          git diff --cached --quiet && { echo 'Expected protocol diff was not produced'; exit 1; }
+          git commit -m 'protocol: add research-before-reinvention gate v20.5.14'
+          git push origin HEAD:codex/research-before-reinvention-20-5-14
