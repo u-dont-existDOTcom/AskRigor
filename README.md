@@ -338,13 +338,15 @@ publishes a local `.app.json` reference.
 V0.1.0 is still **PUBLIC SUBMISSION BLOCKED**. A later fresh published-GPT
 treatment-alternatives run skipped required formal retrieval and Forum Signal
 work, then mislabeled the answer HRP-complete. A second treatment-decision run
-did use community evidence but stayed anchored to the clinician-proposed
-pathway instead of discovering and comparing realistic alternatives. The
-test-first repair now separates Forum Signal applicability from treatment
-option-space breadth; it is local;
-merge, privacy-model deployment, exact generated-Instructions installation with
-empty Knowledge, and fresh required/nontrigger plus broad/narrow
-product-interface regressions remain pending. The
+used community evidence but stayed anchored to the clinician-proposed pathway.
+PR #36's repair separated Forum Signal from option-space breadth, was deployed,
+and was installed with empty Knowledge. A third product run found alternatives
+but still selected shallow YouTube pools, collapsed distinct exercise/PT
+programs, under-audited decisive trial comparators, and underweighted plausible
+heterodox signals when exact studies were absent. The current local repair adds
+candidate-selection, intervention-decomposition, comparator-scope, and
+steelman-without-inflation gates; current publication/install receipts and fresh
+product regressions remain pending. The
 associated lesson attempt returned non-retryable `privacy_rejected` and was not
 resubmitted. After that
 gate closes, remaining work includes the publisher-identity/domain path, Scan

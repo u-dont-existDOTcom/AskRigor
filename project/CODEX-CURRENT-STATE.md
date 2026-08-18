@@ -9,20 +9,22 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current verified GitHub baseline is PR #35 merge
-  `f603a384efbb028d1865c57c232bd134d8c5584b`. The isolated repair branch
-  `agent/gpt-forum-signal-routing-repair-20260818` starts from that exact
-  commit. Production runs PR #32 merge
-  `d1af238325ee1e0584574e47bbcbe7764d17cf7e`. The privacy-model repair head
-  `87433b8829da835f1e8c2b1bd5cd613ac14046b6` passed all protected checks before
-  merge and all exact post-merge checks afterward. The
+- Canonical branch: `main`; current verified GitHub baseline is PR #36 merge
+  `cfce806345fe65a13fd0330aa7e8f000c1587d01`. The isolated discovery/weighting
+  repair branch `agent/gpt-heterodox-discovery-weighting-20260818` starts from
+  that exact commit. Production runs the same PR #36 merge on image ID
+  `sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360`;
+  rollback tag `askrigor-research:rollback-cfce806` resolves the prior PR #32
+  image. The privacy-model repair head
+  `87433b8829da835f1e8c2b1bd5cd613ac14046b6` passed protected checks before
+  merge and exact post-merge checks afterward. The
   public-boundary task started from PR #30 merge
   `8ac8b068cbf316d9a9802674ec27df0b55467afb`. The
   consent-shell repair started from PR #28 merge
   `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`. Exact PR #29 head
   `81328fc439b6cd6a199a9b707aeafe5b9881fadc` merged as
   `25849647969a4bf333659feaa30f0b418cc24d57`, while production now runs exact
-  revision `d1af238325ee1e0584574e47bbcbe7764d17cf7e`. The continuation implementation
+  revision `cfce806345fe65a13fd0330aa7e8f000c1587d01`. The continuation implementation
   passed direct and Custom GPT UI two-call acceptance, and current Universal
   `20.5.13` passed fresh direct production acceptance.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
@@ -81,17 +83,31 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   lifestyle/rehabilitation/mechanical approaches, relevant heterodox or
   adjunct approaches, and procedural/surgical care. Plausible classes must be
   searched and exclusions justified before a verdict.
-- Local test-first repair work is complete on the isolated branch. RED was
-  observed in the Project router, plugin skill, generated Custom GPT packet,
-  and privacy-model contract before source changes. The candidate now adds the
-  explicit routing/completion gates, a privacy-qualified generalized
-  `protocol_execution` example, strict synthetic contract/screen/model-output
-  coverage, regenerated Instructions/sync artifacts, two static prompt
-  matrices, and truthful pending
-  release documentation. No canonical protocol, OpenAPI operation, MCP tool,
-  production deployment, GPT editor state, or private lesson changed. The
-  rejected lesson was not retried. The current candidate remains unmerged,
-  undeployed, and uninstalled; inspect exact Git/GitHub branch and PR state. The
+- PR #36 merged and deployed that repair. The owner installed exact
+  7,753-character Instructions
+  `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`
+  with empty Knowledge.
+- A third broad treatment-pathway product run then executed Forum Signal and
+  option-space work, retrieving 1,179 YouTube records and returning 418 for
+  analysis, but exposed a discovery/weighting failure. It treated four largely
+  conventional/provider-ranked pools as adequate without a candidate-selection
+  ledger, collapsed distinct exercise/PT programs, did not separate
+  preoperative conservative care from postoperative rehabilitation, did not
+  constrain decisive THA trials to their exact comparators, and gave little
+  structured steelman treatment to hydration/collagen evidence after exact
+  matched studies were not located.
+- Local test-first follow-up work is active on the isolated branch. RED was
+  observed because the Project router, Forum module, plugin skill, and generated
+  Custom GPT packet lacked the new executable controls. The candidate adds a
+  candidate-selection ledger, exact intervention/comparator decomposition,
+  preoperative/postoperative separation, comparator-bounded inference, and
+  steelman-without-inflation rules, plus regenerated Instructions/sync artifacts
+  and a new seven-case discovery/weighting matrix. No canonical
+  protocol, OpenAPI operation, MCP tool, production deployment, GPT editor
+  state, or private lesson changed in this follow-up. The rejected lesson was
+  not retried. Establish the follow-up's current merge and editor-installation
+  state from Git/GitHub and UI receipts; do not infer it from this implementation
+  paragraph. The
   dirty original checkout and its unrelated credential-looking files remain
   untouched.
 - Owner-reported OpenAI state: individual identity is verified. Business/
@@ -429,19 +445,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Current checkpoint
 
-- The 2026-08-18 treatment-alternatives repair plan is
-  `docs/superpowers/plans/2026-08-18-custom-gpt-forum-signal-regression-repair.md`.
-  The generated local Instructions are 7,753 characters (7,757 UTF-8 bytes),
-  SHA-256
-  `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`;
+- The current repair plan is
+  `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`.
+  The generated local Instructions are 7,799 characters (7,811 UTF-8 bytes), SHA-256
+  `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`;
   local sync SHA-256 is
-  `1cc5a8c77f51ebb0d3011036a23eaa6f3e9a5367374f8309131c509115d25931`.
+  `7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`.
   The generated OpenAPI remains byte-identical. The Forum Signal matrix has 15
   required and 9 not-required cases; the option-space matrix has 9 broad-review
-  and 6 narrow-review controls. The expanded focused suite passed 75/75. The
-  complete Node `24.18.0` gate passed typecheck, 53 test files with one declared
-  credential-gated file skipped, 933 tests with five declared skips, and build.
-  Skill/plugin validation, repository-policy audit, and patch hygiene passed.
+  and 6 narrow-review controls; the new discovery/weighting matrix has seven
+  cases across four review modes. Its focused suite passed 52/52. The complete
+  Node `24.18.0` gate passed typecheck, 54 test files with one declared
+  credential-gated file skipped, 939 tests with five declared skips, and build.
   Static tests do not establish deployed or GPT UI behavior.
 - The required pre-publication lesson checkpoint at `2026-08-18T09:37:06.952Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
@@ -506,11 +521,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- Complete branch publication, protected PR review, and merge; deploy the
-  privacy-model prompt; install the exact generated Instructions with empty
-  Knowledge; and pass a fresh treatment-decision Custom GPT matrix covering
-  required/nontrigger and broad/narrow controls. The candidate is not merged,
-  deployed, or installed.
+- Complete branch publication, protected PR review, and merge; install the exact
+  generated Instructions with empty Knowledge; and pass fresh Custom GPT cases
+  for candidate selection, intervention decomposition, decisive-comparator
+  scope, and heterodox weighting. No server deployment is required unless the
+  final diff changes runtime source or public contracts.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
   publisher-identity path, then complete the portal HTTPS domain challenge; do
@@ -525,11 +540,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- The observed treatment-alternatives formal/Forum failure and the separate
-  option-space product-interface failure remain a public-submission blocker
-  until the local candidate is merged, deployed, installed, and passes fresh
-  required/nontrigger and broad/narrow GPT UI runs. Static instruction
-  assertions do not prove model obedience. The rejected lesson is non-retryable.
+- The completion and option-space failures were merged, deployed, and installed;
+  the ensuing discovery/weighting failure remains a public-submission blocker
+  until the follow-up is merged, installed, and passes fresh GPT UI cases.
+  Static instruction assertions do not prove model obedience. The rejected
+  lesson is non-retryable.
 
 - The importer fix is merged, green, deployed, and passed the product importer.
   Protocol and formal-source UI cases passed. The short-handle and terminal
@@ -563,6 +578,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `docs/superpowers/plans/2026-08-16-public-submission-packet-repair-implementation.md`
 - Forum Signal regression repair plan:
   `docs/superpowers/plans/2026-08-18-custom-gpt-forum-signal-regression-repair.md`
+- Heterodox discovery/weighting repair plan:
+  `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`
 - Public-review runner/cases: `docs/public-review-automation.md` and
   `docs/public-review-cases-v0.1.0.json`
 - Ignored local sanitized evidence:

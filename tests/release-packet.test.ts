@@ -48,6 +48,7 @@ describe("AskRigor public-review packet", () => {
       sync,
       forumText,
       optionText,
+      discoveryText,
     ] = await Promise.all([
       readFile(rootFile("docs/INDEX.md"), "utf8"),
       readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
@@ -58,14 +59,18 @@ describe("AskRigor public-review packet", () => {
       readFile(rootFile("docs/custom-gpt-sync.json"), "utf8"),
       readFile(rootFile("docs/forum-signal-routing-matrix-v0.1.0.json"), "utf8"),
       readFile(rootFile("docs/treatment-option-space-matrix-v0.1.0.json"), "utf8"),
+      readFile(rootFile("docs/heterodox-discovery-weighting-matrix-v0.1.0.json"), "utf8"),
     ]);
     const forum = JSON.parse(forumText) as { cases: unknown[] };
     const option = JSON.parse(optionText) as { cases: unknown[] };
+    const discovery = JSON.parse(discoveryText) as { cases: unknown[] };
 
     expect(index).toContain("forum-signal-routing-matrix-v0.1.0.json");
     expect(index).toContain("treatment-option-space-matrix-v0.1.0.json");
+    expect(index).toContain("heterodox-discovery-weighting-matrix-v0.1.0.json");
     expect(forum.cases).toHaveLength(24);
     expect(option.cases).toHaveLength(15);
+    expect(discovery.cases).toHaveLength(7);
     for (const document of [release, acceptance]) {
       expect(document).toContain("15 required and 9");
       expect(document).toContain("9 broad-review and 6 narrow-review");
@@ -295,7 +300,7 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED BASELINE; CURRENT TREATMENT-DECISION COMPLETION REPAIR LOCAL/PENDING"
+      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS PRODUCT ACCEPTANCE"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -327,7 +332,7 @@ describe("AskRigor public-review packet", () => {
       expect(document).toContain("privacy_rejected");
     }
     expect(acceptance).toContain(
-      "DEPLOYED BASELINE — PRIOR DIRECT/UI ACCEPTANCE PASSED; CURRENT TREATMENT-DECISION COMPLETION REPAIR LOCAL, NOT DEPLOYED OR GPT-UI RETESTED",
+      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS GPT-UI ACCEPTANCE",
     );
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "all formal retrieval required by the applicability ledger",
@@ -336,9 +341,9 @@ describe("AskRigor public-review packet", () => {
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "Static repository tests are not GPT-behavior acceptance.",
     );
-    expect(release).toContain("fresh product-interface acceptance remains pending");
+    expect(release).toContain("repository-candidate evidence only");
     expect(state.replace(/\s+/gu, " ")).toContain(
-      "The current candidate remains unmerged, undeployed, and uninstalled; inspect exact Git/GitHub branch and PR state.",
+      "Establish the follow-up's current merge and editor-installation state from Git/GitHub and UI receipts",
     );
     expect(acceptance).toContain("components.schemas");
     expect(acceptance).toContain("201 characters");
@@ -372,15 +377,9 @@ describe("AskRigor public-review packet", () => {
 
     for (const exactIdentity of [
       "d1af238325ee1e0584574e47bbcbe7764d17cf7e",
-      "87433b8829da835f1e8c2b1bd5cd613ac14046b6",
       "sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd",
-      "9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51",
       "f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4",
       "06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1",
-      "askrigor-research:rollback-d1af238",
-      "/opt/askrigor/compose.yaml.rollback-d1af238",
-      "sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953",
-      "cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf",
       "8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d",
       "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94",
       "402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2",
@@ -388,6 +387,11 @@ describe("AskRigor public-review packet", () => {
       "b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af",
       "3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4",
       "/opt/askrigor/site/releases/56b3dff6d7c3/site",
+      "cfce806345fe65a13fd0330aa7e8f000c1587d01",
+      "sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360",
+      "9769d1d2d42065687ad78823910838193196129b8c988e292fb4999160614971",
+      "askrigor-research:rollback-cfce806",
+      "/opt/askrigor/compose.yaml.rollback-cfce806",
     ]) {
       expect(deploymentIdentity).toContain(exactIdentity);
     }

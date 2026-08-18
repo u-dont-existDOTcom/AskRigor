@@ -1,6 +1,6 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED BASELINE — PRIOR DIRECT/UI ACCEPTANCE PASSED; CURRENT TREATMENT-DECISION COMPLETION REPAIR LOCAL, NOT DEPLOYED OR GPT-UI RETESTED**. The exact
+Status: **DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS GPT-UI ACCEPTANCE**. The exact
 production Action boundary and the formerly failing two-call YouTube chain
 retain the sanitized direct and repaired Custom GPT UI evidence below. That
 evidence does not cover the later treatment-alternatives and option-space
@@ -27,14 +27,14 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Privacy-model repair accepted through `2026-08-17T23:45:43Z`; accepted container started `2026-08-17T23:43:10.519715525Z`. |
-| deployed commit | PR #32 head `87433b8829da835f1e8c2b1bd5cd613ac14046b6` merged as exact `d1af238325ee1e0584574e47bbcbe7764d17cf7e`; the previous Universal/continuation release remains in its ancestry. |
-| deployed image | `askrigor-research:d1af238325ee1e0584574e47bbcbe7764d17cf7e`; image ID `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`; healthy container `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`. |
-| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained `root:root` mode `0600` and was not read. |
-| rollback image/config | `askrigor-research:rollback-d1af238` resolves the immediately prior production image `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`; `/opt/askrigor/compose.yaml.rollback-d1af238` has SHA-256 `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`. |
+| UTC time | Completion/option-space deployment and owner editor installation accepted on `2026-08-18`; exact prior privacy acceptance remains below. |
+| deployed commit | PR #36 merged as exact `cfce806345fe65a13fd0330aa7e8f000c1587d01`; PR #32 merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e` remains in its ancestry. |
+| deployed image | `askrigor-research:cfce806345fe65a13fd0330aa7e8f000c1587d01`; image ID `sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360`; healthy container `466765dda792`; only the research service changed. |
+| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `9769d1d2d42065687ad78823910838193196129b8c988e292fb4999160614971`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained protected and was not read. |
+| rollback image/config | `askrigor-research:rollback-cfce806` resolves the prior image `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`; `/opt/askrigor/compose.yaml.rollback-cfce806` has SHA-256 `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`. |
 | deployment archive | Exact secret-free source archive SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`; 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
-| instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell candidate installed in the editor: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public health-research boundary: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`. |
+| instructions SHA-256 | Historical failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`; consent-shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`, 7,753 characters, Knowledge empty. Current local discovery/weighting candidate: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`, 7,799 characters (7,811 UTF-8 bytes). |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
 
@@ -60,6 +60,18 @@ audited experiences with the named treatments without first discovering and
 comparing the realistic treatment option space. The answer therefore failed
 HRP's broad heterodox review purpose even though the Forum Signal module ran.
 
+PR #36 merged, deployed, and was installed with empty Knowledge. A new broad
+treatment-pathway acceptance then triggered Forum Signal and option-space work,
+but exposed a deeper quality failure: four conventional/provider-ranked video
+pools were treated as sufficient without a documented candidate comparison;
+“exercise/PT” was not decomposed into the programs actually studied or claimed;
+preoperative surgery-avoidance care was not separated from postoperative
+rehabilitation; decisive arthroplasty trials were not bounded by their exact
+comparators; and hydration/collagen signals received little structured
+steelman analysis after exact matched studies were not located. The run's 1,179
+retrieved and 418 analyzed records establish corpus work, not adequate discovery
+or weighting.
+
 The local test-first repair separates two gates. Forum Signal now explicitly
 applies to personal or practical treatment decisions even when alternatives
 are unstated. Treatment endorsement, choice, or start/defer/sequence decisions independently
@@ -81,23 +93,23 @@ preservation, `store:false`, and fail-closed uncertainty remain unchanged.
 
 The static routing matrix has 15 required and 9 not-required Forum Signal
 cases; the separate option-space matrix has 9 broad-review and 6 narrow-review
-controls. Selected positive, negative, broad, and narrow cases remain reserved
+controls. The discovery/weighting matrix adds seven cases across broad,
+bounded, narrow, and not-applicable review modes. Selected cases remain reserved
 for fresh product-interface acceptance because static assertions do not prove
-model routing. The generated local Instructions are 7,753 characters (7,757
+model behavior. The generated local Instructions are 7,799 characters (7,811
 UTF-8 bytes) with SHA-256
-`efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`;
+`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`;
 the synchronization ledger SHA-256 is
-`1cc5a8c77f51ebb0d3011036a23eaa6f3e9a5367374f8309131c509115d25931`.
-The expanded focused suite passed 75/75. The complete Node `24.18.0` gate
-passed typecheck, 53 test files with one declared credential-gated file
-skipped, 933 tests with five declared skips, and build. Skill/plugin validation,
-repository-policy audit, and patch hygiene passed.
+`7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`.
+The discovery/weighting focused suite passed 52/52. The complete Node `24.18.0`
+gate passed typecheck, 54 test files with one declared credential-gated file
+skipped, 939 tests with five declared skips, and build.
 The OpenAPI artifact, 18-operation Action surface, frozen 17-tool MCP inventory,
 canonical protocol bytes, production deployment, and currently installed GPT
-Instructions are unchanged. Merge, privacy-model deployment, editor
-installation with empty Knowledge, and fresh product-interface routing and
-option-space regressions remain pending. Static repository tests are not
-GPT-behavior acceptance.
+Instructions are unchanged by this follow-up. Establish current merge and editor
+state from Git/GitHub and UI receipts, then run fresh discovery/weighting
+product-interface regressions. Static repository tests are not GPT-behavior
+acceptance.
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 
