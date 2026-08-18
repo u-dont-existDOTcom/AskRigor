@@ -8,8 +8,8 @@ immutable site release `f928b95e29cd`.
 The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.
 The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
-the current treatment-alternatives formal-retrieval/Forum Signal completion
-regression, the publisher-identity and domain-verification path, Scan Tools
+the current treatment-decision formal-retrieval/Forum Signal and option-space
+completion regressions, the publisher-identity and domain-verification path, Scan Tools
 review, the demo recording, the explicit opaque model-receipt release decision,
 final portal review, and submission actions recorded in
 `docs/public-submission-packet-v0.1.0.json` and
@@ -71,8 +71,17 @@ formal retrieval required by the applicability ledger and every required
 receipt pass. The generated Instructions, privacy-model prompt, merge,
 deployment, editor installation, and fresh UI regression must all be verified
 before Scan Tools or submission resumes. The current local instruction digest
-is `ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f`;
+is `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`;
 it is not the installed digest or production acceptance evidence.
+
+A second fresh treatment-decision run completed community retrieval but stayed
+anchored to the clinician-proposed celecoxib-to-surgery pathway and did not
+discover or compare realistic alternatives. The repair therefore adds a
+separate option-space gate plus two static prompt matrices: 15 required and 9
+affirmative nontrigger Forum Signal cases, and 9 broad-review and 6
+narrow-review option-space controls. Fresh product-interface acceptance must
+exercise selected required/nontrigger and broad/narrow controls; repository
+assertions alone do not establish model behavior.
 
 ## Source-generated MCP tools/list inventory
 

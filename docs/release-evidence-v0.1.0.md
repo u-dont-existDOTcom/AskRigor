@@ -5,9 +5,9 @@ Release disposition at 2026-08-18: **PUBLIC SUBMISSION BLOCKED**. Developer
 Mode connector retrieval is ready based on the recorded production Inspector and
 ChatGPT evidence below, and the public website/support/privacy/terms URL gate is
 now resolved. The fresh post-deployment ChatGPT interface check did not reproduce
-the earlier routine-status presentation finding. A later treatment-alternatives
-run exposed a separate formal-retrieval and Forum Signal completion regression;
-its repair is local and has not been merged, deployed, installed, or retested in
+the earlier routine-status presentation finding. Later treatment-decision runs
+exposed formal-retrieval/Forum Signal and option-space completion regressions;
+their repair is local and has not been merged, deployed, installed, or retested in
 the GPT UI. Public submission cannot proceed until that regression closes, the
 publisher-identity/domain path is resolved, Scan Tools and the demo recording
 pass, the opaque model-receipt release decision is explicit, and final portal
@@ -16,7 +16,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED BASELINE; CURRENT FORUM SIGNAL COMPLETION REPAIR LOCAL/PENDING
+## Custom GPT research bridge — DEPLOYED BASELINE; CURRENT TREATMENT-DECISION COMPLETION REPAIR LOCAL/PENDING
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -83,11 +83,26 @@ Action-returned `receipt.synthesis_lock: pass`. It adds privacy-only model
 guidance for an already-generalized, non-identifying `protocol_execution`
 lesson without weakening strict schema, deterministic screening, metadata
 equality, non-storage, or fail-closed behavior. The local generated Instructions
-SHA-256 is `ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f`.
-The final focused suite passed 64/64; the exact affected host-boundary
-suite passed 178/178. The complete Node `24.18.0` gate passed typecheck, 51
-test files with one declared credential-gated file skipped, 922 tests with five
-declared skips, and build. Skill/plugin validation and patch hygiene passed.
+are 7,753 characters; SHA-256 is
+`efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`;
+its synchronization-ledger SHA-256 is
+`1cc5a8c77f51ebb0d3011036a23eaa6f3e9a5367374f8309131c509115d25931`.
+
+A second fresh run did execute YouTube community work for a clinician-proposed
+celecoxib-to-surgery pathway, but it audited only the named treatments and did
+not discover or compare realistic alternatives. The expanded repair therefore
+adds an independent option-space gate for treatment endorsement, choice, and
+start/defer/sequence decisions. It requires proposed care, diagnosis alternatives,
+nonaction/natural history, conventional nonsurgical care,
+lifestyle/rehabilitation/mechanical approaches, relevant heterodox or adjunct
+approaches, and procedural or surgical care to be searched across plausible
+classes, with exclusions justified before a verdict. The Forum Signal matrix
+contains 15 required and 9 affirmative nontrigger cases; the separate
+option-space matrix contains 9 broad-review and 6 narrow-review controls. The
+expanded focused suite passed 75/75. The complete Node `24.18.0` gate passed
+typecheck, 53 test files with one declared credential-gated file skipped, 933
+tests with five declared skips, and build. Skill/plugin validation, repository-
+policy audit, and patch hygiene passed.
 This is repository-candidate evidence only: the production application,
 installed GPT Instructions, OpenAPI, MCP inventory, and protocol bytes are
 unchanged, and fresh product-interface acceptance remains pending.
@@ -128,7 +143,7 @@ a separate evidence-preserving owner review.
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Bounded transient-handle disclosure active at `/opt/askrigor/site/releases/56b3dff6d7c3/site`; live privacy bytes SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`. |
 | Public site packet | SHA-256 `7033719202391ad384976fb0c7dbf30ca197445b549bc68f7009e736643f9b07`; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. |
-| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; committed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Failed-safe UI run instructions: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell instructions installed for the passing shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public-boundary instructions: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`; installed sync ledger `621d0795872719903ed7ed3bd4b7aab85f875c8923b17b26d1f373d15af19081`. Local pending completion-repair instructions: `ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f`; local sync ledger `420f313c2ab7cf22cfe351dd3761772e7fef6c81beb51c0b0a23ee9cbd43f869`. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; committed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Failed-safe UI run instructions: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell instructions installed for the passing shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public-boundary instructions: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`; installed sync ledger `621d0795872719903ed7ed3bd4b7aab85f875c8923b17b26d1f373d15af19081`. Local pending completion-repair instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`; local sync ledger `1cc5a8c77f51ebb0d3011036a23eaa6f3e9a5367374f8309131c509115d25931`. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -375,10 +390,11 @@ No provider request or lesson write was repeated.
 
 ## Required submission work remaining
 
-- Merge and deploy the Forum Signal completion/privacy-prompt repair, install
+- Merge and deploy the Forum Signal/option-space completion repair, install
   the exact generated Instructions with empty Knowledge, and pass a fresh
-  treatment-alternatives product-interface regression before resuming portal
-  work. Do not retry the rejected lesson candidate.
+  treatment-decision product-interface matrix covering required/nontrigger and
+  broad/narrow controls before resuming portal work. Do not retry the rejected
+  lesson candidate.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
   publisher-identity path, then complete matching listing URLs, country

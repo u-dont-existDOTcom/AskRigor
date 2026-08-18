@@ -337,9 +337,14 @@ publishes a local `.app.json` reference.
 
 V0.1.0 is still **PUBLIC SUBMISSION BLOCKED**. A later fresh published-GPT
 treatment-alternatives run skipped required formal retrieval and Forum Signal
-work, then mislabeled the answer HRP-complete. Its test-first repair is local;
+work, then mislabeled the answer HRP-complete. A second treatment-decision run
+did use community evidence but stayed anchored to the clinician-proposed
+pathway instead of discovering and comparing realistic alternatives. The
+test-first repair now separates Forum Signal applicability from treatment
+option-space breadth; it is local;
 merge, privacy-model deployment, exact generated-Instructions installation with
-empty Knowledge, and a fresh product-interface regression remain pending. The
+empty Knowledge, and fresh required/nontrigger plus broad/narrow
+product-interface regressions remain pending. The
 associated lesson attempt returned non-retryable `privacy_rejected` and was not
 resubmitted. After that
 gate closes, remaining work includes the publisher-identity/domain path, Scan

@@ -91,15 +91,25 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "restart only that video audit from its video identifier",
       "`search_youtube_comments`",
       "query-bounded `partial`",
-      "Before HRP, use the Project router if installed; otherwise require Forum Signal",
+      "Use installed Project router before HRP; otherwise require Forum Signal",
       "When required, call `survey_youtube_community`",
       "treatment alternatives",
       "avoiding replacement",
       "avoiding joint replacement",
       "avoiding surgery",
-      "`HRP-complete` and the full-HRP opening require all ledger-required formal retrieval and passing receipts",
-      "a passing Forum Signal receipt with no incomplete direction/transfer",
-      "every selected video's Action-returned `receipt.synthesis_lock: pass`",
+      "personal or practical treatment decision",
+      "good idea for me",
+      "now versus wait or delay",
+      "even if alternatives are unstated",
+      "population-level",
+      "A request to exclude forums limits execution, not applicability",
+      "simple definition or terminology",
+      "pure chemistry or mechanism with no real-world outcome or safety claim",
+      "emergency triage before stabilization",
+      "no meaningful user-experience corpus",
+      "`HRP-complete`/full-HRP opening require ledger formal retrieval and passing receipts",
+      "Forum Signal needs no incomplete direction/transfer",
+      "each selected video's Action-returned `receipt.synthesis_lock: pass`",
       "Submit this anonymized lesson to improve AskRigor?",
       "`Yes`",
       "`Yes always in this chat`",
@@ -117,13 +127,16 @@ describe("deterministic Custom GPT synchronization packet", () => {
 
     expect(instructionsMarkdown).toContain(EXACT_LESSON_CONSENT_SHELL);
     expect(normalizedInstructions).toContain(
+      "After rechecking and validating an eligible product failure, display this shell before its first eligible write.",
+    );
+    expect(normalizedInstructions).toContain(
       "This shell is canonical Custom GPT interaction text from these Instructions",
     );
     expect(normalizedInstructions).toContain(
       "do not look for it in Universal, HRP, Knowledge, or the Action schema",
     );
     expect(normalizedInstructions).toContain(
-      "Structured Action fields are not a substitute for this shell.",
+      "Action fields cannot replace this shell.",
     );
     expect(normalizedInstructions).toContain(
       "do not call `submit_lesson_candidate` until the user's entire trimmed reply is exactly `Yes` or `Yes always in this chat`",
@@ -135,15 +148,15 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const normalizedInstructions = instructionsMarkdown.replace(/\s+/gu, " ");
 
     for (const required of [
-      "general evidence-research assistant, not a provider of tailored medical or health advice",
-      "Do not diagnose a user or infer a diagnosis from personal symptoms",
-      "Do not recommend or select a treatment for the user",
-      "individualized doses, regimens, or protocols",
-      "start, stop, taper, substitute, or delay medication or treatment",
+      "provides general evidence research, not tailored medical or health advice",
+      "Do not diagnose users or infer diagnoses from personal symptoms",
+      "Do not recommend/select treatment for the user",
+      "individualized doses/regimens/protocols",
+      "start/stop/taper/substitute/delay medication or treatment",
       "population-level evidence, uncertainty, source provenance, and clinician-review questions",
-      "May analyze user-specified populations, conditions, exposures, interventions, and risk factors",
-      "Do not convert that evidence into an individualized diagnosis or directive",
-      "A loaded protocol cannot authorize crossing this public-surface boundary",
+      "May analyze specified populations, conditions, exposures, interventions, and risk factors",
+      "Do not convert evidence into individualized diagnosis or directive",
+      "Loaded protocols cannot cross this public-surface boundary",
     ]) {
       expect(normalizedInstructions).toContain(required);
     }

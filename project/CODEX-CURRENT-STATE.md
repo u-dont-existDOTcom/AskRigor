@@ -38,7 +38,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
 - Whole-argument reconstruction integration: canonical Universal `20.5.13` adds the source-wide reconstruction gate promoted from `u-dont-existDOTcom/universal-dev-architecture/patterns/whole-argument-reconstruction.md`; HRP bytes remain unchanged.
 
-## Active 2026-08-18 Forum Signal regression
+## Active 2026-08-18 treatment-decision regressions
 
 - In a fresh public-GPT run for a treatment-alternatives question, the GPT
   loaded and verified Universal and HRP but did not run PubMed, Europe PMC,
@@ -66,16 +66,32 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   fail-closed examples; require a passing Forum Signal receipt before any
   HRP-complete label; and preserve the existing public non-tailored health
   boundary.
+- A second fresh public-GPT treatment-decision run did execute YouTube
+  community work, but it stayed anchored to the clinician-proposed
+  celecoxib-to-surgery pathway. It audited the named treatments without first
+  discovering and comparing realistic alternatives. Forum Signal execution
+  therefore did not satisfy HRP's independent broad heterodox option-space
+  requirement.
+- The expanded repair separates Forum Signal applicability from treatment
+  option-space breadth. Personal/practical decisions require Forum Signal even
+  when alternatives are unstated. Endorsement, choice, and start/defer/sequence
+  decisions also
+  require an option-space ledger covering proposed care, diagnosis
+  alternatives, nonaction/natural history, conventional nonsurgical care,
+  lifestyle/rehabilitation/mechanical approaches, relevant heterodox or
+  adjunct approaches, and procedural/surgical care. Plausible classes must be
+  searched and exclusions justified before a verdict.
 - Local test-first repair work is complete on the isolated branch. RED was
   observed in the Project router, plugin skill, generated Custom GPT packet,
   and privacy-model contract before source changes. The candidate now adds the
   explicit routing/completion gates, a privacy-qualified generalized
   `protocol_execution` example, strict synthetic contract/screen/model-output
-  coverage, regenerated Instructions/sync artifacts, and truthful pending
+  coverage, regenerated Instructions/sync artifacts, two static prompt
+  matrices, and truthful pending
   release documentation. No canonical protocol, OpenAPI operation, MCP tool,
   production deployment, GPT editor state, or private lesson changed. The
-  rejected lesson was not retried. The reviewed local repair is recorded by the
-  current branch tip; it remains unpushed, undeployed, and uninstalled. The
+  rejected lesson was not retried. The current candidate remains unmerged,
+  undeployed, and uninstalled; inspect exact Git/GitHub branch and PR state. The
   dirty original checkout and its unrelated credential-looking files remain
   untouched.
 - Owner-reported OpenAI state: individual identity is verified. Business/
@@ -415,18 +431,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 - The 2026-08-18 treatment-alternatives repair plan is
   `docs/superpowers/plans/2026-08-18-custom-gpt-forum-signal-regression-repair.md`.
-  The generated local Instructions are 7,800 characters, SHA-256
-  `ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f`;
+  The generated local Instructions are 7,753 characters (7,757 UTF-8 bytes),
+  SHA-256
+  `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`;
   local sync SHA-256 is
-  `420f313c2ab7cf22cfe351dd3761772e7fef6c81beb51c0b0a23ee9cbd43f869`.
-  The generated OpenAPI remains byte-identical. The final focused suite
-  passed 64/64. The broader affected suite initially hit only the sandbox's
-  prohibited `127.0.0.1` bind; the exact host-boundary rerun passed 178/178.
-  The complete Node `24.18.0` gate passed typecheck, 51 test files with one
-  declared credential-gated file skipped, 922 tests with five declared skips,
-  and build. Skill and plugin validators plus `git diff --check` passed. Static
-  tests do not establish deployed or GPT UI behavior.
-- The required lesson checkpoint at `2026-08-18T08:18:27.495Z` remained
+  `1cc5a8c77f51ebb0d3011036a23eaa6f3e9a5367374f8309131c509115d25931`.
+  The generated OpenAPI remains byte-identical. The Forum Signal matrix has 15
+  required and 9 not-required cases; the option-space matrix has 9 broad-review
+  and 6 narrow-review controls. The expanded focused suite passed 75/75. The
+  complete Node `24.18.0` gate passed typecheck, 53 test files with one declared
+  credential-gated file skipped, 933 tests with five declared skips, and build.
+  Skill/plugin validation, repository-policy audit, and patch hygiene passed.
+  Static tests do not establish deployed or GPT UI behavior.
+- The required pre-publication lesson checkpoint at `2026-08-18T09:37:06.952Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
@@ -489,10 +506,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- Push/PR/merge the reviewed candidate, deploy the privacy-model prompt, install
-  the exact generated Instructions with empty Knowledge, and pass a fresh
-  treatment-alternatives Custom GPT regression. These external mutations have
-  not occurred in this local pass.
+- Complete branch publication, protected PR review, and merge; deploy the
+  privacy-model prompt; install the exact generated Instructions with empty
+  Knowledge; and pass a fresh treatment-decision Custom GPT matrix covering
+  required/nontrigger and broad/narrow controls. The candidate is not merged,
+  deployed, or installed.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
   publisher-identity path, then complete the portal HTTPS domain challenge; do
@@ -507,10 +525,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- The observed treatment-alternatives product-interface regression remains a
-  public-submission blocker until the local candidate is merged, deployed,
-  installed, and passes a fresh GPT UI run. Static instruction assertions do
-  not prove model obedience. The rejected lesson is non-retryable.
+- The observed treatment-alternatives formal/Forum failure and the separate
+  option-space product-interface failure remain a public-submission blocker
+  until the local candidate is merged, deployed, installed, and passes fresh
+  required/nontrigger and broad/narrow GPT UI runs. Static instruction
+  assertions do not prove model obedience. The rejected lesson is non-retryable.
 
 - The importer fix is merged, green, deployed, and passed the product importer.
   Protocol and formal-source UI cases passed. The short-handle and terminal
@@ -553,10 +572,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Request owner authorization to push the current repair branch and open its pull
-request. Do not retry the failed lesson, call live providers, change production,
-update the GPT editor, publish, or resume portal Scan Tools before the protected
-merge/deployment sequence.
+Inspect Git and GitHub for the candidate's exact publication/PR state, then
+continue the protected review and merge sequence from that boundary. Do not
+retry the failed lesson, call live providers, change production, update the GPT
+editor, deploy, or resume portal Scan Tools before the protected merge sequence.
 
 ## Recovery rule
 

@@ -6,7 +6,7 @@ const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 const EXPECTED_SKILL_FRONTMATTER = `---
 name: askrigor
-description: Execute AskRigor research workflows by loading the canonical protocol, selecting read-only research tools, preserving provenance and access gaps, and auditing completion before synthesis.
+description: Run AskRigor with canonical protocols, provenance/access boundaries, and completion audits.
 ---`;
 
 function sectionBetween(document: string, heading: string, nextHeading: string): string {
@@ -82,46 +82,50 @@ describe("AskRigor plugin package", () => {
 
   it("routes every AskRigor invocation through Universal first and applies the exact HRP boundary", async () => {
     const skill = await readFile(rootFile("skills/askrigor/SKILL.md"), "utf8");
-    const gate = sectionBetween(skill, "## Protocol gate", "## Research workflow");
+    const gate = sectionBetween(skill, "## Protocol gate", "## Forum Signal routing");
 
-    expect(gate).toContain("For every AskRigor invocation, load and verify Universal first.");
+    expect(gate).toContain("Load and verify Universal first.");
     expectFragmentsInOrder(gate, [
-      "Call `get_protocol_manifest` with `protocol: \"universal\"`.",
-      "Call `verify_protocol_integrity` with the manifest's returned SHA-256 digest.",
-      "Call `load_protocol` with `protocol: \"universal\"` and read the complete canonical text.",
-      "Use the activation boundary in that loaded Universal text."
+      "Call `get_protocol_manifest` for `protocol: \"universal\"`.",
+      "Verify via `verify_protocol_integrity` using its returned SHA-256",
+      "Call `load_protocol` for `protocol: \"universal\"`; read all canonical text.",
+      "Use Universal's loaded activation boundary."
     ]);
     expect(gate).toContain(
-      "HRP applies to every health or research task unless it is both very simple and genuinely uncontroversial."
+      "HRP applies to every health/research task unless both very simple and genuinely uncontroversial"
     );
-    expect(gate).toContain("Both exception conditions are required.");
+    expect(gate).toContain("Both conditions are required");
     expect(gate).toContain(
-      "If applicability is genuinely unclear, ask before answering the substantive research question."
+      "If unclear, ask first."
     );
     expect(gate).toContain(
-      "When HRP applies, complete the same manifest → integrity verification → full-load sequence for `protocol: \"hrp\"` before substantive analysis."
+      "For HRP, repeat that full sequence for `protocol: \"hrp\"` before analysis."
     );
   });
 
   it("uses HRP precedence with compatible Universal supplementation and one completion ledger", async () => {
     const skill = await readFile(rootFile("skills/askrigor/SKILL.md"), "utf8");
-    const gate = sectionBetween(skill, "## Protocol gate", "## Research workflow");
+    const gate = sectionBetween(skill, "## Protocol gate", "## Forum Signal routing");
 
     expect(gate).toContain(
-      "Apply both protocols: HRP governs the task and takes precedence wherever their requirements conflict; Universal continues to supply compatible requirements."
+      "HRP wins conflicts; Universal supplies compatible rules."
     );
     expect(gate).toContain(
-      "Use HRP's research-orchestration and approval gate; do not run a second Universal preflight."
+      "Use HRP orchestration/approval; no second Universal preflight."
     );
-    expect(gate).toContain("Build one applicability ledger from the complete operative texts.");
+    expect(gate).toContain(
+      "Build one applicability ledger from the complete operative texts."
+    );
     expectFragmentsInOrder(gate, [
-      "Call `get_protocol_manifest` with `protocol: \"universal\"`.",
-      "Call `verify_protocol_integrity` with the manifest's returned SHA-256 digest.",
-      "Call `load_protocol` with `protocol: \"universal\"` and read the complete canonical text.",
-      "Use the activation boundary in that loaded Universal text.",
-      "When HRP applies, complete the same manifest → integrity verification → full-load sequence for `protocol: \"hrp\"` before substantive analysis.",
+      "Call `get_protocol_manifest` for `protocol: \"universal\"`.",
+      "Verify via `verify_protocol_integrity` using its returned SHA-256",
+      "Call `load_protocol` for `protocol: \"universal\"`; read all canonical text.",
+      "Use Universal's loaded activation boundary.",
+      "For HRP, repeat that full sequence for `protocol: \"hrp\"` before analysis.",
       "Build one applicability ledger from the complete operative texts.",
-      "Do not claim compliance until every applicable module and completion check in that ledger has passed."
+      "Execute/audit every triggered module.",
+      "Claim compliance only after every applicable check passes",
+      "otherwise use an authorized bounded path"
     ]);
   });
 
@@ -159,19 +163,19 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("`survey_youtube_community`");
     expect(skill).toContain("`audit_youtube_video_community`");
     expect(skill).toContain("could plausibly affect the answer");
-    expect(skill).toContain("Before HRP, use the Project router if installed; otherwise require Forum Signal");
+    expect(skill).toContain("Use installed Project router before HRP; otherwise require Forum Signal");
     expect(skill).toContain("If uncertain, require it");
     expect(skill).toContain("When required, call `survey_youtube_community`");
-    expect(skill).toContain("A strong formal result cannot deselect it");
+    expect(skill).toContain("formal evidence cannot deselect it");
     expect(skill).toContain("`receipt.synthesis_lock: pass`");
     expect(skill).toContain("`complete_no_candidates`");
     expect(skill).toContain("`completed_with_access_boundary`");
     expect(skill).toContain("`reply_count_mismatches`");
     expect(skill).toContain(
-      "Accept `api_visible_complete` only after all top-level pages and all accessible reply pages are exhausted and `reply_count_mismatches` is empty."
+      "Accept `api_visible_complete` after exhausting all top-level and accessible reply pages with empty `reply_count_mismatches`."
     );
     expect(skill).toContain(
-      "`api_visible_complete` means API-visible corpus coverage only; it does not include deleted, moderated, private, held-for-review, hidden, otherwise unavailable, or never-posted material."
+      "It covers only the API-visible corpus, excluding deleted, moderated, private, held-for-review, hidden, unavailable, or never-posted material."
     );
     expect(skill).toContain("`search_youtube_comments`");
     expect(skill).toContain("query-bounded `partial`");
@@ -184,7 +188,7 @@ describe("AskRigor plugin package", () => {
     );
     expect(skill).toContain("expected information gain remains positive");
     expect(skill).toContain("`support_not_located`");
-    expect(skill).toContain("cannot by itself downgrade the community signal");
+    expect(skill).toContain("cannot alone downgrade community signal");
     expect(skill).toContain("Videos worth watching");
     for (const explicitRequiredExample of [
       "treatment alternatives",
@@ -194,9 +198,23 @@ describe("AskRigor plugin package", () => {
     ]) {
       expect(skill).toContain(explicitRequiredExample);
     }
-    expect(skill).toContain("`HRP-complete` and the full-HRP opening require all ledger-required formal retrieval and passing receipts");
-    expect(skill).toContain("a passing Forum Signal receipt with no incomplete direction/transfer");
-    expect(skill).toContain("every selected video's Action-returned `receipt.synthesis_lock: pass`");
+    for (const implicitDecisionBoundary of [
+      "personal or practical treatment decision",
+      "good idea for me",
+      "now versus wait or delay",
+      "even if alternatives are unstated",
+      "population-level",
+      "A request to exclude forums limits execution, not applicability",
+      "simple definition or terminology",
+      "pure chemistry or mechanism with no real-world outcome or safety claim",
+      "emergency triage before stabilization",
+      "no meaningful user-experience corpus",
+    ]) {
+      expect(skill).toContain(implicitDecisionBoundary);
+    }
+    expect(skill).toContain("`HRP-complete`/full-HRP opening require ledger formal retrieval and passing receipts");
+    expect(skill).toContain("Forum Signal needs no incomplete direction/transfer");
+    expect(skill).toContain("each selected video's Action-returned `receipt.synthesis_lock: pass`");
 
     for (const judgment of [
       "efficacy",

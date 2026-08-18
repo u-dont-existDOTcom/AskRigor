@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "purpose": "Static synthetic prompt matrix for deciding when AskRigor must research the treatment option space instead of auditing only the named or prescribed intervention. It does not prove Custom GPT behavior.",
+  "cases": [
+    {
+      "id": "required-do-you-agree-with-pathway",
+      "prompt": "I have hip arthritis. My doctor tells me to take celecoxib and eventually get hip surgery. Do you agree?",
+      "expected_option_space_review": "required",
+      "reason": "proposed_treatment_pathway_endorsement",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-implicit-decision",
+      "prompt": "My surgeon recommended a hip replacement. What should I consider before deciding?",
+      "expected_option_space_review": "required",
+      "reason": "implicit_treatment_decision",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-good-idea-for-me",
+      "prompt": "Is hip replacement a good idea for me?",
+      "expected_option_space_review": "required",
+      "reason": "personal_treatment_decision",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-now-versus-wait",
+      "prompt": "Should I have hip replacement now or wait?",
+      "expected_option_space_review": "required",
+      "reason": "timing_or_delay_decision",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-delay-consequence",
+      "prompt": "What happens if I postpone hip replacement?",
+      "expected_option_space_review": "required",
+      "reason": "timing_or_delay_decision",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-explicit-comparison",
+      "prompt": "Compare hip replacement, hip resurfacing, and continued nonsurgical care.",
+      "expected_option_space_review": "required",
+      "reason": "explicit_alternatives_or_comparison",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-strong-trial-still-broad",
+      "prompt": "If a large randomized trial says hip replacement is effective, is it the right choice?",
+      "expected_option_space_review": "required",
+      "reason": "formal_evidence_cannot_collapse_option_space",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-general-choice",
+      "prompt": "Which treatment path should someone with disabling hip osteoarthritis choose?",
+      "expected_option_space_review": "required",
+      "reason": "population_treatment_decision",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-user-excludes-alternatives",
+      "prompt": "Do not discuss alternatives. A clinician proposed celecoxib followed by eventual hip surgery. Do you agree with that plan?",
+      "expected_option_space_review": "required",
+      "reason": "user_scope_cannot_collapse_option_space",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "not-required-narrow-experience",
+      "prompt": "What experiences do people report while taking celecoxib?",
+      "expected_option_space_review": "not_required",
+      "reason": "narrow_named_intervention_experience",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "not-required-narrow-efficacy",
+      "prompt": "Does celecoxib reduce hip osteoarthritis pain in randomized trials?",
+      "expected_option_space_review": "not_required",
+      "reason": "narrow_named_intervention_efficacy",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-narrow-time-to-effect",
+      "prompt": "How long does celecoxib usually take to start working?",
+      "expected_option_space_review": "not_required",
+      "reason": "narrow_named_intervention_time_to_effect",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "not-required-definition",
+      "prompt": "What does total hip arthroplasty mean?",
+      "expected_option_space_review": "not_required",
+      "reason": "simple_definition",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-pure-mechanism",
+      "prompt": "Explain how celecoxib inhibits COX-2 without discussing treatment choice, outcomes, or safety.",
+      "expected_option_space_review": "not_required",
+      "reason": "pure_mechanism_without_decision",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-direct-transformation",
+      "prompt": "Rewrite this supplied treatment-plan paragraph in plain language without adding research.",
+      "expected_option_space_review": "not_required",
+      "reason": "direct_transformation_without_research",
+      "live_acceptance_priority": false
+    }
+  ]
+}

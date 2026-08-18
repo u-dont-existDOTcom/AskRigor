@@ -29,6 +29,10 @@ complete XML protocol.
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
 - `public-review-cases-v0.1.0.json`: extended 6+3 machine-readable regression cases
+- `forum-signal-routing-matrix-v0.1.0.json`: synthetic 15+9 Forum Signal
+  applicability matrix; selected cases are pending fresh Custom GPT acceptance
+- `treatment-option-space-matrix-v0.1.0.json`: synthetic 9+6 decision-breadth
+  matrix separating broad treatment-pathway review from narrow intervention work
 - `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
   handoff, and external-gate states
 - `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording

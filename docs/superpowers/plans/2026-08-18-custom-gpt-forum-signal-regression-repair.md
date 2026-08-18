@@ -23,6 +23,9 @@
 5. Regenerate the Custom GPT packet with `npm run generate:custom-gpt` and verify only the expected instruction/sync artifacts change.
 6. Run focused tests, `npm run verify`, the required lesson-status checkpoint, diff/secret/generated-artifact checks, and independent review.
 7. Update `project/CODEX-CURRENT-STATE.md` and applicable release/acceptance evidence with local truth only. Record deployment, editor installation, and fresh UI acceptance as pending until they actually occur.
+8. Before publication, add a synthetic routing matrix spanning implicit and explicit treatment decisions, population-level wording, user attempts to exclude forums, ambiguous prompts, and the canonical nonactivation boundary. Keep matrix tests static and provider-free; reserve selected positive and negative cases for fresh product-interface acceptance.
+9. Add a separate option-space matrix and completion gate so requests to agree with, choose, recommend, or time a proposed treatment pathway search realistic alternatives and nonaction across formal and community layers instead of auditing only the named care. Preserve narrow intervention-specific experience, efficacy, definition, mechanism, and transformation requests as non-broadening controls.
+10. After the expanded local candidate passes the complete gate and independent review, use the owner's explicit authorization to push the task branch and open a draft pull request. Keep merge, deployment, GPT-editor installation, provider calls, and product-interface acceptance pending.
 
 ## Acceptance criteria
 
@@ -31,3 +34,6 @@
 - The synthetic generalized protocol-execution candidate passes deterministic screening, and the fixed privacy prompt explicitly tells the model not to reject that safe class for non-privacy reasons.
 - All existing privacy, consent, public-health, action-schema, tool-inventory, protocol-byte, and deterministic verification gates remain green.
 - The recovery checkpoint truthfully separates locally completed work from pending deployment and fresh product-interface acceptance.
+- The routing matrix treats personal/practical treatment decisions as required even when alternatives are unstated, while limiting nonactivation to affirmative irrelevant-crowd findings and preserving emergency triage precedence.
+- The option-space matrix blocks endorsement of a clinician-proposed pathway until plausible conventional, nonaction, rehabilitation/mechanical, heterodox/adjunct, and procedural classes are searched or explicitly excluded with reasons.
+- The published branch and draft pull request preserve static-test limitations and the unexecuted live acceptance boundary; they do not claim deployment or model behavior.

@@ -1,10 +1,10 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED BASELINE — PRIOR DIRECT/UI ACCEPTANCE PASSED; CURRENT FORUM SIGNAL COMPLETION REPAIR LOCAL, NOT DEPLOYED OR GPT-UI RETESTED**. The exact
+Status: **DEPLOYED BASELINE — PRIOR DIRECT/UI ACCEPTANCE PASSED; CURRENT TREATMENT-DECISION COMPLETION REPAIR LOCAL, NOT DEPLOYED OR GPT-UI RETESTED**. The exact
 production Action boundary and the formerly failing two-call YouTube chain
 retain the sanitized direct and repaired Custom GPT UI evidence below. That
-evidence does not cover the later treatment-alternatives completion regression
-recorded below. The Custom GPT also loaded canonical Universal
+evidence does not cover the later treatment-alternatives and option-space
+completion regressions recorded below. The Custom GPT also loaded canonical Universal
 `20.5.13` completely. The first synthetic lesson run failed safe before an
 Action call; the hardened shell then displayed correctly and enforced exact
 case-sensitive consent. Two approved calls returned `action_auth_required`
@@ -38,7 +38,7 @@ issue content, or health details.
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
 
-## Treatment-alternatives completion regression and local repair — 2026-08-18
+## Treatment-decision completion regressions and local repair — 2026-08-18
 
 A later fresh published-GPT run loaded and verified Universal and HRP, then
 answered a treatment-alternatives question without executing PubMed, Europe
@@ -54,8 +54,20 @@ candidate was not retried or resubmitted. The public receipt cannot identify
 which fail-closed privacy stage rejected it, and no request body, raw prompt,
 health topic, private model output, or lesson text is retained here.
 
-The local test-first repair makes treatment alternatives and avoiding
-replacement or surgery explicit Forum Signal triggers. It blocks both an
+A second fresh treatment-decision run did execute YouTube community work, but
+it stayed anchored to the clinician-proposed celecoxib-to-surgery pathway. It
+audited experiences with the named treatments without first discovering and
+comparing the realistic treatment option space. The answer therefore failed
+HRP's broad heterodox review purpose even though the Forum Signal module ran.
+
+The local test-first repair separates two gates. Forum Signal now explicitly
+applies to personal or practical treatment decisions even when alternatives
+are unstated. Treatment endorsement, choice, or start/defer/sequence decisions independently
+require an option-space ledger spanning proposed care, diagnosis alternatives,
+nonaction/natural history, conventional nonsurgical care,
+lifestyle/rehabilitation/mechanical approaches, relevant heterodox or adjunct
+approaches, and procedural or surgical care; plausible classes must be
+searched and exclusions justified. It blocks both an
 `HRP-complete` label and the full-HRP opening until all formal retrieval
 required by the applicability ledger and every required receipt pass. For the
 Custom GPT, the Forum Signal gate is grounded in each selected video's
@@ -67,19 +79,25 @@ completion labels is safe only when it contains no private or identifying
 material. Strict parsing, deterministic pre/post screening, exact metadata
 preservation, `store:false`, and fail-closed uncertainty remain unchanged.
 
-The generated local Instructions are 7,800 characters with SHA-256
-`ca9b40530a04134545d834a9aed7fa9cee784e80adbffc7dacfad00b75f6668f`;
+The static routing matrix has 15 required and 9 not-required Forum Signal
+cases; the separate option-space matrix has 9 broad-review and 6 narrow-review
+controls. Selected positive, negative, broad, and narrow cases remain reserved
+for fresh product-interface acceptance because static assertions do not prove
+model routing. The generated local Instructions are 7,753 characters (7,757
+UTF-8 bytes) with SHA-256
+`efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`;
 the synchronization ledger SHA-256 is
-`420f313c2ab7cf22cfe351dd3761772e7fef6c81beb51c0b0a23ee9cbd43f869`.
-The final focused suite passed 64/64; the exact affected host-boundary
-suite passed 178/178. The complete Node `24.18.0` gate passed typecheck, 51
-test files with one declared credential-gated file skipped, 922 tests with five
-declared skips, and build. Skill/plugin validation and patch hygiene passed.
+`1cc5a8c77f51ebb0d3011036a23eaa6f3e9a5367374f8309131c509115d25931`.
+The expanded focused suite passed 75/75. The complete Node `24.18.0` gate
+passed typecheck, 53 test files with one declared credential-gated file
+skipped, 933 tests with five declared skips, and build. Skill/plugin validation,
+repository-policy audit, and patch hygiene passed.
 The OpenAPI artifact, 18-operation Action surface, frozen 17-tool MCP inventory,
 canonical protocol bytes, production deployment, and currently installed GPT
 Instructions are unchanged. Merge, privacy-model deployment, editor
-installation with empty Knowledge, and a fresh product-interface regression
-test remain pending. Static repository tests are not GPT-behavior acceptance.
+installation with empty Knowledge, and fresh product-interface routing and
+option-space regressions remain pending. Static repository tests are not
+GPT-behavior acceptance.
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 
