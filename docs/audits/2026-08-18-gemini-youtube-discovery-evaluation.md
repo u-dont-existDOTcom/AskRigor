@@ -26,6 +26,9 @@ responses, and transcript text were not written to the repository.
 6. Direct Gemini 3.6 Flash summaries of five public YouTube URLs.
 7. AskRigor transcript acquisition for the same five videos, with no transcript
    text retained.
+8. A bounded, temporary, non-Gemini comment retrieval on the first-person hip
+   video to test whether missed gelatin and hydration signals lived in the
+   community corpus rather than creator content.
 
 Google Search grounding was not invoked because the Gemini API route is a paid
 service. The official YouTube Data API was not enabled for the supplied Google
@@ -133,6 +136,31 @@ into a speed verdict. The observed token difference nevertheless shows that
 direct video analysis is much heavier than caption transport, so it should be
 reserved for a shortlist or for content that likely depends on visuals.
 
+### Independent comment-signal correction
+
+The hydration discrepancy came from conflating creator content with community
+content. Gemini's direct video input and caption analysis cannot see YouTube
+comments. A later bounded `yt-dlp` retrieval therefore sampled 2,000 records in
+YouTube's `top` order from
+[Growing My Hip Back](https://www.youtube.com/watch?v=XpZHKGGCK-o). The video
+metadata reported about 5,300 comments and the traversal estimated about 5,374,
+so this retrieval is `partial`, not corpus-complete.
+
+The sample did contain the missed signals. It included six literal
+hydration/electrolyte discussions relevant or adjacent to the hip hypothesis,
+plus one unrelated lexical match about dehydrated spinal discs. The relevant
+records included high-water foods and staying hydrated, hydration and synovial
+fluid, salt/magnesium claims, electrolyte use alongside conservative care, and
+a creator reply listing magnesium and potassium for electrolytes. The sample
+also contained 12 literal gelatin records, including a 54-like top-level
+firsthand report about daily gelatin followed by a reply thread, and a separate
+18-like report combining beef gelatin with swimming.
+
+These findings recover candidate hypotheses and implementation differences;
+they do not establish that hydration, electrolytes, gelatin, or any associated
+regimen is effective or safe. Comment retrieval remains independent from video
+selection, transcript verification, formal evidence, and recommendation.
+
 ## Recommended architecture
 
 Use a lazy escalation pipeline:
@@ -141,14 +169,17 @@ Use a lazy escalation pipeline:
 2. AskRigor executes those searches through the official YouTube Data API and
    preserves exact query, cursor, identifier, and access provenance.
 3. Gemini ranks real metadata and proposes a bounded second search round.
-4. Gemini directly summarizes only the most promising, nonredundant URLs.
+4. Retrieve captions first and use bounded text analysis for promising,
+   nonredundant URLs. Direct Gemini video ingestion stays off by default.
 5. A video can be linked because its creator content is relevant, while exact
    material claims used in synthesis receive a timestamped transcript spot-
    check.
-6. Targeted visual inspection occurs only when the summary or transcript points
-   to before/after images, imaging, technique/form, a product label, or another
-   visually dependent claim.
+6. Use direct video input only for a small, identified segment when the caption
+   or summary points to before/after images, imaging, technique/form, a product
+   label, or another decision-useful claim that genuinely depends on visuals.
 7. Comment corpus auditing remains an independent Forum Signal lane.
+8. Link the most decision-useful verified videos for the user to watch; provider
+   rank and popularity alone do not determine the watchlist.
 
 Do not use ungrounded Gemini-generated video identifiers. Preserve Gemini output
 as model interpretation rather than transcript evidence, and preserve all
@@ -156,23 +187,33 @@ provider failures and access boundaries literally.
 
 ## Remaining experiment
 
-After the transcript provider's rate limit resets, repeat one or two matched
-videos with identical extraction schemas for:
+After the transcript provider's rate limit resets, one matched video can still
+be repeated with identical extraction schemas for:
 
 - transcript acquisition plus Gemini text analysis; and
 - direct Gemini YouTube URL analysis.
 
 Compare total latency, material-claim recall, timestamp accuracy, omitted
-details, visual-only yield, token use, and access failures. Then decide whether
-the default shortlisted-video path should be transcript-first or direct-
-Gemini-first. No production integration is justified before that matched
-comparison and a privacy/data-flow decision for sending de-identified research
-prompts to Google.
+details, visual-only yield, token use, and access failures. The default is
+already transcript-first because direct video consumed 82,152-171,688 input
+tokens per video and did not include comments. The remaining comparison is only
+needed to characterize a tightly bounded fallback, not to reopen that default.
+No production integration is justified before a privacy/data-flow decision for
+sending de-identified research prompts or public URLs to Google.
 
 ## Verification
 
 - The final bounded transcript retry still returned `rate_limited` for both
-  matched videos; the incomplete comparison remains open rather than inferred.
+  matched videos after 5.8 and 3.1 seconds. A separate client listed the exact
+  English caption track in 3.4 seconds, but its subtitle download failed after
+  7.1 seconds with HTTP 429. This confirms a transport throttle rather than a
+  missing-caption result; the incomplete matched text-analysis comparison
+  remains open rather than inferred.
+- The bounded comment retrieval returned 2,000 `top`-sorted records from an
+  estimated 5,374 and is preserved as `partial`. Hydration/electrolyte and
+  gelatin signals were located in that community sample. No comment text,
+  author data, transcript, video, or unrestricted provider response was
+  retained in the repository or sent to Gemini.
 - `npm run verify` passed at the host boundary: 57 test files passed, one
   credential-gated file skipped; 960 tests passed, five skipped; typecheck and
   build passed. The initial sandbox run failed only because loopback and IPC

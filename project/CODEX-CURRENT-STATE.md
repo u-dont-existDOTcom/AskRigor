@@ -502,9 +502,14 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   transcript acquisition was `api_visible_complete` and took 2.8-12.2 seconds.
   Later transcript retries returned `rate_limited`, and an independent subtitle
   request returned HTTP 429, so the matched transcript-plus-model timing test
-  and the apparent hydration substring remain unresolved rather than negative
-  evidence. No API key, raw transcript, or unrestricted provider response was
-  retained in the repository, and no production or protocol behavior changed.
+  and the apparent creator-transcript hydration substring remain unresolved
+  rather than negative evidence. A separate bounded `top`-sorted community
+  sample returned 2,000 of an estimated 5,374 comments as `partial` and did
+  locate hydration/electrolyte and gelatin discussion. This confirms that the
+  missed signals were present in the independent comment lane, not that the
+  creator made those claims in the video. No API key, raw transcript, comment
+  corpus, or unrestricted provider response was retained in the repository,
+  and no production or protocol behavior changed.
 - The required lesson checkpoint at `2026-08-18T17:39:21.001Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
@@ -568,12 +573,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- After the transcript-provider rate limit resets, finish the matched
-  transcript-plus-Gemini versus direct-video comparison on one or two identical
-  videos. Do not integrate Gemini before that latency/recall comparison and an
-  owner decision on the Google privacy/data-flow boundary. If approved later,
-  use Gemini for query planning, real-candidate selection, and bounded summary;
-  never accept an ungrounded generated YouTube identifier.
+- After the transcript-provider rate limit resets, one matched
+  transcript-plus-Gemini versus direct-video comparison may characterize the
+  fallback. The default is transcript-first: direct video used
+  82,152-171,688 input tokens per video, cannot see comments, and should be
+  limited to a small identified segment when a material claim genuinely
+  depends on visuals. Do not integrate Gemini before an owner decision on the
+  Google privacy/data-flow boundary. If approved later, use Gemini for query
+  planning, real-candidate selection, and bounded text summary; never accept an
+  ungrounded generated YouTube identifier.
 - Complete local verification and review, branch publication, protected PR
   review, and merge. Then deploy the changed runtime and privacy notice, import
   the 19-operation Action schema, install the exact generated Instructions with
