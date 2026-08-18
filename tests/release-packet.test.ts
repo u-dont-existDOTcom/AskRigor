@@ -244,7 +244,7 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, AND DUPLICATE PASSED; DIRECT GPT URL PENDING"
+      "DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, DUPLICATE, DIRECT GPT URL, AND SHORT DOMAIN PASSED"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -336,6 +336,43 @@ describe("AskRigor public-review packet", () => {
     ]) expect(acceptance).toContain(field);
     expect(acceptance).toContain("Post-test MCP inventory");
     expect(acceptance).toContain("Protocol chunk coverage");
+  });
+
+  it("records the verified direct GPT URL and reversible short-domain route", async () => {
+    const [readme, checklist, release, state, acceptance] = await Promise.all([
+      readFile(rootFile("README.md"), "utf8"),
+      readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
+      readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
+      readFile(rootFile("project/CODEX-CURRENT-STATE.md"), "utf8"),
+      readFile(rootFile("docs/custom-gpt-action-live-acceptance.md"), "utf8"),
+    ]);
+    const directGptUrl =
+      "https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol";
+
+    for (const document of [readme, checklist, release, state, acceptance]) {
+      expect(document).toContain(directGptUrl);
+    }
+    expect(acceptance).toContain("2026-08-18T01:34:40Z");
+    expect(acceptance).toContain("HTTP `302`");
+    expect(acceptance).toContain(
+      "https://chatgpt.com/share/6a641db3-2ab4-83ea-b48f-5393b1f2479f",
+    );
+    expect(acceptance).toContain("HTTP `200`");
+
+    const currentRemaining = sectionBetween(state, "## Remaining", "## Blockers / unresolved");
+    const currentBlockers = sectionBetween(
+      state,
+      "## Blockers / unresolved",
+      "## Evidence / artifacts",
+    );
+    const currentNextAction = sectionBetween(state, "## Next safe action", "## Recovery rule");
+    for (const currentSection of [currentRemaining, currentBlockers, currentNextAction]) {
+      expect(currentSection).not.toContain("direct `/g/...` URL remains pending");
+      expect(currentSection).not.toContain("before repointing `gpt.askrigor.com`");
+    }
+    expect(release).not.toContain(
+      "PUBLICATION, LESSON, AND DUPLICATE PASSED; DIRECT GPT URL PENDING",
+    );
   });
 
   it("distinguishes transient research logs from the aggregate lesson budget ledger", async () => {

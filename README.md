@@ -253,8 +253,11 @@ unchanged. PR #32 migrated the privacy check to pinned
 is deployed and its non-stored safe-candidate probe passes. A fresh published-
 GPT chat then submitted `ARL-0007`; the separately consented identical duplicate
 returned the same ID with occurrence count 2. The aggregate private queue
-confirmed one open candidate awaiting review. Only the actual direct `/g/...`
-URL remains pending and must not be inferred from publication or server proof.
+confirmed one open candidate awaiting review. The published GPT is
+`https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`.
+At `2026-08-18T01:34:40Z`, both HTTP and HTTPS for `gpt.askrigor.com`
+returned one temporary redirect to that exact direct URL; the final ChatGPT
+response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 

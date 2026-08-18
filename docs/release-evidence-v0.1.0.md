@@ -13,7 +13,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, AND DUPLICATE PASSED; DIRECT GPT URL PENDING
+## Custom GPT research bridge — DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, DUPLICATE, DIRECT GPT URL, AND SHORT DOMAIN PASSED
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -58,8 +58,13 @@ deployed, and its exact-code non-stored safe-candidate probe returns
 `generalized`. In a new published-GPT chat, the repaired path then submitted
 `ARL-0007`; a separately consented identical duplicate returned the same ID
 with occurrence count 2. The aggregate private queue independently confirmed
-one open candidate awaiting review. Only the actual direct `/g/...` URL remains
-pending, so `gpt.askrigor.com` must not be repointed yet.
+one open candidate awaiting review. The published direct URL is
+`https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`.
+At `2026-08-18T01:34:40Z`, both HTTP and HTTPS for `gpt.askrigor.com` returned
+one temporary redirect to that exact URL and ended at HTTP `200`. The public
+page identified **AskRigor.com Heterodox Research Protocol**. The previous
+`/share/...` target is retained as the explicit rollback in the live acceptance
+record.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
 retrieved after restart, but zero were returned for analysis, replies were not
@@ -87,6 +92,7 @@ a separate evidence-preserving owner review.
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
 | Production connector revision | Privacy-model repair merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image tag `askrigor-research:d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image ID `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`, healthy container `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`. Immediate rollback: `askrigor-research:rollback-d1af238` plus `/opt/askrigor/compose.yaml.rollback-d1af238`, restoring prior image `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`; rollback Compose SHA-256 `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
+| Published Custom GPT | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; `gpt.askrigor.com` reaches it through one verified temporary redirect. |
 | Canonical protocols | HRP `20.5.18`, revision `2026-08-16`, SHA-256 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.13`, revision `2026-08-17`, SHA-256 `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`. Direct Action loading covered every exact byte. |
 | Production source packet | Exact secret-free `git archive` from `d1af238325ee1e0584574e47bbcbe7764d17cf7e`; SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`, 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
@@ -343,10 +349,6 @@ No provider request or lesson write was repeated.
 
 ## Required submission work remaining
 
-- Capture and verify the actual direct `/g/...` URL before repointing
-  `gpt.askrigor.com`. Do not repeat the completed protocol, provider, YouTube,
-  publication, consent, authentication, lesson, duplicate, deployment, or direct
-  privacy-probe checks.
 - Complete/confirm verified developer or business identity, listing URLs,
   country availability, and the portal's HTTPS domain-verification challenge.
 - Submit the fixed production URL, select **Scan Tools**, and compare discovered

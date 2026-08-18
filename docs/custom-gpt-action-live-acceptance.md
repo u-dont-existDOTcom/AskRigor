@@ -1,6 +1,6 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, AND DUPLICATE PASSED; DIRECT GPT URL PENDING**. The exact
+Status: **DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, DUPLICATE, DIRECT GPT URL, AND SHORT DOMAIN PASSED**. The exact
 production Action boundary and the formerly failing two-call YouTube chain have
 passed both the sanitized direct checks and the repaired Custom GPT UI relay
 test below. The Custom GPT also loaded canonical Universal
@@ -35,7 +35,7 @@ issue content, or health details.
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
 | instructions SHA-256 | Failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`. Consent-shell candidate installed in the editor: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Published public health-research boundary: `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
-| direct GPT URL | `pending` — publication is owner-reported, but its direct `/g/...` URL still must be copied and independently verified. |
+| direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 
@@ -210,8 +210,9 @@ harm comparisons, mechanisms, guidelines, community reports, source
 provenance, and clinician questions, while prohibiting individualized diagnosis
 or treatment directives. It does not change the plugin, MCP server, canonical
 protocols, or production tools. The owner subsequently reported successful
-public publication after installing that instruction candidate. The direct
-`/g/...` URL has not yet been captured or independently verified.
+public publication after installing that instruction candidate. At that
+checkpoint, the direct `/g/...` URL had not yet been captured or independently
+verified; the 2026-08-18 routing acceptance below closes that gate.
 
 ## Published lesson privacy-filter repair and UI acceptance — 2026-08-17/18
 
@@ -269,6 +270,31 @@ review, 0 accepted not incorporated, 2 incorporated or closed, and 0 deletion
 eligible. The aggregate does not expose private issue content or independently
 reconstruct the occurrence count; that count is retained only as the sanitized
 owner-provided product receipt.
+
+## Direct GPT URL and short-domain routing acceptance — 2026-08-18
+
+The owner supplied the published direct URL
+`https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`.
+A read-only public request returned HTTP `200`, and the page identified
+**AskRigor.com Heterodox Research Protocol**. This is direct URL reachability
+and public-page identity evidence; the prior publication action remains an
+owner-provided product receipt.
+
+Before the routing change, `gpt.askrigor.com` used Porkbun URL forwarding and
+returned HTTP `302` to
+`https://chatgpt.com/share/6a641db3-2ab4-83ea-b48f-5393b1f2479f`.
+That exact prior target is the rollback value. DNS remained the existing
+`uixie.porkbun.com` forwarding topology; no AskRigor VPS, Caddy, production
+container, Action, MCP, protocol, or privacy configuration changed.
+
+After the destination was corrected, the accepted check at
+`2026-08-18T01:34:40Z` observed both `http://gpt.askrigor.com` and
+`https://gpt.askrigor.com` return one temporary HTTP `302` redirect whose exact
+`Location` was the direct `/g/...` URL above. Following either route ended at
+that exact URL with HTTP `200` and one redirect. The production health endpoint
+also remained HTTP `200`. An intermediate destination containing one accidental
+space failed validation with a `403`; it was corrected before acceptance and is
+not the current route.
 
 ## YouTube continuation and terminal-refetch release — 2026-08-17
 
@@ -521,9 +547,9 @@ platform confirmation was bypassed.
   with `issues:write` and `metadata:read`. GitHub Free returned HTTP 403 for
   private-branch protection: `Upgrade to GitHub Pro or make this repository
   public to enable this feature.`
-- Publish/repoint decision: **GPT publication owner-reported; repoint pending**
-  — lesson and duplicate cases pass; do not repoint `gpt.askrigor.com` until its
-  actual direct `/g/...` URL is verified.
+- Publish/repoint decision: **PASS** — publication is owner-reported; the direct
+  `/g/...` page identity, reversible `gpt.askrigor.com` HTTP/HTTPS redirect, and
+  final HTTP `200` response are independently verified above.
 
 Architecture-lesson closeout: **project-specific / no new architecture
 lesson**. This run reinforces the

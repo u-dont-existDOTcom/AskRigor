@@ -51,8 +51,11 @@ model before GitHub. Its pinned-model repair is now deployed and passes the
 exact-code non-stored privacy probe. Fresh-chat lesson acceptance submitted
 `ARL-0007`; a separately consented identical duplicate returned the same ID
 with occurrence count 2. The aggregate private queue independently confirmed
-one open candidate awaiting review. The direct GPT URL must still be captured
-and verified before promotion.
+one open candidate awaiting review. The direct published GPT URL is
+`https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`.
+The reversible `gpt.askrigor.com` HTTP/HTTPS forward was independently verified
+at `2026-08-18T01:34:40Z`: one temporary redirect reached that exact URL and
+the final response was HTTP `200`.
 
 ## Source-generated MCP tools/list inventory
 
