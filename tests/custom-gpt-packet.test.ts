@@ -88,7 +88,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "`continuation_recommended: true`",
       "`synthesis_lock: pass`",
       "`youtube_action_continuation_invalid_or_expired`",
-      "restart only that video audit from its video identifier",
+      "restart only that video audit by video identifier",
       "`search_youtube_comments`",
       "query-bounded `partial`",
       "Use installed Project router before HRP; otherwise require Forum Signal",

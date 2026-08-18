@@ -8,8 +8,8 @@ immutable site release `f928b95e29cd`.
 The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.
 The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
-the current treatment-decision formal-retrieval/Forum Signal and option-space
-completion regressions, the publisher-identity and domain-verification path, Scan Tools
+the current treatment-decision discovery/weighting regression, the publisher-
+identity and domain-verification path, Scan Tools
 review, the demo recording, the explicit opaque model-receipt release decision,
 final portal review, and submission actions recorded in
 `docs/public-submission-packet-v0.1.0.json` and
@@ -24,8 +24,8 @@ routine-status regression.
 
 The consequential Custom GPT lesson Action remains deployed and was reverified
 after the research service moved to application image tag
-`d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image ID
-`sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`.
+`cfce806345fe65a13fd0330aa7e8f000c1587d01`, image ID
+`sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360`.
 The Action implementation itself remains the accepted behavior from revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a`; the newer application image retains
 the repaired YouTube continuation and current Universal bytes while adding no
@@ -64,15 +64,13 @@ A later fresh published-GPT treatment-alternatives run skipped all formal
 provider retrieval and the required Forum Signal survey/audits, then mislabeled
 the result HRP-complete. A later audit cannot retroactively complete that
 answer. The associated generalized lesson attempt failed closed as
-non-retryable `privacy_rejected` and must not be retried. A local test-first
+non-retryable `privacy_rejected` and must not be retried. A test-first
 repair now makes treatment alternatives and avoiding replacement or surgery
 explicit triggers and blocks `HRP-complete` plus the full-HRP opening until all
 formal retrieval required by the applicability ledger and every required
-receipt pass. The generated Instructions, privacy-model prompt, merge,
-deployment, editor installation, and fresh UI regression must all be verified
-before Scan Tools or submission resumes. The current local instruction digest
-is `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`;
-it is not the installed digest or production acceptance evidence.
+receipt pass. PR #36 merged and deployed that repair; the owner installed exact
+Instructions `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`
+with empty Knowledge.
 
 A second fresh treatment-decision run completed community retrieval but stayed
 anchored to the clinician-proposed celecoxib-to-surgery pathway and did not
@@ -82,6 +80,16 @@ affirmative nontrigger Forum Signal cases, and 9 broad-review and 6
 narrow-review option-space controls. Fresh product-interface acceptance must
 exercise selected required/nontrigger and broad/narrow controls; repository
 assertions alone do not establish model behavior.
+
+The next broad product run did trigger those gates but still selected shallow,
+largely conventional YouTube pools, failed to decompose materially different
+exercise/PT programs or preoperative versus postoperative rehabilitation, did
+not constrain decisive surgery trials to their exact comparators, and gave
+little structured weight to hydration/collagen evidence after exact matched
+studies were not located. The follow-up seven-case discovery/weighting matrix
+and local Instructions SHA-256
+`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`
+are repository evidence only until installed and freshly retested.
 
 ## Source-generated MCP tools/list inventory
 

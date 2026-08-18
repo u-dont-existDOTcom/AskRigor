@@ -33,6 +33,9 @@ complete XML protocol.
   applicability matrix; selected cases are pending fresh Custom GPT acceptance
 - `treatment-option-space-matrix-v0.1.0.json`: synthetic 9+6 decision-breadth
   matrix separating broad treatment-pathway review from narrow intervention work
+- `heterodox-discovery-weighting-matrix-v0.1.0.json`: synthetic seven-case
+  matrix for YouTube candidate quality, intervention decomposition, decisive-
+  comparator scope, transportability, and non-dismissive heterodox weighting
 - `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
   handoff, and external-gate states
 - `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
