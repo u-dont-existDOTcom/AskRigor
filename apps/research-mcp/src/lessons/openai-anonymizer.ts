@@ -18,6 +18,7 @@ export const PRIVACY_SYSTEM_PROMPT = [
   "Return safe:true with an empty risk_codes array when the candidate is already a generalized product lesson with no personal narrative, direct identifier, credential, raw conversation, unnecessary URL, or copied material.",
   "Do not reject a generalized lesson merely because it discusses AskRigor, factual claims, evidence, source support, traceability, or auditability.",
   "A lesson saying that material factual claims need traceable supporting sources is safe when it contains no private or identifying material.",
+  "An already-generalized protocol-execution lesson about required modules, formal retrieval, completion receipts, or inaccurate completion labels is safe when it contains no private or identifying material.",
   "Return safe:false when uncertain.",
   "When safe is false, generalized must be null.",
   "When safe is true, preserve category, evidence_basis, askrigor_version, protocol_identities, and consent_scope exactly.",

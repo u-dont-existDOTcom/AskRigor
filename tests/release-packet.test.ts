@@ -37,6 +37,56 @@ const TOOL_NAMES = [
 ];
 
 describe("AskRigor public-review packet", () => {
+  it("indexes both treatment-decision routing matrices without claiming live behavior", async () => {
+    const [
+      index,
+      release,
+      acceptance,
+      checklist,
+      state,
+      instructions,
+      sync,
+      forumText,
+      optionText,
+    ] = await Promise.all([
+      readFile(rootFile("docs/INDEX.md"), "utf8"),
+      readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
+      readFile(rootFile("docs/custom-gpt-action-live-acceptance.md"), "utf8"),
+      readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
+      readFile(rootFile("project/CODEX-CURRENT-STATE.md"), "utf8"),
+      readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
+      readFile(rootFile("docs/custom-gpt-sync.json"), "utf8"),
+      readFile(rootFile("docs/forum-signal-routing-matrix-v0.1.0.json"), "utf8"),
+      readFile(rootFile("docs/treatment-option-space-matrix-v0.1.0.json"), "utf8"),
+    ]);
+    const forum = JSON.parse(forumText) as { cases: unknown[] };
+    const option = JSON.parse(optionText) as { cases: unknown[] };
+
+    expect(index).toContain("forum-signal-routing-matrix-v0.1.0.json");
+    expect(index).toContain("treatment-option-space-matrix-v0.1.0.json");
+    expect(forum.cases).toHaveLength(24);
+    expect(option.cases).toHaveLength(15);
+    for (const document of [release, acceptance]) {
+      expect(document).toContain("15 required and 9");
+      expect(document).toContain("9 broad-review and 6 narrow-review");
+      expect(document).toContain("product-interface acceptance");
+    }
+
+    const instructionsHash = createHash("sha256").update(instructions).digest("hex");
+    const syncHash = createHash("sha256").update(sync).digest("hex");
+    const instructionCharacters = instructions.length.toString().replace(
+      /\B(?=(\d{3})+(?!\d))/gu,
+      ",",
+    );
+    for (const document of [release, acceptance, checklist, state]) {
+      expect(document).toContain(instructionsHash);
+    }
+    for (const document of [release, acceptance, state]) {
+      expect(document).toContain(syncHash);
+      expect(document).toContain(`${instructionCharacters} characters`);
+    }
+  });
+
   it("pins the Git-capable toolchain required by the protected live runner", async () => {
     const [dockerfile, automation] = await Promise.all([
       readFile(rootFile("Dockerfile.public-review"), "utf8"),
@@ -178,13 +228,14 @@ describe("AskRigor public-review packet", () => {
   });
 
   it("records the repaired Custom GPT UI continuation proof without overstating remaining acceptance", async () => {
-    const [setup, privacyMap, privacySite, readme, index, release, state, acceptance] =
+    const [setup, privacyMap, privacySite, readme, index, checklist, release, state, acceptance] =
       await Promise.all([
         readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
         readFile(rootFile("docs/privacy-data-map.md"), "utf8"),
         readFile(rootFile("site/privacy/index.html"), "utf8"),
         readFile(rootFile("README.md"), "utf8"),
         readFile(rootFile("docs/INDEX.md"), "utf8"),
+        readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
         readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
         readFile(rootFile("project/CODEX-CURRENT-STATE.md"), "utf8"),
         readFile(rootFile("docs/custom-gpt-action-live-acceptance.md"), "utf8")
@@ -244,7 +295,7 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, DUPLICATE, DIRECT GPT URL, AND SHORT DOMAIN PASSED"
+      "DEPLOYED BASELINE; CURRENT TREATMENT-DECISION COMPLETION REPAIR LOCAL/PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -270,6 +321,25 @@ describe("AskRigor public-review packet", () => {
     );
     expect(state).toContain("This is now deployed direct behavior");
     expect(state).not.toContain("This is candidate behavior, not a production claim");
+    for (const document of [readme, checklist, release, state, acceptance]) {
+      expect(document).toContain("treatment-alternatives");
+      expect(document).toContain("HRP-complete");
+      expect(document).toContain("privacy_rejected");
+    }
+    expect(acceptance).toContain(
+      "DEPLOYED BASELINE — PRIOR DIRECT/UI ACCEPTANCE PASSED; CURRENT TREATMENT-DECISION COMPLETION REPAIR LOCAL, NOT DEPLOYED OR GPT-UI RETESTED",
+    );
+    expect(acceptance.replace(/\s+/gu, " ")).toContain(
+      "all formal retrieval required by the applicability ledger",
+    );
+    expect(acceptance).toContain("Action-returned `receipt.synthesis_lock: pass`");
+    expect(acceptance.replace(/\s+/gu, " ")).toContain(
+      "Static repository tests are not GPT-behavior acceptance.",
+    );
+    expect(release).toContain("fresh product-interface acceptance remains pending");
+    expect(state.replace(/\s+/gu, " ")).toContain(
+      "The current candidate remains unmerged, undeployed, and uninstalled; inspect exact Git/GitHub branch and PR state.",
+    );
     expect(acceptance).toContain("components.schemas");
     expect(acceptance).toContain("201 characters");
     expect(acceptance).toContain("66 API-visible records");

@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "purpose": "Static synthetic prompt matrix for Forum Signal applicability. It specifies routing expectations but does not prove Custom GPT behavior; selected priority cases require fresh product-interface acceptance after installation.",
+  "cases": [
+    {
+      "id": "required-personal-good-idea",
+      "prompt": "Is hip replacement a good idea for me?",
+      "expected_forum_signal": "required",
+      "reason": "personal_treatment_decision",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-personal-need",
+      "prompt": "Do I need a hip replacement?",
+      "expected_forum_signal": "required",
+      "reason": "personal_treatment_decision",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-now-versus-wait",
+      "prompt": "Should I have hip replacement now or wait?",
+      "expected_forum_signal": "required",
+      "reason": "timing_or_delay_decision",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-delay-consequence",
+      "prompt": "What happens if I postpone hip replacement?",
+      "expected_forum_signal": "required",
+      "reason": "timing_or_delay_decision",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-actual-effectiveness",
+      "prompt": "Does hip replacement actually work?",
+      "expected_forum_signal": "required",
+      "reason": "real_world_outcome",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-recovery-durability",
+      "prompt": "How long does a hip replacement last, and what is recovery really like?",
+      "expected_forum_signal": "required",
+      "reason": "real_world_outcome",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-risk-regret",
+      "prompt": "What are the risks, and how often do people regret hip replacement?",
+      "expected_forum_signal": "required",
+      "reason": "safety_or_tolerability",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-comparison",
+      "prompt": "Compare hip replacement, hip resurfacing, and continued nonsurgical care.",
+      "expected_forum_signal": "required",
+      "reason": "alternatives_or_comparison",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-functional-outcome",
+      "prompt": "Will I be able to hike and sleep without pain after hip replacement?",
+      "expected_forum_signal": "required",
+      "reason": "real_world_outcome",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-population-level",
+      "prompt": "Is hip replacement generally a good idea for active adults with severe osteoarthritis?",
+      "expected_forum_signal": "required",
+      "reason": "population_treatment_decision",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-implicit-decision",
+      "prompt": "My surgeon recommended a hip replacement. What should I consider before deciding?",
+      "expected_forum_signal": "required",
+      "reason": "implicit_alternatives_or_decision",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-formal-only-scope",
+      "prompt": "Use only trials and do not check forums: is hip replacement worth it?",
+      "expected_forum_signal": "required",
+      "reason": "user_scope_cannot_deselect",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-strong-trial",
+      "prompt": "If a large randomized trial says hip replacement is effective, is it the right choice?",
+      "expected_forum_signal": "required",
+      "reason": "formal_evidence_cannot_deselect",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "required-broad-ambiguous",
+      "prompt": "Tell me about hip replacement.",
+      "expected_forum_signal": "required",
+      "reason": "uncertain_defaults_to_required",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "required-indication",
+      "prompt": "When do doctors usually recommend hip replacement?",
+      "expected_forum_signal": "required",
+      "reason": "treatment_decision_criteria",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-definition",
+      "prompt": "What does total hip arthroplasty mean?",
+      "expected_forum_signal": "not_required",
+      "reason": "simple_definition_or_terminology",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "not-required-acronym",
+      "prompt": "What does THA stand for?",
+      "expected_forum_signal": "not_required",
+      "reason": "simple_definition_or_terminology",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-anatomy",
+      "prompt": "Where is the acetabulum?",
+      "expected_forum_signal": "not_required",
+      "reason": "simple_definition_or_terminology",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-pure-mechanism",
+      "prompt": "Explain osseointegration at the cellular level without discussing outcomes or safety.",
+      "expected_forum_signal": "not_required",
+      "reason": "pure_mechanism_without_real_world_claim",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "not-required-pure-chemistry",
+      "prompt": "What is cobalt-chromium alloy made of? Do not evaluate safety or outcomes.",
+      "expected_forum_signal": "not_required",
+      "reason": "pure_mechanism_without_real_world_claim",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-emergency-triage",
+      "prompt": "I have sudden chest pain and trouble breathing. What should I do right now?",
+      "expected_forum_signal": "not_required",
+      "reason": "emergency_triage_before_stabilization",
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "not-required-no-corpus",
+      "prompt": "Explain the mechanical concept behind a preclinical implant that has never been used in humans.",
+      "expected_forum_signal": "not_required",
+      "reason": "no_meaningful_user_experience_corpus",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-translation",
+      "prompt": "Translate 'hip replacement' into French.",
+      "expected_forum_signal": "not_required",
+      "reason": "direct_transformation_without_research",
+      "live_acceptance_priority": false
+    },
+    {
+      "id": "not-required-supplied-rewrite",
+      "prompt": "Rewrite this supplied paragraph about hip replacement for a sixth-grade reader without adding claims.",
+      "expected_forum_signal": "not_required",
+      "reason": "direct_transformation_without_research",
+      "live_acceptance_priority": false
+    }
+  ]
+}

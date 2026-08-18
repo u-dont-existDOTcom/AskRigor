@@ -55,7 +55,7 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(words.length).toBeGreaterThan(100);
     expect(words.length).toBeLessThan(500);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(instructions).toContain("Run this routing gate before loading or applying the full HRP");
+    expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
       "firsthand experience",
       "implementation differences",
@@ -68,8 +68,38 @@ describe("AskRigor ChatGPT Project router", () => {
     ]) {
       expect(instructions).toContain(trigger);
     }
-    expect(instructions).toContain("When uncertain, mark FORUM_SIGNAL REQUIRED");
+    expect(instructions).toContain("If uncertain, require it");
     expect(instructions).toContain("REQUIRED cannot become NOT REQUIRED");
+    for (const explicitRequiredExample of [
+      "treatment alternatives",
+      "avoiding replacement",
+      "avoiding joint replacement",
+      "avoiding surgery",
+    ]) {
+      expect(instructions).toContain(explicitRequiredExample);
+    }
+    for (const implicitDecisionBoundary of [
+      "personal or practical treatment decision",
+      "good idea for me",
+      "now versus wait or delay",
+      "even if alternatives are unstated",
+      "population-level",
+      "A request to exclude forums limits execution, not applicability",
+      "simple definition or terminology",
+      "pure chemistry or mechanism with no real-world outcome or safety claim",
+      "emergency triage before stabilization",
+      "no meaningful user-experience corpus",
+      "Omitted alternatives are not a nontrigger",
+    ]) {
+      expect(instructions).toContain(implicitDecisionBoundary);
+    }
+    expect(instructions).toContain(
+      "`HRP-complete` requires executed ledger-required formal retrieval and all receipts passed."
+    );
+    expect(instructions).toContain("Do not emit the full-HRP opening until every required receipt has passed.");
+    expect(instructions).toContain("no `incomplete` directional/bidirectional field");
+    expect(instructions).toContain("`youtube_synthesis_lock: pass`");
+    expect(instructions).toContain("every selected video's `synthesis_lock: pass`");
   });
 
   it("permanently blocks the exact hip/RCT early-synthesis failure", async () => {
@@ -100,7 +130,7 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(instructions).toContain("expected information gain is positive");
     expect(instructions).toContain("does not require ceremonial user approval");
     expect(instructions).toContain(
-      "If `further_expansion_likely_to_improve_answer` would be `yes` and the work is executable, continue researching."
+      "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`."
     );
     expect(instructions).toContain("A final answer may report only `no` or `blocked` with a reason.");
   });
@@ -247,12 +277,14 @@ describe("AskRigor ChatGPT Project router", () => {
     const lessonHook = instructions.indexOf("## 5. Lesson capture hook");
 
     expect(lessonHook).toBeGreaterThan(-1);
-    expect(instructions.slice(lessonHook)).toContain("`LESSON_CAPTURE_MODULE.md`");
     expect(instructions.slice(lessonHook)).toContain(
-      "only after AskRigor has rechecked the relevant material and explicitly concluded that the user's concrete criticism is valid"
+      "Read `LESSON_CAPTURE_MODULE.md` completely",
     );
     expect(instructions.slice(lessonHook)).toContain(
-      "This hook is separate from the HRP module ledger and does not change any HRP requirement."
+      "only after AskRigor rechecks and validates the user's concrete criticism"
+    );
+    expect(instructions.slice(lessonHook)).toContain(
+      "Follow it for lesson handling; it does not change the HRP ledger."
     );
     expect(instructions.slice(0, lessonHook)).not.toContain("LESSON_CAPTURE_MODULE.md");
     expect(instructions).not.toContain("Submit this anonymized lesson to improve AskRigor?");
