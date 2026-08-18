@@ -1939,9 +1939,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.13",
-            revisionDate: "2026-08-17",
-            sha256: "3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4"
+            version: "20.5.14",
+            revisionDate: "2026-08-18",
+            sha256: "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221"
           }
         });
       } finally {
