@@ -87,9 +87,17 @@ exercise/PT programs or preoperative versus postoperative rehabilitation, did
 not constrain decisive surgery trials to their exact comparators, and gave
 little structured weight to hydration/collagen evidence after exact matched
 studies were not located. The follow-up seven-case discovery/weighting matrix
-and local Instructions SHA-256
+and Instructions SHA-256
 `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`
-are repository evidence only until installed and freshly retested.
+were then exercised through another owner-provided product run. That retest
+still selected generic conservative-care, NSAID, and postoperative-rehabilitation
+pools, omitted gelatin/collagen and hydration, did not locate program-matched
+preoperative PT videos, collapsed PT/exercise variants, and falsely labeled the
+answer HRP-complete. The current local follow-up Instructions SHA-256 is
+`f34d8943fed02cd33be5277b738b124de3801bb5530a1ff0ad43503eecd8c888`;
+it requires separate hip subhypotheses plus matched-video or explicit
+no-candidate/access dispositions. This remains repository evidence until merged,
+installed, and freshly retested.
 
 ## Source-generated MCP tools/list inventory
 

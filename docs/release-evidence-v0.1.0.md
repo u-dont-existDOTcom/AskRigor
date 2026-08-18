@@ -8,8 +8,9 @@ now resolved. The fresh post-deployment ChatGPT interface check did not reproduc
 the earlier routine-status presentation finding. Later treatment-decision runs
 exposed formal-retrieval/Forum Signal, option-space, and later discovery/
 weighting regressions. PR #36 closed the first two and was deployed and
-installed, but its product retest exposed the deeper discovery/weighting gap.
-Public submission cannot proceed until that regression closes, the
+installed, but successive product retests exposed deeper discovery/weighting
+and hip subhypothesis/video-match gaps. Public submission cannot proceed until
+that regression closes, the
 publisher-identity/domain path is resolved, Scan Tools and the demo recording
 pass, the opaque model-receipt release decision is explicit, and final portal
 review and submission actions are complete. The repository candidate now
@@ -17,7 +18,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS PRODUCT ACCEPTANCE
+## Custom GPT research bridge — DEPLOYED COMPLETION/OPTION-SPACE REPAIR; HIP SUBHYPOTHESIS/VIDEO-MATCH FOLLOW-UP AWAITS PRODUCT ACCEPTANCE
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -114,18 +115,29 @@ treated conventional/provider-ranked videos as adequate without a candidate-
 selection ledger. It did not decompose exercise/PT programs, distinguish
 preoperative conservative care from postoperative rehabilitation, bound
 decisive THA trials to exact comparators, or fully steelman hydration/collagen
-signals after exact matched studies were not located. The follow-up local
-Instructions are 7,799 characters (7,811 UTF-8 bytes); SHA-256 is
-`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`;
+signals after exact matched studies were not located. The first follow-up
+Instructions were 7,799 characters with SHA-256
+`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`.
+The owner then supplied a fresh product result after installing/testing that
+candidate. It audited three generic pools totaling 1,458 provider-reported and
+retrieved records and 284 returned for analysis, but omitted gelatin/collagen,
+hydration, and program-matched preoperative PT videos; used a postoperative
+rehabilitation pool for a preoperative decision; collapsed PT variants; and
+still labeled the result HRP-complete. The current local follow-up requires
+separate permanent-regression hypotheses and a matched-video or explicit
+no-candidate/access disposition for each. Its Instructions are 7,768 characters
+(7,780 UTF-8 bytes); SHA-256 is
+`f34d8943fed02cd33be5277b738b124de3801bb5530a1ff0ad43503eecd8c888`;
 its synchronization-ledger SHA-256 is
-`7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`.
+`a1cdbd46c8dcf5208d3f5d5f8ff3630561356d7a77e752a9cc9dfe3b527f6a93`.
 The seven-case discovery/weighting matrix covers broad, bounded, narrow, and
-not-applicable controls. Its focused suite passed 52/52. This is
+not-applicable controls. The final focused source/packet/matrix/release suite
+passed 48/48. This is
 repository-candidate evidence only; fresh product-interface acceptance remains
 pending. OpenAPI, MCP inventory, protocols, production, and the currently
 installed prior Instructions are unchanged. The complete Node `24.18.0` gate
 passed typecheck, 54 test files with one declared credential-gated file skipped,
-939 tests with five declared skips, and build.
+940 tests with five declared skips, and build.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
 retrieved after restart, but zero were returned for analysis, replies were not
@@ -163,7 +175,7 @@ a separate evidence-preserving owner review.
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Bounded transient-handle disclosure active at `/opt/askrigor/site/releases/56b3dff6d7c3/site`; live privacy bytes SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`. |
 | Public site packet | SHA-256 `7033719202391ad384976fb0c7dbf30ca197445b549bc68f7009e736643f9b07`; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. |
-| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; committed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`. Local discovery/weighting candidate: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`; local sync ledger `7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; committed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`. Product-tested first discovery/weighting candidate: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`. Current local hip subhypothesis/video-match candidate: `f34d8943fed02cd33be5277b738b124de3801bb5530a1ff0ad43503eecd8c888`; local sync ledger `a1cdbd46c8dcf5208d3f5d5f8ff3630561356d7a77e752a9cc9dfe3b527f6a93`. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -410,9 +422,10 @@ No provider request or lesson write was repeated.
 
 ## Required submission work remaining
 
-- If unmerged, merge the discovery/weighting repair; install the exact generated
-  Instructions with empty Knowledge; and pass fresh candidate-selection, intervention-
-  decomposition, comparator-scope, and heterodox-weighting product cases before
+- If unmerged, merge the hip subhypothesis/video-match follow-up; install the
+  exact generated Instructions with empty Knowledge; and pass fresh
+  candidate-selection, intervention-decomposition, comparator-scope,
+  heterodox-weighting, and matched-video product cases before
   resuming portal work. Do not retry the rejected lesson candidate.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the

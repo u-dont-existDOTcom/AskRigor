@@ -7,6 +7,9 @@ const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 type Review = "broad" | "bounded" | "narrow" | "not_applicable";
 type Control =
   | "option_space"
+  | "intervention_hypothesis_ledger"
+  | "program_matched_video_selection"
+  | "matched_video_or_no_candidate"
   | "youtube_candidate_selection"
   | "intervention_decomposition"
   | "cross_layer_iteration"
@@ -54,6 +57,9 @@ describe("heterodox discovery and weighting matrix", () => {
       expected_review: "broad",
       required_controls: [
         "option_space",
+        "intervention_hypothesis_ledger",
+        "program_matched_video_selection",
+        "matched_video_or_no_candidate",
         "youtube_candidate_selection",
         "cross_layer_iteration",
         "decisive_study_scope",
@@ -70,6 +76,20 @@ describe("heterodox discovery and weighting matrix", () => {
       "decisive_study_scope",
       "transportability",
     ]);
+  });
+
+  it("requires discrete old-hip hypotheses and matched preoperative videos", async () => {
+    const matrix = await loadMatrix();
+    const pathway = matrix.cases.find(({ id }) => id === "broad-uncued-hip-pathway");
+    const exercise = matrix.cases.find(({ id }) => id === "exercise-umbrella-decomposition");
+
+    for (const candidate of [pathway, exercise]) {
+      expect(candidate?.required_controls).toEqual(expect.arrayContaining([
+        "intervention_hypothesis_ledger",
+        "program_matched_video_selection",
+        "matched_video_or_no_candidate",
+      ]));
+    }
   });
 
   it("keeps exact null evidence separate from dismissal", async () => {
@@ -103,6 +123,12 @@ describe("heterodox discovery and weighting matrix", () => {
         "exact matched outcome support",
         "adjacent human, mechanistic, grey/practitioner, and community evidence",
         "steelman without inflation",
+        "gelatin/collagen",
+        "hydration",
+        "swimming/aquatic exercise",
+        "distinct preoperative PT programs",
+        "PT/exercise or postoperative-rehabilitation video",
+        "matched video or explicit no-candidate",
       ]) {
         expect(surface, fragment).toContain(fragment);
       }
@@ -110,8 +136,8 @@ describe("heterodox discovery and weighting matrix", () => {
 
     for (const compactSurface of [skill, generated]) {
       for (const compactControl of [
-        "Survey up to six general/prevention, exact-variant, contrarian/practitioner, benefit, failure, harm/discontinuation, formal-discriminator searches",
-        "rewrite/use-cursor/new-batch when redundant",
+        "Survey up to 6 general/prevention/exact-variant/contrarian-practitioner/benefit/failure/harm-discontinuation/formal-discriminator searches",
+        "rewrite/use-cursor/new-batch if redundant",
         "components/dose/frequency/duration",
         "supervision/adherence/cointerventions",
         "assess transportability",

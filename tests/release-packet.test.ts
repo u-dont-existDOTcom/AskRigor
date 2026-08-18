@@ -300,7 +300,7 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS PRODUCT ACCEPTANCE"
+      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; HIP SUBHYPOTHESIS/VIDEO-MATCH FOLLOW-UP AWAITS PRODUCT ACCEPTANCE"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -332,7 +332,7 @@ describe("AskRigor public-review packet", () => {
       expect(document).toContain("privacy_rejected");
     }
     expect(acceptance).toContain(
-      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS GPT-UI ACCEPTANCE",
+      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; HIP SUBHYPOTHESIS/VIDEO-MATCH FOLLOW-UP AWAITS GPT-UI ACCEPTANCE",
     );
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "all formal retrieval required by the applicability ledger",

@@ -4,9 +4,9 @@ Run before HRP/research. HRP governs synthesis, not applicability.
 
 ## 1. Fix the module ledger
 
-Ledger `HRP`, `DIRECT_HUMAN`, `EXTENDED_GREY`, `FORUM_SIGNAL`, `BIDIRECTIONAL_ITERATION`, and `FINAL_COMPLETION_AUDIT` as `REQUIRED` or `NOT REQUIRED`.
+Ledger `HRP`/`DIRECT_HUMAN`/`EXTENDED_GREY`/`FORUM_SIGNAL`/`BIDIRECTIONAL_ITERATION`/`FINAL_COMPLETION_AUDIT` as `REQUIRED` or `NOT REQUIRED`.
 
-Mark `FORUM_SIGNAL REQUIRED` if firsthand experience, implementation differences, treatment tolerability, real-world outcomes, adherence, harms, discontinuation, or patient decision-making could plausibly affect the answer.
+Mark `FORUM_SIGNAL REQUIRED` if firsthand experience/implementation differences/treatment tolerability/real-world outcomes/adherence/harms/discontinuation/patient decision-making could plausibly affect the answer.
 
 Any personal or practical treatment decision is `FORUM_SIGNAL REQUIRED`: good idea for me, needed/worth it, or now versus wait or delay, even if alternatives are unstated or population-level. Require treatment alternatives, avoiding replacement, avoiding joint replacement, or avoiding surgery. A request to exclude forums limits execution, not applicability.
 
@@ -20,9 +20,11 @@ Once fixed, REQUIRED cannot become NOT REQUIRED. Finding an excellent RCT does n
 
 Load/verify Universal and applicable complete HRP; execute every required module.
 
-When required, read `FORUM_SIGNAL_MODULE.md` completely. Call `survey_youtube_community`; select up to three materially different videos; call `audit_youtube_video_community` while `continuation_recommended: true`. `continuation_recommended` is authoritative for immediate automatic resubmission. A token paired with `continuation_recommended: false` is deferred recovery state; preserve its blocker. Widen while expected information gain is positive. Read-only continuation does not require ceremonial user approval. Query-bounded comment search cannot replace the corpus.
+When required, read `FORUM_SIGNAL_MODULE.md` completely. Call `survey_youtube_community`; select up to three materially different videos; call `audit_youtube_video_community` while `continuation_recommended: true`. `continuation_recommended` is authoritative for immediate automatic resubmission. A token paired with `continuation_recommended: false` is deferred recovery state. Widen while expected information gain is positive. Read-only continuation does not require ceremonial user approval. Query-bounded comment search cannot replace the corpus.
 
 Build a candidate-selection ledger: query/direction, unique hypothesis, decision usefulness, independence, nonredundancy; provider rank/popularity are context, not credibility. Audit exact intervention and comparator programs and state what the contrast can and cannot establish; weak or mismatched comparator narrows inference. Separate preoperative conservative care from postoperative rehabilitation. Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation.
+
+Separate gelatin/collagen, hydration, swimming/aquatic exercise, and distinct preoperative PT programs. A generic PT/exercise or postoperative-rehabilitation video satisfies none; require matched video or explicit no-candidate/access disposition to complete.
 
 ## 3. Synthesis gate
 

@@ -6,14 +6,14 @@
       "id": "broad-uncued-hip-pathway",
       "prompt": "A hypothetical adult has hip arthritis. Their doctor recommends celecoxib now and eventual hip replacement. Do you agree?",
       "expected_review": "broad",
-      "required_controls": ["option_space", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
+      "required_controls": ["option_space", "intervention_hypothesis_ledger", "program_matched_video_selection", "matched_video_or_no_candidate", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
       "live_acceptance_priority": true
     },
     {
       "id": "exercise-umbrella-decomposition",
       "prompt": "Does physical therapy or exercise prevent hip replacement, or is most PT aimed only at rehabilitation after surgery?",
       "expected_review": "broad",
-      "required_controls": ["intervention_decomposition", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
+      "required_controls": ["intervention_decomposition", "intervention_hypothesis_ledger", "program_matched_video_selection", "matched_video_or_no_candidate", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
       "live_acceptance_priority": true
     },
     {
@@ -34,7 +34,7 @@
       "id": "contrarian-practitioner-claim",
       "prompt": "A popular practitioner video says ordinary physical therapy is ineffective because therapists mainly learn postsurgical rehabilitation. How should that claim be investigated?",
       "expected_review": "bounded",
-      "required_controls": ["youtube_candidate_selection", "intervention_decomposition", "decisive_study_scope", "steelman_without_inflation"],
+      "required_controls": ["youtube_candidate_selection", "intervention_decomposition", "program_matched_video_selection", "decisive_study_scope", "steelman_without_inflation"],
       "live_acceptance_priority": false
     },
     {

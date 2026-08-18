@@ -343,10 +343,14 @@ PR #36's repair separated Forum Signal from option-space breadth, was deployed,
 and was installed with empty Knowledge. A third product run found alternatives
 but still selected shallow YouTube pools, collapsed distinct exercise/PT
 programs, under-audited decisive trial comparators, and underweighted plausible
-heterodox signals when exact studies were absent. The current local repair adds
-candidate-selection, intervention-decomposition, comparator-scope, and
-steelman-without-inflation gates; current publication/install receipts and fresh
-product regressions remain pending. The
+heterodox signals when exact studies were absent. A first discovery/weighting
+repair added candidate-selection, intervention-decomposition, comparator-scope,
+and steelman gates. Its fresh product retest still chose one generic
+conservative-care video plus NSAID and postoperative-rehabilitation pools,
+omitted gelatin/collagen and hydration, and treated PT as one intervention while
+claiming HRP-complete. The current local follow-up requires separate hip
+subhypotheses and program-matched videos or explicit no-candidate/access
+dispositions; merge, installation, and fresh product acceptance remain pending. The
 associated lesson attempt returned non-retryable `privacy_rejected` and was not
 resubmitted. After that
 gate closes, remaining work includes the publisher-identity/domain path, Scan

@@ -96,7 +96,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   constrain decisive THA trials to their exact comparators, and gave little
   structured steelman treatment to hydration/collagen evidence after exact
   matched studies were not located.
-- Local test-first follow-up work is active on the isolated branch. RED was
+- The owner then exercised the first discovery/weighting candidate
+  (`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`)
+  through another fresh product run. It audited generic conservative care
+  (`partial` / `completed_with_access_boundary`, 272/272/71), general NSAID
+  experience (`api_visible_complete`, 197/197/110), and postoperative
+  replacement mistakes (`api_visible_complete`, 989/989/103), where each tuple
+  is provider-reported/retrieved/returned-for-analysis. It omitted separate
+  gelatin/collagen and hydration hypotheses, did not locate program-matched
+  preoperative PT videos, collapsed distinct PT/exercise programs, and still
+  labeled the result HRP-complete. This owner-provided UI receipt disproves the
+  sufficiency of the first follow-up; tool execution and passing per-video locks
+  did not establish option-space coverage.
+- The first local test-first follow-up was completed on the isolated branch. RED was
   observed because the Project router, Forum module, plugin skill, and generated
   Custom GPT packet lacked the new executable controls. The candidate adds a
   candidate-selection ledger, exact intervention/comparator decomposition,
@@ -104,12 +116,21 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   steelman-without-inflation rules, plus regenerated Instructions/sync artifacts
   and a new seven-case discovery/weighting matrix. No canonical
   protocol, OpenAPI operation, MCP tool, production deployment, GPT editor
-  state, or private lesson changed in this follow-up. The rejected lesson was
+  state, or private lesson changed in that follow-up. The rejected lesson was
   not retried. Establish the follow-up's current merge and editor-installation
   state from Git/GitHub and UI receipts; do not infer it from this implementation
   paragraph. The
   dirty original checkout and its unrelated credential-looking files remain
   untouched.
+- A second local test-first follow-up is active in the same isolated worktree.
+  Its plan is
+  `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`.
+  RED showed that all four execution surfaces lacked an explicit requirement to
+  disposition gelatin/collagen, hydration, swimming/aquatic exercise, and
+  distinct preoperative PT programs separately. The local source now rejects a
+  generic PT/exercise or postoperative-rehabilitation video as coverage for
+  those hypotheses and requires matched-video or explicit no-candidate/access
+  dispositions. Discovery remains separate from endorsement.
 - Owner-reported OpenAI state: individual identity is verified. Business/
   organization verification is blocked after an apparent signup timeout; the
   owner believes the retry delay may be three months, but the exact duration is
@@ -446,19 +467,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Current checkpoint
 
 - The current repair plan is
-  `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`.
-  The generated local Instructions are 7,799 characters (7,811 UTF-8 bytes), SHA-256
-  `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`;
+  `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`.
+  The generated local Instructions are 7,768 characters (7,780 UTF-8 bytes), SHA-256
+  `f34d8943fed02cd33be5277b738b124de3801bb5530a1ff0ad43503eecd8c888`;
   local sync SHA-256 is
-  `7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`.
+  `a1cdbd46c8dcf5208d3f5d5f8ff3630561356d7a77e752a9cc9dfe3b527f6a93`.
   The generated OpenAPI remains byte-identical. The Forum Signal matrix has 15
   required and 9 not-required cases; the option-space matrix has 9 broad-review
   and 6 narrow-review controls; the new discovery/weighting matrix has seven
-  cases across four review modes. Its focused suite passed 52/52. The complete
-  Node `24.18.0` gate passed typecheck, 54 test files with one declared
-  credential-gated file skipped, 939 tests with five declared skips, and build.
+  cases across four review modes. The final focused
+  source/packet/matrix/release suite passed 48/48. The complete Node `24.18.0`
+  gate passed typecheck, 54 test files with one declared credential-gated file
+  skipped, 940 tests with five declared skips, and build.
   Static tests do not establish deployed or GPT UI behavior.
-- The required pre-publication lesson checkpoint at `2026-08-18T09:37:06.952Z` remained
+- The required lesson checkpoint at `2026-08-18T12:35:40.794Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
@@ -524,7 +546,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Complete branch publication, protected PR review, and merge; install the exact
   generated Instructions with empty Knowledge; and pass fresh Custom GPT cases
   for candidate selection, intervention decomposition, decisive-comparator
-  scope, and heterodox weighting. No server deployment is required unless the
+  scope, heterodox weighting, discrete hip subhypotheses, and matched
+  preoperative videos. No server deployment is required unless the
   final diff changes runtime source or public contracts.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
@@ -541,7 +564,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Blockers / unresolved
 
 - The completion and option-space failures were merged, deployed, and installed;
-  the ensuing discovery/weighting failure remains a public-submission blocker
+  the ensuing discovery/weighting and subhypothesis/video-match failures remain
+  a public-submission blocker
   until the follow-up is merged, installed, and passes fresh GPT UI cases.
   Static instruction assertions do not prove model obedience. The rejected
   lesson is non-retryable.
@@ -580,6 +604,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `docs/superpowers/plans/2026-08-18-custom-gpt-forum-signal-regression-repair.md`
 - Heterodox discovery/weighting repair plan:
   `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`
+- Hip subhypothesis/video-match repair plan:
+  `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`
 - Public-review runner/cases: `docs/public-review-automation.md` and
   `docs/public-review-cases-v0.1.0.json`
 - Ignored local sanitized evidence:
@@ -589,8 +615,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Inspect Git and GitHub for the candidate's exact publication/PR state, then
-continue the protected review and merge sequence from that boundary. Do not
+Finish exact local verification and diff review, commit the second follow-up,
+then inspect GitHub before any push or PR update. Do not
 retry the failed lesson, call live providers, change production, update the GPT
 editor, deploy, or resume portal Scan Tools before the protected merge sequence.
 
@@ -598,10 +624,10 @@ editor, deploy, or resume portal Scan Tools before the protected merge sequence.
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #35, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #36, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. The recorded GitHub baseline is PR #35
-merge `f603a384efbb028d1865c57c232bd134d8c5584b`; production is PR #32 merge
-`d1af238325ee1e0584574e47bbcbe7764d17cf7e`.
+unless production identity has changed. The recorded GitHub baseline and
+production revision are PR #36 merge
+`cfce806345fe65a13fd0330aa7e8f000c1587d01`.
