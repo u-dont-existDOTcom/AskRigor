@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-Updated: 2026-08-17
+Updated: 2026-08-18
 
 ## Goal
 
@@ -9,7 +9,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current hosted head is PR #32 merge
+- Canonical branch: `main`; this evidence branch starts from PR #33 merge
+  `05969b1d84b714e414ee61ee5000581cb412c261`. Production runs PR #32 merge
   `d1af238325ee1e0584574e47bbcbe7764d17cf7e`. The privacy-model repair head
   `87433b8829da835f1e8c2b1bd5cd613ac14046b6` passed all protected checks before
   merge and all exact post-merge checks afterward. The
@@ -153,7 +154,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   while preserving internal file modes produced the accepted image. This is a
   provisional transferable deployment lesson pending universal disposition;
   the OpenAI 300-character constraint remains project-specific evidence.
-- Current lesson status was `available` at
+- Pre-UI-retest lesson status was `available` at
   `2026-08-17T23:45:43.207Z`: 0 open, 0 needs review, 0 accepted not
   incorporated, 2 incorporated or closed, and 0 deletion eligible.
 - Lesson closeout: the AskRigor product failure, repaired UI pass, and exact
@@ -208,6 +209,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   and 3/3 identifier cases with zero identifier leakage. Exact merged code is
   now deployed; its GitHub-disconnected, non-stored safe-candidate probe returned
   `generalized` without touching the production lesson ledger or GitHub.
+- On 2026-08-18, a new published-GPT chat displayed the complete consent shell
+  and exact `Yes` plus ChatGPT confirmation submitted `ARL-0007`. An independent
+  identical recheck displayed the shell again and returned the same candidate
+  with occurrence count 2. The read-only aggregate at
+  `2026-08-18T00:32:43.437Z` confirmed 1 open candidate, 1 needs review, 0
+  accepted not incorporated, 2 incorporated or closed, and 0 deletion eligible.
 
 ## Completed
 
@@ -392,18 +399,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   cases, the repaired two-call YouTube handle UI chain, and canonical Universal
   `20.5.13` UI loading passed. The hardened consent shell, Action
   authentication, public-content review, privacy-model repair, and exact
-  deployment probe now pass. The first authenticated lesson reached the old
-  privacy model and failed closed before GitHub; successful fresh-chat
-  lesson/duplicate receipts and the direct `/g/...` URL remain pending.
+  deployment probe now pass. The fresh-chat lesson and separately consented
+  duplicate also pass with `ARL-0007` occurrence count 2. Only the direct
+  `/g/...` URL remains pending for this Custom GPT acceptance surface.
 
 ## Remaining
 
-- Rerun only the lesson submission and duplicate cases in a fresh published-GPT
-  chat against the deployed privacy-model repair. Do not retry the
-  non-retryable rejected call in its old chat. Protocol freshness, YouTube
-  continuation, publication, consent, authentication, deployment, and the
-  direct privacy probe are complete and must not be repeated as acceptance
-  requirements.
 - Verify the published GPT's direct `/g/...` URL before repointing
   `gpt.askrigor.com`.
 - Observe developer/business identity completion and complete the portal HTTPS
@@ -423,8 +424,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   refetch repairs are deployed and accepted through both direct and fresh
   product-interface tests. Universal `20.5.13` also passed the fresh product
   interface. The hardened consent shell, authentication, public publication,
-  privacy-model repair, exact deployment, and direct non-stored probe now pass.
-  Successful fresh-chat lesson and duplicate UI receipts remain pending.
+  privacy-model repair, exact deployment, direct non-stored probe, fresh-chat
+  lesson, and separately consented duplicate now pass. The direct `/g/...` URL
+  remains pending.
 - `AskRigor-lessons` is private on GitHub Free, so private `main` branch
   protection is plan-limited and explicitly unverified/unavailable until Pro.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
@@ -456,19 +458,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Rerun only the lesson and duplicate UI sequence in a new published-GPT chat
-against the deployed privacy-model repair. Do not retry in the old chat or
-repeat the completed protocol, provider, YouTube, publication, consent,
-authentication, deployment, or direct privacy-probe tests. Do not repoint the
-GPT subdomain before lesson/duplicate receipts and the direct `/g/...` URL are
-verified.
+Copy the published GPT's actual direct `/g/...` URL, verify that it opens the
+published AskRigor GPT, and only then repoint `gpt.askrigor.com`. Do not repeat
+the completed protocol, provider, YouTube, publication, consent, authentication,
+lesson, duplicate, deployment, or direct privacy-probe tests.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #32, AskRigor hardening issue #6, private synthetic lesson `ARL-0006`,
-and newer owner instructions. Resume from the latest verified boundary without
+through #33, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+and `ARL-0007`, and newer owner instructions. Resume from the latest verified
+boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. Current GitHub main and production are
-PR #32 merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e`.
+unless production identity has changed. The recorded GitHub baseline is PR #33
+merge `05969b1d84b714e414ee61ee5000581cb412c261`; production is PR #32 merge
+`d1af238325ee1e0584574e47bbcbe7764d17cf7e`.

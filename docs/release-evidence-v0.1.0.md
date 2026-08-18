@@ -1,7 +1,7 @@
 
 # AskRigor v0.1.0 release evidence
 
-Release disposition at 2026-08-17: **PUBLIC SUBMISSION BLOCKED**. Developer
+Release disposition at 2026-08-18: **PUBLIC SUBMISSION BLOCKED**. Developer
 Mode connector retrieval is ready based on the recorded production Inspector and
 ChatGPT evidence below, and the public website/support/privacy/terms URL gate is
 now resolved. The fresh post-deployment ChatGPT interface check did not reproduce
@@ -13,7 +13,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED — DIRECT ACCEPTANCE PASSED — GPT UI PARTIAL; PUBLICATION, LESSON CONSENT, AUTHENTICATION, AND PRIVACY-MODEL REPAIR PASSED; LESSON/DUPE UI RETEST PENDING
+## Custom GPT research bridge — DEPLOYED — DIRECT AND GPT UI ACCEPTANCE PASSED; PUBLICATION, LESSON, AND DUPLICATE PASSED; DIRECT GPT URL PENDING
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -55,8 +55,11 @@ source-audit lesson returned non-retryable `privacy_rejected` before GitHub. The
 private queue remained unchanged. A pinned privacy-model repair was prepared
 and verified. Exact merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e` is now
 deployed, and its exact-code non-stored safe-candidate probe returns
-`generalized`. Successful lesson/duplicate UI receipts and the actual direct
-`/g/...` URL remain pending, so `gpt.askrigor.com` must not be repointed yet.
+`generalized`. In a new published-GPT chat, the repaired path then submitted
+`ARL-0007`; a separately consented identical duplicate returned the same ID
+with occurrence count 2. The aggregate private queue independently confirmed
+one open candidate awaiting review. Only the actual direct `/g/...` URL remains
+pending, so `gpt.askrigor.com` must not be repointed yet.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
 retrieved after restart, but zero were returned for analysis, replies were not
@@ -119,7 +122,7 @@ run the VPS validation.
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
-| Custom GPT bridge direct acceptance | Current Universal `20.5.13` loaded in 3/3 chunks through both direct and Custom GPT UI checks, and HRP `20.5.18` retained its verified manifest; the prior full bridge release loaded Universal in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed on the prior application release. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Fresh health, exact OpenAPI, unauthenticated lesson isolation, privacy, and exact 17-tool MCP inventory passed after the Universal-only runtime change. The repaired two-call YouTube UI case, hardened lesson-consent shell, Action authentication, public content review, and owner-reported publication passed. The privacy-model repair is deployed and its GitHub-disconnected safe-candidate probe passes; published-GPT lesson/duplicate receipts remain pending. |
+| Custom GPT bridge direct acceptance | Current Universal `20.5.13` loaded in 3/3 chunks through both direct and Custom GPT UI checks, and HRP `20.5.18` retained its verified manifest; the prior full bridge release loaded Universal in 2/2 chunks and HRP in 11/11 with contiguous byte coverage plus chunk/whole hashes. PubMed, ClinicalTrials.gov, Crossref, and the bounded YouTube survey/audit passed on the prior application release. Malformed JSON returned 400; oversized input returned 413; an 80-request client burst returned 18 declared 429 responses and recovered. The private synthetic lesson produced `ARL-0006`, and its duplicate preserved the issue body while advancing the anonymous count to 2. Fresh health, exact OpenAPI, unauthenticated lesson isolation, privacy, and exact 17-tool MCP inventory passed after the Universal-only runtime change. The repaired two-call YouTube UI case, hardened lesson-consent shell, Action authentication, public content review, owner-reported publication, privacy-model repair, and exact deployment probe passed. The new published-GPT lesson submitted `ARL-0007`; its separately consented identical duplicate returned the same ID with occurrence count 2, and the aggregate queue confirmed one open candidate awaiting review. |
 | OpenAI Action importer compatibility | Exact merge `6639086a33b44f029c9f8405f69bd06b725e78d0` introduced the live-compatible schema and remains in the current release ancestry. Public schema checks found 18 operations, object-valued `components.schemas`, every summary/description within 300 characters, and both repaired legacy descriptions at 201 characters. The GPT editor subsequently imported the schema. |
 | YouTube terminal-refetch release | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862` remains in current production ancestry. A test-first provider-boundary regression limits `comments.list` ID filters to 50 after the exact provider returned `200` for 50 IDs and `400 invalidFilters` for 51. The known 16-record video remained one-call `api_visible_complete`; the formerly failing two-call video reached 149 records, returned a deterministic 111-record sample, ended `completed_with_access_boundary`, reported no error or further continuation, and passed synthesis. The repaired two-call GPT UI continuation retest passed on 2026-08-17. The subsequent Universal-only runtime rollout did not repeat provider calls. |
 
@@ -340,11 +343,10 @@ No provider request or lesson write was repeated.
 
 ## Required submission work remaining
 
-- Rerun only the published-GPT lesson and duplicate cases against the deployed
-  privacy-model repair. Do not repeat the completed protocol, provider, YouTube,
-  publication, consent, authentication, deployment, or direct privacy probe.
-  Capture and verify the actual direct `/g/...` URL before repointing
-  `gpt.askrigor.com`.
+- Capture and verify the actual direct `/g/...` URL before repointing
+  `gpt.askrigor.com`. Do not repeat the completed protocol, provider, YouTube,
+  publication, consent, authentication, lesson, duplicate, deployment, or direct
+  privacy-probe checks.
 - Complete/confirm verified developer or business identity, listing URLs,
   country availability, and the portal's HTTPS domain-verification challenge.
 - Submit the fixed production URL, select **Scan Tools**, and compare discovered
