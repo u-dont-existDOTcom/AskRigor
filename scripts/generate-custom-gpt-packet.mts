@@ -7,6 +7,8 @@ import { createActionOpenApiDocument } from
   "../apps/research-mcp/src/actions/openapi.js";
 import { createResearchActionRoutes } from
   "../apps/research-mcp/src/actions/research-routes.js";
+import { createActionOnlyResearchRoutes } from
+  "../apps/research-mcp/src/actions/youtube-transcript-route.js";
 import { createEnabledActionRoutes } from
   "../apps/research-mcp/src/actions/runtime.js";
 import { createDefaultActionRoutes } from
@@ -31,6 +33,7 @@ export interface CustomGptSync {
     sha256: string;
   }>;
   research_operation_ids: string[];
+  mcp_research_operation_ids: string[];
   consequential_operation_ids: ["submit_lesson_candidate"];
   editor: {
     knowledge: "empty";
@@ -51,7 +54,10 @@ export function generateCustomGptActionOpenApiJson(): string {
   const routes = createEnabledActionRoutes({
     researchEnabled: true,
     lessonsEnabled: true,
-    research: createResearchActionRoutes(),
+    research: [
+      ...createResearchActionRoutes(),
+      ...createActionOnlyResearchRoutes()
+    ],
     lessons: createDefaultActionRoutes()
   });
   return `${JSON.stringify(createActionOpenApiDocument(routes), null, 2)}\n`;
@@ -75,7 +81,11 @@ export async function generateCustomGptPacket(): Promise<CustomGptPacket> {
       { path: OPENAPI_PATH, sha256: sha256(openApiJson) },
       { path: INSTRUCTIONS_PATH, sha256: sha256(instructionsMarkdown) }
     ],
-    research_operation_ids: RESEARCH_OPERATIONS.map(({ name }) => name).sort(),
+    research_operation_ids: [
+      ...RESEARCH_OPERATIONS.map(({ name }) => name),
+      ...createActionOnlyResearchRoutes().map(({ operationId }) => operationId)
+    ].sort(),
+    mcp_research_operation_ids: RESEARCH_OPERATIONS.map(({ name }) => name).sort(),
     consequential_operation_ids: ["submit_lesson_candidate"],
     editor: {
       knowledge: "empty",

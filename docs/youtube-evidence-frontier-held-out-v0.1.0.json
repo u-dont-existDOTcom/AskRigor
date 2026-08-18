@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "purpose": "Held-out synthetic candidate set for testing transcript-verified evidence-frontier selection. Candidate claims are fixtures, not medical assertions or efficacy evidence.",
+  "prompt": "A hypothetical craft worker has persistent hand-tendon pain while using tools. Which real-world implementation discoveries might standard studies miss?",
+  "candidates": [
+    {
+      "id": "popular-generic-overview",
+      "provider_rank": 1,
+      "views": 2500000,
+      "stage_match": true,
+      "unique_claim": false,
+      "decision_usefulness": "generic",
+      "transcript_status": "api_visible_complete",
+      "timestamp_seconds": 30,
+      "canonical_url": "https://www.youtube.com/watch?v=GnrOvRv1ew0"
+    },
+    {
+      "id": "postprocedure-rehabilitation-distractor",
+      "provider_rank": 2,
+      "views": 900000,
+      "stage_match": false,
+      "unique_claim": true,
+      "decision_usefulness": "stage_mismatched",
+      "transcript_status": "api_visible_complete",
+      "timestamp_seconds": 90,
+      "canonical_url": "https://www.youtube.com/watch?v=PstOpR3hab0"
+    },
+    {
+      "id": "clickbait-cure-without-transcript",
+      "provider_rank": 3,
+      "views": 700000,
+      "stage_match": true,
+      "unique_claim": true,
+      "decision_usefulness": "unknown_without_creator_content",
+      "transcript_status": "inaccessible",
+      "canonical_url": "https://www.youtube.com/watch?v=ClckBtN0cap"
+    },
+    {
+      "id": "obscure-tool-fit-discovery",
+      "provider_rank": 8,
+      "views": 1800,
+      "stage_match": true,
+      "unique_claim": true,
+      "decision_usefulness": "material",
+      "transcript_status": "api_visible_complete",
+      "timestamp_seconds": 247,
+      "claim_fingerprint": {
+        "program": "changed grip diameter plus scheduled microbreak cadence",
+        "stage": "nonoperative ongoing tool use",
+        "outcome": "self-reported work tolerance",
+        "horizon": "six weeks"
+      },
+      "canonical_url": "https://www.youtube.com/watch?v=ObscUr3Clm0"
+    },
+    {
+      "id": "independent-failure-counterpoint",
+      "provider_rank": 9,
+      "views": 950,
+      "stage_match": true,
+      "unique_claim": true,
+      "decision_usefulness": "material",
+      "transcript_status": "api_visible_complete",
+      "timestamp_seconds": 133,
+      "claim_fingerprint": {
+        "program": "same tool-fit change with workload escalation",
+        "stage": "nonoperative ongoing tool use",
+        "outcome": "self-reported recurrence and discontinuation",
+        "horizon": "eight weeks"
+      },
+      "canonical_url": "https://www.youtube.com/watch?v=FailUr3Clm0"
+    }
+  ],
+  "expected_watchlist_ids": [
+    "obscure-tool-fit-discovery",
+    "independent-failure-counterpoint"
+  ],
+  "production_leakage_terms": [
+    "craft worker",
+    "hand-tendon pain",
+    "grip diameter",
+    "microbreak cadence",
+    "tool-fit change"
+  ]
+}

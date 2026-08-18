@@ -207,9 +207,15 @@ refetch isolates them under the same request/time bounds and returns only the
 still-verifiable deterministic subset as `completed_with_access_boundary`.
 The limitations state that the sample may not represent the full acquired
 corpus; zero refetchable records still block synthesis. The final report names
-and links the videos worth watching, and it cannot synthesize while wider or
-deeper executable work is still likely to improve the answer. The legacy
-`audit_youtube_community` remains available for compatibility.
+and links content-verified videos worth watching, and it cannot synthesize while
+wider or deeper executable work is still likely to improve the answer. The
+current source candidate adds a Custom GPT-only `get_youtube_transcript` read
+with timestamped, cursor-bounded public caption segments,
+language/automatic-caption provenance, explicit access failures, and no
+server-side transcript session. Creator content and comment-corpus evidence
+remain separate; titles, descriptions, and comments cannot substitute for a
+transcript. The legacy `audit_youtube_community` remains available for
+compatibility.
 
 The read-only research path uses ChatGPT as the existing reasoning engine. It
 adds no OpenAI API model call, local model, n8n workflow, database, durable
@@ -260,6 +266,12 @@ returned one temporary redirect to that exact direct URL; the final ChatGPT
 response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
+
+Production still exposes 17 public research reads. The current source candidate
+adds `get_youtube_transcript` only to the Custom GPT bridge, making 18 public
+reads plus the lesson write while preserving the exact frozen 17-tool MCP. The
+new Action/OpenAPI/privacy source is not deployed or installed in the editor,
+and production transcript access has not been live-tested.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application
@@ -340,17 +352,17 @@ treatment-alternatives run skipped required formal retrieval and Forum Signal
 work, then mislabeled the answer HRP-complete. A second treatment-decision run
 used community evidence but stayed anchored to the clinician-proposed pathway.
 PR #36's repair separated Forum Signal from option-space breadth, was deployed,
-and was installed with empty Knowledge. A third product run found alternatives
-but still selected shallow YouTube pools, collapsed distinct exercise/PT
-programs, under-audited decisive trial comparators, and underweighted plausible
-heterodox signals when exact studies were absent. A first discovery/weighting
-repair added candidate-selection, intervention-decomposition, comparator-scope,
-and steelman gates, then merged as PR #37. Its fresh product retest still chose one generic
-conservative-care video plus NSAID and postoperative-rehabilitation pools,
-omitted gelatin/collagen and hydration, and treated PT as one intervention while
-claiming HRP-complete. The current local follow-up requires separate hip
-subhypotheses and program-matched videos or explicit no-candidate/access
-dispositions; its merge, installation, and fresh product acceptance remain pending. The
+and was installed with empty Knowledge. Later runs still selected generic or
+stage-mismatched videos, collapsed distinct programs, and missed plausible
+hard-to-find hypotheses. PR #37 added candidate selection, program
+decomposition, comparator scope, and steelman gates, but its product retest
+showed that metadata and comment auditing still did not verify creator content.
+The current universal repair uses vernacular evidence-frontier discovery,
+transcript-verified claim fingerprints, independent failure/harm comment audits,
+and a no-padding timestamped watchlist. Topic-specific answers remain in
+held-out fixtures rather than production instructions. Its merge,
+server/privacy deployment, editor installation, and fresh product acceptance
+remain pending. The
 associated lesson attempt returned non-retryable `privacy_rejected` and was not
 resubmitted. After that
 gate closes, remaining work includes the publisher-identity/domain path, Scan

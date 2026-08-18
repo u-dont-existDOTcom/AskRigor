@@ -83,3 +83,17 @@ export {
   type YoutubeCommentSegmentResult,
   type YoutubeCommentSegmentRuntime
 } from "./youtube-comment-segment.js";
+export {
+  createYoutubeTranscriptProvider,
+  getYoutubeTranscript,
+  youtubeTranscriptEnvelopeSchema,
+  youtubeTranscriptInputSchema,
+  youtubeTranscriptSegmentSchema,
+  youtubeTranscriptTrackSchema,
+  type YoutubeTranscriptEnvelope,
+  type YoutubeTranscriptInput,
+  type YoutubeTranscriptProvider,
+  type YoutubeTranscriptProviderOptions,
+  type YoutubeTranscriptProvenance,
+  type YoutubeTranscriptRuntime
+} from "./youtube-transcript.js";

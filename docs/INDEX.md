@@ -33,9 +33,11 @@ complete XML protocol.
   applicability matrix; selected cases are pending fresh Custom GPT acceptance
 - `treatment-option-space-matrix-v0.1.0.json`: synthetic 9+6 decision-breadth
   matrix separating broad treatment-pathway review from narrow intervention work
-- `heterodox-discovery-weighting-matrix-v0.1.0.json`: synthetic seven-case
+- `heterodox-discovery-weighting-matrix-v0.1.0.json`: synthetic eight-case
   matrix for YouTube candidate quality, intervention decomposition, decisive-
   comparator scope, transportability, and non-dismissive heterodox weighting
+- `youtube-evidence-frontier-held-out-v0.1.0.json`: held-out synthetic
+  popularity/clickbait/stage-mismatch/transcript-selection regression
 - `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
   handoff, and external-gate states
 - `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
@@ -45,7 +47,8 @@ complete XML protocol.
 - `custom-gpt-instructions.md` (repository path
   `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
   artifact; Knowledge remains empty
-- `custom-gpt-action-openapi.json`: generated 17-read/one-write Action schema
+- `custom-gpt-action-openapi.json`: generated 18-read/one-write Action schema;
+  `get_youtube_transcript` is Action-only and MCP remains frozen at 17 tools
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
@@ -67,6 +70,9 @@ complete XML protocol.
 - `superpowers/plans/2026-08-16-custom-gpt-action-bridge-implementation.md`:
   test-driven implementation, deployment, rollback, and live-acceptance plan
   for the approved Custom GPT Action bridge
+- `superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`:
+  current universal creator-transcript, evidence-frontier discovery, held-out
+  regression, privacy, and verification plan; deployment remains pending
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail

@@ -51,6 +51,7 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | Public trial metadata | NCT ID, title, status, study type/phases, conditions, interventions, sponsors, enrollment, dates, results flag, references, and last update | ClinicalTrials.gov record lookup/search. |
 | Public YouTube video metadata | video ID, title, description, published time, channel title/ID, duration, privacy status, and API-visible counts where supplied | Video discovery and provenance. |
 | Public YouTube comment data | comment/reply IDs, parent/top-level IDs, public YouTube author/channel IDs, optional public display names, public comment text, likes, and publication/update timestamps | Requested API-visible comment and reply retrieval with completeness accounting. |
+| Public YouTube transcript data | public caption text, segment start/duration, selected and available caption languages, provider-reported automatic-caption status, public video/channel metadata, and canonical timestamp links | Custom GPT-only best-effort verification of what a video's selected public caption track says; not an efficacy, accuracy, or causality determination. |
 | YouTube community survey | user-supplied research question and labeled YouTube queries; bounded, deduplicated candidate videos; canonical clickable URLs; public title/channel/date metadata; and provider-reported comment counts | Maps promising videos before deeper acquisition without treating query-bounded discovery as the comment corpus. |
 | Compound YouTube audit | user-supplied research question and labeled YouTube queries; bounded candidate/video selection; a complete small corpus or deterministic sample; corpus SHA-256; and a completion/synthesis-lock receipt | Performs reproducible multi-query discovery and complete API-visible acquisition in one request without making a medical conclusion. |
 | Adaptive per-video YouTube audit | video metadata; provider-reported comment count; exact top-level, reply, cumulative-retrieval, and returned-for-analysis counts; API-visible comments/replies; deterministic sample; rolling corpus digest; completion receipt; and optional opaque authenticated continuation state | Retrieves one important video's API-visible discussion over bounded calls while preserving exact depth and completion state. |
@@ -101,10 +102,10 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 
 | Location | Data handled | Persistent storage in v0 |
 | --- | --- | --- |
-| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map row below. No database, file store, account profile, queue, transcript store, or server-side comment corpus is implemented. |
+| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment/caption data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map row below. No database, file store, account profile, queue, transcript store, or server-side comment corpus is implemented. Transcript continuations re-fetch the selected track and store no server-side transcript session. |
 | MCP client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking MCP client and processed transiently if resubmitted within one hour. The server keeps no matching MCP session record. |
 | Custom GPT Action continuation handle map | A short random handle mapped to the existing signed minimized token; no comment/reply text, author identity, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 16 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires an approved sticky-routing or shared-state design. |
-| MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol loads use exact ordered chunks; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
+| MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol loads use exact ordered chunks; transcript pages contain bounded timestamped caption segments; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
 
@@ -208,9 +209,9 @@ retention and provider-side deletion remain governed by the provider.
 ## Research data not persistently stored in v0
 
 - User accounts, profiles, authentication sessions, or user-entered research history.
-- Search queries, research questions, directional labels, citations, protocol text, scholarly records, trial records, YouTube videos, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, continuation tokens beyond the bounded in-memory Custom GPT handle exception, or completion receipts.
+- Search queries, research questions, directional labels, citations, protocol text, scholarly records, trial records, YouTube videos, retrieved public caption segments, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, transcript cursors, continuation tokens beyond the bounded in-memory Custom GPT handle exception, or completion receipts.
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
-- Full article text, YouTube transcripts, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
+- Full article text, server-side transcript copies, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 
 The optional lesson path is the narrow durable-storage exception to the
 research path's no-durable-persistence boundary. It stores only the screened private candidate and
@@ -219,14 +220,18 @@ history, transcript store, user profile, or automatic-learning database.
 
 ## Response minimization and security controls
 
-- Every tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; no tool changes provider, user, or server state.
+- Every MCP tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; the Action-only transcript route is likewise public, read-only, and non-consequential. No research operation changes provider, user, or server state.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Adaptive YouTube continuations are HMAC-authenticated, expire one hour after the chain starts, and disclose neither the server secret nor comment/author content inside the token.
 - Direct MCP clients carry that token. The Custom GPT Action returns a short
   handle backed only by the bounded, one-hour process-memory map described
   above; unavailable handles fail closed and require a restart from the video
   identifier.
+- Transcript cursors bind the public video, selected language, segment offset,
+  and a SHA-256 of the selected caption snapshot. They contain no caption text;
+  a changed snapshot fails closed and requires a restart.
 - Provider access failures remain explicit (`inaccessible`, `rate_limited`, `not_found`, or `error`) and never become negative evidence.
+- Transcript access uses an unofficial HTTPS-only, host-allowlisted YouTube interface with one bounded request deadline and bounded provider bodies. `api_visible_complete` covers only the selected caption track; caption text is not independently verified and may be automatic or inaccurate.
 - The public route is fail-closed, has bounded request body/concurrency/rate limits, and does not return credentials. Source tests check that a test YouTube key never appears in results.
 - Comment retrieval reports API-visible coverage only. It does not claim access to deleted, moderated, private, hidden, held-for-review, unavailable, or never-posted material.
 - The lesson Action uses separate Bearer authentication, remains

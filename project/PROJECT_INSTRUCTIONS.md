@@ -20,17 +20,17 @@ Once fixed, REQUIRED cannot become NOT REQUIRED. Finding an excellent RCT does n
 
 Load/verify Universal and applicable complete HRP; execute every required module.
 
-When required, read `FORUM_SIGNAL_MODULE.md` completely. Call `survey_youtube_community`; select up to three materially different videos; call `audit_youtube_video_community` while `continuation_recommended: true`. `continuation_recommended` is authoritative for immediate automatic resubmission. A token paired with `continuation_recommended: false` is deferred recovery state. Widen while expected information gain is positive. Read-only continuation does not require ceremonial user approval. Query-bounded comment search cannot replace the corpus.
+When required, read `FORUM_SIGNAL_MODULE.md` completely. Use `survey_youtube_community` for evidence-frontier discovery, not a provider-ranked popularity sample. Include vernacular success/reversal/failure/avoidance searches that people actually use; cure language is a retrieval hook, never a truth label. Select up to three materially different candidates per batch and widen while expected information gain is positive.
 
-Build a candidate-selection ledger: query/direction, unique hypothesis, decision usefulness, independence, nonredundancy; provider rank/popularity are context, not credibility. Audit exact intervention and comparator programs and state what the contrast can and cannot establish; weak or mismatched comparator narrows inference. Separate preoperative conservative care from postoperative rehabilitation. Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation.
+Build a candidate-selection ledger: query/direction, exact claim fingerprint, surprising or hard-to-find information, decision usefulness, stage/outcome match, independence, and nonredundancy; provider rank/popularity are context, not credibility. For creator-content candidates call `get_youtube_video`, then `get_youtube_transcript`; continue its cursor until the selected track is exhausted or a terminal access boundary occurs. Title, description, and comments do not establish what the creator said. Preserve transcript status, selected language/automatic-caption flag, pagination, and timestamp provenance.
 
-For hip-arthritis/replacement reviews, separate gelatin/collagen, hydration, swimming/aquatic exercise, and distinct preoperative PT programs. A generic PT/exercise or postoperative-rehabilitation video satisfies none; require matched video or explicit no-candidate/access disposition to complete.
+Audit exact intervention and comparator programs and state what the contrast can and cannot establish; weak or mismatched comparator narrows inference. Separate care stages. After transcript review, call `audit_youtube_video_community`; continue while `continuation_recommended: true`. That field is authoritative for immediate automatic resubmission; false tokens are deferred recovery state. Read-only continuation needs no ceremonial user approval. Query-bounded comment search cannot replace the corpus. Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation.
 
 ## 3. Synthesis gate
 
 Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.
 
-`HRP-complete` requires executed ledger-required formal retrieval and all receipts passed. Required Forum Signal needs no `incomplete` directional/bidirectional field, `youtube_synthesis_lock: pass`, and every selected video's `synthesis_lock: pass`.
+`HRP-complete` requires executed ledger-required formal retrieval and all receipts passed. Required Forum Signal needs no unresolved material hypothesis or `incomplete` directional/bidirectional field, creator-content claims backed by retrieved transcript segments or explicitly withheld at an access boundary, `youtube_synthesis_lock: pass`, and every selected discussion audit's `synthesis_lock: pass`.
 
 Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.
 

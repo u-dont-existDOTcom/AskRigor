@@ -32,6 +32,8 @@ import {
 } from "./actions/router.js";
 import type { ActionRoute } from "./actions/types.js";
 import { createResearchActionRoutes } from "./actions/research-routes.js";
+import { createActionOnlyResearchRoutes } from
+  "./actions/youtube-transcript-route.js";
 import { validateProtocolActionContinuationSecret } from
   "./actions/protocol-continuation.js";
 import { createEnabledActionRoutes } from "./actions/runtime.js";
@@ -89,7 +91,9 @@ export function createAskRigorHttpServer(
   }
   const actionApiKey = options.actionApiKey ?? actionApiKeyFromEnv();
   const configuredActionRoutes = options.actionRoutes ?? [
-    ...(researchActionsEnabled ? createResearchActionRoutes() : []),
+    ...(researchActionsEnabled
+      ? [...createResearchActionRoutes(), ...createActionOnlyResearchRoutes()]
+      : []),
     ...createDefaultActionRoutes()
   ];
   validateActionRoutes(configuredActionRoutes);

@@ -2,11 +2,11 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94"
+      "sha256": "9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "346725b25b263d570e58125eef96e72c3a31da32093ee7efde6315afbf6f7a5f"
+      "sha256": "4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc"
     }
   ],
   "consequential_operation_ids": [
@@ -20,7 +20,7 @@
     "schema_url": "https://mcp.askrigor.com/actions/openapi.json"
   },
   "generated_at": "2026-08-18",
-  "research_operation_ids": [
+  "mcp_research_operation_ids": [
     "audit_youtube_community",
     "audit_youtube_video_community",
     "check_retraction_status",
@@ -39,15 +39,35 @@
     "survey_youtube_community",
     "verify_protocol_integrity"
   ],
+  "research_operation_ids": [
+    "audit_youtube_community",
+    "audit_youtube_video_community",
+    "check_retraction_status",
+    "fetch_clinical_trial",
+    "fetch_pubmed_record",
+    "get_protocol_manifest",
+    "get_youtube_comments",
+    "get_youtube_transcript",
+    "get_youtube_video",
+    "load_protocol",
+    "resolve_doi",
+    "search_clinical_trials",
+    "search_europe_pmc",
+    "search_pubmed",
+    "search_youtube",
+    "search_youtube_comments",
+    "survey_youtube_community",
+    "verify_protocol_integrity"
+  ],
   "schema_version": 1,
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "948759b29a03950a3c7b8d021053897ef0aee4050a9a399e9d77e29b532511fe"
+      "sha256": "0079cb812c5ffa47f5372e6cf63a71b084f581333a148b3c91b56ae3bbc700ec"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",
-      "sha256": "b97677d29d1604d6ba290c3a396528808a45137da86e01c17d8af5ac2ebf38ab"
+      "sha256": "8147695cd6a94f8f562ff4dca358664b919b4fd17376c325947cd350abd422ea"
     }
   ]
 }

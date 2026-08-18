@@ -86,8 +86,10 @@ Privacy: https://askrigor.com/privacy
    must arrive as verified runtime Action results, not stale uploaded copies.
 4. Import the Action URL, select **API Key** then **Bearer**, and retain only
    the existing protected Action key in the editor authentication control.
-5. Confirm the 17 research operations are non-consequential and the single
-   `submit_lesson_candidate` operation remains consequential.
+5. Confirm the 18 research operations are non-consequential, including the
+   Action-only `get_youtube_transcript`, and the single
+   `submit_lesson_candidate` operation remains consequential. The MCP inventory
+   must remain the frozen 17-tool contract.
 6. Save the GPT without publishing and test in a new chat.
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
@@ -152,6 +154,18 @@ Continue immediately with the returned short handle while
 `continuation_recommended:true`; do not synthesize until
 `receipt.synthesis_lock:pass`. Legacy bulk YouTube envelopes are never silently
 trimmed.
+
+`get_youtube_transcript` is a Custom GPT Action only; it is not an MCP tool.
+It re-fetches the selected public caption track on each cursor page and stores
+no transcript session or caption text between requests. Continue its cursor
+until `access_status:api_visible_complete` or a terminal access/error boundary.
+That completion covers only the selected API-visible caption track and does not
+prove caption accuracy or access to deleted, private, hidden, unavailable, or
+never-published caption material. Automatic-caption status and language are
+returned explicitly. The provider uses an unofficial YouTube interface, so a
+browser-visible transcript can still be `inaccessible`, `rate_limited`,
+`not_found`, or `error` through the Action; preserve that gap and do not infer
+creator content from metadata or comments.
 
 ## 5. Synthetic acceptance and queue status
 

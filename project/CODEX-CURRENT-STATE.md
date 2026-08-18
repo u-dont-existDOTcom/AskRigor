@@ -123,16 +123,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   above. The rejected lesson was not retried. The
   dirty original checkout and its unrelated credential-looking files remain
   untouched.
-- A second local test-first follow-up is active in the same isolated worktree
-  on a dedicated branch integrated with current `origin/main`.
-  Its plan is
-  `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`.
-  RED showed that all four execution surfaces lacked an explicit requirement to
-  disposition gelatin/collagen, hydration, swimming/aquatic exercise, and
-  distinct preoperative PT programs separately. The local source now rejects a
-  generic PT/exercise or postoperative-rehabilitation video as coverage for
-  those hypotheses and requires matched-video or explicit no-candidate/access
-  dispositions. Discovery remains separate from endorsement.
+- A topic-specific second follow-up was tested locally and then superseded
+  before publication because baking the observed hip answers into production
+  would contaminate future tests and fail to generalize. The active candidate
+  instead uses universal evidence-frontier search, exact claim fingerprints,
+  creator-transcript verification, independent comment audits, and a no-padding
+  timestamped watchlist. The failed hip answer remains historical evidence, not
+  a shipped checklist.
 - Owner-reported OpenAI state: individual identity is verified. Business/
   organization verification is blocked after an apparent signup timeout; the
   owner believes the retry delay may be three months, but the exact duration is
@@ -469,19 +466,31 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Current checkpoint
 
 - The current repair plan is
-  `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`.
-  The generated local Instructions are 7,787 characters (7,799 UTF-8 bytes), SHA-256
-  `346725b25b263d570e58125eef96e72c3a31da32093ee7efde6315afbf6f7a5f`;
-  local sync SHA-256 is
-  `e6819a6e8cc1fd0d2ff8dd8ddc4de2269edf2cea0c963680949b6a9ae529aa30`.
-  The generated OpenAPI remains byte-identical. The Forum Signal matrix has 15
+  `docs/superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`.
+  The generated local Instructions are 7,797 characters, SHA-256
+  `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
+  generated OpenAPI SHA-256 is
+  `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
+  Synchronization-ledger SHA-256 is
+  `a8dffdece8bff02a596f5a462ed1debc261283366c4cadf493af7751ca61ec5a`.
+  Production still has 17 research reads plus the lesson write. The source
+  candidate has 18 reads plus the write because `get_youtube_transcript` is
+  Action-only; the exact checksum-locked MCP remains 17 tools. The Forum Signal matrix has 15
   required and 9 not-required cases; the option-space matrix has 9 broad-review
-  and 6 narrow-review controls; the new discovery/weighting matrix has seven
-  cases across four review modes. The final focused
-  source/packet/matrix/release suite passed 53/53. The complete Node `24.18.0`
-  gate passed typecheck, 56 test files with one declared credential-gated file
-  skipped, 942 tests with five declared skips, and build.
-  Static tests do not establish deployed or GPT UI behavior.
+  and 6 narrow-review controls; the discovery/weighting matrix has eight cases,
+  plus an unrelated held-out evidence-frontier fixture. The focused
+  router/skill/matrix/packet/transcript/registry suite passed 53/53. The complete
+  Node `24.18.0` gate passed typecheck, 57 test files with one declared
+  credential-gated file skipped, 960 tests with five declared skips, and build.
+  Public-site validation covered four pages and the deployment suite passed
+  28/28. Static tests do not establish deployed transcript access or GPT UI
+  behavior.
+- The transcript adapter uses exact `youtube-transcript-plus@2.0.1` behind
+  AskRigor's host allowlist, timeout, response-size, pagination, provenance, and
+  access-state boundaries. It retrieves public caption tracks through an
+  unofficial YouTube interface. Production availability, caption accuracy, and
+  corpus visibility are explicitly unverified; transcript text is not retained
+  between requests.
 - The required lesson checkpoint at `2026-08-18T14:20:35.593Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
@@ -545,12 +554,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- Complete branch publication, protected PR review, and merge; install the exact
-  generated Instructions with empty Knowledge; and pass fresh Custom GPT cases
-  for candidate selection, intervention decomposition, decisive-comparator
-  scope, heterodox weighting, discrete hip subhypotheses, and matched
-  preoperative videos. No server deployment is required unless the
-  final diff changes runtime source or public contracts.
+- Complete local verification and review, branch publication, protected PR
+  review, and merge. Then deploy the changed runtime and privacy notice, import
+  the 19-operation Action schema, install the exact generated Instructions with
+  empty Knowledge, and pass bounded direct and fresh Custom GPT acceptance for
+  transcript availability, evidence-frontier selection, transcript/comment
+  separation, access gaps, and the no-padding timestamped watchlist.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
   publisher-identity path, then complete the portal HTTPS domain challenge; do
@@ -567,10 +576,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 - The completion and option-space failures were merged, deployed, and installed.
   The first discovery/weighting repair merged as PR #37 but failed its product
-  retest; the resulting subhypothesis/video-match gap remains a public-submission blocker
-  until the follow-up is merged, installed, and passes fresh GPT UI cases.
-  Static instruction assertions do not prove model obedience. The rejected
-  lesson is non-retryable.
+  retest; the resulting creator-content verification gap remains a public-
+  submission blocker until the universal runtime/privacy/instruction follow-up
+  is merged, deployed, installed, and passes fresh direct and GPT UI cases.
+  Static instruction assertions do not prove model obedience or provider
+  availability. The rejected lesson is non-retryable.
 
 - The importer fix is merged, green, deployed, and passed the product importer.
   Protocol and formal-source UI cases passed. The short-handle and terminal
@@ -606,8 +616,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `docs/superpowers/plans/2026-08-18-custom-gpt-forum-signal-regression-repair.md`
 - Heterodox discovery/weighting repair plan:
   `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`
-- Hip subhypothesis/video-match repair plan:
-  `docs/superpowers/plans/2026-08-18-hip-subhypothesis-video-regression-repair.md`
+- Universal transcript/evidence-frontier repair plan:
+  `docs/superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`
 - Public-review runner/cases: `docs/public-review-automation.md` and
   `docs/public-review-cases-v0.1.0.json`
 - Ignored local sanitized evidence:

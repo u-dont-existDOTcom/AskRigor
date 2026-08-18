@@ -53,7 +53,7 @@ describe("AskRigor ChatGPT Project router", () => {
     const words = instructions.split(/\s+/).filter(Boolean);
 
     expect(words.length).toBeGreaterThan(100);
-    expect(words.length).toBeLessThan(500);
+    expect(words.length).toBeLessThan(650);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
     expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
@@ -97,9 +97,9 @@ describe("AskRigor ChatGPT Project router", () => {
       "`HRP-complete` requires executed ledger-required formal retrieval and all receipts passed."
     );
     expect(instructions).toContain("Do not emit the full-HRP opening until every required receipt has passed.");
-    expect(instructions).toContain("no `incomplete` directional/bidirectional field");
+    expect(instructions).toContain("or `incomplete` directional/bidirectional field");
     expect(instructions).toContain("`youtube_synthesis_lock: pass`");
-    expect(instructions).toContain("every selected video's `synthesis_lock: pass`");
+    expect(instructions).toContain("every selected discussion audit's `synthesis_lock: pass`");
   });
 
   it("permanently blocks the exact hip/RCT early-synthesis failure", async () => {
@@ -119,16 +119,16 @@ describe("AskRigor ChatGPT Project router", () => {
   it("automatically continues adaptive YouTube work while information gain remains positive", async () => {
     const instructions = await projectFile("PROJECT_INSTRUCTIONS.md");
 
-    expect(instructions).toContain("up to three materially different videos");
+    expect(instructions).toContain("up to three materially different candidates per batch");
     expect(instructions).toContain("`continuation_recommended: true`");
     expect(instructions).toContain(
-      "`continuation_recommended` is authoritative for immediate automatic resubmission"
+      "That field is authoritative for immediate automatic resubmission"
     );
     expect(instructions).toContain(
-      "A token paired with `continuation_recommended: false` is deferred recovery state"
+      "false tokens are deferred recovery state"
     );
     expect(instructions).toContain("expected information gain is positive");
-    expect(instructions).toContain("does not require ceremonial user approval");
+    expect(instructions).toContain("needs no ceremonial user approval");
     expect(instructions).toContain(
       "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`."
     );
@@ -176,8 +176,8 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(module).toContain(
       "Formal contradiction requires materially aligned population, intervention, comparator, outcome, and timeframe"
     );
-    expect(module).toContain("structural regeneration");
-    expect(module).toContain("pain, function, range of motion, or avoided surgery");
+    expect(module).toContain("structural reversal, permanent cure, or causality");
+    expect(module).toContain("Translate “cured” into the specific evidenced outcome");
     expect(module).toContain("must not delay urgent diagnosis or time-sensitive effective care");
   });
 
@@ -193,9 +193,9 @@ describe("AskRigor ChatGPT Project router", () => {
       "records_retrieved_cumulative",
       "records_returned_for_analysis",
       "Videos worth watching",
-      "clickable canonical",
-      "decision usefulness, not positivity",
-      "failures, harms, or difficult recovery",
+      "Action-returned canonical title link",
+      "decision usefulness, novelty, and exact match",
+      "failure, harm, discontinuation",
       "two consecutive wider expansions",
       "one creator or discussion pool",
       "elapsed time is not evidence saturation",
@@ -235,14 +235,14 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(module).not.toMatch(/sci[- ]?(?:bot|hub)/i);
   });
 
-  it("turns the exact hip community signal into a non-erasure regression", async () => {
+  it("makes formal non-erasure universal without leaking a held-out answer", async () => {
     const module = await projectFile("FORUM_SIGNAL_MODULE.md");
 
-    expect(module).toContain("gelatin, keto, or swimming");
-    expect(module).toContain("promising for the specific reported outcome");
-    expect(module).toContain("must not become `weak`, `ineffective`, or `disproved`");
-    expect(module).toContain("matched formal support was not located");
-    expect(module).toContain("measured time-bounded trial");
+    expect(module).toContain("`support_not_located` is an evidence gap");
+    expect(module).toContain("cannot alone downgrade the observed community signal");
+    expect(module).toContain("steelman without inflation");
+    expect(module).toContain("A reasonable trial needs baseline measurement");
+    expect(module).not.toContain("gelatin, keto, or swimming");
   });
 
   it("explains the one-time manual Project installation boundary", async () => {
@@ -288,6 +288,6 @@ describe("AskRigor ChatGPT Project router", () => {
     );
     expect(instructions.slice(0, lessonHook)).not.toContain("LESSON_CAPTURE_MODULE.md");
     expect(instructions).not.toContain("Submit this anonymized lesson to improve AskRigor?");
-    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(550);
+    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(650);
   });
 });

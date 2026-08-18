@@ -6,6 +6,8 @@ import { createActionOpenApiDocument } from
   "../apps/research-mcp/src/actions/openapi.js";
 import { createResearchActionRoutes } from
   "../apps/research-mcp/src/actions/research-routes.js";
+import { createActionOnlyResearchRoutes } from
+  "../apps/research-mcp/src/actions/youtube-transcript-route.js";
 import { createEnabledActionRoutes } from
   "../apps/research-mcp/src/actions/runtime.js";
 import { createDefaultActionRoutes } from
@@ -27,13 +29,13 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(JSON.parse(committed)).toEqual(document);
   });
 
-  it("describes 17 public reads and one private consequential lesson operation without secrets", () => {
+  it("describes 18 public reads and one private consequential lesson operation without secrets", () => {
     const document = createActionOpenApiDocument(completeActionRoutes()) as {
       paths: Record<string, Record<string, Record<string, unknown>>>;
     };
     const operation = document.paths["/actions/lessons"]?.post;
 
-    expect(Object.keys(document.paths)).toHaveLength(18);
+    expect(Object.keys(document.paths)).toHaveLength(19);
     expect(operation).toMatchObject({
       operationId: "submit_lesson_candidate",
       "x-openai-isConsequential": true,
@@ -82,7 +84,7 @@ function completeActionRoutes() {
   return createEnabledActionRoutes({
     researchEnabled: true,
     lessonsEnabled: true,
-    research: createResearchActionRoutes(),
+    research: [...createResearchActionRoutes(), ...createActionOnlyResearchRoutes()],
     lessons: createDefaultActionRoutes()
   });
 }

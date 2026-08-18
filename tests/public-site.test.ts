@@ -34,10 +34,14 @@ describe("AskRigor public site", () => {
     expect(privacy).toContain("Custom GPT Actions");
     expect(privacy).toContain("same transient research retrieval path");
     expect(privacy).toContain("search terms and public identifiers");
-    expect(privacy).toContain("public provider metadata and comment text");
+    expect(privacy).toContain("public provider metadata, comment text, and caption segments");
+    expect(privacy).toContain("Custom GPT-only read");
+    expect(privacy).toContain("caption segments");
+    expect(privacy).toContain("transcript cursors are client-carried and stateless");
+    expect(privacy).toContain("no transcript text is retained between requests");
     expect(privacy).toContain("does not log full request or response bodies");
-    expect(privacy).toContain("Direct MCP continuation remains client-carried and stateless");
-    expect(privacy).toContain("Custom GPT YouTube continuation");
+    expect(privacy).toContain("Direct MCP continuation and Custom GPT transcript cursors are client-carried and stateless");
+    expect(privacy).toContain("Custom GPT comment-audit continuation");
     expect(privacy).toContain("process memory");
     expect(privacy).toContain("no longer than one hour");
     expect(privacy).toContain("2,048 handles");
@@ -91,6 +95,7 @@ describe("AskRigor public site", () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
       "public YouTube author/channel IDs", "display names", "comment and reply text",
+      "public caption text", "automatically generated", "unofficial YouTube interface",
       "NCBI/PubMed", "Europe PMC", "ClinicalTrials.gov", "Crossref", "YouTube Data API v3",
       "active request", "does not persist", "connected client", "operational metadata",
       "Infrastructure providers may retain",
@@ -119,7 +124,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 16, 2026",
+      "Effective August 18, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",

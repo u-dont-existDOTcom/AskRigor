@@ -70,11 +70,11 @@ describe("AskRigor public-review packet", () => {
     expect(index).toContain("heterodox-discovery-weighting-matrix-v0.1.0.json");
     expect(forum.cases).toHaveLength(24);
     expect(option.cases).toHaveLength(15);
-    expect(discovery.cases).toHaveLength(7);
+    expect(discovery.cases).toHaveLength(8);
     for (const document of [release, acceptance]) {
       expect(document).toContain("15 required and 9");
       expect(document).toContain("9 broad-review and 6 narrow-review");
-      expect(document).toContain("product-interface acceptance");
+      expect(document.replace(/\s+/gu, " ")).toContain("product-interface acceptance");
     }
 
     const instructionsHash = createHash("sha256").update(instructions).digest("hex");
@@ -220,7 +220,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 16, 2026");
+    expect(privacySite).toContain("Effective August 18, 2026");
     expect(privacySite).toContain("Optional lesson feedback");
     expect(readme).toContain("The lesson Action is deployed and live-accepted");
     expect(checklist).toContain(
@@ -263,7 +263,7 @@ describe("AskRigor public-review packet", () => {
     expect(privacyMap).toContain("protocol identity, digest, byte offset, chunk index, and expiry");
     expect(privacyMap).toContain("no protocol text, health content, or secret");
     expect(privacySite).toContain("Custom GPT Actions");
-    expect(privacySite).toContain("public provider metadata and comment text");
+    expect(privacySite).toContain("public provider metadata, comment text, and caption segments");
     expect(setup).toContain("does not disable lesson capture or MCP");
     expect(setup).toContain("direct `/g/...`");
     const releaseStatus = sectionBetween(
@@ -300,7 +300,7 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; HIP SUBHYPOTHESIS/VIDEO-MATCH FOLLOW-UP AWAITS PRODUCT ACCEPTANCE"
+      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; UNIVERSAL TRANSCRIPT CANDIDATE AWAITS DEPLOYMENT AND PRODUCT ACCEPTANCE"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -332,16 +332,18 @@ describe("AskRigor public-review packet", () => {
       expect(document).toContain("privacy_rejected");
     }
     expect(acceptance).toContain(
-      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; HIP SUBHYPOTHESIS/VIDEO-MATCH FOLLOW-UP AWAITS GPT-UI ACCEPTANCE",
+      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; UNIVERSAL TRANSCRIPT/EVIDENCE-FRONTIER CANDIDATE AWAITS DEPLOYMENT AND GPT-UI ACCEPTANCE",
     );
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "all formal retrieval required by the applicability ledger",
     );
     expect(acceptance).toContain("Action-returned `receipt.synthesis_lock: pass`");
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
-      "Static repository tests are not GPT-behavior acceptance.",
+      "Static repository tests do not establish deployed provider access or GPT behavior.",
     );
-    expect(release).toContain("repository-candidate evidence only");
+    expect(release).toContain("creator-content verification");
+    expect(release).toContain("get_youtube_transcript");
+    expect(release).toContain("unofficial public YouTube interface");
     expect(readme).toContain("Universal Instructions `20.5.14`");
     expect(readme).toContain(
       "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221",
