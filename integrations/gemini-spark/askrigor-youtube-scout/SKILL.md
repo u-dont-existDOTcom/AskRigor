@@ -1,6 +1,6 @@
 ---
 name: scout-youtube-for-askrigor
-description: Finds unusually relevant public YouTube videos, quickly summarizes creator content, extracts concrete intervention details and segment cues, identifies claims worth deeper verification, and returns an exact-link dossier for handoff to AskRigor. Use for health, treatment, recovery, implementation, tolerability, adherence, harm, discontinuation, or real-world outcome questions when firsthand creator material could reveal information that is difficult to find in studies. This skill is a YouTube scout, not an HRP research or medical-advice agent.
+description: Finds unusually relevant public YouTube videos, quickly summarizes creator content, extracts concrete intervention details, clickable timestamp deep links, and segment cues, identifies claims worth deeper verification, and returns an exact-link dossier for handoff to AskRigor. Use for health, treatment, recovery, implementation, tolerability, adherence, harm, discontinuation, or real-world outcome questions when firsthand creator material could reveal information that is difficult to find in studies. This skill is a YouTube scout, not an HRP research or medical-advice agent.
 ---
 
 # Scout YouTube for AskRigor
@@ -93,7 +93,7 @@ video, recover as much of the following as the video supports:
 - relevant condition or disease stage, baseline, outcome, and time horizon;
 - reported benefits, failures, harms, discontinuation, and implementation
   problems;
-- a descriptive segment cue for locating the relevant passage later;
+- clickable timestamp deep links paired with descriptive segment cues;
 - what makes the candidate distinct from the other selected videos; and
 - the most interesting material claim for AskRigor to investigate.
 
@@ -121,11 +121,25 @@ segment. If imaging, before-and-after material, technique, alignment, or an
 on-screen result was not inspected, state that it remains unverified. Never
 describe uninspected visuals as support.
 
-Do not request or output timestamps. Consumer Gemini does not reliably provide
-timecodes and must not manufacture or leave them blank. Instead give a short
-segment cue such as `discussion of hourly glute holds` or `MRI collapse
-explanation`; later AskRigor verification can locate the exact time only for
-material claims.
+## Timestamp links
+
+For every located passage, format the time as a standard Markdown link to the
+exact point in the canonical video. Use the visible `MM:SS` or `H:MM:SS` as the
+link label and append the correctly calculated total seconds to the canonical
+watch URL:
+
+`[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)`
+
+Pair each link with a short segment cue, for example:
+
+`[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s) — discussion of hourly glute holds`
+
+Never emit a bare bracketed timestamp such as `[10:18]`; a renderer may treat
+it as an unresolved citation or reference and hide it. Never emit empty
+parentheses, an empty timestamp label, or text such as `Most relevant
+timestamp:.`. If Gemini genuinely cannot locate a time, write `not located`
+without brackets and retain the descriptive segment cue. Check that each
+displayed time and `t=...s` value represent the same moment.
 
 ## Candidate validation
 
@@ -163,7 +177,8 @@ discovery ledger. Then give one structured record per selected video containing:
 5. concise, explicitly attributed creator-content summary;
 6. **Surprising or hard-to-find claim**;
 7. **Concrete intervention details**;
-8. descriptive segment cue for later targeted verification;
+8. clickable timestamp deep link plus descriptive segment cue, or `not located`
+   plus the cue;
 9. reported benefit, failure, harm, or implementation signal;
 10. source label: `creator_summary` or `visual_observation`;
 11. **Visual inspection needed:** `yes` or `no`, with the exact reason;
@@ -178,10 +193,11 @@ from a failed, unavailable, or unattempted direction.
 
 Link only the most relevant, nonredundant videos a person would realistically
 benefit from watching. For each, provide the canonical YouTube link, one
-sentence explaining the distinctive value, and a segment cue when useful. Do
-not append an empty timecode. Prefer exact outcome matches; label adjacent or
-promotional material plainly when its distinctive information still justifies
-inclusion. Do not pad the list.
+sentence explaining the distinctive value, and its most useful clickable
+timestamp deep link when located. Use `not located` rather than an empty
+timecode. Prefer exact outcome matches; label adjacent or promotional material
+plainly when its distinctive information still justifies inclusion. Do not pad
+the list.
 
 ## Final self-check
 
@@ -189,8 +205,9 @@ Before returning the report, repair every failed item:
 
 1. Every dossier video has a literal `get_youtube_video` receipt and one allowed
    `access_status`; none says `available`.
-2. No timestamp or empty timecode appears; segment cues describe what later
-   verification should locate.
+2. Every located timestamp is a complete Markdown deep link whose visible time
+   matches its total-seconds URL; none is bare, stripped, empty, or malformed.
+   A missing time says `not located` and retains its segment cue.
 3. Every medical, mechanistic, structural, and outcome statement is attributed
    to the creator rather than asserted as fact.
 4. Every `visual_observation` names an actually inspected frame or segment;

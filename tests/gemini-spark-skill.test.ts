@@ -44,7 +44,13 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Videos worth watching");
     expect(skill).toContain("canonical YouTube link");
     expect(skill).toContain("`creator_summary` or `visual_observation`");
-    expect(skill).toContain("Do not request or output timestamps");
+    expect(skill).toContain("clickable timestamp deep link");
+    expect(skill).toContain(
+      "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
+    );
+    expect(skill).toContain("Never emit a bare bracketed timestamp");
+    expect(skill).toContain("`not located`");
+    expect(skill).not.toContain("Do not request or output timestamps");
     expect(skill).toContain("segment cue");
     expect(skill).toContain("exact_outcome_match");
     expect(skill).toContain("adjacent_implementation");
@@ -72,6 +78,9 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain("scout-youtube-for-askrigor");
     expect(setup).toContain("does not execute HRP");
     expect(setup).toContain("one handoff per research task");
+    expect(setup).toContain(
+      "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
+    );
     expect(setup).toContain("Do not treat the connection test as end-to-end HRP acceptance");
   });
 });

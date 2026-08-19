@@ -568,10 +568,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   incentives, and surfaced a hydration regimen. It still generated blank
   timecode placeholders and selected six adjacent tutorials with zero exact
   outcome matches, despite the first run proving firsthand candidates were
-  discoverable. The next revision removes timecodes from Gemini's role, replaces
-  them with descriptive segment cues for later targeted verification, and runs
-  at least three exact-outcome discovery directions before adjacent mechanism
-  or tutorial searches. Clean consumer-Gemini acceptance remains pending.
+  discoverable. The next revision replaces bare timecodes with rendering-safe
+  clickable Markdown deep links paired with
+  descriptive segment cues, and runs at least three exact-outcome discovery
+  directions before adjacent mechanism or tutorial searches. The owner
+  confirmed that Gemini returned the missing timestamps when directly asked to
+  fix them; the failure was therefore a skill-format gap, not proof that Gemini
+  could not locate timecodes. Clean consumer-Gemini acceptance remains pending.
 - The required lesson checkpoint at `2026-08-19T04:56:46.422Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current

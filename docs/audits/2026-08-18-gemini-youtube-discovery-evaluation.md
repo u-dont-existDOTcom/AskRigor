@@ -348,10 +348,13 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
   Consumer Gemini still emitted blank timecode placeholders and retained six
   `adjacent_implementation` tutorials with zero exact outcome matches, despite
   the first run having found firsthand candidates. The skill now stops asking
-  consumer Gemini for timecodes, emits descriptive segment cues for later
-  targeted verification, runs at least three exact-outcome discovery directions
-  first, and prevents polished adjacent tutorials from displacing qualifying
-  firsthand accounts. Clean behavioral acceptance remains pending.
+  for bare timecodes, requires each located time as a clickable Markdown deep
+  link paired with a descriptive segment cue, runs at least three exact-outcome
+  discovery directions first, and prevents polished adjacent tutorials from
+  displacing qualifying firsthand accounts. The owner confirmed that a direct
+  correction made Gemini supply the missing times, so the defect was the
+  skill's rendering-safe format contract rather than Gemini's ability to locate
+  them. Clean behavioral acceptance remains pending.
 - The complete deterministic host-boundary gate passed: 58 test files passed,
   one credential-gated file skipped; 967 tests passed, five skipped; typecheck
   and build passed. The identical sandbox run failed only on prohibited
