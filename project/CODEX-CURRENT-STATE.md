@@ -594,7 +594,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `independent_provider_treatment_review`, `clinic_patient_testimonial`, and
   `independence_unclear` separately; none counts toward the quota. Clean
   consumer-Gemini acceptance remains pending.
-- The required lesson checkpoint at `2026-08-19T04:56:46.422Z` remained
+- Owner review then replaced the premature one-pass summary slate with a staged
+  browse graph. Gemini now defaults to `seed_discovery`: diverse
+  model-provenance query probes, exact/umbrella/anatomy/intervention search
+  rings, fuzzy title recall, metadata triage, and two or three distinct
+  comment-audit seeds without inferred comment findings. AskRigor performs the
+  protocol-governed comment audit and may return a `youtube_rediscovery_packet`;
+  Gemini's optional `targeted_rediscovery` mode then finds and summarizes narrow
+  intervention videos. Broad leads must be back-searched against the exact
+  target, and one creator ecosystem remains one discussion pool. Clean staged
+  consumer-Gemini acceptance remains pending.
+- The required lesson checkpoint at `2026-08-19T12:06:47.275Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.

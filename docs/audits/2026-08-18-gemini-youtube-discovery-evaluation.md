@@ -378,6 +378,17 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
   `independence_unclear`; none counts toward the patient quota. This is a
   selection-contract correction, not a substantive judgment about any treatment
   claim. Clean behavioral acceptance remains pending.
+- Further owner review reframed the scout as a staged browse graph rather than a
+  one-pass dossier generator. The new default `seed_discovery` mode creates
+  diverse model-labeled query probes, searches exact, umbrella, symptom/anatomy,
+  and intervention-first rings, triages titles and metadata without full
+  summaries, and returns two or three distinct comment-audit seeds. AskRigor—not
+  Gemini—audits comments and may produce a `youtube_rediscovery_packet` of
+  specific, non-identifying intervention vocabulary. Optional
+  `targeted_rediscovery` then searches and summarizes narrow videos. Model probes
+  and comment leads remain hypotheses, broad leads require exact-target
+  back-searching, and one creator ecosystem remains one discussion pool. Clean
+  two-stage consumer-Gemini acceptance remains pending.
 - The complete deterministic host-boundary gate passed: 58 test files passed,
   one credential-gated file skipped; 967 tests passed, five skipped; typecheck
   and build passed. The identical sandbox run failed only on prohibited

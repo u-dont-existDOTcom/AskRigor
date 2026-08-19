@@ -85,6 +85,40 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("metadata-validated");
   });
 
+  it("uses a staged browse graph instead of prematurely summarizing a slate", async () => {
+    const skill = await readFile(skillUrl, "utf8");
+
+    expect(skill).toContain("seed_discovery");
+    expect(skill).toContain("targeted_rediscovery");
+    expect(skill).toContain("12 to 20");
+    expect(skill).toContain("model_generated_query_probe");
+    expect(skill).toContain("search hypothesis, not a discovered remedy");
+    expect(skill).toContain("exact_condition");
+    expect(skill).toContain("umbrella_condition");
+    expect(skill).toContain("anatomy_or_symptom");
+    expect(skill).toContain("intervention_first");
+    expect(skill).toContain("back-search");
+    expect(skill).toContain("Do not quote the whole query");
+    expect(skill).toContain("title and metadata triage");
+    expect(skill).toContain("Do not produce full video summaries during seed discovery");
+    expect(skill).toContain("two or three comment-audit seeds");
+    expect(skill).toContain("broad_comment_hub");
+    expect(skill).toContain("independent_exact_outcome");
+    expect(skill).toContain("contrarian_failure_or_anatomy");
+    expect(skill).toContain("provider_reported_comments");
+    expect(skill).toContain("AskRigor comment-audit seed packet");
+    expect(skill).toContain("youtube_rediscovery_packet");
+    expect(skill).toContain("non_identifying_community_wording");
+    expect(skill).toContain("suggested_queries");
+    expect(skill).toContain("no_material_rediscovery_leads");
+    expect(skill).toContain("comment_signal");
+    expect(skill).toContain("named_video_or_creator");
+    expect(skill).toContain("one discussion pool");
+    expect(skill).toContain("hypothesis and vocabulary source");
+    expect(skill).not.toContain("How I Grew My Hip Back");
+    expect(skill).not.toContain("Dr. Eric Berg");
+  });
+
   it("documents the one-time connection and per-task scout handoff honestly", async () => {
     const setup = await readFile(setupUrl, "utf8");
 
@@ -97,7 +131,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor");
     expect(setup).toContain("does not execute HRP");
-    expect(setup).toContain("one handoff per research task");
+    expect(setup).toContain("manual transfer at each stage");
     expect(setup).toContain(
       "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
     );
@@ -106,6 +140,10 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain("clinic_patient_testimonial");
     expect(setup).toContain("min(3, ceil(dossier size / 2))");
     expect(setup).toContain("patient-account coverage shortfall");
+    expect(setup).toContain("seed_discovery");
+    expect(setup).toContain("targeted_rediscovery");
+    expect(setup).toContain("AskRigor comment-audit seed packet");
+    expect(setup).toContain("youtube_rediscovery_packet");
     expect(setup).toContain("Do not treat the connection test as end-to-end HRP acceptance");
   });
 });

@@ -64,45 +64,61 @@ skill, choose `/scout-youtube-for-askrigor`. Select Gemini's YouTube app if it
 does not activate automatically. Select the AskRigor custom app when Gemini
 needs to validate exact video identities with `get_youtube_video`.
 
-Gemini should return an **AskRigor handoff** plus **Videos worth watching**. The
-handoff identifies exact videos and links, summarizes creator content, recovers
-concrete intervention details, clickable timestamp deep links, and descriptive
-segment cues, and marks any claim needing targeted transcript or visual
-verification. Routine creator summaries do not require expensive full-video
-ingestion.
+Without a rediscovery packet, Gemini uses `seed_discovery`. It generates 12–20
+diverse query probes, searches semantic rings around the exact condition,
+triages titles and metadata without full-video summaries, and returns an
+**AskRigor comment-audit seed packet** with two or three distinct seed videos.
+Copy that packet into AskRigor. Gemini has not audited the comments.
+
+When AskRigor's protocol-governed comment analysis produces a
+`youtube_rediscovery_packet`, paste that packet into Gemini and invoke the skill
+again. Gemini then uses `targeted_rediscovery`, searches the specific community-
+derived interventions and vocabulary, and returns a selective **AskRigor
+handoff** plus **Videos worth watching**. Only these narrow final candidates
+receive detailed summaries and timestamp extraction.
 
 The app connection and skill upload are one-time setup. With the current
-read-only MCP architecture, there is one handoff per research task: copy the
-compact **AskRigor handoff** into the capable AskRigor research interface. The
-Gemini-to-AskRigor connection runs in the opposite direction and cannot place
-Gemini's generated summary into a ChatGPT or Codex conversation automatically.
-Automating that transfer would require a separately reviewed authenticated
-mailbox or server-side research supervisor.
+read-only MCP architecture, there is a manual transfer at each stage: Gemini
+seed packet to AskRigor, optional AskRigor rediscovery packet back to Gemini,
+and the final Gemini dossier back to AskRigor. The Gemini-to-AskRigor connection
+runs in the opposite direction and cannot place Gemini's generated output into
+a ChatGPT or Codex conversation automatically. AskRigor may instead perform its
+own wider YouTube searches after comment analysis when avoiding the optional
+Gemini round trip is more useful. Fully automating bidirectional transfer would
+require a separately reviewed authenticated mailbox or server-side research
+supervisor.
 
 ## Acceptance test
 
-Use a de-identified synthetic video-discovery prompt. Confirm in the task trace
-and response that Gemini:
+Use a de-identified synthetic video-discovery prompt. In `seed_discovery`,
+confirm in the task trace and response that Gemini:
 
-1. searches several human discovery phrasings such as `how I cured/fixed my X`
-   and follows exact variants suggested by promising results;
-2. chooses a small nonredundant set for surprising or hard-to-find information,
-   not merely popularity;
-3. summarizes creator content without uploading or watching the whole video by
-   default;
-4. validates every selected identifier and canonical link through
-   `get_youtube_video`;
-5. returns concrete intervention details, clickable timestamp deep links with
-   segment cues, verification priorities, search gaps, and the most relevant
-   watch links;
-6. makes no protocol-manifest, protocol-load, formal-source, community-survey,
-   or community-audit call; and
-7. makes no `HRP-complete`, evidence-completeness, efficacy, safety, causality,
-   treatment, or individualized recommendation claim.
+1. generates 12–20 materially different
+   `model_generated_query_probe` hypotheses without presenting them as found
+   remedies;
+2. searches the exact condition, umbrella condition, anatomy or symptom, and
+   intervention-first rings, then back-searches promising broad leads against
+   the exact target;
+3. uses fuzzy title recall and does not quote the entire query;
+4. performs title and metadata triage without producing full summaries or
+   watching whole videos;
+5. validates two or three distinct seed videos through `get_youtube_video` and
+   preserves literal status and provider-reported comment count;
+6. returns an **AskRigor comment-audit seed packet** rather than invented
+   comment findings or a premature final watch verdict; and
+7. makes no protocol-manifest, protocol-load, formal-source, community-survey,
+   community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
+   individualized recommendation claim.
 
-For an outcome-focused request, also confirm that Gemini runs at least four
-patient-specific searches with negative practitioner/institution terms when
-needed. The target is `min(3, ceil(dossier size / 2))` qualifying
+Then supply a synthetic `youtube_rediscovery_packet`. In
+`targeted_rediscovery`, confirm that Gemini preserves lead provenance, searches
+literal, fuzzy, exact-condition, firsthand, failure, and harm variants, and
+summarizes only the selected narrow videos with concrete details, clickable
+timestamps, verification priorities, and **Videos worth watching** links.
+
+For an outcome-focused final dossier, also confirm that Gemini runs at least
+four patient-specific searches with negative practitioner/institution terms
+when needed. The target is `min(3, ceil(dossier size / 2))` qualifying
 `independent_patient_self_learning` records. These must center on the apparent
 independent patient's own experiments, routines, mistakes, adaptations, and
 takeaways. An `independent_provider_treatment_review` or
@@ -161,13 +177,22 @@ requires the summary to recover the person's hypotheses, trial-and-error,
 routine changes, failures, and takeaways. Unclear independence fails closed and
 does not count.
 
+The next design review found that even a better final-dossier selector was
+prematurely spending effort on broad panoply videos. The current staged revision
+uses broad videos as discovery and comment-pool seeds: Gemini generates diverse
+search probes and triages titles first, AskRigor mines selected comment corpora
+for specific intervention vocabulary, and Gemini can perform an optional narrow
+rediscovery pass from the resulting packet. Broader disease and symptom searches
+may generate leads, but each promising lead must be back-searched against the
+exact anatomy or condition so local mechanical approaches are not erased.
+
 ## Evidence boundary
 
-Gemini's creator summary is trusted for fast scouting and hypothesis discovery,
-but it remains creator-content reporting rather than formal efficacy or safety
-evidence. AskRigor validates exact video identity; later protocol-governed work
-decides which claims warrant transcript, visual, comment-corpus, or formal-
-evidence verification.
+Gemini's title/metadata triage and targeted creator summaries are trusted for
+fast scouting and hypothesis discovery, but they remain creator-content
+reporting rather than formal efficacy or safety evidence. AskRigor validates
+exact video identity; later protocol-governed work decides which claims warrant
+transcript, visual, comment-corpus, or formal-evidence verification.
 
 The public MCP intentionally remains frozen at 17 read-only tools and does not
 include the Action-only transcript operation. This scout therefore labels its
