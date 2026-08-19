@@ -480,8 +480,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   and 6 narrow-review controls; the discovery/weighting matrix has eight cases,
   plus an unrelated held-out evidence-frontier fixture. The focused
   router/skill/matrix/packet/transcript/registry suite passed 53/53. The complete
-  Node `24.18.0` gate passed typecheck, 57 test files with one declared
-  credential-gated file skipped, 960 tests with five declared skips, and build.
+  Node `24.18.0` gate passed typecheck, 58 test files with one declared
+  credential-gated file skipped, 964 tests with five declared skips, and build.
   Public-site validation covered four pages and the deployment suite passed
   28/28. Static tests do not establish deployed transcript access or GPT UI
   behavior.
@@ -529,6 +529,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   possible but brittle and policy-sensitive experiment; a VPS is higher risk,
   Gemini Spark MCP runs in the reverse direction, and the supported NotebookLM
   Enterprise API is disproportionate for this use case.
+- The supported Gemini Spark direction is now packaged but not yet accepted in
+  the owner's account. A live read-only probe of
+  `https://mcp.askrigor.com/mcp` returned `api_visible_complete` in 1.205 seconds
+  plus a 1.037-second `tools/list`, exactly 17 tools, every tool read-only, and
+  none destructive. `integrations/gemini-spark/askrigor-research/SKILL.md`
+  preserves runtime protocol loading, Forum Signal, public boundaries, and the
+  consumer-summary/transcript distinction; its static test passed 4/4.
+  `docs/gemini-spark-setup.md` records the one-time connection, upload, removal,
+  and synthetic acceptance flow. Google-account connection and end-to-end Spark
+  acceptance remain pending and must not be inferred from MCP compatibility.
 - The required lesson checkpoint at `2026-08-19T02:08:08.106Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current

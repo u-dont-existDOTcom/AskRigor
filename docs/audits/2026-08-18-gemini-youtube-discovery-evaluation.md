@@ -263,6 +263,29 @@ an AskRigor API. Gemini Notebook Enterprise exposes a preview YouTube-source
 API, but it is transcript-only and requires an enterprise subscription, so it
 is not proportionate for this use case.
 
+### Gemini Spark supported-connection follow-up
+
+Google's supported custom-app path requires one account-side connection, not a
+manual transfer for every request. An eligible Gemini Spark user adds the public
+Streamable HTTP endpoint `https://mcp.askrigor.com/mcp` once and can then use the
+connected app in Spark tasks. The production endpoint requires no credential.
+
+A live 2026-08-19 MCP initialization and `tools/list` probe returned
+`api_visible_complete`: connection in 1.205 seconds, listing in 1.037 seconds,
+all 17 expected research tools, no tool without `readOnlyHint: true`, and no
+tool with `destructiveHint: true`. The consequential lesson-submission Action
+is not part of the MCP inventory.
+
+The owner-uploadable skill at
+`integrations/gemini-spark/askrigor-research/SKILL.md` performs exact runtime
+Universal/HRP loading, preserves Forum Signal and the public-health boundary,
+and prevents consumer YouTube summaries from becoming transcript evidence. The
+current MCP does not expose the Action-only transcript operation, so the skill
+requires `completed_with_access_boundary` when a material creator claim cannot
+be transcript-verified. The setup and acceptance procedure is recorded in
+`docs/gemini-spark-setup.md`; account-side connection and a synthetic Spark task
+remain pending rather than inferred from MCP compatibility.
+
 ## Verification
 
 - The final bounded transcript retry still returned `rate_limited` for both
@@ -281,8 +304,12 @@ is not proportionate for this use case.
   pagination was exhausted, but 35 reply-count mismatches make the literal
   access status `partial`. The temporary key, raw comments, and author data were
   not retained.
-- `npm run verify` passed at the host boundary: 57 test files passed, one
-  credential-gated file skipped; 960 tests passed, five skipped; typecheck and
+- The live Gemini Spark compatibility probe returned all 17 public MCP tools as
+  `api_visible_complete`; all were read-only and non-destructive. The dedicated
+  Spark skill static acceptance passed 4/4. Google-account connection and a
+  synthetic end-to-end Spark task remain external pending gates.
+- `npm run verify` passed at the host boundary: 58 test files passed, one
+  credential-gated file skipped; 964 tests passed, five skipped; typecheck and
   build passed. The initial sandbox run failed only because loopback and IPC
   listeners were prohibited with `EPERM`.
 - `git diff --check` and the bounded credential-pattern scan passed. Public site
