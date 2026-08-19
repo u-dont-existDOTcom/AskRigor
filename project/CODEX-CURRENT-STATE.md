@@ -575,6 +575,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   confirmed that Gemini returned the missing timestamps when directly asked to
   fix them; the failure was therefore a skill-format gap, not proof that Gemini
   could not locate timecodes. Clean consumer-Gemini acceptance remains pending.
+- The next displayed consumer-Gemini output passed the rendering-safe timestamp
+  and literal-status checks but repeated six adjacent tutorials after only one
+  broad avoidance query and retained zero non-clinician firsthand patient
+  accounts. Owner/Gemini diagnosis correctly identified clinic SEO dominance
+  and technical-diversity selection pressure; the existing exact-outcome rule
+  was soft and lacked a patient-creator quota. The next revision adds
+  patient-specific queries with negative practitioner/institution terms,
+  separate patient/clinician-self/practitioner-case evidence classes, and a
+  `min(3, ceil(dossier size / 2))` patient target. A real corpus shortfall must
+  remain explicit; the skill cannot pad or misclassify accounts to meet it.
+  Clean consumer-Gemini acceptance remains pending.
 - The required lesson checkpoint at `2026-08-19T04:56:46.422Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current

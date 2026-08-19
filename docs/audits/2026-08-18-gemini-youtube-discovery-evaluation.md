@@ -355,6 +355,19 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
   correction made Gemini supply the missing times, so the defect was the
   skill's rendering-safe format contract rather than Gemini's ability to locate
   them. Clean behavioral acceptance remains pending.
+- The next owner-provided output passed timestamp rendering and arithmetic,
+  literal `api_visible_complete` statuses, attribution, and incentive labeling.
+  It nevertheless reused six `adjacent_implementation` videos, ran only one
+  broad avoidance query, and retained zero qualifying non-clinician patient
+  accounts. The prior exact-outcome rule was soft and did not distinguish
+  patient narration from clinician self-management or practitioner-retold
+  cases. The revised selection gate uses patient-specific queries and negative
+  clinic/practitioner terms, classifies `firsthand_patient_outcome`,
+  `firsthand_clinician_self_management`, and `practitioner_reported_case`
+  separately, and targets `min(3, ceil(dossier size / 2))` patient accounts.
+  When a real corpus cannot meet the target, it must report a coverage shortfall
+  rather than padding or misclassification. Clean behavioral acceptance remains
+  pending.
 - The complete deterministic host-boundary gate passed: 58 test files passed,
   one credential-gated file skipped; 967 tests passed, five skipped; typecheck
   and build passed. The identical sandbox run failed only on prohibited

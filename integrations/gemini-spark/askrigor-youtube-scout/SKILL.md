@@ -45,6 +45,18 @@ Use several nonredundant natural-language directions when relevant, including:
 - exact variants, components, techniques, products, or programs suggested by
   promising early candidates
 
+For a patient-outcome lane, use patient-specific queries that resist clinic SEO:
+
+- `"[condition]" "my story" -clinic -doctor -hospital -center`
+- `"how I avoided [surgery]" "what worked for me" -pt -physio`
+- `"[condition]" "patient vlog" OR "firsthand" -clinic -hospital`
+- `"[condition]" "my experience" "cancelled surgery" -doctor -center`
+
+When practitioner or institutional videos still dominate, rewrite with relevant
+negative terms such as `-clinic`, `-hospital`, `-center`, `-doctor`, `-pt`,
+`-physio`, `-chiropractor`, or `-surgeon`. Record each rewritten query in the
+discovery ledger; do not pretend the negative terms guarantee exclusion.
+
 Run the exact-outcome lane first whenever the question asks what helped people
 avoid, delay, recover, discontinue, or achieve another real-world outcome. Use
 at least three distinct firsthand directions, such as patient story, cancelled
@@ -58,6 +70,22 @@ nonredundant exact matches. If the final dossier has zero exact outcome matches,
 say so prominently and explain which successful searches nevertheless failed
 to yield a qualifying candidate. Do not imply that adjacent material answers
 the outcome question.
+
+For a dossier of size `N`, target
+`min(3, ceil(dossier size / 2))` qualifying `firsthand_patient_outcome`
+candidates. These must be personally narrated accounts from apparent
+non-clinician patients, not clinicians, clinics, practitioner-retold cases,
+sponsored brand ambassadors, or testimonials republished by a seller. Meet the
+target whenever that many qualifying, nonredundant candidates are located.
+
+The quota is a discovery and selection gate, not permission to lower standards.
+If at least four successful patient-specific searches yield fewer qualifying
+accounts, return the accounts actually located and state a **patient-account
+coverage shortfall** with the target, located count, exact queries, and
+confidence effect. Do not pad, relabel, or invent patient accounts to meet the
+target. Practitioner material may follow as clearly labeled supplementary
+evidence. Only optimize mechanism diversity after satisfying the patient quota
+or reporting the coverage shortfall.
 
 Keep a compact discovery ledger with the exact query or discovery direction,
 whether it was attempted successfully, the distinct hypothesis it targeted,
@@ -74,6 +102,18 @@ Assign one question-match class before selection:
   and meaningful outcome or horizon;
 - `adjacent_implementation`: supplies a useful regimen, mechanism, or short-term
   outcome but does not establish the requested outcome.
+
+Separately assign one creator-evidence class:
+
+- `firsthand_patient_outcome`: an apparent non-clinician patient personally
+  narrates their own baseline, intervention, outcome, and horizon;
+- `firsthand_clinician_self_management`: a clinician narrates management of
+  their own condition; valuable firsthand material, but it does not count
+  toward the patient quota;
+- `practitioner_reported_case`: a clinician, clinic, seller, or coach retells or
+  hosts another person's outcome; or
+- `adjacent_implementation`: a tutorial, mechanism, or counseling video without
+  a qualifying personally narrated outcome.
 
 Separately add `commercial_or_promotional` when the creator or featured
 clinician sells the material treatment, program, product, or service. A
@@ -173,18 +213,19 @@ discovery ledger. Then give one structured record per selected video containing:
 1. title, channel, video identifier, and canonical YouTube link;
 2. literal AskRigor metadata `access_status`;
 3. question-match class and any `commercial_or_promotional` flag;
-4. creator relationship or incentive;
-5. concise, explicitly attributed creator-content summary;
-6. **Surprising or hard-to-find claim**;
-7. **Concrete intervention details**;
-8. clickable timestamp deep link plus descriptive segment cue, or `not located`
+4. creator-evidence class;
+5. creator relationship or incentive;
+6. concise, explicitly attributed creator-content summary;
+7. **Surprising or hard-to-find claim**;
+8. **Concrete intervention details**;
+9. clickable timestamp deep link plus descriptive segment cue, or `not located`
    plus the cue;
-9. reported benefit, failure, harm, or implementation signal;
-10. source label: `creator_summary` or `visual_observation`;
-11. **Visual inspection needed:** `yes` or `no`, with the exact reason;
-12. verification priority and the precise claim AskRigor should investigate;
-13. why the video is independent and decision-useful; and
-14. material uncertainty or missing detail.
+10. reported benefit, failure, harm, or implementation signal;
+11. source label: `creator_summary` or `visual_observation`;
+12. **Visual inspection needed:** `yes` or `no`, with the exact reason;
+13. verification priority and the precise claim AskRigor should investigate;
+14. why the video is independent and decision-useful; and
+15. material uncertainty or missing detail.
 
 End with brief search gaps. Distinguish `not located after successful search`
 from a failed, unavailable, or unattempted direction.
@@ -219,3 +260,7 @@ Before returning the report, repair every failed item:
    person's time.
 8. An outcome-focused question includes retained exact matches when located; a
    zero-exact result is prominent and is not disguised by adjacent tutorials.
+9. The patient quota is met, or a patient-account coverage shortfall reports
+   the target, located count, exact successful queries, and confidence effect.
+   No clinician, clinic testimonial, seller-hosted case, or brand ambassador is
+   counted as `firsthand_patient_outcome`.

@@ -100,6 +100,14 @@ and response that Gemini:
 7. makes no `HRP-complete`, evidence-completeness, efficacy, safety, causality,
    treatment, or individualized recommendation claim.
 
+For an outcome-focused request, also confirm that Gemini runs at least four
+patient-specific searches with negative practitioner/institution terms when
+needed. The target is `min(3, ceil(dossier size / 2))` qualifying
+`firsthand_patient_outcome` records. If the successful searches locate fewer,
+the report must state a patient-account coverage shortfall instead of counting
+clinicians, seller-hosted testimonials, or practitioner-retold cases as patient
+accounts.
+
 Also reject the report when it substitutes `available` for AskRigor's literal
 metadata status, emits a bare bracketed or empty timecode instead of a clickable
 deep link, describes an uninspected visual as support, or treats adjacent
@@ -129,6 +137,15 @@ tutorials. The owner confirmed that Gemini supplied the missing timestamps when
 asked directly; this showed a formatting-contract gap rather than an inability
 to locate timecodes. Clean acceptance remains pending another replacement-skill
 rerun.
+
+The next displayed output passed the clickable-timestamp and literal-status
+contracts. It still repeated the same six `adjacent_implementation` videos,
+performed only one broad avoidance query, and retained no non-clinician
+firsthand patient account. The prior skill had a soft exact-outcome preference
+but no hard creator quota. The current revision adds patient-specific queries
+with negative clinic/practitioner terms, a conditional half-dossier/three-video
+patient target, explicit creator-evidence classes, and a fail-closed coverage
+shortfall rather than padding.
 
 ## Evidence boundary
 

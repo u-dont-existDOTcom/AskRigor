@@ -54,6 +54,18 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("segment cue");
     expect(skill).toContain("exact_outcome_match");
     expect(skill).toContain("adjacent_implementation");
+    expect(skill).toContain("firsthand_patient_outcome");
+    expect(skill).toContain("firsthand_clinician_self_management");
+    expect(skill).toContain("practitioner_reported_case");
+    expect(skill).toContain("min(3, ceil(dossier size / 2))");
+    expect(skill).toContain("patient-account coverage shortfall");
+    expect(skill).toContain("Do not pad, relabel, or invent");
+    expect(skill).toContain(
+      "\"[condition]\" \"my story\" -clinic -doctor -hospital -center",
+    );
+    expect(skill).toContain(
+      "\"how I avoided [surgery]\" \"what worked for me\" -pt -physio",
+    );
     expect(skill).toContain("commercial_or_promotional");
     expect(skill).toContain("creator relationship or incentive");
     expect(skill).toContain("the creator claims");
@@ -61,6 +73,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Run the exact-outcome lane first");
     expect(skill).toContain("zero exact outcome matches");
     expect(skill).toMatch(/Do not let an adjacent tutorial\s+displace/);
+    expect(skill).toContain("Only optimize mechanism diversity after");
     expect(skill).toContain("## Final self-check");
     expect(skill).toContain("metadata-validated");
   });
@@ -81,6 +94,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain(
       "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
     );
+    expect(setup).toContain("min(3, ceil(dossier size / 2))");
+    expect(setup).toContain("patient-account coverage shortfall");
     expect(setup).toContain("Do not treat the connection test as end-to-end HRP acceptance");
   });
 });
