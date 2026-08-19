@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-Updated: 2026-08-18
+Updated: 2026-08-19
 
 ## Goal
 
@@ -529,22 +529,31 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   possible but brittle and policy-sensitive experiment; a VPS is higher risk,
   Gemini Spark MCP runs in the reverse direction, and the supported NotebookLM
   Enterprise API is disproportionate for this use case.
-- The supported Gemini Spark direction is now packaged but not yet accepted in
-  the owner's account. A live read-only probe of
-  `https://mcp.askrigor.com/mcp` returned `api_visible_complete` in 1.205 seconds
-  plus a 1.037-second `tools/list`, exactly 17 tools, every tool read-only, and
-  none destructive. `integrations/gemini-spark/askrigor-research/SKILL.md`
-  preserves runtime protocol loading, Forum Signal, public boundaries, and the
-  consumer-summary/transcript distinction; its static test passed 4/4.
-  `docs/gemini-spark-setup.md` records the one-time connection, upload, removal,
-  and synthetic acceptance flow. On 2026-08-19 the owner's Connected Apps UI
-  did not expose **Custom apps for Spark**. Google's current documentation
-  requires presence in the United States for custom apps in addition to Spark's
-  Pro/Ultra, adult, personal-account, and Keep Activity gates. Treat this as an
-  external account/region gate, not a failed MCP check. Google-account
-  connection and end-to-end Spark acceptance remain blocked and must not be
-  inferred from MCP compatibility.
-- The required lesson checkpoint at `2026-08-19T02:08:08.106Z` remained
+- The supported Gemini Spark direction passed account-side connection on
+  2026-08-19 through `https://mcp.askrigor.com/mcp/gemini`. The standard endpoint
+  reached initialization and `tools/list`, but Gemini rejected its 68,038-byte
+  richer catalog. The accepted compatibility profile preserves the same ordered
+  17 read-only tools and handlers while emitting a 12,239-byte catalog without
+  output or execution declarations. This establishes transport and catalog
+  compatibility only.
+- Owner correction rejected the initial `run-askrigor-research` skill because
+  it assigned complex Universal/HRP orchestration and completion judgment to
+  Gemini. The replacement
+  `integrations/gemini-spark/askrigor-youtube-scout/SKILL.md` restricts Gemini to
+  intelligent YouTube discovery, fast creator summaries, selective visual
+  observations, and exact-link validation through `get_youtube_video`. It
+  returns a structured handoff to a separate capable AskRigor agent and cannot
+  claim HRP, Forum Signal, evidence, or recommendation completion. The
+  connection and skill upload are one-time; consumer Gemini's reverse-direction
+  custom-app architecture still requires one compact handoff per research task.
+  `docs/gemini-spark-setup.md` records the corrected installation, scope,
+  removal, and synthetic scout acceptance flow. The replacement passed its
+  skill validator, focused contract 4/4, and complete deterministic gate: 58
+  test files passed with one credential-gated skip; 967 tests passed with five
+  skips; typecheck and build passed. An independent capability-denied forward
+  test failed closed; real consumer-Gemini scout acceptance remains pending
+  owner upload.
+- The required lesson checkpoint at `2026-08-19T04:56:46.422Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.

@@ -3,55 +3,59 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const skillUrl = new URL(
-  "../integrations/gemini-spark/askrigor-research/SKILL.md",
+  "../integrations/gemini-spark/askrigor-youtube-scout/SKILL.md",
   import.meta.url,
 );
 const setupUrl = new URL("../docs/gemini-spark-setup.md", import.meta.url);
 
 describe("Gemini Spark AskRigor skill", () => {
-  it("loads canonical protocols at runtime and preserves the public boundary", async () => {
+  it("keeps Gemini in the bounded YouTube scout role", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("name: run-askrigor-research");
-    expect(skill).toContain("get_protocol_manifest");
-    expect(skill).toContain("verify_protocol_integrity");
-    expect(skill).toContain("complete: true");
-    expect(skill).toContain("population-level evidence research");
-    expect(skill).toMatch(/Do not\s+diagnose a user/);
+    expect(skill).toContain("name: scout-youtube-for-askrigor");
+    expect(skill).toContain("YouTube discovery and creator-content summarization");
+    expect(skill).toContain("Do not load or interpret Universal or HRP");
+    expect(skill).toContain("Do not decide which HRP modules apply");
+    expect(skill).toContain("Do not produce the final AskRigor evidence synthesis");
+    expect(skill).not.toContain("get_protocol_manifest");
+    expect(skill).not.toContain("verify_protocol_integrity");
   });
 
-  it("uses only tools in the frozen public MCP inventory", async () => {
+  it("uses the AskRigor MCP only to validate exact candidate identities", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("survey_youtube_community");
-    expect(skill).toContain("audit_youtube_video_community");
     expect(skill).toContain("get_youtube_video");
-    expect(skill).not.toMatch(/call `get_youtube_transcript`/);
+    expect(skill).not.toContain("survey_youtube_community");
+    expect(skill).not.toContain("audit_youtube_video_community");
+    expect(skill).not.toContain("get_youtube_transcript");
     expect(skill).not.toContain("submit_lesson_candidate");
   });
 
-  it("does not turn consumer Gemini output into transcript evidence", async () => {
+  it("returns decision-useful summaries and exact watch links", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("model-mediated consumer output");
-    expect(skill).toContain("cannot prove");
-    expect(skill).toContain("do not claim `HRP-complete`");
-    expect(skill).toContain(
-      "Keep creator-summary claims separate from independently\nretrieved comments",
-    );
+    expect(skill).toContain("Surprising or hard-to-find claim");
+    expect(skill).toContain("Concrete intervention details");
+    expect(skill).toContain("Visual inspection needed");
+    expect(skill).toContain("AskRigor handoff");
+    expect(skill).toContain("Videos worth watching");
+    expect(skill).toContain("canonical YouTube link");
+    expect(skill).toContain("`creator_summary` or `visual_observation`");
   });
 
-  it("documents one-time credential-free connection and honest acceptance", async () => {
+  it("documents the one-time connection and per-task scout handoff honestly", async () => {
     const setup = await readFile(setupUrl, "utf8");
 
-    expect(setup).toContain("https://mcp.askrigor.com/mcp");
+    expect(setup).toContain("https://mcp.askrigor.com/mcp/gemini");
     expect(setup).toContain("presence in the United States for custom\napps");
     expect(setup).toContain("Google AI Pro or Ultra");
     expect(setup).toContain("Keep Activity is enabled");
     expect(setup).toContain("API billing does not change");
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
-    expect(setup).toContain("not manual transcript or summary transfer");
-    expect(setup).toContain("do not infer it passed");
+    expect(setup).toContain("scout-youtube-for-askrigor");
+    expect(setup).toContain("does not execute HRP");
+    expect(setup).toContain("one handoff per research task");
+    expect(setup).toContain("Do not treat the connection test as end-to-end HRP acceptance");
   });
 });

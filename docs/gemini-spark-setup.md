@@ -1,8 +1,9 @@
-# Gemini Spark setup for AskRigor
+# Gemini Spark YouTube scout for AskRigor
 
-This is an owner-operated evaluation of Gemini Spark as a private AskRigor
-front end. It does not replace the public Custom GPT or change production MCP
-behavior.
+This is an owner-operated evaluation of Gemini Spark as a private YouTube scout
+for AskRigor. Gemini performs rapid public-video discovery and creator-content
+summarization. It does not execute HRP, replace the AskRigor research agent, or
+change the public Custom GPT.
 
 ## Prerequisites
 
@@ -14,8 +15,7 @@ prove custom-app access. Account eligibility is an external Google gate and
 must not be inferred from Gemini API billing.
 
 These requirements were rechecked against Google's current help pages on
-2026-08-19. If **Custom apps for Spark** is absent, do not infer that the MCP
-endpoint failed. First check the following account-side gates:
+2026-08-19. If **Custom apps for Spark** is absent, first check:
 
 1. the active mode is Spark rather than a normal Gemini chat;
 2. the account is personal rather than work or school;
@@ -23,80 +23,99 @@ endpoint failed. First check the following account-side gates:
 4. Keep Activity is enabled; and
 5. the user is in the United States.
 
-When any gate is unmet, the supported custom-app connection cannot be completed
-from that account. Changing Gemini API billing does not change consumer Gemini
-or Spark eligibility.
+Changing Gemini API billing does not change consumer Gemini or Spark
+eligibility.
 
 ## One-time connection
 
-1. Open <https://gemini.google.com> and switch to Spark. Do not continue if the
-   account does not meet every prerequisite above.
+1. Open <https://gemini.google.com> and switch to Spark.
 2. Open **Settings & help → Connected Apps**. If needed, open **Personal
    Intelligence → Connected Apps** first.
 3. Under **Custom apps for Spark**, add:
 
-   `https://mcp.askrigor.com/mcp`
+   `https://mcp.askrigor.com/mcp/gemini`
 
 4. Click **Next** and approve the connection. The endpoint is public and needs
    no credential or Advanced-features secret.
-5. Confirm the custom app appears as `askrigor-research`.
+5. Confirm that the AskRigor custom app appears in Connected Apps.
 
-The live 2026-08-19 compatibility probe completed MCP initialization in 1.205
-seconds and `tools/list` in 1.037 seconds. It returned all 17 expected tools as
-`api_visible_complete`; every tool declared `readOnlyHint: true`, and none
-declared `destructiveHint: true`. The consequential lesson-submission Action is
-not part of this MCP inventory.
+The Gemini-specific endpoint exposes the same ordered 17 expected tools and
+read-only handlers as the standard AskRigor MCP endpoint, but emits the smaller
+Google-compatible catalog schema. The owner confirmed successful account-side
+connection on 2026-08-19. The earlier standard endpoint reached `tools/list`
+but Gemini rejected its richer catalog; that failure was not an authentication
+or network failure.
 
 ## One-time skill installation
 
 1. In Spark, open **Skills → Upload**.
 2. Upload
-   `integrations/gemini-spark/askrigor-research/SKILL.md`.
-3. Review it, create the skill, and leave automatic use enabled.
+   `integrations/gemini-spark/askrigor-youtube-scout/SKILL.md`.
+3. Review it, create the skill, and leave automatic use enabled if desired.
 
-The skill is named `run-askrigor-research`. It requires exact runtime loading of
-Universal and HRP; neither protocol is copied into the skill.
+The skill is named `scout-youtube-for-askrigor`. It deliberately contains no
+Universal or HRP orchestration.
 
-## Normal requests
+## Normal scout task
 
-Normally, ask the research question in a Spark task. Gemini can automatically
-select the enabled skill and connected app. To force deterministic selection,
-choose `/run-askrigor-research` and `@askrigor-research` in the prompt. This is
-selection, not manual transcript or summary transfer.
+Give Gemini the de-identified research question and ask it to find surprising,
+firsthand, exact-variant, failure, harm, or implementation videos. To force the
+skill, choose `/scout-youtube-for-askrigor`. Select Gemini's YouTube app if it
+does not activate automatically. Select the AskRigor custom app when Gemini
+needs to validate exact video identities with `get_youtube_video`.
 
-Read-only research tools should not require per-call approval. Google may still
-surface account, privacy, or safety confirmations. AskRigor cannot suppress
-Google-owned confirmations.
+Gemini should return an **AskRigor handoff** plus **Videos worth watching**. The
+handoff identifies exact videos and links, summarizes creator content, recovers
+concrete intervention details and timestamps, and marks any claim needing
+targeted transcript or visual verification. Routine creator summaries do not
+require expensive full-video ingestion.
+
+The app connection and skill upload are one-time setup. With the current
+read-only MCP architecture, there is one handoff per research task: copy the
+compact **AskRigor handoff** into the capable AskRigor research interface. The
+Gemini-to-AskRigor connection runs in the opposite direction and cannot place
+Gemini's generated summary into a ChatGPT or Codex conversation automatically.
+Automating that transfer would require a separately reviewed authenticated
+mailbox or server-side research supervisor.
 
 ## Acceptance test
 
-Use a de-identified synthetic research prompt. Confirm in the task trace that
-Gemini:
+Use a de-identified synthetic video-discovery prompt. Confirm in the task trace
+and response that Gemini:
 
-1. calls Universal manifest → integrity verification → every ordered load chunk;
-2. applies the loaded activation boundary and repeats the sequence for HRP when
-   triggered;
-3. validates real YouTube identifiers through `get_youtube_video`;
-4. keeps Gemini's creator summary separate from MCP comment retrieval;
-5. continues every required video audit until `continuation_recommended: false`;
-6. preserves access statuses and blocks `HRP-complete` when creator transcript
-   verification is material but unavailable; and
-7. links only the most decision-useful videos with their access boundaries.
+1. searches several human discovery phrasings such as `how I cured/fixed my X`
+   and follows exact variants suggested by promising results;
+2. chooses a small nonredundant set for surprising or hard-to-find information,
+   not merely popularity;
+3. summarizes creator content without uploading or watching the whole video by
+   default;
+4. validates every selected identifier and canonical link through
+   `get_youtube_video`;
+5. returns concrete intervention details, useful timestamps, verification
+   priorities, search gaps, and the most relevant watch links;
+6. makes no protocol-manifest, protocol-load, formal-source, community-survey,
+   or community-audit call; and
+7. makes no `HRP-complete`, evidence-completeness, efficacy, safety, causality,
+   treatment, or individualized recommendation claim.
 
-Record a failed item as failed or incomplete; do not infer it passed from a good
-answer.
+Do not treat the connection test as end-to-end HRP acceptance. Record a failed
+item as failed or incomplete rather than inferring it passed from fluent prose.
 
-## Current limitation
+## Evidence boundary
+
+Gemini's creator summary is trusted for fast scouting and hypothesis discovery,
+but it remains creator-content reporting rather than formal efficacy or safety
+evidence. AskRigor validates exact video identity; later protocol-governed work
+decides which claims warrant transcript, visual, comment-corpus, or formal-
+evidence verification.
 
 The public MCP intentionally remains frozen at 17 read-only tools and does not
-include the Action-only `get_youtube_transcript` operation. Consumer Gemini may
-summarize public YouTube content quickly, but that result has no AskRigor
-transcript receipt. The Spark skill therefore requires a disclosed access
-boundary and forbids `HRP-complete` when a material creator claim lacks exact
-transcript verification.
+include the Action-only transcript operation. This scout therefore labels its
+source as `creator_summary` or `visual_observation` and asks for deeper checking
+only when a claim is both material and unusually decision-useful.
 
 ## Removal
 
-Remove or disconnect `askrigor-research` from Gemini Connected Apps and disable
-or delete `run-askrigor-research`. Removing the custom app unlinks the MCP server
-from the Google Account; no AskRigor server credential needs rotation.
+Remove the AskRigor custom app from Gemini Connected Apps and disable or delete
+`scout-youtube-for-askrigor`. Removing the app unlinks the MCP server from the
+Google Account; no AskRigor server credential needs rotation.

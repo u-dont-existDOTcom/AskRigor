@@ -29,9 +29,9 @@ complete XML protocol.
   API comparison without paid Search grounding, covering planned discovery,
   validated URL generation, direct video summaries, transcript latency/access
   boundaries, and the recommended lazy-escalation architecture
-- `gemini-spark-setup.md`: owner-operated one-time Gemini Spark custom-app and
-  skill installation, live 17-tool compatibility receipt, acceptance test, and
-  creator-transcript limitation
+- `gemini-spark-setup.md`: owner-operated Gemini Spark custom-app and bounded
+  YouTube-scout skill installation, live compatibility receipt, per-task
+  handoff boundary, and scout acceptance test
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate

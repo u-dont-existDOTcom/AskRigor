@@ -265,19 +265,20 @@ is not proportionate for this use case.
 
 ### Gemini Spark supported-connection follow-up
 
-Google's supported custom-app path requires one account-side connection, not a
-manual transfer for every request. An eligible Gemini Spark user adds the public
-Streamable HTTP endpoint `https://mcp.askrigor.com/mcp` once and can then use the
-connected app in Spark tasks. The production endpoint requires no credential.
+Google's supported custom-app path requires one account-side connection. The
+standard endpoint reached Gemini's `tools/list` request, but Gemini rejected its
+richer MCP catalog. The smaller catalog-compatible endpoint
+`https://mcp.askrigor.com/mcp/gemini` preserves the same ordered 17 read-only
+tools and handlers and was accepted in the owner's account on 2026-08-19. The
+production endpoint requires no credential.
 
 The eligibility boundary is narrower than Spark access. Google's current help
 pages require age 18+, a personal Google Account, Keep Activity enabled, Google
 AI Pro or Ultra for Spark, and presence in the United States for custom apps.
-The owner-facing Connected Apps UI did not expose **Custom apps for Spark** on
-2026-08-19. This is recorded as an external account/region eligibility gate,
-not an MCP failure; the exact unmet account attribute was not independently
-inspected. Gemini API billing is separate and cannot unlock the consumer
-feature.
+The owner-facing Connected Apps UI initially did not expose **Custom apps for
+Spark**. After the account and regional prerequisites were met, the UI exposed
+the feature and accepted the Gemini-compatible endpoint. Gemini API billing is
+separate and did not unlock the consumer feature.
 
 A live 2026-08-19 MCP initialization and `tools/list` probe returned
 `api_visible_complete`: connection in 1.205 seconds, listing in 1.037 seconds,
@@ -285,15 +286,22 @@ all 17 expected research tools, no tool without `readOnlyHint: true`, and no
 tool with `destructiveHint: true`. The consequential lesson-submission Action
 is not part of the MCP inventory.
 
-The owner-uploadable skill at
-`integrations/gemini-spark/askrigor-research/SKILL.md` performs exact runtime
-Universal/HRP loading, preserves Forum Signal and the public-health boundary,
-and prevents consumer YouTube summaries from becoming transcript evidence. The
-current MCP does not expose the Action-only transcript operation, so the skill
-requires `completed_with_access_boundary` when a material creator claim cannot
-be transcript-verified. The setup and acceptance procedure is recorded in
-`docs/gemini-spark-setup.md`; account-side connection and a synthetic Spark task
-remain pending rather than inferred from MCP compatibility.
+The initial owner-uploadable skill incorrectly assigned Universal/HRP
+orchestration and completion judgment to Gemini. It was replaced before
+substantive use by
+`integrations/gemini-spark/askrigor-youtube-scout/SKILL.md`. The replacement
+uses Gemini only for public YouTube discovery, creator-content summaries, and
+targeted visual observations. It calls AskRigor only to validate exact video
+identities and links, then emits a structured handoff for a separate capable
+AskRigor research agent. The skill neither loads HRP nor claims evidence
+completeness.
+
+This supported connection still runs in the reverse direction: Gemini can call
+AskRigor, but AskRigor cannot pull consumer Gemini's generated summary. The app
+connection and skill upload are one-time operations; one compact handoff remains
+necessary per research task unless AskRigor later adds a separately reviewed
+authenticated transfer or server-side supervisor. The setup and synthetic
+scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
 
 ## Verification
 
@@ -314,11 +322,19 @@ remain pending rather than inferred from MCP compatibility.
   access status `partial`. The temporary key, raw comments, and author data were
   not retained.
 - The live Gemini Spark compatibility probe returned all 17 public MCP tools as
-  `api_visible_complete`; all were read-only and non-destructive. The dedicated
-  Spark skill static acceptance passed 4/4. The owner's UI did not expose
-  **Custom apps for Spark**, consistent with Google's narrower US-only
-  custom-app eligibility. Google-account connection and a synthetic end-to-end
-  Spark task remain externally blocked rather than failed MCP checks.
+  `api_visible_complete`; all were read-only and non-destructive. The standard
+  endpoint's catalog remained incompatible with Gemini, while the bounded
+  `/mcp/gemini` profile was accepted in the owner's account. This proves the
+  connection and catalog boundary, not HRP execution or a research verdict.
+- The replacement scout skill passed the skill validator and its focused static
+  contract 4/4. An independent capability-denied forward test kept discovery
+  and validation as unattempted, returned no invented videos, and made no HRP
+  or research-completion claim. A real consumer-Gemini scout task remains the
+  required behavioral acceptance after owner upload.
+- The complete deterministic host-boundary gate passed: 58 test files passed,
+  one credential-gated file skipped; 967 tests passed, five skipped; typecheck
+  and build passed. The identical sandbox run failed only on prohibited
+  localhost and IPC listeners.
 - `npm run verify` passed at the host boundary: 58 test files passed, one
   credential-gated file skipped; 964 tests passed, five skipped; typecheck and
   build passed. The initial sandbox run failed only because loopback and IPC
