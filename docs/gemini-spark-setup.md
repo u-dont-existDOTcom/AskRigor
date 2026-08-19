@@ -7,14 +7,30 @@ behavior.
 ## Prerequisites
 
 Google currently requires Gemini Spark access, age 18+, a personal Google
-Account, Keep Activity enabled, English for custom apps, and an eligible
-subscription/region. Outside the US, Spark skills generally require Google AI
-Ultra. Account eligibility is an external Google gate and must not be inferred
-from API billing.
+Account, Keep Activity enabled, and presence in the United States for custom
+apps. Spark itself requires a Google AI Pro or Ultra subscription and is
+available in more regions than custom apps; Spark access therefore does not
+prove custom-app access. Account eligibility is an external Google gate and
+must not be inferred from Gemini API billing.
+
+These requirements were rechecked against Google's current help pages on
+2026-08-19. If **Custom apps for Spark** is absent, do not infer that the MCP
+endpoint failed. First check the following account-side gates:
+
+1. the active mode is Spark rather than a normal Gemini chat;
+2. the account is personal rather than work or school;
+3. the account has Google AI Pro or Ultra;
+4. Keep Activity is enabled; and
+5. the user is in the United States.
+
+When any gate is unmet, the supported custom-app connection cannot be completed
+from that account. Changing Gemini API billing does not change consumer Gemini
+or Spark eligibility.
 
 ## One-time connection
 
-1. Open <https://gemini.google.com> and switch to Spark.
+1. Open <https://gemini.google.com> and switch to Spark. Do not continue if the
+   account does not meet every prerequisite above.
 2. Open **Settings & help → Connected Apps**. If needed, open **Personal
    Intelligence → Connected Apps** first.
 3. Under **Custom apps for Spark**, add:

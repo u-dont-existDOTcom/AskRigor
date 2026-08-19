@@ -270,6 +270,15 @@ manual transfer for every request. An eligible Gemini Spark user adds the public
 Streamable HTTP endpoint `https://mcp.askrigor.com/mcp` once and can then use the
 connected app in Spark tasks. The production endpoint requires no credential.
 
+The eligibility boundary is narrower than Spark access. Google's current help
+pages require age 18+, a personal Google Account, Keep Activity enabled, Google
+AI Pro or Ultra for Spark, and presence in the United States for custom apps.
+The owner-facing Connected Apps UI did not expose **Custom apps for Spark** on
+2026-08-19. This is recorded as an external account/region eligibility gate,
+not an MCP failure; the exact unmet account attribute was not independently
+inspected. Gemini API billing is separate and cannot unlock the consumer
+feature.
+
 A live 2026-08-19 MCP initialization and `tools/list` probe returned
 `api_visible_complete`: connection in 1.205 seconds, listing in 1.037 seconds,
 all 17 expected research tools, no tool without `readOnlyHint: true`, and no
@@ -306,8 +315,10 @@ remain pending rather than inferred from MCP compatibility.
   not retained.
 - The live Gemini Spark compatibility probe returned all 17 public MCP tools as
   `api_visible_complete`; all were read-only and non-destructive. The dedicated
-  Spark skill static acceptance passed 4/4. Google-account connection and a
-  synthetic end-to-end Spark task remain external pending gates.
+  Spark skill static acceptance passed 4/4. The owner's UI did not expose
+  **Custom apps for Spark**, consistent with Google's narrower US-only
+  custom-app eligibility. Google-account connection and a synthetic end-to-end
+  Spark task remain externally blocked rather than failed MCP checks.
 - `npm run verify` passed at the host boundary: 58 test files passed, one
   credential-gated file skipped; 964 tests passed, five skipped; typecheck and
   build passed. The initial sandbox run failed only because loopback and IPC

@@ -45,6 +45,10 @@ describe("Gemini Spark AskRigor skill", () => {
     const setup = await readFile(setupUrl, "utf8");
 
     expect(setup).toContain("https://mcp.askrigor.com/mcp");
+    expect(setup).toContain("presence in the United States for custom\napps");
+    expect(setup).toContain("Google AI Pro or Ultra");
+    expect(setup).toContain("Keep Activity is enabled");
+    expect(setup).toContain("API billing does not change");
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("not manual transcript or summary transfer");

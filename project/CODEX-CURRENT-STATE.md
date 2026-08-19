@@ -537,8 +537,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   preserves runtime protocol loading, Forum Signal, public boundaries, and the
   consumer-summary/transcript distinction; its static test passed 4/4.
   `docs/gemini-spark-setup.md` records the one-time connection, upload, removal,
-  and synthetic acceptance flow. Google-account connection and end-to-end Spark
-  acceptance remain pending and must not be inferred from MCP compatibility.
+  and synthetic acceptance flow. On 2026-08-19 the owner's Connected Apps UI
+  did not expose **Custom apps for Spark**. Google's current documentation
+  requires presence in the United States for custom apps in addition to Spark's
+  Pro/Ultra, adult, personal-account, and Keep Activity gates. Treat this as an
+  external account/region gate, not a failed MCP check. Google-account
+  connection and end-to-end Spark acceptance remain blocked and must not be
+  inferred from MCP compatibility.
 - The required lesson checkpoint at `2026-08-19T02:08:08.106Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
