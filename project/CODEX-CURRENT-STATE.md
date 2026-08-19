@@ -563,6 +563,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   revision adds a literal-status allowlist, empty-timestamp rejection,
   attribution/source checks, outcome-match and incentive classes, and a final
   self-audit; real replacement-skill acceptance remains pending.
+- The second owner-run scout corrected the literal statuses to
+  `api_visible_complete`, produced the requested query ledger and creator
+  incentives, and surfaced a hydration regimen. It still generated blank
+  timecode placeholders and selected six adjacent tutorials with zero exact
+  outcome matches, despite the first run proving firsthand candidates were
+  discoverable. The next revision removes timecodes from Gemini's role, replaces
+  them with descriptive segment cues for later targeted verification, and runs
+  at least three exact-outcome discovery directions before adjacent mechanism
+  or tutorial searches. Clean consumer-Gemini acceptance remains pending.
 - The required lesson checkpoint at `2026-08-19T04:56:46.422Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current

@@ -1,6 +1,6 @@
 ---
 name: scout-youtube-for-askrigor
-description: Finds unusually relevant public YouTube videos, quickly summarizes creator content, extracts concrete intervention details and timestamps, identifies claims worth deeper verification, and returns an exact-link dossier for handoff to AskRigor. Use for health, treatment, recovery, implementation, tolerability, adherence, harm, discontinuation, or real-world outcome questions when firsthand creator material could reveal information that is difficult to find in studies. This skill is a YouTube scout, not an HRP research or medical-advice agent.
+description: Finds unusually relevant public YouTube videos, quickly summarizes creator content, extracts concrete intervention details and segment cues, identifies claims worth deeper verification, and returns an exact-link dossier for handoff to AskRigor. Use for health, treatment, recovery, implementation, tolerability, adherence, harm, discontinuation, or real-world outcome questions when firsthand creator material could reveal information that is difficult to find in studies. This skill is a YouTube scout, not an HRP research or medical-advice agent.
 ---
 
 # Scout YouTube for AskRigor
@@ -45,6 +45,20 @@ Use several nonredundant natural-language directions when relevant, including:
 - exact variants, components, techniques, products, or programs suggested by
   promising early candidates
 
+Run the exact-outcome lane first whenever the question asks what helped people
+avoid, delay, recover, discontinue, or achieve another real-world outcome. Use
+at least three distinct firsthand directions, such as patient story, cancelled
+or postponed procedure, and `what finally worked`, before filling the slate with
+practitioner tutorials or mechanisms. Keep useful exact matches even when an
+adjacent tutorial is more polished or detailed. Do not let an adjacent tutorial
+displace a firsthand account with a concrete baseline, outcome, and horizon.
+
+When exact-outcome searches return candidates, normally retain two or three
+nonredundant exact matches. If the final dossier has zero exact outcome matches,
+say so prominently and explain which successful searches nevertheless failed
+to yield a qualifying candidate. Do not imply that adjacent material answers
+the outcome question.
+
 Keep a compact discovery ledger with the exact query or discovery direction,
 whether it was attempted successfully, the distinct hypothesis it targeted,
 and what it added. Do not describe a direction as successfully searched unless
@@ -79,7 +93,7 @@ video, recover as much of the following as the video supports:
 - relevant condition or disease stage, baseline, outcome, and time horizon;
 - reported benefits, failures, harms, discontinuation, and implementation
   problems;
-- useful timestamps;
+- a descriptive segment cue for locating the relevant passage later;
 - what makes the candidate distinct from the other selected videos; and
 - the most interesting material claim for AskRigor to investigate.
 
@@ -107,10 +121,11 @@ segment. If imaging, before-and-after material, technique, alignment, or an
 on-screen result was not inspected, state that it remains unverified. Never
 describe uninspected visuals as support.
 
-Never emit an empty timestamp field. Give an exact timestamp only when Gemini
-located it in the video; otherwise write `not located`. Omit timestamp wording
-from a watch-link sentence when none was located. Never output malformed text
-such as `Most relevant timestamp:.`.
+Do not request or output timestamps. Consumer Gemini does not reliably provide
+timecodes and must not manufacture or leave them blank. Instead give a short
+segment cue such as `discussion of hourly glute holds` or `MRI collapse
+explanation`; later AskRigor verification can locate the exact time only for
+material claims.
 
 ## Candidate validation
 
@@ -148,7 +163,7 @@ discovery ledger. Then give one structured record per selected video containing:
 5. concise, explicitly attributed creator-content summary;
 6. **Surprising or hard-to-find claim**;
 7. **Concrete intervention details**;
-8. relevant timestamps, or `not located`;
+8. descriptive segment cue for later targeted verification;
 9. reported benefit, failure, harm, or implementation signal;
 10. source label: `creator_summary` or `visual_observation`;
 11. **Visual inspection needed:** `yes` or `no`, with the exact reason;
@@ -163,10 +178,10 @@ from a failed, unavailable, or unattempted direction.
 
 Link only the most relevant, nonredundant videos a person would realistically
 benefit from watching. For each, provide the canonical YouTube link, one
-sentence explaining the distinctive value, and the most relevant timestamp
-when available. Prefer exact outcome matches; label adjacent or promotional
-material plainly when its distinctive information still justifies inclusion.
-Do not pad the list.
+sentence explaining the distinctive value, and a segment cue when useful. Do
+not append an empty timecode. Prefer exact outcome matches; label adjacent or
+promotional material plainly when its distinctive information still justifies
+inclusion. Do not pad the list.
 
 ## Final self-check
 
@@ -174,8 +189,8 @@ Before returning the report, repair every failed item:
 
 1. Every dossier video has a literal `get_youtube_video` receipt and one allowed
    `access_status`; none says `available`.
-2. No timestamp field is blank or malformed; unavailable timestamps say
-   `not located` and are omitted from watch-link prose.
+2. No timestamp or empty timecode appears; segment cues describe what later
+   verification should locate.
 3. Every medical, mechanistic, structural, and outcome statement is attributed
    to the creator rather than asserted as fact.
 4. Every `visual_observation` names an actually inspected frame or segment;
@@ -185,3 +200,5 @@ Before returning the report, repair every failed item:
    of long-term avoidance, delay, regeneration, or disease modification.
 7. Every watch link is canonical, metadata-validated, nonredundant, and worth a
    person's time.
+8. An outcome-focused question includes retained exact matches when located; a
+   zero-exact result is prominent and is not disguised by adjacent tutorials.

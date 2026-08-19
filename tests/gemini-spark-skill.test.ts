@@ -44,13 +44,17 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Videos worth watching");
     expect(skill).toContain("canonical YouTube link");
     expect(skill).toContain("`creator_summary` or `visual_observation`");
-    expect(skill).toContain("Never emit an empty timestamp field");
+    expect(skill).toContain("Do not request or output timestamps");
+    expect(skill).toContain("segment cue");
     expect(skill).toContain("exact_outcome_match");
     expect(skill).toContain("adjacent_implementation");
     expect(skill).toContain("commercial_or_promotional");
     expect(skill).toContain("creator relationship or incentive");
     expect(skill).toContain("the creator claims");
     expect(skill).toContain("exact query or discovery direction");
+    expect(skill).toContain("Run the exact-outcome lane first");
+    expect(skill).toContain("zero exact outcome matches");
+    expect(skill).toMatch(/Do not let an adjacent tutorial\s+displace/);
     expect(skill).toContain("## Final self-check");
     expect(skill).toContain("metadata-validated");
   });

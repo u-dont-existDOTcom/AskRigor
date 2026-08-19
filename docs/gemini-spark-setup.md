@@ -66,9 +66,9 @@ needs to validate exact video identities with `get_youtube_video`.
 
 Gemini should return an **AskRigor handoff** plus **Videos worth watching**. The
 handoff identifies exact videos and links, summarizes creator content, recovers
-concrete intervention details and timestamps, and marks any claim needing
-targeted transcript or visual verification. Routine creator summaries do not
-require expensive full-video ingestion.
+concrete intervention details and descriptive segment cues, and marks any claim
+needing targeted transcript or visual verification. Routine creator summaries
+do not require expensive full-video ingestion.
 
 The app connection and skill upload are one-time setup. With the current
 read-only MCP architecture, there is one handoff per research task: copy the
@@ -91,7 +91,7 @@ and response that Gemini:
    default;
 4. validates every selected identifier and canonical link through
    `get_youtube_video`;
-5. returns concrete intervention details, useful timestamps, verification
+5. returns concrete intervention details, useful segment cues, verification
    priorities, search gaps, and the most relevant watch links;
 6. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    or community-audit call; and
@@ -99,9 +99,9 @@ and response that Gemini:
    treatment, or individualized recommendation claim.
 
 Also reject the report when it substitutes `available` for AskRigor's literal
-metadata status, leaves any timestamp blank, describes an uninspected visual as
-support, or treats adjacent short-term relief or a promotional case as an exact
-long-term outcome match.
+metadata status, emits any timestamp or empty timecode placeholder instead of a
+segment cue, describes an uninspected visual as support, or treats adjacent
+short-term relief or a promotional case as an exact long-term outcome match.
 
 Do not treat the connection test as end-to-end HRP acceptance. Record a failed
 item as failed or incomplete rather than inferring it passed from fluent prose.
@@ -111,7 +111,13 @@ regimen extraction but failed this acceptance: it emitted the non-contract
 status `available`, left all promised timestamps blank, mixed creator summaries
 with uninspected visual support, and did not separate exact outcome matches from
 adjacent or promotional cases. The skill was tightened from that real output;
-acceptance remains pending a replacement-skill rerun.
+the replacement rerun corrected literal statuses, attribution, search ledger,
+and incentive/match labels. It still emitted empty timecode placeholders and
+selected six adjacent tutorials with zero exact outcome matches even though the
+earlier run had located firsthand cases. The current skill therefore removes
+timecodes from the scout contract, uses descriptive segment cues, and requires
+an exact-outcome discovery lane before adjacent tutorials. Clean acceptance
+remains pending another replacement-skill rerun.
 
 ## Evidence boundary
 

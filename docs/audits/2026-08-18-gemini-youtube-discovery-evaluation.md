@@ -342,6 +342,16 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
   allowlist, timestamp fail-closed rule, attribution and visual-source checks,
   outcome-match and incentive labels, and a mandatory final self-check. A clean
   owner rerun remains pending.
+- The second owner run corrected every metadata status to
+  `api_visible_complete`, preserved creator attribution, supplied a real query
+  ledger, exposed commercial incentives, and recovered a hydration regimen.
+  Consumer Gemini still emitted blank timecode placeholders and retained six
+  `adjacent_implementation` tutorials with zero exact outcome matches, despite
+  the first run having found firsthand candidates. The skill now stops asking
+  consumer Gemini for timecodes, emits descriptive segment cues for later
+  targeted verification, runs at least three exact-outcome discovery directions
+  first, and prevents polished adjacent tutorials from displacing qualifying
+  firsthand accounts. Clean behavioral acceptance remains pending.
 - The complete deterministic host-boundary gate passed: 58 test files passed,
   one credential-gated file skipped; 967 tests passed, five skipped; typecheck
   and build passed. The identical sandbox run failed only on prohibited
