@@ -54,18 +54,25 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("segment cue");
     expect(skill).toContain("exact_outcome_match");
     expect(skill).toContain("adjacent_implementation");
-    expect(skill).toContain("firsthand_patient_outcome");
+    expect(skill).toContain("independent_patient_self_learning");
+    expect(skill).toContain("independent_provider_treatment_review");
+    expect(skill).toContain("clinic_patient_testimonial");
+    expect(skill).toContain("independence_unclear");
     expect(skill).toContain("firsthand_clinician_self_management");
     expect(skill).toContain("practitioner_reported_case");
     expect(skill).toContain("min(3, ceil(dossier size / 2))");
     expect(skill).toContain("patient-account coverage shortfall");
     expect(skill).toContain("Do not pad, relabel, or invent");
     expect(skill).toContain(
-      "\"[condition]\" \"my story\" -clinic -doctor -hospital -center",
+      "\"[condition]\" \"what I learned\" -clinic -hospital -doctor -center",
     );
     expect(skill).toContain(
-      "\"how I avoided [surgery]\" \"what worked for me\" -pt -physio",
+      "\"how I avoided [surgery]\" \"what worked for me\" \"my routine\"",
     );
+    expect(skill).toContain("-\"patient testimonial\"");
+    expect(skill).toContain("self-directed learning process");
+    expect(skill).toContain("does not count toward the patient quota");
+    expect(skill).toContain("Uncertain independence does not count");
     expect(skill).toContain("commercial_or_promotional");
     expect(skill).toContain("creator relationship or incentive");
     expect(skill).toContain("the creator claims");
@@ -94,6 +101,9 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain(
       "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
     );
+    expect(setup).toContain("independent_patient_self_learning");
+    expect(setup).toContain("independent_provider_treatment_review");
+    expect(setup).toContain("clinic_patient_testimonial");
     expect(setup).toContain("min(3, ceil(dossier size / 2))");
     expect(setup).toContain("patient-account coverage shortfall");
     expect(setup).toContain("Do not treat the connection test as end-to-end HRP acceptance");

@@ -586,6 +586,14 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `min(3, ceil(dossier size / 2))` patient target. A real corpus shortfall must
   remain explicit; the skill cannot pad or misclassify accounts to meet it.
   Clean consumer-Gemini acceptance remains pending.
+- Owner review then narrowed the desired firsthand signal: a patient speaking on
+  a personal channel does not qualify when the video mainly reviews a clinic,
+  provider, procedure, program, or product. The scout now reserves its quota for
+  `independent_patient_self_learning` accounts that expose personal hypotheses,
+  experiments, routines, failures, adaptations, and takeaways. It classifies
+  `independent_provider_treatment_review`, `clinic_patient_testimonial`, and
+  `independence_unclear` separately; none counts toward the quota. Clean
+  consumer-Gemini acceptance remains pending.
 - The required lesson checkpoint at `2026-08-19T04:56:46.422Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current

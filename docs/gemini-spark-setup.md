@@ -103,10 +103,15 @@ and response that Gemini:
 For an outcome-focused request, also confirm that Gemini runs at least four
 patient-specific searches with negative practitioner/institution terms when
 needed. The target is `min(3, ceil(dossier size / 2))` qualifying
-`firsthand_patient_outcome` records. If the successful searches locate fewer,
-the report must state a patient-account coverage shortfall instead of counting
-clinicians, seller-hosted testimonials, or practitioner-retold cases as patient
-accounts.
+`independent_patient_self_learning` records. These must center on the apparent
+independent patient's own experiments, routines, mistakes, adaptations, and
+takeaways. An `independent_provider_treatment_review` or
+`clinic_patient_testimonial` may be useful supplemental material, but neither
+counts toward the patient quota. If independence is unclear, it also does not
+count. If the successful searches locate fewer qualifying accounts, the report
+must state a patient-account coverage shortfall instead of padding the quota
+with clinicians, treatment reviews, seller-hosted testimonials, sponsored
+accounts, or practitioner-retold cases.
 
 Also reject the report when it substitutes `available` for AskRigor's literal
 metadata status, emits a bare bracketed or empty timecode instead of a clickable
@@ -146,6 +151,15 @@ but no hard creator quota. The current revision adds patient-specific queries
 with negative clinic/practitioner terms, a conditional half-dossier/three-video
 patient target, explicit creator-evidence classes, and a fail-closed coverage
 shortfall rather than padding.
+
+The owner then clarified that uploader identity alone was still too broad: a
+patient's personal-channel review of a clinic is firsthand, but it is not the
+self-directed learning signal sought here. The current revision therefore
+reserves the quota for `independent_patient_self_learning`, separates
+`independent_provider_treatment_review` and `clinic_patient_testimonial`, and
+requires the summary to recover the person's hypotheses, trial-and-error,
+routine changes, failures, and takeaways. Unclear independence fails closed and
+does not count.
 
 ## Evidence boundary
 

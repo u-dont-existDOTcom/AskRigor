@@ -368,6 +368,16 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
   When a real corpus cannot meet the target, it must report a coverage shortfall
   rather than padding or misclassification. Clean behavioral acceptance remains
   pending.
+- Owner review identified a narrower selection defect before the next rerun:
+  creator identity alone could still allow a patient's personal-channel clinic
+  review to satisfy the quota even when it contained no meaningful
+  self-directed learning. The contract now counts only
+  `independent_patient_self_learning` records centered on personal hypotheses,
+  experiments, routines, mistakes, adaptations, and takeaways. It separates
+  `independent_provider_treatment_review`, `clinic_patient_testimonial`, and
+  `independence_unclear`; none counts toward the patient quota. This is a
+  selection-contract correction, not a substantive judgment about any treatment
+  claim. Clean behavioral acceptance remains pending.
 - The complete deterministic host-boundary gate passed: 58 test files passed,
   one credential-gated file skipped; 967 tests passed, five skipped; typecheck
   and build passed. The identical sandbox run failed only on prohibited

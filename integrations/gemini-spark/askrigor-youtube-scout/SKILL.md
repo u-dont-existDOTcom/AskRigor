@@ -45,25 +45,30 @@ Use several nonredundant natural-language directions when relevant, including:
 - exact variants, components, techniques, products, or programs suggested by
   promising early candidates
 
-For a patient-outcome lane, use patient-specific queries that resist clinic SEO:
+For an independent-patient lane, search for self-directed learning rather than
+generic patient stories, which are often clinic testimonials. Adapt queries such
+as:
 
-- `"[condition]" "my story" -clinic -doctor -hospital -center`
-- `"how I avoided [surgery]" "what worked for me" -pt -physio`
-- `"[condition]" "patient vlog" OR "firsthand" -clinic -hospital`
-- `"[condition]" "my experience" "cancelled surgery" -doctor -center`
+- `"[condition]" "what I learned" -clinic -hospital -doctor -center`
+- `"how I avoided [surgery]" "what worked for me" "my routine"`
+- `"[condition]" "what I tried" mistakes vlog -clinic -hospital`
+- `"[condition]" "how I manage" "my experience" -doctor -center`
+- `"[condition]" "changed my routine" "what finally worked"`
 
 When practitioner or institutional videos still dominate, rewrite with relevant
 negative terms such as `-clinic`, `-hospital`, `-center`, `-doctor`, `-pt`,
-`-physio`, `-chiropractor`, or `-surgeon`. Record each rewritten query in the
-discovery ledger; do not pretend the negative terms guarantee exclusion.
+`-physio`, `-chiropractor`, `-surgeon`, `-"patient story"`,
+`-"patient testimonial"`, or `-"success story"`. Record each rewritten query
+in the discovery ledger; do not pretend the negative terms guarantee exclusion.
 
 Run the exact-outcome lane first whenever the question asks what helped people
 avoid, delay, recover, discontinue, or achieve another real-world outcome. Use
-at least three distinct firsthand directions, such as patient story, cancelled
-or postponed procedure, and `what finally worked`, before filling the slate with
-practitioner tutorials or mechanisms. Keep useful exact matches even when an
-adjacent tutorial is more polished or detailed. Do not let an adjacent tutorial
-displace a firsthand account with a concrete baseline, outcome, and horizon.
+at least three distinct independent first-person directions, such as `what I
+learned`, self-managed routine changes, mistakes, and `what finally worked`,
+before filling the slate with practitioner tutorials or mechanisms. Keep useful
+exact matches even when an adjacent tutorial is more polished or detailed.
+Do not let an adjacent tutorial displace an independent account with a concrete
+baseline, outcome, horizon, and self-directed learning process.
 
 When exact-outcome searches return candidates, normally retain two or three
 nonredundant exact matches. If the final dossier has zero exact outcome matches,
@@ -72,11 +77,16 @@ to yield a qualifying candidate. Do not imply that adjacent material answers
 the outcome question.
 
 For a dossier of size `N`, target
-`min(3, ceil(dossier size / 2))` qualifying `firsthand_patient_outcome`
-candidates. These must be personally narrated accounts from apparent
-non-clinician patients, not clinicians, clinics, practitioner-retold cases,
-sponsored brand ambassadors, or testimonials republished by a seller. Meet the
-target whenever that many qualifying, nonredundant candidates are located.
+`min(3, ceil(dossier size / 2))` qualifying
+`independent_patient_self_learning` candidates. These must be apparent
+non-clinician patients on independent personal channels, narrating their own
+hypotheses, experiments, routines, mistakes or changes, outcome, horizon, and
+what they learned. The video's main value must be the person's self-management
+journey, not their satisfaction with a clinic, provider, procedure, program, or
+product. Exclude from the quota clinicians, clinic-hosted stories,
+provider-treatment reviews, practitioner-retold cases, sponsored brand
+ambassadors, and testimonials republished by a seller. Meet the target whenever
+that many qualifying, nonredundant candidates are located.
 
 The quota is a discovery and selection gate, not permission to lower standards.
 If at least four successful patient-specific searches yield fewer qualifying
@@ -86,6 +96,13 @@ confidence effect. Do not pad, relabel, or invent patient accounts to meet the
 target. Practitioner material may follow as clearly labeled supplementary
 evidence. Only optimize mechanism diversity after satisfying the patient quota
 or reporting the coverage shortfall.
+
+Uploader identity alone is insufficient. A patient speaking on a personal
+channel about a treatment they received is not necessarily independent
+self-learning. Classify the video's dominant content and apparent incentives.
+Uncertain independence does not count toward the quota; label it
+`independence_unclear` and keep it only as supplemental material if it adds a
+unique, decision-useful signal.
 
 Keep a compact discovery ledger with the exact query or discovery direction,
 whether it was attempted successfully, the distinct hypothesis it targeted,
@@ -105,13 +122,24 @@ Assign one question-match class before selection:
 
 Separately assign one creator-evidence class:
 
-- `firsthand_patient_outcome`: an apparent non-clinician patient personally
-  narrates their own baseline, intervention, outcome, and horizon;
+- `independent_patient_self_learning`: an apparent non-clinician patient on an
+  independent personal channel narrates their own self-directed experiments,
+  routines, mistakes, adaptations, outcome, horizon, and takeaways;
+- `independent_provider_treatment_review`: a patient speaks on an apparently
+  personal channel, but the video's main subject is receiving or reviewing a
+  clinic, provider, procedure, program, or product; it does not count toward the
+  patient quota;
+- `clinic_patient_testimonial`: a clinic, provider, seller, sponsor, or brand
+  hosts, commissions, or republishes a patient's success story; it does not
+  count toward the patient quota;
 - `firsthand_clinician_self_management`: a clinician narrates management of
   their own condition; valuable firsthand material, but it does not count
   toward the patient quota;
 - `practitioner_reported_case`: a clinician, clinic, seller, or coach retells or
-  hosts another person's outcome; or
+  summarizes another person's outcome;
+- `independence_unclear`: available context cannot establish whether a patient
+  account is independent of the material provider, seller, sponsor, or brand;
+  it does not count toward the patient quota; or
 - `adjacent_implementation`: a tutorial, mechanism, or counseling video without
   a qualifying personally narrated outcome.
 
@@ -127,6 +155,10 @@ Use Gemini's fast native YouTube summary as the default. For each promising
 video, recover as much of the following as the video supports:
 
 - the creator's central account and outcome;
+- the self-directed learning process: what the person initially believed or
+  tried, what failed or changed their mind, why they changed course, and what
+  they personally concluded;
+- which parts of the regimen were self-managed versus delivered by a provider;
 - the surprising or hard-to-find claim;
 - concrete intervention details: components, dose or amount, frequency,
   duration, sequence, supervision, adherence, and cointerventions;
@@ -141,7 +173,12 @@ Attribute medical, mechanistic, structural, and outcome statements explicitly:
 write **the creator claims**, reports, proposes, or demonstrates. Do not restate
 them as established facts. Record the creator relationship or incentive, such
 as patient, clinician describing personal self-management, treating clinician,
-program seller, clinic promotion, or unclear.
+program seller, clinic promotion, independent provider-treatment reviewer, or
+unclear. For a proposed `independent_patient_self_learning` record, also state
+the uploader/channel relationship, any apparent sponsorship or commercial tie,
+and the concrete self-directed learning that makes it qualify. Do not describe
+an account as independent when that relationship cannot be established from
+available context.
 
 Do not spend tokens watching or uploading an entire video by default. Request
 targeted visual inspection only when the summary indicates that an important
@@ -237,8 +274,10 @@ benefit from watching. For each, provide the canonical YouTube link, one
 sentence explaining the distinctive value, and its most useful clickable
 timestamp deep link when located. Use `not located` rather than an empty
 timecode. Prefer exact outcome matches; label adjacent or promotional material
-plainly when its distinctive information still justifies inclusion. Do not pad
-the list.
+plainly when its distinctive information still justifies inclusion. Prefer
+`independent_patient_self_learning` videos over clinic testimonials and
+provider-treatment reviews when they offer comparable decision value. Do not
+pad the list.
 
 ## Final self-check
 
@@ -262,5 +301,9 @@ Before returning the report, repair every failed item:
    zero-exact result is prominent and is not disguised by adjacent tutorials.
 9. The patient quota is met, or a patient-account coverage shortfall reports
    the target, located count, exact successful queries, and confidence effect.
-   No clinician, clinic testimonial, seller-hosted case, or brand ambassador is
-   counted as `firsthand_patient_outcome`.
+   Every counted record is `independent_patient_self_learning` and contains
+   concrete personal experiments, routines, mistakes or adaptations, and
+   takeaways. No clinician, clinic testimonial, provider-treatment review,
+   seller-hosted case, sponsored account, brand ambassador, or
+   `independence_unclear` record is counted. Uncertain independence does not
+   count.
