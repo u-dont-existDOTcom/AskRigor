@@ -553,6 +553,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   skips; typecheck and build passed. An independent capability-denied forward
   test failed closed; real consumer-Gemini scout acceptance remains pending
   owner upload.
+- The first owner-run consumer-Gemini scout then demonstrated useful discovery
+  and detailed regimen extraction, including the previously missed clinician
+  self-management direction, but failed the output contract. It returned
+  `available` rather than a literal AskRigor status, left every timestamp blank,
+  blurred creator summaries with uninspected visual support, and did not
+  distinguish exact long-term outcome matches from adjacent or promotional
+  material. No substantive claim was promoted to evidence. The next skill
+  revision adds a literal-status allowlist, empty-timestamp rejection,
+  attribution/source checks, outcome-match and incentive classes, and a final
+  self-audit; real replacement-skill acceptance remains pending.
 - The required lesson checkpoint at `2026-08-19T04:56:46.422Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current

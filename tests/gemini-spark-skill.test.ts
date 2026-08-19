@@ -25,6 +25,9 @@ describe("Gemini Spark AskRigor skill", () => {
     const skill = await readFile(skillUrl, "utf8");
 
     expect(skill).toContain("get_youtube_video");
+    expect(skill).toContain("api_visible_complete");
+    expect(skill).toContain("`available` is not an AskRigor `access_status`");
+    expect(skill).toMatch(/Do not paraphrase, normalize, or\s+invent the status/);
     expect(skill).not.toContain("survey_youtube_community");
     expect(skill).not.toContain("audit_youtube_video_community");
     expect(skill).not.toContain("get_youtube_transcript");
@@ -41,6 +44,15 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Videos worth watching");
     expect(skill).toContain("canonical YouTube link");
     expect(skill).toContain("`creator_summary` or `visual_observation`");
+    expect(skill).toContain("Never emit an empty timestamp field");
+    expect(skill).toContain("exact_outcome_match");
+    expect(skill).toContain("adjacent_implementation");
+    expect(skill).toContain("commercial_or_promotional");
+    expect(skill).toContain("creator relationship or incentive");
+    expect(skill).toContain("the creator claims");
+    expect(skill).toContain("exact query or discovery direction");
+    expect(skill).toContain("## Final self-check");
+    expect(skill).toContain("metadata-validated");
   });
 
   it("documents the one-time connection and per-task scout handoff honestly", async () => {

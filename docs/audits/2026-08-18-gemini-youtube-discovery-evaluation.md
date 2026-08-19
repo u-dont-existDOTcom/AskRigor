@@ -331,6 +331,17 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
   and validation as unattempted, returned no invented videos, and made no HRP
   or research-completion claim. A real consumer-Gemini scout task remains the
   required behavioral acceptance after owner upload.
+- The first owner-run consumer-Gemini scout found a previously missed
+  clinician self-management video and extracted unusually concrete regimen
+  details, showing that the discovery/summary role is useful. It nevertheless
+  failed acceptance: Gemini substituted the non-contract status `available`
+  for the literal MCP status, emitted empty timestamps, blurred uninspected
+  visuals with creator-summary support, and mixed exact outcome matches with
+  adjacent short-term and promotional cases. No medical claim from that output
+  was accepted as verified evidence. The revised skill adds a literal-status
+  allowlist, timestamp fail-closed rule, attribution and visual-source checks,
+  outcome-match and incentive labels, and a mandatory final self-check. A clean
+  owner rerun remains pending.
 - The complete deterministic host-boundary gate passed: 58 test files passed,
   one credential-gated file skipped; 967 tests passed, five skipped; typecheck
   and build passed. The identical sandbox run failed only on prohibited

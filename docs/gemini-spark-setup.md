@@ -98,8 +98,20 @@ and response that Gemini:
 7. makes no `HRP-complete`, evidence-completeness, efficacy, safety, causality,
    treatment, or individualized recommendation claim.
 
+Also reject the report when it substitutes `available` for AskRigor's literal
+metadata status, leaves any timestamp blank, describes an uninspected visual as
+support, or treats adjacent short-term relief or a promotional case as an exact
+long-term outcome match.
+
 Do not treat the connection test as end-to-end HRP acceptance. Record a failed
 item as failed or incomplete rather than inferring it passed from fluent prose.
+
+The first real owner-run scout on 2026-08-19 showed useful discovery and detailed
+regimen extraction but failed this acceptance: it emitted the non-contract
+status `available`, left all promised timestamps blank, mixed creator summaries
+with uninspected visual support, and did not separate exact outcome matches from
+adjacent or promotional cases. The skill was tightened from that real output;
+acceptance remains pending a replacement-skill rerun.
 
 ## Evidence boundary
 
