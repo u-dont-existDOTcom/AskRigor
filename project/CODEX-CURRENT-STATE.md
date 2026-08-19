@@ -510,7 +510,26 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   creator made those claims in the video. No API key, raw transcript, comment
   corpus, or unrestricted provider response was retained in the repository,
   and no production or protocol behavior changed.
-- The required lesson checkpoint at `2026-08-18T17:39:21.001Z` remained
+- A 2026-08-19 official YouTube Data API follow-up validated a temporary local
+  key without retaining it. Exact metadata for three videos was
+  `api_visible_complete` in 344 milliseconds. The discovery-video comment
+  traversal exhausted 11 top-level pages in 5.358 seconds and returned 1,055
+  threads, 921 embedded replies, and 1,976 unique records, but 35 reply-count
+  mismatches require overall `partial`. Aggregate matches included nine
+  hydration/electrolyte records (two uploader records), nine gelatin records,
+  and 119 collagen records. This supports the official API for
+  search/metadata/comments; it cannot download arbitrary public captions,
+  which Google limits to OAuth users with edit permission.
+- Google documents direct Gemini video input as audio plus one visual frame per
+  second at roughly 300 tokens per video-second by default, explaining the
+  measured 22.7-33.9 seconds and 82,152-171,688 input tokens. Consumer Gemini's
+  approximately one-second YouTube summary uses an undocumented Connected App
+  retrieval contract and may be transcript/metadata or cache based. There is no
+  supported consumer-Gemini API. A personal laptop browser bridge remains a
+  possible but brittle and policy-sensitive experiment; a VPS is higher risk,
+  Gemini Spark MCP runs in the reverse direction, and the supported NotebookLM
+  Enterprise API is disproportionate for this use case.
+- The required lesson checkpoint at `2026-08-19T02:08:08.106Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
