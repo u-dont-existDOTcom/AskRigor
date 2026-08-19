@@ -1950,6 +1950,102 @@ describe("AskRigor Streamable HTTP server", () => {
     });
   });
 
+  it("answers Gemini browser preflight with a bounded MCP CORS policy", async () => {
+    await withHttpServer(async (baseUrl) => {
+      const response = await fetch(new URL("/mcp", baseUrl), {
+        method: "OPTIONS",
+        headers: {
+          origin: "https://gemini.google.com",
+          "access-control-request-method": "POST",
+          "access-control-request-headers":
+            "content-type,mcp-protocol-version,mcp-session-id"
+        }
+      });
+
+      expect(response.status).toBe(204);
+      expect(await response.text()).toBe("");
+      expect(response.headers.get("access-control-allow-origin")).toBe(
+        "https://gemini.google.com"
+      );
+      expect(response.headers.get("access-control-allow-methods")).toBe(
+        "GET, POST, DELETE, OPTIONS"
+      );
+      expect(response.headers.get("access-control-allow-headers")).toBe(
+        "Accept, Content-Type, Last-Event-ID, MCP-Protocol-Version, MCP-Session-Id"
+      );
+      expect(response.headers.get("access-control-expose-headers")).toBe(
+        "MCP-Session-Id"
+      );
+      expect(response.headers.get("access-control-max-age")).toBe("600");
+      expect(response.headers.get("vary")).toBe(
+        "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+      );
+    });
+  });
+
+  it("allows Gemini's exact Origin on a standard MCP initialization", async () => {
+    await withHttpServer(async (baseUrl) => {
+      const response = await fetch(new URL("/mcp", baseUrl), {
+        method: "POST",
+        headers: {
+          accept: "application/json, text/event-stream",
+          "content-type": "application/json",
+          origin: "https://gemini.google.com"
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2025-11-25",
+            capabilities: {},
+            clientInfo: { name: "gemini-spark-test", version: "1.0.0" }
+          }
+        })
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("access-control-allow-origin")).toBe(
+        "https://gemini.google.com"
+      );
+      expect(response.headers.get("access-control-expose-headers")).toBe(
+        "MCP-Session-Id"
+      );
+      expect(await response.text()).toContain('"protocolVersion":"2025-11-25"');
+    });
+  });
+
+  it("rejects untrusted MCP browser origins before transport handling", async () => {
+    await withHttpServer(async (baseUrl) => {
+      const response = await fetch(new URL("/mcp", baseUrl), {
+        method: "POST",
+        headers: {
+          accept: "application/json, text/event-stream",
+          "content-type": "application/json",
+          origin: "https://attacker.example"
+        },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "initialize",
+          params: {
+            protocolVersion: "2025-11-25",
+            capabilities: {},
+            clientInfo: { name: "untrusted-origin-test", version: "1.0.0" }
+          }
+        })
+      });
+
+      expect(response.status).toBe(403);
+      expect(response.headers.get("access-control-allow-origin")).toBeNull();
+      expect(await response.json()).toEqual({
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "origin_not_allowed" },
+        id: null
+      });
+    });
+  });
+
   it("rejects an unfinished chunked MCP POST as soon as it exceeds 1 MiB", async () => {
     await withHttpServer(async (baseUrl) => {
       const response = await sendOpenChunkedPost(

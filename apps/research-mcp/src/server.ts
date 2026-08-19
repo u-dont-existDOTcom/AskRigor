@@ -15,6 +15,7 @@ import {
   HEALTH_PAYLOAD,
   MAX_MCP_REQUEST_BYTES,
   parseTrustedClientIpHeader,
+  PUBLIC_MCP_BROWSER_ORIGINS,
   PUBLIC_MCP_CONCURRENCY_LIMIT,
   PUBLIC_RATE_LIMIT,
   publicServerIsEnabled,
@@ -165,6 +166,23 @@ export function createAskRigorHttpServer(
     if (!publicServerEnabled) {
       writeJsonRpcError(response, 503, -32000, "public_server_disabled", true);
       return;
+    }
+
+    const origin = request.headers.origin;
+    if (origin !== undefined) {
+      if (
+        typeof origin !== "string" ||
+        !PUBLIC_MCP_BROWSER_ORIGINS.some((allowed) => allowed === origin)
+      ) {
+        writeJsonRpcError(response, 403, -32000, "origin_not_allowed", true);
+        return;
+      }
+
+      applyMcpCorsHeaders(response, origin);
+      if (request.method === "OPTIONS") {
+        writeMcpCorsPreflight(response);
+        return;
+      }
     }
 
     if (!rateLimiter.consume(resolveClientIp(request, trustedClientIpHeader))) {
@@ -328,6 +346,29 @@ function retainRequestErrorListenerUntilClose(request: IncomingMessage): void {
 
   request.on("error", onError);
   request.once("close", onClose);
+}
+
+function applyMcpCorsHeaders(response: ServerResponse, origin: string): void {
+  response.setHeader("access-control-allow-origin", origin);
+  response.setHeader("access-control-expose-headers", "MCP-Session-Id");
+  response.setHeader("vary", "Origin");
+}
+
+function writeMcpCorsPreflight(response: ServerResponse): void {
+  response.setHeader(
+    "access-control-allow-methods",
+    "GET, POST, DELETE, OPTIONS"
+  );
+  response.setHeader(
+    "access-control-allow-headers",
+    "Accept, Content-Type, Last-Event-ID, MCP-Protocol-Version, MCP-Session-Id"
+  );
+  response.setHeader("access-control-max-age", "600");
+  response.setHeader(
+    "vary",
+    "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+  );
+  response.writeHead(204).end();
 }
 
 function writeJsonRpcError(
