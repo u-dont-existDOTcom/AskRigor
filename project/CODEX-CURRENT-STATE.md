@@ -1145,6 +1145,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   two-sentence question group; a pass retains the group and proceeds to the
   remaining exact-family shortcut and final-self-check changes. The canonical
   v15 skill remains unmoved and unchanged.
+- The owner reports Probe 20 failed despite each included component passing
+  independently. Probe 21 removes the accepted schema changes and tests only
+  the two positive question safeguards together: evidence-map-first ordering
+  from Probe 18 and source alignment from Probe 15. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/21-repaired-question-pair/SKILL.md`, 359
+  lines and 36,581 bytes, SHA-256
+  `299da8d50802b20ff84586619f65c844ea98a9664b2f5b74d768245ae7706a42`.
+  It passed the skill validator. A failure identifies interaction between the
+  two individually accepted question sentences; a pass identifies interaction
+  between the question group and the accepted schema group. The canonical v15
+  skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
