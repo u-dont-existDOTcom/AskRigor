@@ -1236,6 +1236,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits compact items 1–5; a pass
   localizes the rejected wording to compact items 6–9. The canonical v15 skill
   remains unmoved and unchanged.
+- The owner reports Probe 28 failed. Probe 29 narrows the compact self-check to
+  items 1–3 only: mode/packet framing, metadata and attribution, and text-only
+  link hygiene. All coverage, scope/family, evidence, remedy-scan, rabbit-hole,
+  radical-claim, and rediscovery checks remain v13. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/29-compact-self-check-items-1-3/SKILL.md`,
+  351 lines and 36,203 bytes, SHA-256
+  `cb1d3006654248c57c1666537aecc7aa4e847a18e5baec30ff6382b124e60b7b`.
+  It passed the skill validator. A failure splits items 1–3; a pass localizes
+  the rejected top-half wording to compact items 4–5. The canonical v15 skill
+  remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

@@ -865,6 +865,33 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 26 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected compact
+self-check items 1–5 on the cumulative base. Probe 29 narrows this to compact
+items 1–3 while restoring coverage, scope, family, and all later checks to v13.
+The canonical v15 development skill was not moved or changed.
+
+## Probe 29: compact final self-check items 1–3
+
+Local path:
+`.artifacts/gemini-upload-bisect/29-compact-self-check-items-1-3/SKILL.md`
+
+SHA-256:
+`cb1d3006654248c57c1666537aecc7aa4e847a18e5baec30ff6382b124e60b7b`
+
+This starts from accepted Probe 26. It replaces only v13 self-check items 1–5
+with compact items 1–3: mode/packet framing, metadata and attribution, and
+text-only link hygiene. Every coverage, scope, intervention-family, evidence,
+remedy-scan, rabbit-hole, radical-claim, and rediscovery check remains v13 and
+is renumbered 4–11. The v13 contract marker remains.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split compact items 1–3 again;
+- **passes:** the rejected wording is in compact items 4–5, so test those two
+  separately on the accepted cumulative base; and
+- **inconsistent result:** repeat accepted Probe 26 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 350 lines and 35,783 bytes. The canonical v15 development skill
+validator at 351 lines and 36,203 bytes. The canonical v15 development skill
 was not moved or changed.
