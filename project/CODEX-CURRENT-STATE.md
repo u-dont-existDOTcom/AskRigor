@@ -539,7 +539,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Owner correction rejected the initial `run-askrigor-research` skill because
   it assigned complex Universal/HRP orchestration and completion judgment to
   Gemini. The replacement
-  `integrations/gemini-spark/askrigor-youtube-scout/SKILL.md` restricts Gemini to
+  `integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`
+  restricts Gemini to
   intelligent YouTube discovery, fast creator summaries, selective visual
   observations, and exact-link validation through `get_youtube_video`. It
   returns a structured handoff to a separate capable AskRigor agent and cannot
@@ -611,7 +612,23 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   comment-corpus acquisition. Detailed regimen and dossier work remains deferred
   to targeted rediscovery. Clean staged consumer-Gemini acceptance remains
   pending.
-- The required lesson checkpoint at `2026-08-20T08:24:35.907Z` remained
+- The next owner-run test found the held-out `GROWING MY HIP BACK` video and
+  useful remedy families, establishing a major discovery-recall improvement.
+  It nevertheless emitted the obsolete eight-record full dossier, old creator
+  classes, and `Videos worth watching` instead of the staged seed packet. That
+  fingerprint indicates an old or cached skill copy. The diagnostic skill is
+  now distinctly named `scout-youtube-for-askrigor-staged` and requires
+  `Scout contract: staged-remedy-scan-v1` as the first response line plus the
+  active mode on line two. Clean acceptance requires those markers and only
+  two or three comment-audit seeds in `seed_discovery`.
+- Local validation passed the skill validator at 499 lines, the focused Gemini
+  contract suite 6/6, typecheck, and build. The sandboxed complete test run
+  passed 899 tests but recorded 70 failures dominated by prohibited localhost
+  listeners plus secondary timeouts. Two attempts to rerun `npm run verify`
+  through the required host boundary expired in the automatic approval review
+  before execution, so the complete deterministic gate remains unverified for
+  this diagnostic revision rather than failed on product behavior.
+- The required lesson checkpoint at `2026-08-20T08:55:45.993Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
@@ -758,7 +775,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Finish the matched Gemini/transcript timing comparison after the recorded
+Delete or disable the old Gemini scout skill, upload
+`integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`, invoke
+`/scout-youtube-for-askrigor-staged` in a fresh Spark chat, and reject the run
+immediately if the two diagnostic lines are absent. Separately finish the
+matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision
 before any production integration. Separately finish exact local verification
 and diff review of the existing transcript/evidence-frontier follow-up, commit

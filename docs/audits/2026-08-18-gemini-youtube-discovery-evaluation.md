@@ -289,7 +289,7 @@ is not part of the MCP inventory.
 The initial owner-uploadable skill incorrectly assigned Universal/HRP
 orchestration and completion judgment to Gemini. It was replaced before
 substantive use by
-`integrations/gemini-spark/askrigor-youtube-scout/SKILL.md`. The replacement
+`integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`. The replacement
 uses Gemini only for public YouTube discovery, creator-content summaries, and
 targeted visual observations. It calls AskRigor only to validate exact video
 identities and links, then emits a structured handoff for a separate capable

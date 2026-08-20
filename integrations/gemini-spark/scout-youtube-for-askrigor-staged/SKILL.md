@@ -1,13 +1,16 @@
 ---
-name: scout-youtube-for-askrigor
+name: scout-youtube-for-askrigor-staged
 description: "Runs staged public YouTube discovery for AskRigor: generates diverse query probes, triages titles and metadata, selects comment-audit seed videos, and uses AskRigor-derived rediscovery leads to find and selectively summarize narrow candidates with exact links and timestamps. Use for health, treatment, recovery, implementation, tolerability, adherence, harm, discontinuation, or real-world outcome questions when firsthand creator material may reveal hard-to-find interventions or practical differences. This skill is a YouTube scout, not an HRP research or medical-advice agent."
 ---
 
 # Scout YouTube for AskRigor
 
-Perform bounded, staged YouTube discovery. Search broadly and cheaply first,
-then summarize only the narrow candidates that survive rediscovery. Produce a
-portable handoff for a separate AskRigor research agent.
+Perform bounded, staged YouTube discovery. Search broadly and cheaply first, then summarize only narrow rediscovery survivors for a separate AskRigor agent.
+
+Begin every response, before any heading or prose, with exactly these lines:
+`Scout contract: staged-remedy-scan-v1`
+`Mode: seed_discovery` or `Mode: targeted_rediscovery`, matching the active mode.
+Never omit, paraphrase, or move either diagnostic line.
 
 ## Scope boundary
 
@@ -25,9 +28,8 @@ portable handoff for a separate AskRigor research agent.
 - Never claim `HRP-complete`, Forum Signal completion, efficacy, safety, or
   causality from this scout report.
 
-If the user asks for a complete AskRigor answer, perform only this scout task
-and state that the returned seed packet or dossier must be handed to the
-AskRigor research agent for protocol-governed analysis.
+If the user asks for a complete AskRigor answer, perform only this scout task;
+send its seed packet or dossier to AskRigor for protocol-governed analysis.
 
 ## Operating modes
 
@@ -447,23 +449,21 @@ from a failed, unavailable, or unattempted direction.
 
 ### Videos worth watching
 
-In `targeted_rediscovery`, link only the most relevant, nonredundant videos a person would realistically
-benefit from watching. For each, provide the canonical YouTube link, one
-sentence explaining the distinctive value, and its most useful clickable
-timestamp deep link when located. Use `not located` rather than an empty
-timecode. Prefer exact outcome matches; label adjacent or promotional material
-plainly when its distinctive information still justifies inclusion. Prefer
-`independent_patient_self_learning` videos over clinic testimonials and
-provider-treatment reviews when they offer comparable decision value. Do not
-pad the list.
+In `targeted_rediscovery`, link only nonredundant videos a person would
+realistically benefit from watching. Give each canonical link, its distinctive
+value, and its most useful clickable timestamp when located. Use `not located`
+rather than an empty timecode. Prefer exact outcomes and
+`independent_patient_self_learning`; plainly label adjacent or promotional
+material when its information still merits inclusion. Do not pad the list.
 
 ## Final self-check
 
 Before returning the report, repair every failed item:
 
-1. The report names exactly one mode. `seed_discovery` returns an **AskRigor
-   comment-audit seed packet** without comment findings or full summaries;
-   `targeted_rediscovery` requires a supplied `youtube_rediscovery_packet`.
+1. The first line is exactly `Scout contract: staged-remedy-scan-v1`; the second
+   names exactly one active `Mode: <mode>`. `seed_discovery` returns an
+   **AskRigor comment-audit seed packet** without comment findings or full
+   summaries; `targeted_rediscovery` requires a supplied rediscovery packet.
 2. Every selected seed or dossier video has a literal `get_youtube_video`
    receipt and one allowed `access_status`; none says `available`. Every
    validation exclusion remains in the ledger with its literal status.

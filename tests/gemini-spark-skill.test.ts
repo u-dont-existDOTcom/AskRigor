@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 
 const skillUrl = new URL(
-  "../integrations/gemini-spark/askrigor-youtube-scout/SKILL.md",
+  "../integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
   import.meta.url,
 );
 const setupUrl = new URL("../docs/gemini-spark-setup.md", import.meta.url);
@@ -12,7 +12,7 @@ describe("Gemini Spark AskRigor skill", () => {
   it("keeps Gemini in the bounded YouTube scout role", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("name: scout-youtube-for-askrigor");
+    expect(skill).toContain("name: scout-youtube-for-askrigor-staged");
     expect(skill).toContain("YouTube discovery and creator-content summarization");
     expect(skill).toContain("Do not load or interpret Universal or HRP");
     expect(skill).toContain("Do not decide which HRP modules apply");
@@ -129,6 +129,16 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).not.toContain("Dr. Eric Berg");
   });
 
+  it("self-identifies the staged contract before any report content", async () => {
+    const skill = await readFile(skillUrl, "utf8");
+
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v1");
+    expect(skill).toContain("Mode: seed_discovery");
+    expect(skill).toContain("Mode: targeted_rediscovery");
+    expect(skill).toMatch(/Begin every response, before any heading or prose/);
+    expect(skill).toMatch(/Never omit, paraphrase,\s+or move either diagnostic line/);
+  });
+
   it("documents the one-time connection and per-task scout handoff honestly", async () => {
     const setup = await readFile(setupUrl, "utf8");
 
@@ -139,7 +149,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain("API billing does not change");
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
-    expect(setup).toContain("scout-youtube-for-askrigor");
+    expect(setup).toContain("scout-youtube-for-askrigor-staged");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v1");
     expect(setup).toContain("does not execute HRP");
     expect(setup).toContain("manual transfer at each stage");
     expect(setup).toContain(

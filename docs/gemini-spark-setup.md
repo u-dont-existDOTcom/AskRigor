@@ -50,19 +50,23 @@ or network failure.
 
 1. In Spark, open **Skills → Upload**.
 2. Upload
-   `integrations/gemini-spark/askrigor-youtube-scout/SKILL.md`.
+   `integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`.
 3. Review it, create the skill, and leave automatic use enabled if desired.
 
-The skill is named `scout-youtube-for-askrigor`. It deliberately contains no
-Universal or HRP orchestration.
+The diagnostic skill is named `scout-youtube-for-askrigor-staged`. Delete or
+disable any older `scout-youtube-for-askrigor` copy before uploading it. It
+deliberately contains no Universal or HRP orchestration.
 
 ## Normal scout task
 
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
-skill, choose `/scout-youtube-for-askrigor`. Select Gemini's YouTube app if it
-does not activate automatically. Select the AskRigor custom app when Gemini
-needs to validate exact video identities with `get_youtube_video`.
+skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
+`Scout contract: staged-remedy-scan-v1`, followed by the active mode on the
+second line. If the marker is absent, stop: Gemini did not execute the current
+skill. Select Gemini's YouTube app if it does not activate automatically.
+Select the AskRigor custom app when Gemini needs to validate exact video
+identities with `get_youtube_video`.
 
 Without a rediscovery packet, Gemini uses `seed_discovery`. It generates 12–20
 diverse query probes, searches semantic rings around the exact condition,
@@ -214,5 +218,5 @@ only when a claim is both material and unusually decision-useful.
 ## Removal
 
 Remove the AskRigor custom app from Gemini Connected Apps and disable or delete
-`scout-youtube-for-askrigor`. Removing the app unlinks the MCP server from the
-Google Account; no AskRigor server credential needs rotation.
+`scout-youtube-for-askrigor-staged`. Removing the app unlinks the MCP server
+from the Google Account; no AskRigor server credential needs rotation.
