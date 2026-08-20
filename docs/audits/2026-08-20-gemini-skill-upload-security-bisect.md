@@ -92,3 +92,25 @@ Interpretation:
   clauses;
 - **passes:** test the conventional-count and firsthand-count substitutions as
   the remaining half of Probe 02.
+
+Result: **failed**. The rejected content is within this one replacement
+paragraph.
+
+## Probe 04: overlooked-family count coverage
+
+Local path:
+`.artifacts/gemini-upload-bisect/04-family-count-coverage/SKILL.md`
+
+SHA-256:
+`81a79526e554c3fa4c40845bcc97f8309f48e4b50858380e992efddb093d2c34`
+
+This is exact v13 except for one inserted clause: an overlooked family counts
+only when a probe in that family has passing batch coverage. Every other word,
+line break, and instruction remains the accepted v13 content.
+
+Interpretation:
+
+- **fails:** the inserted coverage clause itself, or its interaction with v13,
+  is sufficient to trigger the scanner;
+- **passes:** the trigger is in Probe 03's separate-treatment/granularity
+  rewrite rather than its family-count clause.
