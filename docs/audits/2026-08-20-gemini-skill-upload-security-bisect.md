@@ -114,3 +114,25 @@ Interpretation:
   is sufficient to trigger the scanner;
 - **passes:** the trigger is in Probe 03's separate-treatment/granularity
   rewrite rather than its family-count clause.
+
+Result: **failed**. The clause is sufficient only if the scanner accepts a
+semantically unchanged mutation control. All modified probes have failed so
+far, so a hash/cache or nondeterministic boundary must be excluded first.
+
+## Probe 05: blank-line mutation control
+
+Local path:
+`.artifacts/gemini-upload-bisect/05-blank-line-control/SKILL.md`
+
+SHA-256:
+`36af81951bcede7ac83955d7995e9c7ef417ea18f9fd127be1b8b782097f89f2`
+
+This is byte-identical to accepted v13 through byte 36,422 and appends one LF
+byte. It changes no instruction, marker, metadata, word, or punctuation.
+
+Interpretation:
+
+- **fails:** stop textual bisecting; Gemini is accepting the exact old artifact
+  but rejecting any mutation, or the scanner result is unstable;
+- **passes:** return to Probe 04 and treat its inserted coverage clause as a
+  sufficient content trigger.

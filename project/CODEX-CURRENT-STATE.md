@@ -955,6 +955,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   bounded fourth bisect step.
+- The owner reports Probe 04 failed despite differing from accepted v13 by only
+  one benign coverage clause. Because every changed artifact has failed, Probe
+  05 is a mutation control: exact v13 plus one trailing LF byte and no semantic
+  change. Its ignored path is
+  `.artifacts/gemini-upload-bisect/05-blank-line-control/SKILL.md`; it is 36,423
+  bytes with SHA-256
+  `36af81951bcede7ac83955d7995e9c7ef417ea18f9fd127be1b8b782097f89f2`
+  and passed the skill validator. A failure stops content bisecting and points
+  to exact-artifact caching/allowlisting or unstable scanner behavior; a pass
+  confirms the Probe 04 clause is sufficient.
+- The required lesson checkpoint at `2026-08-20T19:20:55.628Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  mutation-control step.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
