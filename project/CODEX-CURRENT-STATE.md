@@ -1247,6 +1247,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits items 1–3; a pass localizes
   the rejected top-half wording to compact items 4–5. The canonical v15 skill
   remains unmoved and unchanged.
+- The owner reports Probe 29 passed. Compact self-check items 1–3 are safe on
+  the cumulative base. Probe 30 adds only compact item 4, covering
+  `batch_anchor_evidence`, three firsthand rows, passing-only coverage, and the
+  one-treatment-per-batch rule; scope/family and later checks remain v13. Its
+  announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/30-compact-self-check-item-4/SKILL.md`, 351
+  lines and 36,162 bytes, SHA-256
+  `17151ab0f727d3f5ded0221e70265f508a4c3c6684b6c383963f64be70c567a7`.
+  It passed the skill validator. A failure localizes the wording to item 4; a
+  pass localizes the top-half failure to compact item 5. The canonical v15
+  skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
