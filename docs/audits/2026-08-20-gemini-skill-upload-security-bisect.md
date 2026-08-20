@@ -1172,6 +1172,88 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 31 and this exact hash before
   attributing the failure to content.
 
-Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 350 lines and 35,908 bytes. The canonical v15 development skill
-was not moved or changed.
+Result: **passed**. The owner confirmed Gemini accepted the three-row firsthand
+quota on the cumulative Probe 31 base. Probe 39 therefore isolates the final
+output-ledger rewrite without the quota or anchor-body changes. The canonical
+v15 development skill was not moved or changed.
+
+## Probe 39: output ledger only
+
+Local path:
+`.artifacts/gemini-upload-bisect/39-output-ledger/SKILL.md`
+
+SHA-256:
+`03388ff4880218bac054504fc87094edafe3bc166a42deed188d546399b9933c`
+
+This starts from accepted Probe 31 and replaces only item 1 of the seed packet
+output contract. It adds the independent-firsthand count, nonempty anchors,
+`batch_anchor_evidence`, and compact direct/adjacent candidate-row wording to
+the query and search ledgers. The execution-body anchor and firsthand changes
+are absent, leaving all other clauses Probe 31/v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split the added count/anchor fields from the compact candidate-row
+  and ledger wording;
+- **passes:** retain the output clause, then assemble a scanner-compatible
+  candidate from the independently accepted positive body replacements; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
+Result: **passed after a transient scanner disagreement**. The owner uploaded
+the intended Probe 39 file through a Gemini conversation. Gemini first reported
+that the virus check failed, then rechecked its own result, reported that the
+file was fine, and replaced the prior skill. The owner did not make or report a
+second local file revision between those two outcomes. Because the installed
+skill was not exported for byte readback, this is an accepted conversation-
+replacement receipt for the intended hash, not proof that the installed copy is
+byte-identical. Preserve both scanner outcomes as nondeterminism evidence.
+
+The conversation-upload path may be operationally useful because Gemini can
+surface a rejection reason and a proposed correction or recheck instead of
+returning only an opaque settings-screen failure. A future automatic content
+rewrite must be exported and diffed before it is treated as the tested artifact.
+The local Probe 39 artifact passed the skill validator at 350 lines and 35,914
+bytes. The canonical v15 development skill was not moved or changed.
+
+## Probe 40: cumulative positive contract
+
+Local path:
+`.artifacts/gemini-upload-bisect/40-cumulative-positive-contract/SKILL.md`
+
+SHA-256:
+`60bb2ac4d273a406d39fabb923cc4cf38c6561cc4a4a5d55758260c22d9d1687`
+
+This starts from accepted Probe 31 and combines only independently accepted
+replacements:
+
+- Probe 33's passing-coverage counts and one-remedy granularity;
+- Probe 37's positive per-probe anchor sentence, without the rejected universal
+  anchor paragraph;
+- Probe 38's three-row firsthand quota and count; and
+- Probe 39's accepted query/search-ledger output clause.
+
+It retains Probe 31's reduced output schema, evidence ordering, exact-family
+shortcuts, hybrid final self-check, and v13 contract marker. Rejected primary
+schema wording, terse mapping commands, compact self-check item 5, sentinel
+prohibitions, and correction commands remain absent.
+
+Upload this exact artifact through the same conversation path and interpret the
+upload only; do not run it as a production skill:
+
+- **passes:** the cumulative positive contract is scanner-compatible; isolate
+  the v13-to-v15 contract-marker change next;
+- **initial virus-check failure followed by unchanged acceptance:** preserve
+  both outcomes and classify the scanner result as transient rather than
+  attributing it to a clause; and
+- **remains failed after one exact-file recheck:** rerun exact Probe 39 through
+  the same conversation path before changing Probe 40. If Probe 39 no longer
+  reproduces, stop textual attribution and establish a new current baseline.
+
+If Gemini proposes or performs a content rewrite, export and diff the resulting
+skill before calling the probe passed. The local artifact passed the skill
+validator at 351 lines and 35,917 bytes, with a 726-character maximum line. The
+focused Gemini contract suite passed 8/8. The complete host-boundary
+deterministic gate passed typecheck, 58 test files with one declared skip, 971
+tests with five declared skips, and build. The canonical v15 development skill
+remains unmoved and unchanged.

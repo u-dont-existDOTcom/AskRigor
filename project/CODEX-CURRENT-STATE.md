@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-Updated: 2026-08-19
+Updated: 2026-08-20
 
 ## Goal
 
@@ -1354,6 +1354,42 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure rewrites or omits the counter clause;
   a pass moves to the output-ledger clause. The canonical v15 skill remains
   unmoved and unchanged.
+- The owner reports Probe 38 passed. Its three-row firsthand quota is therefore
+  compatible with accepted Probe 31. Probe 39 starts from Probe 31 and changes
+  only seed-packet output item 1 to add the firsthand count, nonempty anchors,
+  batch anchor evidence, and compact query/search-ledger wording. All matching
+  execution-body changes are absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/39-output-ledger/SKILL.md`, 350 lines and
+  35,914 bytes, SHA-256
+  `03388ff4880218bac054504fc87094edafe3bc166a42deed188d546399b9933c`.
+  It passed the skill validator. A failure splits fields from compact wording;
+  a pass permits cumulative assembly from accepted positive replacements. The
+  canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 39 passed through the Gemini conversation-upload
+  path after a transient scanner disagreement: Gemini first reported a failed
+  virus check, then rechecked itself, reported the file was fine, and replaced
+  the prior skill. No owner-directed local file revision was reported between
+  those outcomes. Installed bytes were not exported for readback, so preserve
+  both outcomes and treat this as an accepted replacement receipt for the
+  intended Probe 39 hash, not proof of byte-identical installation. Future
+  automatic rewrites must be exported and diffed before they count as the
+  tested artifact.
+- Probe 40 now assembles the independently accepted positive clauses on Probe
+  31: Probe 33's passing-coverage counts and one-remedy granularity, Probe 37's
+  positive per-probe anchors, Probe 38's firsthand quota, and Probe 39's output
+  ledger. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/40-cumulative-positive-contract/SKILL.md`,
+  351 lines and 35,917 bytes, maximum line length 726, SHA-256
+  `60bb2ac4d273a406d39fabb923cc4cf38c6561cc4a4a5d55758260c22d9d1687`.
+  It passed the local skill validator and focused Gemini contract suite 8/8.
+  The complete host-boundary deterministic gate passed typecheck, 58 test files
+  with one declared skip, 971 tests with five declared skips, and build. Probe
+  40 retains the v13 marker so a pass can isolate the v15 marker next; the
+  canonical v15 skill remains unmoved and unchanged.
+- The required lesson checkpoint at `2026-08-20T23:17:34.096Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded upload probe.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
@@ -1509,10 +1545,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Delete or disable the old Gemini scout skill, upload
-`integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`, invoke
-`/scout-youtube-for-askrigor-staged` in a fresh Spark chat, and reject the run
-immediately if the two diagnostic lines are absent. Separately finish the
+Upload exact Probe 40 from
+`.artifacts/gemini-upload-bisect/40-cumulative-positive-contract/SKILL.md`
+through the same Gemini conversation path and interpret the upload only; do not
+run it as a production skill. If Gemini first reports a virus-check failure,
+allow one exact-file recheck and preserve both outcomes. Export and diff any
+automatic rewrite before calling it the tested artifact. If the unchanged file
+remains rejected, rerun exact Probe 39 through the same path before attributing
+the failure to Probe 40. A clean or self-corrected unchanged pass advances to a
+v13-to-v15 marker-only probe. Do not upload the canonical v15 skill yet.
+Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision
 before any production integration. Separately finish exact local verification
