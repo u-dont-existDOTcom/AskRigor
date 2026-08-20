@@ -1053,6 +1053,39 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 31 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner confirmed Gemini rejected the complementary
+anchor/firsthand group on the cumulative Probe 31 base. Probe 35 separates the
+universal anchor contract from the firsthand quota and output-ledger changes.
+The canonical v15 development skill was not moved or changed.
+
+## Probe 35: universal anchor contract only
+
+Local path:
+`.artifacts/gemini-upload-bisect/35-anchor-contract/SKILL.md`
+
+SHA-256:
+`0f6529b987c32cb161dfb272c86695d0c1c46c96f00b87f3faea5e89a016bfb2`
+
+This starts from accepted Probe 31 and applies only the universal anchor half
+of Probe 34:
+
+- every probe receives one to three nonempty anchors and a coverage result;
+- every batch emits evidence mapping its probes to literal anchors; and
+- anchors must occur in both the frozen probe and executed batch query.
+
+The radical-probe sentence drops its narrower anchor clause because the new
+universal clause covers radical probes. The three-row firsthand quota,
+`independent_firsthand_probe_count`, and output-ledger rewrite remain v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split the universal anchor paragraph from the radical-sentence
+  cleanup;
+- **passes:** retain the anchor contract and test the firsthand quota plus
+  output-ledger clauses separately on accepted Probe 31; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 350 lines and 35,984 bytes. The canonical v15 development skill
+validator at 350 lines and 35,982 bytes. The canonical v15 development skill
 was not moved or changed.

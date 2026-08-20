@@ -1310,6 +1310,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits anchors from firsthand/output;
   a pass confirms both execution halves independently before recombination.
   The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 34 failed. Probe 35 now isolates its universal anchor
+  half against accepted Probe 31: nonempty per-probe anchors, per-batch literal
+  anchor evidence, and shared query coverage. The radical sentence drops its
+  redundant narrower anchor clause, while the firsthand quota and output-ledger
+  changes remain v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/35-anchor-contract/SKILL.md`, 350 lines and
+  35,982 bytes, SHA-256
+  `0f6529b987c32cb161dfb272c86695d0c1c46c96f00b87f3faea5e89a016bfb2`.
+  It passed the skill validator. A failure splits the universal paragraph from
+  radical cleanup; a pass moves to firsthand/output. The canonical v15 skill
+  remains unmoved and unchanged.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
