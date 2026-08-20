@@ -62,22 +62,28 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v2`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v3`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Select Gemini's YouTube app if it does not activate automatically.
 Select the AskRigor custom app when Gemini needs to validate exact video
 identities with `get_youtube_video`.
 
-Without a rediscovery packet, Gemini uses `seed_discovery`. It generates 12–20
-diverse query probes, searches semantic rings around the exact condition,
+Without a rediscovery packet, Gemini uses `seed_discovery`. Even a terse prompt
+such as `how can I fix my bad hip` automatically expands into overlooked,
+self-directed approaches plus positive and negative real-world feedback on
+conventional care, while preserving that no diagnosis was supplied. Gemini
+generates 14–22 diverse query probes and searches semantic rings around the target,
 performs title, metadata, and lightweight content triage, and runs a required
-`remedy_extraction_scan` on 6–12 plausible videos. It extracts only intervention
+`remedy_extraction_scan` on 8–12 plausible videos. It extracts only intervention
 names, creator-claimed mechanisms and outcomes, creator relationship, novel
 search vocabulary, and discussion-hub value. Gemini then searches each
 promising intervention individually before returning an **AskRigor comment-
 audit seed packet** with two or three distinct seed videos and an unpopulated
 return contract. Copy that packet into AskRigor. Gemini has not audited the
 comments and must not pre-populate the later `youtube_rediscovery_packet`.
+It also returns an evidence-neutral rabbit-hole map showing observed retrieval
+depth and shortcuts such as `dig into nutrition signal` or `dig into side-effect
+signal`; these estimate further scouting potential, not treatment evidence.
 
 When AskRigor's protocol-governed comment analysis produces a
 `youtube_rediscovery_packet`, paste that packet into Gemini and invoke the skill
@@ -102,20 +108,24 @@ supervisor.
 Use a de-identified synthetic video-discovery prompt. In `seed_discovery`,
 confirm in the task trace and response that Gemini:
 
-1. generates 12–20 materially different
+1. generates 14–22 materially different
    `model_generated_query_probe` hypotheses without presenting them as found
    remedies;
 2. searches the exact condition, umbrella condition, anatomy or symptom, and
    intervention-first rings, then back-searches promising broad leads against
    the exact target;
 3. uses fuzzy title recall and does not quote the entire query;
-4. runs `remedy_extraction_scan` on 6–12 plausible videos before selecting
+4. runs `remedy_extraction_scan` on 8–12 plausible videos before selecting
    comment seeds, without producing full dossiers or watching whole videos;
 5. validates two or three distinct seed videos through `get_youtube_video` and
    preserves literal status and provider-reported comment count;
 6. returns an **AskRigor comment-audit seed packet** rather than invented
    comment findings or a premature final watch verdict; and
-7. makes no protocol-manifest, protocol-load, formal-source, community-survey,
+7. expands terse prompts across overlooked/self-directed and conventional
+   benefit, failure, side-effect, adherence, and discontinuation lanes; and
+8. returns a retrieval-depth rabbit-hole map with easy `dig into` choices while
+   keeping retrieval potential separate from evidence strength; and
+9. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
    individualized recommendation claim.
 

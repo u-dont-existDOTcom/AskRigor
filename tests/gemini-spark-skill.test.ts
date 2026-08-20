@@ -90,7 +90,7 @@ describe("Gemini Spark AskRigor skill", () => {
 
     expect(skill).toContain("seed_discovery");
     expect(skill).toContain("targeted_rediscovery");
-    expect(skill).toContain("12 to 20");
+    expect(skill).toContain("14 to 22");
     expect(skill).toContain("model_generated_query_probe");
     expect(skill).toContain("search hypothesis, not a discovered remedy");
     expect(skill).toContain("exact_condition");
@@ -101,7 +101,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Do not quote the whole query");
     expect(skill).toContain("title, metadata, and lightweight content triage");
     expect(skill).toContain("remedy_extraction_scan");
-    expect(skill).toContain("6 to 12");
+    expect(skill).toContain("8 to 12");
     expect(skill).toContain("before selecting comment-audit seeds");
     expect(skill).toContain("specific_interventions");
     expect(skill).toContain("creator_claimed_mechanism");
@@ -112,9 +112,11 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Search each promising intervention name individually");
     expect(skill).toContain("Do not produce full video summaries during seed discovery");
     expect(skill).toContain("two or three comment-audit seeds");
-    expect(skill).toContain("broad_comment_hub");
+    expect(skill).toContain("heterodox_natural_hub");
+    expect(skill).toContain("conventional_benefit_failure_hub");
+    expect(skill).toContain("local_mechanical_hub");
     expect(skill).toContain("independent_exact_outcome");
-    expect(skill).toContain("an optional longitudinal fallback");
+    expect(skill).toContain("firsthand_clinician_self_management");
     expect(skill).toContain("contrarian_failure_or_anatomy");
     expect(skill).toContain("provider_reported_comments");
     expect(skill).toContain("AskRigor comment-audit seed packet");
@@ -140,12 +142,35 @@ describe("Gemini Spark AskRigor skill", () => {
   it("self-identifies the staged contract before any report content", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: staged-remedy-scan-v2");
-    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v1");
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v3");
+    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v2");
     expect(skill).toContain("Mode: seed_discovery");
     expect(skill).toContain("Mode: targeted_rediscovery");
     expect(skill).toMatch(/Begin every response, before any heading or prose/);
     expect(skill).toMatch(/Never omit, paraphrase,\s+or move either diagnostic line/);
+  });
+
+  it("expands terse prompts and exposes evidence-neutral deepening choices", async () => {
+    const skill = await readFile(skillUrl, "utf8");
+
+    expect(skill).toContain("how can I fix my bad hip");
+    expect(skill).toContain("diagnosis_not");
+    expect(skill).toContain("overlooked_self_directed");
+    expect(skill).toContain("conventional_real_world_feedback");
+    expect(skill).toContain("successful_with_candidates");
+    expect(skill).toContain("exhausted_zero_results");
+    expect(skill).toContain("failed_or_unavailable");
+    expect(skill).toContain("rebuilt my");
+    expect(skill).toContain("regrew [joint/cartilage]");
+    expect(skill).toContain("Display every scanned candidate");
+    expect(skill).toContain("rabbit-hole map");
+    expect(skill).toContain("retrieval_depth");
+    expect(skill).toContain("dig into side-effect signal");
+    expect(skill).toContain("dig into nutrition signal");
+    expect(skill).toContain("dig into conventional-treatment feedback");
+    expect(skill).toContain("not evidence quality");
+    expect(skill).toContain("at most one dominant mechanical");
+    expect(skill).toContain("never select two seeds with the same role");
   });
 
   it("documents the one-time connection and per-task scout handoff honestly", async () => {
@@ -159,7 +184,9 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor-staged");
-    expect(setup).toContain("Scout contract: staged-remedy-scan-v2");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v3");
+    expect(setup).toContain("how can I fix my bad hip");
+    expect(setup).toContain("rabbit-hole map");
     expect(setup).toMatch(/unpopulated\s+return contract/);
     expect(setup).toContain("does not execute HRP");
     expect(setup).toContain("manual transfer at each stage");

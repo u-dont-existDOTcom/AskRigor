@@ -637,7 +637,25 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   isolated serial execution. A complete host serial suite passed all 969
   runnable tests with five declared skips, confirming the parallel result was
   load-sensitive rather than a v2 regression.
-- Local validation passed the skill validator at 499 lines, the focused Gemini
+- The next owner-run v2 output preserved the post-comment boundary but again
+  selected three overlapping movement/PT ecosystems, predicted unseen comment
+  contents, repeated a seed role, displayed only six of ten claimed scans, used
+  a metadata status as a query-search result, and omitted radical layperson
+  phrasing that had previously found the held-out natural-recovery video.
+  Contract v3 makes terse prompts sufficient, runs default overlooked and
+  conventional-feedback lanes, adds general rebuilt/regrew/restored/healed
+  wording, preserves search-vs-metadata states, requires a complete scan ledger,
+  limits dominant mechanical/PT seeds, reserves heterodox and conventional
+  pools when located, and offers evidence-neutral rabbit-hole depth plus simple
+  `dig into` choices.
+- Contract v3 validates at 496 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips. The standard parallel verifier also
+  reached 969 passes but one existing live-suite security scan exceeded its
+  five-second timeout; that test passed 11/11 in isolation and in the complete
+  serial suite with the established 15-second timeout.
+- For an earlier diagnostic revision, local validation passed the skill
+  validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
   passed 899 tests but recorded 70 failures dominated by prohibited localhost
   listeners plus secondary timeouts. Two attempts to rerun `npm run verify`
