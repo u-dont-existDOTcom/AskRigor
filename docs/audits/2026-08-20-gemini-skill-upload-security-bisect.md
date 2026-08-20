@@ -1257,3 +1257,43 @@ focused Gemini contract suite passed 8/8. The complete host-boundary
 deterministic gate passed typecheck, 58 test files with one declared skip, 971
 tests with five declared skips, and build. The canonical v15 development skill
 remains unmoved and unchanged.
+
+Result: **passed**. The owner confirmed Gemini accepted the cumulative positive
+contract. No additional scanner discrepancy or content rewrite was reported.
+Probe 41 therefore isolates the only planned remaining upload variable: the
+contract marker. The canonical v15 development skill was not moved or changed.
+
+## Probe 41: v15 contract marker only
+
+Local path:
+`.artifacts/gemini-upload-bisect/41-v15-contract-marker/SKILL.md`
+
+SHA-256:
+`da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`
+
+This is byte-identical to accepted Probe 40 except for exactly two equal-length
+substitutions:
+
+- the opening diagnostic changes from `staged-remedy-scan-v13` to
+  `staged-remedy-scan-v15`; and
+- final self-check item 1 expects the same v15 marker.
+
+Upload this exact artifact through the same conversation path and interpret the
+upload only; do not run it as a production skill:
+
+- **passes:** the scanner-compatible cumulative v15 candidate is accepted;
+  promote these exact bytes to the canonical development skill, align its local
+  contract tests and setup documentation, and then run normal verification and
+  behavioral acceptance;
+- **initial virus-check failure followed by unchanged acceptance:** preserve
+  both outcomes and classify the scanner result as transient; and
+- **remains failed after one exact-file recheck:** rerun exact Probe 40 through
+  the same conversation path before attributing the rejection to the marker.
+  If Probe 40 does not reproduce, stop marker attribution and establish a new
+  current baseline.
+
+If Gemini proposes or performs a content rewrite, export and diff the resulting
+skill before calling the probe passed. The artifact passed the local skill
+validator at 351 lines and 35,917 bytes, with a 726-character maximum line. A
+direct diff against Probe 40 contains only the two marker substitutions. The
+canonical v15 development skill remains unmoved and unchanged.

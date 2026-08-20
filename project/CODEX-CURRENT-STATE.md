@@ -1386,6 +1386,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with one declared skip, 971 tests with five declared skips, and build. Probe
   40 retains the v13 marker so a pass can isolate the v15 marker next; the
   canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 40 passed, with no additional scanner discrepancy or
+  content rewrite reported. Probe 41 changes only Probe 40's two equal-length
+  contract-marker occurrences from `staged-remedy-scan-v13` to
+  `staged-remedy-scan-v15`. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/41-v15-contract-marker/SKILL.md`, 351 lines
+  and 35,917 bytes, maximum line length 726, SHA-256
+  `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
+  It passed the local skill validator, and its direct diff against Probe 40
+  contains only the two marker substitutions. The canonical v15 skill remains
+  unmoved and unchanged.
+- The required lesson checkpoint at `2026-08-20T23:46:20.159Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded marker probe.
 - The required lesson checkpoint at `2026-08-20T23:17:34.096Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
@@ -1545,15 +1559,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Upload exact Probe 40 from
-`.artifacts/gemini-upload-bisect/40-cumulative-positive-contract/SKILL.md`
+Upload exact Probe 41 from
+`.artifacts/gemini-upload-bisect/41-v15-contract-marker/SKILL.md`
 through the same Gemini conversation path and interpret the upload only; do not
 run it as a production skill. If Gemini first reports a virus-check failure,
 allow one exact-file recheck and preserve both outcomes. Export and diff any
 automatic rewrite before calling it the tested artifact. If the unchanged file
-remains rejected, rerun exact Probe 39 through the same path before attributing
-the failure to Probe 40. A clean or self-corrected unchanged pass advances to a
-v13-to-v15 marker-only probe. Do not upload the canonical v15 skill yet.
+remains rejected, rerun exact Probe 40 through the same path before attributing
+the failure to the marker. A clean or self-corrected unchanged pass establishes
+the scanner-compatible cumulative v15 candidate and advances to canonical
+promotion plus repository verification. Do not run the probe as a production
+skill or replace the canonical v15 skill before this upload receipt.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision
