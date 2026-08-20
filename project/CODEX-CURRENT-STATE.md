@@ -1226,6 +1226,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits final-self-check items; a pass
   retains them before combining the accepted execution/anchor body from Probe
   01. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 27 failed. Probe 28 splits the compact final self-
+  check by using compact items 1–5 while retaining v13's substantive lower-half
+  checks for evidence mapping, remedy scans, rabbit holes, radical claims, and
+  rediscovery. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/28-compact-self-check-top-half/SKILL.md`, 350
+  lines and 35,783 bytes, SHA-256
+  `a3da1ee279517b4a208c5bac90b755fa1a07d316db0ff6401833909ba0394ecb`.
+  It passed the skill validator. A failure splits compact items 1–5; a pass
+  localizes the rejected wording to compact items 6–9. The canonical v15 skill
+  remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
