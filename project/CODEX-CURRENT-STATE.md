@@ -674,6 +674,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Contract v5 validates at 483 lines. Its focused contract suite passed 7/7,
   typecheck and build passed, and the complete serial host suite passed all 970
   runnable tests with five declared skips.
+- The next owner-run v5 artifact fixed most earlier gates but still emitted a
+  malformed candidate table, selected two supplement-family seeds under
+  different roles, used unsupported rabbit-hole terms and counts, treated
+  formal-evidence questions as access gaps, asked comments to confirm structural
+  harm, and displayed a rich YouTube panel for nearly every broad query. Contract
+  v6 batches 14–22 logical probes into 4–6 text-first site searches, defers native
+  YouTube understanding to 8–12 shortlisted videos, uses complete numbered
+  candidate records, requires unique seed roles and intervention families,
+  enforces neutral audit questions, and maps every rabbit-hole term and count to
+  source rows while separating retrieval gaps from research questions.
+- Contract v6 validates at 482 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run

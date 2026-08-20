@@ -13,7 +13,8 @@ describe("Gemini Spark AskRigor skill", () => {
     const skill = await readFile(skillUrl, "utf8");
 
     expect(skill).toContain("name: scout-youtube-for-askrigor-staged");
-    expect(skill).toContain("YouTube discovery and creator-content summarization");
+    expect(skill).toContain("text/web search for broad YouTube discovery");
+    expect(skill).toContain("native YouTube understanding only for shortlisted creator-content scans");
     expect(skill).toContain("Do not load or interpret Universal or HRP");
     expect(skill).toContain("Do not decide which HRP modules apply");
     expect(skill).toContain("Do not produce the final AskRigor evidence synthesis");
@@ -142,8 +143,8 @@ describe("Gemini Spark AskRigor skill", () => {
   it("self-identifies the staged contract before any report content", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: staged-remedy-scan-v5");
-    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v4");
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v6");
+    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v5");
     expect(skill).toContain("Mode: seed_discovery");
     expect(skill).toContain("Mode: targeted_rediscovery");
     expect(skill).toMatch(/Begin every response, before any heading or prose/);
@@ -174,8 +175,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("dig into nutrition signal");
     expect(skill).toContain("dig into conventional-treatment feedback");
     expect(skill).toContain("not evidence quality");
-    expect(skill).toContain("at most one dominant mechanical");
-    expect(skill).toContain("never select two seeds with the same role");
+    expect(skill).toContain("Seed roles and families must both be unique");
     expect(skill).toContain("Freeze and record each `model_generated_query_probe`");
     expect(skill).toContain("never backfill a published title or creator name");
     expect(skill).toContain("When `diagnosis_not specified`");
@@ -186,9 +186,25 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("comments uninspected");
     expect(skill).toContain("Never describe or predict what comments contain");
     expect(skill).toContain("candidate_row_ids");
-    expect(skill).toContain("derived only from those displayed rows");
+    expect(skill).toContain("creator count computed from those rows");
+    expect(skill).toContain("Never introduce a term, count, creator, or intervention absent from the cited rows");
     expect(skill).toContain("Use `dig into nutrition signal` only for diet");
     expect(skill).toContain("the only permitted code block");
+    expect(skill).toContain("four to six `text_discovery_batch` searches");
+    expect(skill).toContain("text-discovery batch ledger");
+    expect(skill).toContain("site:youtube.com/watch");
+    expect(skill).toContain("Do not invoke native YouTube search");
+    expect(skill).toContain("once per shortlisted candidate");
+    expect(skill).toContain("never for more than 12 videos");
+    expect(skill).toContain("one dominant `intervention_family`");
+    expect(skill).toContain("Seed roles and families must both be unique");
+    expect(skill).toContain("never a Markdown table");
+    expect(skill).toContain("Title punctuation such as `|`");
+    expect(skill).toContain("Never ask comments to confirm a biological mechanism");
+    expect(skill).toContain("term_evidence");
+    expect(skill).toContain("scouting_access_gaps");
+    expect(skill).toContain("research_questions_for_askrigor");
+    expect(skill).toContain("not assertions about missing trials or evidence");
   });
 
   it("documents the one-time connection and per-task scout handoff honestly", async () => {
@@ -202,7 +218,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor-staged");
-    expect(setup).toContain("Scout contract: staged-remedy-scan-v5");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v6");
+    expect(setup).toContain("do not select the\nYouTube app for those probe batches");
     expect(setup).toContain("how can I fix my bad hip");
     expect(setup).toContain("rabbit-hole map");
     expect(setup).toMatch(/unpopulated\s+return contract/);

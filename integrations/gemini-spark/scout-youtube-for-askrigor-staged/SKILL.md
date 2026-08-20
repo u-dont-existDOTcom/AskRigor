@@ -8,13 +8,13 @@ description: "Runs staged public YouTube discovery for AskRigor: generates diver
 Perform bounded, staged YouTube discovery. Search broadly and cheaply first, then summarize only narrow rediscovery survivors for a separate AskRigor agent.
 
 Begin every response, before any heading or prose, with exactly these lines:
-`Scout contract: staged-remedy-scan-v5`
+`Scout contract: staged-remedy-scan-v6`
 `Mode: seed_discovery` or `Mode: targeted_rediscovery`, matching the active mode.
 Never omit, paraphrase, or move either diagnostic line.
 
 ## Scope boundary
 
-- Use Gemini for YouTube discovery and creator-content summarization.
+- Use Gemini text/web search for broad YouTube discovery and native YouTube understanding only for shortlisted creator-content scans.
 - Use the connected `askrigor_research` custom app only to call `get_youtube_video` and validate each selected video's exact identity and canonical YouTube link.
 - Do not load or interpret Universal or HRP.
 - Do not decide which HRP modules apply or whether any research direction is complete.
@@ -47,6 +47,8 @@ Search like a curious person looking for information that ordinary studies may m
 ### Generate heterogeneous query probes
 
 In `seed_discovery`, internally generate 14 to 22 probes. Include at least six materially different `overlooked_self_directed` families, two radical layperson outcome phrasings, two conventional-benefit directions, and three conventional no-effect, failure, side-effect, tolerability, adherence, or discontinuation directions. Do not count synonyms as diversity.
+
+Group the logical probes into four to six `text_discovery_batch` searches using ordinary text/web search and `site:youtube.com/watch`; record each batch's exact query and `probe_ids`. Do not invoke native YouTube search, open videos, or attach YouTube entities during broad discovery. Assign each probe its own result state only from inspectable results matching that probe; a shared batch does not make every probe successful.
 
 Label each generated idea `model_generated_query_probe`. It is a search hypothesis, not a discovered remedy, community signal, or treatment finding.
 Do not state that an intervention was located until a successful search returns an inspectable candidate.
@@ -127,6 +129,7 @@ native video understanding to identify only: `specific_interventions`,
 `firsthand_or_practitioner`, `novel_search_vocabulary`, and
 `discussion_hub_value`. This scan determines whether the video's content—not
 merely its title—contains a material discovery lead or useful discussion pool.
+Only now invoke native YouTube understanding, once per shortlisted candidate and never for more than 12 videos; inspect no additional video unless it replaces a logged exclusion.
 Search each promising intervention name individually using fuzzy, intervention-
 first, and exact-condition variants before comment-audit seed selection.
 Preserve scan-derived terms as `creator_content`, not as verified findings.
@@ -147,6 +150,7 @@ Select two or three seeds for AskRigor using distinct applicable roles:
 - `contrarian_failure_or_anatomy` and optional `firsthand_clinician_self_management`, neither relabeled as an independent patient.
 
 A `conventional_benefit_failure_hub` candidate must explicitly cover both its recognized benefit or indication and at least one real-world limitation. A harm-only candidate cannot fill this role; report the role gap when no balanced candidate is located.
+Assign every candidate and seed one dominant `intervention_family`, such as oral supplement/nutrition, local mechanical/movement, injection/procedure, medication, surgery, or behavioral/environmental. Seed roles and families must both be unique; when two roles share a family, keep the stronger seed and fill another family or report a family-diversity gap.
 
 When relevant candidates exist, reserve one seed for the heterodox/natural lane and one for conventional feedback. Use at most one seed from the dominant mechanical/PT family. Distinct creators do not establish intervention-family or audience diversity; never select two seeds with the same role. Report each unfilled role and the successful searches that failed to locate it.
 
@@ -157,6 +161,7 @@ select at most one seed from one creator; do not treat popularity, multiple
 videos, or many comments in one ecosystem as independent corroboration.
 
 Before comment retrieval, use an `audit_selection_rationale` based only on the creator topic, audience-target cues, and metadata; state `comments uninspected` and list questions for AskRigor to audit. Never describe or predict what comments contain, gather, capture, corroborate, or may surface. Views and likes are audience-size proxies, not evidence of comment availability or activity.
+Write neutral audit questions that extract perceived benefit, no effect, timing, tolerability, flare, worsening, adherence, or discontinuation. Never ask comments to confirm a biological mechanism, structural damage, prevalence, causality, efficacy, or safety.
 
 For every seed, preserve the validated `statistics.comment_count` literally as
 `provider_reported_comments`, or write `not reported`. It is provider metadata,
@@ -359,21 +364,15 @@ In `seed_discovery`, emit only the two diagnostic lines, the stipulated packet s
 In `seed_discovery`, begin with the research question and a compact search
 summary. Then return:
 
-1. a **query-probe ledger** with probe, provenance, semantic scope, exact query,
-   access result, and candidate contribution;
-2. a **candidate-title ledger** containing ordinary Markdown-linked titles for the inspectable candidates considered
-   with their `remedy_extraction_scan` result and why each advanced, was
-   rejected, or was excluded after validation;
+1. a **query-probe ledger** with probe, provenance, semantic scope, `text_discovery_batch` ID, exact prospective probe query, access result, and candidate contribution, plus a **text-discovery batch ledger** with each batch ID, exact executed `site:youtube.com/watch` query, linked `probe_ids`, and batch execution status;
+2. a **candidate-title ledger** as numbered records, never a Markdown table. Every record must contain `row_id`, one ordinary Markdown-linked title, channel, semantic scope, `intervention_family`, specific interventions, creator-claimed mechanism, claimed outcome/horizon, creator class/incentive, novel terms, and scan decision/reason. Title punctuation such as `|` must remain inside the link label and cannot split fields;
 3. two or three metadata-validated seed records containing one Markdown-linked title using the canonical link,
    channel, video identifier, literal `access_status`,
-   `provider_reported_comments`, seed role, creator class and incentive, lead
+   `provider_reported_comments`, seed role, `intervention_family`, creator class and incentive, lead
    provenance, question-match class, target-distance class, and its nonpredictive
    `audit_selection_rationale` with `comments uninspected`; and
-4. specific comment-audit questions for AskRigor: named interventions, exact
-   regimens, claimed outcomes and horizons, failures, harms, discontinuation,
-   named videos or creators, unusual lay terminology, and independent repeated
-   signals;
-5. a **rabbit-hole map** with four to eight material directions. For each give `direction_id`, what surfaced, `retrieval_depth` (`deep`, `moderate`, `thin`, or `blocked`), `candidate_row_ids`, creator and term counts derived only from those displayed rows, access gaps, the next useful work, and a semantically matched shortcut. Use `dig into nutrition signal` only for diet, fasting, or supplements; `dig into mechanical signal` for manipulation, gait, loading, or reflex mechanics; and `dig into side-effect signal` or `dig into conventional-treatment feedback` for adverse effects, rebound, tolerability, or conventional decisions. Also allow `dig into firsthand outcomes` and `dig into all high-yield signals`; and
+4. neutral **comment-audit questions** for AskRigor covering named interventions, regimens, perceived outcomes/timing, benefit, no effect, flare, worsening, tolerability, adherence, discontinuation, named videos/creators, and unusual terminology—never questions asking comments to confirm causality or structural change;
+5. a **rabbit-hole map** with four to eight material directions. For each give `direction_id`, what surfaced, `retrieval_depth` (`deep`, `moderate`, `thin`, or `blocked`), `candidate_row_ids`, `term_evidence` mappings (`term -> row_ids`), creator count computed from those rows, `scouting_access_gaps`, `research_questions_for_askrigor`, next work, and a semantically matched shortcut. Never introduce a term, count, creator, or intervention absent from the cited rows. `scouting_access_gaps` may contain only literal retrieval limitations such as zero results, unavailable metadata, missing comments, or inaccessible content—not assertions about missing trials or evidence. Use `dig into nutrition signal` only for diet, fasting, or supplements; `dig into mechanical signal` for manipulation, gait, loading, or reflex mechanics; and `dig into side-effect signal` or `dig into conventional-treatment feedback` for adverse effects, rebound, tolerability, or conventional decisions. Also allow `dig into firsthand outcomes` and `dig into all high-yield signals`; and
 6. an **AskRigor comment-audit request** naming the seed video identifiers and
    this unpopulated return contract:
 
@@ -448,7 +447,7 @@ material when its information still merits inclusion. Do not pad the list.
 
 Before returning the report, repair every failed item:
 
-1. The first line is exactly `Scout contract: staged-remedy-scan-v5`; the second
+1. The first line is exactly `Scout contract: staged-remedy-scan-v6`; the second
    names exactly one active `Mode: <mode>`. `seed_discovery` returns an
    **AskRigor comment-audit seed packet** without comment findings or full
    summaries; `targeted_rediscovery` requires a supplied rediscovery packet.
@@ -466,11 +465,11 @@ Before returning the report, repair every failed item:
 7. Adjacent short-term relief and commercial cases are not described as proof
    of long-term avoidance, delay, regeneration, or disease modification.
 8. Every video reference is an ordinary Markdown text link; there are no embeds, players, cards, carousels, rich previews, media chips, app/entity blocks, thumbnails, bare YouTube URLs, raw result panels, or duplicate video lists. Every watch link is canonical, metadata-validated, nonredundant, and worth a person's time.
-9. Every generated probe remains labeled `model_generated_query_probe`, was frozen before results, and contains no backfilled title or creator. Only inspectable results are described as located; broad leads are back-searched with transfer distance preserved, and two to four radical-outcome probes appear as attempted rows.
+9. Every generated probe remains labeled `model_generated_query_probe`, was frozen before results, and contains no backfilled title or creator. Four to six text batches list their probe IDs; only matching inspectable results determine each probe state. Native YouTube inspection starts only after shortlisting and covers at most 12 logged candidates. Broad leads are back-searched with transfer distance preserved, and two to four radical-outcome probes appear as attempted rows.
 10. Terse prompts preserve diagnostic uncertainty and receive both default discovery lanes. With no diagnosis, specific pathologies remain adjacent. Search result states are not metadata statuses; every scanned candidate is displayed.
-11. Seeds span distinct intervention families: at most one dominant mechanical/PT pool, with heterodox/natural and conventional-feedback roles reserved when located. No role repeats; a conventional hub covers benefit and limitation. Each rationale says `comments uninspected` and predicts nothing; views/likes remain proxies and missing counts boundaries.
+11. Seeds have unique roles and unique `intervention_family` values; a conventional hub covers benefit and limitation. Each rationale says `comments uninspected` and predicts nothing; audit questions never ask comments to confirm causality, efficacy, safety, or structural damage. Views/likes remain proxies and missing counts boundaries.
 12. Every seed underwent `remedy_extraction_scan`, and every promising named intervention was searched individually before comment mining.
-13. The rabbit-hole map reports retrieval potential, never evidence strength; every count traces to listed `candidate_row_ids`, and every `dig into` shortcut matches its direction.
+13. The rabbit-hole map reports retrieval potential, never evidence strength; each term maps to listed rows, all arithmetic recomputes, access gaps are retrieval-only, research questions are separate, and every shortcut matches its direction.
 14. An outcome-focused final dossier includes retained exact matches when located; a
    zero-exact result is prominent and is not disguised by adjacent tutorials.
 15. In a final dossier, the patient quota is met, or a patient-account coverage shortfall reports
