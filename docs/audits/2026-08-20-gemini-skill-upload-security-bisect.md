@@ -587,6 +587,39 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted this exact alternate.
+The compact scan is scanner-compatible, but it duplicates v13's existing
+banned-phrase rule and is therefore omitted from the concise production
+candidate. The canonical v15 development skill was not moved or changed.
+
+## Probe 20: repaired schema and question group
+
+Local path:
+`.artifacts/gemini-upload-bisect/20-repaired-schema-question-group/SKILL.md`
+
+SHA-256:
+`77a74883c7855a138df3e7a173ae90566c2b156dc7af0d775173c21b3112aa80`
+
+This starts from exact accepted v13 and combines only previously accepted,
+production-worthy changes:
+
+- Probe 08's exact `intervention_family` field contract and matching candidate
+  output clause;
+- Probe 18's positive evidence-map-first ordering sentence; and
+- Probe 15's positive source-alignment sentence.
+
+The accepted but redundant Probe 19 duplicate is absent. All rejected terse
+mapping, exact-key, and neutral-vocabulary command forms are absent.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** one or more accepted changes interact when combined, so bisect
+  schema from the two-sentence repaired question group;
+- **passes:** retain this combined group and continue with the remaining
+  exact-family shortcut and final-self-check changes; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,771 bytes. The canonical v15 development skill
+validator at 359 lines and 36,398 bytes. The canonical v15 development skill
 was not moved or changed.

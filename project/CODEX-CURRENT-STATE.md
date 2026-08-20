@@ -1131,6 +1131,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure retains v13's existing wording; a
   pass permits the compact form before assembling the repaired question and
   schema groups. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 19 passed. Its compact banned-phrase scan is
+  scanner-compatible but redundant with v13's existing ban and is omitted from
+  the concise production candidate. Probe 20 combines only accepted,
+  production-worthy changes: Probe 08's exact `intervention_family` schema and
+  candidate-output wording, Probe 18's positive evidence-map-first ordering,
+  and Probe 15's positive source-alignment sentence. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/20-repaired-schema-question-group/SKILL.md`,
+  359 lines and 36,398 bytes, SHA-256
+  `77a74883c7855a138df3e7a173ae90566c2b156dc7af0d775173c21b3112aa80`.
+  It passed the skill validator. A failure bisects schema from the repaired
+  two-sentence question group; a pass retains the group and proceeds to the
+  remaining exact-family shortcut and final-self-check changes. The canonical
+  v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
