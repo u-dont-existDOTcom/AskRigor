@@ -993,6 +993,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `cd5c832be43358a57633064be4c50e0999bd22336ab9c79801d472f759383275`.
   A pass means both split halves are individually accepted and the next test is
   their combination with the v13 marker; a failure splits Probe 06's group.
+- The owner reports Probe 06 failed Gemini's security scan. Probe 07 splits that
+  group and starts from exact v13 with only three hunks: the exact
+  `intervention_family` field contract, evidence-first question construction,
+  and matching candidate-ledger wording. It excludes Probe 06's shortcut and
+  compact final-self-check changes and all Probe 01 execution-body changes. Its
+  announced local ignored alternate is
+  `.artifacts/gemini-upload-bisect/07-schema-question/SKILL.md`, 358 lines and
+  36,209 bytes, SHA-256
+  `939d47bb5467a0ffb523a47b66e75cafd81eba12db79de1b7dca102b7af6b257`.
+  It passed the skill validator. A failure splits schema from questions; a pass
+  tests the excluded shortcut/self-check half. The canonical v15 skill remains
+  unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
