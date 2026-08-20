@@ -779,6 +779,38 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected the
+source-alignment sentence when added to the reduced schema-plus-ordering group.
+Because v13 already requires exact evidence mappings, omit the redundant
+source-alignment addition and retain accepted Probe 24 as the safe cumulative
+base. Probe 26 adds only the exact-family shortcut rewrite. The canonical v15
+development skill was not moved or changed.
+
+## Probe 26: exact-family rabbit-hole shortcuts
+
+Local path:
+`.artifacts/gemini-upload-bisect/26-exact-family-shortcuts/SKILL.md`
+
+SHA-256:
+`398995c5362d63177f6c68d793a7343836d08914336a9e3d23d50c8df110639f`
+
+This starts from accepted Probe 24 and replaces only v13's broad shortcut
+paragraph with the v15 exact-family mapping. It adds dedicated topical, device,
+regenerative, and behavioral shortcuts; restricts firsthand outcomes to an
+outcome-led direction; and moves `dig into all high-yield signals` outside the
+per-direction shortcut field. No source-alignment addition or incompatible
+primary schema rewrite is present.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the exact-family shortcut paragraph is incompatible with the safe
+  cumulative group, so test it from exact v13 before deciding whether to rewrite
+  or retain v13's broader shortcuts;
+- **passes:** retain the shortcut rewrite and test the remaining final-self-
+  check changes on this cumulative base; and
+- **inconsistent result:** repeat accepted Probe 24 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 359 lines and 36,464 bytes. The canonical v15 development skill
+validator at 353 lines and 36,546 bytes. The canonical v15 development skill
 was not moved or changed.

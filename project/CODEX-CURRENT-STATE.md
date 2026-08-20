@@ -1203,6 +1203,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   alignment sentence and relies on v13's mapping rule; a pass retains the
   reduced group before testing shortcuts and self-check changes. The canonical
   v15 skill remains unmoved and unchanged.
+- The owner reports Probe 25 failed. The positive source-alignment sentence is
+  therefore omitted from the cumulative production candidate, which relies on
+  v13's existing exact evidence-mapping rule. Probe 24 remains the safe base.
+  Probe 26 adds only the exact-family shortcut rewrite from v15, including
+  dedicated topical, device, regenerative, and behavioral options and moving
+  `dig into all high-yield signals` outside individual directions. Its announced
+  ignored alternate is
+  `.artifacts/gemini-upload-bisect/26-exact-family-shortcuts/SKILL.md`, 353 lines
+  and 36,546 bytes, SHA-256
+  `398995c5362d63177f6c68d793a7343836d08914336a9e3d23d50c8df110639f`.
+  It passed the skill validator. A failure retests the shortcut from exact v13;
+  a pass retains it before the final-self-check probe. The canonical v15 skill
+  remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
