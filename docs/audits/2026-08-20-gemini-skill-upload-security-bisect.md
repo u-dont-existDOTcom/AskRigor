@@ -1143,6 +1143,35 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 31 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted the positive per-probe
+anchor requirement. This is the scanner-compatible replacement for Probe 36's
+rejected universal paragraph. Probe 38 next isolates the remaining three-row
+firsthand quota without the output-ledger rewrite. The canonical v15
+development skill was not moved or changed.
+
+## Probe 38: firsthand quota only
+
+Local path:
+`.artifacts/gemini-upload-bisect/38-firsthand-quota/SKILL.md`
+
+SHA-256:
+`bcfb67df9eb12937f04139e5e4ddf8a8163c53926cfb3abe8e13ce8f783c7d3c`
+
+This starts from accepted Probe 31 and replaces only the exact-outcome
+paragraph. It emits `independent_firsthand_probe_count`, requires three
+separately anchored `firsthand_outcome` rows using different directions, and
+counts only passing batch coverage. The universal anchor paragraph and output-
+ledger rewrite are absent, leaving all other clauses Probe 31/v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** positively rewrite or retain v13's existing three-direction
+  firsthand requirement without the added counter field;
+- **passes:** retain the quota and test the output-ledger clause separately on
+  accepted Probe 31; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 350 lines and 35,906 bytes. The canonical v15 development skill
+validator at 350 lines and 35,908 bytes. The canonical v15 development skill
 was not moved or changed.

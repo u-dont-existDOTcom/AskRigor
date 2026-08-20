@@ -1342,6 +1342,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure retains v13 anchor scope; a pass
   adopts this positive replacement. The canonical v15 skill remains unmoved
   and unchanged.
+- The owner reports Probe 37 passed. Its positive every-probe anchor sentence
+  is the scanner-compatible replacement for Probe 36's rejected paragraph.
+  Probe 38 now starts from accepted Probe 31 and changes only the exact-outcome
+  paragraph to emit `independent_firsthand_probe_count`, require three
+  separately anchored firsthand rows, and count passing coverage. The output-
+  ledger rewrite is absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/38-firsthand-quota/SKILL.md`, 350 lines and
+  35,908 bytes, SHA-256
+  `bcfb67df9eb12937f04139e5e4ddf8a8163c53926cfb3abe8e13ce8f783c7d3c`.
+  It passed the skill validator. A failure rewrites or omits the counter clause;
+  a pass moves to the output-ledger clause. The canonical v15 skill remains
+  unmoved and unchanged.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
