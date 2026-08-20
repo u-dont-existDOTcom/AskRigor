@@ -825,6 +825,38 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   bounded skill-contract repair.
+- The owner's v13 forward run uploaded successfully, rediscovered the held-out
+  independent `GROWING MY HIP BACK` account, counted seven eligible remedy
+  families, distinguished the second radical tutorial as adjacent, populated
+  balanced conventional and mechanical seeds, and emitted neither embeds nor a
+  raw result dump. It also included the parallel handoff note. However, several
+  batch queries omitted anchors belonging to linked probes, so claimed
+  conventional-negative and other coverage was not fully executed. Two
+  `single_intervention` probes bundled distinct treatments, only two explicit
+  firsthand rows ran, candidate rows used `canonical_intervention_family`, and
+  audit questions invented unmapped stomach, soreness, skin-irritation, and
+  messiness details. Topical and device directions also reused the all-signals
+  shortcut. The copied rendered output did not preserve link destinations, so
+  literal Markdown-link compliance remains unverified rather than failed.
+- Contract v14 requires nonempty anchors and per-probe `batch_anchor_evidence`
+  for every probe, counts families and conventional/firsthand directions only
+  after passing coverage, requires three separately anchored firsthand rows,
+  prevents distinct treatments from masquerading as one intervention, and
+  standardizes the candidate field as `intervention_family`. Question evidence
+  maps must now precede questions, with only a small neutral unmapped vocabulary;
+  plausible adverse details require exact source mappings. Rabbit-hole
+  shortcuts now map to topical, device, regenerative, behavioral, mechanical,
+  nutrition, or conventional families, while `all high-yield` is map-level only.
+- Contract v14 validates at 354 lines and 36,467 bytes with a 660-character
+  maximum line and SHA-256
+  `50781cb39e00af21fe08b7223e4fba4c836c34d4063ddefa91947b93531d1549`.
+  The skill validator and focused contract suite passed 8/8; typecheck, build,
+  and `git diff --check` passed. This revision changes no runtime source and is
+  only 45 bytes larger than uploadable v13 while remaining below v11.
+- The required lesson checkpoint at `2026-08-20T18:01:02.751Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded forward-test repair.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
