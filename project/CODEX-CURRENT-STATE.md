@@ -1157,6 +1157,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   two individually accepted question sentences; a pass identifies interaction
   between the question group and the accepted schema group. The canonical v15
   skill remains unmoved and unchanged.
+- The owner reports Probe 21 passed, confirming the two positive question
+  safeguards are compatible together and localizing Probe 20's failure to an
+  interaction with the accepted schema group. Probe 22 combines Probe 08's
+  accepted schema group with only Probe 18's evidence-ordering sentence. Its
+  announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/22-schema-plus-ordering/SKILL.md`, 358 lines
+  and 36,338 bytes, SHA-256
+  `d06ca3a93f8dfbd4493c1718c9d8079e877e267a03d3e34f762b387a2b8492b7`.
+  It passed the skill validator. A failure identifies schema-plus-ordering as
+  the interaction; a pass moves the interaction boundary to schema plus source
+  alignment. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

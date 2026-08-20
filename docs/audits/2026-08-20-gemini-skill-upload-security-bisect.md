@@ -654,6 +654,38 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted the two positive
+question safeguards together. This localizes Probe 20's failure to an
+interaction between the accepted schema group and at least one question
+sentence. Probe 22 tests the schema group with evidence ordering alone. The
+canonical v15 development skill was not moved or changed.
+
+## Probe 22: schema plus evidence ordering
+
+Local path:
+`.artifacts/gemini-upload-bisect/22-schema-plus-ordering/SKILL.md`
+
+SHA-256:
+`d06ca3a93f8dfbd4493c1718c9d8079e877e267a03d3e34f762b387a2b8492b7`
+
+This starts from exact accepted v13 and combines only:
+
+- Probe 08's accepted exact `intervention_family` field contract and matching
+  candidate-output clause; and
+- Probe 18's accepted positive evidence-map-first sentence.
+
+Probe 15's source-alignment sentence is absent, as are Probe 19's redundant
+compact scan and every rejected command form.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the schema group interacts with the evidence-ordering sentence;
+- **passes:** the remaining interaction is between the schema group and the
+  source-alignment sentence, either alone or only when both question sentences
+  are present; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 359 lines and 36,581 bytes. The canonical v15 development skill
+validator at 358 lines and 36,338 bytes. The canonical v15 development skill
 was not moved or changed.
