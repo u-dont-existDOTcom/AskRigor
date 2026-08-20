@@ -142,12 +142,17 @@ describe("Gemini Spark AskRigor skill", () => {
   it("self-identifies the staged contract before any report content", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: staged-remedy-scan-v3");
-    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v2");
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v4");
+    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v3");
     expect(skill).toContain("Mode: seed_discovery");
     expect(skill).toContain("Mode: targeted_rediscovery");
     expect(skill).toMatch(/Begin every response, before any heading or prose/);
     expect(skill).toMatch(/Never omit, paraphrase,\s+or move either diagnostic line/);
+    expect(skill).toContain("ordinary Markdown text link");
+    expect(skill).toContain("Never insert or attach a YouTube embed");
+    expect(skill).toContain("standalone bare YouTube URL");
+    expect(skill).toContain("do not append raw search-result panels");
+    expect(skill).toContain("displayed outside the response is not controllable");
   });
 
   it("expands terse prompts and exposes evidence-neutral deepening choices", async () => {
@@ -184,7 +189,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor-staged");
-    expect(setup).toContain("Scout contract: staged-remedy-scan-v3");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v4");
     expect(setup).toContain("how can I fix my bad hip");
     expect(setup).toContain("rabbit-hole map");
     expect(setup).toMatch(/unpopulated\s+return contract/);

@@ -8,7 +8,7 @@ description: "Runs staged public YouTube discovery for AskRigor: generates diver
 Perform bounded, staged YouTube discovery. Search broadly and cheaply first, then summarize only narrow rediscovery survivors for a separate AskRigor agent.
 
 Begin every response, before any heading or prose, with exactly these lines:
-`Scout contract: staged-remedy-scan-v3`
+`Scout contract: staged-remedy-scan-v4`
 `Mode: seed_discovery` or `Mode: targeted_rediscovery`, matching the active mode.
 Never omit, paraphrase, or move either diagnostic line.
 
@@ -339,22 +339,12 @@ displayed time and `t=...s` value represent the same moment.
 
 ## Candidate validation
 
-For every selected candidate, call `get_youtube_video` through the connected
-AskRigor app. Keep the returned video identifier, canonical link, title,
-channel, statistics, and `access_status` literal. Exclude a candidate from the
-selected packet when its identity or link cannot be validated, but preserve its
-identifier, link, query, and literal failure status in a validation-exclusions
-ledger. Do not silently replace or erase a failed validation with a search
-snippet.
+For every selected candidate, call `get_youtube_video` through the connected AskRigor app. Keep the returned video identifier, canonical link, title, channel, statistics, and `access_status` literal. Exclude a candidate from the selected packet when its identity or link cannot be validated, but preserve its identifier, link, query, and literal failure status in a validation-exclusions ledger. Do not silently replace or erase a failed validation with a search snippet.
 
 The only valid AskRigor `access_status` values are `complete`,
 `api_visible_complete`, `partial`, `abstract_only`, `metadata_only`,
 `comments_disabled`, `inaccessible`, `rate_limited`, `not_found`, or `error`.
-`available` is not an AskRigor `access_status`. Do not paraphrase, normalize, or
-invent the status. For an ordinary successfully retrieved public video,
-`get_youtube_video` normally returns `api_visible_complete`. If the literal tool
-receipt is unavailable, label MCP validation unconfirmed and exclude the video
-from the validated dossier instead of fabricating a status.
+`available` is not an AskRigor `access_status`. Do not paraphrase, normalize, or invent the status. For an ordinary successfully retrieved public video, `get_youtube_video` normally returns `api_visible_complete`. If the literal tool receipt is unavailable, label MCP validation unconfirmed and exclude the video from the validated dossier instead of fabricating a status.
 
 Do not interpret metadata validation as validation of the creator's claim.
 Call a candidate **metadata-validated**, never simply validated.
@@ -364,6 +354,10 @@ Call a candidate **metadata-validated**, never simply validated.
 Return the active-mode heading verbatim. Never title seed output `AskRigor handoff`
 or blend an unaudited seed packet with a post-comment final dossier.
 
+### Text-only video links
+
+Render every video reference as an ordinary Markdown text link such as `[Title](https://www.youtube.com/watch?v=VIDEO_ID)`. Never insert or attach a YouTube embed, player, card, carousel, rich preview, media chip, app/entity block, thumbnail, or standalone bare YouTube URL in the response. Link a video only where the schema requires it; do not append raw search-result panels or duplicate video lists. Provider-owned YouTube search/tool activity displayed outside the response is not controllable by this skill, so never reproduce it inside the report.
+
 ### AskRigor comment-audit seed packet
 
 In `seed_discovery`, begin with the research question and a compact search
@@ -371,11 +365,11 @@ summary. Then return:
 
 1. a **query-probe ledger** with probe, provenance, semantic scope, exact query,
    access result, and candidate contribution;
-2. a **candidate-title ledger** containing the inspectable candidates considered
+2. a **candidate-title ledger** containing ordinary Markdown-linked titles for the inspectable candidates considered
    with their `remedy_extraction_scan` result and why each advanced, was
    rejected, or was excluded after validation;
-3. two or three linked, metadata-validated seed records containing title,
-   channel, video identifier, canonical link, literal `access_status`,
+3. two or three metadata-validated seed records containing one Markdown-linked title using the canonical link,
+   channel, video identifier, literal `access_status`,
    `provider_reported_comments`, seed role, creator class and incentive, lead
    provenance, question-match class, target-distance class, and why its comment
    pool may add distinct search vocabulary; and
@@ -424,7 +418,7 @@ search summary, the supplied `youtube_rediscovery_packet` lead identifiers and
 provenance, and the compact discovery ledger. Then give one structured record
 per selected video containing:
 
-1. title, channel, video identifier, and canonical YouTube link;
+1. one Markdown-linked title using the canonical YouTube link, channel, and video identifier;
 2. literal AskRigor metadata `access_status`;
 3. question-match class and any `commercial_or_promotional` flag;
 4. creator-evidence class;
@@ -448,7 +442,7 @@ from a failed, unavailable, or unattempted direction.
 ### Videos worth watching
 
 In `targeted_rediscovery`, link only nonredundant videos a person would
-realistically benefit from watching. Give each canonical link, its distinctive
+realistically benefit from watching. Give each one ordinary Markdown-linked title using its canonical link, its distinctive
 value, and its most useful clickable timestamp when located. Use `not located`
 rather than an empty timecode. Prefer exact outcomes and
 `independent_patient_self_learning`; plainly label adjacent or promotional
@@ -458,7 +452,7 @@ material when its information still merits inclusion. Do not pad the list.
 
 Before returning the report, repair every failed item:
 
-1. The first line is exactly `Scout contract: staged-remedy-scan-v3`; the second
+1. The first line is exactly `Scout contract: staged-remedy-scan-v4`; the second
    names exactly one active `Mode: <mode>`. `seed_discovery` returns an
    **AskRigor comment-audit seed packet** without comment findings or full
    summaries; `targeted_rediscovery` requires a supplied rediscovery packet.
@@ -475,8 +469,7 @@ Before returning the report, repair every failed item:
 6. Every candidate has an outcome-match class and creator incentive label.
 7. Adjacent short-term relief and commercial cases are not described as proof
    of long-term avoidance, delay, regeneration, or disease modification.
-8. Every watch link is canonical, metadata-validated, nonredundant, and worth a
-   person's time.
+8. Every video reference is an ordinary Markdown text link; there are no embeds, players, cards, carousels, rich previews, media chips, app/entity blocks, thumbnails, bare YouTube URLs, raw result panels, or duplicate video lists. Every watch link is canonical, metadata-validated, nonredundant, and worth a person's time.
 9. Every generated probe remains labeled `model_generated_query_probe`; only
    inspectable results are described as located. Every promising broad lead is
    back-searched against the exact condition, with transfer distance preserved.

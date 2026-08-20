@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v3`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v4`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Select Gemini's YouTube app if it does not activate automatically.
 Select the AskRigor custom app when Gemini needs to validate exact video
@@ -84,6 +84,10 @@ comments and must not pre-populate the later `youtube_rediscovery_packet`.
 It also returns an evidence-neutral rabbit-hole map showing observed retrieval
 depth and shortcuts such as `dig into nutrition signal` or `dig into side-effect
 signal`; these estimate further scouting potential, not treatment evidence.
+The report uses text-only Markdown links and forbids embedded players, video
+cards, carousels, rich previews, thumbnails, bare URLs, and duplicated raw
+search-result panels. Gemini may still show provider-owned YouTube search/tool
+activity outside the response; the skill cannot suppress that interface trace.
 
 When AskRigor's protocol-governed comment analysis produces a
 `youtube_rediscovery_packet`, paste that packet into Gemini and invoke the skill
@@ -125,7 +129,9 @@ confirm in the task trace and response that Gemini:
    benefit, failure, side-effect, adherence, and discontinuation lanes; and
 8. returns a retrieval-depth rabbit-hole map with easy `dig into` choices while
    keeping retrieval potential separate from evidence strength; and
-9. makes no protocol-manifest, protocol-load, formal-source, community-survey,
+9. returns text-only Markdown video links without embeds, cards, carousels,
+   previews, bare URLs, or a duplicated raw-results appendix; and
+10. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
    individualized recommendation claim.
 

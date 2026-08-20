@@ -654,6 +654,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   reached 969 passes but one existing live-suite security scan exceeded its
   five-second timeout; that test passed 11/11 in isolation and in the complete
   serial suite with the established 15-second timeout.
+- The next owner-run v3 report was useful but Gemini appended rich YouTube
+  result surfaces that slowed rendering. Contract v4 requires ordinary Markdown
+  text links only and forbids response-owned embeds, players, cards, carousels,
+  previews, thumbnails, bare YouTube URLs, unnecessary duplicate link lists,
+  and raw search-result appendices. Provider-owned search/tool traces outside the response
+  remain a Gemini interface boundary rather than controllable report content.
+- Contract v4 validates at 489 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
