@@ -1192,6 +1192,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with ordering; a pass preserves the exact output-field correction while
   omitting the incompatible primary rewrite. The canonical v15 skill remains
   unmoved and unchanged.
+- The owner reports Probe 24 passed. Retain the exact candidate-output field
+  correction with evidence ordering and omit the incompatible primary schema
+  rewrite. Probe 25 adds Probe 15's accepted source-alignment sentence to this
+  reduced production group. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/25-reduced-production-question-group/SKILL.md`,
+  359 lines and 36,464 bytes, SHA-256
+  `00ab20508923d073caf49717205a6bf7a2362d200c3a90b372c33a9a7fd1b480`.
+  It passed the skill validator. A failure drops the redundant new source-
+  alignment sentence and relies on v13's mapping rule; a pass retains the
+  reduced group before testing shortcuts and self-check changes. The canonical
+  v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

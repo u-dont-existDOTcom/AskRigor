@@ -745,6 +745,40 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted the exact candidate-
+output field correction with evidence ordering. Retain this reduced schema
+group and omit the incompatible primary schema rewrite. Probe 25 adds the
+accepted source-alignment sentence to form the reduced production question
+group. The canonical v15 development skill was not moved or changed.
+
+## Probe 25: reduced production schema and question group
+
+Local path:
+`.artifacts/gemini-upload-bisect/25-reduced-production-question-group/SKILL.md`
+
+SHA-256:
+`00ab20508923d073caf49717205a6bf7a2362d200c3a90b372c33a9a7fd1b480`
+
+This starts from accepted Probe 24 and adds only Probe 15's accepted positive
+source-alignment sentence. It therefore contains:
+
+- v13's primary intervention-family classification paragraph;
+- the accepted exact candidate-output field correction;
+- the accepted evidence-map-first ordering sentence; and
+- the accepted positive source-alignment sentence.
+
+The incompatible primary schema rewrite, redundant compact scan, and all
+rejected command forms are absent.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** source alignment interacts with the reduced schema plus ordering,
+  so retain ordering and rely on v13's existing exact mapping rule;
+- **passes:** retain this reduced combined group and continue with the remaining
+  exact-family shortcut and final-self-check changes; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,404 bytes. The canonical v15 development skill
+validator at 359 lines and 36,464 bytes. The canonical v15 development skill
 was not moved or changed.
