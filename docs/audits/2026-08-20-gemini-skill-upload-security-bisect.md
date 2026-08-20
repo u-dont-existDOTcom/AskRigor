@@ -68,3 +68,27 @@ Interpretation:
 - **fails:** split the three counting/granularity substitutions;
 - **passes:** the rejected change is in Probe 01's anchor-evidence half, so test
   that half directly before splitting it.
+
+Result: **failed**. The rejected content is within the three substitutions in
+this probe.
+
+## Probe 03: family counting and probe granularity
+
+Local path:
+`.artifacts/gemini-upload-bisect/03-family-granularity/SKILL.md`
+
+SHA-256:
+`8807a426f843ff8b2729891486bff0559c29ed4576dfa9f90f6b47d3886539b2`
+
+This starts from exact v13 and replaces one paragraph only. It adds passing
+batch coverage to overlooked-family counts and states that a
+`single_intervention` probe names one remedy while `OR` joins only synonyms or
+outcome wording. It contains neither conventional-count nor firsthand-count
+changes.
+
+Interpretation:
+
+- **fails:** split this one paragraph into its family-count and granularity
+  clauses;
+- **passes:** test the conventional-count and firsthand-count substitutions as
+  the remaining half of Probe 02.

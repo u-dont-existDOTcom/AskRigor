@@ -929,6 +929,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   bounded second bisect step.
+- The owner reports upload probe 02 also failed, localizing the scanner trigger
+  to its three counting/granularity substitutions. Probe 03 changes only the
+  overlooked-family counting and `single_intervention` paragraph from exact
+  v13. Its ignored path is
+  `.artifacts/gemini-upload-bisect/03-family-granularity/SKILL.md`; it is 36,437
+  bytes with SHA-256
+  `8807a426f843ff8b2729891486bff0559c29ed4576dfa9f90f6b47d3886539b2`
+  and passed the skill validator. A failure splits that paragraph; a pass moves
+  to the conventional/firsthand count pair.
+- The required lesson checkpoint at `2026-08-20T19:03:12.702Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded third bisect step.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
