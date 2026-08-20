@@ -41,3 +41,30 @@ Interpret the upload only; do not run the probe as a production skill:
 
 Record only the literal pass/fail receipt and artifact hash. Do not infer which
 word triggered an opaque scanner.
+
+Result: **failed**. The rejection is within this six-substitution group or an
+interaction among its changes.
+
+## Probe 02: counting and granularity
+
+Local path:
+`.artifacts/gemini-upload-bisect/02-counting-granularity/SKILL.md`
+
+SHA-256:
+`a97bf7073bdb391901db4109990fa230f17eaf9dcb4d79aa96c08856b15e1298`
+
+This starts from exact v13 and applies three substitutions only:
+
+- count overlooked families only after passing batch coverage and prevent a
+  `single_intervention` probe from joining separate remedies;
+- count conventional directions only after passing batch coverage; and
+- emit and enforce three separately anchored firsthand directions.
+
+It contains none of Probe 01's new all-probe anchor-evidence paragraph, radical
+anchor relocation, or query-ledger output rewrite.
+
+Interpretation:
+
+- **fails:** split the three counting/granularity substitutions;
+- **passes:** the rejected change is in Probe 01's anchor-evidence half, so test
+  that half directly before splitting it.
