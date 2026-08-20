@@ -1086,6 +1086,33 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 31 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner confirmed Gemini rejected the anchor-only group.
+Probe 36 removes the radical-sentence cleanup and tests only the universal
+anchor paragraph on accepted Probe 31. The canonical v15 development skill was
+not moved or changed.
+
+## Probe 36: universal anchor paragraph
+
+Local path:
+`.artifacts/gemini-upload-bisect/36-universal-anchor-paragraph/SKILL.md`
+
+SHA-256:
+`29aefd07ef4887b80f051ff27075b31e0ecb91b2b49b02ae06810378fac8d0fe`
+
+This starts from accepted Probe 31 and replaces only its batch/coverage
+paragraph. It requires nonempty anchors for every probe, batch-level literal
+anchor evidence, and literal coverage in both the frozen and executed queries.
+The radical sentence, firsthand quota, and output ledger are unchanged v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the universal anchor paragraph itself is incompatible with the
+  cumulative base and must be split or positively rewritten;
+- **passes:** the rejected Probe 35 interaction comes from its radical-sentence
+  cleanup, so retain the universal paragraph and omit that cleanup; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 350 lines and 35,982 bytes. The canonical v15 development skill
+validator at 350 lines and 36,135 bytes. The canonical v15 development skill
 was not moved or changed.
