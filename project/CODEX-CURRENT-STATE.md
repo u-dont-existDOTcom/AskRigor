@@ -663,6 +663,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Contract v4 validates at 489 lines. Its focused contract suite passed 7/7,
   typecheck and build passed, and the complete serial host suite passed all 970
   runnable tests with five declared skips.
+- Audit of the same v3 artifact found additional contract drift: speculative
+  unseen-comment descriptions, omitted radical-outcome rows, specific diagnoses
+  mislabeled exact despite an unspecified baseline, one mismatched rabbit-hole
+  shortcut, untraceable direction counts, result-title query backfilling, and a
+  harm-only conventional seed. Contract v5 freezes prospective probes, requires
+  displayed radical rows, preserves adjacent diagnostic scope, uses balanced
+  conventional seeds and nonpredictive audit rationales, and ties every rabbit-
+  hole count and shortcut to displayed candidate rows and matching semantics.
+- Contract v5 validates at 483 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
