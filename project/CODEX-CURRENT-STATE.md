@@ -1108,6 +1108,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits map-first ordering from the
   exact-keys command; a pass tests the compact banned-scan sentence alone. The
   canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 17 failed. Probe 18 preserves evidence-map-first
+  ordering using positive wording while removing the `using only those exact
+  keys` command, neutral-vocabulary list, and compact banned-scan sentence. It
+  is exact accepted v13 plus `Build question_term_evidence or
+  research_question_term_evidence before drafting each question.` Its announced
+  ignored alternate is
+  `.artifacts/gemini-upload-bisect/18-evidence-map-first-positive/SKILL.md`, 358
+  lines and 36,521 bytes, SHA-256
+  `7b7723af384289268224955c90f664dfa1082d2bf42ff6df94311e9943019648`.
+  It passed the skill validator. A pass makes this the production ordering
+  replacement; a failure retains v13 without an additional ordering sentence.
+  The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
