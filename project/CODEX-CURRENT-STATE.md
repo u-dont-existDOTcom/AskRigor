@@ -1045,6 +1045,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure requires scanner-compatible positive
   wording for this guard; a pass tests the remaining concrete-term coverage
   clauses. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 11 passed. The standalone no-invent guard is accepted
+  by itself. Probe 12 starts from exact v13 and replaces only the remaining
+  concrete-term coverage, mapped-example, and construction-audit line, with the
+  no-invent sentence absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/12-concrete-coverage-construction/SKILL.md`,
+  357 lines and 36,099 bytes, SHA-256
+  `3120466fd7c1485dd7fd121097896355e4b46e661f53bc03f9250a60bb6a67b9`.
+  It passed the skill validator. A failure splits coverage from
+  example/construction clauses; a pass establishes an interaction within Probe
+  10's individually accepted parts. The canonical v15 skill remains unmoved
+  and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

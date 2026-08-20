@@ -339,6 +339,37 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted this exact alternate.
+The standalone no-invent guard is accepted by itself. Probe 12 tests the rest
+of Probe 10's replacement line without this sentence. The canonical v15
+development skill was not moved or changed.
+
+## Probe 12: concrete coverage and construction audit
+
+Local path:
+`.artifacts/gemini-upload-bisect/12-concrete-coverage-construction/SKILL.md`
+
+SHA-256:
+`3120466fd7c1485dd7fd121097896355e4b46e661f53bc03f9250a60bb6a67b9`
+
+This starts from exact v13, retains the v13 contract marker, and replaces one
+line only. It requires every concrete intervention, brand, diet, adverse
+effect, symptom, manifestation, synonym, or example to map exactly; requires
+examples introduced by `e.g.` or `such as` to map; and emits
+`unmapped_question_terms: none` only after the construction audit.
+
+The accepted no-invent sentence is absent. The evidence-first ordering and
+compact banned-scan sentences are also absent. Every other byte is exact v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split concrete-term coverage from the example/construction-audit
+  clauses;
+- **passes:** Probe 10's failure is an interaction between two individually
+  accepted pieces, so replace their combined production wording; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,484 bytes. The canonical v15 development skill
+validator at 357 lines and 36,099 bytes. The canonical v15 development skill
 was not moved or changed.
