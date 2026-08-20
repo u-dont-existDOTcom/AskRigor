@@ -211,6 +211,38 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected this
+exact alternate. The next split separates the exact-family schema clauses from
+the evidence-first question clauses. The canonical v15 development skill was
+not moved or changed.
+
+## Probe 08: exact intervention-family schema
+
+Local path:
+`.artifacts/gemini-upload-bisect/08-intervention-family-schema/SKILL.md`
+
+SHA-256:
+`1493e548dab9659b6386110b21a6ba61bcc637bccdd977b537977c0086c16b1b`
+
+This starts from exact v13, retains the v13 contract marker, and changes only
+two schema-alignment hunks:
+
+- require the candidate and seed field name to be exactly
+  `intervention_family`; and
+- align the candidate-ledger output requirement with that exact field name.
+
+The evidence-first question rewrite is restored byte-for-byte to v13. This
+probe also excludes all Probe 01 execution-body changes and Probe 06's
+shortcut/final-self-check changes.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split the core exact-field clause from the candidate-ledger wording;
+- **passes:** the failure is in the excluded evidence-first question rewrite,
+  so test that rewrite alone from exact v13; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,209 bytes. The canonical v15 development skill
+validator at 357 lines and 36,239 bytes. The canonical v15 development skill
 was not moved or changed.
