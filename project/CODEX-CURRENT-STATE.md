@@ -1396,6 +1396,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the local skill validator, and its direct diff against Probe 40
   contains only the two marker substitutions. The canonical v15 skill remains
   unmoved and unchanged.
+- The owner corrected the workflow goal: repeated manual owner uploads are
+  suspended. This Codex session has no authenticated Gemini/Spark connector or
+  browser-control capability, and its available plugin-management surface has
+  no searchable Gemini integration, so it cannot perform the Spark conversation
+  upload directly. The fallback is one self-contained conversation packet at
+  `.artifacts/gemini-upload-diagnostic/ASK-SPARK-ABOUT-V15.md`, 395 lines and
+  38,165 bytes, SHA-256
+  `0133bed433406811f06c1ceecf6c29ba23700fc02ce2a39f17f0cfabcfecc713`.
+  Its mechanically extracted skill bytes are identical to Probe 41 and retain
+  SHA-256
+  `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
+  The packet asks Spark to recheck an initial rejection, install unchanged when
+  safe and supported, or return an exact trigger, minimal diff, and full
+  corrected skill without silently rewriting or executing it.
 - The required lesson checkpoint at `2026-08-20T23:46:20.159Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
@@ -1559,17 +1573,14 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Upload exact Probe 41 from
-`.artifacts/gemini-upload-bisect/41-v15-contract-marker/SKILL.md`
-through the same Gemini conversation path and interpret the upload only; do not
-run it as a production skill. If Gemini first reports a virus-check failure,
-allow one exact-file recheck and preserve both outcomes. Export and diff any
-automatic rewrite before calling it the tested artifact. If the unchanged file
-remains rejected, rerun exact Probe 40 through the same path before attributing
-the failure to the marker. A clean or self-corrected unchanged pass establishes
-the scanner-compatible cumulative v15 candidate and advances to canonical
-promotion plus repository verification. Do not run the probe as a production
-skill or replace the canonical v15 skill before this upload receipt.
+Do not resume iterative manual probe uploads. Use the one-shot Spark conversation
+packet at `.artifacts/gemini-upload-diagnostic/ASK-SPARK-ABOUT-V15.md`. It
+contains the complete exact v15 candidate and asks Spark to diagnose the
+security result, recheck a false positive, replace the skill unchanged when
+safe and supported, or return the exact trigger and a reviewable corrected
+artifact. Preserve Spark's structured response and any returned file/diff. Do
+not run the scouting workflow until the installed bytes or proposed repair are
+reconciled against the exact embedded hash.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision

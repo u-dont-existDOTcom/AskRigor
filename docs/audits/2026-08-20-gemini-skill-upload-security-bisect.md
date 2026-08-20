@@ -1297,3 +1297,31 @@ skill before calling the probe passed. The artifact passed the local skill
 validator at 351 lines and 35,917 bytes, with a 726-character maximum line. A
 direct diff against Probe 40 contains only the two marker substitutions. The
 canonical v15 development skill remains unmoved and unchanged.
+
+Status: **standalone manual upload suspended before testing**. The owner
+corrected the workflow goal: repeated owner-operated uploads defeat the purpose
+of using the conversation path. This Codex session exposes no authenticated
+Gemini/Spark connector or browser-control capability, and the available plugin
+management surface exposes no searchable Gemini integration. Codex therefore
+cannot truthfully perform the Spark conversation upload directly from this
+session.
+
+## One-shot conversation diagnostic
+
+Local path:
+`.artifacts/gemini-upload-diagnostic/ASK-SPARK-ABOUT-V15.md`
+
+Packet SHA-256:
+`0133bed433406811f06c1ceecf6c29ba23700fc02ce2a39f17f0cfabcfecc713`
+
+The packet embeds the complete exact Probe 41 skill and asks Spark to inspect
+the actual security boundary, recheck an initial rejection once, replace the
+existing skill with unchanged bytes when safe and supported, or identify the
+smallest exact trigger and return a minimal unified diff plus the full corrected
+skill. It prohibits silent rewrites and execution of the scouting workflow.
+
+Mechanical extraction of the content between `BEGIN EXACT SKILL` and `END
+EXACT SKILL` is byte-identical to Probe 41 and reproduces SHA-256
+`da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
+This replaces the iterative owner-upload loop with one bounded conversation
+handoff. The canonical v15 development skill remains unmoved and unchanged.
