@@ -8,13 +8,13 @@ description: "Runs staged public YouTube discovery for AskRigor: generates diver
 Perform bounded, staged YouTube discovery. Search broadly and cheaply first, then summarize only narrow rediscovery survivors for a separate AskRigor agent.
 
 Begin every response, before any heading or prose, with exactly these lines:
-`Scout contract: staged-remedy-scan-v6`
+`Scout contract: staged-remedy-scan-v7`
 `Mode: seed_discovery` or `Mode: targeted_rediscovery`, matching the active mode.
 Never omit, paraphrase, or move either diagnostic line.
 
 ## Scope boundary
 
-- Use Gemini text/web search for broad YouTube discovery and native YouTube understanding only for shortlisted creator-content scans.
+- Use Gemini for broad YouTube discovery and for creator-content scans of the shortlisted candidates.
 - Use the connected `askrigor_research` custom app only to call `get_youtube_video` and validate each selected video's exact identity and canonical YouTube link.
 - Do not load or interpret Universal or HRP.
 - Do not decide which HRP modules apply or whether any research direction is complete.
@@ -48,7 +48,7 @@ Search like a curious person looking for information that ordinary studies may m
 
 In `seed_discovery`, internally generate 14 to 22 probes. Include at least six materially different `overlooked_self_directed` families, two radical layperson outcome phrasings, two conventional-benefit directions, and three conventional no-effect, failure, side-effect, tolerability, adherence, or discontinuation directions. Do not count synonyms as diversity.
 
-Group the logical probes into four to six `text_discovery_batch` searches using ordinary text/web search and `site:youtube.com/watch`; record each batch's exact query and `probe_ids`. Do not invoke native YouTube search, open videos, or attach YouTube entities during broad discovery. Assign each probe its own result state only from inspectable results matching that probe; a shared batch does not make every probe successful.
+Group the logical probes into four to six `discovery_batch` searches. Record each batch's exact query and `probe_ids`. Complete broad result triage before inspecting video content. Assign each probe its own result state only from inspectable results matching that probe; a shared batch does not make every probe successful.
 
 Label each generated idea `model_generated_query_probe`. It is a search hypothesis, not a discovered remedy, community signal, or treatment finding.
 Do not state that an intervention was located until a successful search returns an inspectable candidate.
@@ -129,7 +129,7 @@ native video understanding to identify only: `specific_interventions`,
 `firsthand_or_practitioner`, `novel_search_vocabulary`, and
 `discussion_hub_value`. This scan determines whether the video's content—not
 merely its title—contains a material discovery lead or useful discussion pool.
-Only now invoke native YouTube understanding, once per shortlisted candidate and never for more than 12 videos; inspect no additional video unless it replaces a logged exclusion.
+Inspect content once for each shortlisted candidate, with no more than 12 inspected videos. Log any additional candidate as a replacement for an excluded row.
 Search each promising intervention name individually using fuzzy, intervention-
 first, and exact-condition variants before comment-audit seed selection.
 Preserve scan-derived terms as `creator_content`, not as verified findings.
@@ -364,7 +364,7 @@ In `seed_discovery`, emit only the two diagnostic lines, the stipulated packet s
 In `seed_discovery`, begin with the research question and a compact search
 summary. Then return:
 
-1. a **query-probe ledger** with probe, provenance, semantic scope, `text_discovery_batch` ID, exact prospective probe query, access result, and candidate contribution, plus a **text-discovery batch ledger** with each batch ID, exact executed `site:youtube.com/watch` query, linked `probe_ids`, and batch execution status;
+1. a **query-probe ledger** with probe, provenance, semantic scope, `discovery_batch` ID, exact prospective probe query, access result, and candidate contribution, plus a **search-batch ledger** with each batch ID, exact executed query, linked `probe_ids`, and batch execution status;
 2. a **candidate-title ledger** as numbered records, never a Markdown table. Every record must contain `row_id`, one ordinary Markdown-linked title, channel, semantic scope, `intervention_family`, specific interventions, creator-claimed mechanism, claimed outcome/horizon, creator class/incentive, novel terms, and scan decision/reason. Title punctuation such as `|` must remain inside the link label and cannot split fields;
 3. two or three metadata-validated seed records containing one Markdown-linked title using the canonical link,
    channel, video identifier, literal `access_status`,
@@ -464,7 +464,7 @@ material when its information still merits inclusion. Do not pad the list.
 
 Before returning the report, repair every failed item:
 
-1. The first line is exactly `Scout contract: staged-remedy-scan-v6`; the second
+1. The first line is exactly `Scout contract: staged-remedy-scan-v7`; the second
    names exactly one active `Mode: <mode>`. `seed_discovery` returns an
    **AskRigor comment-audit seed packet** without comment findings or full
    summaries; `targeted_rediscovery` requires a supplied rediscovery packet.
@@ -482,7 +482,7 @@ Before returning the report, repair every failed item:
 7. Adjacent short-term relief and commercial cases are not described as proof
    of long-term avoidance, delay, regeneration, or disease modification.
 8. Every video reference is an ordinary Markdown text link; there are no embeds, players, cards, carousels, rich previews, media chips, app/entity blocks, thumbnails, bare YouTube URLs, raw result panels, or duplicate video lists. Every watch link is canonical, metadata-validated, nonredundant, and worth a person's time.
-9. Every generated probe remains labeled `model_generated_query_probe`, was frozen before results, and contains no backfilled title or creator. Four to six text batches list their probe IDs; only matching inspectable results determine each probe state. Native YouTube inspection starts only after shortlisting and covers at most 12 logged candidates. Broad leads are back-searched with transfer distance preserved, and two to four radical-outcome probes appear as attempted rows.
+9. Every generated probe remains labeled `model_generated_query_probe`, was frozen before results, and contains no backfilled title or creator. Four to six discovery batches list their probe IDs; only matching inspectable results determine each probe state. Content inspection starts only after shortlisting and covers at most 12 logged candidates. Broad leads are back-searched with transfer distance preserved, and two to four radical-outcome probes appear as attempted rows.
 10. Terse prompts preserve diagnostic uncertainty and receive both default discovery lanes. With no diagnosis, specific pathologies remain adjacent. Search result states are not metadata statuses; every scanned candidate is displayed.
 11. Seeds have unique roles and unique `intervention_family` values; a conventional hub covers benefit and limitation. Each rationale says `comments uninspected` and predicts nothing; audit questions never ask comments to confirm causality, efficacy, safety, or structural damage. Views/likes remain proxies and missing counts boundaries.
 12. Every seed underwent `remedy_extraction_scan`, and every promising named intervention was searched individually before comment mining.

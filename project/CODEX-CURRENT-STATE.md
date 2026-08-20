@@ -701,6 +701,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   tests with two fixed-five-second timeout failures; both timeout-prone files
   then passed 15/15 in isolation, covering all 971 runnable tests, with five
   declared skips.
+- The owner reported the same security-scan rejection on the wrapped artifact,
+  disproving line length as the operative cause. Contract v7 instead bisects the
+  v6-only semantic delta against uploadable v5: it removes explicit tool-routing
+  phrases such as instructions not to invoke or attach native YouTube entities
+  and removes the literal site-search operator. It preserves four to six broad
+  discovery batches, delayed content inspection, the 12-video ceiling, text-only
+  report output, intervention-family diversity, neutral audit questions, and
+  row-level rabbit-hole traceability. External upload remains the decisive test.
+- Contract v7 validates at 499 lines and 35,551 bytes with a 595-character
+  maximum line. The skill validator and focused contract suite passed 8/8;
+  typecheck and build passed. The preceding compatibility revision covered all
+  971 runnable tests, with its two load-sensitive fixed-timeout tests passing in
+  isolation, and v7 changes no runtime source.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
