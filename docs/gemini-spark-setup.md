@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v12`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v13`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Let Gemini complete broad result discovery before it inspects video
 content. Detailed content inspection is limited to the shortlisted 8–12 scan
@@ -74,12 +74,13 @@ such as `how can I fix my bad hip` automatically expands into overlooked,
 self-directed approaches plus positive and negative real-world feedback on
 conventional care, while preserving that no diagnosis was supplied. Gemini
 generates 14–22 diverse query probes, including separately executed radical-
-outcome variants, then groups them into 6–10 single-family discovery batches of
+outcome variants, then groups them into 6–12 single-family discovery batches of
 at most three probes. Each probe records literal required anchors and cannot
 claim success unless both its frozen and executed queries cover them. Gemini
-also keeps semantic scope separate from exact/adjacent/remote target distance,
-recomputes the displayed scan count, and completes title and metadata triage
-before content inspection. It
+counts six actual remedy families without using outcome or conventional lanes
+as padding, separates direct radical-claim matches from adjacent tutorials,
+keeps semantic scope separate from target distance, and recomputes the displayed
+scan count before content inspection. It
 then runs a required
 `remedy_extraction_scan` on 8–12 plausible videos. It extracts only intervention
 names, creator-claimed mechanisms and outcomes, creator relationship, novel
@@ -88,9 +89,9 @@ promising intervention individually before returning an **AskRigor comment-
 audit seed packet** with two or three distinct seed videos and an unpopulated
 return contract. Copy that packet into AskRigor. Gemini has not audited the
 comments and must not pre-populate the later `youtube_rediscovery_packet`.
-Named terms in audit questions must map back to a selected seed field, and a
-conventional feedback seed must state both its recognized benefit/indication
-and its creator-supported limitation.
+Named terms in seed and rabbit-hole questions must map exactly to candidate
+fields, banned prevalence/efficacy wording is scanned before return, and a
+conventional feedback seed must state both benefit and limitation.
 Content inspection begins only for those shortlisted scan candidates, reducing
 unnecessary video processing during broad discovery.
 It also returns an evidence-neutral rabbit-hole map showing observed retrieval
@@ -118,6 +119,14 @@ own wider YouTube searches after comment analysis when avoiding the optional
 Gemini round trip is more useful. Fully automating bidirectional transfer would
 require a separately reviewed authenticated mailbox or server-side research
 supervisor.
+
+Run Spark as a parallel high-recall lane, not a blocking phase. Start AskRigor
+on the same de-identified question at the same time so it can load its protocol,
+map the evidence frontier, and research formal, grey, clinical, and accessible
+non-YouTube communities. When Spark finishes, transfer its packet into that
+active evidence map, deduplicate candidates, and continue AskRigor's transcript,
+comment, and bidirectional searches. The user remains the cross-app scheduler
+until a separately reviewed supervisor exists.
 
 ## Acceptance test
 

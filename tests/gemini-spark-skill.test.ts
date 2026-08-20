@@ -152,8 +152,8 @@ describe("Gemini Spark AskRigor skill", () => {
   it("self-identifies the staged contract before any report content", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: staged-remedy-scan-v12");
-    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v11");
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v13");
+    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v12");
     expect(skill).toContain("Mode: seed_discovery");
     expect(skill).toContain("Mode: targeted_rediscovery");
     expect(skill).toMatch(/Begin every response, before any heading or prose/);
@@ -190,8 +190,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("When `diagnosis_not specified`");
     expect(skill).toContain("diagnosis, structural state, or procedure");
     expect(skill).toContain("Include two to four separate `radical_outcome` probes");
-    expect(skill).toContain("at least one uses `grow/growing/grew [anatomy] back`");
-    expect(skill).toContain("including its radical root and anatomy");
+    expect(skill).toContain("for example `\"growing my hip back\"`");
+    expect(skill).toContain("including the radical phrase and anatomy");
     expect(skill).toContain("grow/growing/grew [anatomy] back");
     expect(skill).toContain("A harm-only candidate cannot fill this role");
     expect(skill).toContain("audit_selection_rationale");
@@ -202,19 +202,28 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Never introduce a term, count, creator, or intervention absent from the cited rows");
     expect(skill).toContain("Use `dig into nutrition signal` only for diet");
     expect(skill).toContain("the only permitted code block");
-    expect(skill).toContain("six to ten executed `discovery_batch` searches");
+    expect(skill).toContain("six to twelve executed `discovery_batch` searches");
     expect(skill).toContain("Assign exactly one closed `probe_family`");
-    expect(skill).toContain("no more than three probes");
+    expect(skill).toContain("at most three probes");
     expect(skill).toContain("exactly one `probe_family` per batch");
     expect(skill).toContain("`radical_outcome`");
     expect(skill).toContain("`required_batch_anchors`");
-    expect(skill).toContain("`anchor_coverage: pass` or `fail`");
+    expect(skill).toContain("`anchor_coverage: pass | fail`");
     expect(skill).toContain("Every required anchor must occur literally");
     expect(skill).toContain("Set `probe_granularity` to `single_intervention`");
     expect(skill).toContain("one bundled `OR` query counts as one probe");
-    expect(skill).toContain("Show six distinct overlooked families");
+    expect(skill).toContain("at least six materially different overlooked intervention families");
     expect(skill).toContain("matched_candidate_row_ids");
-    expect(skill).toContain("cited row contains that probe's distinct concept");
+    expect(skill).toContain("adjacent_candidate_row_ids");
+    expect(skill).toContain("`claim_alignment: direct | adjacent_only | none`");
+    expect(skill).toContain("`radical_claim_evidence: candidate_field -> exact creator-claim phrase`");
+    expect(skill).toContain("rapid relief, temporary decompression");
+    expect(skill).toContain("`overlooked_intervention_family_count`");
+    expect(skill).toContain("outcome and conventional families do not count");
+    expect(skill).toContain("`conventional_benefit_probe_count`");
+    expect(skill).toContain("`conventional_negative_probe_count`");
+    expect(skill).toContain("three separate conventional-negative rows");
+    expect(skill).toContain("scanned fields directly support the searched claim");
     expect(skill).toContain("search-batch ledger");
     expect(skill).toContain("Complete broad triage before content inspection");
     expect(skill).toContain("Inspect content once for each shortlisted candidate");
@@ -243,10 +252,15 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("what proportion");
     expect(skill).toContain("source_seed_row_ids");
     expect(skill).toContain("question_term_evidence");
+    expect(skill).toContain("research_question_term_evidence");
+    expect(skill).toContain("`unmapped_question_terms: none`");
+    expect(skill).toContain("Run a literal banned-phrase scan");
+    expect(skill).toContain("`response rate`");
+    expect(skill).toContain("`measurable improvement`");
     expect(skill).toContain("Never use `e.g.` or `such as` unless every example is mapped");
     expect(skill).toContain("source_candidate_row_id");
     expect(skill).toContain("how common/commonly");
-    expect(skill).toContain("Do not introduce details absent from the cited seed");
+    expect(skill).toContain("the exact phrase must occur in that field");
     expect(skill).toContain("citing selected seeds only");
     expect(skill).toContain("promote a worthwhile nonseed or omit its question");
     expect(skill).toContain("how many");
@@ -266,6 +280,9 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("`recognized_benefit_or_indication`");
     expect(skill).toContain("`real_world_limitation`");
     expect(skill).toContain("Repeat both in its seed record");
+    expect(skill).toContain("one `next_work`, one matching `shortcut`");
+    expect(skill).toContain("parallel_handoff_note");
+    expect(skill).toContain("Never instruct AskRigor to wait");
   });
 
   it("documents the one-time connection and per-task scout handoff honestly", async () => {
@@ -279,13 +296,15 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor-staged");
-    expect(setup).toContain("Scout contract: staged-remedy-scan-v12");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v13");
     expect(setup).toContain("complete broad result discovery before it inspects video\ncontent");
     expect(setup).toContain("how can I fix my bad hip");
     expect(setup).toContain("rabbit-hole map");
     expect(setup).toMatch(/unpopulated\s+return contract/);
     expect(setup).toContain("does not execute HRP");
     expect(setup).toContain("manual transfer at each stage");
+    expect(setup).toContain("parallel high-recall lane");
+    expect(setup).toContain("user remains the cross-app scheduler");
     expect(setup).toContain(
       "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
     );

@@ -796,6 +796,35 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   The skill validator and focused contract suite passed 8/8; typecheck and build
   passed. This revision changes no runtime source and remains below the
   uploadable v10 and v11 artifacts.
+- The owner's v12 forward run populated 10 single-family batches and all 10
+  displayed candidate rows, selected an independent nonsurgical outcome, and
+  preserved conventional benefit plus limitation. It nevertheless treated
+  rapid relief, temporary traction, and a cartilage-mechanism tutorial as direct
+  radical outcomes; counted only five overlooked intervention families once
+  outcome lanes were excluded; supplied only two distinct negative conventional
+  probes; leaked uncited terms and prevalence/efficacy wording into audit
+  questions; and emitted one malformed duplicated rabbit-hole key. The held-out
+  independent `GROWING MY HIP BACK` result was not rediscovered.
+- Contract v13 separates search access from direct claim alignment, requires
+  exact creator-claim evidence for a direct radical match, counts only eight
+  eligible overlooked intervention families, requires two conventional-benefit
+  and three separate conventional-negative rows, and exact-maps every named
+  question term while banning prevalence and efficacy formulations. It also
+  requires a duplicate/malformed-key self-check and states that Gemini is an
+  optional parallel discovery lane: AskRigor may continue formal, grey,
+  clinical, and other-community work while the manual Spark handoff is pending.
+  The setup guide now documents this parallel-but-manual operating model.
+- Contract v13 validates at 357 lines and 36,422 bytes with a 759-character
+  maximum line and SHA-256
+  `e9c6ee9f5a3ce336f55c0b0edd2c3c4184f597624bd56b599a53e31ae7e41352`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. `git diff --check` passed. This revision changes no runtime source and
+  remains smaller than the uploadable v11 artifact; external Gemini upload and
+  a fresh forward run remain the decisive compatibility and behavior tests.
+- The required lesson checkpoint at `2026-08-20T17:37:51.600Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded skill-contract repair.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
