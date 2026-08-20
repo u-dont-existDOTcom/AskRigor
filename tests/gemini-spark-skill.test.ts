@@ -9,6 +9,13 @@ const skillUrl = new URL(
 const setupUrl = new URL("../docs/gemini-spark-setup.md", import.meta.url);
 
 describe("Gemini Spark AskRigor skill", () => {
+  it("keeps every source line below the upload scanner compatibility ceiling", async () => {
+    const skill = await readFile(skillUrl, "utf8");
+    const longestLine = Math.max(...skill.split(/\r?\n/u).map((line) => line.length));
+
+    expect(longestLine).toBeLessThanOrEqual(800);
+  });
+
   it("keeps Gemini in the bounded YouTube scout role", async () => {
     const skill = await readFile(skillUrl, "utf8");
 

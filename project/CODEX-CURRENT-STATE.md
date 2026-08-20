@@ -687,6 +687,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Contract v6 validates at 482 lines. Its focused contract suite passed 7/7,
   typecheck and build passed, and the complete serial host suite passed all 970
   runnable tests with five declared skips.
+- Gemini's file-upload security scan rejected the first v6 artifact without a
+  diagnostic. The file was valid UTF-8 Markdown with no executable payload; its
+  only clear byte-shape regression from the uploadable v5 artifact was a new
+  1,066-character line, crossing a common 1 KiB scanner heuristic boundary.
+  The compatibility revision wraps that schema instruction without changing the
+  contract and adds a regression test requiring every source line to remain at
+  or below 800 characters. The external scanner cause remains an evidence-based
+  inference until an owner upload succeeds.
+- The compatibility revision validates at 499 lines with a 595-character
+  maximum line. The skill validator and focused contract suite passed 8/8;
+  typecheck and build passed. The complete host-boundary serial suite passed 969
+  tests with two fixed-five-second timeout failures; both timeout-prone files
+  then passed 15/15 in isolation, covering all 971 runnable tests, with five
+  declared skips.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run

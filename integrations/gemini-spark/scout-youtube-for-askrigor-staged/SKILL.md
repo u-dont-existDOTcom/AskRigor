@@ -372,7 +372,24 @@ summary. Then return:
    provenance, question-match class, target-distance class, and its nonpredictive
    `audit_selection_rationale` with `comments uninspected`; and
 4. neutral **comment-audit questions** for AskRigor covering named interventions, regimens, perceived outcomes/timing, benefit, no effect, flare, worsening, tolerability, adherence, discontinuation, named videos/creators, and unusual terminology—never questions asking comments to confirm causality or structural change;
-5. a **rabbit-hole map** with four to eight material directions. For each give `direction_id`, what surfaced, `retrieval_depth` (`deep`, `moderate`, `thin`, or `blocked`), `candidate_row_ids`, `term_evidence` mappings (`term -> row_ids`), creator count computed from those rows, `scouting_access_gaps`, `research_questions_for_askrigor`, next work, and a semantically matched shortcut. Never introduce a term, count, creator, or intervention absent from the cited rows. `scouting_access_gaps` may contain only literal retrieval limitations such as zero results, unavailable metadata, missing comments, or inaccessible content—not assertions about missing trials or evidence. Use `dig into nutrition signal` only for diet, fasting, or supplements; `dig into mechanical signal` for manipulation, gait, loading, or reflex mechanics; and `dig into side-effect signal` or `dig into conventional-treatment feedback` for adverse effects, rebound, tolerability, or conventional decisions. Also allow `dig into firsthand outcomes` and `dig into all high-yield signals`; and
+5. a **rabbit-hole map** with four to eight material directions. For each give:
+   - `direction_id`, what surfaced, and `retrieval_depth` (`deep`, `moderate`,
+     `thin`, or `blocked`);
+   - `candidate_row_ids` and `term_evidence` mappings (`term -> row_ids`);
+   - creator count computed from those rows;
+   - `scouting_access_gaps`, `research_questions_for_askrigor`, next work, and
+     a semantically matched shortcut.
+   Never introduce a term, count, creator, or intervention absent from the cited rows.
+   `scouting_access_gaps` may contain only literal retrieval limitations
+   such as zero results, unavailable metadata, missing comments, or inaccessible
+   content—not assertions about missing trials or evidence.
+   Use `dig into nutrition signal` only for diet, fasting, or supplements. Use
+   `dig into mechanical signal` for manipulation, gait, loading, or reflex
+   mechanics. Use `dig into side-effect signal` or
+   `dig into conventional-treatment feedback` for adverse effects, rebound,
+   tolerability, or conventional decisions. Also allow
+   `dig into firsthand outcomes` and `dig into all high-yield signals`;
+   and
 6. an **AskRigor comment-audit request** naming the seed video identifiers and
    this unpopulated return contract:
 
