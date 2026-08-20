@@ -895,6 +895,27 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   diagnostic rollback.
+- The owner then clarified that exact v13 still uploads successfully. This
+  rules out a platform-wide rejection and makes the post-v13 content delta the
+  controlled variable. The rollback commit remains historical evidence, but
+  v15 is restored as the canonical development skill at SHA-256
+  `cd5c832be43358a57633064be4c50e0999bd22336ab9c79801d472f759383275`.
+- Upload-only probe 01 starts from exact v13 and adds only execution/anchor
+  controls. It is a local ignored artifact at
+  `.artifacts/gemini-upload-bisect/01-execution-anchor/SKILL.md`, 36,505 bytes,
+  SHA-256
+  `99d1e3d26bde76a01eb47a90e7ced09ced68cbf48225f79dda7d57ea942174bd`.
+  A pass moves the bisect to schema/question changes; a failure splits this
+  execution group. The durable procedure is recorded in
+  `docs/audits/2026-08-20-gemini-skill-upload-security-bisect.md`. Both skill
+  artifacts passed the skill validator; the canonical focused suite passed
+  8/8, and typecheck and build passed. The complete host suite passed 970 tests
+  before one unrelated 5-second evidence-test timeout; that file then passed
+  all 11 tests standalone. Five tests remained skipped.
+- The required lesson checkpoint at `2026-08-20T18:53:43.444Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded upload bisect.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
