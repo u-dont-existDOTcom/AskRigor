@@ -776,6 +776,26 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It remains smaller than the uploadable v10 artifact. The skill validator and
   focused contract suite passed 8/8; typecheck and build passed. This revision
   changes no runtime source.
+- The owner's v11 forward run uploaded successfully and improved family-safe
+  rabbit holes, seed/question alignment, and independent seed classification,
+  but exposed new structural gaps. Its 16 probes were collapsed into five
+  mixed-family batches whose executed queries omitted several linked concepts;
+  no literal grow/rebuild/regrow radical probe ran, so the held-out independent
+  outcome disappeared. It also displayed 9 candidates after claiming 10, used
+  `adjacent` as a semantic scope, omitted literal Markdown title destinations,
+  introduced question details absent from seed rows, and selected a harm-led
+  surgical video without an explicit recognized-benefit field.
+- Contract v12 uses closed probe and semantic-scope enums, separate target
+  distance, 6–10 one-family batches of at most three probes, per-probe required
+  anchors, distinct radical roots including `grow/growing/grew ... back`, exact
+  scan/display counts, contiguous candidate IDs, per-candidate video IDs,
+  evidence-mapped question terms, and explicit conventional benefit/limitation
+  fields. It validates at 387 lines and 36,287 bytes with a 780-character
+  maximum line and SHA-256
+  `fcee4476b45bce7d566260f31746244a939f0795e8bac3867a6b4fa9c2c18491`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. This revision changes no runtime source and remains below the
+  uploadable v10 and v11 artifacts.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run

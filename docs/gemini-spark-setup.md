@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v11`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v12`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Let Gemini complete broad result discovery before it inspects video
 content. Detailed content inspection is limited to the shortlisted 8–12 scan
@@ -73,8 +73,13 @@ Without a rediscovery packet, Gemini uses `seed_discovery`. Even a terse prompt
 such as `how can I fix my bad hip` automatically expands into overlooked,
 self-directed approaches plus positive and negative real-world feedback on
 conventional care, while preserving that no diagnosis was supplied. Gemini
-generates 14–22 diverse query probes, groups them into 4–6 broad discovery
-batches, and completes title and metadata triage before content inspection. It
+generates 14–22 diverse query probes, including separately executed radical-
+outcome variants, then groups them into 6–10 single-family discovery batches of
+at most three probes. Each probe records literal required anchors and cannot
+claim success unless both its frozen and executed queries cover them. Gemini
+also keeps semantic scope separate from exact/adjacent/remote target distance,
+recomputes the displayed scan count, and completes title and metadata triage
+before content inspection. It
 then runs a required
 `remedy_extraction_scan` on 8–12 plausible videos. It extracts only intervention
 names, creator-claimed mechanisms and outcomes, creator relationship, novel
@@ -83,6 +88,9 @@ promising intervention individually before returning an **AskRigor comment-
 audit seed packet** with two or three distinct seed videos and an unpopulated
 return contract. Copy that packet into AskRigor. Gemini has not audited the
 comments and must not pre-populate the later `youtube_rediscovery_packet`.
+Named terms in audit questions must map back to a selected seed field, and a
+conventional feedback seed must state both its recognized benefit/indication
+and its creator-supported limitation.
 Content inspection begins only for those shortlisted scan candidates, reducing
 unnecessary video processing during broad discovery.
 It also returns an evidence-neutral rabbit-hole map showing observed retrieval

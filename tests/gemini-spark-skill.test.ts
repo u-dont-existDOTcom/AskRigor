@@ -152,8 +152,8 @@ describe("Gemini Spark AskRigor skill", () => {
   it("self-identifies the staged contract before any report content", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: staged-remedy-scan-v11");
-    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v10");
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v12");
+    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v11");
     expect(skill).toContain("Mode: seed_discovery");
     expect(skill).toContain("Mode: targeted_rediscovery");
     expect(skill).toMatch(/Begin every response, before any heading or prose/);
@@ -189,7 +189,9 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("never backfill a published title or creator name");
     expect(skill).toContain("When `diagnosis_not specified`");
     expect(skill).toContain("diagnosis, structural state, or procedure");
-    expect(skill).toContain("radical-outcome probes as separate attempted rows");
+    expect(skill).toContain("Include two to four separate `radical_outcome` probes");
+    expect(skill).toContain("at least one uses `grow/growing/grew [anatomy] back`");
+    expect(skill).toContain("including its radical root and anatomy");
     expect(skill).toContain("grow/growing/grew [anatomy] back");
     expect(skill).toContain("A harm-only candidate cannot fill this role");
     expect(skill).toContain("audit_selection_rationale");
@@ -200,10 +202,15 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Never introduce a term, count, creator, or intervention absent from the cited rows");
     expect(skill).toContain("Use `dig into nutrition signal` only for diet");
     expect(skill).toContain("the only permitted code block");
-    expect(skill).toContain("four to six `discovery_batch` searches");
-    expect(skill).toContain("one explicit `probe_family`");
+    expect(skill).toContain("six to ten executed `discovery_batch` searches");
+    expect(skill).toContain("Assign exactly one closed `probe_family`");
+    expect(skill).toContain("no more than three probes");
+    expect(skill).toContain("exactly one `probe_family` per batch");
+    expect(skill).toContain("`radical_outcome`");
+    expect(skill).toContain("`required_batch_anchors`");
+    expect(skill).toContain("`anchor_coverage: pass` or `fail`");
+    expect(skill).toContain("Every required anchor must occur literally");
     expect(skill).toContain("Set `probe_granularity` to `single_intervention`");
-    expect(skill).toContain("every linked probe's decisive intervention or outcome anchor must appear");
     expect(skill).toContain("one bundled `OR` query counts as one probe");
     expect(skill).toContain("Show six distinct overlooked families");
     expect(skill).toContain("matched_candidate_row_ids");
@@ -226,16 +233,22 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("never a table");
     expect(skill).toContain("plain titles fail");
     expect(skill).toContain("A link is valid only if its literal Markdown contains");
+    expect(skill).toContain("`remedy_extraction_scan_count`");
+    expect(skill).toContain("`displayed_candidate_row_count`");
+    expect(skill).toContain("numbered row IDs must be contiguous");
+    expect(skill).toContain("Give every row a `video_identifier`");
     expect(skill).toContain("at or below 110 words");
     expect(skill).toContain("Keep title punctuation inside the link label");
     expect(skill).toContain("mechanism confirmation");
     expect(skill).toContain("what proportion");
     expect(skill).toContain("source_seed_row_ids");
+    expect(skill).toContain("question_term_evidence");
+    expect(skill).toContain("Never use `e.g.` or `such as` unless every example is mapped");
     expect(skill).toContain("source_candidate_row_id");
     expect(skill).toContain("how common/commonly");
-    expect(skill).toContain("do not invent examples");
+    expect(skill).toContain("Do not introduce details absent from the cited seed");
     expect(skill).toContain("citing selected seeds only");
-    expect(skill).toContain("Promote a worthwhile nonseed or omit its question");
+    expect(skill).toContain("promote a worthwhile nonseed or omit its question");
     expect(skill).toContain("how many");
     expect(skill).toContain("verification, corroboration");
     expect(skill).toContain("verbatim `term_evidence` mappings");
@@ -247,6 +260,12 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("scouting_access_gaps");
     expect(skill).toContain("research_questions_for_askrigor");
     expect(skill).toContain("not assertions about missing trials, imaging, verification, peer support, or evidence");
+    expect(skill).toContain("Use only this closed `semantic_scope` enum");
+    expect(skill).toContain("Never write `adjacent` or `remote` as `semantic_scope`");
+    expect(skill).toContain("target_distance");
+    expect(skill).toContain("`recognized_benefit_or_indication`");
+    expect(skill).toContain("`real_world_limitation`");
+    expect(skill).toContain("Repeat both in its seed record");
   });
 
   it("documents the one-time connection and per-task scout handoff honestly", async () => {
@@ -260,7 +279,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor-staged");
-    expect(setup).toContain("Scout contract: staged-remedy-scan-v11");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v12");
     expect(setup).toContain("complete broad result discovery before it inspects video\ncontent");
     expect(setup).toContain("how can I fix my bad hip");
     expect(setup).toContain("rabbit-hole map");
