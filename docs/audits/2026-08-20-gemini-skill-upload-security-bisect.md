@@ -811,6 +811,33 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 24 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted the exact-family
+shortcut rewrite on the safe cumulative base. Probe 27 replaces only the final
+self-check with the compact nine-item v15 form while retaining the v13 contract
+marker for isolation. The canonical v15 development skill was not moved or
+changed.
+
+## Probe 27: compact final self-check
+
+Local path:
+`.artifacts/gemini-upload-bisect/27-compact-final-self-check/SKILL.md`
+
+SHA-256:
+`30bcce770938c569b60a7227efd017fb658425a5486a77fe8ee7180fda3cfb48`
+
+This starts from accepted Probe 26 and replaces only v13's thirteen-item final
+self-check with the compact nine-item v15 self-check. Its first item retains
+the v13 contract marker so this probe does not test a version-marker change.
+No source-alignment addition or incompatible primary schema rewrite is present.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split the compact final self-check into smaller item groups;
+- **passes:** retain the compact self-check and combine the accepted execution/
+  anchor body from Probe 01 with this cumulative production base; and
+- **inconsistent result:** repeat accepted Probe 26 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 353 lines and 36,546 bytes. The canonical v15 development skill
+validator at 349 lines and 35,531 bytes. The canonical v15 development skill
 was not moved or changed.

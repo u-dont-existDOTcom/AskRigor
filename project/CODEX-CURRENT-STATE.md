@@ -1216,6 +1216,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure retests the shortcut from exact v13;
   a pass retains it before the final-self-check probe. The canonical v15 skill
   remains unmoved and unchanged.
+- The owner reports Probe 26 passed. Retain the exact-family shortcut rewrite
+  on the safe cumulative base. Probe 27 replaces only the thirteen-item v13
+  final self-check with the compact nine-item v15 form while preserving the v13
+  contract marker to isolate content. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/27-compact-final-self-check/SKILL.md`, 349
+  lines and 35,531 bytes, SHA-256
+  `30bcce770938c569b60a7227efd017fb658425a5486a77fe8ee7180fda3cfb48`.
+  It passed the skill validator. A failure splits final-self-check items; a pass
+  retains them before combining the accepted execution/anchor body from Probe
+  01. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
