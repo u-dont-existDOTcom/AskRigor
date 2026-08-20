@@ -1026,6 +1026,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits the question hunk; a pass
   establishes an interaction between individually accepted schema and question
   changes. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 09 failed. Probe 10 starts from exact v13 and replaces
+  only the concrete question-term mapping line; the evidence-first ordering and
+  compact banned-scan sentences are absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/10-concrete-question-mapping/SKILL.md`, 357
+  lines and 36,161 bytes, SHA-256
+  `013c5029ab0de3a5f862ae947c9ee27169e6381b3065633b7b76a68d2d42af77`.
+  It passed the skill validator. A failure localizes the next semantic split to
+  this one line; a pass tests the excluded evidence-first/banned-scan wording.
+  The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

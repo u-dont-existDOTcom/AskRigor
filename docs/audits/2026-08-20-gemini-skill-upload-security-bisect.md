@@ -278,6 +278,38 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected this
+exact alternate. The next split tests the expanded concrete-term mapping line
+separately from the evidence-first ordering and compact banned-scan wording.
+The canonical v15 development skill was not moved or changed.
+
+## Probe 10: concrete question-term mapping
+
+Local path:
+`.artifacts/gemini-upload-bisect/10-concrete-question-mapping/SKILL.md`
+
+SHA-256:
+`013c5029ab0de3a5f862ae947c9ee27169e6381b3065633b7b76a68d2d42af77`
+
+This starts from exact v13, retains the v13 contract marker, and replaces one
+line only. The replacement requires every concrete intervention, brand, diet,
+adverse effect, symptom, manifestation, synonym, or example in a question to
+map exactly; it prohibits invented concrete details and tightens the
+`unmapped_question_terms: none` construction check.
+
+The evidence-first ordering sentence and compact banned-scan sentence are
+absent. Every other byte is exact v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the single replacement line, or its interaction with v13, is
+  sufficient to trigger the scanner; split that line semantically before
+  rewriting the production rule;
+- **passes:** test the excluded evidence-first ordering and compact banned-scan
+  wording from exact v13; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,392 bytes. The canonical v15 development skill
+validator at 357 lines and 36,161 bytes. The canonical v15 development skill
 was not moved or changed.
