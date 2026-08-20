@@ -947,6 +947,43 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 30 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted compact lower items 6–9
+when compact item 5 remained excluded. This establishes the hybrid self-check:
+compact items 1–4 and 6–9 plus v13's detailed scope/family checks. Probe 32
+combines the already accepted execution/anchor body from Probe 01 with this
+cumulative candidate. The canonical v15 development skill was not moved or
+changed.
+
+## Probe 32: cumulative execution and anchor contract
+
+Local path:
+`.artifacts/gemini-upload-bisect/32-cumulative-execution-anchor/SKILL.md`
+
+SHA-256:
+`e2925b60ab394740bcf0d536e7270497d6eb89d2356aad8cdb903ff6457c9ca4`
+
+This starts from accepted Probe 31 and applies only the already accepted Probe
+01 execution/anchor changes:
+
+- passing-batch-only overlooked and conventional counts;
+- one remedy or synonym class per single-intervention probe;
+- nonempty anchors for every probe and `batch_anchor_evidence` per batch;
+- three separately anchored firsthand-outcome rows and their count; and
+- the matching query/search ledger output clause.
+
+It retains the safe reduced candidate-output schema, evidence ordering, exact-
+family shortcuts, and hybrid self-check. Rejected primary schema, source-
+alignment, compact item 5, and terse mapping commands are absent.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the accepted execution group interacts with the cumulative base,
+  so split its counting/granularity and anchor/firsthand halves;
+- **passes:** use this as the scanner-compatible cumulative production
+  candidate, then test the contract marker/version change separately; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 350 lines and 35,910 bytes. The canonical v15 development skill
+validator at 351 lines and 35,993 bytes. The canonical v15 development skill
 was not moved or changed.

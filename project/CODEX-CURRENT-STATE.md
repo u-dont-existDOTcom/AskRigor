@@ -1270,6 +1270,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   compact item 6; a pass retains the hybrid self-check before combining Probe
   01's accepted execution/anchor body. The canonical v15 skill remains unmoved
   and unchanged.
+- The owner reports Probe 31 passed. The scanner-compatible hybrid self-check
+  is compact items 1–4 and 6–9 plus v13's detailed scope/family checks; compact
+  item 5 remains excluded. Probe 32 applies the already accepted Probe 01
+  execution/anchor body to this cumulative candidate: passing-only counts,
+  single-remedy granularity, nonempty per-probe anchors, batch anchor evidence,
+  and three separately anchored firsthand rows plus matching output fields. Its
+  announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/32-cumulative-execution-anchor/SKILL.md`, 351
+  lines and 35,993 bytes, SHA-256
+  `e2925b60ab394740bcf0d536e7270497d6eb89d2356aad8cdb903ff6457c9ca4`.
+  It passed the skill validator. A failure splits the execution group; a pass
+  establishes the cumulative production candidate before a separate contract-
+  marker test. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
