@@ -310,6 +310,35 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected this
+exact one-line replacement. Probe 11 isolates its distinct prohibition on
+inventing absent concrete details. The canonical v15 development skill was not
+moved or changed.
+
+## Probe 11: no-invent detail guard
+
+Local path:
+`.artifacts/gemini-upload-bisect/11-no-invent-detail-guard/SKILL.md`
+
+SHA-256:
+`616b9776e564cdf13679b58f77bfe650e8f4e00385677fcb537e5982a06bb953`
+
+This is exact accepted v13 plus one added sentence:
+
+`Never invent a plausible concrete detail absent from the map.`
+
+No other word, instruction, marker, or line is changed.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** this sentence, or its interaction with v13, is sufficient to
+  trigger the scanner; replace the production guard with scanner-compatible
+  positive wording rather than retaining it;
+- **passes:** test Probe 10's excluded expanded concrete-term coverage and
+  construction-audit clauses without this sentence; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 357 lines and 36,161 bytes. The canonical v15 development skill
+validator at 358 lines and 36,484 bytes. The canonical v15 development skill
 was not moved or changed.

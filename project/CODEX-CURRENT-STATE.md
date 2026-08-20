@@ -1035,6 +1035,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure localizes the next semantic split to
   this one line; a pass tests the excluded evidence-first/banned-scan wording.
   The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 10 failed. Probe 11 isolates the distinct no-invent
+  clause as exact accepted v13 plus the single sentence `Never invent a
+  plausible concrete detail absent from the map.` Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/11-no-invent-detail-guard/SKILL.md`, 358
+  lines and 36,484 bytes, SHA-256
+  `616b9776e564cdf13679b58f77bfe650e8f4e00385677fcb537e5982a06bb953`.
+  It passed the skill validator. A failure requires scanner-compatible positive
+  wording for this guard; a pass tests the remaining concrete-term coverage
+  clauses. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
