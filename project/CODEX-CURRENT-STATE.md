@@ -878,6 +878,23 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   bounded scanner-compatibility repair.
+- The owner reports that the smaller v15 artifact also failed Gemini's security
+  scan. This falsifies the working byte-ceiling explanation; the rejection is
+  content-sensitive, nondeterministic, or an external scanner change.
+- The current upload artifact is therefore a diagnostic control restored
+  byte-for-byte to the owner's last known accepted v13 file: 357 lines, 36,422
+  bytes, maximum line length 759, SHA-256
+  `e9c6ee9f5a3ce336f55c0b0edd2c3c4184f597624bd56b599a53e31ae7e41352`.
+  Tests pin that exact hash. The v14/v15 improvements remain recoverable in Git
+  history but are intentionally absent from the upload control. If this exact
+  artifact now fails, the scanner behavior changed outside the tested content
+  delta and further prompt edits should stop pending platform-side diagnosis.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. A complete host-boundary rerun passed 971 tests with 5 skipped.
+- The required lesson checkpoint at `2026-08-20T18:23:58.250Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  diagnostic rollback.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run

@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v15`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v13`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Let Gemini complete broad result discovery before it inspects video
 content. Detailed content inspection is limited to the shortlisted 8–12 scan
@@ -76,11 +76,11 @@ conventional care, while preserving that no diagnosis was supplied. Gemini
 generates 14–22 diverse query probes, including separately executed radical-
 outcome variants, then groups them into 6–12 single-family discovery batches of
 at most three probes. Each probe records literal required anchors and cannot
-claim coverage unless both its frozen query and the batch query contain them;
-each batch maps linked probe IDs back to those literal anchors. Gemini counts
-only executed, anchor-covered remedy, firsthand, and conventional directions,
-keeps one remedy in every `single_intervention` probe, separates direct radical
-claims from adjacent tutorials, and recomputes the displayed scan count. It
+claim success unless both its frozen and executed queries cover them. Gemini
+counts six actual remedy families without using outcome or conventional lanes
+as padding, separates direct radical-claim matches from adjacent tutorials,
+keeps semantic scope separate from target distance, and recomputes the displayed
+scan count before content inspection. It
 then runs a required
 `remedy_extraction_scan` on 8–12 plausible videos. It extracts only intervention
 names, creator-claimed mechanisms and outcomes, creator relationship, novel
@@ -89,10 +89,9 @@ promising intervention individually before returning an **AskRigor comment-
 audit seed packet** with two or three distinct seed videos and an unpopulated
 return contract. Copy that packet into AskRigor. Gemini has not audited the
 comments and must not pre-populate the later `youtube_rediscovery_packet`.
-Question evidence maps are built before the questions, which may then use only
-mapped phrases plus neutral benefit, timing, tolerability, flare, worsening,
-adherence, and discontinuation vocabulary. A conventional feedback seed must
-state both benefit and limitation.
+Named terms in seed and rabbit-hole questions must map exactly to candidate
+fields, banned prevalence/efficacy wording is scanned before return, and a
+conventional feedback seed must state both benefit and limitation.
 Content inspection begins only for those shortlisted scan candidates, reducing
 unnecessary video processing during broad discovery.
 It also returns an evidence-neutral rabbit-hole map showing observed retrieval
@@ -150,9 +149,8 @@ confirm in the task trace and response that Gemini:
    comment findings or a premature final watch verdict; and
 7. expands terse prompts across overlooked/self-directed and conventional
    benefit, failure, side-effect, adherence, and discontinuation lanes; and
-8. returns a retrieval-depth rabbit-hole map with family-specific `dig into`
-   choices while keeping retrieval potential separate from evidence strength;
-   and
+8. returns a retrieval-depth rabbit-hole map with easy `dig into` choices while
+   keeping retrieval potential separate from evidence strength; and
 9. returns text-only Markdown video links without embeds, cards, carousels,
    previews, bare URLs, or a duplicated raw-results appendix; and
 10. records prospective queries before results, displays two to four radical
@@ -162,7 +160,7 @@ confirm in the task trace and response that Gemini:
     uninspected`, requires balanced conventional benefit/failure seeds, and
     traces every rabbit-hole count to displayed candidate row IDs with a
     semantically matched shortcut; and
-13. batches broad discovery into 6–12 text searches, opens no more than 12
+13. batches broad discovery into 4–6 text searches, opens no more than 12
     shortlisted videos, uses numbered candidate records rather than tables,
     selects unique intervention families, maps every rabbit-hole term to source
     rows, separates retrieval gaps from AskRigor research questions, and uses
@@ -175,12 +173,10 @@ confirm in the task trace and response that Gemini:
     questions cite selected seed rows only, provider reach counts remain
     metadata-only, and each coherent rabbit hole says whether it is executable
     from a current seed or requires future seed promotion. Also confirm batch
-    queries contain every linked probe anchor and expose per-probe anchor
-    evidence, candidate fields use exactly `intervention_family`, question
-    evidence maps precede questions, unmapped plausible details are absent,
+    queries contain every linked probe anchor, canonical intervention families
+    never reuse probe-family labels, question examples come from cited rows,
     rabbit questions avoid prevalence wording, and title links contain actual
-    canonical Markdown destinations. Confirm three separately covered
-    firsthand probes and family-specific shortcuts; and
+    canonical Markdown destinations; and
 14. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
    individualized recommendation claim.
