@@ -431,6 +431,38 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected this
+exact one-sentence addition. Because the medical/intervention vocabulary was
+absent, the terse `Every other ... must map exactly` command form is the useful
+boundary. Probe 15 tests a positive source-alignment replacement. The canonical
+v15 development skill was not moved or changed.
+
+## Probe 15: positive source alignment
+
+Local path:
+`.artifacts/gemini-upload-bisect/15-positive-source-alignment/SKILL.md`
+
+SHA-256:
+`cc4d45fbed10b34688ebdc173832607c84de9e66143471c57732e1320b400495`
+
+This is exact accepted v13 plus one added sentence:
+
+`Use a cited source field for each concrete question detail.`
+
+It preserves the source-alignment requirement while avoiding `Every other`,
+`must`, and `map exactly`. No other word, instruction, marker, or line is
+changed.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the broader concrete-detail/source-field formulation is also
+  rejected, so retain v13's existing evidence rule and drop the redundant new
+  sentence;
+- **passes:** use this positive wording in the production repair and continue
+  testing the remaining post-v13 changes; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,469 bytes. The canonical v15 development skill
+validator at 358 lines and 36,482 bytes. The canonical v15 development skill
 was not moved or changed.

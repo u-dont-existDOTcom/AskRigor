@@ -1076,6 +1076,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure requires positive source-alignment
   wording; a pass isolates the expanded vocabulary list or its interaction.
   The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 14 failed even after its medical/intervention
+  vocabulary list was removed. The terse `Every other ... must map exactly`
+  command form is therefore the useful boundary. Probe 15 is exact accepted
+  v13 plus the positive replacement `Use a cited source field for each concrete
+  question detail.` Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/15-positive-source-alignment/SKILL.md`, 358
+  lines and 36,482 bytes, SHA-256
+  `cc4d45fbed10b34688ebdc173832607c84de9e66143471c57732e1320b400495`.
+  It passed the skill validator. A pass makes this the production replacement;
+  a failure means retain v13's existing evidence rule without a redundant new
+  sentence. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
