@@ -984,6 +984,40 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 31 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner confirmed Gemini rejected this cumulative
+combination. Because Probe 01 accepted the same execution/anchor body against
+exact v13, the failure is an interaction with the accepted cumulative Probe 31
+base, not evidence that every execution clause is independently rejected. The
+canonical v15 development skill was not moved or changed.
+
+## Probe 33: counting and granularity interaction split
+
+Local path:
+`.artifacts/gemini-upload-bisect/33-counting-granularity/SKILL.md`
+
+SHA-256:
+`1ac680edc39e5c12c3e1e2914b558a95cf5283d4261b1630b89e1d2c9e83810c`
+
+This starts from accepted Probe 31 and applies only two parts of Probe 32:
+
+- overlooked-family and conventional-probe counts use passing batch coverage;
+  and
+- `single_intervention` names one remedy, with `OR` limited to synonyms or
+  outcome wording.
+
+It leaves the radical-probe wording, per-probe and per-batch anchor contract,
+three-row independent-firsthand quota, and output-ledger additions at their v13
+forms. This isolates counting/granularity from the anchor/firsthand half of the
+failed cumulative interaction.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split passing-coverage counting from single-remedy granularity;
+- **passes:** retain this half and test the anchor/firsthand half separately on
+  accepted Probe 31; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 351 lines and 35,993 bytes. The canonical v15 development skill
+validator at 351 lines and 35,919 bytes. The canonical v15 development skill
 was not moved or changed.

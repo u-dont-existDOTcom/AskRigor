@@ -1287,6 +1287,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   bounded complementary upload probe.
+- The owner reports Probe 32 failed. This localizes the new rejection to an
+  interaction between Probe 01's accepted execution/anchor body and the
+  accepted cumulative Probe 31 base. Probe 33 splits that group by applying
+  only passing-coverage counting and one-remedy `single_intervention`
+  granularity to Probe 31; all anchor, firsthand-quota, and matching output-
+  ledger changes remain v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/33-counting-granularity/SKILL.md`, 351 lines
+  and 35,919 bytes, SHA-256
+  `1ac680edc39e5c12c3e1e2914b558a95cf5283d4261b1630b89e1d2c9e83810c`.
+  It passed the skill validator. A failure splits counting from granularity; a
+  pass tests the anchor/firsthand half separately on accepted Probe 31. The
+  canonical v15 skill remains unmoved and unchanged.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
