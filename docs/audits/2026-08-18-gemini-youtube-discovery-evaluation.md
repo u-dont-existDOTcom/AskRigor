@@ -389,6 +389,15 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
   and comment leads remain hypotheses, broad leads require exact-target
   back-searching, and one creator ecosystem remains one discussion pool. Clean
   two-stage consumer-Gemini acceptance remains pending.
+- Owner review then corrected the first-stage ordering: title and metadata alone
+  can hide the material intervention, while Gemini's lightweight native content
+  scan is cheaper than a full AskRigor comment-corpus audit. `seed_discovery`
+  now requires `remedy_extraction_scan` on 6–12 plausible candidates, extracts
+  only intervention vocabulary and coarse claim/creator/hub fields, and searches
+  each promising intervention individually before choosing comment-audit seeds.
+  Detailed regimens, timestamps, visual verification, and full summaries remain
+  deferred to targeted rediscovery. Clean staged consumer-Gemini acceptance
+  remains pending.
 - The complete deterministic host-boundary gate passed: 58 test files passed,
   one credential-gated file skipped; 967 tests passed, five skipped; typecheck
   and build passed. The identical sandbox run failed only on prohibited

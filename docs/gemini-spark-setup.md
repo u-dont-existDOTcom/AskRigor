@@ -66,9 +66,13 @@ needs to validate exact video identities with `get_youtube_video`.
 
 Without a rediscovery packet, Gemini uses `seed_discovery`. It generates 12–20
 diverse query probes, searches semantic rings around the exact condition,
-triages titles and metadata without full-video summaries, and returns an
-**AskRigor comment-audit seed packet** with two or three distinct seed videos.
-Copy that packet into AskRigor. Gemini has not audited the comments.
+performs title, metadata, and lightweight content triage, and runs a required
+`remedy_extraction_scan` on 6–12 plausible videos. It extracts only intervention
+names, creator-claimed mechanisms and outcomes, creator relationship, novel
+search vocabulary, and discussion-hub value. Gemini then searches each
+promising intervention individually before returning an **AskRigor comment-
+audit seed packet** with two or three distinct seed videos. Copy that packet
+into AskRigor. Gemini has not audited the comments.
 
 When AskRigor's protocol-governed comment analysis produces a
 `youtube_rediscovery_packet`, paste that packet into Gemini and invoke the skill
@@ -100,8 +104,8 @@ confirm in the task trace and response that Gemini:
    intervention-first rings, then back-searches promising broad leads against
    the exact target;
 3. uses fuzzy title recall and does not quote the entire query;
-4. performs title and metadata triage without producing full summaries or
-   watching whole videos;
+4. runs `remedy_extraction_scan` on 6–12 plausible videos before selecting
+   comment seeds, without producing full dossiers or watching whole videos;
 5. validates two or three distinct seed videos through `get_youtube_video` and
    preserves literal status and provider-reported comment count;
 6. returns an **AskRigor comment-audit seed packet** rather than invented
@@ -186,13 +190,21 @@ rediscovery pass from the resulting packet. Broader disease and symptom searches
 may generate leads, but each promising lead must be back-searched against the
 exact anatomy or condition so local mechanical approaches are not erased.
 
+The owner then identified that metadata-first seed selection could still miss
+interventions hidden inside generically titled videos. The current revision
+makes a lightweight `remedy_extraction_scan` mandatory before comment mining.
+It searches each promising scan-derived intervention individually, while still
+deferring detailed regimens, exhaustive timestamps, visual review, and full
+summaries until targeted rediscovery.
+
 ## Evidence boundary
 
-Gemini's title/metadata triage and targeted creator summaries are trusted for
-fast scouting and hypothesis discovery, but they remain creator-content
-reporting rather than formal efficacy or safety evidence. AskRigor validates
-exact video identity; later protocol-governed work decides which claims warrant
-transcript, visual, comment-corpus, or formal-evidence verification.
+Gemini's title, metadata, and lightweight content triage and targeted creator
+summaries are trusted for fast scouting and hypothesis discovery, but they
+remain creator-content reporting rather than formal efficacy or safety
+evidence. AskRigor validates exact video identity; later protocol-governed work
+decides which claims warrant transcript, visual, comment-corpus, or formal-
+evidence verification.
 
 The public MCP intentionally remains frozen at 17 read-only tools and does not
 include the Action-only transcript operation. This scout therefore labels its

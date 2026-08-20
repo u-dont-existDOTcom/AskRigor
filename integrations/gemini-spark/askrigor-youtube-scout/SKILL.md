@@ -32,8 +32,9 @@ AskRigor research agent for protocol-governed analysis.
 ## Operating modes
 
 Use `seed_discovery` by default when no AskRigor rediscovery packet is supplied.
-Generate query probes, perform title and metadata triage, and return two or
-three comment-audit seeds. Stop there; Gemini does not audit comments.
+Generate query probes, perform title, metadata, and lightweight content triage,
+and return two or three comment-audit seeds. Stop there; Gemini does not audit
+comments.
 
 Use `targeted_rediscovery` when the input includes a
 `youtube_rediscovery_packet` produced from AskRigor's protocol-governed comment
@@ -128,16 +129,20 @@ baseline, outcome, horizon, and self-directed learning process.
 
 ### Triage cheaply before summarizing
 
-Use title and metadata triage across the raw candidate pool. A fast native
-creator-content skim may extract a named intervention or clarify whether a
-candidate is firsthand, but it is not a full dossier summary. Follow unusually
-specific remedy terms found in titles, descriptions, or quick skims with narrow
-intervention-first searches before selecting seeds.
-
+Use title, metadata, and lightweight content triage across the raw candidate
+pool. Select 6 to 12 plausible, nonredundant candidates and run a required
+`remedy_extraction_scan` before selecting comment-audit seeds. Use Gemini's fast
+native video understanding to identify only: `specific_interventions`,
+`creator_claimed_mechanism`, `claimed_outcome_and_horizon`,
+`firsthand_or_practitioner`, `novel_search_vocabulary`, and
+`discussion_hub_value`. This scan determines whether the video's content—not
+merely its title—contains a material discovery lead or useful discussion pool.
+Search each promising intervention name individually using fuzzy, intervention-
+first, and exact-condition variants before comment-audit seed selection.
+Preserve scan-derived terms as `creator_content`, not as verified findings.
 Do not produce full video summaries during seed discovery. Do not watch or
-upload entire videos, calculate detailed regimens, or manufacture timestamps
-merely to fill the seed packet. Preserve the exact queries, candidate links,
-lead origin, scope, and why each candidate advanced or was rejected.
+upload entire videos, calculate detailed regimens, or manufacture timestamps.
+Preserve queries, links, lead origin, scope, scan result, and selection reason.
 
 ### Select comment-audit seeds
 
@@ -367,7 +372,8 @@ summary. Then return:
 1. a **query-probe ledger** with probe, provenance, semantic scope, exact query,
    access result, and candidate contribution;
 2. a **candidate-title ledger** containing the inspectable candidates considered
-   and why each advanced, was rejected, or was excluded after validation;
+   with their `remedy_extraction_scan` result and why each advanced, was
+   rejected, or was excluded after validation;
 3. two or three linked, metadata-validated seed records containing title,
    channel, video identifier, canonical link, literal `access_status`,
    `provider_reported_comments`, seed role, creator class and incentive, lead
@@ -479,9 +485,11 @@ Before returning the report, repair every failed item:
 10. Seed videos maximize distinct comment-pool discovery value rather than raw
     popularity, and multiple videos from one creator are not treated as
     independent pools.
-11. An outcome-focused final dossier includes retained exact matches when located; a
+11. Every seed underwent `remedy_extraction_scan`, and every promising named
+    intervention was searched individually before comment mining.
+12. An outcome-focused final dossier includes retained exact matches when located; a
    zero-exact result is prominent and is not disguised by adjacent tutorials.
-12. In a final dossier, the patient quota is met, or a patient-account coverage shortfall reports
+13. In a final dossier, the patient quota is met, or a patient-account coverage shortfall reports
    the target, located count, exact successful queries, and confidence effect.
    Every counted record is `independent_patient_self_learning` and contains
    concrete personal experiments, routines, mistakes or adaptations, and

@@ -99,7 +99,17 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("intervention_first");
     expect(skill).toContain("back-search");
     expect(skill).toContain("Do not quote the whole query");
-    expect(skill).toContain("title and metadata triage");
+    expect(skill).toContain("title, metadata, and lightweight content triage");
+    expect(skill).toContain("remedy_extraction_scan");
+    expect(skill).toContain("6 to 12");
+    expect(skill).toContain("before selecting comment-audit seeds");
+    expect(skill).toContain("specific_interventions");
+    expect(skill).toContain("creator_claimed_mechanism");
+    expect(skill).toContain("claimed_outcome_and_horizon");
+    expect(skill).toContain("firsthand_or_practitioner");
+    expect(skill).toContain("novel_search_vocabulary");
+    expect(skill).toContain("discussion_hub_value");
+    expect(skill).toContain("Search each promising intervention name individually");
     expect(skill).toContain("Do not produce full video summaries during seed discovery");
     expect(skill).toContain("two or three comment-audit seeds");
     expect(skill).toContain("broad_comment_hub");
@@ -144,6 +154,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain("targeted_rediscovery");
     expect(setup).toContain("AskRigor comment-audit seed packet");
     expect(setup).toContain("youtube_rediscovery_packet");
+    expect(setup).toContain("remedy_extraction_scan");
+    expect(setup).toContain("title, metadata, and lightweight content triage");
     expect(setup).toContain("Do not treat the connection test as end-to-end HRP acceptance");
   });
 });

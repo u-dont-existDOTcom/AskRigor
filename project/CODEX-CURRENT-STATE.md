@@ -604,7 +604,14 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   intervention videos. Broad leads must be back-searched against the exact
   target, and one creator ecosystem remains one discussion pool. Clean staged
   consumer-Gemini acceptance remains pending.
-- The required lesson checkpoint at `2026-08-19T12:06:47.275Z` remained
+- Owner review then corrected the seed-stage ordering because titles and
+  descriptions can hide the actual intervention. Gemini now must run a
+  lightweight `remedy_extraction_scan` on 6–12 plausible videos and search each
+  promising intervention name before AskRigor spends substantially more work on
+  comment-corpus acquisition. Detailed regimen and dossier work remains deferred
+  to targeted rediscovery. Clean staged consumer-Gemini acceptance remains
+  pending.
+- The required lesson checkpoint at `2026-08-20T08:24:35.907Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
