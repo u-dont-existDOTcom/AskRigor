@@ -686,6 +686,33 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected the
+accepted schema group when combined with the accepted evidence-ordering
+sentence. Probe 23 splits the schema group by retaining only its primary field
+contract and restoring the candidate-output clause to v13. The canonical v15
+development skill was not moved or changed.
+
+## Probe 23: primary schema contract plus evidence ordering
+
+Local path:
+`.artifacts/gemini-upload-bisect/23-primary-schema-plus-ordering/SKILL.md`
+
+SHA-256:
+`a8825d17b1911df8300518041c1fd8369d33aadf0da1ef0ee82e7fca7f77e1a4`
+
+This starts from Probe 18's accepted evidence-ordering artifact and changes
+only the primary candidate/seed schema paragraph to Probe 08's accepted exact
+`intervention_family` wording. The candidate-output clause is exact v13.
+Probe 15's source-alignment sentence and all rejected forms are absent.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the primary schema paragraph interacts with evidence ordering;
+- **passes:** Probe 22's failure is caused by the candidate-output clause when
+  combined with evidence ordering, so test that clause alone next; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,338 bytes. The canonical v15 development skill
+validator at 358 lines and 36,455 bytes. The canonical v15 development skill
 was not moved or changed.
