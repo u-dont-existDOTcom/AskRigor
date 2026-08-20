@@ -1087,6 +1087,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A pass makes this the production replacement;
   a failure means retain v13's existing evidence rule without a redundant new
   sentence. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 15 passed. Its positive source-alignment sentence is
+  the scanner-compatible production replacement for the rejected terse mapping
+  command. Probe 16 starts from exact accepted v13 and contains only the
+  remaining evidence-first ordering and compact banned-scan clauses, retaining
+  v13's original evidence-mapping line. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/16-evidence-order-banned-scan/SKILL.md`, 358
+  lines and 36,653 bytes, SHA-256
+  `f725a9e983b6e8fcefbef69d31292a4f5203d88ccc97f9f60ce78861392eeb8d`.
+  It passed the skill validator. A failure splits ordering from banned-scan; a
+  pass combines these clauses with the positive replacement and accepted schema
+  group. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

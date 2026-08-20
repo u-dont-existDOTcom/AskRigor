@@ -463,6 +463,41 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted this exact alternate.
+Use this positive source-alignment sentence when repairing the production
+question rule. Probe 16 continues with the remaining evidence-order and
+banned-scan changes. The canonical v15 development skill was not moved or
+changed.
+
+## Probe 16: evidence ordering and banned scan
+
+Local path:
+`.artifacts/gemini-upload-bisect/16-evidence-order-banned-scan/SKILL.md`
+
+SHA-256:
+`f725a9e983b6e8fcefbef69d31292a4f5203d88ccc97f9f60ce78861392eeb8d`
+
+This starts from exact accepted v13 and changes only the remaining two parts of
+Probe 09's question hunk:
+
+- build the question evidence map before composing the question, then use its
+  exact keys plus the listed neutral generic vocabulary; and
+- retain the banned-phrase list in a separate compact scan sentence.
+
+The rejected `Every other ... must map exactly` command and the accepted
+positive replacement are both absent. V13's original evidence-mapping line
+remains intact.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split evidence-first ordering from the compact banned-scan
+  sentence;
+- **passes:** combine these accepted clauses with Probe 15's positive wording
+  in the production repair, then test the repaired question group with the
+  accepted schema group; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,482 bytes. The canonical v15 development skill
+validator at 358 lines and 36,653 bytes. The canonical v15 development skill
 was not moved or changed.
