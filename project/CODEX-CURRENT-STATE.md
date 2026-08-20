@@ -1056,6 +1056,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   example/construction clauses; a pass establishes an interaction within Probe
   10's individually accepted parts. The canonical v15 skill remains unmoved
   and unchanged.
+- The owner reports Probe 12 failed. Probe 13 isolates the concrete-term
+  coverage sentence as exact accepted v13 plus that one sentence; the
+  mapped-example and construction-audit changes are absent. Its announced
+  ignored alternate is
+  `.artifacts/gemini-upload-bisect/13-concrete-term-coverage/SKILL.md`, 358
+  lines and 36,548 bytes, SHA-256
+  `f4dfeceaa0ad6d1e821931ecac51ce57cd52997d5e140710d1ea02a6ee283a31`.
+  It passed the skill validator. A failure splits the coverage vocabulary from
+  the exact-mapping command; a pass tests the excluded example/construction
+  clauses. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

@@ -370,6 +370,37 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected this
+exact alternate. Probe 13 isolates the concrete-term coverage sentence from the
+mapped-example and construction-audit clauses. The canonical v15 development
+skill was not moved or changed.
+
+## Probe 13: concrete-term coverage sentence
+
+Local path:
+`.artifacts/gemini-upload-bisect/13-concrete-term-coverage/SKILL.md`
+
+SHA-256:
+`f4dfeceaa0ad6d1e821931ecac51ce57cd52997d5e140710d1ea02a6ee283a31`
+
+This is exact accepted v13 plus one added sentence:
+
+`Every other concrete intervention, brand, diet, adverse effect, symptom,
+manifestation, synonym, or example must map exactly.`
+
+The mapped-example and construction-audit changes are absent. No other word,
+instruction, marker, or line is changed.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** this sentence, or its interaction with v13, is sufficient to
+  trigger the scanner; split its coverage vocabulary from the exact-mapping
+  command before rewriting production wording;
+- **passes:** test Probe 12's excluded mapped-example and construction-audit
+  clauses without this sentence; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 357 lines and 36,099 bytes. The canonical v15 development skill
+validator at 358 lines and 36,548 bytes. The canonical v15 development skill
 was not moved or changed.
