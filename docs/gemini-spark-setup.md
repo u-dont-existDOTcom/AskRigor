@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v8`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v9`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Let Gemini complete broad result discovery before it inspects video
 content. Detailed content inspection is limited to the shortlisted 8–12 scan
@@ -126,7 +126,8 @@ confirm in the task trace and response that Gemini:
 4. runs `remedy_extraction_scan` on 8–12 plausible videos before selecting
    comment seeds, without producing full dossiers or watching whole videos;
 5. validates two or three distinct seed videos through `get_youtube_video` and
-   preserves literal status and provider-reported comment count;
+   preserves literal status plus provider-reported view, like, and comment
+   counts as reach metadata rather than evidence;
 6. returns an **AskRigor comment-audit seed packet** rather than invented
    comment findings or a premature final watch verdict; and
 7. expands terse prompts across overlooked/self-directed and conventional
@@ -150,7 +151,11 @@ confirm in the task trace and response that Gemini:
     cite genuinely matching rows, every candidate title is linked, exercise is
     not relabeled behavioral to manufacture diversity, heterodox seeds are not
     exercise-only, audit questions cite rows and request no proportions, and
-    rabbit-hole terms are copied from their cited candidate fields; and
+    rabbit-hole terms are copied from their cited candidate fields. Confirm the
+    probe ledger exposes at least six distinct overlooked-family labels, audit
+    questions cite selected seed rows only, provider reach counts remain
+    metadata-only, and each coherent rabbit hole says whether it is executable
+    from a current seed or requires future seed promotion; and
 14. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
    individualized recommendation claim.

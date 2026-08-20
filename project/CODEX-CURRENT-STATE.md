@@ -734,6 +734,22 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   typecheck and build passed. This revision changes no runtime source; the
   immediately preceding full validation covered all 971 runnable tests with five
   declared skips after the two load-sensitive files passed in isolation.
+- The owner's v8 forward run successfully rediscovered the held-out independent
+  `GROWING MY HIP BACK` video and preserved diagnostic uncertainty, but four
+  comment-audit questions cited unselected candidates, prevalence language
+  leaked into rabbit-hole questions, several directions mixed unrelated
+  intervention families, and an osteoarthritis account inherited exact target
+  distance from its broad discovery query. Contract v9 makes comment questions
+  executable from selected seeds only, exposes six distinct probe-family labels,
+  derives scope from candidate content, records reach metadata without treating
+  it as evidence, and separates current-seed rabbit holes from future seed
+  candidates with coherent row relevance and retrieval-only gaps.
+- Contract v9 validates at 499 lines and 40,324 bytes with a 760-character
+  maximum line and SHA-256
+  `afd0e18d8b6fb7c91806a82e7a8d873d86cebeaefe843272d55801737144fcbb`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. This revision changes no runtime source, so the immediately preceding
+  complete-suite coverage remains applicable.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
