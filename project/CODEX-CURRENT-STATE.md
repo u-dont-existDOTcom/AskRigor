@@ -857,6 +857,27 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   bounded forward-test repair.
+- The owner reports that Gemini rejected the v14 upload at its security scan.
+  The 45-byte increase over uploadable v13 is a possible boundary signal, but
+  size alone is not a demonstrated cause because larger v10 and v11 artifacts
+  uploaded successfully. Treat the receipt as content- or scanner-sensitive
+  until an external upload establishes otherwise.
+- Contract v15 preserves the v14 anchor, provenance, family, and question-map
+  controls while compacting the final audit, removing newly introduced concrete
+  medical examples, and replacing non-ASCII shortcut arrows. A regression test
+  now caps the upload artifact at 35,600 bytes as well as 800 characters per
+  line. The artifact validates at 350 lines and 35,419 bytes with a
+  660-character maximum line and SHA-256
+  `cd5c832be43358a57633064be4c50e0999bd22336ab9c79801d472f759383275`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. The sandboxed complete gate recorded 67 listener-related failures
+  (`EPERM` on localhost or a local pipe), then the required host-boundary test
+  rerun passed 971 tests with 5 skipped. This revision changes no runtime
+  source. External Gemini upload is still the decisive scanner test.
+- The required lesson checkpoint at `2026-08-20T18:15:06.138Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded scanner-compatibility repair.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
