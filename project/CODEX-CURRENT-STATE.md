@@ -760,6 +760,22 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `7a2faeed65d93777dc5c80458d8fb8be0e8a9c78ba03206e012b111e57fd8e3b`.
   The skill validator and focused contract suite passed 8/8; typecheck and build
   passed. This revision changes no runtime source.
+- The successful v10 owner run confirmed the compact artifact uploads, but
+  exposed semantic failures: batched queries omitted linked probe anchors,
+  radical variants were bundled into one row, probe-family labels leaked into
+  intervention families, a postoperative diary displaced an available
+  independent nonsurgical outcome, audit questions invented uncited diet and
+  injection examples, prevalence wording returned in rabbit questions, mixed-
+  family rabbit holes persisted, and displayed `title_link` fields lacked
+  actual Markdown destinations. Contract v11 makes each of these auditable with
+  closed family values, batch-anchor coverage, seed-derived terms, banned
+  prevalence phrasings, same-family rabbit rows, and literal link syntax.
+- Contract v11 validates at 459 lines and 36,896 bytes with a 726-character
+  maximum line and SHA-256
+  `b84f679df5c4bfc017a53a82c6fdc4d240171447d0364207ba3ef68cb2310586`.
+  It remains smaller than the uploadable v10 artifact. The skill validator and
+  focused contract suite passed 8/8; typecheck and build passed. This revision
+  changes no runtime source.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run

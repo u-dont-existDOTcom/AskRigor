@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v10`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v11`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Let Gemini complete broad result discovery before it inspects video
 content. Detailed content inspection is limited to the shortlisted 8–12 scan
@@ -155,7 +155,11 @@ confirm in the task trace and response that Gemini:
     probe ledger exposes at least six distinct overlooked-family labels, audit
     questions cite selected seed rows only, provider reach counts remain
     metadata-only, and each coherent rabbit hole says whether it is executable
-    from a current seed or requires future seed promotion; and
+    from a current seed or requires future seed promotion. Also confirm batch
+    queries contain every linked probe anchor, canonical intervention families
+    never reuse probe-family labels, question examples come from cited rows,
+    rabbit questions avoid prevalence wording, and title links contain actual
+    canonical Markdown destinations; and
 14. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
    individualized recommendation claim.
