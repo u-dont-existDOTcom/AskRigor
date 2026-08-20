@@ -1113,6 +1113,36 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 31 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner confirmed Gemini rejected the universal anchor
+paragraph even without the radical-sentence cleanup. Probe 37 reduces it to a
+single positive per-probe anchor requirement and removes batch evidence,
+prohibition, and correction wording. The canonical v15 development skill was
+not moved or changed.
+
+## Probe 37: positive per-probe anchors
+
+Local path:
+`.artifacts/gemini-upload-bisect/37-positive-per-probe-anchors/SKILL.md`
+
+SHA-256:
+`b6ac1ac26bc6769d940f0a64b8e4049478ec0dc374e377f63f7c9d3a2386a027`
+
+This starts from accepted Probe 31 and changes only its batch paragraph. The
+new positive sentence asks every probe to record one to three literal anchors
+found in both the frozen probe query and executed batch query, plus a coverage
+result. It does not add `batch_anchor_evidence`, prohibit sentinel values, or
+prescribe failure correction. All other clauses remain Probe 31/v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** even the minimal every-probe anchor requirement interacts with the
+  cumulative base, so retain v13's radical-anchor scope and rely on the already
+  accepted compact self-check for broader coverage;
+- **passes:** use this positive sentence as the scanner-compatible replacement
+  and test batch evidence separately only if still needed; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 350 lines and 36,135 bytes. The canonical v15 development skill
+validator at 350 lines and 35,906 bytes. The canonical v15 development skill
 was not moved or changed.

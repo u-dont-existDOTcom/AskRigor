@@ -1331,6 +1331,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure requires splitting or positively
   rewriting this paragraph; a pass excludes the radical cleanup. The canonical
   v15 skill remains unmoved and unchanged.
+- The owner reports Probe 36 failed. Probe 37 replaces only Probe 31's batch
+  paragraph with a minimal positive requirement: every probe records one to
+  three literal anchors found in both frozen and batch queries plus coverage.
+  It excludes batch evidence, sentinel-value prohibitions, and correction
+  commands. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/37-positive-per-probe-anchors/SKILL.md`, 350
+  lines and 35,906 bytes, SHA-256
+  `b6ac1ac26bc6769d940f0a64b8e4049478ec0dc374e377f63f7c9d3a2386a027`.
+  It passed the skill validator. A failure retains v13 anchor scope; a pass
+  adopts this positive replacement. The canonical v15 skill remains unmoved
+  and unchanged.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
