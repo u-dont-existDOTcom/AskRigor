@@ -1018,6 +1018,41 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat accepted Probe 31 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted passing-coverage
+counting and one-remedy granularity on the cumulative Probe 31 base. Probe 34
+therefore tests the complementary anchor/firsthand half against Probe 31 before
+the two accepted halves are recombined. The canonical v15 development skill
+was not moved or changed.
+
+## Probe 34: anchor and firsthand interaction split
+
+Local path:
+`.artifacts/gemini-upload-bisect/34-anchor-firsthand/SKILL.md`
+
+SHA-256:
+`f2985645907eef06914c84a690bb28ee7cb1b8b66dcd9d6933821a5ea61c55c9`
+
+This starts from accepted Probe 31 and applies only the complementary parts of
+Probe 32:
+
+- nonempty anchors for every probe and `batch_anchor_evidence` per batch;
+- three separately anchored firsthand-outcome rows and their count; and
+- the matching query/search ledger output clause.
+
+It does not include Probe 33's passing-coverage counting or one-remedy
+granularity paragraphs. Its radical-probe sentence removes the now-redundant
+radical-only anchor clause because the universal per-probe anchor clause covers
+it.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split the per-probe/batch anchor clause from the firsthand/output
+  clauses;
+- **passes:** both halves are independently compatible with Probe 31, so test
+  their recombination to confirm or reproduce the Probe 32 interaction; and
+- **inconsistent result:** repeat accepted Probe 31 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 351 lines and 35,919 bytes. The canonical v15 development skill
+validator at 350 lines and 35,984 bytes. The canonical v15 development skill
 was not moved or changed.

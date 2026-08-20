@@ -1299,6 +1299,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits counting from granularity; a
   pass tests the anchor/firsthand half separately on accepted Probe 31. The
   canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 33 passed. Passing-coverage counting and one-remedy
+  granularity are therefore compatible with accepted Probe 31. Probe 34 starts
+  from Probe 31 and adds only the complementary universal anchor, batch anchor
+  evidence, three-row firsthand quota, and matching output-ledger clauses; it
+  excludes Probe 33's counting/granularity changes. Its announced ignored
+  alternate is `.artifacts/gemini-upload-bisect/34-anchor-firsthand/SKILL.md`,
+  350 lines and 35,984 bytes, SHA-256
+  `f2985645907eef06914c84a690bb28ee7cb1b8b66dcd9d6933821a5ea61c55c9`.
+  It passed the skill validator. A failure splits anchors from firsthand/output;
+  a pass confirms both execution halves independently before recombination.
+  The canonical v15 skill remains unmoved and unchanged.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
