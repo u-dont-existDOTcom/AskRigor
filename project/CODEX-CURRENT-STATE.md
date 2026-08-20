@@ -618,9 +618,25 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   classes, and `Videos worth watching` instead of the staged seed packet. That
   fingerprint indicates an old or cached skill copy. The diagnostic skill is
   now distinctly named `scout-youtube-for-askrigor-staged` and requires
-  `Scout contract: staged-remedy-scan-v1` as the first response line plus the
+  `Scout contract: staged-remedy-scan-v2` as the first response line plus the
   active mode on line two. Clean acceptance requires those markers and only
   two or three comment-audit seeds in `seed_discovery`.
+- A fresh-chat staged run then passed the browse-graph structure: heterogeneous
+  probes, eight remedy scans, three metadata-validated seeds, explicit audit
+  questions, and no final watchlist. It nevertheless populated the post-audit
+  `youtube_rediscovery_packet` from creator content, including inferred
+  community outcomes and counter-signals, labeled clinician self-management as
+  the independent-patient role, and reported no access boundary despite every
+  comment count being unavailable. Contract v2 now leaves only an unpopulated
+  AskRigor return schema, forbids predictions about unseen comments, adds an
+  honestly labeled clinician fallback, and preserves missing counts as access
+  boundaries.
+- Contract v2 passed the skill validator at 499 lines, focused Gemini tests 6/6,
+  typecheck, and build. The standard parallel host suite passed 964 tests and
+  timed out in five unrelated tests; those four files then passed 44/44 under
+  isolated serial execution. A complete host serial suite passed all 969
+  runnable tests with five declared skips, confirming the parallel result was
+  load-sensitive rather than a v2 regression.
 - Local validation passed the skill validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
   passed 899 tests but recorded 70 failures dominated by prohibited localhost

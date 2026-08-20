@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v1`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v2`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Select Gemini's YouTube app if it does not activate automatically.
 Select the AskRigor custom app when Gemini needs to validate exact video
@@ -75,8 +75,9 @@ performs title, metadata, and lightweight content triage, and runs a required
 names, creator-claimed mechanisms and outcomes, creator relationship, novel
 search vocabulary, and discussion-hub value. Gemini then searches each
 promising intervention individually before returning an **AskRigor comment-
-audit seed packet** with two or three distinct seed videos. Copy that packet
-into AskRigor. Gemini has not audited the comments.
+audit seed packet** with two or three distinct seed videos and an unpopulated
+return contract. Copy that packet into AskRigor. Gemini has not audited the
+comments and must not pre-populate the later `youtube_rediscovery_packet`.
 
 When AskRigor's protocol-governed comment analysis produces a
 `youtube_rediscovery_packet`, paste that packet into Gemini and invoke the skill

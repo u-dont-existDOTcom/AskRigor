@@ -8,7 +8,7 @@ description: "Runs staged public YouTube discovery for AskRigor: generates diver
 Perform bounded, staged YouTube discovery. Search broadly and cheaply first, then summarize only narrow rediscovery survivors for a separate AskRigor agent.
 
 Begin every response, before any heading or prose, with exactly these lines:
-`Scout contract: staged-remedy-scan-v1`
+`Scout contract: staged-remedy-scan-v2`
 `Mode: seed_discovery` or `Mode: targeted_rediscovery`, matching the active mode.
 Never omit, paraphrase, or move either diagnostic line.
 
@@ -28,8 +28,7 @@ Never omit, paraphrase, or move either diagnostic line.
 - Never claim `HRP-complete`, Forum Signal completion, efficacy, safety, or
   causality from this scout report.
 
-If the user asks for a complete AskRigor answer, perform only this scout task;
-send its seed packet or dossier to AskRigor for protocol-governed analysis.
+If the user asks for a complete AskRigor answer, perform only this scout task; send its seed packet or dossier to AskRigor for protocol-governed analysis.
 
 ## Operating modes
 
@@ -155,6 +154,8 @@ discovery value rather than popularity alone. When located, use distinct roles:
   likely to discuss multiple self-managed approaches;
 - `independent_exact_outcome`: a qualifying independent patient account with a
   concrete baseline, outcome, and horizon; and
+- `firsthand_clinician_self_management`: an optional longitudinal fallback
+  that never fills or renames a missing `independent_exact_outcome` role; and
 - `contrarian_failure_or_anatomy`: a failure, harm, skeptical, practitioner, or
   anatomy-specific pool likely to add a different vocabulary or direction.
 
@@ -164,11 +165,13 @@ that creator's channel and commenters remain one discussion pool. Normally
 select at most one seed from one creator; do not treat popularity, multiple
 videos, or many comments in one ecosystem as independent corroboration.
 
-For every seed, validate metadata and preserve the returned
-`statistics.comment_count` literally as `provider_reported_comments`, or write
-`not reported`. This count is provider metadata, not comments retrieved or
-analyzed. If comments are disabled, the video cannot serve as a comment-audit
-seed, though it may remain a later watch candidate.
+Before comment retrieval, describe each pool's discovery value only as a hypothesis.
+Do not claim its comments contain or corroborate any intervention, outcome, harm, regimen, or direction. Views and likes are audience-size proxies, not evidence of comment availability or activity.
+
+For every seed, preserve the validated `statistics.comment_count` literally as
+`provider_reported_comments`, or write `not reported`. It is provider metadata,
+not comments retrieved or analyzed. A `comments_disabled` video cannot be a
+seed. Record every `not reported` count or retrieval limit as a metadata access boundary.
 
 If a seed role is not located after successful search, state the missing role,
 queries attempted, and confidence effect rather than padding with a redundant
@@ -363,8 +366,8 @@ Call a candidate **metadata-validated**, never simply validated.
 
 ## Output
 
-Return the section for the active mode. Do not blend an unaudited seed packet
-with a post-comment final dossier.
+Return the active-mode heading verbatim. Never title seed output `AskRigor handoff`
+or blend an unaudited seed packet with a post-comment final dossier.
 
 ### AskRigor comment-audit seed packet
 
@@ -385,28 +388,25 @@ summary. Then return:
    regimens, claimed outcomes and horizons, failures, harms, discontinuation,
    named videos or creators, unusual lay terminology, and independent repeated
    signals; and
-5. this requested return shape so the handoff is self-contained:
+5. an **AskRigor comment-audit request** naming the seed video identifiers and
+   this unpopulated return contract:
 
 ```text
-youtube_rediscovery_packet:
-  status: leads_available | no_material_rediscovery_leads | blocked
-  research_target: <exact question and anatomy or condition>
-  leads:
-    - lead_id: <stable local label>
-      provenance: comment_signal | named_video_or_creator
-      source_video_ids: <list>
-      source_discussion_pools: <list>
-      normalized_claim: <specific attributed claim>
-      non_identifying_community_wording: <searchable wording without identity>
-      regimen_clues: <components, dose, frequency, duration, or unknown>
-      reported_outcome: <specific outcome and horizon or unknown>
-      counter_signals: <failure, harm, no-effect, discontinuation, or none found>
-      target_distance: exact | adjacent | remote
-      suggested_queries: <literal, fuzzy, exact-target, firsthand, and failure/harm>
-      discovery_priority: high | medium | low
-      decision_usefulness: <why another video search may change the answer>
-  access_boundaries: <explicit list or none>
+requested_askrigor_return_schema:
+  producer: AskRigor_after_protocol_governed_comment_audit
+  packet_name: youtube_rediscovery_packet
+  status_values: leads_available | no_material_rediscovery_leads | blocked
+  packet_fields: status, research_target, leads, access_boundaries
+  lead_fields: lead_id, provenance, source_video_ids, source_discussion_pools,
+    normalized_claim, non_identifying_community_wording, regimen_clues,
+    reported_outcome, counter_signals, target_distance, suggested_queries,
+    discovery_priority, decision_usefulness
+  provenance_values: comment_signal | named_video_or_creator
 ```
+
+Never emit a live `youtube_rediscovery_packet:` in `seed_discovery`, set its
+status, create leads, or fill post-audit fields. Only AskRigor may do so after
+comment analysis. Creator content may shape questions but cannot be relabeled as community wording, outcomes, failures, harms, counter-signals, doses, prevalence, repetition, or corroboration.
 
 AskRigor may continue its own executable wider searches without waiting for a
 Gemini round trip. The packet is an optional scouting handoff and does not
@@ -417,7 +417,7 @@ Do not include a detailed creator summary, inferred comment direction, or
 `Videos worth watching` verdict in this mode. State explicitly that Gemini did
 not retrieve or analyze comments and that the packet neither completes Forum
 Signal nor validates any claim. End with seed-role gaps and unsuccessful or
-unattempted directions.
+unattempted directions, plus explicit metadata access boundaries.
 
 ### AskRigor handoff
 
@@ -460,7 +460,7 @@ material when its information still merits inclusion. Do not pad the list.
 
 Before returning the report, repair every failed item:
 
-1. The first line is exactly `Scout contract: staged-remedy-scan-v1`; the second
+1. The first line is exactly `Scout contract: staged-remedy-scan-v2`; the second
    names exactly one active `Mode: <mode>`. `seed_discovery` returns an
    **AskRigor comment-audit seed packet** without comment findings or full
    summaries; `targeted_rediscovery` requires a supplied rediscovery packet.
@@ -482,9 +482,9 @@ Before returning the report, repair every failed item:
 9. Every generated probe remains labeled `model_generated_query_probe`; only
    inspectable results are described as located. Every promising broad lead is
    back-searched against the exact condition, with transfer distance preserved.
-10. Seed videos maximize distinct comment-pool discovery value rather than raw
-    popularity, and multiple videos from one creator are not treated as
-    independent pools.
+10. Seeds maximize distinct pool value, not popularity; one creator remains one
+    pool. Do not predict comments; keep views/likes as proxies and missing counts
+    as boundaries. Never label a clinician fallback as an independent patient.
 11. Every seed underwent `remedy_extraction_scan`, and every promising named
     intervention was searched individually before comment mining.
 12. An outcome-focused final dossier includes retained exact matches when located; a

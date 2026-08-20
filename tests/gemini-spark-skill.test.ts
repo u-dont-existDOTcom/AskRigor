@@ -114,10 +114,18 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("two or three comment-audit seeds");
     expect(skill).toContain("broad_comment_hub");
     expect(skill).toContain("independent_exact_outcome");
+    expect(skill).toContain("an optional longitudinal fallback");
     expect(skill).toContain("contrarian_failure_or_anatomy");
     expect(skill).toContain("provider_reported_comments");
     expect(skill).toContain("AskRigor comment-audit seed packet");
     expect(skill).toContain("youtube_rediscovery_packet");
+    expect(skill).toContain("requested_askrigor_return_schema");
+    expect(skill).toContain("AskRigor_after_protocol_governed_comment_audit");
+    expect(skill).toContain("Never emit a live `youtube_rediscovery_packet:`");
+    expect(skill).toContain("cannot be relabeled as community wording");
+    expect(skill).toContain("audience-size proxies");
+    expect(skill).toContain("metadata access boundary");
+    expect(skill).not.toContain("this requested return shape");
     expect(skill).toContain("non_identifying_community_wording");
     expect(skill).toContain("suggested_queries");
     expect(skill).toContain("no_material_rediscovery_leads");
@@ -132,7 +140,8 @@ describe("Gemini Spark AskRigor skill", () => {
   it("self-identifies the staged contract before any report content", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: staged-remedy-scan-v1");
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v2");
+    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v1");
     expect(skill).toContain("Mode: seed_discovery");
     expect(skill).toContain("Mode: targeted_rediscovery");
     expect(skill).toMatch(/Begin every response, before any heading or prose/);
@@ -150,7 +159,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor-staged");
-    expect(setup).toContain("Scout contract: staged-remedy-scan-v1");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v2");
+    expect(setup).toMatch(/unpopulated\s+return contract/);
     expect(setup).toContain("does not execute HRP");
     expect(setup).toContain("manual transfer at each stage");
     expect(setup).toContain(
