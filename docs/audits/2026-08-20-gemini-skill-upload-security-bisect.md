@@ -401,6 +401,36 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected this
+exact one-sentence addition. Probe 14 preserves the command form while removing
+the medical/intervention vocabulary list. The canonical v15 development skill
+was not moved or changed.
+
+## Probe 14: exact-mapping command form
+
+Local path:
+`.artifacts/gemini-upload-bisect/14-exact-mapping-command/SKILL.md`
+
+SHA-256:
+`590cd9344246dce4a9688d35c4eb9c8b12a72674491576a13225dd8dbc8c4a95`
+
+This is exact accepted v13 plus one added sentence:
+
+`Every other concrete example must map exactly.`
+
+It preserves Probe 13's command form while removing the intervention, brand,
+diet, adverse-effect, symptom, manifestation, and synonym list. No other word,
+instruction, marker, or line is changed.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** the command form, or its interaction with v13, is sufficient to
+  trigger the scanner; replace it with positive source-alignment wording;
+- **passes:** the rejected content is in Probe 13's expanded vocabulary list or
+  its interaction with the command, so test the vocabulary separately; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,548 bytes. The canonical v15 development skill
+validator at 358 lines and 36,469 bytes. The canonical v15 development skill
 was not moved or changed.

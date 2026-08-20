@@ -1066,6 +1066,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits the coverage vocabulary from
   the exact-mapping command; a pass tests the excluded example/construction
   clauses. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 13 failed. Probe 14 preserves its command form while
+  removing the medical/intervention vocabulary list: it is exact accepted v13
+  plus `Every other concrete example must map exactly.` Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/14-exact-mapping-command/SKILL.md`, 358 lines
+  and 36,469 bytes, SHA-256
+  `590cd9344246dce4a9688d35c4eb9c8b12a72674491576a13225dd8dbc8c4a95`.
+  It passed the skill validator. A failure requires positive source-alignment
+  wording; a pass isolates the expanded vocabulary list or its interaction.
+  The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
