@@ -1179,6 +1179,19 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure identifies the primary schema
   paragraph as the interaction; a pass identifies the candidate-output clause.
   The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 23 failed, identifying the primary schema paragraph
+  as incompatible with the evidence-ordering sentence when combined. That
+  rewrite is excluded from the production candidate in favor of v13's existing
+  functional family rule. Probe 24 restores the primary paragraph to v13 and
+  combines only Probe 08's exact candidate-output field clause with Probe 18's
+  ordering sentence. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/24-output-schema-plus-ordering/SKILL.md`,
+  358 lines and 36,404 bytes, SHA-256
+  `7a79ee9938d70f2079997c2e3840fbecb7dcaa1cc9f4caba06a026d5a92a25e6`.
+  It passed the skill validator. A failure means both schema rewrites interact
+  with ordering; a pass preserves the exact output-field correction while
+  omitting the incompatible primary rewrite. The canonical v15 skill remains
+  unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

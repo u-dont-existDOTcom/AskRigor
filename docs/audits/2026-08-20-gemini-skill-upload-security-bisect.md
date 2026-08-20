@@ -713,6 +713,38 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected the
+primary schema paragraph when combined with evidence ordering. That paragraph
+is excluded from the production candidate in favor of v13's already functional
+family rule. Probe 24 tests the other schema hunk—the exact candidate-output
+field clause—with ordering. The canonical v15 development skill was not moved
+or changed.
+
+## Probe 24: candidate-output schema plus evidence ordering
+
+Local path:
+`.artifacts/gemini-upload-bisect/24-output-schema-plus-ordering/SKILL.md`
+
+SHA-256:
+`7a79ee9938d70f2079997c2e3840fbecb7dcaa1cc9f4caba06a026d5a92a25e6`
+
+This starts from Probe 18's accepted evidence-ordering artifact and changes
+only the candidate-title output clause to Probe 08's accepted wording requiring
+the field named exactly `intervention_family`. The primary schema paragraph is
+exact v13. Probe 15's source-alignment sentence and all rejected forms are
+absent.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** both schema rewrites interact with evidence ordering, so retain
+  the v13 schema wording or choose the output correction over the redundant
+  ordering addition;
+- **passes:** retain the exact output-field correction with ordering and omit
+  the incompatible primary schema rewrite; then test the source-alignment
+  sentence with this reduced production group; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,455 bytes. The canonical v15 development skill
+validator at 358 lines and 36,404 bytes. The canonical v15 development skill
 was not moved or changed.
