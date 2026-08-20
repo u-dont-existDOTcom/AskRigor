@@ -750,6 +750,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   The skill validator and focused contract suite passed 8/8; typecheck and build
   passed. This revision changes no runtime source, so the immediately preceding
   complete-suite coverage remains applicable.
+- The owner's external Gemini upload rejected v9 at the security-scan step.
+  Because uploadable v8 was 37,811 bytes while v9 crossed 40 KB at 40,324
+  bytes, contract v10 tests the file-size boundary by removing duplicated prose
+  while preserving the v9 seed-executability, family, scope, reach, and rabbit-
+  hole invariants. External upload remains the decisive compatibility test.
+- Contract v10 validates at 458 lines and 37,052 bytes with a 760-character
+  maximum line and SHA-256
+  `7a2faeed65d93777dc5c80458d8fb8be0e8a9c78ba03206e012b111e57fd8e3b`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. This revision changes no runtime source.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run

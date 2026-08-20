@@ -1,6 +1,6 @@
 ---
 name: scout-youtube-for-askrigor-staged
-description: "Runs staged public YouTube discovery for AskRigor: generates diverse query probes, triages titles and metadata, selects comment-audit seed videos, and uses AskRigor-derived rediscovery leads to find and selectively summarize narrow candidates with exact links and timestamps. Use for health, treatment, recovery, implementation, tolerability, adherence, harm, discontinuation, or real-world outcome questions when firsthand creator material may reveal hard-to-find interventions or practical differences. This skill is a YouTube scout, not an HRP research or medical-advice agent."
+description: "Runs staged YouTube scouting for AskRigor: broad query probes, cheap remedy triage, comment-audit seed selection, and narrow rediscovery summaries with exact links and timestamps. Use for health, recovery, implementation, tolerability, harm, discontinuation, or real-world outcome questions where firsthand creator material may reveal overlooked interventions. Not an HRP or medical-advice agent."
 ---
 
 # Scout YouTube for AskRigor
@@ -8,7 +8,7 @@ description: "Runs staged public YouTube discovery for AskRigor: generates diver
 Perform bounded, staged YouTube discovery. Search broadly and cheaply first, then summarize only narrow rediscovery survivors for a separate AskRigor agent.
 
 Begin every response, before any heading or prose, with these as the first two non-empty lines. Put a blank line after each so renderers do not join them:
-`Scout contract: staged-remedy-scan-v9`
+`Scout contract: staged-remedy-scan-v10`
 
 `Mode: seed_discovery` or `Mode: targeted_rediscovery`, matching the active mode.
 Never omit, paraphrase, or move either diagnostic line.
@@ -209,8 +209,8 @@ that many qualifying, nonredundant candidates are located.
 
 The quota is a discovery and selection gate, not permission to lower standards.
 If at least four successful patient-specific searches yield fewer qualifying
-accounts, return the accounts actually located and state a **patient-account
-coverage shortfall** with the target, located count, exact queries, and
+accounts, return the accounts actually located and state a **patient-account coverage shortfall**
+with the target, located count, exact queries, and
 confidence effect. Do not pad, relabel, or invent patient accounts to meet the
 target. Practitioner material may follow as clearly labeled supplementary
 evidence. Only optimize mechanism diversity after satisfying the patient quota
@@ -241,26 +241,15 @@ Assign one question-match class before selection:
 
 Separately assign one creator-evidence class:
 
-- `independent_patient_self_learning`: an apparent non-clinician patient on an
-  independent personal channel narrates their own self-directed experiments,
-  routines, mistakes, adaptations, outcome, horizon, and takeaways;
-- `independent_provider_treatment_review`: a patient speaks on an apparently
-  personal channel, but the video's main subject is receiving or reviewing a
-  clinic, provider, procedure, program, or product; it does not count toward the
-  patient quota;
-- `clinic_patient_testimonial`: a clinic, provider, seller, sponsor, or brand
-  hosts, commissions, or republishes a patient's success story; it does not
-  count toward the patient quota;
-- `firsthand_clinician_self_management`: a clinician narrates management of
-  their own condition; valuable firsthand material, but it does not count
-  toward the patient quota;
-- `practitioner_reported_case`: a clinician, clinic, seller, or coach retells or
-  summarizes another person's outcome;
-- `independence_unclear`: available context cannot establish whether a patient
-  account is independent of the material provider, seller, sponsor, or brand;
-  it does not count toward the patient quota; or
-- `adjacent_implementation`: a tutorial, mechanism, or counseling video without
-  a qualifying personally narrated outcome.
+- `independent_patient_self_learning`: a non-clinician on a personal channel narrates self-directed experiments, mistakes, adaptations, outcome, horizon, and takeaways;
+- `independent_provider_treatment_review`: a personal-channel patient mainly reviews a provider, procedure, program, or product;
+- `clinic_patient_testimonial`: a provider, seller, sponsor, or brand hosts or republishes the story;
+- `firsthand_clinician_self_management`: a clinician narrates their own condition;
+- `practitioner_reported_case`: a practitioner or seller retells another person's outcome;
+- `independence_unclear`: available context cannot establish independence; or
+- `adjacent_implementation`: a tutorial or counseling video without a qualifying personal outcome.
+
+Only `independent_patient_self_learning` counts toward the patient quota; every other class does not count toward the patient quota.
 
 Separately add `commercial_or_promotional` when the creator or featured
 clinician sells the material treatment, program, product, or service. A
@@ -274,20 +263,11 @@ Use Gemini's detailed native YouTube summary only for final candidates in
 `targeted_rediscovery`. For each selected narrow video, recover as much of the
 following as the video supports:
 
-- the creator's central account and outcome;
-- the self-directed learning process: what the person initially believed or
-  tried, what failed or changed their mind, why they changed course, and what
-  they personally concluded;
-- which parts of the regimen were self-managed versus delivered by a provider;
-- the surprising or hard-to-find claim;
-- concrete intervention details: components, dose or amount, frequency,
-  duration, sequence, supervision, adherence, and cointerventions;
-- relevant condition or disease stage, baseline, outcome, and time horizon;
-- reported benefits, failures, harms, discontinuation, and implementation
-  problems;
-- clickable timestamp deep links paired with descriptive segment cues;
-- what makes the candidate distinct from the other selected videos; and
-- the most interesting material claim for AskRigor to investigate.
+- the central account, outcome, baseline, horizon, and relevant disease stage;
+- the self-directed learning process: initial ideas, trials, failures, changes, reasons, and personal conclusions;
+- self-managed versus provider-delivered components and concrete dose, frequency, duration, sequence, supervision, adherence, and cointerventions;
+- surprising claims, benefits, harms, discontinuation, and implementation problems;
+- clickable timestamp links with segment cues, distinct value, and the precise claim AskRigor should investigate.
 
 Attribute medical, mechanistic, structural, and outcome statements explicitly:
 write **the creator claims**, reports, proposes, or demonstrates. Do not restate
@@ -462,38 +442,17 @@ material when its information still merits inclusion. Do not pad the list.
 
 ## Final self-check
 
-Before returning the report, repair every failed item:
+Before returning, repair every failed item:
 
-1. The first non-empty line is exactly `Scout contract: staged-remedy-scan-v9`; the second non-empty line names exactly one active `Mode: <mode>`, and they
-   render separately. `seed_discovery` returns an
-   **AskRigor comment-audit seed packet** without comment findings or full
-   summaries; `targeted_rediscovery` requires a supplied rediscovery packet.
-2. Every selected seed or dossier video has a literal `get_youtube_video`
-   receipt and one allowed `access_status`; none says `available`. Every
-   validation exclusion remains in the ledger with its literal status.
-3. Every located timestamp is a complete Markdown deep link whose visible time
-   matches its total-seconds URL; none is bare, stripped, empty, or malformed.
-   A missing time says `not located` and retains its segment cue.
-4. Every medical, mechanistic, structural, and outcome statement is attributed
-   to the creator rather than asserted as fact.
-5. Every `visual_observation` names an actually inspected frame or segment;
-   uninspected visual claims remain `creator_summary` and are disclosed.
-6. Every candidate has an outcome-match class and creator incentive label.
-7. Adjacent short-term relief and commercial cases are not described as proof
-   of long-term avoidance, delay, regeneration, or disease modification.
-8. Every candidate and seed contains a literal `title_link: [Title](canonical URL)` and there are no embeds, players, cards, carousels, rich previews, media chips, app/entity blocks, thumbnails, bare YouTube URLs, raw result panels, or duplicate video lists. Every watch link is canonical, metadata-validated, nonredundant, and worth a person's time.
-9. Every generated probe remains labeled `model_generated_query_probe`, was frozen before results, and contains no backfilled title or creator. Four to six discovery batches list their probe IDs; each successful probe cites rows whose scans actually match that probe. At least six distinct overlooked-self-directed `probe_family` values are visible. Content inspection starts only after shortlisting and covers at most 12 logged candidates. Broad leads are back-searched with transfer distance preserved, and two to four morphologically varied radical-outcome probes appear as attempted rows.
-10. Terse prompts preserve diagnostic uncertainty and receive both default discovery lanes. With no diagnosis, every candidate about a named pathology, structural state, or procedure remains adjacent regardless of the discovery query or exact-outcome classification. Search result states are not metadata statuses; every scanned candidate is displayed in no more than 110 words.
-11. Seeds have unique roles and true modality-based `intervention_family` values; exercise is mechanical and cannot be relabeled behavioral, an exercise-only seed is not heterodox/natural, and a practitioner case cannot fill an independent-patient gap. A conventional hub covers benefit and limitation. Each rationale says `comments uninspected` and predicts nothing. Each audit question uses `source_seed_row_ids` drawn only from selected seeds' `source_candidate_row_id` values, and no `seed_discovery` section asks for commenter counts, proportions, prevalence, verification, corroboration, or causal confirmation. Literal view, like, and comment metadata are present or say `not reported` and are not treated as evidence.
-12. Every seed underwent `remedy_extraction_scan`, and every promising named intervention was searched individually before comment mining.
-13. The rabbit-hole map reports retrieval potential, never evidence strength; every direction has one coherent family, explains each cited row's relevance, copies each term from mapped rows, recomputes all arithmetic, uses retrieval-only access gaps, separates research questions, labels `current_seed` versus `future_seed_candidate`, and gives next work executable for that auditability state and a semantically matched shortcut.
-14. An outcome-focused final dossier includes retained exact matches when located; a
-   zero-exact result is prominent and is not disguised by adjacent tutorials.
-15. In a final dossier, the patient quota is met, or a patient-account coverage shortfall reports
-   the target, located count, exact successful queries, and confidence effect.
-   Every counted record is `independent_patient_self_learning` and contains
-   concrete personal experiments, routines, mistakes or adaptations, and
-   takeaways. No clinician, clinic testimonial, provider-treatment review,
-   seller-hosted case, sponsored account, brand ambassador, or
-   `independence_unclear` record is counted. Uncertain independence does not
-   count.
+1. Start with `Scout contract: staged-remedy-scan-v10`, then exactly one `Mode:` line. Seed mode returns only the unaudited seed packet; rediscovery requires a supplied packet.
+2. Keep literal `get_youtube_video` receipts and allowed statuses for selected videos; preserve validation failures instead of saying `available`.
+3. Use accurate Markdown timestamp links or `not located`; attribute medical and outcome claims to creators and reserve `visual_observation` for inspected segments.
+4. Label outcome match, target distance, creator class, and incentive. Do not present adjacent, promotional, or short-term relief as long-term recovery or structural change.
+5. Give every candidate and seed `title_link: [Title](canonical URL)`. Emit no embeds, players, cards, previews, thumbnails, bare URLs, raw result panels, or duplicate lists.
+6. Freeze every `model_generated_query_probe` before results. Show 4–6 batches, 6 distinct overlooked `probe_family` values, matching cited rows, 2–4 radical variants, and no more than 12 scanned candidates.
+7. Preserve `diagnosis_not specified`: candidate content about any named pathology, structural state, or procedure remains adjacent regardless of its query or outcome class.
+8. Keep seed roles and true modality families unique. Exercise stays mechanical; an exercise-only seed is not heterodox, a practitioner case is not an independent patient, and a conventional hub covers benefit plus limitation.
+9. Mark rationales `comments uninspected`. Audit questions use only selected `source_candidate_row_id` values as `source_seed_row_ids`; ask no counts, prevalence, confirmation, efficacy, safety, or causality. Reach metadata is present or `not reported` and is not evidence.
+10. Run `remedy_extraction_scan` for every seed and individually search promising interventions before seed selection.
+11. Keep each rabbit hole one coherent family with row relevance, verbatim term mappings, recomputable counts, retrieval-only gaps, correct `auditability`, executable next work, and a matching shortcut.
+12. In rediscovery, retain exact matches when found. Meet the independent-patient quota or report its coverage shortfall without counting clinicians, testimonials, provider reviews, sellers, sponsored accounts, or unclear independence.
