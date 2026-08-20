@@ -979,6 +979,24 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   under `.artifacts/`; before asking the owner to use any moved, renamed, or
   alternate file, explicitly announce the path change and identify the old and
   new paths.
+- Upload-only Probe 06 is the complementary schema/question half after Probe
+  01's confirmed pass. It starts from exact v13, retains the v13 contract
+  marker, and adds only the post-v13 `intervention_family` schema wording,
+  evidence-first question construction, compact candidate-ledger wording,
+  exact-family rabbit-hole shortcuts, and compact final self-check. It is a
+  local ignored alternate at
+  `.artifacts/gemini-upload-bisect/06-schema-question-selfcheck/SKILL.md`, 349
+  lines and 35,336 bytes, SHA-256
+  `da09e2276c9dcdff93b042db1d90a02938558286215c9ae637a61cd5593a539a`.
+  It passed the skill validator. The canonical v15 skill remains unmoved and
+  unchanged at SHA-256
+  `cd5c832be43358a57633064be4c50e0999bd22336ab9c79801d472f759383275`.
+  A pass means both split halves are individually accepted and the next test is
+  their combination with the v13 marker; a failure splits Probe 06's group.
+- The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded complementary upload probe.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run

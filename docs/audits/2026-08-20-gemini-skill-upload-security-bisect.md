@@ -137,3 +137,46 @@ Interpretation:
   but rejecting any mutation, or the scanner result is unstable;
 - **passes:** return to Probe 04 and treat its inserted coverage clause as a
   sufficient content trigger.
+
+Result: **not tested**. The earlier failure report is invalid because a
+different file was uploaded. This mutation-control branch is no longer active
+after the corrected Probe 01 pass.
+
+## Probe 06: schema, questions, shortcuts, and final self-check
+
+Local path:
+`.artifacts/gemini-upload-bisect/06-schema-question-selfcheck/SKILL.md`
+
+SHA-256:
+`da09e2276c9dcdff93b042db1d90a02938558286215c9ae637a61cd5593a539a`
+
+This starts from exact v13, retains the v13 contract marker, and applies only
+the complementary post-v13 textual changes excluded from Probe 01:
+
+- standardize the candidate and seed field name as exactly
+  `intervention_family`;
+- construct question evidence maps before composing questions;
+- compact the candidate-ledger field wording;
+- map rabbit-hole shortcuts to exact intervention families and keep
+  `all high-yield` at map level; and
+- replace the final self-check with the compact v15 version.
+
+It does not apply Probe 01's execution-body changes to family/count coverage,
+single-intervention batching, all-probe anchor evidence, separately anchored
+firsthand probes, or the query-ledger schema. The compact final self-check does
+refer to those controls because this probe preserves that remaining v15 text;
+the governing execution paragraphs themselves remain exact v13.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split this complementary group, starting with the
+  schema/question clauses versus shortcut/final-self-check clauses;
+- **passes:** both halves are individually accepted, so test their combined
+  content while retaining the v13 marker to distinguish a content interaction
+  from the v15 marker; and
+- **inconsistent result:** repeat exact v13, Probe 01, and this exact hash
+  before attributing a failure to content.
+
+Result: **awaiting owner upload receipt**. The artifact passed the local skill
+validator at 349 lines and 35,336 bytes. The canonical v15 development skill
+was not moved or changed.
