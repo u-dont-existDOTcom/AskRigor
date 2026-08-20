@@ -1016,6 +1016,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits the two schema hunks; a pass
   isolates the excluded question rewrite. The canonical v15 skill remains
   unmoved and unchanged.
+- The owner reports Probe 08 passed. The exact `intervention_family` schema
+  clauses are therefore accepted by themselves. Probe 09 starts from exact v13
+  and includes only the one evidence-first question-construction hunk, with
+  both schema clauses restored to v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/09-evidence-first-questions/SKILL.md`, 358
+  lines and 36,392 bytes, SHA-256
+  `0feaa036326bd24e1300ffe433d2bd17a706847e208eb0a3065ca29c89d0a3b8`.
+  It passed the skill validator. A failure splits the question hunk; a pass
+  establishes an interaction between individually accepted schema and question
+  changes. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

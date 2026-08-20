@@ -243,6 +243,41 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted this exact alternate.
+The exact `intervention_family` schema wording is therefore accepted by itself.
+The next test isolates Probe 07's excluded evidence-first question rewrite.
+The canonical v15 development skill was not moved or changed.
+
+## Probe 09: evidence-first question construction
+
+Local path:
+`.artifacts/gemini-upload-bisect/09-evidence-first-questions/SKILL.md`
+
+SHA-256:
+`0feaa036326bd24e1300ffe433d2bd17a706847e208eb0a3065ca29c89d0a3b8`
+
+This starts from exact v13, retains the v13 contract marker, and changes one
+question-construction hunk only:
+
+- build `question_term_evidence` before composing a question;
+- limit unmapped wording to the listed neutral vocabulary;
+- require every other concrete detail to map exactly; and
+- retain the banned-question scan in compact wording.
+
+Both intervention-family schema clauses are restored byte-for-byte to v13.
+This probe also excludes all Probe 01 execution-body changes and Probe 06's
+shortcut/final-self-check changes.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split evidence-first construction from the expanded concrete-term
+  mapping rule;
+- **passes:** Probe 07's failure is an interaction between the individually
+  accepted schema and question changes, so replace their combined wording
+  rather than attributing it to either clause alone; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 357 lines and 36,239 bytes. The canonical v15 development skill
+validator at 358 lines and 36,392 bytes. The canonical v15 development skill
 was not moved or changed.
