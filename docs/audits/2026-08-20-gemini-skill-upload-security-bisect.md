@@ -42,8 +42,8 @@ Interpret the upload only; do not run the probe as a production skill:
 Record only the literal pass/fail receipt and artifact hash. Do not infer which
 word triggered an opaque scanner.
 
-Result: **failed**. The rejection is within this six-substitution group or an
-interaction among its changes.
+Corrected result: **passed**. The owner confirmed the intended Probe 01 file was
+accepted. The earlier failure report came from uploading a different file.
 
 ## Probe 02: counting and granularity
 
@@ -69,8 +69,8 @@ Interpretation:
 - **passes:** the rejected change is in Probe 01's anchor-evidence half, so test
   that half directly before splitting it.
 
-Result: **failed**. The rejected content is within the three substitutions in
-this probe.
+Result: **not tested**. The earlier failure report is invalid because a
+different file was uploaded.
 
 ## Probe 03: family counting and probe granularity
 
@@ -93,8 +93,8 @@ Interpretation:
 - **passes:** test the conventional-count and firsthand-count substitutions as
   the remaining half of Probe 02.
 
-Result: **failed**. The rejected content is within this one replacement
-paragraph.
+Result: **not tested**. The earlier failure report is invalid because a
+different file was uploaded.
 
 ## Probe 04: overlooked-family count coverage
 
@@ -115,9 +115,10 @@ Interpretation:
 - **passes:** the trigger is in Probe 03's separate-treatment/granularity
   rewrite rather than its family-count clause.
 
-Result: **failed**. The clause is sufficient only if the scanner accepts a
-semantically unchanged mutation control. All modified probes have failed so
-far, so a hash/cache or nondeterministic boundary must be excluded first.
+Result: **not tested**. The earlier failure report is invalid because a
+different file was uploaded. This probe and the mutation control are no longer
+the active branch: Probe 01 passed, so the next valid test is the excluded
+schema/question half of the original split.
 
 ## Probe 05: blank-line mutation control
 

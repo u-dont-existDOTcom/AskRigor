@@ -969,6 +969,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   mutation-control step.
+- Owner correction superseding the preceding probe receipts: the intended Probe
+  01 file at
+  `.artifacts/gemini-upload-bisect/01-execution-anchor/SKILL.md` passed Gemini's
+  security scan. The reported Probe 01 through Probe 04 failures came from
+  uploading a different file and are invalid; Probes 02 through 05 remain
+  untested. Resume from Probe 01's pass by testing the excluded schema/question
+  half. The canonical skill was never moved, but diagnostic files were created
+  under `.artifacts/`; before asking the owner to use any moved, renamed, or
+  alternate file, explicitly announce the path change and identify the old and
+  new paths.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
