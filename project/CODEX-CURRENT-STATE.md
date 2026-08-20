@@ -1098,6 +1098,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A failure splits ordering from banned-scan; a
   pass combines these clauses with the positive replacement and accepted schema
   group. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 16 failed. Probe 17 isolates its evidence-first
+  ordering hunk while removing the added compact banned-scan sentence; v13's
+  original evidence-mapping and banned-scan rule remains. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/17-evidence-first-only/SKILL.md`, 357 lines
+  and 36,304 bytes, SHA-256
+  `7cb55b117cf85d3b48a3a57b1eed77a235ea5ff86f27d09611b9403d988be42f`.
+  It passed the skill validator. A failure splits map-first ordering from the
+  exact-keys command; a pass tests the compact banned-scan sentence alone. The
+  canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this

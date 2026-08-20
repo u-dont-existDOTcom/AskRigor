@@ -498,6 +498,36 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **failed**. The owner reported Gemini's security scan rejected this
+exact alternate. Probe 17 separates the evidence-first ordering hunk from the
+added compact banned-scan sentence. The canonical v15 development skill was not
+moved or changed.
+
+## Probe 17: evidence-first ordering only
+
+Local path:
+`.artifacts/gemini-upload-bisect/17-evidence-first-only/SKILL.md`
+
+SHA-256:
+`7cb55b117cf85d3b48a3a57b1eed77a235ea5ff86f27d09611b9403d988be42f`
+
+This starts from exact accepted v13 and replaces only the neutral-question line
+with the evidence-first ordering rule. It instructs the scout to construct the
+question evidence map first and then compose from its exact keys plus the
+listed neutral generic vocabulary.
+
+Probe 16's extra compact banned-scan sentence is absent. V13's original
+evidence-mapping line and literal banned-phrase scan remain intact.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** split evidence-map-first ordering from the `only exact keys`
+  command and neutral-vocabulary list;
+- **passes:** test the excluded compact banned-scan sentence alone from exact
+  v13; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,653 bytes. The canonical v15 development skill
+validator at 357 lines and 36,304 bytes. The canonical v15 development skill
 was not moved or changed.
