@@ -62,7 +62,7 @@ deliberately contains no Universal or HRP orchestration.
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v7`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v8`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Let Gemini complete broad result discovery before it inspects video
 content. Detailed content inspection is limited to the shortlisted 8–12 scan
@@ -146,7 +146,11 @@ confirm in the task trace and response that Gemini:
     shortlisted videos, uses numbered candidate records rather than tables,
     selects unique intervention families, maps every rabbit-hole term to source
     rows, separates retrieval gaps from AskRigor research questions, and uses
-    neutral noncausal comment-audit questions; and
+    neutral noncausal comment-audit questions. Also confirm successful probes
+    cite genuinely matching rows, every candidate title is linked, exercise is
+    not relabeled behavioral to manufacture diversity, heterodox seeds are not
+    exercise-only, audit questions cite rows and request no proportions, and
+    rabbit-hole terms are copied from their cited candidate fields; and
 14. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
    individualized recommendation claim.

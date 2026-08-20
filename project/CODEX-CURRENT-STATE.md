@@ -714,6 +714,26 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   typecheck and build passed. The preceding compatibility revision covered all
   971 runnable tests, with its two load-sensitive fixed-timeout tests passing in
   isolation, and v7 changes no runtime source.
+- The first successful v7 owner run confirmed upload compatibility and reduced
+  raw search-panel clutter, but its output still violated the contract: named
+  diagnoses and replacement queries were labeled exact despite an unspecified
+  baseline; batched probes cited nonmatching rows; all candidate titles were
+  unlinked; cyclic exercise was relabeled behavioral to manufacture seed-family
+  diversity; an exercise-only seed filled the heterodox role; rationales
+  predicted unseen comment content; an audit question requested a proportion;
+  and several rabbit-hole terms mapped to rows that did not contain them.
+- Contract v8 requires one-remedy heterodox probes, explicit probe-to-row match
+  reasons, adjacent scope for every named pathology or procedure under an
+  unspecified baseline, morphologically varied `grow/growing/grew ... back`
+  discovery, linked candidate titles, scan records capped at 110 words, immutable
+  modality-based families, honest role gaps, row-labeled non-prevalence comment
+  questions, and verbatim row-derived rabbit-hole terms. It also requires blank
+  lines so the contract marker, mode, headings, and fields render separately.
+- Contract v8 validates at 499 lines and 37,811 bytes with a 607-character
+  maximum line. The skill validator and focused contract suite passed 8/8;
+  typecheck and build passed. This revision changes no runtime source; the
+  immediately preceding full validation covered all 971 runnable tests with five
+  declared skips after the two load-sensitive files passed in isolation.
 - For an earlier diagnostic revision, local validation passed the skill
   validator at 499 lines, the focused Gemini
   contract suite 6/6, typecheck, and build. The sandboxed complete test run
