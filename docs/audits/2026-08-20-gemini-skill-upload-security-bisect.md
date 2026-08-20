@@ -560,6 +560,33 @@ Interpret the upload only; do not run the probe as a production skill:
 - **inconsistent result:** repeat exact v13 and this exact hash before
   attributing the failure to content.
 
+Result: **passed**. The owner confirmed Gemini accepted this exact alternate.
+Use this positive ordering sentence in the production repair and omit the
+rejected exact-keys command. Probe 19 now tests the remaining compact banned
+scan alone. The canonical v15 development skill was not moved or changed.
+
+## Probe 19: compact banned-phrase scan
+
+Local path:
+`.artifacts/gemini-upload-bisect/19-compact-banned-scan/SKILL.md`
+
+SHA-256:
+`45504fb8dee50f4620c6f16b793a12cdeb24988b7a2d8ea5459f08b7c4e89191`
+
+This is exact accepted v13 plus Probe 16's compact banned-phrase scan sentence.
+The list intentionally duplicates v13's existing question restriction so the
+new sentence can be tested without any other post-v13 change.
+
+Interpret the upload only; do not run the probe as a production skill:
+
+- **fails:** retain v13's existing banned-phrase wording and omit the redundant
+  compact sentence from production;
+- **passes:** the compact wording is accepted, though production may still
+  avoid the redundant duplicate; assemble the repaired question group from the
+  accepted positive clauses and test it with the accepted schema group; and
+- **inconsistent result:** repeat exact v13 and this exact hash before
+  attributing the failure to content.
+
 Result: **awaiting owner upload receipt**. The artifact passed the local skill
-validator at 358 lines and 36,521 bytes. The canonical v15 development skill
+validator at 358 lines and 36,771 bytes. The canonical v15 development skill
 was not moved or changed.

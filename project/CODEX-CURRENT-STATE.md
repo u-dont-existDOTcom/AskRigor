@@ -1120,6 +1120,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   It passed the skill validator. A pass makes this the production ordering
   replacement; a failure retains v13 without an additional ordering sentence.
   The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 18 passed. Its positive evidence-map-first sentence
+  is the scanner-compatible production replacement for Probe 17's rejected
+  exact-keys construction. Probe 19 is exact accepted v13 plus only the compact
+  banned-phrase scan sentence from Probe 16; the deliberate duplication
+  isolates scanner compatibility. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/19-compact-banned-scan/SKILL.md`, 358 lines
+  and 36,771 bytes, SHA-256
+  `45504fb8dee50f4620c6f16b793a12cdeb24988b7a2d8ea5459f08b7c4e89191`.
+  It passed the skill validator. A failure retains v13's existing wording; a
+  pass permits the compact form before assembling the repaired question and
+  schema groups. The canonical v15 skill remains unmoved and unchanged.
 - The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
