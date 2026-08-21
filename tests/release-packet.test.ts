@@ -300,8 +300,9 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; EDITOR/GPT-UI ACCEPTANCE PENDING"
+      "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; EDITOR INSTALLATION OWNER-REPORTED; GPT-UI ACCEPTANCE PENDING"
     );
+    expect(releaseStatus).toContain("The editor was not independently inspected");
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
     expect(releaseStatus).toContain("Universal `20.5.12`");
@@ -332,14 +333,14 @@ describe("AskRigor public-review packet", () => {
       expect(document).toContain("privacy_rejected");
     }
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
-      "CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS; EDITOR INSTALLATION AND FRESH GPT-UI ACCEPTANCE PENDING",
+      "CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS; EDITOR INSTALLATION OWNER-REPORTED; FRESH GPT-UI ACCEPTANCE PENDING",
     );
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "all formal retrieval required by the applicability ledger",
     );
     expect(acceptance).toContain("Action-returned `receipt.synthesis_lock: pass`");
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
-      "static repository tests and direct server receipts do not establish GPT UI behavior.",
+      "Static repository tests and direct server receipts do not establish GPT UI behavior.",
     );
     expect(release).toContain("creator-content verification");
     expect(release).toContain("get_youtube_transcript");

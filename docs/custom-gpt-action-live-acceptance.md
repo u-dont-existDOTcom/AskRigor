@@ -1,13 +1,14 @@
 # Custom GPT Action live acceptance
 
 Status: **CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS;
-EDITOR INSTALLATION AND FRESH GPT-UI ACCEPTANCE PENDING**. PR #41 merged the
+EDITOR INSTALLATION OWNER-REPORTED; FRESH GPT-UI ACCEPTANCE PENDING**. PR #41 merged the
 Gemini-compatible production reconciliation and transcript/evidence-frontier
 release as `386497415a187354c6396e69a902d5bece9a9c96`. That exact revision is
 active in production and passed the sanitized direct acceptance recorded
-below. The generated Instructions and 19-operation Action document are ready
-for the existing Custom GPT, but this record does not claim that the signed-in
-editor has installed them or that the refreshed GPT UI has exercised them.
+below. After reviewing the complete current Instructions, the owner reported
+that they were already installed in the existing Custom GPT. This record does
+not independently inspect editor state or claim that the refreshed GPT UI has
+exercised them.
 
 Historical direct and repaired Custom GPT UI evidence is retained below for
 the earlier bridge releases. It does not substitute for a fresh UI run against
@@ -23,8 +24,8 @@ reviewed instruction repair as
 its synchronization-ledger SHA-256 is
 `a1e6e4390fb640a95ab01e51be9b3c70774368fa3208d65cc0723e1df4427ecc`.
 The exact post-merge deterministic verification, workflow policy, and CodeQL
-checks passed. The Action document is unchanged. This record does not claim
-that the Instructions are installed or UI-accepted.
+checks passed. The Action document is unchanged. Installation is owner-reported;
+fresh UI acceptance remains unverified.
 
 The direct acceptance cases below used only synthetic, non-personal inputs. The
 owner-provided private product result is not reproduced; only its sanitized,
@@ -37,7 +38,7 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Production deployment and direct acceptance completed on `2026-08-21`; signed-in editor installation and fresh GPT UI acceptance remain pending. |
+| UTC time | Production deployment and direct acceptance completed on `2026-08-21`; exact Instructions installation was owner-reported at `2026-08-21T15:20:33Z`; fresh GPT UI acceptance remains pending. |
 | deployed commit | PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96` (parents PR #40 merge `94062f8d5595ff8cef368f8c2b06732a4826ae57` and compatibility head `3ebfb5be67207dd04f9c70e6af340662c790c96c`). |
 | deployed image | `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`; image ID `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`; healthy container `c1dc68972ded`; only the research service changed during runtime activation. |
 | current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `ecfeaf12db7de685edc84d200485866a699f9a0f7df569e8bc4450bb4c77361c`; Caddy container `18209d960259`; runtime environment mode remained root-owned `0600` and its contents were not read. Request diagnostics remain disabled by default and were not enabled in production. |
@@ -45,7 +46,7 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-3864974-predeploy` preserves image ID `sha256:df01992c604e618af4e5f7df733a30759855da2c973c48ab2ebbd67e39f86452`; rollback Compose is `/opt/askrigor/releases/386497415a187354c6396e69a902d5bece9a9c96/compose.pre-3864974.yaml`, SHA-256 `5f3d6fb76174f0edb2dac290db9c64e153ae95cf8d6d5c2d30d9ca928a28f3af`. |
 | deployment archive | Exact secret-free Git archive from the deployed merge: SHA-256 `61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0`; 377 members, 1,010,125 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | OpenAPI SHA-256 | Committed pretty artifact: `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`; semantically identical compact live response: `368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9`. |
-| instructions SHA-256 | Current generated editor source: `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`, 7,962 characters. It is not yet evidenced as installed; Knowledge must remain empty. |
+| instructions SHA-256 | Current generated editor source: `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`, 7,962 characters. The owner reports these exact displayed Instructions are installed; the editor was not independently inspected. Knowledge must remain empty. |
 | current Action/MCP boundary | The Action exposes 18 non-consequential research reads plus the consequential lesson write. `get_youtube_transcript` is Action-only. Standard MCP and Gemini-compatible MCP each preserve the same exact 17 read-only handlers; Gemini uses the compact service name `askrigor_research`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc`, with effective date `2026-08-21` and the disabled-by-default bounded diagnostic disclosure. Active site release: `/opt/askrigor/site/releases/386497415a18/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
@@ -95,10 +96,10 @@ issue content, or health details.
   HTTP privacy redirected once with `308` to HTTPS, and the sampled HTTPS
   responses did not expose a `Server` header.
 
-This is **DIRECT PASS — CURRENT GPT UI PENDING**. The remaining acceptance must
-be performed only after the generated Instructions and current OpenAPI are
-saved in the signed-in Custom GPT editor. Historical UI passes below do not
-close that boundary.
+This is **DIRECT PASS — CURRENT GPT UI PENDING**. The owner reports the generated
+Instructions are already saved in the signed-in Custom GPT editor. The remaining
+acceptance is a fresh GPT UI run; historical UI passes below do not close that
+boundary.
 
 ## Treatment-decision regressions and universal transcript candidate — 2026-08-18
 
@@ -203,9 +204,9 @@ the complete Node `24.18.0` gate passed typecheck, 57 test files with one
 declared credential-gated file skipped, 960 tests with five declared skips, and
 build. Public-site validation covered four pages and the deployment suite passed
 28/28. The exact candidate was subsequently merged, deployed, and directly
-accepted as recorded above. Fresh signed-in editor installation and current
-product-interface acceptance remain pending; static repository tests and direct
-server receipts do not establish GPT UI behavior.
+accepted as recorded above. Current Instructions installation is owner-reported;
+fresh product-interface acceptance remains pending. Static repository tests and
+direct server receipts do not establish GPT UI behavior.
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 

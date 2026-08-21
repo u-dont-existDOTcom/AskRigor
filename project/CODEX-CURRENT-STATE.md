@@ -24,8 +24,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`,
   in healthy container `c1dc68972ded`. The privacy site is active at
   `/opt/askrigor/site/releases/386497415a18/site`. Runtime/OpenAPI/privacy are
-  deployed and directly accepted; signed-in Custom GPT editor installation and
-  fresh current GPT UI acceptance are the remaining product boundary.
+  deployed and directly accepted. After displaying the complete current
+  Instructions in chat, the owner reported that those exact Instructions were
+  already installed in the signed-in Custom GPT editor. Fresh current GPT UI
+  acceptance is the remaining product boundary; editor state is owner-reported,
+  not independently inspectable from this environment.
 - Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -154,8 +157,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   required because this repair changes only the generated editor instructions,
   research routing, tests, and evidence. A read-only public check at
   `2026-08-21T08:47:26Z` returned `200` for both the research health endpoint
-  and privacy page. Signed-in editor installation and fresh UI acceptance
-  remain pending.
+  and privacy page. At `2026-08-21T15:20:33Z`, after reviewing the complete
+  current Instructions, the owner reported they were already installed. Fresh
+  UI acceptance remains pending.
 - The pre-release lesson checkpoint at `2026-08-21T08:40:20.176Z` was
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. No queued lesson expands
@@ -1824,18 +1828,12 @@ and completed rollout at the top of this file.
 
 ## Next safe action
 
-Finish `agent/gpt-partial-escape-repair-20260821`: preserve the clean rollback
-base, complete independent review and release checks, open a protected pull
-request, pass required workflows, and merge it to `main`. This candidate changes
-instructions, tests, and evidence only; do not rebuild or redeploy the unchanged
-runtime, Action schema, or public site merely to install editor text. Then use
-the owner's signed-in Custom GPT editor to replace Instructions with exact
-`docs/custom-gpt-instructions.md`, keep Knowledge empty, import
-`https://mcp.askrigor.com/actions/openapi.json`, retain the existing API Key →
-Bearer authentication, set `https://askrigor.com/privacy`, and save without
-publishing. Run the fresh product-interface cases in
+Run the fresh product-interface cases in
 `docs/custom-gpt-action-live-acceptance.md` and record only observed UI results.
-Do not repeat the completed runtime deployment/direct acceptance, retry the rejected
+The owner reports the exact current Instructions are already installed; do not
+repeat editor installation or infer UI behavior from that report. Keep Knowledge
+empty and retain the current Action authentication and privacy configuration.
+Do not repeat completed runtime deployment/direct acceptance, retry the rejected
 lesson, publish the GPT, or treat direct checks as UI proof.
 
 ## Recovery rule
@@ -1851,7 +1849,7 @@ PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96`; production is the healt
 exact image with that tag and image ID
 `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`.
 Deployment and recovery evidence is merged through PR #43; the instruction-only
-partial-answer repair is merged through PR #44. The remaining boundary is
-installing Instructions SHA-256
-`4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`
-in the owner's signed-in editor and running fresh current GPT UI acceptance.
+partial-answer repair is merged through PR #44. The owner reports Instructions
+SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`
+are installed in the signed-in editor. The remaining boundary is fresh current
+GPT UI acceptance.
