@@ -14,6 +14,7 @@ import {
   createAskRigorServer
 } from "../apps/research-mcp/src/server.js";
 import {
+  GEMINI_COMPATIBLE_MCP_PATH,
   PUBLIC_TOOL_LIMITS,
   SERVER_INSTRUCTIONS
 } from "../apps/research-mcp/src/config.js";
@@ -1933,6 +1934,7 @@ describe("AskRigor Streamable HTTP server", () => {
         });
 
         expect(tools.tools.map(({ name }) => name)).toEqual(TOOL_NAMES);
+        expect(client.getServerVersion()?.name).toBe("askrigor-research");
         expect(manifest.isError).not.toBe(true);
         expect(manifest.structuredContent).toMatchObject({
           ok: true,
@@ -1941,6 +1943,49 @@ describe("AskRigor Streamable HTTP server", () => {
             name: "AskRigor.com universal saved instructions",
             version: "20.5.14",
             revisionDate: "2026-08-18",
+            sha256: "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221"
+          }
+        });
+      } finally {
+        await client.close();
+      }
+    });
+  });
+
+  it("advertises a compact Gemini-compatible catalog without changing handlers", async () => {
+    await withHttpServer(async (baseUrl) => {
+      const client = new Client({ name: "gemini-compat-test", version: "1.0.0" });
+
+      try {
+        await client.connect(
+          new StreamableHTTPClientTransport(
+            new URL(GEMINI_COMPATIBLE_MCP_PATH, baseUrl)
+          )
+        );
+
+        const { tools } = await client.listTools();
+        const manifest = await client.callTool({
+          name: "get_protocol_manifest",
+          arguments: { protocol: "universal" }
+        });
+        const invalidPmid = await client.callTool({
+          name: "fetch_pubmed_record",
+          arguments: { pmid: "not-a-pmid" }
+        });
+
+        expect(tools.map(({ name }) => name)).toEqual(TOOL_NAMES);
+        expect(client.getServerVersion()?.name).toBe("askrigor_research");
+        expect(tools.every((tool) => !("outputSchema" in tool))).toBe(true);
+        expect(tools.every((tool) => !("execution" in tool))).toBe(true);
+        expect(unsupportedGeminiSchemaKeys(tools)).toEqual([]);
+        expect(Buffer.byteLength(JSON.stringify({ tools }), "utf8")).toBeLessThan(25_000);
+        expect(manifest.isError).not.toBe(true);
+        expect(invalidPmid.isError).toBe(true);
+        expect(manifest.structuredContent).toMatchObject({
+          ok: true,
+          protocol: "universal",
+          manifest: {
+            version: "20.5.14",
             sha256: "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221"
           }
         });
@@ -2013,6 +2058,201 @@ describe("AskRigor Streamable HTTP server", () => {
       );
       expect(await response.text()).toContain('"protocolVersion":"2025-11-25"');
     });
+  });
+
+  it("keeps MCP handshake diagnostics disabled unless explicitly enabled", async () => {
+    const records: unknown[] = [];
+
+    await withHttpServer(
+      async (baseUrl) => {
+        const response = await fetch(
+          new URL("/.well-known/oauth-protected-resource", baseUrl)
+        );
+
+        expect(response.status).toBe(404);
+      },
+      undefined,
+      {
+        mcpHandshakeDiagnosticLogger: (record) => records.push(record)
+      }
+    );
+
+    expect(records).toEqual([]);
+  });
+
+  it("emits only coarse, non-sensitive MCP handshake diagnostics when enabled", async () => {
+    const records: unknown[] = [];
+    const secret = "Bearer private-token-that-must-never-be-logged";
+    const privateArgument = "private-prompt-that-must-never-be-logged";
+
+    await withHttpServer(
+      async (baseUrl) => {
+        const discovery = await fetch(
+          new URL("/.well-known/oauth-protected-resource/mcp", baseUrl),
+          { headers: { authorization: secret } }
+        );
+        const toolCall = await fetch(new URL("/mcp", baseUrl), {
+          method: "POST",
+          headers: {
+            accept: "application/json, text/event-stream",
+            authorization: secret,
+            "content-type": "application/json",
+            origin: "https://gemini.google.com"
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: "private-request-id",
+            method: "tools/call",
+            params: {
+              name: "private-tool-name",
+              arguments: { prompt: privateArgument }
+            }
+          })
+        });
+
+        expect(discovery.status).toBe(404);
+        expect(toolCall.status).toBe(200);
+      },
+      undefined,
+      {
+        mcpHandshakeDiagnosticsEnabled: true,
+        mcpHandshakeDiagnosticLogger: (record) => records.push(record)
+      }
+    );
+
+    expect(records).toEqual([
+      {
+        event: "askrigor_mcp_handshake",
+        route: "oauth_protected_resource_mcp",
+        method: "GET",
+        origin: "absent",
+        accept: "other",
+        content_type: "absent",
+        authorization_present: true,
+        mcp_protocol_header: "absent",
+        cors_request_headers: "not_preflight",
+        rpc_method: "not_applicable",
+        initialize_protocol_version: "not_applicable",
+        outcome: "finished",
+        status: 404,
+        response_content_type: "absent"
+      },
+      {
+        event: "askrigor_mcp_handshake",
+        route: "mcp",
+        method: "POST",
+        origin: "gemini",
+        accept: "json_and_sse",
+        content_type: "json",
+        authorization_present: true,
+        mcp_protocol_header: "absent",
+        cors_request_headers: "not_preflight",
+        rpc_method: "tools/call",
+        initialize_protocol_version: "not_applicable",
+        outcome: "finished",
+        status: 200,
+        response_content_type: "sse"
+      }
+    ]);
+    const serialized = JSON.stringify(records);
+    expect(serialized).not.toContain(secret);
+    expect(serialized).not.toContain(privateArgument);
+    expect(serialized).not.toContain("private-request-id");
+    expect(serialized).not.toContain("private-tool-name");
+  });
+
+  it("classifies an arbitrary HTTP method without retaining its value", async () => {
+    const records: unknown[] = [];
+    const privateMethod = "PATCH";
+
+    await withHttpServer(
+      async (baseUrl) => {
+        const response = await fetch(new URL("/mcp", baseUrl), {
+          method: privateMethod
+        });
+
+        expect(response.status).toBe(405);
+      },
+      undefined,
+      {
+        mcpHandshakeDiagnosticsEnabled: true,
+        mcpHandshakeDiagnosticLogger: (record) => records.push(record)
+      }
+    );
+
+    expect(records).toMatchObject([
+      {
+        event: "askrigor_mcp_handshake",
+        route: "mcp",
+        method: "other",
+        rpc_method: "not_applicable",
+        status: 405
+      }
+    ]);
+    expect(JSON.stringify(records)).not.toContain(privateMethod);
+  });
+
+  it("classifies Gemini preflight and initialization without retaining values", async () => {
+    const records: unknown[] = [];
+
+    await withHttpServer(
+      async (baseUrl) => {
+        const preflight = await fetch(new URL(GEMINI_COMPATIBLE_MCP_PATH, baseUrl), {
+          method: "OPTIONS",
+          headers: {
+            origin: "https://gemini.google.com",
+            "access-control-request-method": "POST",
+            "access-control-request-headers":
+              "content-type,mcp-protocol-version,x-goog-api-client"
+          }
+        });
+        const initialize = await fetch(new URL(GEMINI_COMPATIBLE_MCP_PATH, baseUrl), {
+          method: "POST",
+          headers: {
+            accept: "application/json, text/event-stream",
+            "content-type": "application/json",
+            origin: "https://gemini.google.com"
+          },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "initialize",
+            params: {
+              protocolVersion: "2025-11-25",
+              capabilities: {},
+              clientInfo: { name: "gemini-spark-test", version: "1.0.0" }
+            }
+          })
+        });
+
+        expect(preflight.status).toBe(204);
+        expect(initialize.status).toBe(200);
+      },
+      undefined,
+      {
+        mcpHandshakeDiagnosticsEnabled: true,
+        mcpHandshakeDiagnosticLogger: (record) => records.push(record)
+      }
+    );
+
+    expect(records).toMatchObject([
+      {
+        route: "mcp_gemini",
+        method: "OPTIONS",
+        origin: "gemini",
+        cors_request_headers: "includes_google_metadata",
+        rpc_method: "not_applicable",
+        status: 204
+      },
+      {
+        route: "mcp_gemini",
+        method: "POST",
+        origin: "gemini",
+        rpc_method: "initialize",
+        initialize_protocol_version: "known",
+        status: 200
+      }
+    ]);
   });
 
   it("rejects untrusted MCP browser origins before transport handling", async () => {
@@ -2169,6 +2409,53 @@ async function createInMemoryClient(): Promise<{
   return { client, server };
 }
 
+function unsupportedGeminiSchemaKeys(
+  tools: Array<{ inputSchema: Record<string, unknown> }>
+): string[] {
+  const supported = new Set([
+    "type",
+    "nullable",
+    "required",
+    "format",
+    "description",
+    "properties",
+    "items",
+    "enum",
+    "anyOf",
+    "$ref",
+    "$defs"
+  ]);
+  const unsupported = new Set<string>();
+
+  const visit = (schema: unknown) => {
+    if (typeof schema !== "object" || schema === null || Array.isArray(schema)) {
+      return;
+    }
+    for (const [key, value] of Object.entries(schema)) {
+      if (!supported.has(key)) {
+        unsupported.add(key);
+        continue;
+      }
+      if (key === "properties" || key === "$defs") {
+        if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+          for (const child of Object.values(value)) {
+            visit(child);
+          }
+        }
+      } else if (key === "items" || key === "anyOf") {
+        if (Array.isArray(value)) {
+          value.forEach(visit);
+        } else {
+          visit(value);
+        }
+      }
+    }
+  };
+
+  tools.forEach(({ inputSchema }) => visit(inputSchema));
+  return [...unsupported].sort();
+}
+
 function restoreEnvironment(name: string, value: string | undefined): void {
   if (value === undefined) {
     delete process.env[name];
@@ -2179,9 +2466,13 @@ function restoreEnvironment(name: string, value: string | undefined): void {
 
 async function withHttpServer(
   callback: (baseUrl: URL) => Promise<void>,
-  observeRequest?: (request: IncomingMessage) => void
+  observeRequest?: (request: IncomingMessage) => void,
+  options: Parameters<typeof createAskRigorHttpServer>[0] = {}
 ): Promise<void> {
-  const httpServer = createAskRigorHttpServer({ publicServerEnabled: true });
+  const httpServer = createAskRigorHttpServer({
+    publicServerEnabled: true,
+    ...options
+  });
   if (observeRequest !== undefined) {
     httpServer.on("request", observeRequest);
   }

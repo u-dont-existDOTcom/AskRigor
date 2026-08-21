@@ -12,8 +12,11 @@ import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js
 import {
   actionApiKeyFromEnv,
   actionsAreEnabled,
+  GEMINI_COMPATIBLE_MCP_PATH,
+  GEMINI_COMPATIBLE_SERVICE_NAME,
   HEALTH_PAYLOAD,
   MAX_MCP_REQUEST_BYTES,
+  mcpHandshakeDiagnosticsAreEnabled,
   parseTrustedClientIpHeader,
   PUBLIC_MCP_BROWSER_ORIGINS,
   PUBLIC_MCP_CONCURRENCY_LIMIT,
@@ -53,13 +56,24 @@ import {
   type TrustedClientIpHeader
 } from "./rate-limit.js";
 import { registerTools } from "./register-tools.js";
+import { installGeminiCompatibleToolCatalog } from "./gemini-tool-catalog.js";
 
-export function createAskRigorServer(): McpServer {
+export type McpToolCatalogProfile = "standard" | "gemini";
+
+export function createAskRigorServer(
+  profile: McpToolCatalogProfile = "standard"
+): McpServer {
   const server = new McpServer(
-    { name: SERVICE_NAME, version: SERVICE_VERSION },
+    {
+      name: profile === "gemini" ? GEMINI_COMPATIBLE_SERVICE_NAME : SERVICE_NAME,
+      version: SERVICE_VERSION
+    },
     { instructions: SERVER_INSTRUCTIONS }
   );
   registerTools(server);
+  if (profile === "gemini") {
+    installGeminiCompatibleToolCatalog(server);
+  }
   return server;
 }
 
@@ -73,8 +87,57 @@ export interface AskRigorHttpServerOptions {
   trustedClientIpHeader?: TrustedClientIpHeader;
   rateLimiter?: TokenBucketLimiter;
   concurrencyLimiter?: ConcurrencyLimiter;
-  createMcpServer?: () => McpServer;
+  createMcpServer?: (profile?: McpToolCatalogProfile) => McpServer;
+  mcpHandshakeDiagnosticsEnabled?: boolean;
+  mcpHandshakeDiagnosticLogger?: (
+    record: McpHandshakeDiagnosticRecord
+  ) => void;
 }
+
+export interface McpHandshakeDiagnosticRecord {
+  event: "askrigor_mcp_handshake";
+  route: McpHandshakeDiagnosticRoute;
+  method: "GET" | "POST" | "DELETE" | "OPTIONS" | "other";
+  origin: "absent" | "gemini" | "other";
+  accept: "absent" | "json" | "sse" | "json_and_sse" | "other";
+  content_type: "absent" | "json" | "other";
+  authorization_present: boolean;
+  mcp_protocol_header: "absent" | "known" | "other";
+  cors_request_headers:
+    | "not_preflight"
+    | "absent"
+    | "supported_only"
+    | "includes_authorization"
+    | "includes_google_metadata"
+    | "includes_other";
+  rpc_method:
+    | "not_applicable"
+    | "unparsed"
+    | "initialize"
+    | "notifications/initialized"
+    | "tools/list"
+    | "tools/call"
+    | "other";
+  initialize_protocol_version:
+    | "not_applicable"
+    | "absent"
+    | "known"
+    | "other";
+  outcome: "finished" | "closed";
+  status: number;
+  response_content_type: "absent" | "json" | "sse" | "other";
+}
+
+type McpHandshakeDiagnosticRoute =
+  | "mcp"
+  | "mcp_gemini"
+  | "oauth_protected_resource"
+  | "oauth_protected_resource_mcp"
+  | "oauth_protected_resource_mcp_gemini"
+  | "oauth_authorization_server"
+  | "oauth_authorization_server_mcp"
+  | "openid_configuration"
+  | "oauth_registration";
 
 export function createAskRigorHttpServer(
   options: AskRigorHttpServerOptions = {}
@@ -114,6 +177,11 @@ export function createAskRigorHttpServer(
   const concurrencyLimiter = options.concurrencyLimiter ??
     createConcurrencyLimiter(PUBLIC_MCP_CONCURRENCY_LIMIT);
   const createMcpServer = options.createMcpServer ?? createAskRigorServer;
+  const mcpHandshakeDiagnosticsEnabled =
+    options.mcpHandshakeDiagnosticsEnabled ??
+    mcpHandshakeDiagnosticsAreEnabled();
+  const mcpHandshakeDiagnosticLogger = options.mcpHandshakeDiagnosticLogger ??
+    writeMcpHandshakeDiagnostic;
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -121,6 +189,15 @@ export function createAskRigorHttpServer(
       response.writeHead(404).end();
       return;
     }
+
+    const updateMcpHandshakeDiagnostic = mcpHandshakeDiagnosticsEnabled
+      ? attachMcpHandshakeDiagnostic(
+          request,
+          response,
+          pathname,
+          mcpHandshakeDiagnosticLogger
+        )
+      : undefined;
 
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
@@ -158,7 +235,7 @@ export function createAskRigorHttpServer(
       return;
     }
 
-    if (pathname !== "/mcp") {
+    if (pathname !== "/mcp" && pathname !== GEMINI_COMPATIBLE_MCP_PATH) {
       response.writeHead(404).end();
       return;
     }
@@ -201,6 +278,7 @@ export function createAskRigorHttpServer(
       if (request.method === "POST" && sdkAcceptsPostBody(request)) {
         try {
           parsedBody = await readBoundedJsonBody(request);
+          updateMcpHandshakeDiagnostic?.(parsedBody);
         } catch (error) {
           if (error instanceof RequestBodyTooLargeError) {
             writeJsonRpcError(
@@ -220,7 +298,10 @@ export function createAskRigorHttpServer(
 
       let server: McpServer | undefined;
       try {
-        server = createMcpServer();
+        const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
+          ? "gemini"
+          : "standard";
+        server = createMcpServer(profile);
         const transport = new StreamableHTTPServerTransport({
           sessionIdGenerator: undefined
         });
@@ -246,6 +327,255 @@ function exactOriginFormPath(target: string | undefined): string | undefined {
   const queryIndex = target.indexOf("?");
   const path = queryIndex < 0 ? target : target.slice(0, queryIndex);
   return isCanonicalRawPath(path) ? path : undefined;
+}
+
+const MCP_HANDSHAKE_DIAGNOSTIC_ROUTES = new Map<
+  string,
+  McpHandshakeDiagnosticRoute
+>([
+  ["/mcp", "mcp"],
+  [GEMINI_COMPATIBLE_MCP_PATH, "mcp_gemini"],
+  ["/.well-known/oauth-protected-resource", "oauth_protected_resource"],
+  [
+    "/.well-known/oauth-protected-resource/mcp",
+    "oauth_protected_resource_mcp"
+  ],
+  [
+    "/.well-known/oauth-protected-resource/mcp/gemini",
+    "oauth_protected_resource_mcp_gemini"
+  ],
+  ["/.well-known/oauth-authorization-server", "oauth_authorization_server"],
+  [
+    "/.well-known/oauth-authorization-server/mcp",
+    "oauth_authorization_server_mcp"
+  ],
+  ["/.well-known/openid-configuration", "openid_configuration"],
+  ["/register", "oauth_registration"]
+]);
+
+const MCP_SUPPORTED_CORS_REQUEST_HEADERS = new Set([
+  "accept",
+  "content-type",
+  "last-event-id",
+  "mcp-protocol-version",
+  "mcp-session-id"
+]);
+
+const MCP_KNOWN_PROTOCOL_VERSIONS = new Set([
+  "2025-11-25",
+  "2025-06-18",
+  "2025-03-26"
+]);
+
+function attachMcpHandshakeDiagnostic(
+  request: IncomingMessage,
+  response: ServerResponse,
+  pathname: string,
+  logger: (record: McpHandshakeDiagnosticRecord) => void
+): ((parsedBody: unknown) => void) | undefined {
+  const route = MCP_HANDSHAKE_DIAGNOSTIC_ROUTES.get(pathname);
+  if (route === undefined) {
+    return undefined;
+  }
+
+  let rpcMethod: McpHandshakeDiagnosticRecord["rpc_method"] =
+    (route === "mcp" || route === "mcp_gemini") && request.method === "POST"
+      ? "unparsed"
+      : "not_applicable";
+  let initializeProtocolVersion:
+    McpHandshakeDiagnosticRecord["initialize_protocol_version"] =
+      "not_applicable";
+  let emitted = false;
+
+  const emit = (outcome: McpHandshakeDiagnosticRecord["outcome"]) => {
+    if (emitted) {
+      return;
+    }
+    emitted = true;
+
+    const record: McpHandshakeDiagnosticRecord = {
+      event: "askrigor_mcp_handshake",
+      route,
+      method: classifyHttpMethod(request.method),
+      origin: classifyOrigin(request.headers.origin),
+      accept: classifyAccept(request.headers.accept),
+      content_type: classifyContentType(request.headers["content-type"]),
+      authorization_present: request.headers.authorization !== undefined,
+      mcp_protocol_header: classifyMcpProtocolVersion(
+        request.headers["mcp-protocol-version"]
+      ),
+      cors_request_headers: classifyCorsRequestHeaders(request),
+      rpc_method: rpcMethod,
+      initialize_protocol_version: initializeProtocolVersion,
+      outcome,
+      status: response.statusCode,
+      response_content_type: classifyResponseContentType(
+        response.getHeader("content-type")
+      )
+    };
+
+    try {
+      logger(record);
+    } catch {
+      // Diagnostics must never affect request handling.
+    }
+  };
+
+  response.once("finish", () => emit("finished"));
+  response.once("close", () => emit("closed"));
+
+  return (parsedBody: unknown) => {
+    const classification = classifyRpcRequest(parsedBody);
+    rpcMethod = classification.rpcMethod;
+    initializeProtocolVersion = classification.initializeProtocolVersion;
+  };
+}
+
+function classifyOrigin(
+  origin: string | readonly string[] | undefined
+): McpHandshakeDiagnosticRecord["origin"] {
+  if (origin === undefined) {
+    return "absent";
+  }
+  return origin === "https://gemini.google.com" ? "gemini" : "other";
+}
+
+function classifyHttpMethod(
+  method: string | undefined
+): McpHandshakeDiagnosticRecord["method"] {
+  return method === "GET" || method === "POST" || method === "DELETE" ||
+    method === "OPTIONS"
+    ? method
+    : "other";
+}
+
+function classifyAccept(
+  accept: string | readonly string[] | undefined
+): McpHandshakeDiagnosticRecord["accept"] {
+  if (typeof accept !== "string") {
+    return accept === undefined ? "absent" : "other";
+  }
+  const hasJson = accept.includes("application/json");
+  const hasSse = accept.includes("text/event-stream");
+  if (hasJson && hasSse) {
+    return "json_and_sse";
+  }
+  if (hasJson) {
+    return "json";
+  }
+  return hasSse ? "sse" : "other";
+}
+
+function classifyContentType(
+  contentType: string | readonly string[] | undefined
+): McpHandshakeDiagnosticRecord["content_type"] {
+  if (contentType === undefined) {
+    return "absent";
+  }
+  return typeof contentType === "string" && isJsonContentType(contentType)
+    ? "json"
+    : "other";
+}
+
+function classifyMcpProtocolVersion(
+  version: string | readonly string[] | undefined
+): McpHandshakeDiagnosticRecord["mcp_protocol_header"] {
+  if (version === undefined) {
+    return "absent";
+  }
+  return typeof version === "string" && MCP_KNOWN_PROTOCOL_VERSIONS.has(version)
+    ? "known"
+    : "other";
+}
+
+function classifyCorsRequestHeaders(
+  request: IncomingMessage
+): McpHandshakeDiagnosticRecord["cors_request_headers"] {
+  if (request.method !== "OPTIONS") {
+    return "not_preflight";
+  }
+
+  const rawHeaders = request.headers["access-control-request-headers"];
+  if (typeof rawHeaders !== "string" || rawHeaders.trim() === "") {
+    return "absent";
+  }
+  const headers = rawHeaders.split(",").map((header) => header.trim().toLowerCase());
+  const unsupported = headers.filter((header) =>
+    !MCP_SUPPORTED_CORS_REQUEST_HEADERS.has(header)
+  );
+  if (unsupported.length === 0) {
+    return "supported_only";
+  }
+  if (unsupported.includes("authorization")) {
+    return "includes_authorization";
+  }
+  if (unsupported.some((header) => header.startsWith("x-goog-"))) {
+    return "includes_google_metadata";
+  }
+  return "includes_other";
+}
+
+function classifyRpcRequest(parsedBody: unknown): {
+  rpcMethod: McpHandshakeDiagnosticRecord["rpc_method"];
+  initializeProtocolVersion:
+    McpHandshakeDiagnosticRecord["initialize_protocol_version"];
+} {
+  if (
+    typeof parsedBody !== "object" ||
+    parsedBody === null ||
+    Array.isArray(parsedBody) ||
+    !("method" in parsedBody) ||
+    typeof parsedBody.method !== "string"
+  ) {
+    return { rpcMethod: "other", initializeProtocolVersion: "not_applicable" };
+  }
+
+  const knownMethods = new Set([
+    "initialize",
+    "notifications/initialized",
+    "tools/list",
+    "tools/call"
+  ]);
+  const rpcMethod = knownMethods.has(parsedBody.method)
+    ? parsedBody.method as McpHandshakeDiagnosticRecord["rpc_method"]
+    : "other";
+  if (rpcMethod !== "initialize") {
+    return { rpcMethod, initializeProtocolVersion: "not_applicable" };
+  }
+
+  const params = "params" in parsedBody ? parsedBody.params : undefined;
+  const version = typeof params === "object" && params !== null &&
+    !Array.isArray(params) && "protocolVersion" in params
+    ? params.protocolVersion
+    : undefined;
+  const initializeProtocolVersion = version === undefined
+    ? "absent"
+    : typeof version === "string" && MCP_KNOWN_PROTOCOL_VERSIONS.has(version)
+      ? "known"
+      : "other";
+
+  return { rpcMethod, initializeProtocolVersion };
+}
+
+function classifyResponseContentType(
+  contentType: number | string | readonly string[] | undefined
+): McpHandshakeDiagnosticRecord["response_content_type"] {
+  if (contentType === undefined) {
+    return "absent";
+  }
+  const normalized = Array.isArray(contentType)
+    ? contentType.join(",")
+    : String(contentType);
+  if (normalized.includes("application/json")) {
+    return "json";
+  }
+  return normalized.includes("text/event-stream") ? "sse" : "other";
+}
+
+function writeMcpHandshakeDiagnostic(
+  record: McpHandshakeDiagnosticRecord
+): void {
+  console.info(JSON.stringify(record));
 }
 
 class RequestBodyTooLargeError extends Error {}

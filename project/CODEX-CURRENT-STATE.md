@@ -9,27 +9,22 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current verified GitHub baseline is PR #39 merge
-  `793c331ad90b9918246105e5f998ab9d1a258de9`. PR #37 merged the first
-  discovery/weighting repair as
-  `d49cad990f21dfdf9649951248798293650f2a4a`; PRs #38 and #39 then advanced
-  canonical Universal source to `20.5.14`. Production still runs PR #36 merge
-  `cfce806345fe65a13fd0330aa7e8f000c1587d01` on image ID
-  `sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360`;
-  rollback tag `askrigor-research:rollback-cfce806` resolves the prior PR #32
-  image. The privacy-model repair head
-  `87433b8829da835f1e8c2b1bd5cd613ac14046b6` passed protected checks before
-  merge and exact post-merge checks afterward. The
-  public-boundary task started from PR #30 merge
-  `8ac8b068cbf316d9a9802674ec27df0b55467afb`. The
-  consent-shell repair started from PR #28 merge
-  `c6a12c950dad432ea0e8b157d9d13cdcd2bf4bd1`. Exact PR #29 head
-  `81328fc439b6cd6a199a9b707aeafe5b9881fadc` merged as
-  `25849647969a4bf333659feaa30f0b418cc24d57`, while production now runs exact
-  revision `cfce806345fe65a13fd0330aa7e8f000c1587d01`. The continuation implementation
-  passed direct and Custom GPT UI two-call acceptance, and deployed Universal
-  `20.5.13` passed fresh direct production acceptance.
-  Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
+- Canonical branch: `main`; current verified GitHub baseline is PR #40 merge
+  `94062f8d5595ff8cef368f8c2b06732a4826ae57`. PR #40 added the transcript-
+  verified evidence frontier, the exact unspecified-hip-pain research record,
+  and a capability-safe MCP-plugin fallback while preserving the 17-tool MCP
+  surface and generating a 19-operation Custom GPT Action document.
+- Production preflight on 2026-08-21 found the healthy research container using
+  image tag `askrigor-research:4ccdf721ed4a41b1076a2370fce27372141f8901`.
+  That deployed revision descends from PR #36 merge
+  `cfce806345fe65a13fd0330aa7e8f000c1587d01` and contains the accepted
+  `/mcp/gemini` compact catalog plus disabled-by-default bounded handshake
+  diagnostics,
+  but it predates PR #40's transcript Action and Universal `20.5.14`. The
+  additive reconciliation branch is
+  `agent/gemini-prod-compat-port-20260821`; do not replace current main's server
+  wholesale with the older production file.
+- Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
   `0d8ef69fa7fd73c34c571a07723b5a6b5bad5fec`
@@ -1680,11 +1675,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- The completion and option-space failures were merged, deployed, and installed.
-  The first discovery/weighting repair merged as PR #37 but failed its product
-  retest; the resulting creator-content verification gap remains a public-
-  submission blocker until the universal runtime/privacy/instruction follow-up
-  is merged, deployed, installed, and passes fresh direct and GPT UI cases.
+- The source follow-up is merged as PR #40, but the combined canonical/runtime
+  reconciliation is not yet deployed or installed. Creator-content verification
+  remains a public-submission blocker until the compatibility port is merged,
+  the privacy notice and exact runtime are deployed, the current Action schema
+  and Instructions are installed, and fresh direct and GPT UI cases pass.
   Static instruction assertions do not prove model obedience or provider
   availability. The rejected lesson is non-retryable.
 
@@ -1735,33 +1730,29 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Do not resume iterative manual upload probes or ask the owner for another rerun.
-The compact candidate-only replacement has now passed its first forward run and
-independent metadata validation. For later runs, save the raw JSON unchanged and
-run the deterministic validator; use its exact issue paths rather than asking
-the owner to diagnose or patch the skill. Its first packet has already completed
-the bounded three-seed comment audit and produced a rediscovery packet. If the
-health research itself continues, execute targeted rediscovery plus the still-
-open formal, grey, trial, independent-community, transcript, bidirectional, and
-final-audit work. Do not treat mechanical acceptance or the rediscovery packet
-as claim validation, Forum Signal completion, or an evidence verdict.
-Separately finish the
-matched Gemini/transcript timing comparison after the recorded
-provider rate limit resets, then make the owner privacy/data-flow decision
-before any production integration. Separately finish exact local verification
-and diff review of the existing transcript/evidence-frontier follow-up, commit
-the durable evaluation note, and inspect GitHub before any push or PR update.
-Do not retry the failed lesson, change production, update the GPT editor,
-deploy, or resume portal Scan Tools before the protected merge sequence.
+Finish the independent review of
+`agent/gemini-prod-compat-port-20260821`, commit the exact verified diff, publish
+it through a protected pull request, and merge only after all required checks
+pass. Re-run the exact-merge deterministic and site gates, then deploy the
+updated privacy site before recreating only the research container from an
+immutable exact-source image with reachable site, image, and Compose rollback
+points. Direct acceptance must prove both MCP profiles, the 17-tool inventory,
+the 19-operation Action document including transcript, current protocol hashes,
+privacy, authentication isolation, malformed-request handling, and diagnostics
+remaining disabled. Only then install the exact generated Instructions and
+Action schema in the signed-in Custom GPT editor and run fresh product-interface
+acceptance. Do not retry the rejected lesson or treat direct checks as UI proof.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #39, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #40, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
 unless production identity has changed. The recorded GitHub source baseline is
-PR #39 merge `793c331ad90b9918246105e5f998ab9d1a258de9`; production remains PR #36
-merge `cfce806345fe65a13fd0330aa7e8f000c1587d01`.
+PR #40 merge `94062f8d5595ff8cef368f8c2b06732a4826ae57`; production remains the
+healthy compatibility image tagged from revision
+`4ccdf721ed4a41b1076a2370fce27372141f8901` until the protected reconciliation
+and deployment sequence above completes.
