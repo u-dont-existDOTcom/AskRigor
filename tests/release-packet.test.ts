@@ -220,7 +220,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 18, 2026");
+    expect(privacySite).toContain("Effective August 21, 2026");
     expect(privacySite).toContain("Optional lesson feedback");
     expect(readme).toContain("The lesson Action is deployed and live-accepted");
     expect(checklist).toContain(
@@ -468,7 +468,13 @@ describe("AskRigor public-review packet", () => {
     ]);
 
     expect(privacyMap).toContain(
-      "The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log; its only log output is the startup line.",
+      "The application does not emit or store request-body logs, response-body logs, candidate-content logs, or a dedicated application access log.",
+    );
+    expect(privacyMap).toContain(
+      "the separately described disabled-by-default MCP connector diagnostic may temporarily emit only its bounded non-content classifications.",
+    );
+    expect(privacyMap).toContain(
+      "It never emits a URL or query, IP/network address, user-agent, header value, request or response body, JSON-RPC ID, tool name or argument, prompt, provider payload, comment text, user identifier, or credential.",
     );
     expect(privacyMap).toContain(
       "The ledger's four aggregate data values are UTC month, monthly limit, charged nano-USD, and update time; a non-content schema version is also stored.",
@@ -484,6 +490,8 @@ describe("AskRigor public-review packet", () => {
     expect(privacySite).toContain(
       "Only four aggregate budget data values are retained in that ledger: UTC month, fixed monthly limit, charged nano-USD total, and update time.",
     );
+    expect(privacySite).toContain("A disabled-by-default connector diagnostic");
+    expect(privacySite).toContain("It never emits a URL or query");
     expect(privacySite).toContain("A non-content schema marker is also stored.");
     expect(privacySite).toContain("The budget ledger contains no candidate or request content.");
     expect(privacySite).toContain(

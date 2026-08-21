@@ -124,7 +124,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 18, 2026",
+      "Effective August 21, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",

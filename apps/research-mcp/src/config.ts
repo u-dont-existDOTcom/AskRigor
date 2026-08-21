@@ -1,7 +1,9 @@
 export const SERVICE_NAME = "askrigor-research";
+export const GEMINI_COMPATIBLE_SERVICE_NAME = "askrigor_research";
 export const SERVICE_VERSION = "0.1.0";
 export const DEFAULT_PORT = 3000;
 export const MAX_MCP_REQUEST_BYTES = 1_048_576;
+export const GEMINI_COMPATIBLE_MCP_PATH = "/mcp/gemini";
 export const ACTION_REQUEST_MAX_BYTES = 8_192;
 export const RESEARCH_ACTION_RESPONSE_MAX_BYTES = 60_000;
 export const PROTOCOL_ACTION_TEXT_MAX_BYTES = 48_000;
@@ -50,6 +52,12 @@ export function actionsAreEnabled(
 
 export function researchActionsAreEnabled(
   value = process.env.ASKRIGOR_RESEARCH_ACTIONS_ENABLED
+): boolean {
+  return value === "true";
+}
+
+export function mcpHandshakeDiagnosticsAreEnabled(
+  value = process.env.ASKRIGOR_MCP_HANDSHAKE_DIAGNOSTICS
 ): boolean {
   return value === "true";
 }

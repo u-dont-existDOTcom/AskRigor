@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 
 import {
+  mcpHandshakeDiagnosticsAreEnabled,
   parseTrustedClientIpHeader,
   PUBLIC_MCP_CONCURRENCY_LIMIT,
   PUBLIC_RATE_LIMIT,
@@ -164,6 +165,9 @@ describe("trusted client IP resolution", () => {
     expect(publicServerIsEnabled("true")).toBe(true);
     expect(publicServerIsEnabled("TRUE")).toBe(false);
     expect(publicServerIsEnabled(undefined)).toBe(false);
+    expect(mcpHandshakeDiagnosticsAreEnabled("true")).toBe(true);
+    expect(mcpHandshakeDiagnosticsAreEnabled("TRUE")).toBe(false);
+    expect(mcpHandshakeDiagnosticsAreEnabled(undefined)).toBe(false);
   });
 });
 

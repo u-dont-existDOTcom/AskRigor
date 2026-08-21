@@ -39,3 +39,58 @@ availability before asking the owner to retry Gemini.
 
 Do not mark Gemini acceptance complete from local or public HTTP probes. Only a
 successful account-side connection and synthetic Spark task can close that gate.
+
+## Bounded diagnostic boundary
+
+When connector troubleshooting needs request-level evidence, a maintainer may
+temporarily set `ASKRIGOR_MCP_HANDSHAKE_DIAGNOSTICS=true`. The switch is false
+unless it has the exact lowercase value `true`. Each eligible request can then
+emit one fixed-shape record containing only a route class, method class, coarse
+Origin/Accept/content-type/header-presence classes, a known JSON-RPC phase
+class, initialization protocol-version class, completion class, response
+status, and response media class.
+
+The diagnostic must never retain a URL or query, IP/network address,
+user-agent, header value, request or response body, JSON-RPC ID, tool name or
+argument, prompt, provider payload, comment text, user identifier, or
+credential. Logger failures cannot affect request handling. Routine production
+keeps the switch disabled; any temporary diagnostic container must be recreated
+with the switch disabled after the needed receipt is captured.
+
+## Isolated compatible catalog
+
+Captured account-side evidence established that CORS repair alone did not make
+the standard catalog acceptable to Gemini. The compatibility endpoint is
+therefore isolated at `/mcp/gemini` and advertises service name
+`askrigor_research`. It uses the same ordered 17 read-only operations and the
+same strict runtime handlers as `/mcp`, but its `tools/list` response omits
+output-only catalog fields and removes function-schema keywords Google rejects.
+Runtime constraints that would otherwise be omitted are preserved as
+description hints; strict Zod validation remains authoritative when a tool is
+called.
+
+The standard `/mcp` catalog, Action surface, rate/concurrency controls,
+provider adapters, and canonical protocols remain unchanged. In particular,
+the Custom GPT-only YouTube transcript operation remains an Action and is not
+added to either MCP catalog.
+
+## 2026-08-21 canonical reconciliation
+
+Production was found running the previously accepted compatibility image from
+revision `4ccdf721ed4a41b1076a2370fce27372141f8901`, while canonical `main` at
+`94062f8d5595ff8cef368f8c2b06732a4826ae57` contained the CORS repair but not
+the compatible catalog or diagnostic implementation. The historical branches
+also diverged across newer transcript and protocol work, so a branch merge
+would create substantive conflicts and risk removing the transcript Action.
+
+The reconciliation is an additive, test-first port onto current `main`:
+
+1. preserve the current 19-operation Action document, including the
+   Action-only transcript read;
+2. add the isolated Gemini catalog and disabled diagnostic without copying the
+   older server file;
+3. adapt the compatibility assertions to Universal `20.5.14` and the current
+   17-tool MCP inventory;
+4. update the privacy disclosure before enabling the reconciled runtime; and
+5. deploy only an exact reviewed merge with image, Compose, and site rollback
+   points, then repeat both standard and Gemini endpoint acceptance.
