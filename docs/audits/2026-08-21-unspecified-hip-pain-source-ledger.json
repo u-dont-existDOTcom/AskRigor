@@ -1,0 +1,95 @@
+{
+  "packet_name": "unspecified_hip_pain_full_hrp_source_ledger",
+  "packet_version": "1.0",
+  "research_target": "how can i fix my bad hip",
+  "diagnosis_status": "diagnosis_not_specified",
+  "retrieved_at": "2026-08-21",
+  "protocols": {
+    "hrp": {
+      "version": "20.5.18",
+      "revision_date": "2026-08-16",
+      "sha256": "4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5"
+    },
+    "universal": {
+      "version": "20.5.14",
+      "revision_date": "2026-08-18",
+      "sha256": "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221"
+    }
+  },
+  "formal_sources": [
+    {"source_id":"nhs_hip_pain","type":"current_public_health_guidance","url":"https://www.nhs.uk/symptoms/hip-pain/","decision_role":"triage_and_diagnosis_boundary"},
+    {"source_id":"acr_chronic_hip_pain","type":"appropriateness_criteria","url":"https://acsearch.acr.org/docs/69425/Narrative/","decision_role":"initial_imaging"},
+    {"source_id":"nice_ng226","type":"clinical_guideline","url":"https://www.nice.org.uk/guidance/ng226/chapter/Recommendations","decision_role":"oa_core_care_medication_injection_and_referral"},
+    {"source_id":"aaos_hip_oa_2023","type":"clinical_guideline","url":"https://new.aaos.org/globalassets/quality-and-practice-resources/osteoarthritis-of-the-hip/oah-cpg.pdf","decision_role":"hip_oa_nonoperative_and_surgical_management"},
+    {"source_id":"acr_aahks_timing_2023","type":"clinical_guideline","url":"https://rheumatology.org/indications-for-total-hip-and-knee-arthroplasty-guideline","decision_role":"timing_after_failed_nonoperative_care"},
+    {"source_id":"pmid_42486497","pmid":"42486497","doi":"10.1002/14651858.CD007912.pub3","type":"systematic_review_meta_analysis","decision_role":"hip_oa_exercise_effect"},
+    {"source_id":"pmid_29720374","pmid":"29720374","doi":"10.1136/bmj.k1662","type":"randomized_trial","decision_role":"gluteal_tendinopathy_exact_program"},
+    {"source_id":"pmid_35387783","pmid":"35387783","doi":"10.1136/bmj-2021-068446","type":"randomized_trial","decision_role":"hip_oa_corticosteroid_efficacy"},
+    {"source_id":"pmid_32829298","pmid":"32829298","doi":"10.1136/bjsports-2020-102179","type":"network_meta_analysis","decision_role":"hip_injection_placebo_comparison"},
+    {"source_id":"pmid_38821500","pmid":"38821500","doi":"10.1302/0301-620X.106B6.BJJ-2023-1272.R1","type":"network_meta_analysis","decision_role":"updated_hip_injection_comparison"},
+    {"source_id":"pmid_37941925","pmid":"37941925","doi":"10.1016/j.artd.2023.101242","type":"systematic_review_meta_analysis","decision_role":"rapidly_progressive_oa_signal"},
+    {"source_id":"pmid_18283204","pmid":"18283204","doi":"10.7326/0003-4819-148-4-200802190-00005","type":"randomized_trial","decision_role":"hip_specific_glucosamine"},
+    {"source_id":"pmid_22521757","pmid":"22521757","doi":"10.1016/j.joca.2012.04.008","type":"systematic_review","decision_role":"collagen_derivatives"},
+    {"source_id":"pmid_39569300","pmid":"39569300","doi":"10.7759/cureus.72057","type":"systematic_review","decision_role":"prp_small_trial_synthesis"},
+    {"source_id":"pmid_39254726","pmid":"39254726","doi":"10.1007/s00590-024-04089-0","type":"systematic_review","decision_role":"hip_msc_uncertainty"},
+    {"source_id":"pmid_29909435","pmid":"29909435","doi":"10.1007/s10103-018-2558-x","type":"randomized_trial","decision_role":"photobiomodulation_stage_mismatch"},
+    {"source_id":"pmid_39476341","pmid":"39476341","doi":"10.1056/NEJMoa2400141","type":"randomized_trial","decision_role":"severe_oa_replacement_vs_resistance_training"},
+    {"source_id":"pmid_42061873","pmid":"42061873","doi":"10.1302/0301-620X.108B5.BJJ-2025-0858.R2","type":"randomized_trial","decision_role":"moderate_severe_oa_replacement_vs_self_directed_exercise"},
+    {"source_id":"pmid_41763743","pmid":"41763743","doi":"10.1016/S0140-6736(25)02305-0","type":"registry_meta_analysis","decision_role":"modern_implant_survivorship"}
+  ],
+  "trial_registry": [
+    {"nct_id":"NCT04990128","status":"NOT_YET_RECRUITING","has_results":false,"comparison":"bone_marrow_aspirate_concentrate_vs_triamcinolone","completion_date":"2027-12"},
+    {"nct_id":"NCT05497349","status":"RECRUITING","has_results":false,"comparison":"leukocyte_rich_vs_leukocyte_poor_prp","completion_date":"2026-10"},
+    {"nct_id":"NCT06793982","status":"RECRUITING","has_results":false,"comparison":"prp_vs_corticosteroid","completion_date":"2025-12-01"},
+    {"nct_id":"NCT06297148","status":"ACTIVE_NOT_RECRUITING","has_results":false,"comparison":"gtps_self_management_vs_usual_care","completion_date":"2026-10"}
+  ],
+  "youtube_receipts": [
+    {"video_id":"Hz3Gd51hBn0","provider_reported_comments":343,"records_retrieved":343,"completion_state":"api_visible_complete","synthesis_lock":"pass","corpus_sha256":"d382fcc3fba9cf4ccb1959377eefbcf205041ae894a0f36db2e49d48f502d6ad"},
+    {"video_id":"LnlhK4MBaPw","provider_reported_comments":545,"records_retrieved":545,"records_returned":500,"completion_state":"completed_with_access_boundary","synthesis_lock":"pass","corpus_sha256":"78de021809afe9dee399bf27b7af5a1bcb79d7032a4fcedf972268ab8fc0a7b5"},
+    {"video_id":"stZdnA9zeQE","provider_reported_comments":32,"records_retrieved":32,"completion_state":"api_visible_complete","synthesis_lock":"pass","corpus_sha256":"dad8c6de51ab3e7ef68f005c1c25f8c75f1e2bbc8bf1b738103d697e802b4453"},
+    {"video_id":"qfPjRBqADKk","provider_reported_comments":31,"records_retrieved":31,"completion_state":"api_visible_complete","synthesis_lock":"pass","corpus_sha256":"cb53bfdd324263d1b1a4aaa813cf8606d41b65e096f7c6a5dbfb816495235670"},
+    {"video_id":"2LFgGibgJG0","provider_reported_comments":390,"records_retrieved":390,"completion_state":"api_visible_complete","synthesis_lock":"pass","corpus_sha256":"21f9e9b65d1b6ee736d2445962766b41e2a6bb2aae400ab665734f8ad8de238c"},
+    {"video_id":"0sZEvvPWq88","provider_reported_comments":166,"records_retrieved":166,"completion_state":"api_visible_complete","synthesis_lock":"pass","corpus_sha256":"8503077e16f6f5fa938b8b536387b3fcb7816a25bd3e54c0e5e1b5f8fe810d5c"}
+  ],
+  "frontier_passes": [
+    {"pass_id":"frontier_01","queries":["hip osteoarthritis castor oil randomized trial","hip osteoarthritis photobiomodulation red light randomized trial","hip osteoarthritis ketogenic carnivore elimination diet trial","hip osteoarthritis Cissus quadrangularis clinical trial"],"decision_change":false,"result":"zero exact trials except an 18-person immediate post-arthroplasty photobiomodulation trial with a nonmatching target and stage"},
+    {"pass_id":"frontier_02","queries":["hip osteoarthritis infrared heat randomized trial","hip osteoarthritis traction decompression randomized trial","hip osteoarthritis collagen randomized trial","hip osteoarthritis stem cell cartilage regeneration randomized trial"],"decision_change":false,"result":"zero exact heat or traction trials; collagen records were mixed-site without decisive hip structural evidence; apparent randomized regeneration hits were knee studies"}
+  ],
+  "full_text_audit": [
+    {"source_id":"aaos_hip_oa_2023","access":"complete_full_text","decision_role":"guideline_backbone"},
+    {"source_id":"pmid_29720374","pmcid":"PMC5930290","access":"complete_open_full_text","audit":"MRI-confirmed condition-specific population; programme components, unblinded patient-reported outcomes, unequal contact, secondary multiplicity, public funding, and conflicts inspected"},
+    {"source_id":"pmid_35387783","pmcid":"PMC8984871","access":"complete_open_full_text","audit":"preference imbalance, blinding limits, power, absent saline and radiographic comparisons, adverse events, public funding, and conflicts inspected"},
+    {"source_id":"pmid_39476341","access":"comprehensive_abstract_only","materiality":"not sole decision basis; triangulated by an independent randomized trial and guidelines"},
+    {"source_id":"pmid_42061873","access":"comprehensive_abstract_only","materiality":"supporting randomized comparison, not sole decision basis"},
+    {"source_id":"pmid_42486497","access":"comprehensive_abstract_only","materiality":"triangulated by guidelines and a second current review"}
+  ],
+  "retraction_checks": {
+    "provider": "crossref",
+    "status": "no_retraction_record_found",
+    "identifiers_checked": [
+      "10.1056/NEJMoa2400141",
+      "10.1136/bmj.k1662",
+      "10.1136/bmj-2021-068446",
+      "10.1002/14651858.CD007912.pub3",
+      "10.7326/0003-4819-148-4-200802190-00005",
+      "10.1302/0301-620X.106B6.BJJ-2023-1272.R1",
+      "10.1007/s00590-024-04089-0",
+      "10.1302/0301-620X.108B5.BJJ-2025-0858.R2"
+    ],
+    "limitation": "Crossref update metadata is a traceable check, not proof of unretracted status in every source."
+  },
+  "access_boundaries": [
+    "The research target is diagnosis_not_specified and no individualized treatment is prescribed.",
+    "No raw comments or commenter identities are persisted.",
+    "Community reports are self-selected discovery evidence and cannot estimate population incidence or causality.",
+    "YouTube creator transcripts could not be retrieved because the required Chrome transcript control was unavailable; titles, descriptions, comments, and Gemini summaries were not used to validate creator claims.",
+    "The local canonical Universal protocol is 20.5.14; the deployed loader still reports 20.5.13, so repository bytes remain the authority for this local run.",
+    "Active trial registry records without posted results do not support efficacy conclusions."
+  ],
+  "completion": {
+    "status": "completed_with_access_boundary",
+    "required_modules_complete": true,
+    "creator_transcript_boundary": "terminal",
+    "further_expansion_likely_to_change_answer": false
+  }
+}

@@ -37,6 +37,11 @@ complete XML protocol.
   Gemini handoff's three-pool AskRigor comment audit, terminal acquisition
   receipts, non-identifying rediscovery leads, and explicit incomplete-HRP
   boundary
+- `audits/2026-08-21-unspecified-hip-pain-full-hrp.md` and
+  `audits/2026-08-21-unspecified-hip-pain-source-ledger.json`: completed
+  diagnosis-contingent hip-pain synthesis, formal and registry evidence,
+  six-pool Forum Signal receipts, bidirectional transfers, evidence-frontier
+  stopping audit, and creator-transcript access boundary
 - `gemini-spark-setup.md`: owner-operated candidate-only Gemini Spark scout,
   one-pass installation, strict JSON handoff, deterministic AskRigor metadata
   validation, privacy boundary, and acceptance check
@@ -91,6 +96,9 @@ complete XML protocol.
 - `superpowers/plans/2026-08-21-gemini-candidate-comment-audit.md`: bounded
   protocol-governed audit of the first accepted compact Gemini handoff and
   privacy-safe rediscovery-packet persistence
+- `superpowers/plans/2026-08-21-unspecified-hip-pain-full-hrp.md`: diagnosis-
+  contingent formal, grey, community, bidirectional, option-space, safety, and
+  completion plan for the de-identified hip research target
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail

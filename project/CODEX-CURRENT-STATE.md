@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-Updated: 2026-08-20
+Updated: 2026-08-21
 
 ## Goal
 
@@ -41,6 +41,47 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
 - Universal integration: `20.5.13` added the source-wide whole-argument reconstruction gate; canonical source `20.5.14` adds the research-before-reinvention gate. HRP bytes remain unchanged.
+
+## Completed 2026-08-21 unspecified-hip-pain research run
+
+- The accepted compact Gemini candidate packet has now been carried through a
+  complete, diagnosis-contingent HRP research run for the de-identified prompt
+  `how can i fix my bad hip`. The synthesis and machine-readable source ledger
+  are `docs/audits/2026-08-21-unspecified-hip-pain-full-hrp.md` and
+  `docs/audits/2026-08-21-unspecified-hip-pain-source-ledger.json`; the durable
+  execution plan is adjacent under `docs/superpowers/plans/`.
+- Formal work covered current triage, imaging, OA-care, arthroplasty-timing,
+  exercise, condition-specific gluteal loading, injection, orthobiologic,
+  supplement, device, and replacement evidence plus four unresolved trial
+  registry records. Decision-critical open full text was inspected for the
+  AAOS guideline, LEAP, and HIT; abstract-only material is labelled and is not
+  the sole basis for a treatment ranking. Two wider evidence-frontier passes
+  added no decision-changing option or contradiction, and eight decisive DOI
+  records received a traceable Crossref retraction-metadata check.
+- Forum Signal used six terminal YouTube discussion pools: 343/343 generic
+  nonsurgical records, a 545-record replacement pool with the declared
+  deterministic 500-record analysis boundary, 32/32 steroid-flare records,
+  31/31 diagnosis-specific gluteal-tendinopathy records, 390/390 persistent-
+  pain-after-replacement records, and 166/166 PRP records. All synthesis locks
+  passed; no raw comments or commenter identities were persisted. Publicly
+  indexed Reddit and Patient.info material supplied an independent-community
+  directional check. Community visibility, attribution, and formal concordance
+  remain separate, and no community incidence or causal rate is claimed.
+- Creator-content claims remain withheld because the installed YouTube
+  Conversation skill permits only Chrome transcript-panel retrieval and no
+  Chrome-control capability was exposed. Titles, comments, and Gemini summaries
+  were not substituted for transcripts. This terminal boundary does not block
+  the completed diagnosis-first synthesis because no creator claim carries a
+  verdict.
+- This research run changes no protocol, product runtime, public MCP/Action
+  inventory, privacy boundary, production service, release, or deployment.
+- The 2026-08-21T05:17:25.891Z lesson checkpoint was available with 1 open
+  candidate, 1 needs review, 0 accepted not incorporated, 2 incorporated or
+  closed, and 0 deletion eligible. No lesson expanded this research run. The
+  complete host-boundary deterministic gate passed typecheck, 59 test files
+  with one declared skip, 979 tests with five declared skips, and build. A
+  preceding sandbox-only run failed solely because the sandbox denied loopback
+  and IPC binds with `EPERM`.
 
 ## Active 2026-08-18 treatment-decision regressions
 
