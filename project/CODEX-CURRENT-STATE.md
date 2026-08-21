@@ -172,9 +172,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   or blocks this repair. The pre-closeout checkpoint at
   `2026-08-21T08:48:17.337Z` returned the same counts.
 
-## Active 2026-08-21 compact citation-display repair
+## Completed 2026-08-21 compact citation-display repair
 
-- ARL-0007 remains an open `missing_sources` candidate. The owner accepted a
+- ARL-0007 was an open `missing_sources` candidate. The owner accepted a
   thresholded implementation after an internal display benchmark showed that
   link count was not the reader burden: compact direct links added 4–6% visible
   words across 8-, 16-, and 24-claim synthetic answers, while explanatory
@@ -205,8 +205,9 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   five declared credential-gated skips under a 30-second per-test allowance;
   typecheck and build passed. The exact default-timeout gate reached 991 passes
   before five unrelated 5-second timeouts during severe four-core host
-  contention; the four affected files then passed 44/44 serially. Protected CI
-  remains the required clean-host default-timeout evidence.
+  contention; the four affected files then passed 44/44 serially. PR #47's
+  protected deterministic verification run `32507689060`, workflow-policy run
+  `32507689167`, and CodeQL run `32507685987` supplied clean-host proof.
 - The lesson checkpoint at `2026-08-21T16:27:57.562Z` was available with 2
   open candidates, 2 needing review, 0 accepted but not incorporated, 2
   incorporated or closed, and 0 deletion eligible. ARL-0007 is the relevant
@@ -219,6 +220,17 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   artifact, final re-review reported merge-ready with no blocker or Important
   issue. Existing safety, research-completion, program-scope, plain-language,
   transport, and lesson-consent controls remained intact.
+- PR #47 merged exact reviewed head
+  `51e420c69b9e811d857977b95a310a93f4975637` as
+  `7b6dac66a67bbfb43bcabbbbf37c5dd60a0dc7a3` at
+  `2026-08-21T17:22:42Z`. Exact post-merge deterministic verification run
+  `32507846373`, workflow-policy run `32507846508`, and CodeQL run `32507846256`
+  passed.
+- ARL-0007 was labeled `accepted` and `incorporated` and closed against that
+  merged evidence. The required post-closeout checkpoint at
+  `2026-08-21T17:25:55.556Z` was available with 1 open candidate, 1 needing
+  review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+  deletion eligible. ARL-0009 remains outside this completed change.
 
 ## Active 2026-08-18 treatment-decision regressions
 
