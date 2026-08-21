@@ -38,6 +38,10 @@ Continue executable work if `further_expansion_likely_to_improve_answer` would b
 
 Translate internal status codes into plain language; expose codes only when the user explicitly asks for a technical audit or debug export.
 
+## 4. Reader-facing source mapping
+
+Link decision-important quantitative/comparative/safety/causal/contested/time-sensitive/surprising claims on the shortest meaningful phrase; no citation prose. Mark synthesis with linked `(inferred)`; link each material basis; group only when mapping is obvious. Stable connective reasoning and user-supplied facts need no decorative citations. If matched support is unavailable, call it unverified or omit it; never use an adjacent source that does not entail the claim.
+
 ## Permanent regression
 
 For `@AskRigor best way to fix an old hip that barely works and hurts`, `FORUM_SIGNAL` is required; formal evidence cannot authorize early synthesis; complete its receipt and transfers before full-HRP.

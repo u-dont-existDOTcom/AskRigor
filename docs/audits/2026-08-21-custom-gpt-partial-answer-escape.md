@@ -41,7 +41,7 @@ This record captures only the generalized product behavior demonstrated by an ow
 
 ## Product boundary
 
-Repository artifacts can be generated, tested, reviewed, published, and deployed from this environment. No available capability exposes the owner's signed-in Custom GPT editor. After reviewing the complete current Instructions, the owner reported that they were already installed. This is an owner receipt, not independent editor inspection. Running a fresh UI acceptance prompt remains the explicit external boundary.
+Repository artifacts can be generated, tested, reviewed, published, and deployed from this environment. No available capability exposes the owner's signed-in Custom GPT editor. After reviewing the then-current 7,962-character Instructions (SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`), the owner reported that exact artifact was already installed. This is an owner receipt, not independent editor inspection. The newer 7,978-character citation-display candidate is not installed. Running a fresh UI acceptance prompt remains the explicit external boundary.
 
 ## Repository closeout
 
@@ -49,4 +49,4 @@ Repository artifacts can be generated, tested, reviewed, published, and deployed
 - The exact post-merge deterministic verification (run `32464548386`), repository workflow policy (run `32464548449`), and CodeQL scan (run `32464548011`) passed.
 - The merge changed no runtime, Action OpenAPI, protocol bytes, or public-site bytes, so no production redeployment was indicated. A read-only check at `2026-08-21T08:47:26Z` returned HTTP `200` from the public research health endpoint and privacy page.
 - The required pre-closeout lesson checkpoint at `2026-08-21T08:48:17.337Z` remained available with 1 open candidate, 1 needing review, 0 accepted but not incorporated, 2 incorporated or closed, and 0 deletion eligible. No queued lesson expanded or blocked this closeout.
-- At `2026-08-21T15:20:33Z`, after the complete current Instructions were displayed, the owner reported they were already installed in the signed-in editor. The only remaining acceptance boundary is a fresh GPT UI run. No owner report, repository result, or direct-server result is relabeled as that product-interface proof.
+- At `2026-08-21T15:20:33Z`, after the then-current 7,962-character Instructions (SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`) were displayed, the owner reported that exact artifact was already installed in the signed-in editor. The newer 7,978-character citation-display candidate is not installed. Its remaining acceptance boundary is exact installation and a fresh GPT UI run. No owner report, repository result, or direct-server result is relabeled as product-interface proof.

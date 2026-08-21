@@ -24,11 +24,14 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`,
   in healthy container `c1dc68972ded`. The privacy site is active at
   `/opt/askrigor/site/releases/386497415a18/site`. Runtime/OpenAPI/privacy are
-  deployed and directly accepted. After displaying the complete current
-  Instructions in chat, the owner reported that those exact Instructions were
-  already installed in the signed-in Custom GPT editor. Fresh current GPT UI
-  acceptance is the remaining product boundary; editor state is owner-reported,
-  not independently inspectable from this environment.
+  deployed and directly accepted. After displaying the complete preceding
+  7,962-character Instructions (SHA-256
+  `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`) in
+  chat, the owner reported that exact artifact was already installed in the
+  signed-in Custom GPT editor. The current 7,978-character citation-display
+  candidate is not installed. Fresh current GPT UI acceptance is the remaining
+  product boundary; editor state is owner-reported, not independently inspectable
+  from this environment.
 - Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -158,13 +161,64 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   research routing, tests, and evidence. A read-only public check at
   `2026-08-21T08:47:26Z` returned `200` for both the research health endpoint
   and privacy page. At `2026-08-21T15:20:33Z`, after reviewing the complete
-  current Instructions, the owner reported they were already installed. Fresh
-  UI acceptance remains pending.
+  then-current 7,962-character Instructions (SHA-256
+  `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`), the
+  owner reported that exact artifact was already installed. The newer
+  7,978-character citation-display candidate is not installed. Fresh UI
+  acceptance remains pending.
 - The pre-release lesson checkpoint at `2026-08-21T08:40:20.176Z` was
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. No queued lesson expands
   or blocks this repair. The pre-closeout checkpoint at
   `2026-08-21T08:48:17.337Z` returned the same counts.
+
+## Active 2026-08-21 compact citation-display repair
+
+- ARL-0007 remains an open `missing_sources` candidate. The owner accepted a
+  thresholded implementation after an internal display benchmark showed that
+  link count was not the reader burden: compact direct links added 4–6% visible
+  words across 8-, 16-, and 24-claim synthetic answers, while explanatory
+  citation sentences added 86–89%.
+- The Project router and Forum Signal output contract now require nearby links
+  for decision-important, quantitative, comparative, safety-related, causal,
+  contested, time-sensitive, or surprising claims. Direct support hyperlinks
+  the shortest meaningful phrase. Synthesis receives a linked `(inferred)`
+  marker and every material source basis. Grouping is allowed only when mapping
+  stays obvious.
+- Stable connective reasoning, user-supplied facts, and ordinary transitions
+  do not receive decorative citations unless they become decision-important.
+  If important matched support is unavailable, the claim is labeled unverified
+  or omitted; an adjacent source cannot be presented as entailing it.
+- Sanitized durable evidence is in
+  `docs/audits/2026-08-21-compact-claim-citation-display.md`,
+  `docs/custom-gpt-citation-display-regression-v0.1.0.json`, and the two
+  `tests/custom-gpt-citation-*` regressions.
+- The current generated Instructions are 7,978 characters with SHA-256
+  `207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488`.
+  Their synchronization-ledger SHA-256 is
+  `a85ea88ba9ab908431deb5fc5da25824b8390e48f8975798dde31b7d3febb928`.
+  The Action OpenAPI is unchanged. The owner-reported installation applies to
+  the prior 7,962-character artifact; this candidate still needs installation
+  and fresh GPT-UI acceptance.
+- Focused compatibility acceptance passed 7 files and 52 tests. The complete
+  host suite passed 62 files with one declared live-file skip and 996 tests with
+  five declared credential-gated skips under a 30-second per-test allowance;
+  typecheck and build passed. The exact default-timeout gate reached 991 passes
+  before five unrelated 5-second timeouts during severe four-core host
+  contention; the four affected files then passed 44/44 serially. Protected CI
+  remains the required clean-host default-timeout evidence.
+- The lesson checkpoint at `2026-08-21T16:27:57.562Z` was available with 2
+  open candidates, 2 needing review, 0 accepted but not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. ARL-0007 is the relevant
+  candidate; ARL-0009's underlying behavior was previously merged but its
+  private queue disposition remains open.
+- The required pre-release checkpoint at `2026-08-21T17:07:52.873Z` returned
+  the same counts.
+- Independent integration review first found ambiguous legacy installation
+  wording. After all owner receipts were scoped to the preceding 7,962-character
+  artifact, final re-review reported merge-ready with no blocker or Important
+  issue. Existing safety, research-completion, program-scope, plain-language,
+  transport, and lesson-consent controls remained intact.
 
 ## Active 2026-08-18 treatment-decision regressions
 
@@ -1830,9 +1884,10 @@ and completed rollout at the top of this file.
 
 Run the fresh product-interface cases in
 `docs/custom-gpt-action-live-acceptance.md` and record only observed UI results.
-The owner reports the exact current Instructions are already installed; do not
-repeat editor installation or infer UI behavior from that report. Keep Knowledge
-empty and retain the current Action authentication and privacy configuration.
+Install the exact current 7,978-character Instructions with SHA-256
+`207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488` and empty
+Knowledge, retaining the current Action authentication and privacy
+configuration. Do not infer UI behavior from installation alone.
 Do not repeat completed runtime deployment/direct acceptance, retry the rejected
 lesson, publish the GPT, or treat direct checks as UI proof.
 
@@ -1840,8 +1895,8 @@ lesson, publish the GPT, or treat direct checks as UI proof.
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #44, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
-and `ARL-0007`, and newer owner instructions. Resume from the latest verified
+through #46, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`,
+`ARL-0007`, and `ARL-0009`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
 unless production identity has changed. The recorded production-source baseline is
@@ -1849,7 +1904,10 @@ PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96`; production is the healt
 exact image with that tag and image ID
 `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`.
 Deployment and recovery evidence is merged through PR #43; the instruction-only
-partial-answer repair is merged through PR #44. The owner reports Instructions
-SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`
-are installed in the signed-in editor. The remaining boundary is fresh current
-GPT UI acceptance.
+partial-answer repair and owner installation receipt are merged through PR
+#46. The owner reports Instructions SHA-256
+`4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5` are
+installed in the signed-in editor. The current citation-display candidate is
+`207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488`, not yet
+installed. Its remaining boundary is exact installation and fresh GPT-UI
+acceptance.

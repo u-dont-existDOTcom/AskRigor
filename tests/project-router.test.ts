@@ -53,7 +53,7 @@ describe("AskRigor ChatGPT Project router", () => {
     const words = instructions.split(/\s+/).filter(Boolean);
 
     expect(words.length).toBeGreaterThan(100);
-    expect(words.length).toBeLessThan(675);
+    expect(words.length).toBeLessThan(750);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
     expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
@@ -294,6 +294,6 @@ describe("AskRigor ChatGPT Project router", () => {
     );
     expect(instructions.slice(0, lessonHook)).not.toContain("LESSON_CAPTURE_MODULE.md");
     expect(instructions).not.toContain("Submit this anonymized lesson to improve AskRigor?");
-    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(675);
+    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(750);
   });
 });
