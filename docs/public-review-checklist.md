@@ -20,7 +20,7 @@ independent portal receipt or business retry interval is recorded. The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
 routine-status regression.
 
-The current generated Instructions are 7,978 characters, SHA-256
+The preceding citation-display Instructions are 7,978 characters, SHA-256
 `207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488`.
 They add compact phrase links and linked inference labels without repetitive
 citation prose. They are not yet owner-reported installed. The installation
@@ -28,6 +28,13 @@ receipt applies to the prior 7,962-character artifact, SHA-256
 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`.
 Fresh GPT-UI acceptance is still required before public submission;
 installation alone is not proof of the repaired behavior.
+
+The newer treatment-landscape source candidate has 7,991-character
+Instructions, SHA-256
+`9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`.
+It is neither deployed nor installed; the source-only 20-operation Action
+schema and its treatment-landscape lock require separate runtime, editor, and
+fresh GPT-interface acceptance.
 
 ## Optional lesson Action deployment truth
 
@@ -106,21 +113,19 @@ preoperative PT videos, collapsed PT/exercise variants, and falsely labeled the
 answer HRP-complete. Those are retained as historical observations, not a
 topic-specific production checklist.
 
-The current local follow-up is universal: it expands evidence-frontier search
-with vernacular cure/reversal/failure language while treating those phrases as
-hooks rather than proof; fingerprints exact creator claims; requires timestamped
-caption verification before describing a video's content; audits comments
-separately; and limits **Videos worth watching** to exact, nonredundant,
-transcript-verified entries with a reason and canonical timestamp link. Missing
-caption access remains a confidence-limiting gap. The Action-only
-`get_youtube_transcript` source candidate raises the Custom GPT schema from 17
-to 18 research reads plus the lesson write while preserving the exact 17-tool
-MCP. The current repaired Instructions SHA-256 is recorded at the top of this
-checklist after deterministic regeneration;
-OpenAPI SHA-256 is
-`9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
-The runtime, privacy notice, Action schema, editor Instructions, live transcript
-provider, and GPT behavior remain undeployed or unverified as applicable.
+The current source candidate preserves transcript verification and adds a
+separate treatment-landscape selection gate. It inventories materially distinct
+programs before deep auditing, computes separate selection, per-video-depth,
+and overall locks,
+and requires **Videos actually audited** to expose the selected program, stage,
+outcome horizon, nonredundant value, and plain-language retrieval boundaries.
+Missing caption access remains a confidence-limiting gap. The Action-only
+`get_youtube_transcript` and `assess_treatment_landscape_coverage` reads produce
+a 19-read schema plus the lesson write while preserving the exact 17-tool MCP.
+The generated hashes are recorded by `docs/custom-gpt-sync.json`. Runtime,
+privacy notice, Action schema, editor Instructions, and fresh GPT behavior must
+be reviewed as separate deployment/installation states rather than inferred
+from source completion.
 
 ## Source-generated MCP tools/list inventory
 
@@ -212,6 +217,13 @@ boundary explains the unresolved provider totals. If terminal sampled
 identifiers are no longer all refetchable, the returned subset must remain
 nonzero and deterministic, the acquired corpus count/digest must remain
 unchanged, and the receipt/limitations must not claim a complete snapshot.
+
+The transcript Action uses a separate one-hour, 2,048-entry/4 MiB map containing
+only provider cursor, public video/selected-track and snapshot metadata,
+page/segment counters, next expected index, and timestamp state—never caption
+text. Raw provider, forged, replayed, expired, mismatched, or skipped-page
+continuations must fail closed; product acceptance requires a two-page chain
+whose final server receipt reports exact cumulative counts and exhaustion.
 
 Fresh production acceptance on 2026-08-12 discovered the prior exact 15 tools and
 annotations at `https://mcp.askrigor.com/mcp`. The compound tool returned

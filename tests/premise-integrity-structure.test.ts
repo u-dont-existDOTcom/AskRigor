@@ -10,8 +10,10 @@ describe("HRP premise-integrity structural integration", () => {
 
     const revision17 = text.indexOf('<Revision version="20.5.17" priority="Critical">');
     const revision18 = text.indexOf('<Revision version="20.5.18" priority="Critical">');
+    const revision19 = text.indexOf('<Revision version="20.5.19" priority="Critical">');
     expect(revision17).toBeGreaterThanOrEqual(0);
     expect(revision18).toBeGreaterThan(revision17);
+    expect(revision19).toBeGreaterThan(revision18);
 
     const singleSourceStart = text.indexOf('<Rule name="SingleSourceOfTruth" priority="Critical">');
     const singleSourceEnd = text.indexOf("</Rule>", singleSourceStart);

@@ -94,12 +94,12 @@ describe("AskRigor ChatGPT Project router", () => {
       expect(instructions).toContain(implicitDecisionBoundary);
     }
     expect(instructions).toContain(
-      "`HRP-complete` requires executed ledger-required formal retrieval and all receipts passed."
+      "`HRP-complete` requires per-program formal retrieval and passed receipts."
     );
     expect(instructions).toContain("Do not emit the full-HRP opening until every required receipt has passed.");
     expect(instructions).toContain("or `incomplete` directional/bidirectional field");
     expect(instructions).toContain("`youtube_synthesis_lock: pass`");
-    expect(instructions).toContain("every selected discussion audit's `synthesis_lock: pass`");
+    expect(instructions).toContain("selected discussion audits' `synthesis_lock: pass`");
     expect(instructions).toContain("If `get_youtube_transcript` is unavailable");
     expect(instructions).toContain("`transcript_tool_unavailable`");
     expect(instructions).toContain("never call an undeclared tool");
@@ -136,6 +136,52 @@ describe("AskRigor ChatGPT Project router", () => {
       "Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`."
     );
     expect(instructions).toContain("A final answer may report only `no` or `blocked` with a reason.");
+  });
+
+  it("blocks broad treatment synthesis until selection breadth and per-video depth both pass", async () => {
+    const [instructions, module] = await Promise.all([
+      projectFile("PROJECT_INSTRUCTIONS.md"),
+      projectFile("FORUM_SIGNAL_MODULE.md")
+    ]);
+
+    for (const required of [
+      "inventory materially distinct treatment classes",
+      "Do not pool “exercise,” PT, diet, injections, or conservative care",
+      "two or three videos cannot establish coverage",
+      "never caller labels",
+      "opaque Action handle",
+      "never combine skipped/restarted counts",
+      "all three treatment locks",
+      "`assess_treatment_landscape_coverage`",
+      "`assessor_tool_unavailable`",
+      "Videos actually audited"
+    ]) {
+      expect(instructions).toContain(required);
+    }
+    for (const required of [
+      "treatment-space inventory",
+      "per discovery batch",
+      "planning heuristics, not pass/fail quotas",
+      "Two or three videos cannot establish broad coverage",
+      "ten renamed or redundant videos cannot repair",
+      "assess_treatment_landscape_coverage",
+      "selection_coverage_lock",
+      "per_video_depth_lock",
+      "treatment_classes_with_no_selected_video",
+      "treatment_classes_with_no_formal_evidence_follow_up",
+      "program_fingerprints_with_no_formal_evidence_follow_up",
+      "unresolved_new_program_hypotheses_from_all_discovery_batches",
+      "uncovered_material_treatment_classes",
+      "eventual_standard_treatment_search",
+      "bounded non-ranking answer",
+      "Videos actually audited",
+      "program not described"
+    ]) {
+      expect(module).toContain(required);
+    }
+    expect(module).toContain("caller's corpus-size or scope label cannot deactivate");
+    expect(module).toContain("contiguous chain from the first page through exhaustion");
+    expect(module).toContain("Reject caller-editable provider cursors");
   });
 
   it("defines a directional, bidirectional Forum Signal receipt for HRP synthesis", async () => {

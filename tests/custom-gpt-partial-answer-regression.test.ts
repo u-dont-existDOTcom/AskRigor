@@ -70,14 +70,17 @@ describe("Custom GPT partial-answer regressions", () => {
     ]);
 
     for (const surface of [project, forum, skill, generated]) {
-      expect(surface).toContain("program unspecified");
-      expect(surface).toContain("cannot support a class-wide benefit, failure, comparison, or ranking");
-      expect(surface).toContain("materially distinct program hypotheses");
+      expect(surface).toContain("program not described");
     }
+    expect(project).toContain("Fingerprint each program");
+    expect(forum).toContain("cannot support a class-wide benefit, failure, comparison, or ranking");
+    expect(forum).toContain("materially distinct program hypotheses");
 
     for (const compactSurface of [skill, generated]) {
-      expect(compactSurface).toContain("Audit intervention/comparator programs");
-      expect(compactSurface).toContain("weak/mismatched comparator narrows inference");
+      expect(compactSurface).toContain("Fingerprint components");
+      expect(compactSurface).toContain("no class-wide benefit/failure/ranking follows");
+      expect(compactSurface).toContain("Mismatched comparators narrow inference");
+      expect(compactSurface).toContain("materially distinct program hypotheses");
       expect(compactSurface).toContain(
         "general/exact/contrarian/benefit/failure/harm/discriminator queries",
       );

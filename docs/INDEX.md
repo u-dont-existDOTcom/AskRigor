@@ -45,6 +45,12 @@ complete XML protocol.
 - `audits/2026-08-21-compact-claim-citation-display.md` and
   `custom-gpt-citation-display-regression-v0.1.0.json`: deterministic citation-
   density evidence and the compact reader-facing source-mapping regression
+- `audits/2026-08-21-treatment-landscape-selection-lock.md`: validated narrow-
+  selection failure, independent breadth/depth gates, deterministic controller,
+  privacy boundary, regressions, and Universal lesson disposition
+- `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
+  separate selection coverage and per-video depth, bidirectional reopening, and
+  bounded synthesis
 - `gemini-spark-setup.md`: owner-operated candidate-only Gemini Spark scout,
   one-pass installation, strict JSON handoff, deterministic AskRigor metadata
   validation, privacy boundary, and acceptance check
@@ -70,8 +76,9 @@ complete XML protocol.
 - `custom-gpt-instructions.md` (repository path
   `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
   artifact; Knowledge remains empty
-- `custom-gpt-action-openapi.json`: generated 18-read/one-write Action schema;
-  `get_youtube_transcript` is Action-only and MCP remains frozen at 17 tools
+- `custom-gpt-action-openapi.json`: generated 19-read/one-write Action schema;
+  `get_youtube_transcript` and `assess_treatment_landscape_coverage` are
+  Action-only and MCP remains frozen at 17 tools
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
@@ -102,6 +109,9 @@ complete XML protocol.
 - `superpowers/plans/2026-08-21-unspecified-hip-pain-full-hrp.md`: diagnosis-
   contingent formal, grey, community, bidirectional, option-space, safety, and
   completion plan for the de-identified hip research target
+- `superpowers/plans/2026-08-21-treatment-landscape-synthesis-lock.md`: cross-
+  repository implementation, recovery, verification, and Universal-promotion
+  ledger for the breadth-before-depth repair
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail

@@ -28,10 +28,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   7,962-character Instructions (SHA-256
   `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`) in
   chat, the owner reported that exact artifact was already installed in the
-  signed-in Custom GPT editor. The current 7,978-character citation-display
-  candidate is not installed. Fresh current GPT UI acceptance is the remaining
-  product boundary; editor state is owner-reported, not independently inspectable
-  from this environment.
+  signed-in Custom GPT editor. The current 7,991-character treatment-landscape
+  candidate is not deployed or installed. Runtime, Action-schema, editor, and
+  fresh GPT-UI acceptance remain separate product boundaries; editor state is
+  owner-reported, not independently inspectable from this environment.
 - Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -40,10 +40,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Canonical source byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.14` / 2026-08-18 / `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Direct production Action reconstruction verified both exact current documents.
+- Active source candidate: HRP `20.5.19` / 2026-08-21 /
+  `afa8e3ff9ac6936b7e277a1b21f99c36507e44e2a3595036265d395ff2883b94`;
+  Universal remains `20.5.14` / 2026-08-18 /
+  `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
+  Production still serves the separately recorded HRP `20.5.18` bytes until a
+  reviewed deployment occurs; source state is not deployment evidence.
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
-- Universal integration: `20.5.13` added the source-wide whole-argument reconstruction gate; canonical source `20.5.14` adds the research-before-reinvention gate. HRP bytes remain unchanged.
+- Universal integration: `20.5.13` added the source-wide whole-argument reconstruction gate; canonical source `20.5.14` adds the research-before-reinvention gate.
 
 ## Completed 2026-08-21 production rollout and direct acceptance
 
@@ -66,17 +71,63 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   ClinicalTrials.gov, DOI, YouTube metadata, and transcript checks; and an
   isolated rate-limit burst with 60 declared `406`, 20 declared `429`, and
   health bypass `200`.
+
+## Active 2026-08-21 treatment-landscape selection repair
+
+- Branch `agent/treatment-landscape-synthesis-lock-20260821` adds the canonical
+  HRP 20.5.19 treatment-space inventory, exact program fingerprints,
+  breadth-before-depth video selection, bidirectional reopening, per-video
+  treatment records, and separate selection, per-video-depth, and overall
+  pre-synthesis locks.
+- `assess_treatment_landscape_coverage` is a deterministic public read-only
+  Action-only controller. It does not alter the frozen 17-tool MCP surface.
+  The candidate Custom GPT schema contains 19 reads plus the isolated lesson
+  write. The generated Instructions remain under the 8,000-character limit.
+- Exact regressions block narrow two-video and redundant ten-video audits,
+  renamed IDs for identical programs, unitemized aggregate screen counts,
+  unstable source identity, retryable boundaries presented as terminal, and
+  invalid records entering aggregate counters. They also block skipped/lone or
+  mixed transcript continuation chains and caller corpus-size/scope labels that
+  contradict valid ledger structure. Candidate counts come from
+  reciprocal discovery records; program diversity comes from normalized field
+  signatures; selected-source state comes from deterministic projections of
+  the actual transcript/comment receipt shapes. Omission impact distinguishes
+  true decision blockers from justified nondecision warnings. A scoped
+  65,536-byte input cap applies only to the strictly validated controller; a
+  representative 15-video output is tested against the 60,000-byte response
+  cap.
+- After the reopened adversarial repair, the final instruction-contract suite
+  passed 47/47, transcript/OpenAPI/controller suite passed 45/45, and the wider
+  repaired-surface suite passed 83/83; the
+  complete gate passed typecheck, build, 64 test files with one declared
+  live-provider skip, and 1,024 tests with five declared skips. Public-site
+  validation covered four pages and the deployment-boundary suite passed 28/28.
+- `docs/treatment-landscape-workflow.md` is the living map;
+  `docs/audits/2026-08-21-treatment-landscape-selection-lock.md` records the
+  validated failure and lesson disposition. The generalized lesson is staged
+  in `universal-dev-architecture` pending exact AskRigor merge provenance.
+- The generated source candidate is 7,991 characters, SHA-256
+  `9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`;
+  its synchronization ledger is
+  `8c89782596b982d2c2f2a0b37f48f66691a9bc6123693d6987c29b5646152900`;
+  and its 20-operation Action OpenAPI is
+  `35a9a2d51a4a3629795ea0224473e6273caf88febbbc0fefbe0095b1e73cc0ce`.
+- Verification, PR review, merge, deployment, editor installation, and fresh
+  product-interface acceptance are separate states. None is inferred here.
+- The required final pre-PR lesson checkpoint at `2026-08-21T21:55:59.133Z` was
+  available: 1 open candidate, 1 needing review, 0 accepted but not
+  incorporated, 3 incorporated or closed, and 0 deletion eligible. The
+  unreviewed candidate did not expand this task.
 - The privacy release is effective `2026-08-21` and discloses the bounded
   diagnostics while preserving disabled-by-default production behavior. All
   four public pages returned `200`; HTTP privacy redirected once to HTTPS.
 - The production-accepted pre-repair editor Instructions had SHA-256
   `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
-  the active repair below supersedes that local artifact. The unchanged
-  `docs/custom-gpt-action-openapi.json` has SHA-256
-  `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
+  it remains the owner-reported installed artifact. The 7,991-character source
+  candidate and 20-operation OpenAPI above supersede it only in source.
   Knowledge must remain empty. No available tool exposes the owner's signed-in
-  Custom GPT editor, so installation and a fresh current product UI run remain
-  explicitly unverified rather than inferred from direct server success.
+  Custom GPT editor, so deployment, installation, and a fresh current product
+  UI run remain explicitly unverified.
 - The pre-deployment lesson checkpoint at `2026-08-21T06:28:49.742Z` was
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The pre-evidence checkpoint
@@ -193,13 +244,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `docs/audits/2026-08-21-compact-claim-citation-display.md`,
   `docs/custom-gpt-citation-display-regression-v0.1.0.json`, and the two
   `tests/custom-gpt-citation-*` regressions.
-- The current generated Instructions are 7,978 characters with SHA-256
+- The generated citation-display Instructions at that checkpoint were 7,978 characters with SHA-256
   `207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488`.
   Their synchronization-ledger SHA-256 is
   `a85ea88ba9ab908431deb5fc5da25824b8390e48f8975798dde31b7d3febb928`.
-  The Action OpenAPI is unchanged. The owner-reported installation applies to
-  the prior 7,962-character artifact; this candidate still needs installation
-  and fresh GPT-UI acceptance.
+  The Action OpenAPI was unchanged. The owner-reported installation applied to
+  the prior 7,962-character artifact; this checkpoint did not establish editor
+  installation or fresh GPT-UI acceptance.
 - Focused compatibility acceptance passed 7 files and 52 tests. The complete
   host suite passed 62 files with one declared live-file skip and 996 tests with
   five declared credential-gated skips under a 30-second per-test allowance;
@@ -1818,13 +1869,14 @@ and completed rollout at the top of this file.
   Google privacy/data-flow boundary. If approved later, use Gemini for query
   planning, real-candidate selection, and bounded text summary; never accept an
   ungrounded generated YouTube identifier.
-- In the signed-in Custom GPT editor, import the current 19-operation Action
+- In the signed-in Custom GPT editor, import the current 20-operation Action
   schema, install the exact generated Instructions with empty Knowledge, retain
   the existing API Key → Bearer authentication, save without publishing, and
-  pass fresh Custom GPT acceptance for transcript availability,
-  evidence-frontier selection, transcript/comment separation, access gaps, and
-  the no-padding timestamped watchlist. Direct acceptance is already complete
-  and must not be relabeled as this UI proof.
+  pass fresh Custom GPT acceptance for transcript availability, treatment-space
+  breadth blocking, transcript/comment separation, access gaps, **Videos
+  actually audited**, and the no-padding timestamped watchlist. Direct
+  acceptance for the prior 19-operation production surface must not be relabeled
+  as this UI proof.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
   publisher-identity path, then complete the portal HTTPS domain challenge; do
@@ -1896,8 +1948,10 @@ and completed rollout at the top of this file.
 
 Run the fresh product-interface cases in
 `docs/custom-gpt-action-live-acceptance.md` and record only observed UI results.
-Install the exact current 7,978-character Instructions with SHA-256
-`207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488` and empty
+After source merge and explicit deployment authority, deploy and directly
+validate the exact 20-operation Action schema; then install the exact current
+7,991-character Instructions with SHA-256
+`9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9` and empty
 Knowledge, retaining the current Action authentication and privacy
 configuration. Do not infer UI behavior from installation alone.
 Do not repeat completed runtime deployment/direct acceptance, retry the rejected
@@ -1919,7 +1973,7 @@ Deployment and recovery evidence is merged through PR #43; the instruction-only
 partial-answer repair and owner installation receipt are merged through PR
 #46. The owner reports Instructions SHA-256
 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5` are
-installed in the signed-in editor. The current citation-display candidate is
-`207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488`, not yet
-installed. Its remaining boundary is exact installation and fresh GPT-UI
-acceptance.
+installed in the signed-in editor. The current treatment-landscape candidate is
+`9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`, not yet
+deployed or installed. Its remaining boundaries are runtime/Action deployment,
+exact installation, and fresh GPT-UI acceptance.

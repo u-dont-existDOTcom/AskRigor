@@ -27,7 +27,8 @@ const READ_OPERATION_IDS = [
   "search_youtube_comments",
   "audit_youtube_community",
   "survey_youtube_community",
-  "audit_youtube_video_community"
+  "audit_youtube_video_community",
+  "assess_treatment_landscape_coverage"
 ].sort();
 
 const EXACT_LESSON_CONSENT_SHELL = `**Proposed anonymized lesson**
@@ -50,7 +51,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     expect(packet.syncJson).toBe(sync);
   });
 
-  it("contains 18 reads, including the Action-only transcript read, and one authenticated write", async () => {
+  it("contains 19 reads, including both Action-only reads, and one authenticated write", async () => {
     const packet = await generateCustomGptPacket();
     const document = JSON.parse(packet.openApiJson) as {
       paths: Record<string, Record<string, {
@@ -77,7 +78,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       security: [{ bearerAuth: [] }],
       "x-openai-isConsequential": true
     });
-    expect(operations).toHaveLength(19);
+    expect(operations).toHaveLength(20);
   });
 
   it("keeps the compact instructions complete, bounded, and free of stale Knowledge", async () => {
@@ -85,23 +86,29 @@ describe("deterministic Custom GPT synchronization packet", () => {
     expect(instructionsMarkdown.length).toBeLessThanOrEqual(8_000);
     for (const required of [
       "manifest → integrity verification → every `load_protocol` chunk",
+      "`load_protocol` chunk in order",
       "`complete: true`",
+      "Stop missing, expired, repeated, or inconsistent chunks",
       "`continuation_recommended: true`",
       "`synthesis_lock: pass`",
       "`youtube_action_continuation_invalid_or_expired`",
+      "`youtube_transcript_action_continuation_invalid_or_expired`",
       "restart only that video audit by identifier",
       "`search_youtube_comments`",
       "query-bounded `partial`",
       "Use installed Project router before HRP; otherwise require Forum Signal",
-      "Call `survey_youtube_community`",
-      "`how I cured/reversed/fixed my [condition]`",
+      "call `survey_youtube_community`",
+      "`how I cured/reversed/fixed`",
       "`get_youtube_transcript`",
       "selected-track `api_visible_complete`",
       "Metadata/comments cannot establish creator content",
-      "preop conservative≠postop rehab",
-      "`HRP-complete`/full-HRP opening",
-      "Action canonical link",
-      "Continue `get_youtube_transcript` cursor to exhaustion",
+      "and pre-/postoperative care stage",
+      "`assess_treatment_landscape_coverage`",
+      "Require all three locks pass",
+      "Videos actually audited",
+      "continue only its opaque Action handle",
+      "one contiguous first-to-exhausted chain",
+      "prior-chain counts never combine",
       "treatment alternatives",
       "avoiding replacement",
       "joint replacement",
@@ -116,8 +123,8 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "pure chemistry or mechanism with no real-world outcome or safety claim",
       "emergency triage before stabilization",
       "no meaningful user-experience corpus",
-      "`HRP-complete`/full-HRP opening need formal retrieval",
-      "no unresolved material fingerprint/direction/transfer",
+      "Full HRP needs all locks, audits, formal returns, and transfers resolved",
+      "in de-identified cases",
       "Submit this anonymized lesson to improve AskRigor?",
       "`Yes`",
       "`Yes always in this chat`",
@@ -128,6 +135,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       expect(instructionsMarkdown).toContain(required);
     }
     expect(instructionsMarkdown).not.toContain("`transcript_tool_unavailable`");
+    expect(instructionsMarkdown).not.toContain("`assessor_tool_unavailable`");
   });
 
   it("makes the complete lesson-consent shell authoritative at the Custom GPT boundary", async () => {
@@ -138,11 +146,9 @@ describe("deterministic Custom GPT synchronization packet", () => {
     expect(normalizedInstructions).toContain(
       "After rechecking and validating an eligible product failure, display this shell before its first eligible write.",
     );
+    expect(normalizedInstructions).toContain("The shell is canonical here");
     expect(normalizedInstructions).toContain(
-      "This shell is canonical Custom GPT interaction text from these Instructions",
-    );
-    expect(normalizedInstructions).toContain(
-      "do not look for it in Universal, HRP, Knowledge, or the Action schema",
+      "not from Universal, HRP, Knowledge, or the Action schema",
     );
     expect(normalizedInstructions).toContain(
       "Action fields cannot replace this shell.",
@@ -176,10 +182,10 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync).toMatchObject({
       schema_version: 1,
-      generated_at: "2026-08-18",
+      generated_at: "2026-08-21",
       research_operation_ids: READ_OPERATION_IDS,
       mcp_research_operation_ids: READ_OPERATION_IDS.filter((id) =>
-        id !== "get_youtube_transcript"
+        !["get_youtube_transcript", "assess_treatment_landscape_coverage"].includes(id)
       ),
       consequential_operation_ids: ["submit_lesson_candidate"],
       editor: {

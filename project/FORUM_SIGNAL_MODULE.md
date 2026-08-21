@@ -5,14 +5,18 @@ Run this module after the Project router marks `FORUM_SIGNAL REQUIRED`. It acqui
 ## Acquisition controller
 
 1. Map materially relevant independent forums, discussion pools, and YouTube searches. Record platform, query, date, access result, and whether material is firsthand. Use ordinary web research for accessible non-YouTube communities.
-2. Prepare up to six YouTube searches across the general landscape, prevention/avoidance, exact variants, contrarian/practitioner critique, benefit, failure, harm/discontinuation, and formal discriminators. Include high-yield vernacular patterns such as `how I cured/reversed/fixed my [condition]`, `what finally worked`, `after [standard care] failed`, and `avoided [procedure]`, plus exact implementation and failure terms. These phrases locate claims; they do not validate them. Combine compatible directions within six searches. Call `survey_youtube_community` and preserve queries, cursors, and candidates.
-3. Build a candidate-selection ledger before content or comment auditing. Record query/direction; the exact claim fingerprint (intervention/program components, dose/frequency/duration, population/stage, outcome, horizon); what is surprising or hard to recover from studies; decision usefulness; likely firsthand value; creator/discussion-pool independence; and nonredundancy. Provider rank, views, and comment volume show discoverability or corpus density, not credibility. Select up to three materially different videos per batch; rewrite queries, use cursors, or start another batch when choices are generic, mismatched, or redundant.
-4. For every shortlisted creator-content candidate, call `get_youtube_video`. If `get_youtube_transcript` is available, call it and continue cursors until the selected track reports `api_visible_complete` or a terminal access boundary. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable` as a terminal creator-content boundary, withhold creator claims and the watchlist, continue at step 5, and never call an undeclared tool. Preserve language, automatic-caption flag, timestamps, pagination, and `access_status` when returned. Titles/descriptions are discovery metadata; comments describe the discussion; neither establishes the video's creator content. If transcript access fails, do not say what the video teaches or recommends. Transcript retrieval verifies wording, not efficacy, accuracy, or causality.
-5. Separately call `audit_youtube_video_community` for the video's discussion. Continue whenever `continuation_recommended: true`. Query-bounded comment search is discovery-only and never the corpus. Test whether independent commenters reproduce the claimed implementation/outcome and actively seek failure, harm, discontinuation, cointerventions, and stage mismatch; never count the creator's claim as a firsthand commenter episode.
-6. Preserve `provider_reported_comments`, `top_level_comments_retrieved_cumulative`, `replies_retrieved_cumulative`, `records_retrieved_cumulative`, and `records_returned_for_analysis`. These are different count classes. Provider metadata may exceed or differ from the API-visible corpus.
-7. When a materially relevant video reports at least 300 available comments but fewer than 300 records were retrieved, label it `insufficient_depth` and continue unless the complete corpus is smaller or a genuine boundary stops retrieval. Analyze all records when the complete corpus contains 500 or fewer; for a larger completely acquired corpus use the returned deterministic 500-record sample.
+2. Before video selection for treatment-choice, treatment-alternative, avoid-surgery, or broad real-world effectiveness questions, build a treatment-space inventory. Derive materially plausible classes from the question, diagnosis alternatives, formal and grey evidence, and community discovery. Include materially distinct conventional, rehabilitation/mechanical, activity, lifestyle, nutritional, self-directed, heterodox/adjunct, procedural/surgical, multimodal, nonaction/natural-history, failure/progression, and eventual-standard-treatment trajectories when relevant. This is a discovery map, not an efficacy claim. For each class record a stable ID, plain-language label, materiality, search state, omission impact (`not_decision_relevant`, `confidence_changing`, `ranking_changing`, `potentially_conclusion_changing`, or `uncertain`) and rationale, formal-evidence follow-up, and access boundary. Record formal-evidence follow-up separately for every material program fingerprint; a class-level search cannot close a distinct program.
+3. Prepare up to six YouTube searches **per discovery batch** across the general landscape, prevention/avoidance, exact variants, contrarian/practitioner critique, benefit, failure, harm/discontinuation, and formal discriminators. Include high-yield vernacular patterns such as `how I cured/reversed/fixed my [condition]`, `what finally worked`, `after [standard care] failed`, and `avoided [procedure]`, plus exact implementation and failure terms. These phrases locate claims; they do not validate them. Call `survey_youtube_community` and preserve queries, cursors, and candidates. Later batches must target uncovered classes and hypotheses produced by earlier videos, comments, formal evidence, or grey literature.
+4. Build a candidate-selection ledger before content or comment auditing. For every discovery batch record exact query/scope, literal access state and pagination, covered class IDs, candidate video IDs, and new fingerprint IDs. Every candidate must reciprocally link to its batch, class, exact program fingerprint (components; dose/intensity/frequency/duration; supervision; adherence; cointerventions; stage; outcome; horizon; and care stage), stable channel ID, selection state, omission impact/rationale, and access boundary. Normalize missing details to `program not described`; derive a program signature from the normalized field tuple, so renamed IDs cannot manufacture diversity. Derive counts from valid records and exclude invalid records. Record what is surprising or hard to recover from studies, decision usefulness, likely firsthand value, source independence, and nonredundancy. Provider rank, views, and comment volume show discoverability or corpus density, not credibility. Select up to three materially different videos per batch; rewrite queries, use cursors, or start another batch when choices are generic, mismatched, or redundant.
+5. Separate breadth from depth. For a broad question with a substantial corpus, ordinarily screen 20–40 candidates and seek at least eight materially distinct program hypotheses; then deeply audit about 8–15 material videos spanning at least six normalized fingerprints and multiple independently identified channels or pools when available. These are planning heuristics, not pass/fail quotas. Before broad coverage, ordinarily select no more than two videos with substantially the same fingerprint. Two or three videos cannot establish broad coverage in a substantial corpus; four or more videos concentrated in one or two fingerprints cannot establish diversity; ten renamed or redundant videos cannot repair the same failure. Derive the applicable structural gates from the valid ledger; a caller's corpus-size or scope label cannot deactivate them. Hard-block decision-relevant or uncertain omissions. Treat `not_decision_relevant` as a warning only when the structured record establishes nonmateriality or an already selected identical normalized program; caller assertion cannot waive a material class, distinct program, formal return pass, or executable retrieval.
+6. For every shortlisted creator-content candidate, call `get_youtube_video`, then `get_youtube_transcript`; continue only the opaque Action handle until the selected track reports `api_visible_complete` or a terminal access boundary. Transcript completion requires one server-held, contiguous chain from the first page through exhaustion. Reject caller-editable provider cursors, skipped or lone continued pages, and mixed restarted-chain counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable` as a creator-content boundary, withhold creator claims and watchlists, continue separate discussion auditing, and never call an undeclared tool. Preserve language, automatic-caption flag, timestamps, pagination, and `access_status`. Titles, descriptions, and comments do not establish creator content. Transcript retrieval verifies wording, not efficacy, accuracy, or causality.
+7. Separately call `audit_youtube_video_community` for each selected video's discussion. Continue whenever `continuation_recommended: true`. Query-bounded comment search is discovery-only and never the corpus. Test whether independent commenters reproduce the claimed implementation/outcome and actively seek failure, harm, discontinuation, cointerventions, and stage mismatch; never count the creator's claim as a firsthand commenter episode.
+8. Consume the server-produced `coverage_receipt` returned by the production transcript and discussion Actions; do not manually flatten provider output or rely on an internal-only helper. For transcripts preserve source video, authenticated/server-held chain start, cursor reconciliation, cumulative page/record counts, exhaustion, selected language, automatic-caption flag, and timestamps. For discussions preserve source video and stable channel ID, literal metadata/access/extraction states, `provider_reported_comments`, `top_level_comments_retrieved_cumulative`, `replies_retrieved_cumulative`, `records_retrieved_cumulative`, `records_returned_for_analysis` and its top-level/reply split, reply mismatches, continuation state, and the exact receipt lock. Reconcile IDs and counts before aggregation. Provider metadata may exceed or differ from a bounded corpus; a complete-corpus claim requires the applicable count reconciliation.
+9. When a materially relevant video reports at least 300 available comments but fewer than 300 records were retrieved, label it `insufficient_depth` and continue unless the complete corpus is smaller or a genuine boundary stops retrieval. Analyze all records when the complete corpus contains 500 or fewer; for a larger completely acquired corpus use the returned deterministic 500-record sample.
 
 A terminal `completed_with_access_boundary` receipt with `replies_reconciled: false` preserves usable bounded evidence after all page tokens are exhausted, but it is not a complete corpus. Report the exact reply mismatches and confidence limitation.
+
+Every structured access boundary must match the literal source status and affected scope and record materiality, omission impact, terminal/nonterminal state, retryability, and whether recovery was attempted. A live cursor, recommended continuation, blocked or incomplete source receipt, rate limit, or retryable error always remains `continue_research`, even if a caller labels its boundary terminal. Only a terminal, nonretryable boundary after attempted recovery can authorize a bounded non-ranking answer.
 
 `retrieved` does not mean persisted or user-downloadable. AskRigor processes public material transiently and does not create a comment archive.
 
@@ -20,7 +24,7 @@ A terminal `completed_with_access_boundary` receipt with `replies_reconciled: fa
 
 Deduplicate at the person × treatment episode level. Keep creator-content claims, commenter experiences, and formal evidence in separate lanes. Separate firsthand reports from hearsay and opinions. Preserve benefit, no effect, harm, discontinuation, mixed trajectories, diagnoses, co-interventions, follow-up, and parent/reply context. Translate “cured” into the specific evidenced outcome; symptom or functional change does not establish structural reversal, permanent cure, or causality.
 
-Never weight an umbrella label such as exercise, PT, rehabilitation, diet, or supplement as one intervention. Decompose exact intervention and comparator programs: components, dose/intensity/frequency/duration, supervision, fidelity/adherence, cointerventions, disease stage/eligibility, target outcome, and follow-up. If those material details are absent, label the evidence program unspecified; it cannot support a class-wide benefit, failure, comparison, or ranking. Separate preoperative conservative care intended to prevent or defer surgery from postoperative rehabilitation; evidence for one does not establish the other.
+Never weight an umbrella label such as exercise, PT, rehabilitation, diet, or supplement as one intervention. Decompose exact intervention and comparator programs: components, dose/intensity/frequency/duration, supervision, fidelity/adherence, cointerventions, disease stage/eligibility, target outcome, and follow-up. If those material details are absent, label the evidence `program not described`; it cannot support a class-wide benefit, failure, comparison, or ranking. Separate preoperative conservative care intended to prevent or defer surgery from postoperative rehabilitation; evidence for one does not establish the other.
 
 When an umbrella class contains plausibly different approaches, search and select materially distinct program hypotheses across mechanism, implementation, stage, and outcome instead of treating one generic query or one study comparator as coverage of the class. Do not invent a fixed menu: derive the hypotheses from the current question, discovery results, and source details.
 
@@ -52,7 +56,7 @@ Before `support_not_located`, distinguish exact matched outcome support from adj
 
 ## Bidirectional and adaptive iteration
 
-Community → formal: convert material interventions, practitioner critiques, subgroups, outcomes, regimens, adverse effects, and dechallenge/rechallenge into targeted formal and grey searches. Record `no_material_transferable_hypotheses` only when none exist.
+Community → formal: convert material interventions, practitioner critiques, subgroups, outcomes, regimens, adverse effects, and dechallenge/rechallenge into targeted formal and grey searches. Resolve the return pass for each material program fingerprint and keep new hypotheses from every discovery batch open until explicitly closed. Record `no_material_transferable_hypotheses` only when none exist.
 
 Formal → community: convert decision-critical formal findings into targeted community discriminators. Record `no_material_discriminators` only when none exist. Preserve discordance rather than forcing either layer to win automatically.
 
@@ -64,19 +68,23 @@ If wider or deeper work remains executable and `further_expansion_likely_to_impr
 
 A partial or bounded answer does not waive executable required work. Even one unavailable full text or inaccessible private community limits only that source or lane and cannot stop available YouTube discovery, creator transcripts, comment auditing, formal retrieval, or cross-layer iteration. Do not replace omitted required work with a long conventional summary.
 
+Before synthesis, use `assess_treatment_landscape_coverage` for every treatment-space-triggering question when that capability is advertised. If it is unavailable, compute the same explicit ledger and three locks locally, record `assessor_tool_unavailable`, fail closed on unresolved or unsupported state, and never call an undeclared tool. Keep `selection_coverage_lock`, `per_video_depth_lock`, and overall `synthesis_lock` separate; overall pass requires both component locks. A pass certifies only that the supplied coverage state has no configured blocker, not representativeness, credibility, efficacy, safety, or a recommendation. Executable blocks mean continue. A block caused only by reconciled terminal access boundaries permits a bounded non-ranking answer that names what was not observed and what it could change.
+
 Normal Project chat is the primary YouTube pagination workflow. Deep Research is optional for later broad literature or web synthesis when AskRigor is available there; Deep Research does not make YouTube pagination faster.
 
 ## Required user-facing output
 
 Translate internal status codes into plain language: for example, say that the available public comments were fully checked, only an abstract was available, or a source could not be accessed. Do not show raw enums, receipt field names, snake_case labels, or tool terminology there. Preserve them in the internal audit and expose them only when the user explicitly asks for a technical audit or debug export; always lead with a plain-language summary.
 
-Keep the answer concise. Name each materially different program in ordinary terms and say briefly how it differs; do not collapse the findings back into an exercise, PT, diet, or supplement bucket. Use short reader-facing sections such as **Approaches compared**, **What the evidence found**, **Public discussions checked**, **What remains uncertain**, and **Videos worth watching** when applicable. Do not lead with protocol compliance or a research-receipt dump.
+Keep the answer concise. Name each materially different program in ordinary terms and say briefly how it differs; do not collapse the findings back into an exercise, PT, diet, or supplement bucket. Use short reader-facing sections such as **Approaches compared**, **What the evidence found**, **Public discussions checked**, **What remains uncertain**, **Videos actually audited**, and **Videos worth watching** when applicable. Do not lead with protocol compliance or a research-receipt dump.
 
 Link decision-important factual claims—especially quantitative, comparative, safety-related, causal, contested, time-sensitive, or surprising claims—on the shortest meaningful phrase that the source directly supports. Do not add explanatory citation prose such as “this claim is supported by.” Mark synthesis, extrapolation, or other indirect reasoning compactly as linked `(inferred)` and link each material basis when more than one source is involved. Group sources only when the claim-to-source mapping is obvious.
 
 Stable connective reasoning, user-supplied facts, and ordinary transitions do not need decorative citations unless they become decision-important. If matched support for an important claim is unavailable, call the claim unverified or omit it. Never attach an adjacent source as though it supports the claim; an adjacent source that does not entail the claim may appear only as clearly labeled adjacent context.
 
 Include **Videos worth watching** only for creator content verified from the selected transcript track. Rank by decision usefulness, novelty, and exact match—not positivity or popularity. Each row needs the canonical title link with the relevant timestamp when located, channel/date, exact creator claim or demonstration, why it adds unique decision value, whether captions were human- or automatically generated when known, and a plain-language evidence limitation. Do not pad the list with generic, redundant, stage-mismatched, or comments-only candidates. If none qualify, say plainly that no video's contents could be verified; keep `No content-verified watchlist candidate located` only in the internal record.
+
+Include **Videos actually audited** for a broad treatment audit. For each selected video show the exact linked title, channel/date, the program actually examined, disease stage, outcome and time horizon, why it was nonredundant, and plain-language transcript and public-discussion boundaries. Say “program not described” rather than invent details. This section exposes selection coverage; it is not a list of endorsements.
 
 Report **Public discussions checked** separately: canonical video link; public comment count when known; how many public comments and replies were checked; how many were analyzed; firsthand people/episodes (or say the count could not be established); whether the available public discussion was fully checked; directional summary; and limitation. State what content review, community auditing, and cross-layer iteration changed in the evidence map.
 
@@ -96,6 +104,35 @@ youtube_expansion_report:
   further_expansion_likely_to_improve_answer: yes | no | blocked
   stopping_reason: <text>
 
+treatment_landscape_coverage:
+  coverage_claim: ledger_consistency_only
+  discovery_batches: <query/scope, literal status/pagination, class IDs, candidate IDs, new fingerprint IDs>
+  treatment_classes_discovered: <count and list>
+  materially_distinct_program_fingerprints: <derived normalized signatures and count>
+  candidate_videos_screened: <derived valid count>
+  invalid_record_ids: <by discovery batch, class, fingerprint, candidate, selected video, boundary>
+  material_videos_selected: <count>
+  material_videos_fully_audited: <count>
+  independent_channels_or_pools: <stable IDs, count, and unknowns>
+  treatment_classes_with_no_selected_video: <list>
+  treatment_classes_with_no_formal_evidence_follow_up: <list>
+  program_fingerprints_with_no_formal_evidence_follow_up: <list>
+  unresolved_new_program_hypotheses_from_all_discovery_batches: <count and list>
+  uncovered_material_treatment_classes: <list>
+  omitted_candidates_and_programs: <omission impact and rationale>
+  benefit_search: complete | no_material_reports | inaccessible | incomplete
+  no_effect_or_failure_search: complete | no_material_reports | inaccessible | incomplete
+  harm_search: complete | no_material_reports | inaccessible | incomplete
+  discontinuation_search: complete | no_material_reports | inaccessible | incomplete
+  eventual_standard_treatment_search: complete | no_material_reports | inaccessible | incomplete
+  further_expansion_likely_to_improve_answer: yes | no | blocked
+  selection_coverage_lock: pass | block
+  per_video_depth_lock: pass | block
+  treatment_landscape_synthesis_lock: pass | block
+  answer_boundary: ledger_consistent_for_synthesis | bounded_nonranking_only | continue_research
+  blockers: <list>
+  planning_warnings: <list>
+
 deeper_literature_handoff:
   unresolved_claims: <list>
   population_intervention_outcomes: <text>
@@ -109,6 +146,9 @@ Also return:
 ```text
 forum_signal_receipt:
   status: complete | completed_with_access_boundary | incomplete
+  treatment_landscape_selection_coverage_lock: pass | block | not_applicable
+  treatment_landscape_per_video_depth_lock: pass | block | not_applicable
+  treatment_landscape_synthesis_lock: pass | block | not_applicable
   youtube_synthesis_lock: pass | block
   benefit: complete | no_material_reports | incomplete
   no_effect: complete | no_material_reports | incomplete
@@ -124,4 +164,4 @@ forum_signal_receipt:
   confidence_effect: <explicit text>
 ```
 
-`complete` requires every applicable field complete, no unresolved material claim fingerprint, no creator-content assertion without transcript support, and every selected discussion audit locked. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect. This receipt is an input to HRP synthesis, not a treatment verdict.
+`complete` requires every applicable field complete, no unresolved material claim fingerprint, all three treatment-landscape locks passed when triggered, no creator-content assertion without transcript support, and every selected discussion audit locked. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect; it cannot support a broad treatment ranking while a landscape lock is blocked. This receipt is an input to HRP synthesis, not a treatment verdict.

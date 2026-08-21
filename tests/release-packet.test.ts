@@ -302,7 +302,7 @@ describe("AskRigor public-review packet", () => {
     expect(releaseStatus).toContain(
       "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; PRECEDING EDITOR ARTIFACT OWNER-REPORTED INSTALLED; CURRENT CANDIDATE INSTALLATION AND GPT-UI ACCEPTANCE PENDING"
     );
-    expect(releaseStatus).toMatch(/The current\s+7,978-character candidate/u);
+    expect(releaseStatus).toMatch(/current\s+7,991-character treatment-landscape candidate/u);
     expect(releaseStatus).toContain("does not yet have that receipt");
     expect(releaseStatus).toContain("The editor was not independently inspected");
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
@@ -351,7 +351,7 @@ describe("AskRigor public-review packet", () => {
     expect(readme).toContain(
       "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221",
     );
-    expect(release).toContain("Canonical source protocols");
+    expect(release).toContain("Deployed production protocols");
     expect(release).toContain(
       "Current direct production Action loading reconstructed and verified every exact byte of both documents.",
     );
@@ -530,8 +530,12 @@ describe("AskRigor public-review packet", () => {
       "continuation secret is never returned",
       "MCP client-carried continuation state",
       "Custom GPT Action continuation handle map",
+      "Custom GPT transcript Action continuation handle map",
       "2,048",
       "16 MiB",
+      "4 MiB",
+      "next expected segment index",
+      "no caption text, title, channel name, request text, provider credential, or protocol text",
       "process memory",
       "no longer than one hour",
       "no comment text, author identity, provider credential, or protocol text",

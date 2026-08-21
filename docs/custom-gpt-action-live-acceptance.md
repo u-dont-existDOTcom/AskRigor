@@ -9,7 +9,7 @@ active in production and passed the sanitized direct acceptance recorded
 below. After reviewing the complete preceding 7,962-character Instructions
 (SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`), the
 owner reported that exact artifact was already installed in the existing Custom
-GPT. The current 7,978-character citation-display candidate is not installed.
+GPT. The subsequent 7,978-character citation-display candidate is not installed.
 This record does not independently inspect editor state or claim that the
 refreshed GPT UI has exercised it.
 
@@ -17,6 +17,15 @@ Historical direct and repaired Custom GPT UI evidence is retained below for
 the earlier bridge releases. It does not substitute for a fresh UI run against
 the current editor packet. Direct server proof is never relabeled as ChatGPT UI
 proof.
+
+The current treatment-landscape source candidate is not deployed or installed.
+Its generated Instructions are 7,991 characters, SHA-256
+`9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`;
+the synchronization ledger is
+`8c89782596b982d2c2f2a0b37f48f66691a9bc6123693d6987c29b5646152900`;
+and its 20-operation Action OpenAPI is
+`35a9a2d51a4a3629795ea0224473e6273caf88febbbc0fefbe0095b1e73cc0ce`.
+No production or GPT-interface acceptance below applies to this candidate.
 
 The latest owner-provided GPT-UI result exposed a partial-answer escape,
 umbrella-program conflation, and raw implementation labels. PR #44 merged the
@@ -53,7 +62,7 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Production deployment and direct acceptance completed on `2026-08-21`; installation of the preceding 7,962-character Instructions was owner-reported at `2026-08-21T15:20:33Z`; the current 7,978-character candidate is not installed and fresh GPT UI acceptance remains pending. |
+| UTC time | Production deployment and direct acceptance completed on `2026-08-21`; installation of the preceding 7,962-character Instructions was owner-reported at `2026-08-21T15:20:33Z`; the current 7,991-character treatment-landscape candidate is not installed and fresh GPT UI acceptance remains pending. |
 | deployed commit | PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96` (parents PR #40 merge `94062f8d5595ff8cef368f8c2b06732a4826ae57` and compatibility head `3ebfb5be67207dd04f9c70e6af340662c790c96c`). |
 | deployed image | `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`; image ID `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`; healthy container `c1dc68972ded`; only the research service changed during runtime activation. |
 | current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `ecfeaf12db7de685edc84d200485866a699f9a0f7df569e8bc4450bb4c77361c`; Caddy container `18209d960259`; runtime environment mode remained root-owned `0600` and its contents were not read. Request diagnostics remain disabled by default and were not enabled in production. |
@@ -61,7 +70,7 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-3864974-predeploy` preserves image ID `sha256:df01992c604e618af4e5f7df733a30759855da2c973c48ab2ebbd67e39f86452`; rollback Compose is `/opt/askrigor/releases/386497415a187354c6396e69a902d5bece9a9c96/compose.pre-3864974.yaml`, SHA-256 `5f3d6fb76174f0edb2dac290db9c64e153ae95cf8d6d5c2d30d9ca928a28f3af`. |
 | deployment archive | Exact secret-free Git archive from the deployed merge: SHA-256 `61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0`; 377 members, 1,010,125 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | OpenAPI SHA-256 | Committed pretty artifact: `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`; semantically identical compact live response: `368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9`. |
-| instructions SHA-256 | Current generated candidate: `207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488`, 7,978 characters; installation and fresh GPT-UI acceptance pending. The last owner-reported installed artifact is `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`, 7,962 characters; the editor was not independently inspected. Knowledge must remain empty. |
+| instructions SHA-256 | Current treatment-landscape candidate: `9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`, 7,991 characters; installation and fresh GPT-UI acceptance pending. The last owner-reported installed artifact is `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`, 7,962 characters; the editor was not independently inspected. Knowledge must remain empty. |
 | current Action/MCP boundary | The Action exposes 18 non-consequential research reads plus the consequential lesson write. `get_youtube_transcript` is Action-only. Standard MCP and Gemini-compatible MCP each preserve the same exact 17 read-only handlers; Gemini uses the compact service name `askrigor_research`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc`, with effective date `2026-08-21` and the disabled-by-default bounded diagnostic disclosure. Active site release: `/opt/askrigor/site/releases/386497415a18/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |

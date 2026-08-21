@@ -62,6 +62,7 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | YouTube community survey | user-supplied research question and labeled YouTube queries; bounded, deduplicated candidate videos; canonical clickable URLs; public title/channel/date metadata; and provider-reported comment counts | Maps promising videos before deeper acquisition without treating query-bounded discovery as the comment corpus. |
 | Compound YouTube audit | user-supplied research question and labeled YouTube queries; bounded candidate/video selection; a complete small corpus or deterministic sample; corpus SHA-256; and a completion/synthesis-lock receipt | Performs reproducible multi-query discovery and complete API-visible acquisition in one request without making a medical conclusion. |
 | Adaptive per-video YouTube audit | video metadata; provider-reported comment count; exact top-level, reply, cumulative-retrieval, and returned-for-analysis counts; API-visible comments/replies; deterministic sample; rolling corpus digest; completion receipt; and optional opaque authenticated continuation state | Retrieves one important video's API-visible discussion over bounded calls while preserving exact depth and completion state. |
+| Treatment-landscape coverage assessment | caller-supplied research target; receipt-linked discovery batch queries/scopes, literal access/pagination states, class IDs, and candidate IDs; treatment-class labels/search/formal-follow-up/omission states; structured program fields with `program not described` normalized; public video and stable channel IDs, titles/dates, selection and omission states; projected transcript chain/language/caption/timestamp fields; projected comment-audit metadata/access/count/reply/lock fields; directional-search states; and terminal/retryable/recovery boundary fields | Reconciles the supplied ledger, derives valid counts and normalized program signatures, excludes invalid records from aggregates, and returns separate selection, per-video-depth, and overall workflow locks plus compact per-video records. It makes no provider call, persistence, semantic-completeness claim, efficacy judgment, or medical conclusion. |
 | Completeness/accounting data | top-level/reply counts, mismatch identifiers, page counts, API-visible coverage, output/text byte counts, elapsed time, and provider request attempts | Shows whether a comment corpus is complete, partial, inaccessible, or failed. |
 
 The source-generated full MCP `tools/list` inventory, including every advertised
@@ -101,6 +102,15 @@ process-local design is limited to a single application replica and
 must not be horizontally scaled unless an approved sticky-routing or shared-state design
 preserves every continuation chain.
 
+The Custom GPT transcript Action uses a separate 37-character handle backed by
+compact process-memory chain state: provider cursor, public video ID, selected
+language and automatic-caption flag, caption-snapshot SHA-256, page size/count,
+cumulative segment count, next expected segment index, and timestamp-presence
+state. It stores no caption text, title, channel name, request text, credential,
+or protocol text. Entries expire within one hour; the map is bounded to 2,048
+entries and 4 MiB, is never written to disk or logs, and has the same
+single-replica/sticky-routing constraint.
+
 The ordered protocol Action cursor contains only protocol identity, digest, byte offset, chunk index, and expiry. It contains no protocol text, health content, or secret. It is authenticated with a protocol-specific key derived
 from the existing server-only continuation secret. The Action returns each
 exact UTF-8 chunk transiently and keeps no protocol-loading session record.
@@ -109,9 +119,10 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 
 | Location | Data handled | Persistent storage in v0 |
 | --- | --- | --- |
-| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment/caption data, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map row below. No database, file store, account profile, queue, transcript store, or server-side comment corpus is implemented. Transcript continuations re-fetch the selected track and store no server-side transcript session. |
+| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public YouTube identity/comment/caption data, treatment-landscape coverage fields, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map rows below. No database, file store, account profile, queue, transcript-text store, treatment-landscape store, or server-side comment corpus is implemented. Transcript continuations re-fetch the selected track; only compact chain metadata is retained under the bounded row below. The coverage assessor makes no provider call. |
 | MCP client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking MCP client and processed transiently if resubmitted within one hour. The server keeps no matching MCP session record. |
 | Custom GPT Action continuation handle map | A short random handle mapped to the existing signed minimized token; no comment/reply text, author identity, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 16 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires an approved sticky-routing or shared-state design. |
+| Custom GPT transcript Action continuation handle map | A short random handle mapped to compact transcript chain metadata: provider cursor, public video ID, selected-track metadata, caption-snapshot hash, page size/count, cumulative segment count, next expected index, and timestamp-presence state; no caption text, title, channel name, request text, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 4 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires approved sticky routing or shared state. |
 | MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol loads use exact ordered chunks; transcript pages contain bounded timestamped caption segments; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | In routine operation the application emits a startup line only. A disabled-by-default MCP connector diagnostic can be enabled temporarily by a maintainer. It emits only a fixed route class, HTTP method class, coarse header/media-presence classes, selected JSON-RPC phase class, completion class, and response status. It never emits a URL or query, IP/network address, user-agent, header value, request or response body, JSON-RPC ID, tool name or argument, prompt, provider payload, comment text, user identifier, or credential. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. The temporary connector diagnostic is restricted to a troubleshooting window and must be disabled by recreating the diagnostic container after the needed receipt is captured; its active container log is not a durable research-session store. Infrastructure retention and backups follow each provider's configured policy and are outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
@@ -119,8 +130,9 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
-only the minimized signed continuation token under the exact bounded exception
-above. Infrastructure and upstream providers may retain
+only the minimized signed discussion token or compact transcript chain metadata
+under the exact bounded exceptions above, never comment or caption text.
+Infrastructure and upstream providers may retain
 separately controlled operational or request data under their own policies.
 
 ## Optional lesson request and result contract
@@ -228,7 +240,7 @@ history, transcript store, user profile, or automatic-learning database.
 
 ## Response minimization and security controls
 
-- Every MCP tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; the Action-only transcript route is likewise public, read-only, and non-consequential. No research operation changes provider, user, or server state.
+- Every MCP tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; the Action-only transcript and treatment-landscape routes are likewise public, read-only, and non-consequential. No research operation changes provider, user, or server state.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Adaptive YouTube continuations are HMAC-authenticated, expire one hour after the chain starts, and disclose neither the server secret nor comment/author content inside the token.
 - Direct MCP clients carry that token. The Custom GPT Action returns a short

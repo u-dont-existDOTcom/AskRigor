@@ -207,6 +207,38 @@ describe("isolated Action HTTP routing", () => {
     expect(handlerCalls).toBe(0);
   });
 
+  it("applies a larger request cap only to a route that explicitly declares it", async () => {
+    let handlerCalls = 0;
+    const aggregateReadRoute: ActionRoute = {
+      ...routes[0],
+      path: "/actions/aggregate_read",
+      operationId: "aggregate_read",
+      maximumRequestBytes: 16_384,
+      async handle() {
+        handlerCalls += 1;
+        return { status: 200, body: { ok: true } };
+      }
+    };
+
+    await withHttpServer({ actionRoutes: [aggregateReadRoute] }, async (baseUrl) => {
+      const accepted = await fetch(new URL("/actions/aggregate_read", baseUrl), {
+        method: "POST",
+        headers: { authorization: "Bearer test-action-secret" },
+        body: JSON.stringify({ value: "x".repeat(9_000) })
+      });
+      expect(accepted.status).toBe(200);
+
+      const rejected = await fetch(new URL("/actions/aggregate_read", baseUrl), {
+        method: "POST",
+        headers: { authorization: "Bearer test-action-secret" },
+        body: JSON.stringify({ value: "x".repeat(16_384) })
+      });
+      expect(rejected.status).toBe(413);
+    });
+
+    expect(handlerCalls).toBe(1);
+  });
+
   it("rejects malformed Action JSON without reaching the handler", async () => {
     let handlerCalls = 0;
     const privateRoute = {

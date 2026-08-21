@@ -16,7 +16,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5";
+  "afa8e3ff9ac6936b7e277a1b21f99c36507e44e2a3595036265d395ff2883b94";
 const UNIVERSAL_SHA_256 =
   "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221";
 
@@ -34,8 +34,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.18",
-      revisionDate: "2026-08-16"
+      version: "20.5.19",
+      revisionDate: "2026-08-21"
     });
   });
 
@@ -235,6 +235,92 @@ describe("canonical protocol loader", () => {
     expect(expansion).toContain("further_expansion_likely_to_improve_answer=yes");
     expect(expansion.toLowerCase()).toContain("continue the executable wider or deeper retrieval");
     expect(expansion).toContain("must not emit the final synthesis");
+  });
+
+  it("requires the HRP 20.5.19 treatment-landscape and video-selection gate", async () => {
+    const text = await loadProtocol("hrp");
+    const section = (id: string): string => {
+      const start = text.indexOf(`<Case id="${id}">`);
+      const end = text.indexOf("</Case>", start);
+      expect(start, `missing ${id}`).toBeGreaterThanOrEqual(0);
+      expect(end, `unterminated ${id}`).toBeGreaterThan(start);
+      return text.slice(start, end).replace(/\s+/g, " ");
+    };
+
+    expect(text).toMatch(
+      /<Protocol name="HRP" version="20\.5\.19" revisionDate="2026-08-21"/
+    );
+    for (const required of [
+      '<Revision version="20.5.19" priority="Critical">',
+      '<TreatmentLandscapeAndVideoSelectionGate priority="Critical">',
+      'name="TreatmentSpaceInventoryBeforeSelection"',
+      'name="ExactProgramFingerprint"',
+      'name="DiversityBeforeConcentration"',
+      'name="AggregateLandscapeSynthesisLock"',
+      "treatment_classes_discovered",
+      "materially_distinct_program_fingerprints",
+      "candidate_videos_screened",
+      "material_videos_selected",
+      "material_videos_fully_audited",
+      "independent_channels_or_pools",
+      "treatment_classes_with_no_selected_video",
+      "treatment_classes_with_no_formal_evidence_follow_up",
+      "program_fingerprints_with_no_formal_evidence_follow_up",
+      "unresolved_new_program_hypotheses_from_all_discovery_batches",
+      "uncovered_material_treatment_classes",
+      "further_expansion_likely_to_improve_answer",
+      "selection_coverage_lock",
+      "per_video_depth_lock",
+      "treatment_landscape_synthesis_lock"
+    ]) {
+      expect(text).toContain(required);
+    }
+    const normalizedText = text.replace(/\s+/gu, " ");
+    for (const required of [
+      "reciprocally linked discovery-batch, class, candidate, fingerprint, and selection records",
+      "Derive a stable signature from the normalized program-field tuple",
+      "caller-supplied fingerprint IDs cannot establish diversity",
+      "stable source identifiers linked to retrieval receipts",
+      "Hard-block decision-relevant or uncertain omissions",
+      "only a terminal, nonretryable boundary after attempted recovery",
+      "caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate them",
+      "authenticated opaque continuation or server-held state proving one contiguous chain"
+    ]) expect(normalizedText).toContain(required);
+
+    const many = section("ManyVideosButOneTreatmentClass");
+    expect(many).toContain("ten videos");
+    expect(many).toContain("eight concern substantially similar strengthening or physical-therapy programs");
+    expect(many).toContain("Raw video count does not establish diversity");
+    expect(many).toContain("Fail treatment-space coverage");
+
+    const two = section("TwoVideosPresentedAsBroadHipCommunityAudit");
+    expect(two).toContain("two material YouTube videos");
+    expect(two).toContain("additional treatment approaches and independent channels are readily discoverable");
+    expect(two).toContain("Fail the treatment-landscape synthesis lock");
+    expect(two).toContain("positive expected information gain");
+
+    expect(section("RenamedFingerprintsPresentedAsDiversity"))
+      .toContain("Caller-chosen IDs and display names cannot manufacture diversity");
+    expect(section("AggregateCandidateCountWithoutCandidateLedger"))
+      .toContain("Derive the screen count from reciprocally linked candidate and discovery-batch records");
+    expect(section("RetryableBoundaryPresentedAsTerminalCompletion"))
+      .toContain("Only a terminal, nonretryable boundary");
+    expect(section("FourVideosRepeatOneProgramAcrossChannels"))
+      .toContain("Independent channels do not turn one repeated program into treatment diversity");
+    expect(section("UnsupportedNotRelevantWaiver"))
+      .toContain("caller assertion cannot erase material work");
+    expect(section("LiveCursorLabeledTerminalBoundary"))
+      .toContain("boundary record cannot override a live cursor");
+    expect(section("ClassSearchHidesProgramFormalGap"))
+      .toContain("Class-level searching cannot substitute for per-program follow-up");
+    expect(section("CoverageProjectionNotOnProductionAction"))
+      .toContain("callable production Action");
+    expect(section("SkippedTranscriptPagesPresentedAsComplete"))
+      .toContain("forged offset, skipped page, or lone continued page");
+    expect(section("CallerSmallCorpusLabelWaivesCoverage"))
+      .toContain("Caller-supplied corpus-size or scope labels cannot deactivate");
+    expect(text).toContain('<Check id="FS184">');
+    expect(text).toContain('<Check id="FS185">');
   });
 
   it("returns the original canonical file text unchanged", async () => {

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.18" revisionDate="2026-08-16" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.19" revisionDate="2026-08-21" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -450,6 +450,21 @@
 
    Labeled inference and estimation remain permitted. The revision requires explicit separation of verified fact, calculation, inference, extrapolation, assumption, hypothesis, and unknown; requires arithmetic, internal-consistency, and citation-entailment checks before synthesis; and adds regressions preventing false-premise compliance, nonexistent-source hallucination, search-failure/nonexistence confusion, forced causal connections, citation non-entailment, arithmetic-defense behavior, and overcorrection that would ban legitimate labeled inference.
   </Revision>
+  <Revision version="20.5.19" priority="Critical">
+   Added a mandatory Treatment-Landscape and Video-Selection Gate for treatment-choice, treatment-alternative,
+   avoid-surgery, and broad real-world effectiveness questions. Before deep video auditing, the review must inventory
+   materially distinct treatment classes and exact program fingerprints, screen broadly across the landscape, and record
+   uncovered classes, redundant selections, new hypotheses, directional trajectories, per-program formal-evidence return
+   passes, and remaining ranking-relevant candidates.
+
+   Selection adequacy is now independent of source depth: exhaustive transcript or comment retrieval for a narrow set cannot
+   repair an unrepresentative selection frame. Numeric screening and audit ranges are planning heuristics rather than quotas;
+   state-based omissions create the hard block. Added separate selection-coverage and per-video-depth locks composed into
+   an overall treatment-landscape synthesis lock, a required
+   per-selected-video treatment record, Action-produced coverage receipts, plain-language output rules, and regressions for
+   redundant concentration, unsupported relevance waivers, live continuations mislabeled as terminal, missing per-program
+   formal return passes, and premature synthesis while any discovery batch leaves a material hypothesis unresolved.
+  </Revision>
 </RevisionHistory>
 
  <Architecture priority="Critical">
@@ -483,6 +498,12 @@
    Iterative transfer of hypotheses, terminology, discriminators, contradictions, and research priorities between formal
    human evidence, grey literature, clinical signal, and community corpora is controlled by the
    BidirectionalEvidenceDiscoveryAndTriangulationLoop. It prevents fixed evidence-layer sequencing and forced reconciliation.
+  </Layer>
+
+  <Layer id="treatment_landscape_and_video_selection">
+   Treatment-space inventory, exact program fingerprints, broad candidate screening, nonredundant selection, uncovered-class
+   tracking, and the selection-coverage lock are controlled by the
+   TreatmentLandscapeAndVideoSelectionGate. This gate is independent of transcript and comment-corpus completion.
   </Layer>
 
   <Layer id="community_corpus_completion">
@@ -554,6 +575,8 @@
    what a study can establish. The CrowdSourcedAndClinicalSignalAudit controls relative forum-signal claims. The
    BidirectionalEvidenceDiscoveryAndTriangulationLoop controls cross-layer hypothesis transfer, discordance investigation,
    iterative search repair, and integrated claim-level synthesis whenever formal and community evidence are both relevant.
+   The TreatmentLandscapeAndVideoSelectionGate controls whether the candidate and selected source set spans the materially
+   plausible treatment landscape before deep auditing or treatment ranking.
    Interaction safety controls medication, supplement, botanical, and vulnerable-population questions. Coaching controls only low-risk
    implementation.
   
@@ -567,6 +590,7 @@
    orchestration, pre-research approval, audience-accessible terminology, completion, research-continuation-handoff, comparator-identity, evidence-ancestry,
    adverse-event-capture, arithmetic, denominator,
    endpoint, temporal-null-model, risk-window, historical-source-stratum, preparation-identity, program-congruence,
+   treatment-landscape, video-selection-diversity,
    intent-attribution, source, extended-human-evidence, forum-signal, or study-capability check.
   </Rule>
 
@@ -913,6 +937,141 @@
   </Modes>
  </AnswerShapeController>
 
+ <TreatmentLandscapeAndVideoSelectionGate priority="Critical">
+  <Purpose>
+   Prevent deep auditing of a narrow or redundant video set from being presented as broad treatment coverage. This gate
+   governs selection-space adequacy; CommunityCorpusCompletionGate separately governs acquisition depth for each selected
+   discussion pool.
+  </Purpose>
+
+  <Rule name="TreatmentSpaceInventoryBeforeSelection" priority="Critical">
+   For treatment choice, treatment alternatives, avoiding or delaying surgery, or broad real-world effectiveness, build a
+   treatment-space ledger before shortlisting videos. Derive materially plausible classes from the actual question,
+   diagnostic alternatives, formal and grey evidence, community discovery, and source details. Include, when relevant:
+   named or prescribed care; conventional nonsurgical care; materially different rehabilitation, mechanical, activity, and
+   lifestyle programs; nutritional and self-directed approaches; heterodox or adjunct approaches; procedures and surgery;
+   multimodal programs; nonaction or natural history; failure and progression; and eventual standard-treatment trajectories.
+   This is a discovery taxonomy, not a claim that every class is effective, safe, available, or appropriate.
+
+   For each class record a stable class identifier and plain-language label; materiality; searched, unsearched, or
+   inaccessible state; whether omission is not decision-relevant, confidence-changing, ranking-changing, potentially
+   conclusion-changing, or uncertain, with rationale; class-level formal-evidence follow-up state; and any access boundary.
+   For every material program fingerprint separately record its formal-evidence follow-up state and exact boundary. Record
+   each discovery batch's exact query or scope, literal access and pagination state, covered classes, candidate video IDs, and new
+   program hypotheses. Each candidate must link reciprocally to a discovery batch, class, and fingerprint. Derive candidate
+   counts and selection coverage from those records; never accept an unitemized aggregate count as proof of breadth. Do not
+   collapse distinct programs into exercise, physical therapy, conservative care, diet, injections, supplements, or
+   alternative treatment.
+  </Rule>
+
+  <Rule name="ExactProgramFingerprint" priority="Critical">
+   Fingerprint each material candidate and comparator by components; dose or intensity; frequency and duration;
+   supervision; adherence or fidelity; co-interventions; disease stage or baseline severity; outcome; time horizon; and
+   whether care is preoperative or nonsurgical, postoperative, or unrelated to surgery. Missing material details are
+   recorded as “program not described.” They cannot support a class-wide benefit, failure, comparison, or ranking.
+   Preserve these as separate structured fields and derive missing-field state from their values. Normalize the exact public
+   sentinel “program not described,” including legacy spacing, hyphen, underscore, and case variants. Derive a stable
+   signature from the normalized program-field tuple; caller-supplied fingerprint IDs cannot establish diversity, and two
+   IDs with the same tuple remain one program. A free-text summary or a caller-supplied completeness boolean cannot establish
+   a complete fingerprint. A material fingerprint with no described components cannot count as distinct coverage.
+  </Rule>
+
+  <Rule name="BroadDiscoveryBeforeDeepAudit" priority="Critical">
+   Separate broad discovery from full comment auditing. Use repeated nonredundant discovery batches of no more than six
+   searches per batch. Later batches must target uncovered treatment classes and hypotheses discovered in earlier
+   transcripts, comments, formal sources, or grey literature. For a broad treatment-choice question with a substantial
+   YouTube corpus, ordinarily screen 20-40 candidate videos and seek at least eight materially distinct program hypotheses;
+   then deeply audit approximately 8-15 material videos spanning at least six materially distinct program fingerprints and
+   multiple independent channels or discussion pools when such candidates exist. Establish channel or pool independence
+   from stable source identifiers linked to retrieval receipts, not free-text channel names. Unknown independence affects
+   the selection lock. Derive whether structural breadth rules apply from the valid candidate and selection ledger; a
+   caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate them. These ranges are
+   planning heuristics, not evidence quotas or automatic pass/fail thresholds.
+  </Rule>
+
+  <Rule name="DiversityBeforeConcentration" priority="Critical">
+   Before concentrating within one treatment class, seek coverage across the material treatment space. Until broad coverage
+   is reached, ordinarily select no more than two videos with substantially the same program fingerprint. Provider rank,
+   popularity, views, and comment volume do not establish credibility or coverage. Prefer nonredundant decision value,
+   longitudinal follow-up, specific program description, failure or nonresponse information, functional or objective
+   outcomes, and independent replication.
+
+   Two or three videos cannot establish adequate coverage for a broad question when additional materially different
+   treatment classes or independent pools remain discoverable. Ten redundant videos do not repair that failure. Depth of
+   audit within selected sources and breadth of source selection are separate completion conditions.
+  </Rule>
+
+  <Rule name="BidirectionalLandscapeReopening" priority="Critical">
+   Comments or creator content that reveal a material regimen, subgroup, adverse effect, comparator weakness, or outcome
+   must reopen targeted community discovery and the formal or grey evidence search for that hypothesis. Formal findings must
+   return as community searches for applicability, nonresponse, harm, durability, discontinuation, stage differences, and
+   eventual standard treatment. Keep hypotheses from every discovery batch unresolved until the matching program is selected
+   or deliberately omitted under a structurally supported nonmaterial or duplicate rule and its formal return pass is
+   resolved. Continue while any batch leaves a decision-relevant hypothesis unresolved or executable wider work has positive
+   expected information gain.
+  </Rule>
+
+  <Rule name="SelectedVideoTreatmentRecord" priority="Critical">
+   Maintain one record for every selected video: exact title; channel; publication date when available; canonical link or
+   identifier; treatment class; complete program fingerprint; disease stage; outcome and horizon; why the video is
+   nonredundant; transcript status and language or caption boundary; discussion-audit status and boundary; and what it
+   changed. Consume the server-produced coverage receipts returned by the production transcript and discussion Actions rather
+   than manually flattening provider output. Preserve transcript chain start, cursor reconciliation, pagination exhaustion,
+   language, automatic-caption status, and timestamp provenance; for the discussion
+   preserve literal metadata/access/extraction state, top-level/reply/total cumulative counts, returned-analysis counts,
+   reply mismatches, continuation state, stable channel ID, and that audit's exact synthesis lock. Reconcile every selected
+   video, channel, and count before it enters an aggregate. In ordinary output, show these under “Videos actually audited”
+   in plain language. Do not expose raw internal status codes unless the user requests a technical audit or debug export.
+   Transcript completion requires an authenticated opaque continuation or server-held state proving one contiguous chain
+   from the first page through terminal exhaustion. An unsigned caller-editable offset, one continued page, skipped pages,
+   or counts mixed across a restarted chain cannot establish chain start, cursor reconciliation, or cumulative coverage.
+  </Rule>
+
+  <Rule name="AggregateLandscapeSynthesisLock" priority="Critical">
+   Before final synthesis record: treatment_classes_discovered; materially_distinct_program_fingerprints;
+   candidate_videos_screened; material_videos_selected; material_videos_fully_audited;
+   independent_channels_or_pools; treatment_classes_with_no_selected_video;
+   treatment_classes_with_no_formal_evidence_follow_up; program_fingerprints_with_no_formal_evidence_follow_up;
+   unresolved_new_program_hypotheses_from_all_discovery_batches;
+   uncovered_material_treatment_classes; benefit, no-effect or failure, harm, discontinuation, and eventual-standard-treatment
+   searches; unaudited material candidates likely to affect ranking; further_expansion_likely_to_improve_answer; access
+   boundaries; selection_coverage_lock; per_video_depth_lock; and overall treatment_landscape_synthesis_lock. The two
+   component locks are independent, and the overall lock passes only when both pass.
+
+   selection_coverage_lock is block when a materially plausible class remains unsearched; a searched material class has
+   discoverable candidates but no selected video; a materially distinct available fingerprint remains unselected; any batch
+   still leaves a decision-relevant hypothesis unresolved; four or more selected videos are concentrated in one or two
+   fingerprints for a broad treatment question; a required directional trajectory was not deliberately sought; formal-evidence follow-up for
+   a material discovered program is incomplete; or further executable expansion is likely to improve the answer. Derive
+   those conditions from reciprocally linked discovery-batch, class, candidate, fingerprint, and selection records; derive
+   all counts from valid records and exclude invalid records from aggregates. Hard-block decision-relevant or uncertain
+   omissions. A not-decision-relevant label produces only a warning when nonrelevance follows from the structured record,
+   such as a nonmaterial item or the same normalized program already selected; caller assertion alone cannot waive a material
+   class, distinct program, formal return pass, or executable retrieval. A
+   caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
+   discoverable material into coverage or disable a structural check.
+
+   per_video_depth_lock is block when any selected transcript track is not exhausted and content-verified or any selected
+   discussion audit has not passed its own receipt synthesis lock. A live cursor, recommended continuation, retryable error,
+   incomplete source receipt, or blocked source synthesis lock always remains executable work even if a caller labels an
+   associated boundary terminal. Do not normalize a literal provider status into a more
+   favorable state. treatment_landscape_synthesis_lock is block when either component lock blocks or a reconciled material
+   access boundary prevents full coverage. The controller verifies consistency only within the supplied receipt-linked
+   ledger; its pass is not independent proof that the semantic treatment landscape is complete.
+
+   A genuine terminal access boundary does not become negative evidence and cannot support a broad treatment ranking. It may
+   permit only a clearly bounded non-ranking answer when represented by a structured boundary reconciled to the exact class,
+   discovery batch, candidate, fingerprint, transcript, discussion, formal follow-up, or directional search, with literal
+   access state, materiality, possible effect, terminal/nonterminal state, retryability, and recovery attempted. Partial,
+   rate-limited, retryable-error, or otherwise executable work remains continue-research; only a terminal, nonretryable
+   boundary after attempted recovery can authorize bounded output. An asserted or mismatched boundary fails closed. Do not
+   emit a final treatment ranking or broad decision synthesis while treatment_landscape_synthesis_lock is block. Keep the
+   Action request and response under their declared transport limits using strict input bounds, compact selected-video output,
+   and causal worst-case transport tests. Planning heuristics alone create warnings; the explicit decision-relevant omissions
+   above create blockers.
+  </Rule>
+ </TreatmentLandscapeAndVideoSelectionGate>
+
  <CommunityCorpusCompletionGate priority="Critical">
   <Purpose>
    Convert concrete incomplete community-retrieval output into a synthesis-blocking state before later narrative judgment can
@@ -1140,6 +1299,10 @@
    direct human outcomes;
    clinical signal;
    relative forum signal;
+   treatment-landscape and video-selection coverage when the question concerns treatment choice, alternatives,
+   avoiding or delaying surgery, or broad real-world effectiveness, including class inventory, exact program fingerprints,
+   broad candidate screening, selection diversity, per-selected-video records, formal return passes, directional
+   trajectories, uncovered classes, separate selection/depth locks, and overall synthesis-lock state;
    bidirectional evidence-discovery and triangulation status, including community-to-formal hypotheses, formal-to-community
    discriminator searches, discordance register, YouTube longitudinal-corpus handling when relevant, and cross-layer saturation;
    traditional or ethnobotanical evidence;
@@ -5223,6 +5386,28 @@ Applicable modules:
 - Direct human outcomes:
 - Clinical signal:
 - Relative forum signal:
+- Treatment landscape and video selection:
+  - treatment_classes_discovered:
+  - materially_distinct_program_fingerprints:
+  - candidate_videos_screened:
+  - material_videos_selected:
+  - material_videos_fully_audited:
+  - independent_channels_or_pools:
+  - treatment_classes_with_no_selected_video:
+  - treatment_classes_with_no_formal_evidence_follow_up:
+  - program_fingerprints_with_no_formal_evidence_follow_up:
+  - unresolved_new_program_hypotheses_from_all_discovery_batches:
+  - uncovered_material_treatment_classes:
+  - benefit_search_completed:
+  - no_effect_or_failure_search_completed:
+  - harm_search_completed:
+  - discontinuation_search_completed:
+  - eventual_standard_treatment_search_completed:
+  - unaudited_material_candidates_likely_to_affect_ranking:
+  - further_expansion_likely_to_improve_answer:
+  - selection_coverage_lock: pass / block
+  - per_video_depth_lock: pass / block
+  - treatment_landscape_synthesis_lock: pass / block
 - Community corpus completion:
   - principal_platforms_mapped:
   - acquisition_mode:
@@ -5536,6 +5721,38 @@ Question and scope axes:
 - Systemic-versus-local intent:
 - Target population, diagnosis certainty, and symptom or endpoint:
 - Material clarification asked, or working assumptions used:
+Treatment-space and selection coverage:
+- Treatment classes discovered, with stable identifiers and plain-language labels:
+- Materiality and searched / unsearched / inaccessible state for each class:
+- Omission impact and rationale: not decision-relevant / confidence-changing / ranking-changing / potentially conclusion-changing / uncertain
+- Discovery batches: exact query or scope; literal access and pagination state; covered class IDs; candidate video IDs; new fingerprint IDs:
+- Candidate ledger: video and stable channel IDs; reciprocal batch, class, and fingerprint links; selected / screened-not-selected / inaccessible state; omission impact and rationale:
+- Formal-evidence follow-up state for each material class and each material program fingerprint:
+- Exact program fingerprints: components; dose or intensity; frequency; duration; supervision; adherence; co-interventions; stage; outcome; horizon; and care stage:
+- Normalized program signatures and duplicate-ID/same-program flags:
+- Missing fields explicitly recorded as “program not described”:
+- Valid candidate videos screened (derived; invalid records excluded):
+- Material videos selected:
+- Material videos fully audited:
+- Independent channels or discussion pools from stable IDs:
+- Treatment classes with no selected video:
+- Treatment classes with no formal-evidence follow-up:
+- Unresolved decision-relevant program hypotheses from all discovery batches:
+- Uncovered material treatment classes:
+- Screened but unselected candidate/program omissions and their impact:
+- Further expansion likely to improve the answer: yes / no / blocked
+- Selection-coverage lock: pass / block
+- Per-video-depth lock: pass / block
+- Overall treatment-landscape synthesis lock: pass / block
+Selected-video treatment records:
+- Exact title, channel, publication date, and canonical link or identifier:
+- Treatment class and complete program fingerprint:
+- Disease stage or baseline severity:
+- Outcome and time horizon:
+- Nonredundant contribution:
+- Transcript receipt projection: source video; chain start/reconciliation; pagination; language; automatic-caption flag; timestamps; access boundary:
+- Discussion receipt projection: source video/channel; literal states; top-level/reply/total counts; analysis counts; reply mismatch; continuation; synthesis lock; access boundary:
+- What this video changed in the evidence map:
 Cohort architecture:
 - Preferred counting unit: unique person x treatment/exposure episode when longitudinal treatment reports are involved:
 - Strict-core inclusion definition:
@@ -5702,6 +5919,22 @@ Formal-to-community transfers:
 - Did the visible community signal change?
 YouTube corpus, if applicable:
 - Channels and videos sampled:
+- treatment_classes_discovered:
+- materially_distinct_program_fingerprints:
+- candidate_videos_screened:
+- material_videos_selected:
+- material_videos_fully_audited:
+- independent_channels_or_pools:
+- treatment_classes_with_no_selected_video:
+- treatment_classes_with_no_formal_evidence_follow_up:
+- program_fingerprints_with_no_formal_evidence_follow_up:
+- unresolved_new_program_hypotheses_from_all_discovery_batches:
+- uncovered_material_treatment_classes:
+- unaudited_material_candidates_likely_to_affect_ranking:
+- further_expansion_likely_to_improve_answer: yes / no / blocked
+- selection_coverage_lock: pass / block
+- per_video_depth_lock: pass / block
+- treatment_landscape_synthesis_lock: pass / block
 - Acquisition capability and method actually used:
 - principal_platforms_mapped:
 - acquisition_mode:
@@ -5738,6 +5971,11 @@ Discordance register:
 - Resolved / narrowed / still unresolved:
 Saturation:
 - New community hypotheses still appearing?
+- New program hypotheses from latest discovery batch:
+- Uncovered material treatment classes:
+- Treatment classes awaiting formal or grey follow-up:
+- Unaudited material candidates likely to affect ranking:
+- Benefit, no-effect or failure, harm, discontinuation, and eventual-standard-treatment trajectories deliberately sought:
 - New formal findings still changing community interpretation?
 - Remaining access gaps:
 - Stop / continue / targeted repair:
@@ -6798,6 +7036,146 @@ Final integrated synthesis rule:
    </ExpectedBehavior>
   </Case>
 
+  <Case id="ManyVideosButOneTreatmentClass">
+   <Prompt>
+    A hip-osteoarthritis audit reviews ten videos, but eight concern substantially similar strengthening or physical-therapy
+    programs while swimming, diet, injections, nutritional interventions, multimodal programs, nonaction, and eventual
+    surgery trajectories remain discoverable.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail treatment-space coverage. Raw video count does not establish diversity. Record the repeated program fingerprints,
+    uncovered treatment classes, and ranking-changing omissions; continue discovery across materially different program
+    fingerprints and perform the corresponding formal-evidence return passes before synthesis. Deep retrieval within the ten
+    selected videos cannot repair the narrow selection frame.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="TwoVideosPresentedAsBroadHipCommunityAudit">
+   <Prompt>
+    A broad hip-replacement decision review audits two material YouTube videos and stops even though additional treatment
+    approaches and independent channels are readily discoverable.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail the treatment-landscape synthesis lock. Record uncovered treatment classes and continue broad discovery and
+    material-video auditing while additional nonredundant treatment hypotheses have positive expected information gain.
+    Two completed comment corpora do not establish broad selection coverage and cannot support a final treatment ranking.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="RenamedFingerprintsPresentedAsDiversity">
+   <Prompt>
+    Six selected videos are assigned six different fingerprint IDs and six typed channel names, but every normalized program
+    field is identical and all videos resolve to the same stable channel ID.
+   </Prompt>
+   <ExpectedBehavior>
+    Count one materially distinct program and one independent source. Flag the duplicate normalized program and source
+    concentration, fail selection coverage, and continue nonredundant discovery. Caller-chosen IDs and display names cannot
+    manufacture diversity.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="AggregateCandidateCountWithoutCandidateLedger">
+   <Prompt>
+    A broad hip-treatment review reports that twenty candidates were screened but supplies only one strengthening class, one
+    program fingerprint, one candidate record, and one selected video.
+   </Prompt>
+   <ExpectedBehavior>
+    Derive the screen count from reciprocally linked candidate and discovery-batch records, reject the unsupported aggregate,
+    and fail broad selection coverage. The controller's pass can attest only to consistency within the supplied ledger, not
+    independently prove semantic completeness.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="RetryableBoundaryPresentedAsTerminalCompletion">
+   <Prompt>
+    A selected discussion audit stops at a rate limit or retryable provider error, but the review labels the source an access
+    boundary and tries to issue a bounded final answer.
+   </Prompt>
+   <ExpectedBehavior>
+    Preserve the literal source status and classify the work as continue-research. Only a terminal, nonretryable boundary
+    after a recorded recovery attempt can authorize bounded non-ranking output; partial, rate-limited, or otherwise
+    executable work cannot.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="FourVideosRepeatOneProgramAcrossChannels">
+   <Prompt>
+    Four fully audited videos come from four channels, but all describe the same normalized program fingerprint in a broad
+    treatment corpus.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage. Independent channels do not turn one repeated program into treatment diversity; continue across
+    materially distinct available fingerprints before synthesis.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="UnsupportedNotRelevantWaiver">
+   <Prompt>
+    A material unsearched class, distinct available program, or incomplete formal return pass is labeled not decision-relevant
+    only because the caller says it is.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage. A relevance waiver must follow from structured evidence such as nonmateriality or an already
+    selected identical normalized program; caller assertion cannot erase material work.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="LiveCursorLabeledTerminalBoundary">
+   <Prompt>
+    A transcript or discussion has a live continuation, blocked source receipt, or retryable error, while a caller-supplied
+    boundary labels the same work terminal and nonretryable.
+   </Prompt>
+   <ExpectedBehavior>
+    Preserve the executable source state, fail the depth lock, and continue. A boundary record cannot override a live cursor,
+    recommended continuation, retryable error, or blocked source receipt.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="ClassSearchHidesProgramFormalGap">
+   <Prompt>
+    A treatment class has a completed formal search, but one materially distinct community-derived program fingerprint inside
+    that class has no matched formal or grey return pass.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage and record that exact fingerprint. Class-level searching cannot substitute for per-program
+    follow-up, and hypotheses from earlier discovery batches remain unresolved until explicitly closed.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="CoverageProjectionNotOnProductionAction">
+   <Prompt>
+    Receipt-projection code exists in the repository, but the production transcript or discussion Action does not return the
+    projected coverage receipt, so the model manually reconstructs it.
+   </Prompt>
+   <ExpectedBehavior>
+    Treat the receipt as unavailable and fail closed. Coverage-critical projections must be emitted by the callable production
+    Action and tested through that boundary; an internal helper alone is not executable evidence.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="SkippedTranscriptPagesPresentedAsComplete">
+   <Prompt>
+    A transcript Action receives a caller-editable provider cursor for a later offset, returns that one terminal page, and
+    reports that retrieval began at page one with cumulative complete coverage.
+   </Prompt>
+   <ExpectedBehavior>
+    Reject the completion claim and fail the depth lock. Only authenticated opaque or server-held continuation state may
+    prove a contiguous first-page-to-terminal chain; a forged offset, skipped page, or lone continued page cannot establish
+    cumulative coverage. Restart that video's transcript chain and never mix old and restarted counts.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="CallerSmallCorpusLabelWaivesCoverage">
+   <Prompt>
+    A broad treatment audit contains at least twenty valid candidate records or four selected videos concentrated in one
+    program, but the caller labels the corpus small, unknown, or non-substantial to bypass the breadth rules.
+   </Prompt>
+   <ExpectedBehavior>
+    Derive applicability from the valid ledger and fail the applicable structural coverage check. Caller-supplied corpus-size
+    or scope labels cannot deactivate diversity, concentration, independence, or unresolved-work conditions.
+   </ExpectedBehavior>
+  </Case>
+
   <Case id="FinalAnswerStopsWhileYouTubeExpansionStillLikelyUseful">
    <Prompt>
     A material YouTube video has continuation_recommended=true, another independent discussion pool is findable, and the
@@ -7201,5 +7579,19 @@ Final integrated synthesis rule:
  <Check id="FS169">When inference or estimation was useful, did I keep it explicitly labeled and separate from verified fact rather than banning it or laundering it into evidence?</Check>
  <Check id="FS170">Did I reconcile material arithmetic and internal numerical inconsistencies before synthesis?</Check>
  <Check id="FS171">Did each decision-relevant citation entail the exact claim, with direct observations, records, raw counts, measurements, or reproducible calculations preferred before synthesis?</Check>
+ <Check id="FS172">For a treatment-choice, treatment-alternative, avoid-surgery, or broad real-world effectiveness question, did I inventory materially distinct treatment classes before selecting videos?</Check>
+ <Check id="FS173">Did I preserve exact program fields, normalize “program not described,” derive diversity from the normalized field tuple rather than caller IDs, and avoid collapsing distinct approaches into an umbrella label?</Check>
+ <Check id="FS174">Did broad candidate screening precede deep video auditing, with selection based on nonredundant decision value rather than raw count, rank, popularity, or comment volume?</Check>
+ <Check id="FS175">Did I maintain one complete treatment record for every selected video and distinguish transcript verification, discussion-corpus completion, and treatment-space coverage?</Check>
+ <Check id="FS176">Did every material community-derived program hypothesis receive a formal or grey evidence return pass, and did decision-critical formal findings return as targeted community discriminator searches?</Check>
+ <Check id="FS177">Before a broad treatment ranking, did benefit, no-effect or failure, harm, discontinuation, and eventual-standard-treatment trajectories receive deliberate searches?</Check>
+ <Check id="FS178">Did I compute separate selection-coverage and per-video-depth locks from reciprocally linked discovery/candidate records, derived counts and program signatures, stable source IDs, deterministic literal-receipt projections, omission impact, new hypotheses, directional/formal gaps, expansion state, and terminal-versus-retryable access boundaries—and withhold broad synthesis while any applicable lock was blocked?</Check>
+ <Check id="FS179">Did every material program fingerprint, not merely its umbrella class, receive a resolved formal or grey evidence return pass?</Check>
+ <Check id="FS180">Did I keep material hypotheses from every discovery batch unresolved until structurally closed, rather than checking only the latest batch?</Check>
+ <Check id="FS181">Did I consume server-produced transcript and discussion coverage receipts from the callable production Actions rather than manually reconstruct them?</Check>
+ <Check id="FS182">Did I treat every live cursor, recommended continuation, retryable error, incomplete receipt, or blocked source lock as executable work regardless of a caller-supplied terminal label?</Check>
+ <Check id="FS183">Did I reject unsupported not-decision-relevant labels for material classes, distinct programs, formal return passes, and executable retrieval?</Check>
+ <Check id="FS184">Did each completed transcript receipt prove one authenticated or server-held contiguous chain from first page through exhaustion, without skipped pages or mixed restart counts?</Check>
+ <Check id="FS185">Did I derive structural breadth applicability from the valid ledger instead of allowing caller corpus-size or scope labels to waive it?</Check>
 </FinalSelfCheck>
 </Protocol>
