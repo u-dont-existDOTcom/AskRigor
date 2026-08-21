@@ -55,6 +55,10 @@ function packet(): GeminiYoutubeCandidatePacket {
 }
 
 function response(value: GeminiYoutubeCandidatePacket = packet()): string {
+  return JSON.stringify(value, null, 2);
+}
+
+function legacyFramedResponse(value: GeminiYoutubeCandidatePacket = packet()): string {
   return [
     "Scout contract: youtube-candidate-handoff-v1",
     "",
@@ -111,12 +115,21 @@ function videoEnvelope(
 }
 
 describe("Gemini YouTube candidate handoff", () => {
-  it("parses only the exact framed strict packet", () => {
-    const parsed = parseGeminiYoutubeCandidateHandoff(response().replace(/\n/gu, "\r\n"));
+  it("parses the canonical raw strict packet", () => {
+    const parsed = parseGeminiYoutubeCandidateHandoff(`\n${response()}\n`);
 
     expect(parsed.packet_name).toBe("gemini_youtube_candidate_handoff");
     expect(parsed.candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS);
     expect(parsed.discovery_queries.map(({ purpose }) => purpose)).toContain("radical_outcome");
+  });
+
+  it("retains exact framed-packet compatibility", () => {
+    const parsed = parseGeminiYoutubeCandidateHandoff(
+      legacyFramedResponse().replace(/\n/gu, "\r\n")
+    );
+
+    expect(parsed.packet_version).toBe("1.0");
+    expect(parsed.suggested_seed_video_ids).toEqual([VIDEO_IDS[0], VIDEO_IDS[1]]);
   });
 
   it("rejects extra prose, malformed JSON, unexpected fields, and bad canonical links", () => {
@@ -126,7 +139,7 @@ describe("Gemini YouTube candidate handoff", () => {
 
     for (const [input, code] of [
       [`preface\n${response()}`, "invalid_framing"],
-      [`${response()}\ntrailing prose`, "invalid_framing"],
+      [`${response()}\ntrailing prose`, "invalid_json"],
       [response().replace('"packet_name"', '"packet_name" broken'), "invalid_json"],
       [response(extraField as GeminiYoutubeCandidatePacket), "invalid_packet"],
       [response(badLink), "invalid_packet"]

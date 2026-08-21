@@ -8,16 +8,10 @@ description: "Finds a small, high-recall set of public YouTube candidates for a 
 Find useful public YouTube candidates. AskRigor will independently validate the
 packet and decide what merits protocol-governed research.
 
-Begin every response with these exact first two non-empty lines, including the
-blank line between them:
-
-`Scout contract: youtube-candidate-handoff-v1`
-
-`Mode: candidate_discovery`
-
-Then emit the exact heading `## AskRigor candidate handoff`, followed by one
-fenced `json` block. Emit nothing before the contract line or after the closing
-fence.
+Return one raw JSON object. Its first non-whitespace character is `{` and its
+last is `}`. Emit no heading, diagnostic line, Markdown fence, or trailing
+prose. The strict `packet_name` and `packet_version` fields identify the
+contract.
 
 ## Boundary
 
@@ -94,42 +88,16 @@ gap, not evidence that no such video exists.
 
 ## Output contract
 
-The fenced block must be one strict JSON object with exactly these keys:
+Return one strict JSON object with exactly these top-level keys, in this order:
+`packet_name`, `packet_version`, `research_target`, `diagnosis_status`,
+`discovery_queries`, `candidates`, `suggested_seed_video_ids`, `search_gaps`,
+and `disclosures`.
 
-```json
-{
-  "packet_name": "gemini_youtube_candidate_handoff",
-  "packet_version": "1.0",
-  "research_target": "the user's de-identified research question",
-  "diagnosis_status": "diagnosis_not_specified",
-  "discovery_queries": [
-    {
-      "purpose": "firsthand_outcome",
-      "query": "an exact query actually executed"
-    }
-  ],
-  "candidates": [
-    {
-      "video_id": "ELEVENCHARS",
-      "canonical_url": "https://www.youtube.com/watch?v=ELEVENCHARS",
-      "title": "exact displayed title",
-      "channel": "exact displayed channel",
-      "target_distance": "exact",
-      "provisional_intervention_family": "local_mechanical",
-      "creator_claim_summary": "The creator reports a specific outcome or implementation detail.",
-      "why_surfaced": "May expose firsthand pacing vocabulary for later verification."
-    }
-  ],
-  "suggested_seed_video_ids": ["ELEVENCHARS"],
-  "search_gaps": [],
-  "disclosures": [
-    "comments_not_retrieved",
-    "provider_metadata_not_validated_by_gemini",
-    "creator_claims_not_validated",
-    "not_medical_advice"
-  ]
-}
-```
+Set `packet_name` to `gemini_youtube_candidate_handoff` and `packet_version` to
+`1.0`. Each discovery-query object has only `purpose` and `query`. Each
+candidate object has only `video_id`, `canonical_url`, `title`, `channel`,
+`target_distance`, `provisional_intervention_family`, `creator_claim_summary`,
+and `why_surfaced`.
 
 `diagnosis_status` is `diagnosis_not_specified` or
 `user_supplied_diagnosis`.
@@ -146,17 +114,17 @@ Every `provisional_intervention_family` is one of
 `regenerative_or_biologic`, `conventional_injection`,
 `conventional_surgery`, or `other`.
 
-The displayed object is a shape example, not a valid minimum-size packet.
-Replace all placeholders. Return 6 to 12 unique query objects, 3 to 12 unique
-candidate objects, and 1 to 4 unique suggested IDs drawn from those candidates.
-Keep the complete response below 32 KiB.
-Keep the four disclosures exactly as shown and in that order. Add no keys,
-Markdown links, comments, ellipses, trailing commas, prose, tables, embeds,
-cards, thumbnails, or standalone YouTube URLs.
+Return 6 to 12 unique query objects, 3 to 12 unique candidate objects, and 1 to
+4 unique suggested IDs drawn from those candidates. Keep the complete response
+below 32 KiB. Set `disclosures` to exactly these four strings in this order:
+`comments_not_retrieved`, `provider_metadata_not_validated_by_gemini`,
+`creator_claims_not_validated`, and `not_medical_advice`. Add no keys, Markdown,
+comments, ellipses, trailing commas, prose, tables, embeds, cards, thumbnails,
+or standalone YouTube URLs.
 
 ## Final check
 
-Before responding, check that the framing is exact, the block parses as JSON,
+Before responding, check that the response is raw parseable JSON,
 all five search purposes occur, IDs and queries are unique, every URL is derived
 from its ID, every suggested ID exists among the candidates, all required
 disclosures are exact, and no forbidden metadata or comment claim appears.

@@ -17,7 +17,7 @@ describe("Gemini Spark AskRigor candidate scout", () => {
 
     expect(Buffer.byteLength(skill, "utf8")).toBeLessThanOrEqual(8_000);
     expect(longestLine).toBeLessThanOrEqual(500);
-    expect(sha256).toBe("a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd");
+    expect(sha256).toBe("1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b");
   });
 
   it("keeps Gemini in a candidate-only role", async () => {
@@ -63,15 +63,17 @@ describe("Gemini Spark AskRigor candidate scout", () => {
   it("emits the exact strict handoff shape and fixed disclosures", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: youtube-candidate-handoff-v1");
-    expect(skill).toContain("Mode: candidate_discovery");
-    expect(skill).toContain("## AskRigor candidate handoff");
+    expect(skill).toContain("Return one raw JSON object");
+    expect(skill).toContain("Emit no heading, diagnostic line, Markdown fence");
+    expect(skill).not.toContain("Scout contract:");
+    expect(skill).not.toContain("Mode: candidate_discovery");
+    expect(skill).not.toContain("```json");
     expect(skill).toContain("one strict JSON object");
-    expect(skill).toContain('"packet_name": "gemini_youtube_candidate_handoff"');
-    expect(skill).toContain('"packet_version": "1.0"');
-    expect(skill).toContain('"canonical_url": "https://www.youtube.com/watch?v=ELEVENCHARS"');
-    expect(skill).toContain('"provider_metadata_not_validated_by_gemini"');
-    expect(skill).toContain('"creator_claims_not_validated"');
+    expect(skill).toContain("Set `packet_name` to `gemini_youtube_candidate_handoff`");
+    expect(skill).toContain("`packet_version` to\n`1.0`");
+    expect(skill).toContain("https://www.youtube.com/watch?v=VIDEO_ID");
+    expect(skill).toContain("`provider_metadata_not_validated_by_gemini`");
+    expect(skill).toContain("`creator_claims_not_validated`");
     expect(skill).toContain("Add no keys");
     expect(skill).toContain("all five search purposes occur");
     expect(skill).toContain("every suggested ID exists among the candidates");
@@ -86,11 +88,13 @@ describe("Gemini Spark AskRigor candidate scout", () => {
     expect(setup).toContain("old `staged-remedy-scan-v16` contract is retired");
     expect(setup).toContain("there is no iterative owner-operated probe");
     expect(setup).toContain("npm run validate:gemini-handoff -- path/to/spark-response.md");
+    expect(setup).toContain("one raw JSON");
+    expect(setup).toContain("legacy framed packets");
     expect(setup).toContain("validateGeminiYoutubeCandidateHandoff");
     expect(setup).toContain("not a new public MCP or Action operation");
     expect(setup).toContain("17 expected");
     expect(setup).toContain("does not prove that comment");
     expect(setup).toContain("Do not ask the owner to diagnose or patch the skill");
-    expect(setup).toContain("a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd");
+    expect(setup).toContain("1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b");
   });
 });

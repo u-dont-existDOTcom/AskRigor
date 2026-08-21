@@ -1470,21 +1470,32 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   complete deterministic gate passed typecheck, 58 test files with one declared
   skip, 971 tests with five declared skips, and build.
 - The separate candidate-only redesign is now implemented locally. The exact
-  `youtube-candidate-handoff-v1` skill is 7,249 bytes with SHA-256
-  `a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd`.
-  It emits only one strict JSON packet with bounded executed queries, unique
+  `youtube-candidate-handoff-v1` skill is 6,577 bytes with SHA-256
+  `1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b`.
+  It emits only one raw strict JSON packet with bounded executed queries, unique
   candidate IDs, provisional creator annotations, suggested seeds, gaps, and
   fixed disclosures. `@askrigor/sources` now parses that packet at a 32 KiB
   ceiling, validates every identity through the existing YouTube adapter, and
   returns exact rejection and mechanical seed-eligibility receipts. The local
   CLI is `npm run validate:gemini-handoff -- <response-file|->`. This adds no
   public MCP/Action tool and does not validate creator claims or semantic
-  materiality. Skill validation passed; focused tests passed 15/15; the host-
+  materiality. Skill validation passed; focused tests passed 16/16; the host-
   boundary complete gate passed typecheck, 59 test files with one declared
-  skip, 978 tests with five declared skips, and build. No local YouTube key was
-  available for a new live call, so the existing independent v16 receipts remain
-  the live metadata evidence. External Spark upload and a fresh candidate-only
-  packet remain separate acceptance receipts.
+  skip, 979 tests with five declared skips, and build. No local YouTube key was
+  available for a new CLI live call, but the first owner-supplied candidate-only
+  packet has now passed its strict schema and independent AskRigor metadata
+  validation. All 7 candidates were public and `api_visible_complete` with
+  exact ID, canonical URL, title, and channel matches. Its 3 suggested seeds
+  used distinct provider channels and had provider-reported comment counts 343,
+  545, and 32, yielding `accepted` mechanical validation. Spark returned raw
+  JSON rather than the redundant outer marker/fence, so raw strict JSON is now
+  canonical and exact old framing remains backward compatible. No rerun is
+  needed. This did not inspect comments or validate provisional semantic labels,
+  creator claims, efficacy, safety, causality, or medical conclusions.
+- The required lesson checkpoint at `2026-08-21T04:01:24.073Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  acceptance repair.
 - The required lesson closeout at `2026-08-21T03:26:23.139Z` was available with
   1 open candidate, 1 needs review, 0 accepted not incorporated, 2 incorporated
   or closed, and 0 deletion eligible. No lesson expanded the compact redesign.
@@ -1663,14 +1674,15 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Do not resume iterative manual upload probes or ask the owner for a v17 rerun.
-V15 passed upload compatibility; v15 and v16 both failed behavior. The compact
-candidate-only replacement and deterministic AskRigor validator now exist. If
-this optional lane continues, install the one complete pinned replacement once,
-save its complete response unchanged, and run the validator. Use its exact issue
-paths rather than asking the owner to diagnose or patch the skill. Do not treat
-mechanical acceptance as claim validation, semantic seed selection, Forum
-Signal completion, or an evidence verdict.
+Do not resume iterative manual upload probes or ask the owner for another rerun.
+The compact candidate-only replacement has now passed its first forward run and
+independent metadata validation. For later runs, save the raw JSON unchanged and
+run the deterministic validator; use its exact issue paths rather than asking
+the owner to diagnose or patch the skill. If this accepted packet proceeds into
+research, the next step is protocol-governed AskRigor semantic seed selection
+and any required comment audit. Do not treat mechanical acceptance as claim
+validation, semantic seed selection, Forum Signal completion, or an evidence
+verdict.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision

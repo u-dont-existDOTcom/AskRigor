@@ -34,7 +34,7 @@ disable `scout-youtube-for-askrigor-staged` and any older AskRigor YouTube scout
 copy so only the candidate-only replacement can trigger.
 
 The exact repository file has SHA-256
-`a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd`. The
+`1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b`. The
 old `staged-remedy-scan-v16` contract is retired. Do not repair, merge, or run it
 again; its forward test found useful videos but failed its own counts, joins,
 classification, evidence-map, and metadata contracts.
@@ -42,14 +42,10 @@ classification, evidence-map, and metadata contracts.
 ## Run a scout task
 
 Give Spark only the de-identified research question and select
-`/scout-youtube-candidates-for-askrigor`. The response must begin exactly with:
-
-`Scout contract: youtube-candidate-handoff-v1`
-
-`Mode: candidate_discovery`
-
-The remainder must be one `## AskRigor candidate handoff` heading and one JSON
-block. It contains executed discovery queries, 3–12 candidate IDs with
+`/scout-youtube-candidates-for-askrigor`. The response must be one raw JSON
+object identified by `packet_name: gemini_youtube_candidate_handoff` and
+`packet_version: 1.0`, with no diagnostic lines, Markdown fence, heading, or
+trailing prose. It contains executed discovery queries, 3–12 candidate IDs with
 provisional creator-claim annotations, 1–4 suggested seed IDs, observed search
 gaps, and fixed disclosures. It contains no AskRigor access status, provider
 statistics, comment findings, evidence verdict, rabbit-hole map, or return-
@@ -69,9 +65,10 @@ candidate. With `YOUTUBE_API_KEY` already present in the environment, run:
 Use `-` instead of a path to read standard input. Do not place the API key in
 the command or the packet. The command:
 
-1. requires the exact marker, mode, heading, single JSON fence, field bounds,
-   closed enums, unique IDs and queries, canonical links, all five query
-   purposes, 32 KiB response ceiling, seed-subset rule, and disclosures;
+1. requires one strict raw JSON object, field bounds, closed enums, unique IDs
+   and queries, canonical links, all five query purposes, the 32 KiB response
+   ceiling, seed-subset rule, and disclosures; exact legacy framed packets are
+   accepted only for backward compatibility;
 2. calls the existing AskRigor YouTube adapter for every candidate;
 3. compares the declared ID, canonical URL, title, and channel with provider
    metadata;
@@ -99,7 +96,7 @@ not a new public MCP or Action operation.
 
 Use the de-identified prompt `how can I fix my bad hip`. Confirm that Spark:
 
-1. emits the exact `youtube-candidate-handoff-v1` framing and strict JSON;
+1. emits one raw strict `gemini_youtube_candidate_handoff` v1.0 JSON object;
 2. preserves `diagnosis_not_specified`;
 3. records 6–12 unique executed searches spanning firsthand outcome, radical
    outcome, overlooked intervention, conventional benefit, and conventional
@@ -113,6 +110,22 @@ If Spark violates the JSON contract, keep the rejected receipt and exact issue
 paths. Do not ask the owner to diagnose or patch the skill. Repair the repository
 contract only if repeated independent runs expose the same decision-relevant
 failure.
+
+## First accepted candidate-only packet
+
+The 2026-08-21 forward run for `how can i fix my bad hip` returned the canonical
+raw JSON form. The strict packet schema accepted all 10 unique searches, all 7
+unique candidates, and all 3 suggested seeds. Independent AskRigor metadata
+receipts found every declared ID, canonical URL, exact title, and channel public
+and `api_visible_complete`.
+
+The suggested seeds `Hz3Gd51hBn0`, `LnlhK4MBaPw`, and `stZdnA9zeQE` were
+mechanically eligible, with provider-reported comment counts 343, 545, and 32
+respectively and three distinct provider channels. The result validates the
+handoff structure, source identities, and mechanical audit eligibility only.
+Gemini's target-distance labels, intervention-family labels, claim summaries,
+and seed usefulness remain provisional; no comments, transcripts, treatment
+claims, or medical conclusions were validated.
 
 ## Evidence and privacy boundary
 

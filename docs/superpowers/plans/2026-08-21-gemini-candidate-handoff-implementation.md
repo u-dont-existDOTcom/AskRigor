@@ -30,12 +30,13 @@ owner-operated bisect loop.
 - **Existing-work map:** syntax and field bounds are solved by strict Zod
   schemas; provider truth is solved by the current YouTube adapter; deterministic
   receipt conventions are solved by current survey/audit modules. The unsolved
-  remainder is the domain-specific Spark packet schema, exact response framing,
-  identity comparisons, and mechanical seed-eligibility receipt.
+  remainder is the domain-specific Spark packet schema, bounded raw response
+  parsing, identity comparisons, and mechanical seed-eligibility receipt.
 - **Disposition:** `compose`.
-- **Novel remainder:** one compact packet/receipt pair and its exact framing
-  parser. Creator claims, intervention labels, and semantic seed choice remain
-  explicitly provisional and outside deterministic validation.
+- **Novel remainder:** one compact packet/receipt pair and its strict raw JSON
+  parser, with exact legacy framing retained for compatibility. Creator claims,
+  intervention labels, and semantic seed choice remain explicitly provisional
+  and outside deterministic validation.
 - **External baseline:** current AskRigor source schemas and YouTube provider
   envelope; the public 17-tool MCP catalog remains unchanged.
 - **Research debt:** none. A server-side mailbox or bidirectional Spark API is
@@ -44,7 +45,7 @@ owner-operated bisect loop.
 ## Acceptance criteria
 
 - [x] The Spark skill is candidate-only, materially smaller than v16, and emits
-  one exact marker/mode pair plus one strict JSON packet.
+  one raw strict JSON packet identified by `packet_name` and `packet_version`.
 - [x] Gemini does not claim AskRigor metadata status, statistics, comment
   inspection, efficacy, safety, causality, or protocol completion.
 - [x] The packet contains bounded discovery queries, 3–12 unique YouTube
@@ -84,22 +85,35 @@ owner-operated bisect loop.
 
 ## Implementation and verification receipts
 
-- Replacement skill: 7,249 UTF-8 bytes, 457-character maximum line, SHA-256
-  `a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd`.
+- Replacement skill: 6,577 UTF-8 bytes, 457-character maximum line, SHA-256
+  `1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b`.
   The retired v16 artifact was 35,987 bytes.
 - The skill-creator `quick_validate.py` check passed.
-- Focused contract and validator suite: 2 files, 15 tests passed.
+- Focused contract and validator suite: 2 files, 16 tests passed.
 - The CLI negative smoke ran at the host boundary and returned the expected
   structured `invalid_framing` rejection without provider work.
 - A sandboxed complete test attempt recorded 67 listener/IPC `EPERM` failures;
   its remaining 911 tests passed with five declared skips. The required host-
   boundary `npm run verify` then passed typecheck, 59 test files with one
-  credential-gated skip, 978 tests with five skips, and build.
+  credential-gated skip, 979 tests with five skips, and build.
 - `YOUTUBE_API_KEY` was unavailable in the local shell, so no new live provider
   request was fabricated. The prior v16 evaluation already records independent
   `api_visible_complete` title matches for all 10 supplied IDs and exact
   provider metadata for its three seeds. The new validator's provider boundary
   is covered hermetically through injected literal envelopes.
+- The owner's first candidate-only forward packet exposed a redundant-framing
+  defect in the repository contract: Spark returned the complete strict object
+  without the requested marker and fence. The strict `packet_name` and
+  `packet_version` already identify it unambiguously, so raw JSON is now the
+  canonical form and the previous exact framing remains accepted only for
+  backward compatibility. No owner rerun was required.
+- That raw packet passed the strict schema with 10 unique queries, 7 unique
+  candidates, and 3 suggested seeds. Independent AskRigor metadata retrieval
+  validated all seven IDs, canonical URLs, exact titles, channels, public
+  privacy states, and `api_visible_complete` access. The three suggested seeds
+  used distinct provider channels and reported 343, 545, and 32 comments, so
+  the validation status was `accepted`. No comments or transcripts were
+  retrieved, and semantic labels and creator claims remain provisional.
 - The public MCP/Action inventory, protocols, production service, and Gemini
   account state were unchanged.
 - Lesson closeout at `2026-08-21T03:26:23.139Z` was available: 1 open
@@ -107,6 +121,9 @@ owner-operated bisect loop.
   closed, and 0 deletion eligible. No unreviewed lesson expanded this task and
   no new cross-project lesson was submitted; the reusable compose-before-invent
   control was already supplied by the current universal architecture.
+- A later required checkpoint at `2026-08-21T04:01:24.073Z` was also available
+  with the same counts: 1 open candidate, 1 needs review, 0 accepted not
+  incorporated, 2 incorporated or closed, and 0 deletion eligible.
 
 ## Owner-decision boundaries
 

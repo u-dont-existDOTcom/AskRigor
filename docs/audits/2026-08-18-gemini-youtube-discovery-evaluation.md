@@ -513,9 +513,11 @@ queries, 3–12 unique candidate IDs with explicitly provisional annotations,
 forbids AskRigor status/count claims, comment findings, protocol completion,
 efficacy, safety, causality, or treatment advice.
 
-AskRigor now owns a strict parser and independent validator. It fails before
-provider work on wrong framing, malformed JSON, unexpected fields, oversized
-responses, duplicate IDs or normalized queries, noncanonical watch links,
+AskRigor now owns a strict parser and independent validator. Raw strict JSON is
+canonical; the earlier exact marker/fence form remains accepted for backward
+compatibility. It fails before provider work on unrecognized framing, malformed
+JSON, unexpected fields, oversized responses, duplicate IDs or normalized
+queries, noncanonical watch links,
 missing search purposes, or seeds outside the packet. It then calls the existing
 YouTube adapter for every candidate and compares provider ID, canonical URL,
 title, and channel. A suggested seed is mechanically eligible only after an
@@ -524,19 +526,47 @@ a positive provider comment count, and distinctness from earlier eligible
 provider channels. That eligibility is not semantic materiality and does not
 replace AskRigor's protocol-governed selection or comment acquisition.
 
-The replacement skill is 7,249 bytes versus v16's 35,987 bytes. Its SHA-256 is
-`a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd`.
+The replacement skill is 6,577 bytes versus v16's 35,987 bytes. Its SHA-256 is
+`1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b`.
 Skill-creator validation passed. The focused skill and validator suite passed
-15/15. The host-boundary complete gate passed typecheck, 59 test files with one
-credential-gated skip, 978 tests with five skips, and build. A negative CLI
+16/16. The host-boundary complete gate passed typecheck, 59 test files with one
+credential-gated skip, 979 tests with five skips, and build. A negative CLI
 smoke returned a structured framing error as designed. No local YouTube API key
 was available for a new live call; the prior independently captured v16
 metadata receipts remain the live identity evidence and were not relabeled as a
 test of the new parser.
 
 No public MCP or Action tool, canonical protocol, production service, or Gemini
-account state changed. External Spark upload and a fresh candidate-only forward
-packet remain separate acceptance receipts. The owner should not be asked to
-debug or iterate the contract: install this one complete file once, then let the
-deterministic validator produce exact rejection reasons for any malformed or
-mismatched packet.
+account state changed.
+
+## First candidate-only forward acceptance
+
+The owner's 2026-08-21 forward run returned a raw
+`gemini_youtube_candidate_handoff` v1.0 object rather than the redundant outer
+marker and Markdown fence. The payload itself was complete and strict: 10
+unique executed queries covered all five purposes, 7 unique candidates met the
+closed schema, all 3 suggested IDs were candidates, and the four disclosures
+were exact. Requiring an additional natural-language wrapper would have created
+another needless manual correction loop, so the repository now treats raw JSON
+as canonical and retains the previous exact framing only as compatibility.
+
+Independent AskRigor metadata calls at approximately `2026-08-21T03:59Z`
+validated all seven candidates as public and `api_visible_complete`, with exact
+ID, canonical URL, title, and channel matches:
+
+- `Hz3Gd51hBn0`: 68,554 views, 2,375 likes, 343 comments;
+- `LnlhK4MBaPw`: 122,114 views, 3,936 likes, 545 comments;
+- `2LFgGibgJG0`: 105,383 views, 1,981 likes, 390 comments;
+- `stZdnA9zeQE`: 11,939 views, 99 likes, 32 comments;
+- `CD2vs-Ud6bo`: 702,983 views, 29,541 likes, 1,251 comments;
+- `WKEvbMgkg8w`: 203,803 views, 3,806 likes, 796 comments; and
+- `2Fmx-iHsKYg`: 3,177,693 views, 118,868 likes, 1,577 comments.
+
+The suggested seeds `Hz3Gd51hBn0`, `LnlhK4MBaPw`, and `stZdnA9zeQE` used
+three distinct provider channels and had positive comment counts, yielding an
+`accepted` mechanical validation result. This is the first clean behavioral
+acceptance of the candidate-only handoff. It does not validate Gemini's
+target-distance or intervention-family classifications, the attributed claim
+summaries, semantic seed usefulness, comment accessibility or contents,
+efficacy, safety, causality, or any medical conclusion. The owner should not be
+asked to rerun or repair this accepted packet.

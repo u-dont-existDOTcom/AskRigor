@@ -21,7 +21,7 @@ export const GEMINI_YOUTUBE_CANDIDATE_PACKET_NAME = "gemini_youtube_candidate_ha
 export const GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION = "1.0";
 export const MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES = 32 * 1_024;
 
-const RESPONSE_PREFIX = [
+const LEGACY_RESPONSE_PREFIX = [
   `Scout contract: ${GEMINI_YOUTUBE_CANDIDATE_CONTRACT}`,
   "",
   `Mode: ${GEMINI_YOUTUBE_CANDIDATE_MODE}`,
@@ -284,23 +284,31 @@ export function parseGeminiYoutubeCandidateHandoff(
     }]);
   }
   const normalized = response.replace(/\r\n/gu, "\n");
-  if (!normalized.startsWith(RESPONSE_PREFIX)) {
+  const trimmed = normalized.trim();
+  let jsonText: string;
+  if (trimmed.startsWith("{")) {
+    jsonText = trimmed;
+  } else if (normalized.startsWith(LEGACY_RESPONSE_PREFIX)) {
+    const block = JSON_BLOCK_PATTERN.exec(
+      normalized.slice(LEGACY_RESPONSE_PREFIX.length)
+    );
+    if (block === null) {
+      throw new GeminiYoutubeCandidateHandoffError("invalid_framing", [{
+        path: "response",
+        message: "legacy framing must contain exactly one fenced json block and no trailing prose"
+      }]);
+    }
+    jsonText = block[1]!;
+  } else {
     throw new GeminiYoutubeCandidateHandoffError("invalid_framing", [{
       path: "response",
-      message: "must begin with the exact contract, mode, and handoff heading"
-    }]);
-  }
-  const block = JSON_BLOCK_PATTERN.exec(normalized.slice(RESPONSE_PREFIX.length));
-  if (block === null) {
-    throw new GeminiYoutubeCandidateHandoffError("invalid_framing", [{
-      path: "response",
-      message: "must contain exactly one fenced json block and no trailing prose"
+      message: "must be one raw JSON object or use the exact legacy contract framing"
     }]);
   }
 
   let value: unknown;
   try {
-    value = JSON.parse(block[1]!);
+    value = JSON.parse(jsonText);
   } catch {
     throw new GeminiYoutubeCandidateHandoffError("invalid_json", [{
       path: "packet",
