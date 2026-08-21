@@ -504,7 +504,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   the site release were unchanged; exact rollback image and Compose remain
   ready.
 
-## Current checkpoint
+## Transcript/evidence-frontier implementation checkpoint
 
 - The current repair plan is
   `docs/superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`.
@@ -513,18 +513,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   generated OpenAPI SHA-256 is
   `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
   Synchronization-ledger SHA-256 is
-  `a8dffdece8bff02a596f5a462ed1debc261283366c4cadf493af7751ca61ec5a`.
+  `1ca16c082fcfed4f1c90e919aa541827fe1ca8c37e7b1de5c4968cba96ad2f3e`.
   Production still has 17 research reads plus the lesson write. The source
   candidate has 18 reads plus the write because `get_youtube_transcript` is
   Action-only; the exact checksum-locked MCP remains 17 tools. The Forum Signal matrix has 15
   required and 9 not-required cases; the option-space matrix has 9 broad-review
   and 6 narrow-review controls; the discovery/weighting matrix has eight cases,
   plus an unrelated held-out evidence-frontier fixture. The focused
-  router/skill/matrix/packet/transcript/registry suite passed 53/53. The complete
+  router/skill/matrix/packet/transcript/registry suite passed 53/53 at that
+  implementation checkpoint. The then-complete
   Node `24.18.0` gate passed typecheck, 58 test files with one declared
   credential-gated file skipped, 964 tests with five declared skips, and build.
   Public-site validation covered four pages and the deployment suite passed
-  28/28. Static tests do not establish deployed transcript access or GPT UI
+  28/28. The current top-level section supersedes these historical counts.
+  Static tests do not establish deployed transcript access or GPT UI
   behavior.
 - The transcript adapter uses exact `youtube-transcript-plus@2.0.1` behind
   AskRigor's host allowlist, timeout, response-size, pagination, provenance, and

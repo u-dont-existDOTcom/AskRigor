@@ -127,6 +127,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     ]) {
       expect(instructionsMarkdown).toContain(required);
     }
+    expect(instructionsMarkdown).not.toContain("`transcript_tool_unavailable`");
   });
 
   it("makes the complete lesson-consent shell authoritative at the Custom GPT boundary", async () => {

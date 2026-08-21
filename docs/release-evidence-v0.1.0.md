@@ -152,7 +152,7 @@ unchanged. Generated Instructions are 7,797 characters with SHA-256
 generated OpenAPI SHA-256 is
 `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
 Synchronization-ledger SHA-256 is
-`a8dffdece8bff02a596f5a462ed1debc261283366c4cadf493af7751ca61ec5a`.
+`1ca16c082fcfed4f1c90e919aa541827fe1ca8c37e7b1de5c4968cba96ad2f3e`.
 The eight-case discovery/weighting matrix and separate unrelated held-out
 fixture keep topic-specific answers out of production rules. The focused
 router/skill/matrix/packet/transcript/registry suite passed 53/53. The complete

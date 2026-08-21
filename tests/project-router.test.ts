@@ -100,6 +100,9 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(instructions).toContain("or `incomplete` directional/bidirectional field");
     expect(instructions).toContain("`youtube_synthesis_lock: pass`");
     expect(instructions).toContain("every selected discussion audit's `synthesis_lock: pass`");
+    expect(instructions).toContain("If `get_youtube_transcript` is unavailable");
+    expect(instructions).toContain("`transcript_tool_unavailable`");
+    expect(instructions).toContain("never call an undeclared tool");
   });
 
   it("permanently blocks the exact hip/RCT early-synthesis failure", async () => {
@@ -152,6 +155,9 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(module.toLowerCase()).toContain("query-bounded comment search is discovery-only");
     expect(module).toContain("person × treatment episode");
     expect(module).toContain("This receipt is an input to HRP synthesis, not a treatment verdict");
+    expect(module).toContain("If `get_youtube_transcript` is unavailable");
+    expect(module).toContain("`transcript_tool_unavailable`");
+    expect(module).toContain("never call an undeclared tool");
   });
 
   it("defines intervention-level independent evidence weighting without formal-evidence erasure", async () => {

@@ -169,6 +169,9 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("Call `survey_youtube_community`");
     expect(skill).toContain("formal evidence cannot deselect it");
     expect(skill).toContain("each Action receipt's `synthesis_lock`");
+    expect(skill).toContain("If `get_youtube_transcript` is unavailable");
+    expect(skill).toContain("`transcript_tool_unavailable`");
+    expect(skill).toContain("never call an undeclared tool");
     expect(skill).toContain("`complete_no_candidates`");
     expect(skill).toContain("`completed_with_access_boundary`");
     expect(skill).toContain("`reply_count_mismatches`");

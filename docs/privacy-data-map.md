@@ -6,7 +6,7 @@ The August 13, 2026 lesson notice is live and was reverified before the lesson A
 
 ## Purpose and boundary
 
-AskRigor has two deliberately separate processing paths:
+AskRigor has three deliberately separate processing paths:
 
 - **Research retrieval path:** the existing MCP research operations and, when
   independently enabled, their public read-only Custom GPT Action forms use the
