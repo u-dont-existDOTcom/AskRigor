@@ -22,14 +22,18 @@ separates the validated distributable package from the portal-only handoff in
 state.
 
 A later owner-provided GPT-UI result exposed a partial-answer escape,
-intervention-program conflation, and implementation-jargon leakage. The current
-repair candidate's generated Instructions are 7,962 characters with SHA-256
+intervention-program conflation, and implementation-jargon leakage. PR #44
+merged the reviewed instruction repair as
+`b8e110404130d1d1e85d56112b837c499106086e`. Its generated Instructions are
+7,962 characters with SHA-256
 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`;
 its synchronization-ledger SHA-256 is
 `a1e6e4390fb640a95ab01e51be9b3c70774368fa3208d65cc0723e1df4427ecc`.
-The OpenAPI is unchanged. This source candidate still requires complete gates,
-review, merge, and fresh signed-in editor/UI acceptance; no earlier runtime or
-UI receipt proves the repaired behavior.
+The OpenAPI is unchanged. Complete pre-merge gates and independent review
+passed, followed by successful post-merge deterministic verification (run
+`32464548386`), workflow policy (run `32464548449`), and CodeQL (run
+`32464548011`). Fresh signed-in editor/UI acceptance is still required; no
+earlier runtime or UI receipt proves the repaired behavior.
 
 ## Custom GPT research bridge — CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; EDITOR/GPT-UI ACCEPTANCE PENDING
 

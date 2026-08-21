@@ -15,13 +15,16 @@ the current editor packet. Direct server proof is never relabeled as ChatGPT UI
 proof.
 
 The latest owner-provided GPT-UI result exposed a partial-answer escape,
-umbrella-program conflation, and raw implementation labels. The current repair
-candidate's generated Instructions are 7,962 characters with SHA-256
+umbrella-program conflation, and raw implementation labels. PR #44 merged the
+reviewed instruction repair as
+`b8e110404130d1d1e85d56112b837c499106086e`. Its generated Instructions are
+7,962 characters with SHA-256
 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`;
 its synchronization-ledger SHA-256 is
 `a1e6e4390fb640a95ab01e51be9b3c70774368fa3208d65cc0723e1df4427ecc`.
-The Action document is unchanged. This record does not claim that candidate is
-installed or UI-accepted.
+The exact post-merge deterministic verification, workflow policy, and CodeQL
+checks passed. The Action document is unchanged. This record does not claim
+that the Instructions are installed or UI-accepted.
 
 The direct acceptance cases below used only synthetic, non-personal inputs. The
 owner-provided private product result is not reproduced; only its sanitized,

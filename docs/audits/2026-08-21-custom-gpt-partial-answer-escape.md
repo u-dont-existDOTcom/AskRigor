@@ -42,3 +42,11 @@ This record captures only the generalized product behavior demonstrated by an ow
 ## Product boundary
 
 Repository artifacts can be generated, tested, reviewed, published, and deployed from this environment. No available capability exposes the owner's signed-in Custom GPT editor, so installing the new Instructions and running a fresh UI acceptance prompt remain an explicit external boundary rather than an inferred success.
+
+## Repository closeout
+
+- PR #44 merged the reviewed repair as `b8e110404130d1d1e85d56112b837c499106086e`.
+- The exact post-merge deterministic verification (run `32464548386`), repository workflow policy (run `32464548449`), and CodeQL scan (run `32464548011`) passed.
+- The merge changed no runtime, Action OpenAPI, protocol bytes, or public-site bytes, so no production redeployment was indicated. A read-only check at `2026-08-21T08:47:26Z` returned HTTP `200` from the public research health endpoint and privacy page.
+- The required pre-closeout lesson checkpoint at `2026-08-21T08:48:17.337Z` remained available with 1 open candidate, 1 needing review, 0 accepted but not incorporated, 2 incorporated or closed, and 0 deletion eligible. No queued lesson expanded or blocked this closeout.
+- The only remaining acceptance boundary is signed-in installation of the generated Instructions followed by a fresh GPT UI run. No repository or direct-server result is relabeled as that product-interface proof.
