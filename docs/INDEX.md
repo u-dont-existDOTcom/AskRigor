@@ -29,6 +29,9 @@ complete XML protocol.
   API comparison without paid Search grounding, covering planned discovery,
   validated URL generation, direct video summaries, transcript latency/access
   boundaries, and the recommended lazy-escalation architecture
+- `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
+  Spark upload controls, scanner nondeterminism, clause interaction bisect, and
+  the clean-passing canonical v15 promotion boundary
 - `gemini-spark-setup.md`: owner-operated Gemini Spark custom-app and bounded
   YouTube-scout skill installation, live compatibility receipt, per-task
   handoff boundary, and scout acceptance test

@@ -1325,3 +1325,30 @@ EXACT SKILL` is byte-identical to Probe 41 and reproduces SHA-256
 `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
 This replaces the iterative owner-upload loop with one bounded conversation
 handoff. The canonical v15 development skill remains unmoved and unchanged.
+
+## Clean pass and canonical promotion
+
+Result: **clean pass**. On 2026-08-21, the owner reported that Spark accepted
+the one-shot diagnostic's complete embedded v15 skill without a scanner failure
+or rewrite. The reported evaluated boundary is the exact embedded Probe 41
+artifact, SHA-256
+`da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
+No independent installed-byte export or Spark model/version receipt was
+available, so this establishes conversation-path upload compatibility rather
+than behavioral acceptance or exact installed-byte readback.
+
+The exact accepted bytes were promoted to
+`integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`. The
+focused test now pins that SHA-256 and the scanner-compatible positive clauses,
+while explicitly excluding the rejected cumulative formulations. The setup
+guide now prefers the diagnostic conversation path, requires reviewable diffs
+for any rewrite, and records the clean upload boundary. Iterative upload probes
+are closed unless a future exact control stops reproducing.
+
+Promotion verification was test-first: the revised focused contract failed
+against the old canonical skill's rejected universal-anchor wording, then passed
+8/8 after exact-byte promotion and test alignment. The skill validator passed;
+the canonical file reproduces the accepted SHA-256 above. The complete
+host-boundary deterministic gate passed typecheck, 58 test files with one
+declared skip, 971 tests with five declared skips, and build. No protocol,
+runtime, production, privacy, or public-GPT behavior changed.

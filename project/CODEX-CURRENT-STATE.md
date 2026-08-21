@@ -1410,6 +1410,26 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   The packet asks Spark to recheck an initial rejection, install unchanged when
   safe and supported, or return an exact trigger, minimal diff, and full
   corrected skill without silently rewriting or executing it.
+- On 2026-08-21, the owner reported a clean Spark pass for the one-shot packet's
+  complete embedded v15 skill, with no scanner failure or rewrite reported.
+  This establishes conversation-path upload compatibility for exact SHA-256
+  `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`;
+  installed-byte readback and behavioral execution remain separate evidence
+  boundaries. The exact accepted bytes are now canonical at
+  `integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`.
+  The focused contract pins that hash and the accepted positive formulations,
+  and the setup guide prefers conversation diagnosis/recheck with reviewable
+  diffs rather than iterative owner-operated upload probes.
+- The canonical promotion was test-first: the aligned focused contract failed
+  against the old scanner-incompatible canonical wording, then passed 8/8
+  after exact-byte promotion. The skill validator passed and the complete
+  host-boundary deterministic gate passed typecheck, 58 test files with one
+  declared skip, 971 tests with five declared skips, and build. No protocol,
+  runtime, production, privacy, or public-GPT behavior changed.
+- The required lesson checkpoint at `2026-08-21T00:24:16.944Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  exact-byte promotion.
 - The required lesson checkpoint at `2026-08-20T23:46:20.159Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
@@ -1573,14 +1593,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Do not resume iterative manual probe uploads. Use the one-shot Spark conversation
-packet at `.artifacts/gemini-upload-diagnostic/ASK-SPARK-ABOUT-V15.md`. It
-contains the complete exact v15 candidate and asks Spark to diagnose the
-security result, recheck a false positive, replace the skill unchanged when
-safe and supported, or return the exact trigger and a reviewable corrected
-artifact. Preserve Spark's structured response and any returned file/diff. Do
-not run the scouting workflow until the installed bytes or proposed repair are
-reconciled against the exact embedded hash.
+Do not resume iterative manual upload probes. The clean-passing exact v15 bytes
+are canonical and locally verified on the task branch. Preserve this exact
+branch for protected publication when separately authorized. Behavioral Spark
+acceptance remains distinct from upload
+compatibility and should run only through an authenticated Spark capability;
+do not hand the owner another probe loop. Preserve any later exported installed
+skill or model response against the pinned canonical hash.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision

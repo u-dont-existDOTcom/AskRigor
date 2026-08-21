@@ -48,14 +48,23 @@ or network failure.
 
 ## One-time skill installation
 
-1. In Spark, open **Skills → Upload**.
-2. Upload
-   `integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`.
-3. Review it, create the skill, and leave automatic use enabled if desired.
+Prefer the conversation path: attach
+`integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md` in a
+Spark conversation and ask Spark to inspect it, recheck an initial scanner
+rejection once, and replace the existing skill with unchanged bytes when safe.
+Require Spark to identify the exact trigger and return a complete corrected file
+plus a diff before accepting any rewrite. **Skills → Upload** remains a fallback
+when conversation replacement is unavailable.
 
-The diagnostic skill is named `scout-youtube-for-askrigor-staged`. Delete or
+The staged skill is named `scout-youtube-for-askrigor-staged`. Delete or
 disable any older `scout-youtube-for-askrigor` copy before uploading it. It
 deliberately contains no Universal or HRP orchestration.
+
+The exact v15 file cleanly passed the conversation upload check on 2026-08-21.
+Its SHA-256 is
+`da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
+This is an upload-compatibility receipt, not behavioral acceptance of a scout
+run or proof of the installed bytes without an export/readback.
 
 ## Normal scout task
 
@@ -77,7 +86,7 @@ generates 14–22 diverse query probes, including separately executed radical-
 outcome variants, then groups them into 6–12 single-family discovery batches of
 at most three probes. Each probe records literal required anchors and cannot
 claim coverage unless both its frozen query and the batch query contain them;
-each batch maps linked probe IDs back to those literal anchors. Gemini counts
+the returned search-batch ledger includes `batch_anchor_evidence`. Gemini counts
 only executed, anchor-covered remedy, firsthand, and conventional directions,
 keeps one remedy in every `single_intervention` probe, separates direct radical
 claims from adjacent tutorials, and recomputes the displayed scan count. It

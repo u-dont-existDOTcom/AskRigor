@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
@@ -9,12 +10,14 @@ const skillUrl = new URL(
 const setupUrl = new URL("../docs/gemini-spark-setup.md", import.meta.url);
 
 describe("Gemini Spark AskRigor skill", () => {
-  it("keeps every source line below the upload scanner compatibility ceiling", async () => {
+  it("pins the clean-uploaded bytes and compact upload surface", async () => {
     const skill = await readFile(skillUrl, "utf8");
     const longestLine = Math.max(...skill.split(/\r?\n/u).map((line) => line.length));
+    const sha256 = createHash("sha256").update(skill).digest("hex");
 
     expect(longestLine).toBeLessThanOrEqual(800);
-    expect(Buffer.byteLength(skill, "utf8")).toBeLessThanOrEqual(35_600);
+    expect(Buffer.byteLength(skill, "utf8")).toBeLessThanOrEqual(36_000);
+    expect(sha256).toBe("da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c");
   });
 
   it("keeps Gemini in the bounded YouTube scout role", async () => {
@@ -192,7 +195,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("diagnosis, structural state, or procedure");
     expect(skill).toContain("Include two to four separate `radical_outcome` probes");
     expect(skill).toContain("for example `\"growing my hip back\"`");
-    expect(skill).toContain("Every probe, not only radical probes");
+    expect(skill).toContain("For every probe, record one to three literal");
     expect(skill).toContain("grow/growing/grew [anatomy] back");
     expect(skill).toContain("A harm-only candidate cannot fill this role");
     expect(skill).toContain("audit_selection_rationale");
@@ -203,16 +206,17 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Never introduce a term, count, creator, or intervention absent from the cited rows");
     expect(skill).toContain("nutrition: `dig into nutrition signal`");
     expect(skill).toContain("the only permitted code block");
-    expect(skill).toContain("6–12 executed `discovery_batch` searches");
+    expect(skill).toContain("six to twelve executed `discovery_batch` searches");
     expect(skill).toContain("Assign exactly one closed `probe_family`");
     expect(skill).toContain("at most three probes");
     expect(skill).toContain("one `probe_family` per batch");
     expect(skill).toContain("`radical_outcome`");
     expect(skill).toContain("`required_batch_anchors`");
     expect(skill).toContain("`anchor_coverage: pass | fail`");
-    expect(skill).toContain("Every anchor must occur literally");
-    expect(skill).toContain("`batch_anchor_evidence: probe_id -> [literal anchors]`");
-    expect(skill).toContain("never use `none` or `n/a`");
+    expect(skill).toContain("found in both its frozen query and the batch query");
+    expect(skill).toContain("`batch_anchor_evidence`");
+    expect(skill).not.toContain("Every probe, not only radical probes");
+    expect(skill).not.toContain("never use `none` or `n/a`");
     expect(skill).toContain("Set `probe_granularity` to `single_intervention`");
     expect(skill).toContain("one bundled `OR` query counts as one probe");
     expect(skill).toContain("only when a probe in that family has passing batch coverage");
@@ -238,11 +242,10 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).not.toContain("Do not invoke native YouTube search");
     expect(skill).not.toContain("attach YouTube entities");
     expect(skill).not.toContain("site:youtube.com/watch");
-    expect(skill).toContain("one field named exactly `intervention_family`");
-    expect(skill).toContain("never `canonical_intervention_family`");
-    expect(skill).toContain("Never copy `probe_family`");
+    expect(skill).toContain("Assign every candidate and seed exactly one canonical `intervention_family`");
+    expect(skill).toContain("Never use a `probe_family` value here");
     expect(skill).toContain("Seed roles and families must both be unique");
-    expect(skill).toContain("exercise, somatics, fascial work, loading, traction, gait, and cyclic motion");
+    expect(skill).toContain("exercise, stretching, somatics, fascial work, loading, traction, gait, and cyclic motion");
     expect(skill).toContain("Never relabel to manufacture diversity");
     expect(skill).toContain("exercise alone cannot fill it");
     expect(skill).toContain("does not explicitly request surgery, prefer an independent self-directed nonsurgical outcome");
@@ -264,14 +267,16 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Run a literal banned-phrase scan");
     expect(skill).toContain("`response rate`");
     expect(skill).toContain("`measurable improvement`");
-    expect(skill).toContain("Never use `e.g.` or `such as` unless mapped");
+    expect(skill).toContain("Never use `e.g.` or `such as` unless every example is mapped");
     expect(skill).toContain("source_candidate_row_id");
     expect(skill).toContain("how common/commonly");
-    expect(skill).toContain("Build `question_term_evidence` or `research_question_term_evidence` first");
-    expect(skill).toContain("compose the question using only those exact keys");
-    expect(skill).toContain("Never invent a plausible concrete detail absent from the map");
-    expect(skill).toContain("citing selected rows only");
-    expect(skill).toContain("promote a nonseed or omit its question");
+    expect(skill).toContain("Build `question_term_evidence` or `research_question_term_evidence` before drafting each question");
+    expect(skill).toContain("the exact phrase must occur in that field");
+    expect(skill).toContain("if any remain, remove or repair them");
+    expect(skill).toContain("citing selected seeds only");
+    expect(skill).not.toContain("compose the question using only those exact keys");
+    expect(skill).not.toContain("Never invent a plausible concrete detail absent from the map");
+    expect(skill).toContain("promote a worthwhile nonseed or omit its question");
     expect(skill).toContain("how many");
     expect(skill).toContain("verification, corroboration");
     expect(skill).toContain("verbatim `term_evidence` mappings");
@@ -318,7 +323,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain("manual transfer at each stage");
     expect(setup).toContain("parallel high-recall lane");
     expect(setup).toContain("user remains the cross-app scheduler");
-    expect(setup).toContain("each batch maps linked probe IDs back to those literal anchors");
+    expect(setup).toContain("the returned search-batch ledger includes `batch_anchor_evidence`");
+    expect(setup).toContain("da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c");
     expect(setup).toContain("Question evidence maps are built before the questions");
     expect(setup).toContain(
       "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
