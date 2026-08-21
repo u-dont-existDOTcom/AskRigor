@@ -119,7 +119,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   preceding sandbox-only run failed solely because the sandbox denied loopback
   and IPC binds with `EPERM`.
 
-## Active 2026-08-21 partial-answer and intervention-conflation repair
+## Completed 2026-08-21 partial-answer and intervention-conflation repair
 
 - A fresh owner-provided Custom GPT result exposed a new escape: it declared
   important modules incomplete, then presented a long conventional synthesis
@@ -145,14 +145,22 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with five declared credential-gated skips. Public-site validation covered four
   pages and site-deployment tests passed 28/28. Independent review prompted
   restoration of comparator scope, directional YouTube discovery, and current
-  recovery truth; final re-review found no blocker or Important issue. Protected
-  publication/merge, signed-in editor installation, and fresh UI acceptance
-  remain pending; no runtime or site deployment is required for this
-  instruction-only repair.
+  recovery truth; final re-review found no blocker or Important issue. PR #44
+  passed protected review and merged the repair as
+  `b8e110404130d1d1e85d56112b837c499106086e`. The exact post-merge
+  deterministic verification (run `32464548386`), workflow policy (run
+  `32464548449`), and CodeQL (run `32464548011`) all passed. The merged tree
+  was identical to the reviewed source tree. No runtime or site deployment was
+  required because this repair changes only the generated editor instructions,
+  research routing, tests, and evidence. A read-only public check at
+  `2026-08-21T08:47:26Z` returned `200` for both the research health endpoint
+  and privacy page. Signed-in editor installation and fresh UI acceptance
+  remain pending.
 - The pre-release lesson checkpoint at `2026-08-21T08:40:20.176Z` was
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. No queued lesson expands
-  or blocks this repair.
+  or blocks this repair. The pre-closeout checkpoint at
+  `2026-08-21T08:48:17.337Z` returned the same counts.
 
 ## Active 2026-08-18 treatment-decision regressions
 
@@ -1834,7 +1842,7 @@ lesson, publish the GPT, or treat direct checks as UI proof.
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #43, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #44, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
@@ -1842,6 +1850,8 @@ unless production identity has changed. The recorded production-source baseline 
 PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96`; production is the healthy
 exact image with that tag and image ID
 `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`.
-Deployment and recovery evidence is merged through PR #43. The active
-partial-answer repair must complete its protected merge before the remaining
-signed-in editor installation and fresh current GPT UI acceptance boundary.
+Deployment and recovery evidence is merged through PR #43; the instruction-only
+partial-answer repair is merged through PR #44. The remaining boundary is
+installing Instructions SHA-256
+`4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`
+in the owner's signed-in editor and running fresh current GPT UI acceptance.

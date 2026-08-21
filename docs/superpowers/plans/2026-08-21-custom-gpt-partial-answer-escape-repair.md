@@ -28,4 +28,4 @@ Make a substantive answer fail closed unless every required research module is e
 
 ## Recovery
 
-Work remains isolated on `agent/gpt-partial-escape-repair-20260821`. Before merge, retain the source commit and branch as rollback points. Do not modify the owner's dirty primary checkout or credential-looking untracked files.
+PR #44 merged the reviewed source commit `264bf7dcded20ff74051b5e5dd0c73cdce4ad7af` as `b8e110404130d1d1e85d56112b837c499106086e`. The source branch and Git history retain the rollback point. Repository and public-health closeout are complete; signed-in Custom GPT editor installation and fresh UI acceptance remain outside the available capability boundary. Do not modify the owner's dirty primary checkout or credential-looking untracked files.
