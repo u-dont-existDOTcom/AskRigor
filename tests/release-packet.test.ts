@@ -300,7 +300,7 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; UNIVERSAL TRANSCRIPT CANDIDATE AWAITS DEPLOYMENT AND PRODUCT ACCEPTANCE"
+      "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; EDITOR/GPT-UI ACCEPTANCE PENDING"
     );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -331,15 +331,15 @@ describe("AskRigor public-review packet", () => {
       expect(document).toContain("HRP-complete");
       expect(document).toContain("privacy_rejected");
     }
-    expect(acceptance).toContain(
-      "DEPLOYED COMPLETION/OPTION-SPACE REPAIR; UNIVERSAL TRANSCRIPT/EVIDENCE-FRONTIER CANDIDATE AWAITS DEPLOYMENT AND GPT-UI ACCEPTANCE",
+    expect(acceptance.replace(/\s+/gu, " ")).toContain(
+      "CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS; EDITOR INSTALLATION AND FRESH GPT-UI ACCEPTANCE PENDING",
     );
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "all formal retrieval required by the applicability ledger",
     );
     expect(acceptance).toContain("Action-returned `receipt.synthesis_lock: pass`");
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
-      "Static repository tests do not establish deployed provider access or GPT behavior.",
+      "static repository tests and direct server receipts do not establish GPT UI behavior.",
     );
     expect(release).toContain("creator-content verification");
     expect(release).toContain("get_youtube_transcript");
@@ -349,7 +349,9 @@ describe("AskRigor public-review packet", () => {
       "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221",
     );
     expect(release).toContain("Canonical source protocols");
-    expect(release).toContain("it does not prove deployment of `20.5.14`");
+    expect(release).toContain(
+      "Current direct production Action loading reconstructed and verified every exact byte of both documents.",
+    );
     expect(state).toContain("PR #37");
     expect(state.replace(/\s+/gu, " ")).toContain(
       "The owner installed and product-tested its exact generated Instructions",
@@ -388,28 +390,26 @@ describe("AskRigor public-review packet", () => {
     expect(acceptance).toContain("reuse exactly the same previously displayed generalized candidate");
 
     for (const exactIdentity of [
-      "d1af238325ee1e0584574e47bbcbe7764d17cf7e",
-      "sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd",
-      "f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4",
-      "06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1",
-      "8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d",
-      "0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94",
-      "402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2",
-      "ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad",
-      "b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af",
-      "3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4",
-      "/opt/askrigor/site/releases/56b3dff6d7c3/site",
-      "cfce806345fe65a13fd0330aa7e8f000c1587d01",
-      "sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360",
-      "9769d1d2d42065687ad78823910838193196129b8c988e292fb4999160614971",
-      "askrigor-research:rollback-cfce806",
-      "/opt/askrigor/compose.yaml.rollback-cfce806",
+      "386497415a187354c6396e69a902d5bece9a9c96",
+      "sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e",
+      "ecfeaf12db7de685edc84d200485866a699f9a0f7df569e8bc4450bb4c77361c",
+      "18209d960259",
+      "61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0",
+      "9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31",
+      "368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9",
+      "4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc",
+      "/opt/askrigor/site/releases/386497415a18/site",
+      "askrigor-research:rollback-3864974-predeploy",
+      "/opt/askrigor/releases/386497415a187354c6396e69a902d5bece9a9c96/compose.pre-3864974.yaml",
+      "229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc",
     ]) {
       expect(deploymentIdentity).toContain(exactIdentity);
     }
+    expect(deploymentIdentity).toContain("11 contiguous");
+    expect(deploymentIdentity).toContain("490,256 bytes");
     expect(deploymentIdentity).toContain("3 contiguous");
-    expect(deploymentIdentity).toContain("98,154 bytes");
-    expect(releaseIdentity).toContain("8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d");
+    expect(deploymentIdentity).toContain("105,798 bytes");
+    expect(releaseIdentity).toContain("61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0");
     expect(releaseIdentity).toContain("no image archive was created");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);
@@ -773,7 +773,7 @@ describe("AskRigor public-review packet", () => {
 
     expect(document).toContain("https://mcp.askrigor.com/mcp");
     expect(document).toContain("bb2245f04f6e1f7bfed8d146c92497364d6488f7");
-    expect(document).toContain("Fresh public MCP discovery found exactly 15");
+    expect(document).toContain("Current public discovery found the exact ordered 17-tool catalog");
     expect(document).toContain("youtube_comment_budget_elapsed_ms");
     expect(document).toContain("synthesis_lock:block");
     expect(document).toContain("HRP 20.5.16 execution-reliability rollout");
@@ -801,7 +801,7 @@ describe("AskRigor public-review packet", () => {
     expect(document).toContain("Live suite v6 accepted");
     expect(document).toContain("zero skipped");
     expect(document).toContain("provider-test.log.sha256");
-    expect(document).toContain("Current fresh live-provider suite");
+    expect(document).toContain("Historical fresh live-provider suite");
     expect(document).not.toMatch(/fresh wrapper exit\s+0 is still required/);
     expect(document).toContain(
       "17 passed files, 1 skipped file, 337 passed tests, and 5 guarded live tests skipped",
