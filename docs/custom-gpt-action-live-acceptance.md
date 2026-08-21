@@ -1,22 +1,18 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED COMPLETION/OPTION-SPACE REPAIR; UNIVERSAL TRANSCRIPT/EVIDENCE-FRONTIER CANDIDATE AWAITS DEPLOYMENT AND GPT-UI ACCEPTANCE**. The exact
-production Action boundary and the formerly failing two-call YouTube chain
-retain the sanitized direct and repaired Custom GPT UI evidence below. That
-evidence does not cover the later treatment-alternatives and option-space
-completion regressions recorded below. The Custom GPT also loaded canonical Universal
-`20.5.13` completely. The first synthetic lesson run failed safe before an
-Action call; the hardened shell then displayed correctly and enforced exact
-case-sensitive consent. Two approved calls returned `action_auth_required`
-because the existing Action had not yet received the editor-stored Bearer key;
-no lesson was submitted. Applying the key to that Action triggered a separate
-public-GPT content review warning. The public-only non-tailored health-research
-boundary then passed publication by owner report; plugin, MCP, protocol, and
-server behavior remained unchanged. The first authenticated lesson submission
-reached the server privacy filter but was rejected before GitHub. Direct server
-proof is not relabeled as ChatGPT UI proof. After the privacy repair deployed,
-a fresh published-GPT chat submitted `ARL-0007`; the separately consented
-identical duplicate returned the same ID with occurrence count 2.
+Status: **CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS;
+EDITOR INSTALLATION AND FRESH GPT-UI ACCEPTANCE PENDING**. PR #41 merged the
+Gemini-compatible production reconciliation and transcript/evidence-frontier
+release as `386497415a187354c6396e69a902d5bece9a9c96`. That exact revision is
+active in production and passed the sanitized direct acceptance recorded
+below. The generated Instructions and 19-operation Action document are ready
+for the existing Custom GPT, but this record does not claim that the signed-in
+editor has installed them or that the refreshed GPT UI has exercised them.
+
+Historical direct and repaired Custom GPT UI evidence is retained below for
+the earlier bridge releases. It does not substitute for a fresh UI run against
+the current editor packet. Direct server proof is never relabeled as ChatGPT UI
+proof.
 
 Only synthetic, non-personal inputs were used. This record retains request
 class, result, sanitized result, and limitation fields without raw protocol
@@ -27,17 +23,68 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Completion/option-space deployment and owner editor installation accepted on `2026-08-18`; exact prior privacy acceptance remains below. |
-| deployed commit | PR #36 merged as exact `cfce806345fe65a13fd0330aa7e8f000c1587d01`; PR #32 merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e` remains in its ancestry. |
-| deployed image | `askrigor-research:cfce806345fe65a13fd0330aa7e8f000c1587d01`; image ID `sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360`; healthy container `466765dda792`; only the research service changed. |
-| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `9769d1d2d42065687ad78823910838193196129b8c988e292fb4999160614971`; unchanged Caddy container `06ead4ec8e2aeeac99d13e36dc31b7c474a07d3bc61e3638275086daee174cf1`; runtime environment file remained protected and was not read. |
-| rollback image/config | `askrigor-research:rollback-cfce806` resolves the prior image `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`; `/opt/askrigor/compose.yaml.rollback-cfce806` has SHA-256 `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`. |
-| deployment archive | Exact secret-free source archive SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`; 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
-| OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
-| instructions SHA-256 | Historical failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`; consent-shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c209812a26dde630de802ba7a0b878ee9640af7886c14ec`, 7,753 characters, Knowledge empty. First discovery/weighting candidate tested through the product: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`, 7,799 characters. Current local universal transcript/evidence-frontier candidate: `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`, 7,797 characters. |
-| source-candidate Action/privacy boundary | Generated OpenAPI SHA-256 `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`; 18 non-consequential research reads plus the consequential lesson write. `get_youtube_transcript` is Action-only; the checksum-locked MCP remains exactly 17 tools. The new runtime, OpenAPI, privacy notice, and editor Instructions are not deployed or installed, and live transcript-provider behavior is unverified. |
-| privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
+| UTC time | Production deployment and direct acceptance completed on `2026-08-21`; signed-in editor installation and fresh GPT UI acceptance remain pending. |
+| deployed commit | PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96` (parents PR #40 merge `94062f8d5595ff8cef368f8c2b06732a4826ae57` and compatibility head `3ebfb5be67207dd04f9c70e6af340662c790c96c`). |
+| deployed image | `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`; image ID `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`; healthy container `c1dc68972ded`; only the research service changed during runtime activation. |
+| current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `ecfeaf12db7de685edc84d200485866a699f9a0f7df569e8bc4450bb4c77361c`; Caddy container `18209d960259`; runtime environment mode remained root-owned `0600` and its contents were not read. Request diagnostics remain disabled by default and were not enabled in production. |
+| hardening | Runtime user `node`; read-only root filesystem; all Linux capabilities dropped; `no-new-privileges:true`; final container health `healthy`; loopback and public health both returned `200`; application log remained one startup-only line after acceptance. |
+| rollback image/config | `askrigor-research:rollback-3864974-predeploy` preserves image ID `sha256:df01992c604e618af4e5f7df733a30759855da2c973c48ab2ebbd67e39f86452`; rollback Compose is `/opt/askrigor/releases/386497415a187354c6396e69a902d5bece9a9c96/compose.pre-3864974.yaml`, SHA-256 `5f3d6fb76174f0edb2dac290db9c64e153ae95cf8d6d5c2d30d9ca928a28f3af`. |
+| deployment archive | Exact secret-free Git archive from the deployed merge: SHA-256 `61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0`; 377 members, 1,010,125 bytes. The image was built on the server from that verified archive; no image archive was created. |
+| OpenAPI SHA-256 | Committed pretty artifact: `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`; semantically identical compact live response: `368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9`. |
+| instructions SHA-256 | Current generated editor source: `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`, 7,797 characters. It is ready but not yet evidenced as installed; Knowledge must remain empty. |
+| current Action/MCP boundary | The Action exposes 18 non-consequential research reads plus the consequential lesson write. `get_youtube_transcript` is Action-only. Standard MCP and Gemini-compatible MCP each preserve the same exact 17 read-only handlers; Gemini uses the compact service name `askrigor_research`. |
+| privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc`, with effective date `2026-08-21` and the disabled-by-default bounded diagnostic disclosure. Active site release: `/opt/askrigor/site/releases/386497415a18/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
+
+## Current direct production acceptance — 2026-08-21
+
+- Standard MCP advertised service `askrigor-research`, the exact ordered 17-tool
+  catalog and strict annotations, HRP `20.5.18`, and Universal `20.5.14` with
+  their canonical hashes. Gemini MCP advertised `askrigor_research`, exposed
+  the same 17 handlers in a 12,239-byte compatibility catalog, omitted the
+  unsupported `outputSchema` and `execution` fields, and retained strict input
+  rejection and exact protocol manifests.
+- The Action document exposed the expected 19 ordered operation IDs. Strict
+  transport checks returned `400` for malformed JSON, `422` for an unexpected
+  transcript field, and non-retryable `413 action_body_too_large` for an
+  8,193-byte request. The unauthenticated lesson route remained isolated at
+  `401`.
+- Complete Action reconstruction loaded HRP in 11 contiguous chunks totaling
+  490,256 bytes and Universal in 3 contiguous chunks totaling 105,798 bytes;
+  both whole-document hashes matched their manifests and integrity verification
+  returned true. Protocol text was held only in process memory and was not
+  printed or persisted in this receipt.
+- The transcript adapter truthfully returned `not_found` for the selected hip
+  candidates whose public captions were unavailable. A captioned public
+  control completed at `api_visible_complete` with 61 timestamped English
+  segments, exhausted pagination, and no continuation cursor. No transcript
+  text was printed or retained.
+- Bounded live Action probes passed PubMed, Europe PMC, ClinicalTrials.gov,
+  DOI metadata, and YouTube video metadata with their declared access states.
+  No raw provider body, comment, transcript, credential, or private lesson
+  content was retained.
+- Gemini CORS preflight returned `204` on both MCP paths; an untrusted origin
+  returned `403`. A disposable exact-image burst produced 60 declared `406`
+  responses and 20 declared `429` responses, with no undeclared status; health
+  bypass remained `200`. The disposable container and script were removed.
+- Final post-acceptance checks confirmed the exact image/container identity,
+  hardening, active privacy release, public and loopback health `200`, one
+  startup-only application log line, and no lingering test container or script.
+- The four active public pages returned `200`: `/`
+  `29790a12adbfaec6f59089292b94f2aa01cab2d828b739bc6e3b0a80a8ebbf65`,
+  `/privacy`
+  `229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc`,
+  `/terms`
+  `3dc4e708cdf75bdb00fbb84bd9234cf46a855245a30c6aafa4b90e78650a890c`,
+  and `/support`
+  `3f263bf2ff279fd53584713ae054ec0a05557f0f808737b8c13dcab36d42f5be`.
+  HTTP privacy redirected once with `308` to HTTPS, and the sampled HTTPS
+  responses did not expose a `Server` header.
+
+This is **DIRECT PASS — CURRENT GPT UI PENDING**. The remaining acceptance must
+be performed only after the generated Instructions and current OpenAPI are
+saved in the signed-in Custom GPT editor. Historical UI passes below do not
+close that boundary.
 
 ## Treatment-decision regressions and universal transcript candidate — 2026-08-18
 
@@ -141,8 +188,10 @@ The focused router/skill/matrix/packet/transcript/registry suite passed 53/53;
 the complete Node `24.18.0` gate passed typecheck, 57 test files with one
 declared credential-gated file skipped, 960 tests with five declared skips, and
 build. Public-site validation covered four pages and the deployment suite passed
-28/28. Deployment and fresh product-interface acceptance remain pending. Static
-repository tests do not establish deployed provider access or GPT behavior.
+28/28. The exact candidate was subsequently merged, deployed, and directly
+accepted as recorded above. Fresh signed-in editor installation and current
+product-interface acceptance remain pending; static repository tests and direct
+server receipts do not establish GPT UI behavior.
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 

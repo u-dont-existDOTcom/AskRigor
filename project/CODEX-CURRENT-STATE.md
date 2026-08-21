@@ -9,21 +9,20 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current verified GitHub baseline is PR #40 merge
-  `94062f8d5595ff8cef368f8c2b06732a4826ae57`. PR #40 added the transcript-
+- Canonical branch: `main`; current verified GitHub baseline is PR #41 merge
+  `386497415a187354c6396e69a902d5bece9a9c96`. PR #40 added the transcript-
   verified evidence frontier, the exact unspecified-hip-pain research record,
-  and a capability-safe MCP-plugin fallback while preserving the 17-tool MCP
-  surface and generating a 19-operation Custom GPT Action document.
-- Production preflight on 2026-08-21 found the healthy research container using
-  image tag `askrigor-research:4ccdf721ed4a41b1076a2370fce27372141f8901`.
-  That deployed revision descends from PR #36 merge
-  `cfce806345fe65a13fd0330aa7e8f000c1587d01` and contains the accepted
-  `/mcp/gemini` compact catalog plus disabled-by-default bounded handshake
-  diagnostics,
-  but it predates PR #40's transcript Action and Universal `20.5.14`. The
-  additive reconciliation branch is
-  `agent/gemini-prod-compat-port-20260821`; do not replace current main's server
-  wholesale with the older production file.
+  and a capability-safe MCP-plugin fallback. PR #41 reconciled that baseline
+  with the accepted Gemini compact catalog and disabled-by-default bounded
+  handshake diagnostics while preserving the 17-tool MCP surface and the
+  19-operation Custom GPT Action document.
+- Production runs exact image
+  `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`, image ID
+  `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`,
+  in healthy container `c1dc68972ded`. The privacy site is active at
+  `/opt/askrigor/site/releases/386497415a18/site`. Runtime/OpenAPI/privacy are
+  deployed and directly accepted; signed-in Custom GPT editor installation and
+  fresh current GPT UI acceptance are the remaining product boundary.
 - Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -32,10 +31,47 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Canonical source byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.14` / 2026-08-18 / `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Production remains separately verified at Universal `20.5.13` / 2026-08-17 / `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4` pending the recorded rollout boundary.
+- Canonical source byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.14` / 2026-08-18 / `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Direct production Action reconstruction verified both exact current documents.
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
 - Universal integration: `20.5.13` added the source-wide whole-argument reconstruction gate; canonical source `20.5.14` adds the research-before-reinvention gate. HRP bytes remain unchanged.
+
+## Completed 2026-08-21 production rollout and direct acceptance
+
+- PR #41 passed deterministic, workflow-policy, and CodeQL checks before merge;
+  the exact post-merge `main` workflows also passed. The production source was
+  built from a secret-free exact Git archive with SHA-256
+  `61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0`,
+  377 tracked members, and 1,010,125 bytes.
+- The transactional activation recreated only the research service. The final
+  runtime remains `node`, read-only, capability-free, and
+  `no-new-privileges:true`; loopback and public health returned `200`, and the
+  application log remained one startup-only line after acceptance. Immediate
+  rollback is retained as `askrigor-research:rollback-3864974-predeploy` plus
+  the pre-deploy Compose SHA-256
+  `5f3d6fb76174f0edb2dac290db9c64e153ae95cf8d6d5c2d30d9ca928a28f3af`.
+- Direct acceptance passed standard MCP and Gemini MCP with the same exact 17
+  handlers; the 19 Action operations; complete HRP `20.5.18` and Universal
+  `20.5.14` reconstruction; strict malformed, schema, oversized-body, CORS,
+  and unauthenticated-lesson boundaries; bounded PubMed, Europe PMC,
+  ClinicalTrials.gov, DOI, YouTube metadata, and transcript checks; and an
+  isolated rate-limit burst with 60 declared `406`, 20 declared `429`, and
+  health bypass `200`.
+- The privacy release is effective `2026-08-21` and discloses the bounded
+  diagnostics while preserving disabled-by-default production behavior. All
+  four public pages returned `200`; HTTP privacy redirected once to HTTPS.
+- The current editor artifacts are `docs/custom-gpt-instructions.md` SHA-256
+  `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`
+  and `docs/custom-gpt-action-openapi.json` SHA-256
+  `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
+  Knowledge must remain empty. No available tool exposes the owner's signed-in
+  Custom GPT editor, so installation and a fresh current product UI run remain
+  explicitly unverified rather than inferred from direct server success.
+- The pre-deployment lesson checkpoint at `2026-08-21T06:28:49.742Z` was
+  available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
+  2 incorporated or closed, and 0 deletion eligible. The pre-evidence checkpoint
+  at `2026-08-21T07:05:04.177Z` returned the same counts. No lesson expanded the
+  rollout or evidence closeout.
 
 ## Completed 2026-08-21 unspecified-hip-pain research run
 
@@ -176,7 +212,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   individual's publisher identity; waiting preserves the AskRigor business-name
   alignment but delays submission. This remains an owner identity/privacy choice.
 
-## Active Custom GPT research bridge acceptance
+## Historical Custom GPT research bridge acceptance — through 2026-08-18
+
+This section preserves the then-current bridge acceptance chronology. Every
+production identity in this section is superseded by the 2026-08-21 baseline
+and completed rollout at the top of this file.
 
 - PRs #19 through #23 are merged. The continuation release merge is
   `905ac22ab42479c15ff0d6385a51de864271f862`, exact PR #23 head
@@ -184,7 +224,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   YouTube video now completes its direct two-call Action chain with a
   deterministic terminal sample and `synthesis_lock:pass`; the repaired
   two-call Custom GPT UI retest passed on 2026-08-17. PR #27 then merged its
-  sanitized receipt and the current Universal ancestry as production revision
+  sanitized receipt and the then-current Universal ancestry as production revision
   `5585a9ca34ce01403044b1085b85d4f2de9783f4`.
 - The owner approved the compatibility bridge and clear reversible changes.
   PR #15 merged accepted head `be641bf568c401992ff4aa9fe885552d6cfb2dca`
@@ -196,7 +236,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `d14f530`. Independent review's two Important findings were fixed before
   merge: enabled research Actions now require the server-only continuation
   secret at startup, and all operations declare the router-owned 500 response.
-- Production runs exact application revision
+- At that checkpoint, production ran exact application revision
   `d1af238325ee1e0584574e47bbcbe7764d17cf7e` as image
   `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`
   in healthy container
@@ -204,18 +244,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   Rollback is `askrigor-research:rollback-d1af238` plus
   `/opt/askrigor/compose.yaml.rollback-d1af238`, restoring image
   `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`.
-  Current Compose SHA-256 is
+  That checkpoint's Compose SHA-256 was
   `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`;
   rollback Compose SHA-256 is
   `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`.
   Only the research service was recreated for the privacy-model repair.
-- `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` is active. Research Actions share
+- `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` was active. Research Actions shared
   MCP's transient provider flow, per-client token bucket, and 16-request
   concurrency pool. Responses remain limited to **60,000 serialized UTF-8
   bytes** and exact protocol chunks to **48,000 UTF-8 bytes**.
-- The generated packet remains reproducible: deployed committed OpenAPI SHA-256
+- The historical generated packet remains reproducible: then-deployed committed OpenAPI SHA-256
   `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`,
-  current public-boundary Instructions
+  then-current public-boundary Instructions
   `0d87dc53f1b717a9e2d8e3d360f462fa4748800159f588095def5b2203e8f4b8`,
   and sync ledger
   `621d0795872719903ed7ed3bd4b7aab85f875c8923b17b26d1f373d15af19081`.
@@ -225,7 +265,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`.
   The sole editor instruction source is `docs/custom-gpt-instructions.md`;
   Knowledge must remain empty.
-- The transactional site release is
+- The transactional site release at that checkpoint was
   `/opt/askrigor/site/releases/56b3dff6d7c3/site`. All four pages returned
   200, and live privacy bytes match SHA-256
   `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`.
@@ -501,7 +541,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Transcript/evidence-frontier implementation checkpoint
 
-- The current repair plan is
+- The completed repair plan is
   `docs/superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`.
   The generated local Instructions are 7,797 characters, SHA-256
   `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
@@ -509,9 +549,11 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
   Synchronization-ledger SHA-256 is
   `1ca16c082fcfed4f1c90e919aa541827fe1ca8c37e7b1de5c4968cba96ad2f3e`.
-  Production still has 17 research reads plus the lesson write. The source
-  candidate has 18 reads plus the write because `get_youtube_transcript` is
-  Action-only; the exact checksum-locked MCP remains 17 tools. The Forum Signal matrix has 15
+  At that implementation checkpoint, production had 17 research reads plus the
+  lesson write while the source candidate had 18 reads plus the write because
+  `get_youtube_transcript` is Action-only. Current production now has the 18-read
+  Action surface; the exact checksum-locked standard and Gemini MCP profiles
+  each remain 17 tools. The Forum Signal matrix has 15
   required and 9 not-required cases; the option-space matrix has 9 broad-review
   and 6 narrow-review controls; the discovery/weighting matrix has eight cases,
   plus an unrelated held-out evidence-frontier fixture. The focused
@@ -521,14 +563,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   credential-gated file skipped, 964 tests with five declared skips, and build.
   Public-site validation covered four pages and the deployment suite passed
   28/28. The current top-level section supersedes these historical counts.
-  Static tests do not establish deployed transcript access or GPT UI
-  behavior.
+  The current top-level deployment receipt supersedes the then-pending direct
+  access boundary. Static tests and direct receipts still do not establish GPT
+  UI behavior.
 - The transcript adapter uses exact `youtube-transcript-plus@2.0.1` behind
   AskRigor's host allowlist, timeout, response-size, pagination, provenance, and
   access-state boundaries. It retrieves public caption tracks through an
-  unofficial YouTube interface. Production availability, caption accuracy, and
-  corpus visibility are explicitly unverified; transcript text is not retained
-  between requests.
+  unofficial YouTube interface. Current direct production acceptance observed a
+  complete captioned control and truthful unavailable states; caption accuracy
+  and corpus visibility remain bounded and unverified. Transcript text is not
+  retained between requests.
 - Owner-authorized isolated Gemini/YouTube evaluation is recorded in
   `docs/audits/2026-08-18-gemini-youtube-discovery-evaluation.md`. With generic,
   de-identified prompts, Gemini 3.6 produced materially more specific and
@@ -1600,17 +1644,18 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   917 tests with five declared skips, typecheck, and build. The initial sandbox
   run failed only on prohibited local loopback/IPC listeners; the exact host-
   boundary rerun passed.
-- Current production passed the privacy-model rollout: public health was `ok`;
+- At the 2026-08-17 privacy-model checkpoint, production passed the rollout:
+  public health was `ok`;
   Universal remained exact `20.5.13`; live OpenAPI remained SHA-256
   `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`
   with 17 non-consequential reads and one consequential write; and the VPS
-  runs healthy container
+  ran healthy container
   `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`
   on image `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`.
   The exact state mount, read-only root filesystem, dropped capabilities,
   no-new-privileges, Caddy identity, and image-only Compose delta passed.
-- PR #32 merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e` is the current
-  deployed release. Production is healthy on the
+- PR #32 merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e` was the then-current
+  deployed release. Production was healthy on the
   exact merged image, with the rollback image/config and active site release
   recorded above. Server-side direct acceptance, including the exact repaired
   two-call YouTube chain, is complete. The first privacy rollout transaction
@@ -1655,12 +1700,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   Google privacy/data-flow boundary. If approved later, use Gemini for query
   planning, real-candidate selection, and bounded text summary; never accept an
   ungrounded generated YouTube identifier.
-- Complete local verification and review, branch publication, protected PR
-  review, and merge. Then deploy the changed runtime and privacy notice, import
-  the 19-operation Action schema, install the exact generated Instructions with
-  empty Knowledge, and pass bounded direct and fresh Custom GPT acceptance for
-  transcript availability, evidence-frontier selection, transcript/comment
-  separation, access gaps, and the no-padding timestamped watchlist.
+- In the signed-in Custom GPT editor, import the current 19-operation Action
+  schema, install the exact generated Instructions with empty Knowledge, retain
+  the existing API Key → Bearer authentication, save without publishing, and
+  pass fresh Custom GPT acceptance for transcript availability,
+  evidence-frontier selection, transcript/comment separation, access gaps, and
+  the no-padding timestamped watchlist. Direct acceptance is already complete
+  and must not be relabeled as this UI proof.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
   publisher-identity path, then complete the portal HTTPS domain challenge; do
@@ -1675,13 +1721,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- The source follow-up is merged as PR #40, but the combined canonical/runtime
-  reconciliation is not yet deployed or installed. Creator-content verification
-  remains a public-submission blocker until the compatibility port is merged,
-  the privacy notice and exact runtime are deployed, the current Action schema
-  and Instructions are installed, and fresh direct and GPT UI cases pass.
-  Static instruction assertions do not prove model obedience or provider
-  availability. The rejected lesson is non-retryable.
+- The source follow-up and combined reconciliation are merged as PRs #40 and
+  #41. The exact runtime, privacy notice, Action endpoint, direct providers, and
+  transcript boundary are deployed and directly accepted. Creator-content
+  verification remains a public-submission blocker only at the signed-in editor
+  and fresh current GPT UI boundary. Static instruction assertions and direct
+  server receipts do not prove model obedience. The rejected lesson is
+  non-retryable.
 
 - The importer fix is merged, green, deployed, and passed the product importer.
   Protocol and formal-source UI cases passed. The short-handle and terminal
@@ -1730,29 +1776,29 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Finish the independent review of
-`agent/gemini-prod-compat-port-20260821`, commit the exact verified diff, publish
-it through a protected pull request, and merge only after all required checks
-pass. Re-run the exact-merge deterministic and site gates, then deploy the
-updated privacy site before recreating only the research container from an
-immutable exact-source image with reachable site, image, and Compose rollback
-points. Direct acceptance must prove both MCP profiles, the 17-tool inventory,
-the 19-operation Action document including transcript, current protocol hashes,
-privacy, authentication isolation, malformed-request handling, and diagnostics
-remaining disabled. Only then install the exact generated Instructions and
-Action schema in the signed-in Custom GPT editor and run fresh product-interface
-acceptance. Do not retry the rejected lesson or treat direct checks as UI proof.
+Finish and merge the evidence-only branch
+`agent/prod-deployment-evidence-20260821` after its exact-tree gates and review
+pass. Then use the owner's signed-in Custom GPT editor to replace Instructions
+with exact `docs/custom-gpt-instructions.md`, keep Knowledge empty, import
+`https://mcp.askrigor.com/actions/openapi.json`, retain the existing API Key →
+Bearer authentication, set `https://askrigor.com/privacy`, and save without
+publishing. Run the fresh product-interface cases in
+`docs/custom-gpt-action-live-acceptance.md` and record only observed UI results.
+Do not repeat the completed deployment/direct acceptance, retry the rejected
+lesson, publish the GPT, or treat direct checks as UI proof.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #40, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #41, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
 unless production identity has changed. The recorded GitHub source baseline is
-PR #40 merge `94062f8d5595ff8cef368f8c2b06732a4826ae57`; production remains the
-healthy compatibility image tagged from revision
-`4ccdf721ed4a41b1076a2370fce27372141f8901` until the protected reconciliation
-and deployment sequence above completes.
+PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96`; production is the healthy
+exact image with that tag and image ID
+`sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`.
+The evidence-only branch may be unmerged after interruption; verify its actual
+GitHub state before resuming. The only expected product boundary is signed-in
+editor installation and fresh current GPT UI acceptance.
