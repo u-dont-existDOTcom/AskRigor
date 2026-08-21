@@ -10,8 +10,27 @@ export { createProtocolActionChunk } from "./actions/protocol-continuation.js";
 export { createResearchActionRoutes } from "./actions/research-routes.js";
 export {
   createActionOnlyResearchRoutes,
-  createYoutubeTranscriptActionRoute
+  createYoutubeTranscriptActionRoute,
+  youtubeTranscriptActionOutputSchema
 } from "./actions/youtube-transcript-route.js";
+export {
+  assessTreatmentLandscapeCoverage,
+  createTreatmentLandscapeCoverageActionRoute,
+  deriveProgramSignature,
+  discussionReceiptSchema,
+  PROGRAM_NOT_DESCRIBED,
+  projectDiscussionCoverageReceipt,
+  projectTranscriptCoverageReceipt,
+  transcriptReceiptSchema,
+  treatmentLandscapeCoverageInputSchema,
+  treatmentLandscapeCoverageOutputSchema
+} from "./actions/treatment-landscape-coverage-route.js";
+export type {
+  DiscussionCoverageReceipt,
+  TreatmentLandscapeCoverageInput,
+  TreatmentLandscapeCoverageOutput,
+  TranscriptCoverageReceipt
+} from "./actions/treatment-landscape-coverage-route.js";
 export { createEnabledActionRoutes } from "./actions/runtime.js";
 export { RESEARCH_OPERATIONS } from "./register-tools.js";
 export type {

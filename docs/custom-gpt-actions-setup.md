@@ -86,8 +86,9 @@ Privacy: https://askrigor.com/privacy
    must arrive as verified runtime Action results, not stale uploaded copies.
 4. Import the Action URL, select **API Key** then **Bearer**, and retain only
    the existing protected Action key in the editor authentication control.
-5. Confirm the 18 research operations are non-consequential, including the
-   Action-only `get_youtube_transcript`, and the single
+5. Confirm the 19 research operations are non-consequential, including the
+   Action-only `get_youtube_transcript` and
+   `assess_treatment_landscape_coverage`, and the single
    `submit_lesson_candidate` operation remains consequential. The MCP inventory
    must remain the frozen 17-tool contract.
 6. Save the GPT without publishing and test in a new chat.
@@ -131,7 +132,7 @@ bucket and 16-request concurrency pool, so the compatibility surface cannot
 double the public allowance. Both are the same transient provider-retrieval
 flow; full application request and response bodies are not logged or written to
 durable storage. Direct MCP continuation remains client-carried and stateless.
-For `audit_youtube_video_community` only, the Custom GPT Action stores the
+For `audit_youtube_video_community`, the Custom GPT Action stores the
 existing signed minimized continuation token in process memory and returns a
 37-character handle. The map expires entries after one hour without renewal,
 holds at most 2,048 entries and 16 MiB, contains no comment text, author
@@ -143,6 +144,15 @@ video identifier. A valid continuation that returns
 `youtube_video_audit_identifier_membership_restart_required` also requires a
 fresh audit from the video identifier. Its reported cumulative counts stop at
 the last accepted segment and must not be combined with the restarted chain.
+
+`get_youtube_transcript` uses a separate 37-character one-hour handle backed by
+at most 2,048 entries/4 MiB of compact chain metadata: provider cursor, public
+video and selected-track metadata, caption-snapshot hash, page/segment counters,
+next expected segment index, and timestamp state. It stores no caption text,
+title, channel name, request text, credential, or protocol text. A raw provider,
+forged, expired, replayed, or mismatched handle returns
+`youtube_transcript_action_continuation_invalid_or_expired`; restart that
+video/language and never combine prior-chain counts.
 
 Every research Action response is limited to exactly **60,000 serialized UTF-8
 bytes**. `load_protocol` returns at most **48,000 UTF-8 bytes** of exact protocol
@@ -156,8 +166,8 @@ Continue immediately with the returned short handle while
 trimmed.
 
 `get_youtube_transcript` is a Custom GPT Action only; it is not an MCP tool.
-It re-fetches the selected public caption track on each cursor page and stores
-no transcript session or caption text between requests. Continue its cursor
+It re-fetches the selected public caption track on each page and stores no
+caption text between requests. Continue only its returned Action handle
 until `access_status:api_visible_complete` or a terminal access/error boundary.
 That completion covers only the selected API-visible caption track and does not
 prove caption accuracy or access to deleted, private, hidden, unavailable, or
@@ -166,6 +176,19 @@ returned explicitly. The provider uses an unofficial YouTube interface, so a
 browser-visible transcript can still be `inaccessible`, `rate_limited`,
 `not_found`, or `error` through the Action; preserve that gap and do not infer
 creator content from metadata or comments.
+
+`assess_treatment_landscape_coverage` is also a Custom GPT Action only. It
+makes no provider call or stored state. It reconciles discovery batches with
+candidate/class/fingerprint links, derives candidate counts and normalized
+program signatures, uses stable channel IDs, and checks deterministic
+projections of the actual transcript/comment receipt shapes. Invalid records do
+not enter aggregates. Its strictly validated request may be up to **65,536
+UTF-8 bytes**; a representative 15-video response is tested against the
+60,000-byte response cap. A pass establishes supplied-ledger consistency only,
+not semantic completeness, efficacy, safety, representativeness, or a
+recommendation. Partial, retryable, rate-limited, or unrecovered work remains a
+continue state; bounded output requires a terminal nonretryable boundary after
+attempted recovery.
 
 ## 5. Synthetic acceptance and queue status
 

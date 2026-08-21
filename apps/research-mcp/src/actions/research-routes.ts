@@ -18,6 +18,10 @@ import {
 } from "./protocol-continuation.js";
 import { boundYoutubeAuditForAction } from "./research-output.js";
 import {
+  discussionReceiptSchema,
+  projectDiscussionCoverageReceipt
+} from "./treatment-landscape-coverage-route.js";
+import {
   createYoutubeActionContinuationHandleStore,
   YoutubeActionContinuationHandleError,
   type YoutubeActionContinuationHandleStore
@@ -168,6 +172,11 @@ function createResearchActionRoute(
 ): ActionRoute {
   const inputSchema = objectSchema(operation.inputSchema, operation.name, "input");
   const outputSchema = objectSchema(operation.outputSchema, operation.name, "output");
+  const actionOutputSchema = operation.name === "audit_youtube_video_community"
+    ? youtubeVideoCommunityAuditOutputSchema.extend({
+        coverage_receipt: discussionReceiptSchema
+      }).strict()
+    : outputSchema;
   return Object.freeze({
     method: "POST",
     path: operation.actionPath,
@@ -180,7 +189,7 @@ function createResearchActionRoute(
     maximumResponseBytes: RESEARCH_ACTION_RESPONSE_MAX_BYTES,
     requestSchema: actionJsonSchema(inputSchema),
     responseSchemas: {
-      200: actionJsonSchema(outputSchema),
+      200: actionJsonSchema(actionOutputSchema),
       422: operation.name === "audit_youtube_video_community"
         ? {
             oneOf: [
@@ -236,20 +245,26 @@ function createResearchActionRoute(
         if (!parsedOutput.success) {
           throw new Error("Research operation returned invalid structured output");
         }
-        const actionOutput = operation.name === "audit_youtube_video_community"
-          ? youtubeAuditActionOutput(
-              youtubeVideoCommunityAuditOutputSchema.parse(parsedOutput.data),
-              youtubeContinuationHandles
-            )
-          : parsedOutput.data;
-        const validatedActionOutput = outputSchema.safeParse(actionOutput);
+        const originalYoutubeOutput = operation.name === "audit_youtube_video_community"
+          ? youtubeVideoCommunityAuditOutputSchema.parse(parsedOutput.data)
+          : undefined;
+        const actionOutput = originalYoutubeOutput === undefined
+          ? parsedOutput.data
+          : (() => {
+              const bounded = youtubeAuditActionOutput(
+                originalYoutubeOutput, youtubeContinuationHandles
+              );
+              return {
+                ...bounded,
+                coverage_receipt: projectDiscussionCoverageReceipt(bounded)
+              };
+            })();
+        const validatedActionOutput = actionOutputSchema.safeParse(actionOutput);
         if (!validatedActionOutput.success) {
           throw new Error("Research Action adapter returned invalid structured output");
         }
         if (previousHandle !== undefined) {
-          const youtubeOutput = youtubeVideoCommunityAuditOutputSchema.parse(
-            validatedActionOutput.data
-          );
+          const youtubeOutput = originalYoutubeOutput!;
           if (
             youtubeOutput.continuation_token !== undefined ||
             youtubeOutput.receipt.synthesis_lock === "pass" ||
@@ -302,7 +317,7 @@ function youtubeAuditActionOutput(
         };
     const bounded = boundYoutubeAuditForAction(
       youtubeVideoCommunityAuditOutputSchema.parse(transportOutput),
-      RESEARCH_ACTION_RESPONSE_MAX_BYTES
+      RESEARCH_ACTION_RESPONSE_MAX_BYTES - 4_000
     );
     return bounded;
   } catch (error) {

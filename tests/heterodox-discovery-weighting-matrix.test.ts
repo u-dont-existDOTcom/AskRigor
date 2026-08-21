@@ -128,33 +128,33 @@ describe("heterodox discovery and weighting matrix", () => {
       }
     }
 
-    expect(project).toContain("candidate-selection ledger");
-    expect(project).toContain("exact claim fingerprint");
-    expect(project).toContain("surprising or hard-to-find information");
-    expect(project).toContain("Title, description, and comments do not establish");
-    expect(project).toContain("transcript status");
-    expect(forum).toContain("exact claim fingerprint");
+    expect(project).toContain("Ledger query/direction, fingerprint, decision value");
+    expect(project).toContain("Fingerprint components");
+    expect(project).toContain("classes/fingerprints lacking selection/formal follow-up");
+    expect(project).toContain("Metadata/comments do not establish creator content");
+    expect(project).toContain("server-produced `coverage_receipt`");
+    expect(forum).toContain("exact program fingerprint");
     expect(forum).toContain("hard to recover from studies");
     expect(forum).toContain("relevant timestamp");
     expect(forum).toContain("No content-verified watchlist candidate located");
 
     for (const compactSurface of [skill, generated]) {
       for (const compactControl of [
-        "how I cured/reversed/fixed my [condition]",
-        "Hooks are not conclusions",
-        "Rewrite/use-cursor/new-batch if generic/redundant",
-        "components/dose/frequency/duration",
+        "how I cured/reversed/fixed",
+        "are hooks",
+        "Rewrite/use cursors/new batches",
+        "components; dose/intensity/frequency/duration",
         "supervision/adherence/cointerventions",
-        "assess transportability",
+        "Planning heuristics, not quotas",
         "defer false tokens",
         "Metadata/comments cannot establish creator content",
-        "Action canonical link",
+        "Videos worth watching",
       ]) {
         expect(compactSurface, compactControl).toContain(compactControl);
       }
     }
 
-    expect(forum).toContain("Prepare up to six YouTube searches across the general landscape");
+    expect(forum).toContain("Prepare up to six YouTube searches **per discovery batch**");
     expect(forum).toContain("rewrite queries, use cursors, or start another batch");
     expect(forum).toContain("assess transportability to the question");
     expect(forum).toContain("do not auto-resubmit it in the same pass");

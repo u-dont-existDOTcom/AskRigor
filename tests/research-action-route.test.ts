@@ -150,13 +150,21 @@ describe("read-only research Action routes", () => {
     };
     const [route] = createResearchActionRoutes({ operations: [operation] });
     const result = await route!.handle(context({}));
-    const bounded = youtubeVideoCommunityAuditOutputSchema.parse(result.body);
+    const { coverage_receipt: coverageReceipt, ...baseBody } = result.body as
+      Record<string, unknown>;
+    const bounded = youtubeVideoCommunityAuditOutputSchema.parse(baseBody);
 
     expect(result.status).toBe(200);
     expect(Buffer.byteLength(JSON.stringify(original), "utf8")).toBeGreaterThan(60_000);
-    expect(Buffer.byteLength(JSON.stringify(bounded), "utf8")).toBeLessThanOrEqual(60_000);
+    expect(Buffer.byteLength(JSON.stringify(result.body), "utf8")).toBeLessThanOrEqual(60_000);
     expect(bounded.sample!.comments.length).toBeLessThan(original.sample.comments.length);
     expect(bounded.receipt).toEqual(original.receipt);
+    expect(coverageReceipt).toMatchObject({
+      source_video_id: "XpZHKGGCK-o",
+      access_status: "api_visible_complete",
+      records_retrieved_cumulative: 100,
+      receipt: { synthesis_lock: "pass" }
+    });
     expect(original.sample.comments).toHaveLength(100);
   });
 

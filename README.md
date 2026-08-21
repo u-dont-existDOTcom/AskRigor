@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.18` (2026-08-16), SHA-256
-`4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`,
+The current canonical files identify HRP `20.5.19` (2026-08-21), SHA-256
+`afa8e3ff9ac6936b7e277a1b21f99c36507e44e2a3595036265d395ff2883b94`,
 and Universal Instructions `20.5.14` (2026-08-18), SHA-256
 `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -215,8 +215,8 @@ and links content-verified videos worth watching, and it cannot synthesize while
 wider or deeper executable work is still likely to improve the answer. The
 current source candidate adds a Custom GPT-only `get_youtube_transcript` read
 with timestamped, cursor-bounded public caption segments,
-language/automatic-caption provenance, explicit access failures, and no
-server-side transcript session. Creator content and comment-corpus evidence
+language/automatic-caption provenance, explicit access failures, and compact
+server-held chain metadata without caption text. Creator content and comment-corpus evidence
 remain separate; titles, descriptions, and comments cannot substitute for a
 transcript. The legacy `audit_youtube_community` remains available for
 compatibility.
@@ -224,7 +224,7 @@ compatibility.
 The read-only research path uses ChatGPT as the existing reasoning engine. It
 adds no OpenAI API model call, local model, n8n workflow, database, durable
 comment persistence, or additional paid inference. The sole cross-request
-research state is the bounded one-hour Custom GPT YouTube handle map described
+research state is the bounded one-hour Custom GPT YouTube handle maps described
 below. The separate lesson Action uses the
 fixed OpenAI API privacy check documented below; API billing is separate from
 ChatGPT billing and is capped server-side at $50.00 per UTC month.
@@ -280,12 +280,14 @@ and production transcript access has not been live-tested.
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application
 request and response bodies are not logged or written to durable storage.
-Direct MCP continuation remains stateless. For only Custom GPT YouTube
-continuation, the server maps a 37-character handle to the existing signed,
-minimized token in process memory for no longer than one hour. The map stores no
-comment text, author identity, provider credential, or protocol text; it is
-bounded to 2,048 entries and 16 MiB, and restart, expiry, or eviction requires
-the audit to restart from the video identifier. An exact repeated identifier is
+Direct MCP continuation remains stateless. For Custom GPT YouTube continuation,
+the server returns a 37-character handle backed by process memory for no longer
+than one hour. The comment-audit map stores the signed minimized token, no
+comment text, and is bounded to 2,048 entries/16 MiB. The transcript map stores
+only provider cursor, public video/selected-track and snapshot metadata,
+page/segment counters, next expected index, and timestamp state—no caption
+text—and is bounded to 2,048 entries/4 MiB. Restart, expiry, or eviction requires
+that video's chain to restart. An exact repeated identifier is
 reconciled anywhere in the chain and marks the result as a moving-pagination
 access boundary. If that repeat is a reply, the receipt also keeps
 `replies_reconciled` false because the provider's per-parent reply total can no
@@ -334,7 +336,7 @@ new lessons while MCP remains available and unchanged.
 ## Public-review status
 
 The deployed MCP connector serves the exact existing 17-tool read-only inventory
-and the separate Action route. Production serves canonical HRP `20.5.18`
+and the separate Action route. Production serves deployed HRP `20.5.18`
 (2026-08-16), SHA-256
 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`,
 with the independent community-evidence weighting invariant and adaptive

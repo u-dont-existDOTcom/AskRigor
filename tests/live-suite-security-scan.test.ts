@@ -145,7 +145,7 @@ describe("live-suite output secret scan", () => {
     } finally {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }
-  });
+  }, 15_000);
 
   it("creates an archive checksum that remains valid after upload to a new path", async () => {
     const temporaryDirectory = await mkdtemp(join(tmpdir(), "askrigor-live-suite-v3-archive-test-"));

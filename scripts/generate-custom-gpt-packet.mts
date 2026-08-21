@@ -16,15 +16,17 @@ import { createDefaultActionRoutes } from
 import { RESEARCH_OPERATIONS } from
   "../apps/research-mcp/src/register-tools.js";
 
-const GENERATED_AT = "2026-08-18" as const;
+const GENERATED_AT = "2026-08-21" as const;
 const ROOT = new URL("../", import.meta.url);
 const SKILL_PATH = "skills/askrigor/SKILL.md" as const;
 const ACTION_MODULE_PATH = "project/CUSTOM_GPT_ACTION_MODULE.md" as const;
 const OPENAPI_PATH = "docs/custom-gpt-action-openapi.json" as const;
 const INSTRUCTIONS_PATH = "docs/custom-gpt-instructions.md" as const;
 const SYNC_PATH = "docs/custom-gpt-sync.json" as const;
-const MCP_TRANSCRIPT_PARAGRAPH = "Shortlist: `get_youtube_video`. When available, require `get_youtube_transcript` `api_visible_complete` or terminal-boundary; preserve status/language/auto/timestamps. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`; withhold claims/watchlist; never call an undeclared tool. Metadata/comments cannot establish creator content; transcript≠truth/efficacy. Call `audit_youtube_video_community`; continue while `continuation_recommended: true`, defer false tokens, seek replication/failure/harm. Preserve `provider_reported_comments`/`records_retrieved_cumulative`/`records_returned_for_analysis` and each Action receipt's `synthesis_lock`." as const;
-const CUSTOM_GPT_TRANSCRIPT_PARAGRAPH = "Shortlist: `get_youtube_video`→`get_youtube_transcript`; selected-track `api_visible_complete` or terminal boundary. Preserve status/language/auto/timestamps. Metadata/comments cannot establish creator content; transcript≠truth/efficacy. Separately call `audit_youtube_video_community`; continue while `continuation_recommended: true`, defer false tokens, seek replication/failure/harm. Preserve `provider_reported_comments`/`records_retrieved_cumulative`/`records_returned_for_analysis` and each Action receipt's `synthesis_lock`." as const;
+const MCP_TRANSCRIPT_PARAGRAPH = "Shortlist: `get_youtube_video`→`get_youtube_transcript`; require selected-track completion/boundary. Continue only its opaque Action handle. Require one server-held contiguous first-to-exhausted chain; reject caller cursors, skipped/lone pages, and mixed restart counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, withhold claims/watchlist, and never call an undeclared tool. Metadata/comments cannot establish creator content; transcript≠truth. Call `audit_youtube_video_community`; consume its coverage receipt, continue while `continuation_recommended: true`, defer false tokens, and seek replication/failure/harm. Incomplete/retryable work remains executable despite caller labels." as const;
+const CUSTOM_GPT_TRANSCRIPT_PARAGRAPH = "`get_youtube_video`→`get_youtube_transcript`; continue only its opaque Action handle. Require selected-track `api_visible_complete`/terminal boundary and one contiguous first-to-exhausted chain; reject skipped/mixed calls. Metadata/comments cannot establish creator content; transcript≠truth. Call `audit_youtube_video_community`; continue while `continuation_recommended: true`, defer false tokens, and seek replication/failure/harm. Incomplete/retryable work remains executable." as const;
+const MCP_LANDSCAPE_PARAGRAPH = "Comments and formal findings reopen discovery both ways; close material hypotheses from every batch and formal-return each fingerprint. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation; gaps cannot erase signal. Before synthesis call `assess_treatment_landscape_coverage` if advertised; pass=ledger consistency only. Otherwise derive locally, record `assessor_tool_unavailable`, and fail closed. Keep selection, video-depth, and overall locks separate. Only a terminal nonretryable boundary after recovery permits bounded non-ranking output. Full HRP needs all locks, audits, formal returns, and transfers resolved." as const;
+const CUSTOM_GPT_LANDSCAPE_PARAGRAPH = "Community↔formal reopens discovery; close material hypotheses from every batch and formal-return each fingerprint. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation; gaps cannot erase signal. Before synthesis call `assess_treatment_landscape_coverage`; pass=ledger consistency only. Require all three locks pass. Only a terminal nonretryable boundary after recovery permits bounded non-ranking output. Full HRP needs all locks, audits, formal returns, and transfers resolved." as const;
 
 export interface CustomGptSync {
   schema_version: 1;
@@ -114,12 +116,19 @@ export async function writeCustomGptPacket(): Promise<void> {
 }
 
 function createInstructions(skillSource: string, actionModule: string): string {
-  const customGptSkillSource = skillSource.replace(
+  const transcriptAdapted = skillSource.replace(
     MCP_TRANSCRIPT_PARAGRAPH,
     CUSTOM_GPT_TRANSCRIPT_PARAGRAPH
   );
-  if (customGptSkillSource === skillSource) {
+  if (transcriptAdapted === skillSource) {
     throw new Error("Missing MCP transcript capability boundary in AskRigor skill");
+  }
+  const customGptSkillSource = transcriptAdapted.replace(
+    MCP_LANDSCAPE_PARAGRAPH,
+    CUSTOM_GPT_LANDSCAPE_PARAGRAPH
+  );
+  if (customGptSkillSource === transcriptAdapted) {
+    throw new Error("Missing MCP treatment-landscape capability boundary in AskRigor skill");
   }
   const withoutFrontmatter = customGptSkillSource
     .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/u, "")

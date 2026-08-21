@@ -37,6 +37,7 @@ export interface ActionRoute {
   consequential: boolean;
   public: boolean;
   publicResearch?: true;
+  maximumRequestBytes?: number;
   maximumResponseBytes?: number;
   requestSchema?: Record<string, unknown>;
   responseSchemas: Readonly<Record<number, Record<string, unknown>>>;

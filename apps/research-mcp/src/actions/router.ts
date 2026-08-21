@@ -53,6 +53,16 @@ export function validateActionRoutes(routes: readonly ActionRoute[]): void {
       throw new Error(`Invalid public research Action route: ${route.operationId}`);
     }
     if (
+      route.maximumRequestBytes !== undefined &&
+      (
+        route.method !== "POST" ||
+        !Number.isSafeInteger(route.maximumRequestBytes) ||
+        route.maximumRequestBytes < 1
+      )
+    ) {
+      throw new Error(`Invalid Action request byte limit: ${route.operationId}`);
+    }
+    if (
       route.maximumResponseBytes !== undefined &&
       (
         !Number.isSafeInteger(route.maximumResponseBytes) ||
@@ -110,7 +120,10 @@ export async function dispatchActionRequest(
   let body: unknown = undefined;
   if (route.method === "POST") {
     try {
-      body = await readActionJsonBody(request, ACTION_REQUEST_MAX_BYTES);
+      body = await readActionJsonBody(
+        request,
+        route.maximumRequestBytes ?? ACTION_REQUEST_MAX_BYTES
+      );
     } catch (error) {
       if (error instanceof ActionBodyTooLargeError) {
         writeJson(response, 413, { error: { code: "action_body_too_large", retryable: false } });

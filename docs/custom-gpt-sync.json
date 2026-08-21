@@ -2,11 +2,11 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31"
+      "sha256": "35a9a2d51a4a3629795ea0224473e6273caf88febbbc0fefbe0095b1e73cc0ce"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488"
+      "sha256": "9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9"
     }
   ],
   "consequential_operation_ids": [
@@ -19,7 +19,7 @@
     "privacy_url": "https://askrigor.com/privacy",
     "schema_url": "https://mcp.askrigor.com/actions/openapi.json"
   },
-  "generated_at": "2026-08-18",
+  "generated_at": "2026-08-21",
   "mcp_research_operation_ids": [
     "audit_youtube_community",
     "audit_youtube_video_community",
@@ -40,6 +40,7 @@
     "verify_protocol_integrity"
   ],
   "research_operation_ids": [
+    "assess_treatment_landscape_coverage",
     "audit_youtube_community",
     "audit_youtube_video_community",
     "check_retraction_status",
@@ -63,11 +64,11 @@
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "932d38fbfb3802219daa26e909cc149ec141769bcb08ecfd3fc151a8cabdb3c3"
+      "sha256": "92c5320c50ab53e2ce940f1c4488ac1aa324153022ff8f535dae9e99eb14a2df"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",
-      "sha256": "d4b584a0616abfd9ffc2ba40a1b7b91f868ad24617ab643fadb919ebc3f3377c"
+      "sha256": "4c0e69caf26659380cbc1b7747634b7f1f4f9482a83910004fd8e5652b3e5af1"
     }
   ]
 }
