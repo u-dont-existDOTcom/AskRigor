@@ -23,8 +23,9 @@ routine-status regression.
 The current repair candidate's generated Instructions are 7,962 characters,
 SHA-256
 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`.
-They require installation and fresh GPT-UI acceptance before public submission;
-the prior installed packet must not be treated as proof of the repaired
+After reviewing the complete current text, the owner reported these exact
+Instructions were already installed. Fresh GPT-UI acceptance is still required
+before public submission; installation alone is not proof of the repaired
 partial-answer, program-decomposition, or plain-language behavior.
 
 ## Optional lesson Action deployment truth
