@@ -24,6 +24,13 @@ AskRigor has two deliberately separate processing paths:
   privacy check, and writes a private GitHub review candidate plus anonymous
   occurrence metadata. It is not an MCP operation and cannot change code,
   protocols, instructions, providers, or releases.
+- **Optional local Gemini-candidate validation path:** an operator supplies one
+  de-identified Spark response containing public YouTube identifiers, displayed
+  titles/channels, executed queries, and provisional creator-claim summaries.
+  The local command parses that file, requests bounded public video metadata
+  through the existing YouTube adapter, and prints a validation receipt. It is
+  not an MCP or Action route, retrieves no comments or transcripts, makes no
+  medical conclusion, and creates no application-managed persistent store.
 
 The lesson path is deployed from exact code revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` and passed its bounded synthetic
@@ -108,6 +115,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol loads use exact ordered chunks; transcript pages contain bounded timestamped caption segments; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | The application source emits a startup line only and does not log tool arguments, raw provider payloads, comment text, user identifiers, or credentials. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. Infrastructure retention follows each provider's configured policy and is outside AskRigor's application storage. |
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider | Providers process their requests under their own policies; AskRigor does not persist a provider-side copy. |
+| Optional local Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
 
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains

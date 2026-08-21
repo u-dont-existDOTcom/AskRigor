@@ -32,9 +32,9 @@ complete XML protocol.
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary
-- `gemini-spark-setup.md`: owner-operated Gemini Spark custom-app and bounded
-  YouTube-scout skill installation, live compatibility receipt, per-task
-  handoff boundary, and scout acceptance test
+- `gemini-spark-setup.md`: owner-operated candidate-only Gemini Spark scout,
+  one-pass installation, strict JSON handoff, deterministic AskRigor metadata
+  validation, privacy boundary, and acceptance check
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate

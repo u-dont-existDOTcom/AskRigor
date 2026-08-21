@@ -40,6 +40,10 @@ acceptance pass.
 - Install pinned dependencies with `npm ci`
 - Run the deterministic fixture suite with `npm run test:run`
 - Run the release verification sequence with `npm run verify`
+- Validate a complete candidate-only Spark response with
+  `npm run validate:gemini-handoff -- path/to/spark-response.md`; this optional
+  live command uses the existing `YOUTUBE_API_KEY` and is not part of the
+  hermetic default gate
 
 The default test commands do not contact external providers or consume provider
 quota. They replay recorded fixtures and verify stable identifiers, explicit

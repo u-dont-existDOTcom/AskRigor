@@ -1,317 +1,129 @@
-# Gemini Spark YouTube scout for AskRigor
+# Gemini Spark YouTube candidate scout for AskRigor
 
-This is an owner-operated evaluation of Gemini Spark as a private YouTube scout
-for AskRigor. Gemini performs rapid public-video discovery and creator-content
-summarization. It does not execute HRP, replace the AskRigor research agent, or
-change the public Custom GPT.
+This is an owner-operated, optional high-recall lane. Gemini finds public
+YouTube candidates; AskRigor independently validates their identities and
+decides which sources merit protocol-governed research. Gemini does not execute
+HRP, audit comments, validate treatment claims, or replace AskRigor.
 
 ## Prerequisites
 
 Google currently requires Gemini Spark access, age 18+, a personal Google
 Account, Keep Activity enabled, and presence in the United States for custom
-apps. Spark itself requires a Google AI Pro or Ultra subscription and is
-available in more regions than custom apps; Spark access therefore does not
-prove custom-app access. Account eligibility is an external Google gate and
-must not be inferred from Gemini API billing.
+apps. Spark requires Google AI Pro or Ultra. These external requirements were
+rechecked on 2026-08-19. Gemini API billing does not change consumer Gemini or
+Spark eligibility.
 
-These requirements were rechecked against Google's current help pages on
-2026-08-19. If **Custom apps for Spark** is absent, first check:
+The candidate-only skill does not call the AskRigor custom app. An existing
+connection to `https://mcp.askrigor.com/mcp/gemini` may remain installed, but it
+is not required for this workflow. The public endpoint remains at 17 expected
+read-only tools; this change adds no deployed tool or credential.
 
-1. the active mode is Spark rather than a normal Gemini chat;
-2. the account is personal rather than work or school;
-3. the account has Google AI Pro or Ultra;
-4. Keep Activity is enabled; and
-5. the user is in the United States.
+## Install the replacement skill once
 
-Changing Gemini API billing does not change consumer Gemini or Spark
-eligibility.
+Attach
+`integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md` to a
+Spark conversation and say:
 
-## One-time connection
+> Replace my existing AskRigor YouTube scout with this exact complete skill.
+> Do not merge it with the old staged contract or rewrite it. Recheck an
+> initial scanner warning once against the actual file before reporting the
+> final result.
 
-1. Open <https://gemini.google.com> and switch to Spark.
-2. Open **Settings & help → Connected Apps**. If needed, open **Personal
-   Intelligence → Connected Apps** first.
-3. Under **Custom apps for Spark**, add:
+The installed skill name is `scout-youtube-candidates-for-askrigor`. Delete or
+disable `scout-youtube-for-askrigor-staged` and any older AskRigor YouTube scout
+copy so only the candidate-only replacement can trigger.
 
-   `https://mcp.askrigor.com/mcp/gemini`
+The exact repository file has SHA-256
+`a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd`. The
+old `staged-remedy-scan-v16` contract is retired. Do not repair, merge, or run it
+again; its forward test found useful videos but failed its own counts, joins,
+classification, evidence-map, and metadata contracts.
 
-4. Click **Next** and approve the connection. The endpoint is public and needs
-   no credential or Advanced-features secret.
-5. Confirm that the AskRigor custom app appears in Connected Apps.
+## Run a scout task
 
-The Gemini-specific endpoint exposes the same ordered 17 expected tools and
-read-only handlers as the standard AskRigor MCP endpoint, but emits the smaller
-Google-compatible catalog schema. The owner confirmed successful account-side
-connection on 2026-08-19. The earlier standard endpoint reached `tools/list`
-but Gemini rejected its richer catalog; that failure was not an authentication
-or network failure.
+Give Spark only the de-identified research question and select
+`/scout-youtube-candidates-for-askrigor`. The response must begin exactly with:
 
-## One-time skill installation
+`Scout contract: youtube-candidate-handoff-v1`
 
-Prefer the conversation path: attach
-`integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md` in a
-Spark conversation and ask Spark to inspect it, recheck an initial scanner
-rejection once, and replace the existing skill with unchanged bytes when safe.
-Require Spark to identify the exact trigger and return a complete corrected file
-plus a diff before accepting any rewrite. **Skills → Upload** remains a fallback
-when conversation replacement is unavailable.
+`Mode: candidate_discovery`
 
-The staged skill is named `scout-youtube-for-askrigor-staged`. Delete or
-disable any older `scout-youtube-for-askrigor` copy before uploading it. It
-deliberately contains no Universal or HRP orchestration.
+The remainder must be one `## AskRigor candidate handoff` heading and one JSON
+block. It contains executed discovery queries, 3–12 candidate IDs with
+provisional creator-claim annotations, 1–4 suggested seed IDs, observed search
+gaps, and fixed disclosures. It contains no AskRigor access status, provider
+statistics, comment findings, evidence verdict, rabbit-hole map, or return-
+packet contract.
 
-The exact v15 file cleanly passed the conversation upload check on 2026-08-21.
-Its SHA-256 is
-`da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
-That upload-compatible file then failed behavioral acceptance: its report used
-unsupported probe-to-candidate joins, misclassified a supplement-led outcome as
-mechanical, and dropped available comment counts. The corrected v16 candidate
-has SHA-256
-`8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b`.
-Before the next run, v16 was locally validated without installed-byte readback.
-The subsequent v16-marked forward run found useful real candidates but failed its
-internal evidence contract: counts, anchor coverage, direct joins, promotion
-flags, question mappings, and API-visible comment counts remained inconsistent.
-Do not continue iterative owner-operated skill uploads. Treat any current Spark
-packet only as provisional candidate IDs and vocabulary until AskRigor validates
-them independently. A smaller candidate-only handoff is the recommended future
-replacement; it is not yet an accepted skill.
+Copy or save the complete response unchanged. This is the only manual transfer
+in the optional lane; there is no iterative owner-operated probe or correction
+loop.
 
-## Normal scout task
+## Validate in AskRigor
 
-Give Gemini the de-identified research question and ask it to find surprising,
-firsthand, exact-variant, failure, harm, or implementation videos. To force the
-skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v16`, followed by the active mode on the
-second line. If the marker is absent, stop: Gemini did not execute the current
-skill. Let Gemini complete broad result discovery before it inspects video
-content. Detailed content inspection is limited to the shortlisted 8–12 scan
-candidates. Select the AskRigor custom app when Gemini needs to validate exact
-video identities with `get_youtube_video`.
+The deterministic validator checks the complete response before trusting any
+candidate. With `YOUTUBE_API_KEY` already present in the environment, run:
 
-Without a rediscovery packet, Gemini uses `seed_discovery`. Even a terse prompt
-such as `how can I fix my bad hip` automatically expands into overlooked,
-self-directed approaches plus positive and negative real-world feedback on
-conventional care, while preserving that no diagnosis was supplied. Gemini
-generates 14–22 diverse query probes, including separately executed radical-
-outcome variants, then groups them into 6–12 single-family discovery batches of
-at most three probes. Each probe records literal required anchors and cannot
-claim coverage unless both its frozen query and the batch query contain them;
-the returned search-batch ledger includes `batch_anchor_evidence`. Gemini counts
-only executed, anchor-covered remedy, firsthand, and conventional directions,
-keeps one remedy in every `single_intervention` probe, separates direct radical
-claims from adjacent tutorials, copies each batch status to its probes, and
-requires exact direct-match evidence for every direct candidate join. It also
-recomputes the displayed scan count before running a required
-`remedy_extraction_scan` on 8–12 plausible videos. It extracts only intervention
-names, creator-claimed mechanisms and outcomes, creator relationship, novel
-search vocabulary, and discussion-hub value. Gemini then searches each
-promising intervention individually before returning an **AskRigor comment-
-audit seed packet** with two or three distinct seed videos and an unpopulated
-return contract. Copy that packet into AskRigor. Gemini has not audited the
-comments and must not pre-populate the later `youtube_rediscovery_packet`.
-Each seed copies view, like, and comment counts from the same `get_youtube_video` receipt;
-a present comment count cannot become a general
-metadata gap. A remedy that allegedly enables resumed activity determines the
-intervention family instead of the activity resumed afterward.
-Question evidence maps are built before the questions, which may then use only
-mapped phrases plus neutral benefit, timing, tolerability, flare, worsening,
-adherence, and discontinuation vocabulary. A conventional feedback seed must
-state both benefit and limitation.
-Content inspection begins only for those shortlisted scan candidates, reducing
-unnecessary video processing during broad discovery.
-It also returns an evidence-neutral rabbit-hole map showing observed retrieval
-depth and shortcuts such as `dig into nutrition signal` or `dig into side-effect
-signal`; these estimate further scouting potential, not treatment evidence.
-The report uses text-only Markdown links and forbids embedded players, video
-cards, carousels, rich previews, thumbnails, bare URLs, and duplicated raw
-search-result panels. Gemini may still show provider-owned YouTube search/tool
-activity outside the response; the skill cannot suppress that interface trace.
+`npm run validate:gemini-handoff -- path/to/spark-response.md`
 
-When AskRigor's protocol-governed comment analysis produces a
-`youtube_rediscovery_packet`, paste that packet into Gemini and invoke the skill
-again. Gemini then uses `targeted_rediscovery`, searches the specific community-
-derived interventions and vocabulary, and returns a selective **AskRigor
-handoff** plus **Videos worth watching**. Only these narrow final candidates
-receive detailed summaries and timestamp extraction.
+Use `-` instead of a path to read standard input. Do not place the API key in
+the command or the packet. The command:
 
-The app connection and skill upload are one-time setup. With the current
-read-only MCP architecture, there is a manual transfer at each stage: Gemini
-seed packet to AskRigor, optional AskRigor rediscovery packet back to Gemini,
-and the final Gemini dossier back to AskRigor. The Gemini-to-AskRigor connection
-runs in the opposite direction and cannot place Gemini's generated output into
-a ChatGPT or Codex conversation automatically. AskRigor may instead perform its
-own wider YouTube searches after comment analysis when avoiding the optional
-Gemini round trip is more useful. Fully automating bidirectional transfer would
-require a separately reviewed authenticated mailbox or server-side research
-supervisor.
+1. requires the exact marker, mode, heading, single JSON fence, field bounds,
+   closed enums, unique IDs and queries, canonical links, all five query
+   purposes, 32 KiB response ceiling, seed-subset rule, and disclosures;
+2. calls the existing AskRigor YouTube adapter for every candidate;
+3. compares the declared ID, canonical URL, title, and channel with provider
+   metadata;
+4. preserves provider access states, statistics, errors, and limitations;
+5. marks a suggested seed mechanically eligible only when its identity is
+   validated, its reported privacy state is public, its provider comment count
+   is positive, and an earlier eligible suggestion does not use the same
+   provider channel; and
+6. emits `accepted`, `partial`, or `rejected` with exact machine-readable
+   reasons.
 
-Run Spark as a parallel high-recall lane, not a blocking phase. Start AskRigor
-on the same de-identified question at the same time so it can load its protocol,
-map the evidence frontier, and research formal, grey, clinical, and accessible
-non-YouTube communities. When Spark finishes, transfer its packet into that
-active evidence map, deduplicate candidates, and continue AskRigor's transcript,
-comment, and bidirectional searches. The user remains the cross-app scheduler
-until a separately reviewed supervisor exists.
+An `accepted` receipt validates structure, provider identity, and mechanical
+comment-audit eligibility only. Gemini intervention labels and creator summaries
+remain provisional. A positive comment count does not prove that comment
+retrieval will be accessible or complete. AskRigor must still choose material
+seeds, retrieve required corpora, preserve completion receipts, research formal
+and other community sources, and obey the synthesis gate.
 
-## Acceptance test
+The validator is available as
+`validateGeminiYoutubeCandidateHandoff` from `@askrigor/sources` for an
+authorized supervisor or agent that already has the complete response. It is
+not a new public MCP or Action operation.
 
-Use a de-identified synthetic video-discovery prompt. In `seed_discovery`,
-confirm in the task trace and response that Gemini:
+## Acceptance check
 
-1. generates 14–22 materially different
-   `model_generated_query_probe` hypotheses without presenting them as found
-   remedies;
-2. searches the exact condition, umbrella condition, anatomy or symptom, and
-   intervention-first rings, then back-searches promising broad leads against
-   the exact target;
-3. uses fuzzy title recall and does not quote the entire query;
-4. runs `remedy_extraction_scan` on 8–12 plausible videos before selecting
-   comment seeds, without producing full dossiers or watching whole videos;
-5. validates two or three distinct seed videos through `get_youtube_video` and
-   preserves literal status plus provider-reported view, like, and comment
-   counts from the same receipt as reach metadata rather than evidence;
-6. returns an **AskRigor comment-audit seed packet** rather than invented
-   comment findings or a premature final watch verdict; and
-7. expands terse prompts across overlooked/self-directed and conventional
-   benefit, failure, side-effect, adherence, and discontinuation lanes; and
-8. returns a retrieval-depth rabbit-hole map with family-specific `dig into`
-   choices while keeping retrieval potential separate from evidence strength;
-   and
-9. returns text-only Markdown video links without embeds, cards, carousels,
-   previews, bare URLs, or a duplicated raw-results appendix; and
-10. records prospective queries before results, displays two to four radical
-    outcome probes, and never backfills result titles as query text;
-11. preserves unspecified diagnoses by treating named pathologies as adjacent;
-12. uses nonpredictive `audit_selection_rationale` text marked `comments
-    uninspected`, requires balanced conventional benefit/failure seeds, and
-    traces every rabbit-hole count to displayed candidate row IDs with a
-    semantically matched shortcut; and
-13. batches broad discovery into 6–12 text searches, opens no more than 12
-    shortlisted videos, uses numbered candidate records rather than tables,
-    selects unique intervention families, maps every rabbit-hole term to source
-    rows, separates retrieval gaps from AskRigor research questions, and uses
-    neutral noncausal comment-audit questions. Also confirm successful probes
-    cite genuinely matching rows, every candidate title is linked, exercise is
-    not relabeled behavioral to manufacture diversity, heterodox seeds are not
-    exercise-only, audit questions cite rows and request no proportions, and
-    rabbit-hole terms are copied from their cited candidate fields. Confirm the
-    probe ledger exposes at least six distinct overlooked-family labels, audit
-    questions cite selected seed rows only, provider reach counts remain
-    metadata-only, and each coherent rabbit hole says whether it is executable
-    from a current seed or requires future seed promotion. Also confirm batch
-    queries contain every linked probe anchor and expose per-probe anchor
-    evidence, candidate fields use exactly `intervention_family`, question
-    evidence maps precede questions, unmapped plausible details are absent,
-    rabbit questions avoid prevalence wording, and title links contain actual
-    canonical Markdown destinations. Confirm three separately covered
-    firsthand probes and family-specific shortcuts. Confirm each probe copies
-    its batch status, every direct row has source-aligned direct-match evidence,
-    promotion flags are explicit, and a remedy-led outcome is not classified by
-    the activity resumed afterward; and
-14. makes no protocol-manifest, protocol-load, formal-source, community-survey,
-   community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
-   individualized recommendation claim.
+Use the de-identified prompt `how can I fix my bad hip`. Confirm that Spark:
 
-Then supply a synthetic `youtube_rediscovery_packet`. In
-`targeted_rediscovery`, confirm that Gemini preserves lead provenance, searches
-literal, fuzzy, exact-condition, firsthand, failure, and harm variants, and
-summarizes only the selected narrow videos with concrete details, clickable
-timestamps, verification priorities, and **Videos worth watching** links.
+1. emits the exact `youtube-candidate-handoff-v1` framing and strict JSON;
+2. preserves `diagnosis_not_specified`;
+3. records 6–12 unique executed searches spanning firsthand outcome, radical
+   outcome, overlooked intervention, conventional benefit, and conventional
+   negative purposes;
+4. returns 3–12 unique surfaced videos and 1–4 suggested IDs drawn from them;
+5. attributes every creator claim and omits metadata status, counts, comment
+   findings, efficacy, safety, causality, and treatment recommendations; and
+6. passes the deterministic validator against independent YouTube metadata.
 
-For an outcome-focused final dossier, also confirm that Gemini runs at least
-four patient-specific searches with negative practitioner/institution terms
-when needed. The target is `min(3, ceil(dossier size / 2))` qualifying
-`independent_patient_self_learning` records. These must center on the apparent
-independent patient's own experiments, routines, mistakes, adaptations, and
-takeaways. An `independent_provider_treatment_review` or
-`clinic_patient_testimonial` may be useful supplemental material, but neither
-counts toward the patient quota. If independence is unclear, it also does not
-count. If the successful searches locate fewer qualifying accounts, the report
-must state a patient-account coverage shortfall instead of padding the quota
-with clinicians, treatment reviews, seller-hosted testimonials, sponsored
-accounts, or practitioner-retold cases.
+If Spark violates the JSON contract, keep the rejected receipt and exact issue
+paths. Do not ask the owner to diagnose or patch the skill. Repair the repository
+contract only if repeated independent runs expose the same decision-relevant
+failure.
 
-Also reject the report when it substitutes `available` for AskRigor's literal
-metadata status, emits a bare bracketed or empty timecode instead of a clickable
-deep link, describes an uninspected visual as support, or treats adjacent
-short-term relief or a promotional case as an exact long-term outcome match.
+## Evidence and privacy boundary
 
-Every located time must use standard Markdown and total seconds, for example:
-
-`[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)`
-
-Use `not located` only when Gemini genuinely cannot locate the passage.
-
-Do not treat the connection test as end-to-end HRP acceptance. Record a failed
-item as failed or incomplete rather than inferring it passed from fluent prose.
-
-The first real owner-run scout on 2026-08-19 showed useful discovery and detailed
-regimen extraction but failed this acceptance: it emitted the non-contract
-status `available`, left all promised timestamps blank, mixed creator summaries
-with uninspected visual support, and did not separate exact outcome matches from
-adjacent or promotional cases. The skill was tightened from that real output;
-the replacement rerun corrected literal statuses, attribution, search ledger,
-and incentive/match labels. It still emitted empty timecode placeholders and
-selected six adjacent tutorials with zero exact outcome matches even though the
-earlier run had located firsthand cases. The current skill therefore removes
-bare timecodes, requires clickable timestamp deep links paired with descriptive
-segment cues, and requires an exact-outcome discovery lane before adjacent
-tutorials. The owner confirmed that Gemini supplied the missing timestamps when
-asked directly; this showed a formatting-contract gap rather than an inability
-to locate timecodes. Clean acceptance remains pending another replacement-skill
-rerun.
-
-The next displayed output passed the clickable-timestamp and literal-status
-contracts. It still repeated the same six `adjacent_implementation` videos,
-performed only one broad avoidance query, and retained no non-clinician
-firsthand patient account. The prior skill had a soft exact-outcome preference
-but no hard creator quota. The current revision adds patient-specific queries
-with negative clinic/practitioner terms, a conditional half-dossier/three-video
-patient target, explicit creator-evidence classes, and a fail-closed coverage
-shortfall rather than padding.
-
-The owner then clarified that uploader identity alone was still too broad: a
-patient's personal-channel review of a clinic is firsthand, but it is not the
-self-directed learning signal sought here. The current revision therefore
-reserves the quota for `independent_patient_self_learning`, separates
-`independent_provider_treatment_review` and `clinic_patient_testimonial`, and
-requires the summary to recover the person's hypotheses, trial-and-error,
-routine changes, failures, and takeaways. Unclear independence fails closed and
-does not count.
-
-The next design review found that even a better final-dossier selector was
-prematurely spending effort on broad panoply videos. The current staged revision
-uses broad videos as discovery and comment-pool seeds: Gemini generates diverse
-search probes and triages titles first, AskRigor mines selected comment corpora
-for specific intervention vocabulary, and Gemini can perform an optional narrow
-rediscovery pass from the resulting packet. Broader disease and symptom searches
-may generate leads, but each promising lead must be back-searched against the
-exact anatomy or condition so local mechanical approaches are not erased.
-
-The owner then identified that metadata-first seed selection could still miss
-interventions hidden inside generically titled videos. The current revision
-makes a lightweight `remedy_extraction_scan` mandatory before comment mining.
-It searches each promising scan-derived intervention individually, while still
-deferring detailed regimens, exhaustive timestamps, visual review, and full
-summaries until targeted rediscovery.
-
-## Evidence boundary
-
-Gemini's title, metadata, and lightweight content triage and targeted creator
-summaries are trusted for fast scouting and hypothesis discovery, but they
-remain creator-content reporting rather than formal efficacy or safety
-evidence. AskRigor validates exact video identity; later protocol-governed work
-decides which claims warrant transcript, visual, comment-corpus, or formal-
-evidence verification.
-
-The public MCP intentionally remains frozen at 17 read-only tools and does not
-include the Action-only transcript operation. This scout therefore labels its
-source as `creator_summary` or `visual_observation` and asks for deeper checking
-only when a claim is both material and unusually decision-useful.
+Use a de-identified research target. The packet contains public video
+identifiers, titles, channel names, creator-attributed summaries, and search
+queries. It must not contain private health records, user identity, credentials,
+raw comments, or unrestricted provider output. Validation retrieves bounded
+public video metadata only and does not retrieve transcripts or comments.
 
 ## Removal
 
-Remove the AskRigor custom app from Gemini Connected Apps and disable or delete
-`scout-youtube-for-askrigor-staged`. Removing the app unlinks the MCP server
-from the Google Account; no AskRigor server credential needs rotation.
+Disable or delete `scout-youtube-candidates-for-askrigor` in Spark. If the old
+custom app is no longer useful for another workflow, remove AskRigor from
+Gemini Connected Apps; no AskRigor credential requires rotation.

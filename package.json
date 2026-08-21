@@ -14,6 +14,7 @@
     "test:site-deploy": "vitest run tests/public-site-deployment.test.ts",
     "test:live": "NO_COLOR=1 ASKRIGOR_LIVE_TESTS=1 vitest run tests/live-smoke.test.ts",
     "verify": "npm run typecheck && npm run test:run && npm run build",
+    "validate:gemini-handoff": "tsx scripts/validate-gemini-youtube-candidate-handoff.mts",
     "generate:action-openapi": "tsx scripts/generate-action-openapi.mts",
     "generate:custom-gpt": "tsx scripts/generate-custom-gpt-packet.mts",
     "lessons:status": "tsx scripts/lessons-status.mts",

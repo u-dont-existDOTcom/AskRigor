@@ -501,3 +501,42 @@ comment audit. Do not ask the owner for another upload/rerun loop.
 The focused Gemini contract remained green 8/8. The complete deterministic gate
 passed typecheck, 58 test files with one declared skip, 971 tests with five
 declared skips, and build.
+
+## Candidate-only replacement
+
+The separately reviewed replacement is now implemented locally as
+`youtube-candidate-handoff-v1`. It does not attempt to make Gemini's search
+ledger, metadata, comments, evidence mappings, or semantic seed selection
+authoritative. Spark returns one bounded JSON object containing 6–12 executed
+queries, 3–12 unique candidate IDs with explicitly provisional annotations,
+1–4 suggested seed IDs, observed search gaps, and fixed disclosures. The skill
+forbids AskRigor status/count claims, comment findings, protocol completion,
+efficacy, safety, causality, or treatment advice.
+
+AskRigor now owns a strict parser and independent validator. It fails before
+provider work on wrong framing, malformed JSON, unexpected fields, oversized
+responses, duplicate IDs or normalized queries, noncanonical watch links,
+missing search purposes, or seeds outside the packet. It then calls the existing
+YouTube adapter for every candidate and compares provider ID, canonical URL,
+title, and channel. A suggested seed is mechanically eligible only after an
+`api_visible_complete` identity receipt, a public privacy state when reported,
+a positive provider comment count, and distinctness from earlier eligible
+provider channels. That eligibility is not semantic materiality and does not
+replace AskRigor's protocol-governed selection or comment acquisition.
+
+The replacement skill is 7,249 bytes versus v16's 35,987 bytes. Its SHA-256 is
+`a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd`.
+Skill-creator validation passed. The focused skill and validator suite passed
+15/15. The host-boundary complete gate passed typecheck, 59 test files with one
+credential-gated skip, 978 tests with five skips, and build. A negative CLI
+smoke returned a structured framing error as designed. No local YouTube API key
+was available for a new live call; the prior independently captured v16
+metadata receipts remain the live identity evidence and were not relabeled as a
+test of the new parser.
+
+No public MCP or Action tool, canonical protocol, production service, or Gemini
+account state changed. External Spark upload and a fresh candidate-only forward
+packet remain separate acceptance receipts. The owner should not be asked to
+debug or iterate the contract: install this one complete file once, then let the
+deterministic validator produce exact rejection reasons for any malformed or
+mismatched packet.

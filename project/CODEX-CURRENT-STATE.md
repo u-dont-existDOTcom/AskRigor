@@ -1469,6 +1469,25 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   accepted current skill. The focused contract remained green 8/8 and the
   complete deterministic gate passed typecheck, 58 test files with one declared
   skip, 971 tests with five declared skips, and build.
+- The separate candidate-only redesign is now implemented locally. The exact
+  `youtube-candidate-handoff-v1` skill is 7,249 bytes with SHA-256
+  `a681a1d4f71e8b6bcc1d138b555a8ea70f9f14651153ea47176466f76e4b54dd`.
+  It emits only one strict JSON packet with bounded executed queries, unique
+  candidate IDs, provisional creator annotations, suggested seeds, gaps, and
+  fixed disclosures. `@askrigor/sources` now parses that packet at a 32 KiB
+  ceiling, validates every identity through the existing YouTube adapter, and
+  returns exact rejection and mechanical seed-eligibility receipts. The local
+  CLI is `npm run validate:gemini-handoff -- <response-file|->`. This adds no
+  public MCP/Action tool and does not validate creator claims or semantic
+  materiality. Skill validation passed; focused tests passed 15/15; the host-
+  boundary complete gate passed typecheck, 59 test files with one declared
+  skip, 978 tests with five declared skips, and build. No local YouTube key was
+  available for a new live call, so the existing independent v16 receipts remain
+  the live metadata evidence. External Spark upload and a fresh candidate-only
+  packet remain separate acceptance receipts.
+- The required lesson closeout at `2026-08-21T03:26:23.139Z` was available with
+  1 open candidate, 1 needs review, 0 accepted not incorporated, 2 incorporated
+  or closed, and 0 deletion eligible. No lesson expanded the compact redesign.
 - The required lesson checkpoint at `2026-08-21T02:44:42.860Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
@@ -1645,12 +1664,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Next safe action
 
 Do not resume iterative manual upload probes or ask the owner for a v17 rerun.
-V15 passed upload compatibility; v15 and v16 both failed behavior. Preserve the
-receipts and current candidate skill as experimental evidence, not an accepted
-handoff. If this lane continues, design a separate compact candidate-only Spark
-handoff and deterministic AskRigor-side validation; do not add more self-audit
-prose to the 36 KB contract. Until then, independently validate only useful
-candidate IDs and provisional vocabulary from Spark.
+V15 passed upload compatibility; v15 and v16 both failed behavior. The compact
+candidate-only replacement and deterministic AskRigor validator now exist. If
+this optional lane continues, install the one complete pinned replacement once,
+save its complete response unchanged, and run the validator. Use its exact issue
+paths rather than asking the owner to diagnose or patch the skill. Do not treat
+mechanical acceptance as claim validation, semantic seed selection, Forum
+Signal completion, or an evidence verdict.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision
