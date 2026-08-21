@@ -42,6 +42,9 @@ complete XML protocol.
   diagnosis-contingent hip-pain synthesis, formal and registry evidence,
   six-pool Forum Signal receipts, bidirectional transfers, evidence-frontier
   stopping audit, and creator-transcript access boundary
+- `audits/2026-08-21-compact-claim-citation-display.md` and
+  `custom-gpt-citation-display-regression-v0.1.0.json`: deterministic citation-
+  density evidence and the compact reader-facing source-mapping regression
 - `gemini-spark-setup.md`: owner-operated candidate-only Gemini Spark scout,
   one-pass installation, strict JSON handoff, deterministic AskRigor metadata
   validation, privacy boundary, and acceptance check

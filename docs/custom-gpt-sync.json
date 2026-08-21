@@ -6,7 +6,7 @@
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5"
+      "sha256": "207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488"
     }
   ],
   "consequential_operation_ids": [
@@ -63,11 +63,11 @@
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "7080c4bbc1f47aec3de42da801c1b15d2b1809d6831cd5bde3e9af81bb073dd5"
+      "sha256": "932d38fbfb3802219daa26e909cc149ec141769bcb08ecfd3fc151a8cabdb3c3"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",
-      "sha256": "8147695cd6a94f8f562ff4dca358664b919b4fd17376c325947cd350abd422ea"
+      "sha256": "d4b584a0616abfd9ffc2ba40a1b7b91f868ad24617ab643fadb919ebc3f3377c"
     }
   ]
 }

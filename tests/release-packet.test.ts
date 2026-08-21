@@ -300,8 +300,10 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; EDITOR INSTALLATION OWNER-REPORTED; GPT-UI ACCEPTANCE PENDING"
+      "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; PRECEDING EDITOR ARTIFACT OWNER-REPORTED INSTALLED; CURRENT CANDIDATE INSTALLATION AND GPT-UI ACCEPTANCE PENDING"
     );
+    expect(releaseStatus).toMatch(/The current\s+7,978-character candidate/u);
+    expect(releaseStatus).toContain("does not yet have that receipt");
     expect(releaseStatus).toContain("The editor was not independently inspected");
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
@@ -333,7 +335,7 @@ describe("AskRigor public-review packet", () => {
       expect(document).toContain("privacy_rejected");
     }
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
-      "CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS; EDITOR INSTALLATION OWNER-REPORTED; FRESH GPT-UI ACCEPTANCE PENDING",
+      "CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS; PRIOR EDITOR INSTALLATION OWNER-REPORTED; UPDATED EDITOR INSTALLATION AND FRESH GPT-UI ACCEPTANCE PENDING",
     );
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "all formal retrieval required by the applicability ledger",

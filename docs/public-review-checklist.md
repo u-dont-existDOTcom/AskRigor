@@ -20,13 +20,14 @@ independent portal receipt or business retry interval is recorded. The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
 routine-status regression.
 
-The current repair candidate's generated Instructions are 7,962 characters,
-SHA-256
+The current generated Instructions are 7,978 characters, SHA-256
+`207249668ba176b0372422d61d9fe4f2096428db27a3b9b57e3d75ba525e4488`.
+They add compact phrase links and linked inference labels without repetitive
+citation prose. They are not yet owner-reported installed. The installation
+receipt applies to the prior 7,962-character artifact, SHA-256
 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`.
-After reviewing the complete current text, the owner reported these exact
-Instructions were already installed. Fresh GPT-UI acceptance is still required
-before public submission; installation alone is not proof of the repaired
-partial-answer, program-decomposition, or plain-language behavior.
+Fresh GPT-UI acceptance is still required before public submission;
+installation alone is not proof of the repaired behavior.
 
 ## Optional lesson Action deployment truth
 

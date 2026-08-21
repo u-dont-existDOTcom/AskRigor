@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "purpose": "Sanitized citation-display cases; this fixture contains no private research output or chat content.",
+  "cases": [
+    {
+      "id": "direct-quantitative-claim",
+      "prompt": "A comparison reports a numerical difference in function between two named programs.",
+      "required_controls": [
+        "materiality_threshold",
+        "direct_claim_link",
+        "no_citation_prose"
+      ]
+    },
+    {
+      "id": "decision-important-safety-claim",
+      "prompt": "A safety conclusion could change whether a reader considers an intervention.",
+      "required_controls": [
+        "materiality_threshold",
+        "direct_claim_link",
+        "citation_entailment"
+      ]
+    },
+    {
+      "id": "single-source-inference",
+      "prompt": "The answer draws a reasonable synthesis that the inspected source did not test directly.",
+      "required_controls": [
+        "inference_label",
+        "material_basis_links"
+      ]
+    },
+    {
+      "id": "multi-source-inference",
+      "prompt": "A synthesis depends materially on findings from two independent sources.",
+      "required_controls": [
+        "inference_label",
+        "material_basis_links",
+        "obvious_group_mapping"
+      ]
+    },
+    {
+      "id": "connective-prose",
+      "prompt": "A transition restates the answer structure without adding a decision-important factual claim.",
+      "required_controls": [
+        "no_decorative_citation"
+      ]
+    },
+    {
+      "id": "ambiguous-paragraph-group",
+      "prompt": "Three distinct claims rely on different sources placed together at the end of one paragraph.",
+      "required_controls": [
+        "obvious_group_mapping",
+        "direct_claim_link"
+      ]
+    },
+    {
+      "id": "important-support-unavailable",
+      "prompt": "Only an adjacent source was found for an important claim.",
+      "required_controls": [
+        "unverified_or_omit",
+        "citation_entailment"
+      ]
+    }
+  ]
+}
