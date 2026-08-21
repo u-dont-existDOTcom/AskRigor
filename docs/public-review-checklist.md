@@ -20,6 +20,13 @@ independent portal receipt or business retry interval is recorded. The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
 routine-status regression.
 
+The current repair candidate's generated Instructions are 7,962 characters,
+SHA-256
+`4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`.
+They require installation and fresh GPT-UI acceptance before public submission;
+the prior installed packet must not be treated as proof of the repaired
+partial-answer, program-decomposition, or plain-language behavior.
+
 ## Optional lesson Action deployment truth
 
 The consequential Custom GPT lesson Action remains deployed and was reverified
@@ -106,8 +113,8 @@ transcript-verified entries with a reason and canonical timestamp link. Missing
 caption access remains a confidence-limiting gap. The Action-only
 `get_youtube_transcript` source candidate raises the Custom GPT schema from 17
 to 18 research reads plus the lesson write while preserving the exact 17-tool
-MCP. Instructions SHA-256 is
-`4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
+MCP. The current repaired Instructions SHA-256 is recorded at the top of this
+checklist after deterministic regeneration;
 OpenAPI SHA-256 is
 `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
 The runtime, privacy notice, Action schema, editor Instructions, live transcript

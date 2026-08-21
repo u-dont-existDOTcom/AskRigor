@@ -82,7 +82,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
 
   it("keeps the compact instructions complete, bounded, and free of stale Knowledge", async () => {
     const { instructionsMarkdown } = await generateCustomGptPacket();
-    expect(instructionsMarkdown.length).toBeLessThanOrEqual(7_800);
+    expect(instructionsMarkdown.length).toBeLessThanOrEqual(8_000);
     for (const required of [
       "manifest → integrity verification → every `load_protocol` chunk",
       "`complete: true`",

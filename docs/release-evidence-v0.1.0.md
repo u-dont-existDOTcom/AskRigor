@@ -21,6 +21,16 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
+A later owner-provided GPT-UI result exposed a partial-answer escape,
+intervention-program conflation, and implementation-jargon leakage. The current
+repair candidate's generated Instructions are 7,962 characters with SHA-256
+`4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`;
+its synchronization-ledger SHA-256 is
+`a1e6e4390fb640a95ab01e51be9b3c70774368fa3208d65cc0723e1df4427ecc`.
+The OpenAPI is unchanged. This source candidate still requires complete gates,
+review, merge, and fresh signed-in editor/UI acceptance; no earlier runtime or
+UI receipt proves the repaired behavior.
+
 ## Custom GPT research bridge — CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; EDITOR/GPT-UI ACCEPTANCE PENDING
 
 PR #15 merged exact implementation head
@@ -48,8 +58,9 @@ PR #36 then merged the completion/option-space repair as
 after PR #41 merged the transcript/evidence-frontier and Gemini production
 reconciliation. The owner previously installed exact 7,753-character Instructions
 `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`
-with empty Knowledge. The current 7,797-character Instructions are ready but
-do not yet have a signed-in editor installation receipt.
+with empty Knowledge. The current repair candidate is 7,962 characters with
+SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`
+and does not yet have a signed-in editor installation receipt.
 
 The earlier deployed bridge release passed direct protocol, PubMed, ClinicalTrials.gov,
 Crossref, YouTube, malformed/oversized transport, rate/recovery, private lesson,
@@ -207,7 +218,7 @@ a separate evidence-preserving owner review.
 | Historical fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Current privacy disclosure active at `/opt/askrigor/site/releases/386497415a18/site`; live privacy bytes SHA-256 `229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc`, effective `2026-08-21`. |
 | Public site packet | Deployment archive `site-386497415a18.tar.gz`, 18,929 bytes; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. The four live page hashes are recorded in the current direct acceptance document. |
-| Custom GPT packet | Live compact OpenAPI SHA-256 `368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9`; deployed pretty OpenAPI `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`. Current Instructions are `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`, 7,797 characters. Runtime/OpenAPI/privacy are deployed and directly accepted; signed-in editor installation and fresh current GPT UI acceptance are not yet evidenced. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9`; deployed pretty OpenAPI `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`. Current repaired Instructions are `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`, 7,962 characters. Runtime/OpenAPI/privacy are deployed and directly accepted; signed-in editor installation and fresh current GPT UI acceptance are not yet evidenced. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the

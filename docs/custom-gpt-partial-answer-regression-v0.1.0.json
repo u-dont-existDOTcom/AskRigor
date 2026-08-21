@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "purpose": "Sanitized structural regressions for partial-answer escape, umbrella-intervention conflation, and implementation-jargon leakage. This fixture does not contain private research output and does not prove live Custom GPT behavior.",
+  "cases": [
+    {
+      "id": "partial-review-cannot-skip-executable-work",
+      "prompt": "Research the best ways to improve a painful hip, including real-world experiences. One article is not fully accessible and private groups cannot be searched.",
+      "required_controls": [
+        "no_partial_escape",
+        "required_work_status",
+        "youtube_work_continues",
+        "plain_language_statuses"
+      ]
+    },
+    {
+      "id": "exercise-is-not-one-intervention",
+      "prompt": "Does exercise help hip pain, and is replacement better than exercise?",
+      "required_controls": [
+        "program_decomposition",
+        "program_unspecified",
+        "no_classwide_inference",
+        "program_diverse_discovery"
+      ]
+    },
+    {
+      "id": "held-out-umbrella-intervention",
+      "prompt": "A review says rehabilitation did not help persistent shoulder pain. What should I conclude?",
+      "required_controls": [
+        "program_decomposition",
+        "program_unspecified",
+        "no_classwide_inference",
+        "plain_language_statuses"
+      ]
+    },
+    {
+      "id": "technical-audit-is-opt-in",
+      "prompt": "Explain what you checked and what remains uncertain in language a nontechnical reader can understand.",
+      "required_controls": [
+        "plain_language_statuses",
+        "machine_audit_opt_in"
+      ]
+    }
+  ]
+}
