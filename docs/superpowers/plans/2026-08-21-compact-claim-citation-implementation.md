@@ -57,3 +57,11 @@ The task branch starts from `origin/main` at
 `00780e945204d0fb4302b5425a3ae0d4d9b2cfd5`. Git history and the eventual pull
 request provide the rollback point. The owner's dirty primary checkout and its
 private untracked files remain untouched.
+
+Completed: PR #47 merged reviewed head
+`51e420c69b9e811d857977b95a310a93f4975637` as
+`7b6dac66a67bbfb43bcabbbbf37c5dd60a0dc7a3`; protected checks passed before and
+after merge. ARL-0007 was accepted, incorporated, and closed against that merged
+evidence. The previous main commit remains reachable through the merge's first
+parent and Git reflog. The exact generated Instructions still require owner-side
+installation and a fresh GPT-UI run before product behavior is claimed.

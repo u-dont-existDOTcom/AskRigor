@@ -77,8 +77,9 @@ Executable reproduction:
   above 17 on a four-core machine. It reached 991 passing tests and five
   unrelated 5-second timeouts; those four affected files then passed 44/44
   serially with the longer allowance. No timeout touched a changed source or
-  citation regression. Protected CI remains the clean-environment default-
-  timeout proof.
+  citation regression. PR #47 supplied the clean-environment default-timeout
+  proof: protected deterministic verification run `32507689060`, workflow-policy
+  run `32507689167`, and CodeQL run `32507685987` passed.
 - Public-site validation covered four pages. The unchanged deployment suite
   passed 28/28 with the contention-tolerant allowance; exact default-timeout
   retries encountered only the same host-load timeout boundary.
@@ -93,6 +94,16 @@ Executable reproduction:
   review, 0 accepted but not incorporated, 2 incorporated or closed, and 0
   deletion eligible. ARL-0007 is the candidate implemented by this change;
   ARL-0009 was not silently expanded into this task.
+- PR #47 merged reviewed head
+  `51e420c69b9e811d857977b95a310a93f4975637` as
+  `7b6dac66a67bbfb43bcabbbbf37c5dd60a0dc7a3`. Exact post-merge deterministic
+  verification run `32507846373`, workflow-policy run `32507846508`, and CodeQL
+  run `32507846256` passed.
+- ARL-0007 was then labeled `accepted` and `incorporated` and closed against that
+  merged evidence. The post-closeout checkpoint at
+  `2026-08-21T17:25:55.556Z` was available with 1 open candidate, 1 needing
+  review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+  deletion eligible. The remaining open candidate is outside this change.
 
 ## Current boundary
 
