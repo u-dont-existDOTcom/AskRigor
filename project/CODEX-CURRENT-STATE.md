@@ -1447,8 +1447,32 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b`.
   The skill validator and focused contract passed 8/8; the complete gate passed
   typecheck, 58 test files with one declared skip, 971 tests with five declared
-  skips, and build. External upload, installed-byte readback, and forward
-  behavior remain pending.
+  skips, and build. At that checkpoint upload, installed-byte readback, and
+  forward behavior remained pending; the next v16-marked run supplied the
+  behavioral result below without exact byte readback.
+- The owner's v16 forward run found the held-out `XpZHKGGCK-o` account and all
+  10 reported IDs independently validated as real `api_visible_complete`
+  videos, but the evidence ledger still failed. It counted 6 families while
+  listing 7 and executing only 5 eligible families, marked missing batch
+  anchors covered, left direct matched-row lists blank, cited exact phrases not
+  present in their candidate fields, missed obvious promotion, misclassified
+  creator/family evidence, omitted question source rows, and used unsupported
+  rabbit-hole mappings and access gaps. At 2026-08-21T02:46Z, literal seed
+  receipts contained comment counts 5,375, 166, and 31; Spark again reported all
+  three as unavailable.
+- This is the stopping-point failure for the large natural-language contract.
+  Do not create or request another incremental upload probe. Treat current
+  Spark output only as an untrusted high-recall set of candidate IDs and
+  provisional vocabulary; AskRigor must independently validate identity,
+  metadata, selection, and comment work. A compact candidate-only handoff with
+  AskRigor-side validation is the recommended separate redesign, not an
+  accepted current skill. The focused contract remained green 8/8 and the
+  complete deterministic gate passed typecheck, 58 test files with one declared
+  skip, 971 tests with five declared skips, and build.
+- The required lesson checkpoint at `2026-08-21T02:44:42.860Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  stopping decision.
 - The required lesson checkpoint at `2026-08-21T02:02:21.406Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
@@ -1620,14 +1644,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Do not resume iterative manual upload probes. V15 passed upload compatibility
-but failed behavior; v16 is the canonical local replacement. Use at most one
-conversation-path replacement with the exact pinned v16 file when an
-authenticated Spark capability or owner transfer is available, letting Spark
-diagnose any scanner rejection in that same conversation. Do not hand the owner
-another bisect loop. Preserve any exported installed skill and later response
-against the pinned canonical hash; upload, byte readback, and behavior remain
-separate receipts.
+Do not resume iterative manual upload probes or ask the owner for a v17 rerun.
+V15 passed upload compatibility; v15 and v16 both failed behavior. Preserve the
+receipts and current candidate skill as experimental evidence, not an accepted
+handoff. If this lane continues, design a separate compact candidate-only Spark
+handoff and deterministic AskRigor-side validation; do not add more self-audit
+prose to the 36 KB contract. Until then, independently validate only useful
+candidate IDs and provisional vocabulary from Spark.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision

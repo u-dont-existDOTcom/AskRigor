@@ -68,7 +68,14 @@ unsupported probe-to-candidate joins, misclassified a supplement-led outcome as
 mechanical, and dropped available comment counts. The corrected v16 candidate
 has SHA-256
 `8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b`.
-V16 is locally validated but has no upload or installed-byte receipt yet.
+Before the next run, v16 was locally validated without installed-byte readback.
+The subsequent v16-marked forward run found useful real candidates but failed its
+internal evidence contract: counts, anchor coverage, direct joins, promotion
+flags, question mappings, and API-visible comment counts remained inconsistent.
+Do not continue iterative owner-operated skill uploads. Treat any current Spark
+packet only as provisional candidate IDs and vocabulary until AskRigor validates
+them independently. A smaller candidate-only handoff is the recommended future
+replacement; it is not yet an accepted skill.
 
 ## Normal scout task
 

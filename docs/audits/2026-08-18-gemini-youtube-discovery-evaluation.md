@@ -457,3 +457,47 @@ The skill validator and focused contract passed 8/8. The complete deterministic
 gate passed typecheck, 58 test files with one declared skip, 971 tests with five
 declared skips, and build. V16 has no external upload, installed-byte, or
 behavioral acceptance receipt yet.
+
+## V16 forward-run stopping decision
+
+The owner's v16 run found the held-out `XpZHKGGCK-o` account, used the correct
+marker and heading, and returned 10 real public video identifiers. Independent
+AskRigor validation matched all 10 titles as `api_visible_complete`. Discovery
+recall is therefore useful.
+
+The v16 evidence contract still failed:
+
+- `overlooked_intervention_family_count` reported 6 while listing 7 values; only
+  5 eligible families had probes because no `oral_supplement` or
+  `behavioral_environmental` probe ran;
+- many probes marked `anchor_coverage: pass` although their batch queries lacked
+  required anchors. For example B01 omitted P03's `how I avoided` and
+  `hip surgery`, and B07 omitted P15's `far infrared`;
+- several direct probes left `matched_candidate_row_ids` empty. Their claimed
+  exact evidence phrases were also absent from the cited candidate fields;
+- candidate Row 1 declared `commercial_or_promotional: no` despite the
+  API-visible description beginning with a paid self-management-program link.
+  Row 6 likewise omitted promotion of the creator's hip-pain program, Row 2 was
+  labeled clinician self-management without a personal condition account, and
+  Row 9 relabeled exercise, traction, and stretching as behavioral;
+- two seed questions omitted `source_seed_row_ids`; concrete digestive-complaint
+  and post-procedure-flare terms lacked mappings; and several rabbit-hole row-ID
+  lists or exact term mappings were empty or unsupported; and
+- all three seed records again discarded provider comment counts. Literal
+  `get_youtube_video` receipts at 2026-08-21T02:46Z returned 5,375 comments for
+  `XpZHKGGCK-o`, 166 for `0sZEvvPWq88`, and 31 for `qfPjRBqADKk`.
+
+Rendered-copy Markdown destinations remain unverified rather than failed. No
+creator claim or generated evidence join was accepted as medical evidence.
+
+This ends iterative large-contract revisions. V16 showed that adding explicit
+fields can produce cosmetically complete but internally false ledgers; another
+prose clause would not supply deterministic validation. Until a separately
+reviewed compact handoff exists, treat Spark output only as an untrusted
+high-recall list of candidate identifiers and provisional vocabulary. AskRigor
+must independently validate identity, metadata, selection, and any later
+comment audit. Do not ask the owner for another upload/rerun loop.
+
+The focused Gemini contract remained green 8/8. The complete deterministic gate
+passed typecheck, 58 test files with one declared skip, 971 tests with five
+declared skips, and build.
