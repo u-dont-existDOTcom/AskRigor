@@ -8,8 +8,11 @@ now resolved. The fresh post-deployment ChatGPT interface check did not reproduc
 the earlier routine-status presentation finding. Later treatment-decision runs
 exposed formal-retrieval/Forum Signal, option-space, and later discovery/
 weighting regressions. PR #36 closed the first two and was deployed and
-installed, but its product retest exposed the deeper discovery/weighting gap.
-Public submission cannot proceed until that regression closes, the
+installed, but successive product retests exposed deeper discovery/weighting
+and creator-content verification gaps. The current source candidate addresses
+those gaps universally with transcript-verified claim selection rather than a
+topic-specific required-answer list. Public submission cannot proceed until
+that regression closes, the
 publisher-identity/domain path is resolved, Scan Tools and the demo recording
 pass, the opaque model-receipt release decision is explicit, and final portal
 review and submission actions are complete. The repository candidate now
@@ -17,7 +20,7 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-## Custom GPT research bridge — DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS PRODUCT ACCEPTANCE
+## Custom GPT research bridge — DEPLOYED COMPLETION/OPTION-SPACE REPAIR; UNIVERSAL TRANSCRIPT CANDIDATE AWAITS DEPLOYMENT AND PRODUCT ACCEPTANCE
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -114,18 +117,52 @@ treated conventional/provider-ranked videos as adequate without a candidate-
 selection ledger. It did not decompose exercise/PT programs, distinguish
 preoperative conservative care from postoperative rehabilitation, bound
 decisive THA trials to exact comparators, or fully steelman hydration/collagen
-signals after exact matched studies were not located. The follow-up local
-Instructions are 7,799 characters (7,811 UTF-8 bytes); SHA-256 is
-`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`;
-its synchronization-ledger SHA-256 is
-`7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`.
-The seven-case discovery/weighting matrix covers broad, bounded, narrow, and
-not-applicable controls. Its focused suite passed 52/52. This is
-repository-candidate evidence only; fresh product-interface acceptance remains
-pending. OpenAPI, MCP inventory, protocols, production, and the currently
-installed prior Instructions are unchanged. The complete Node `24.18.0` gate
-passed typecheck, 54 test files with one declared credential-gated file skipped,
-939 tests with five declared skips, and build.
+signals after exact matched studies were not located. The first follow-up
+Instructions were 7,799 characters with SHA-256
+`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`.
+That repair merged as PR #37 (`d49cad990f21dfdf9649951248798293650f2a4a`).
+The owner then supplied a fresh product result after installing/testing that
+candidate. It audited three generic pools totaling 1,458 provider-reported and
+retrieved records and 284 returned for analysis, but omitted several plausible
+hard-to-find hypotheses, used a postoperative rehabilitation pool for a
+preoperative decision, collapsed materially different programs, and still
+labeled the result HRP-complete. The retrieval counts establish comment-corpus
+work, not creator-content verification or adequate hypothesis coverage.
+
+The current source candidate is deliberately universal. Vernacular phrases
+such as `how I cured/reversed/fixed my [condition]`, standard-care failure, and
+`what finally worked` expand evidence-frontier discovery but do not increase
+credibility. Candidate selection records the exact program, stage, outcome,
+horizon, surprise, decision value, and independence. Creator content must then
+be verified through timestamped captions; metadata and comments cannot stand in
+for the video. Comments are audited separately for replication, failure, and
+harm. The final **Videos worth watching** section admits only exact,
+nonredundant, transcript-verified videos and supplies the relevant canonical
+timestamp link and reason to watch without padding.
+
+The source candidate adds `get_youtube_transcript` only to the public Custom GPT
+Action bridge. Its bounded pages preserve language, automatic-caption status,
+timestamps, cursor provenance, and literal failure/access states. It uses an
+unofficial public YouTube interface, so live production access and reliability
+remain unverified. Production still exposes 17 public research reads plus the
+lesson write; the source OpenAPI has 18 reads plus the write. The checksum-
+locked MCP remains exactly 17 tools, and canonical protocol bytes are
+unchanged. Generated Instructions are 7,797 characters with SHA-256
+`4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
+generated OpenAPI SHA-256 is
+`9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
+Synchronization-ledger SHA-256 is
+`1ca16c082fcfed4f1c90e919aa541827fe1ca8c37e7b1de5c4968cba96ad2f3e`.
+The eight-case discovery/weighting matrix and separate unrelated held-out
+fixture keep topic-specific answers out of production rules. The focused
+router/skill/matrix/packet/transcript/registry suite passed 53/53. The complete
+Node `24.18.0` gate passed typecheck, 57 test files with one declared
+credential-gated file skipped, 960 tests with five declared skips, and build.
+Public-site validation covered four pages and its deployment suite passed 28/28.
+Deployment, editor installation, live provider acceptance, and fresh
+product-interface acceptance remain pending. The integrated branch also contains the
+separate PR #38/#39 Universal `20.5.14` source advance; production remains
+Universal `20.5.13` pending that rollout.
 The first real multi-call YouTube case failed closed after ChatGPT altered the
 several-thousand-character continuation token twice. Sixty-six records had been
 retrieved after restart, but zero were returned for analysis, replies were not
@@ -154,7 +191,7 @@ a separate evidence-preserving owner review.
 | Production connector revision | Privacy-model repair merge `d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image tag `askrigor-research:d1af238325ee1e0584574e47bbcbe7764d17cf7e`, image ID `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`, healthy container `9976fc89f8bb4065e6c46f7fa6cacb49e1a0eb4e526c11ca2ac346bf788fcf51`. Immediate rollback: `askrigor-research:rollback-d1af238` plus `/opt/askrigor/compose.yaml.rollback-d1af238`, restoring prior image `sha256:95b86a1135701149c17125d1a5994e41063f868eefd903a38e28b4c09e0f6953`; rollback Compose SHA-256 `cf2fa82cbe4ba6e6b9ce515e2f260d07dacf09f1df6ac2feb66cfc485f9c69cf`. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
 | Published Custom GPT | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; `gpt.askrigor.com` reaches it through one verified temporary redirect. |
-| Canonical protocols | HRP `20.5.18`, revision `2026-08-16`, SHA-256 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.13`, revision `2026-08-17`, SHA-256 `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`. Direct Action loading covered every exact byte. |
+| Canonical source protocols | HRP `20.5.18`, revision `2026-08-16`, SHA-256 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.14`, revision `2026-08-18`, SHA-256 `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Production Action loading covered every exact byte of the separately recorded deployed Universal `20.5.13` corpus; it does not prove deployment of `20.5.14`. |
 | Production source packet | Exact secret-free `git archive` from `d1af238325ee1e0584574e47bbcbe7764d17cf7e`; SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`, 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
@@ -163,7 +200,7 @@ a separate evidence-preserving owner review.
 | Current fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Bounded transient-handle disclosure active at `/opt/askrigor/site/releases/56b3dff6d7c3/site`; live privacy bytes SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`. |
 | Public site packet | SHA-256 `7033719202391ad384976fb0c7dbf30ca197445b549bc68f7009e736643f9b07`; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. |
-| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; committed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`. Local discovery/weighting candidate: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`; local sync ledger `7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`; deployed pretty OpenAPI `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`. Product-tested first discovery/weighting candidate: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`. Current local universal transcript/evidence-frontier packet: Instructions `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`; OpenAPI `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`. It is not deployed or installed. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -410,9 +447,11 @@ No provider request or lesson write was repeated.
 
 ## Required submission work remaining
 
-- If unmerged, merge the discovery/weighting repair; install the exact generated
-  Instructions with empty Knowledge; and pass fresh candidate-selection, intervention-
-  decomposition, comparator-scope, and heterodox-weighting product cases before
+- If unmerged, merge the universal transcript/evidence-frontier follow-up;
+  deploy its runtime and privacy notice, install the exact generated
+  Instructions with empty Knowledge; and pass fresh
+  candidate-selection, intervention-decomposition, comparator-scope,
+  heterodox-weighting, and matched-video product cases before
   resuming portal work. Do not retry the rejected lesson candidate.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the

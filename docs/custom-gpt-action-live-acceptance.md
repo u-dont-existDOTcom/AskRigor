@@ -1,6 +1,6 @@
 # Custom GPT Action live acceptance
 
-Status: **DEPLOYED COMPLETION/OPTION-SPACE REPAIR; DISCOVERY/WEIGHTING CHANGE AWAITS GPT-UI ACCEPTANCE**. The exact
+Status: **DEPLOYED COMPLETION/OPTION-SPACE REPAIR; UNIVERSAL TRANSCRIPT/EVIDENCE-FRONTIER CANDIDATE AWAITS DEPLOYMENT AND GPT-UI ACCEPTANCE**. The exact
 production Action boundary and the formerly failing two-call YouTube chain
 retain the sanitized direct and repaired Custom GPT UI evidence below. That
 evidence does not cover the later treatment-alternatives and option-space
@@ -34,11 +34,12 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-cfce806` resolves the prior image `sha256:8575134332df001ddbbb5b40a041a468cff76b3388b4f6deb267b1c3363998dd`; `/opt/askrigor/compose.yaml.rollback-cfce806` has SHA-256 `f9ebc08643d25d3a54590dd885fbbe795f5aa4c0cea1f28a51c21bb7455dc4c4`. |
 | deployment archive | Exact secret-free source archive SHA-256 `8445662618e432851b127a7f90a21f18d80d1d69c6127e9ca6d22f11ffc2806d`; 338 members, 851,049 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | OpenAPI SHA-256 | Committed pretty artifact: `0e166153faf37b3c7b4963fde2ad0b9c02cc5c7a4acd9620446c308c291c8e94`; semantically identical compact live response: `402e369f25a2b27da114c5f018be1c64cc5f8a2ef81983f2588b30c6875438e2`. |
-| instructions SHA-256 | Historical failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`; consent-shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`, 7,753 characters, Knowledge empty. Current local discovery/weighting candidate: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`, 7,799 characters (7,811 UTF-8 bytes). |
+| instructions SHA-256 | Historical failed-safe UI run: `ef4c9845b3e50d3978f718fe10fff64ef53e55a3a4c045e8b1eb389b15bb9aad`; consent-shell retest: `b4fd87ccff39e787eefb706257e49f0956b24e40cfb4c4e2fb24035b80b5c6af`. Owner-installed completion/option-space Instructions: `efd1567e185d2c9c209812a26dde630de802ba7a0b878ee9640af7886c14ec`, 7,753 characters, Knowledge empty. First discovery/weighting candidate tested through the product: `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`, 7,799 characters. Current local universal transcript/evidence-frontier candidate: `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`, 7,797 characters. |
+| source-candidate Action/privacy boundary | Generated OpenAPI SHA-256 `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`; 18 non-consequential research reads plus the consequential lesson write. `get_youtube_transcript` is Action-only; the checksum-locked MCP remains exactly 17 tools. The new runtime, OpenAPI, privacy notice, and editor Instructions are not deployed or installed, and live transcript-provider behavior is unverified. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `d73d9557852a17975b345ae20bfe24edc70267a3f595959b2bfb5d7198c26453`, with the bounded transient-handle disclosure. Active site release: `/opt/askrigor/site/releases/56b3dff6d7c3/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |
 
-## Treatment-decision completion regressions and local repair — 2026-08-18
+## Treatment-decision regressions and universal transcript candidate — 2026-08-18
 
 A later fresh published-GPT run loaded and verified Universal and HRP, then
 answered a treatment-alternatives question without executing PubMed, Europe
@@ -72,6 +73,21 @@ steelman analysis after exact matched studies were not located. The run's 1,179
 retrieved and 418 analyzed records establish corpus work, not adequate discovery
 or weighting.
 
+PR #37 merged the complete first discovery/weighting candidate, after which the
+owner supplied an installation receipt and a fresh initialization receipt
+before returning another broad-pathway product
+result. The editor does not independently expose an instruction digest, so this
+remains an owner-provided product receipt rather than a host-verified hash. The
+run selected only three community pools: generic conservative care
+(`partial` / `completed_with_access_boundary`, 272 provider-reported and
+retrieved records, 71 returned for analysis), general NSAID experience
+(`api_visible_complete`, 197/197/110), and postoperative replacement mistakes
+(`api_visible_complete`, 989/989/103). It omitted separate gelatin/collagen and
+hydration discovery, did not locate program-matched preoperative PT videos, and
+again collapsed materially different PT/exercise programs while labeling the
+answer `HRP-complete`. Those exact retrieval counts prove tool execution, not
+hypothesis coverage or a passing completion audit.
+
 The local test-first repair separates two gates. Forum Signal now explicitly
 applies to personal or practical treatment decisions even when alternatives
 are unstated. Treatment endorsement, choice, or start/defer/sequence decisions independently
@@ -93,23 +109,40 @@ preservation, `store:false`, and fail-closed uncertainty remain unchanged.
 
 The static routing matrix has 15 required and 9 not-required Forum Signal
 cases; the separate option-space matrix has 9 broad-review and 6 narrow-review
-controls. The discovery/weighting matrix adds seven cases across broad,
-bounded, narrow, and not-applicable review modes. Selected cases remain reserved
-for fresh product-interface acceptance because static assertions do not prove
-model behavior. The generated local Instructions are 7,799 characters (7,811
-UTF-8 bytes) with SHA-256
-`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`;
-the synchronization ledger SHA-256 is
-`7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`.
-The discovery/weighting focused suite passed 52/52. The complete Node `24.18.0`
-gate passed typecheck, 54 test files with one declared credential-gated file
-skipped, 939 tests with five declared skips, and build.
-The OpenAPI artifact, 18-operation Action surface, frozen 17-tool MCP inventory,
-canonical protocol bytes, production deployment, and currently installed GPT
-Instructions are unchanged by this follow-up. Establish current merge and editor
-state from Git/GitHub and UI receipts, then run fresh discovery/weighting
-product-interface regressions. Static repository tests are not GPT-behavior
-acceptance.
+controls. The discovery/weighting matrix now has eight cases across broad,
+bounded, narrow, and not-applicable review modes. A separate held-out synthetic
+fixture uses an unrelated condition and makes popularity, cure-title clickbait,
+generic terminology, and stage mismatch distractors; production instructions
+contain none of its topic-specific answers.
+
+The current universal repair treats cure/reversal/fixed phrasing as a discovery
+hook rather than proof, fingerprints exact creator claims by program, stage,
+outcome, and horizon, and requires creator transcripts before describing video
+content. It audits comments separately for replication, failure, and harm, and
+allows only exact, nonredundant, transcript-verified entries in **Videos worth
+watching**, with a canonical timestamp link and reason to watch. Missing caption
+access stays an explicit gap and cannot be replaced with title, description, or
+comment inference.
+
+The source candidate adds the Action-only `get_youtube_transcript` read with
+bounded timestamped caption pages, language/automatic-caption provenance, and
+literal access states. The selected caption track is `partial` until exhausted
+and then `api_visible_complete`; that status does not cover unavailable,
+deleted, private, or never-published caption material and does not establish
+caption accuracy. The adapter uses an unofficial public YouTube interface, so
+production availability remains unverified. The generated Instructions are
+7,797 characters with SHA-256
+`4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
+the generated OpenAPI SHA-256 is
+`9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
+The synchronization-ledger SHA-256 is
+`1ca16c082fcfed4f1c90e919aa541827fe1ca8c37e7b1de5c4968cba96ad2f3e`.
+The focused router/skill/matrix/packet/transcript/registry suite passed 53/53;
+the complete Node `24.18.0` gate passed typecheck, 57 test files with one
+declared credential-gated file skipped, 960 tests with five declared skips, and
+build. Public-site validation covered four pages and the deployment suite passed
+28/28. Deployment and fresh product-interface acceptance remain pending. Static
+repository tests do not establish deployed provider access or GPT behavior.
 
 ## Universal 20.5.13 production freshness rollout — 2026-08-17
 

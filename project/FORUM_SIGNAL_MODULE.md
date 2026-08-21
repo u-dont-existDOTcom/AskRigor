@@ -5,11 +5,12 @@ Run this module after the Project router marks `FORUM_SIGNAL REQUIRED`. It acqui
 ## Acquisition controller
 
 1. Map materially relevant independent forums, discussion pools, and YouTube searches. Record platform, query, date, access result, and whether material is firsthand. Use ordinary web research for accessible non-YouTube communities.
-2. Prepare up to six YouTube searches across the general landscape, prevention/avoidance, exact intervention variants, contrarian or practitioner critique, benefit, no effect/failure, harm/discontinuation, and formal discriminators. Combine compatible directions within the six-call limit. Call `survey_youtube_community` and preserve queries, cursors, and candidates.
-3. Before auditing, build a candidate-selection ledger. For every shortlist choice record query/direction, unique hypothesis, decision usefulness, likely firsthand value, creator/discussion-pool independence, and nonredundancy; provider rank, views, and comment volume show discoverability or potential corpus density, not credibility. Select up to three materially different videos per batch; if the ledger is weak or redundant, rewrite queries, use cursors, or start another batch rather than treating the first provider page as “best.”
-4. Call `audit_youtube_video_community` once per selected video. Continue the same chain whenever `continuation_recommended: true`. Query-bounded comment search is discovery-only and is never the corpus.
-5. For each video preserve `provider_reported_comments`, `top_level_comments_retrieved_cumulative`, `replies_retrieved_cumulative`, `records_retrieved_cumulative`, and `records_returned_for_analysis`. These are different count classes. Provider metadata may exceed or differ from the API-visible corpus.
-6. When a materially relevant video reports at least 300 available comments but fewer than 300 records were retrieved, label it `insufficient_depth` and continue unless the complete corpus is smaller or a genuine boundary stops retrieval. Analyze all records when the complete corpus contains 500 or fewer; for a larger completely acquired corpus use the returned deterministic 500-record sample.
+2. Prepare up to six YouTube searches across the general landscape, prevention/avoidance, exact variants, contrarian/practitioner critique, benefit, failure, harm/discontinuation, and formal discriminators. Include high-yield vernacular patterns such as `how I cured/reversed/fixed my [condition]`, `what finally worked`, `after [standard care] failed`, and `avoided [procedure]`, plus exact implementation and failure terms. These phrases locate claims; they do not validate them. Combine compatible directions within six searches. Call `survey_youtube_community` and preserve queries, cursors, and candidates.
+3. Build a candidate-selection ledger before content or comment auditing. Record query/direction; the exact claim fingerprint (intervention/program components, dose/frequency/duration, population/stage, outcome, horizon); what is surprising or hard to recover from studies; decision usefulness; likely firsthand value; creator/discussion-pool independence; and nonredundancy. Provider rank, views, and comment volume show discoverability or corpus density, not credibility. Select up to three materially different videos per batch; rewrite queries, use cursors, or start another batch when choices are generic, mismatched, or redundant.
+4. For every shortlisted creator-content candidate, call `get_youtube_video`. If `get_youtube_transcript` is available, call it and continue cursors until the selected track reports `api_visible_complete` or a terminal access boundary. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable` as a terminal creator-content boundary, withhold creator claims and the watchlist, continue at step 5, and never call an undeclared tool. Preserve language, automatic-caption flag, timestamps, pagination, and `access_status` when returned. Titles/descriptions are discovery metadata; comments describe the discussion; neither establishes the video's creator content. If transcript access fails, do not say what the video teaches or recommends. Transcript retrieval verifies wording, not efficacy, accuracy, or causality.
+5. Separately call `audit_youtube_video_community` for the video's discussion. Continue whenever `continuation_recommended: true`. Query-bounded comment search is discovery-only and never the corpus. Test whether independent commenters reproduce the claimed implementation/outcome and actively seek failure, harm, discontinuation, cointerventions, and stage mismatch; never count the creator's claim as a firsthand commenter episode.
+6. Preserve `provider_reported_comments`, `top_level_comments_retrieved_cumulative`, `replies_retrieved_cumulative`, `records_retrieved_cumulative`, and `records_returned_for_analysis`. These are different count classes. Provider metadata may exceed or differ from the API-visible corpus.
+7. When a materially relevant video reports at least 300 available comments but fewer than 300 records were retrieved, label it `insufficient_depth` and continue unless the complete corpus is smaller or a genuine boundary stops retrieval. Analyze all records when the complete corpus contains 500 or fewer; for a larger completely acquired corpus use the returned deterministic 500-record sample.
 
 A terminal `completed_with_access_boundary` receipt with `replies_reconciled: false` preserves usable bounded evidence after all page tokens are exhausted, but it is not a complete corpus. Report the exact reply mismatches and confidence limitation.
 
@@ -17,7 +18,7 @@ A terminal `completed_with_access_boundary` receipt with `replies_reconciled: fa
 
 ## Episode analysis and evidence weighting
 
-Deduplicate at the person × treatment episode level. Separate firsthand reports from hearsay, creator claims, and opinions. Preserve benefit, no effect, harm, discontinuation, mixed trajectories, diagnoses, co-interventions, follow-up, and parent/reply context. Translate “cured” into the specific evidenced outcome; pain, function, range of motion, or avoided surgery does not establish structural regeneration.
+Deduplicate at the person × treatment episode level. Keep creator-content claims, commenter experiences, and formal evidence in separate lanes. Separate firsthand reports from hearsay and opinions. Preserve benefit, no effect, harm, discontinuation, mixed trajectories, diagnoses, co-interventions, follow-up, and parent/reply context. Translate “cured” into the specific evidenced outcome; symptom or functional change does not establish structural reversal, permanent cure, or causality.
 
 Never weight an umbrella label such as exercise, PT, diet, or supplement as one intervention. Decompose exact intervention and comparator programs: components, dose/intensity/frequency/duration, supervision, fidelity/adherence, cointerventions, disease stage/eligibility, target outcome, and follow-up. Separate preoperative conservative care intended to prevent or defer surgery from postoperative rehabilitation; evidence for one does not establish the other.
 
@@ -47,8 +48,6 @@ intervention_signal:
 
 Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation by reporting plausibility, indirectness, safety, cost, reversibility, and opportunity cost separately. `support_not_located` is an evidence gap, not evidence that the reports are false, implausible, ineffective, or disproved; it cannot alone downgrade the observed community signal. Formal contradiction requires materially aligned population, intervention, comparator, outcome, and timeframe. Otherwise use `outcome_mismatch`. A reasonable trial needs baseline measurement, duration, success threshold, stop rules, interactions, and escalation rules; it must not delay urgent diagnosis or time-sensitive effective care.
 
-For the exact old-hip regression, repeated firsthand improvement with gelatin, keto, or swimming may be promising for the specific reported outcome. If matched formal support was not located, that signal must not become `weak`, `ineffective`, or `disproved` merely because the formal pass was empty. A low-risk, low-cost, reversible option may justify a measured time-bounded trial when opportunity cost and diagnostic delay are controlled.
-
 ## Bidirectional and adaptive iteration
 
 Community → formal: convert material interventions, practitioner critiques, subgroups, outcomes, regimens, adverse effects, and dechallenge/rechallenge into targeted formal and grey searches. Record `no_material_transferable_hypotheses` only when none exist.
@@ -65,7 +64,9 @@ Normal Project chat is the primary YouTube pagination workflow. Deep Research is
 
 ## Required user-facing output
 
-Include a **Videos worth watching** table ranked by decision usefulness, not positivity or popularity. A video rich in failures, harms, or difficult recovery may rank first. Each row needs the clickable canonical title link, channel, publication date, unique hypothesis/why it matters, provider-reported count, API-visible top-level comments and replies retrieved, records returned for analysis, firsthand people or episodes (or bounded unknown), completion state, directional summary, and limitation. State what candidate selection and cross-layer iteration changed in the evidence map.
+Include **Videos worth watching** only for creator content verified from the selected transcript track. Rank by decision usefulness, novelty, and exact match—not positivity or popularity. Each row needs the Action-returned canonical title link with the relevant transcript timestamp when located, channel/date, exact creator claim or demonstration, why it adds unique decision value, transcript language/automatic-caption flag/status, and evidence limitation. Do not pad the list with generic, redundant, stage-mismatched, or comments-only candidates. If none qualify, say `No content-verified watchlist candidate located` and report the access/confidence effect.
+
+Report **Community discussions audited** separately: canonical video link; provider-reported count; API-visible top-level comments/replies retrieved; records returned for analysis; firsthand people/episodes (or bounded unknown); completion state; directional summary; and limitation. State what content review, community auditing, and cross-layer iteration changed in the evidence map.
 
 ```text
 youtube_expansion_report:
@@ -97,6 +98,7 @@ forum_signal_receipt:
   no_effect: complete | no_material_reports | incomplete
   harm: complete | no_material_reports | incomplete
   discontinuation: complete | no_material_reports | incomplete
+  creator_content: complete | no_content_verified_candidates | completed_with_access_boundary | incomplete
   community_to_formal: complete | no_material_transferable_hypotheses | incomplete
   formal_to_community: complete | no_material_discriminators | incomplete
   platforms_and_queries: <explicit list>
@@ -106,4 +108,4 @@ forum_signal_receipt:
   confidence_effect: <explicit text>
 ```
 
-`complete` requires every applicable field complete. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect. This receipt is an input to HRP synthesis, not a treatment verdict.
+`complete` requires every applicable field complete, no unresolved material claim fingerprint, no creator-content assertion without transcript support, and every selected discussion audit locked. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect. This receipt is an input to HRP synthesis, not a treatment verdict.

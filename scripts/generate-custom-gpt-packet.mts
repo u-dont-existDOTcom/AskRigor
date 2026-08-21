@@ -7,6 +7,8 @@ import { createActionOpenApiDocument } from
   "../apps/research-mcp/src/actions/openapi.js";
 import { createResearchActionRoutes } from
   "../apps/research-mcp/src/actions/research-routes.js";
+import { createActionOnlyResearchRoutes } from
+  "../apps/research-mcp/src/actions/youtube-transcript-route.js";
 import { createEnabledActionRoutes } from
   "../apps/research-mcp/src/actions/runtime.js";
 import { createDefaultActionRoutes } from
@@ -21,6 +23,8 @@ const ACTION_MODULE_PATH = "project/CUSTOM_GPT_ACTION_MODULE.md" as const;
 const OPENAPI_PATH = "docs/custom-gpt-action-openapi.json" as const;
 const INSTRUCTIONS_PATH = "docs/custom-gpt-instructions.md" as const;
 const SYNC_PATH = "docs/custom-gpt-sync.json" as const;
+const MCP_TRANSCRIPT_PARAGRAPH = "Shortlist: `get_youtube_video`. When available, require `get_youtube_transcript` `api_visible_complete` or terminal-boundary; preserve status/language/auto/timestamps. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`; withhold claims/watchlist; never call an undeclared tool. Metadata/comments cannot establish creator content; transcript≠truth/efficacy. Call `audit_youtube_video_community`; continue while `continuation_recommended: true`, defer false tokens, seek replication/failure/harm. Preserve `provider_reported_comments`/`records_retrieved_cumulative`/`records_returned_for_analysis` and each Action receipt's `synthesis_lock`." as const;
+const CUSTOM_GPT_TRANSCRIPT_PARAGRAPH = "Shortlist: `get_youtube_video`→`get_youtube_transcript`; selected-track `api_visible_complete` or terminal boundary. Preserve status/language/auto/timestamps. Metadata/comments cannot establish creator content; transcript≠truth/efficacy. Separately call `audit_youtube_video_community`; continue while `continuation_recommended: true`, defer false tokens, seek replication/failure/harm. Preserve `provider_reported_comments`/`records_retrieved_cumulative`/`records_returned_for_analysis` and each Action receipt's `synthesis_lock`." as const;
 
 export interface CustomGptSync {
   schema_version: 1;
@@ -31,6 +35,7 @@ export interface CustomGptSync {
     sha256: string;
   }>;
   research_operation_ids: string[];
+  mcp_research_operation_ids: string[];
   consequential_operation_ids: ["submit_lesson_candidate"];
   editor: {
     knowledge: "empty";
@@ -51,7 +56,10 @@ export function generateCustomGptActionOpenApiJson(): string {
   const routes = createEnabledActionRoutes({
     researchEnabled: true,
     lessonsEnabled: true,
-    research: createResearchActionRoutes(),
+    research: [
+      ...createResearchActionRoutes(),
+      ...createActionOnlyResearchRoutes()
+    ],
     lessons: createDefaultActionRoutes()
   });
   return `${JSON.stringify(createActionOpenApiDocument(routes), null, 2)}\n`;
@@ -75,7 +83,11 @@ export async function generateCustomGptPacket(): Promise<CustomGptPacket> {
       { path: OPENAPI_PATH, sha256: sha256(openApiJson) },
       { path: INSTRUCTIONS_PATH, sha256: sha256(instructionsMarkdown) }
     ],
-    research_operation_ids: RESEARCH_OPERATIONS.map(({ name }) => name).sort(),
+    research_operation_ids: [
+      ...RESEARCH_OPERATIONS.map(({ name }) => name),
+      ...createActionOnlyResearchRoutes().map(({ operationId }) => operationId)
+    ].sort(),
+    mcp_research_operation_ids: RESEARCH_OPERATIONS.map(({ name }) => name).sort(),
     consequential_operation_ids: ["submit_lesson_candidate"],
     editor: {
       knowledge: "empty",
@@ -102,7 +114,14 @@ export async function writeCustomGptPacket(): Promise<void> {
 }
 
 function createInstructions(skillSource: string, actionModule: string): string {
-  const withoutFrontmatter = skillSource
+  const customGptSkillSource = skillSource.replace(
+    MCP_TRANSCRIPT_PARAGRAPH,
+    CUSTOM_GPT_TRANSCRIPT_PARAGRAPH
+  );
+  if (customGptSkillSource === skillSource) {
+    throw new Error("Missing MCP transcript capability boundary in AskRigor skill");
+  }
+  const withoutFrontmatter = customGptSkillSource
     .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/u, "")
     .trimStart();
   const withoutDuplicateHeading = withoutFrontmatter.replace(/^# AskRigor\n+/u, "");

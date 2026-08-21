@@ -25,6 +25,26 @@ complete XML protocol.
 
 - `audits/2026-08-14-codex-github-compliance.md`: repository compliance report,
   exact gates, hosted evidence, residual risk, and lesson closeout
+- `audits/2026-08-18-gemini-youtube-discovery-evaluation.md`: isolated Gemini
+  API comparison without paid Search grounding, covering planned discovery,
+  validated URL generation, direct video summaries, transcript latency/access
+  boundaries, and the recommended lazy-escalation architecture
+- `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
+  Spark upload controls, scanner nondeterminism, clause interaction bisect, and
+  the clean-passing canonical v15 promotion boundary
+- `audits/2026-08-21-gemini-candidate-comment-audit.md` and
+  `audits/2026-08-21-youtube-rediscovery-packet.json`: first accepted compact
+  Gemini handoff's three-pool AskRigor comment audit, terminal acquisition
+  receipts, non-identifying rediscovery leads, and explicit incomplete-HRP
+  boundary
+- `audits/2026-08-21-unspecified-hip-pain-full-hrp.md` and
+  `audits/2026-08-21-unspecified-hip-pain-source-ledger.json`: completed
+  diagnosis-contingent hip-pain synthesis, formal and registry evidence,
+  six-pool Forum Signal receipts, bidirectional transfers, evidence-frontier
+  stopping audit, and creator-transcript access boundary
+- `gemini-spark-setup.md`: owner-operated candidate-only Gemini Spark scout,
+  one-pass installation, strict JSON handoff, deterministic AskRigor metadata
+  validation, privacy boundary, and acceptance check
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
@@ -33,9 +53,11 @@ complete XML protocol.
   applicability matrix; selected cases are pending fresh Custom GPT acceptance
 - `treatment-option-space-matrix-v0.1.0.json`: synthetic 9+6 decision-breadth
   matrix separating broad treatment-pathway review from narrow intervention work
-- `heterodox-discovery-weighting-matrix-v0.1.0.json`: synthetic seven-case
+- `heterodox-discovery-weighting-matrix-v0.1.0.json`: synthetic eight-case
   matrix for YouTube candidate quality, intervention decomposition, decisive-
   comparator scope, transportability, and non-dismissive heterodox weighting
+- `youtube-evidence-frontier-held-out-v0.1.0.json`: held-out synthetic
+  popularity/clickbait/stage-mismatch/transcript-selection regression
 - `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
   handoff, and external-gate states
 - `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
@@ -45,7 +67,8 @@ complete XML protocol.
 - `custom-gpt-instructions.md` (repository path
   `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
   artifact; Knowledge remains empty
-- `custom-gpt-action-openapi.json`: generated 17-read/one-write Action schema
+- `custom-gpt-action-openapi.json`: generated 18-read/one-write Action schema;
+  `get_youtube_transcript` is Action-only and MCP remains frozen at 17 tools
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
@@ -67,6 +90,15 @@ complete XML protocol.
 - `superpowers/plans/2026-08-16-custom-gpt-action-bridge-implementation.md`:
   test-driven implementation, deployment, rollback, and live-acceptance plan
   for the approved Custom GPT Action bridge
+- `superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`:
+  current universal creator-transcript, evidence-frontier discovery, held-out
+  regression, privacy, and verification plan; deployment remains pending
+- `superpowers/plans/2026-08-21-gemini-candidate-comment-audit.md`: bounded
+  protocol-governed audit of the first accepted compact Gemini handoff and
+  privacy-safe rediscovery-packet persistence
+- `superpowers/plans/2026-08-21-unspecified-hip-pain-full-hrp.md`: diagnosis-
+  contingent formal, grey, community, bidirectional, option-space, safety, and
+  completion plan for the de-identified hip research target
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail

@@ -4,9 +4,9 @@ Run before HRP/research. HRP governs synthesis, not applicability.
 
 ## 1. Fix the module ledger
 
-Ledger `HRP`, `DIRECT_HUMAN`, `EXTENDED_GREY`, `FORUM_SIGNAL`, `BIDIRECTIONAL_ITERATION`, and `FINAL_COMPLETION_AUDIT` as `REQUIRED` or `NOT REQUIRED`.
+Ledger `HRP`/`DIRECT_HUMAN`/`EXTENDED_GREY`/`FORUM_SIGNAL`/`BIDIRECTIONAL_ITERATION`/`FINAL_COMPLETION_AUDIT` as `REQUIRED` or `NOT REQUIRED`.
 
-Mark `FORUM_SIGNAL REQUIRED` if firsthand experience, implementation differences, treatment tolerability, real-world outcomes, adherence, harms, discontinuation, or patient decision-making could plausibly affect the answer.
+Mark `FORUM_SIGNAL REQUIRED` if firsthand experience/implementation differences/treatment tolerability/real-world outcomes/adherence/harms/discontinuation/patient decision-making could plausibly affect the answer.
 
 Any personal or practical treatment decision is `FORUM_SIGNAL REQUIRED`: good idea for me, needed/worth it, or now versus wait or delay, even if alternatives are unstated or population-level. Require treatment alternatives, avoiding replacement, avoiding joint replacement, or avoiding surgery. A request to exclude forums limits execution, not applicability.
 
@@ -20,15 +20,17 @@ Once fixed, REQUIRED cannot become NOT REQUIRED. Finding an excellent RCT does n
 
 Load/verify Universal and applicable complete HRP; execute every required module.
 
-When required, read `FORUM_SIGNAL_MODULE.md` completely. Call `survey_youtube_community`; select up to three materially different videos; call `audit_youtube_video_community` while `continuation_recommended: true`. `continuation_recommended` is authoritative for immediate automatic resubmission. A token paired with `continuation_recommended: false` is deferred recovery state; preserve its blocker. Widen while expected information gain is positive. Read-only continuation does not require ceremonial user approval. Query-bounded comment search cannot replace the corpus.
+When required, read `FORUM_SIGNAL_MODULE.md` completely. Use `survey_youtube_community` for evidence-frontier discovery, not a provider-ranked popularity sample. Include vernacular success/reversal/failure/avoidance searches that people actually use; cure language is a retrieval hook, never a truth label. Select up to three materially different candidates per batch and widen while expected information gain is positive.
 
-Build a candidate-selection ledger: query/direction, unique hypothesis, decision usefulness, independence, nonredundancy; provider rank/popularity are context, not credibility. Audit exact intervention and comparator programs and state what the contrast can and cannot establish; weak or mismatched comparator narrows inference. Separate preoperative conservative care from postoperative rehabilitation. Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation.
+Build a candidate-selection ledger: query/direction, exact claim fingerprint, surprising or hard-to-find information, decision usefulness, stage/outcome match, independence, and nonredundancy; provider rank/popularity are context, not credibility. For creator-content candidates call `get_youtube_video`. If `get_youtube_transcript` is available, call it and continue its cursor until the selected track is exhausted or a terminal access boundary occurs. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable` as a terminal creator-content boundary, withhold creator claims and the watchlist, continue separate discussion auditing, and never call an undeclared tool. Title, description, and comments do not establish what the creator said. Preserve transcript status, selected language/automatic-caption flag, pagination, and timestamp provenance when returned.
+
+Audit exact intervention and comparator programs and state what the contrast can and cannot establish; weak or mismatched comparator narrows inference. Separate care stages. After creator-content review or its terminal access boundary, call `audit_youtube_video_community`; continue while `continuation_recommended: true`. That field is authoritative for immediate automatic resubmission; false tokens are deferred recovery state. Read-only continuation needs no ceremonial user approval. Query-bounded comment search cannot replace the corpus. Before `support_not_located`, distinguish exact matched outcome support from adjacent human, mechanistic, grey/practitioner, and community evidence; steelman without inflation.
 
 ## 3. Synthesis gate
 
 Do not emit a final verdict while work is incomplete. Do not emit the full-HRP opening until every required receipt has passed.
 
-`HRP-complete` requires executed ledger-required formal retrieval and all receipts passed. Required Forum Signal needs no `incomplete` directional/bidirectional field, `youtube_synthesis_lock: pass`, and every selected video's `synthesis_lock: pass`.
+`HRP-complete` requires executed ledger-required formal retrieval and all receipts passed. Required Forum Signal needs no unresolved material hypothesis or `incomplete` directional/bidirectional field, creator-content claims backed by retrieved transcript segments or explicitly withheld at an access boundary, `youtube_synthesis_lock: pass`, and every selected discussion audit's `synthesis_lock: pass`.
 
 Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.
 

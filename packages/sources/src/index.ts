@@ -83,3 +83,36 @@ export {
   type YoutubeCommentSegmentResult,
   type YoutubeCommentSegmentRuntime
 } from "./youtube-comment-segment.js";
+export {
+  GEMINI_YOUTUBE_CANDIDATE_CONTRACT,
+  GEMINI_YOUTUBE_CANDIDATE_MODE,
+  GEMINI_YOUTUBE_CANDIDATE_PACKET_NAME,
+  GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION,
+  MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES,
+  GeminiYoutubeCandidateHandoffError,
+  geminiYoutubeCandidatePacketSchema,
+  geminiYoutubeCandidateValidationReceiptSchema,
+  geminiYoutubeDiscoveryPurposeSchema,
+  geminiYoutubeInterventionFamilySchema,
+  parseGeminiYoutubeCandidateHandoff,
+  validateGeminiYoutubeCandidateHandoff,
+  type GeminiYoutubeCandidateHandoffErrorCode,
+  type GeminiYoutubeCandidateHandoffIssue,
+  type GeminiYoutubeCandidatePacket,
+  type GeminiYoutubeCandidateValidationDependencies,
+  type GeminiYoutubeCandidateValidationReceipt
+} from "./gemini-youtube-candidate-handoff.js";
+export {
+  createYoutubeTranscriptProvider,
+  getYoutubeTranscript,
+  youtubeTranscriptEnvelopeSchema,
+  youtubeTranscriptInputSchema,
+  youtubeTranscriptSegmentSchema,
+  youtubeTranscriptTrackSchema,
+  type YoutubeTranscriptEnvelope,
+  type YoutubeTranscriptInput,
+  type YoutubeTranscriptProvider,
+  type YoutubeTranscriptProviderOptions,
+  type YoutubeTranscriptProvenance,
+  type YoutubeTranscriptRuntime
+} from "./youtube-transcript.js";

@@ -6,6 +6,9 @@ export const ACTION_REQUEST_MAX_BYTES = 8_192;
 export const RESEARCH_ACTION_RESPONSE_MAX_BYTES = 60_000;
 export const PROTOCOL_ACTION_TEXT_MAX_BYTES = 48_000;
 export const PUBLIC_MCP_CONCURRENCY_LIMIT = 16;
+export const PUBLIC_MCP_BROWSER_ORIGINS = [
+  "https://gemini.google.com"
+] as const;
 
 export const PUBLIC_RATE_LIMIT = {
   capacity: 60,

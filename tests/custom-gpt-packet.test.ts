@@ -22,6 +22,7 @@ const READ_OPERATION_IDS = [
   "check_retraction_status",
   "search_youtube",
   "get_youtube_video",
+  "get_youtube_transcript",
   "get_youtube_comments",
   "search_youtube_comments",
   "audit_youtube_community",
@@ -49,7 +50,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     expect(packet.syncJson).toBe(sync);
   });
 
-  it("contains the exact 17 read operations and one authenticated consequential write", async () => {
+  it("contains 18 reads, including the Action-only transcript read, and one authenticated write", async () => {
     const packet = await generateCustomGptPacket();
     const document = JSON.parse(packet.openApiJson) as {
       paths: Record<string, Record<string, {
@@ -76,7 +77,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       security: [{ bearerAuth: [] }],
       "x-openai-isConsequential": true
     });
-    expect(operations).toHaveLength(18);
+    expect(operations).toHaveLength(19);
   });
 
   it("keeps the compact instructions complete, bounded, and free of stale Knowledge", async () => {
@@ -88,14 +89,22 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "`continuation_recommended: true`",
       "`synthesis_lock: pass`",
       "`youtube_action_continuation_invalid_or_expired`",
-      "restart only that video audit by video identifier",
+      "restart only that video audit by identifier",
       "`search_youtube_comments`",
       "query-bounded `partial`",
       "Use installed Project router before HRP; otherwise require Forum Signal",
-      "When required, call `survey_youtube_community`",
+      "Call `survey_youtube_community`",
+      "`how I cured/reversed/fixed my [condition]`",
+      "`get_youtube_transcript`",
+      "selected-track `api_visible_complete`",
+      "Metadata/comments cannot establish creator content",
+      "preop conservative≠postop rehab",
+      "`HRP-complete`/full-HRP opening",
+      "Action canonical link",
+      "Continue `get_youtube_transcript` cursor to exhaustion",
       "treatment alternatives",
       "avoiding replacement",
-      "avoiding joint replacement",
+      "joint replacement",
       "avoiding surgery",
       "personal or practical treatment decision",
       "good idea for me",
@@ -107,9 +116,8 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "pure chemistry or mechanism with no real-world outcome or safety claim",
       "emergency triage before stabilization",
       "no meaningful user-experience corpus",
-      "`HRP-complete`/full-HRP opening require ledger formal retrieval and passing receipts",
-      "Forum Signal needs no incomplete direction/transfer",
-      "each selected video's Action-returned `receipt.synthesis_lock: pass`",
+      "`HRP-complete`/full-HRP opening need formal retrieval",
+      "no unresolved material fingerprint/direction/transfer",
       "Submit this anonymized lesson to improve AskRigor?",
       "`Yes`",
       "`Yes always in this chat`",
@@ -119,6 +127,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     ]) {
       expect(instructionsMarkdown).toContain(required);
     }
+    expect(instructionsMarkdown).not.toContain("`transcript_tool_unavailable`");
   });
 
   it("makes the complete lesson-consent shell authoritative at the Custom GPT boundary", async () => {
@@ -169,6 +178,9 @@ describe("deterministic Custom GPT synchronization packet", () => {
       schema_version: 1,
       generated_at: "2026-08-18",
       research_operation_ids: READ_OPERATION_IDS,
+      mcp_research_operation_ids: READ_OPERATION_IDS.filter((id) =>
+        id !== "get_youtube_transcript"
+      ),
       consequential_operation_ids: ["submit_lesson_candidate"],
       editor: {
         knowledge: "empty",

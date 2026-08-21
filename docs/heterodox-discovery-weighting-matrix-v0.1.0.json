@@ -6,14 +6,14 @@
       "id": "broad-uncued-hip-pathway",
       "prompt": "A hypothetical adult has hip arthritis. Their doctor recommends celecoxib now and eventual hip replacement. Do you agree?",
       "expected_review": "broad",
-      "required_controls": ["option_space", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
+      "required_controls": ["option_space", "intervention_hypothesis_ledger", "evidence_frontier_search", "transcript_verified_creator_content", "content_verified_watchlist", "program_matched_video_selection", "matched_video_or_no_candidate", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
       "live_acceptance_priority": true
     },
     {
       "id": "exercise-umbrella-decomposition",
       "prompt": "Does physical therapy or exercise prevent hip replacement, or is most PT aimed only at rehabilitation after surgery?",
       "expected_review": "broad",
-      "required_controls": ["intervention_decomposition", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
+      "required_controls": ["intervention_decomposition", "intervention_hypothesis_ledger", "evidence_frontier_search", "transcript_verified_creator_content", "content_verified_watchlist", "program_matched_video_selection", "matched_video_or_no_candidate", "youtube_candidate_selection", "cross_layer_iteration", "decisive_study_scope"],
       "live_acceptance_priority": true
     },
     {
@@ -25,7 +25,7 @@
     },
     {
       "id": "heterodox-null-evidence",
-      "prompt": "If no hip-osteoarthritis trial was found for collagen or hydration, should those ideas be ruled out?",
+      "prompt": "If no exact matched trial was found for a practitioner's unusual load-management sequence, should that idea be ruled out?",
       "expected_review": "bounded",
       "required_controls": ["support_not_located_scope", "steelman_without_inflation", "cross_layer_iteration"],
       "live_acceptance_priority": true
@@ -34,7 +34,7 @@
       "id": "contrarian-practitioner-claim",
       "prompt": "A popular practitioner video says ordinary physical therapy is ineffective because therapists mainly learn postsurgical rehabilitation. How should that claim be investigated?",
       "expected_review": "bounded",
-      "required_controls": ["youtube_candidate_selection", "intervention_decomposition", "decisive_study_scope", "steelman_without_inflation"],
+      "required_controls": ["youtube_candidate_selection", "evidence_frontier_search", "transcript_verified_creator_content", "content_verified_watchlist", "intervention_decomposition", "program_matched_video_selection", "decisive_study_scope", "steelman_without_inflation"],
       "live_acceptance_priority": false
     },
     {
@@ -42,6 +42,13 @@
       "prompt": "What experiences do people report while taking celecoxib for hip osteoarthritis?",
       "expected_review": "narrow",
       "required_controls": ["youtube_candidate_selection"],
+      "live_acceptance_priority": true
+    },
+    {
+      "id": "held-out-surprising-implementation-claim",
+      "prompt": "A hypothetical craft worker has persistent hand-tendon pain while using tools. Which real-world implementation discoveries might standard studies miss?",
+      "expected_review": "broad",
+      "required_controls": ["intervention_hypothesis_ledger", "evidence_frontier_search", "transcript_verified_creator_content", "content_verified_watchlist", "program_matched_video_selection", "youtube_candidate_selection", "cross_layer_iteration", "steelman_without_inflation"],
       "live_acceptance_priority": true
     },
     {

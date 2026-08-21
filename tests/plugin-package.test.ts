@@ -164,10 +164,14 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("`audit_youtube_video_community`");
     expect(skill).toContain("could plausibly affect the answer");
     expect(skill).toContain("Use installed Project router before HRP; otherwise require Forum Signal");
+    expect(skill).toContain("treatment endorsement/choice/start-defer-sequence");
     expect(skill).toContain("If uncertain, require it");
-    expect(skill).toContain("When required, call `survey_youtube_community`");
+    expect(skill).toContain("Call `survey_youtube_community`");
     expect(skill).toContain("formal evidence cannot deselect it");
-    expect(skill).toContain("`receipt.synthesis_lock: pass`");
+    expect(skill).toContain("each Action receipt's `synthesis_lock`");
+    expect(skill).toContain("If `get_youtube_transcript` is unavailable");
+    expect(skill).toContain("`transcript_tool_unavailable`");
+    expect(skill).toContain("never call an undeclared tool");
     expect(skill).toContain("`complete_no_candidates`");
     expect(skill).toContain("`completed_with_access_boundary`");
     expect(skill).toContain("`reply_count_mismatches`");
@@ -184,11 +188,13 @@ describe("AskRigor plugin package", () => {
     expect(skill).toContain("`records_returned_for_analysis`");
     expect(skill).toContain("`continuation_recommended: true`");
     expect(skill).toContain(
-      "`continuation_recommended` is authoritative for immediate automatic resubmission"
+      "continue while `continuation_recommended: true`"
     );
-    expect(skill).toContain("expected information gain remains positive");
+    expect(skill).toContain("expected information gain is positive");
     expect(skill).toContain("`support_not_located`");
-    expect(skill).toContain("cannot alone downgrade community signal");
+    expect(skill).toContain("cannot downgrade observed community signal");
+    expect(skill).toContain("preop conservative≠postop rehab");
+    expect(skill).toContain("`HRP-complete`/full-HRP opening");
     expect(skill).toContain("Videos worth watching");
     for (const explicitRequiredExample of [
       "treatment alternatives",
@@ -212,9 +218,8 @@ describe("AskRigor plugin package", () => {
     ]) {
       expect(skill).toContain(implicitDecisionBoundary);
     }
-    expect(skill).toContain("`HRP-complete`/full-HRP opening require ledger formal retrieval and passing receipts");
-    expect(skill).toContain("Forum Signal needs no incomplete direction/transfer");
-    expect(skill).toContain("each selected video's Action-returned `receipt.synthesis_lock: pass`");
+    expect(skill).toContain("`HRP-complete`/full-HRP opening need formal retrieval");
+    expect(skill).toContain("no unresolved material fingerprint/direction/transfer");
 
     for (const judgment of [
       "efficacy",

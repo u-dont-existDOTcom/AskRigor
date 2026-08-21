@@ -8,7 +8,7 @@ immutable site release `f928b95e29cd`.
 The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson notice.
 The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
-the current treatment-decision discovery/weighting regression, the publisher-
+the current universal creator-content verification regression, the publisher-
 identity and domain-verification path, Scan Tools
 review, the demo recording, the explicit opaque model-receipt release decision,
 final portal review, and submission actions recorded in
@@ -87,9 +87,31 @@ exercise/PT programs or preoperative versus postoperative rehabilitation, did
 not constrain decisive surgery trials to their exact comparators, and gave
 little structured weight to hydration/collagen evidence after exact matched
 studies were not located. The follow-up seven-case discovery/weighting matrix
-and local Instructions SHA-256
+and Instructions SHA-256
 `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`
-are repository evidence only until installed and freshly retested.
+merged as PR #37 and was then exercised through another owner-provided product
+run. That retest
+still selected generic conservative-care, NSAID, and postoperative-rehabilitation
+pools, omitted gelatin/collagen and hydration, did not locate program-matched
+preoperative PT videos, collapsed PT/exercise variants, and falsely labeled the
+answer HRP-complete. Those are retained as historical observations, not a
+topic-specific production checklist.
+
+The current local follow-up is universal: it expands evidence-frontier search
+with vernacular cure/reversal/failure language while treating those phrases as
+hooks rather than proof; fingerprints exact creator claims; requires timestamped
+caption verification before describing a video's content; audits comments
+separately; and limits **Videos worth watching** to exact, nonredundant,
+transcript-verified entries with a reason and canonical timestamp link. Missing
+caption access remains a confidence-limiting gap. The Action-only
+`get_youtube_transcript` source candidate raises the Custom GPT schema from 17
+to 18 research reads plus the lesson write while preserving the exact 17-tool
+MCP. Instructions SHA-256 is
+`4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
+OpenAPI SHA-256 is
+`9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
+The runtime, privacy notice, Action schema, editor Instructions, live transcript
+provider, and GPT behavior remain undeployed or unverified as applicable.
 
 ## Source-generated MCP tools/list inventory
 

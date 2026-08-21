@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-Updated: 2026-08-18
+Updated: 2026-08-21
 
 ## Goal
 
@@ -9,10 +9,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current verified GitHub baseline is PR #36 merge
-  `cfce806345fe65a13fd0330aa7e8f000c1587d01`. The isolated discovery/weighting
-  repair branch `agent/gpt-heterodox-discovery-weighting-20260818` starts from
-  that exact commit. Production runs the same PR #36 merge on image ID
+- Canonical branch: `main`; current verified GitHub baseline is PR #39 merge
+  `793c331ad90b9918246105e5f998ab9d1a258de9`. PR #37 merged the first
+  discovery/weighting repair as
+  `d49cad990f21dfdf9649951248798293650f2a4a`; PRs #38 and #39 then advanced
+  canonical Universal source to `20.5.14`. Production still runs PR #36 merge
+  `cfce806345fe65a13fd0330aa7e8f000c1587d01` on image ID
   `sha256:8c5441430b8dbe0cd532908831c1637e405a668943792cabcef4884870bfc360`;
   rollback tag `askrigor-research:rollback-cfce806` resolves the prior PR #32
   image. The privacy-model repair head
@@ -25,7 +27,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `81328fc439b6cd6a199a9b707aeafe5b9881fadc` merged as
   `25849647969a4bf333659feaa30f0b418cc24d57`, while production now runs exact
   revision `cfce806345fe65a13fd0330aa7e8f000c1587d01`. The continuation implementation
-  passed direct and Custom GPT UI two-call acceptance, and current Universal
+  passed direct and Custom GPT UI two-call acceptance, and deployed Universal
   `20.5.13` passed fresh direct production acceptance.
   Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
@@ -35,10 +37,51 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.13` / 2026-08-17 / `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4`
+- Canonical source byte receipts: HRP `20.5.18` / 2026-08-16 / `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.14` / 2026-08-18 / `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Production remains separately verified at Universal `20.5.13` / 2026-08-17 / `3bef54307403df2cbd459377bc308747db47310aefe68cac3b7b2b75c87f92c4` pending the recorded rollout boundary.
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
-- Whole-argument reconstruction integration: canonical Universal `20.5.13` adds the source-wide reconstruction gate promoted from `u-dont-existDOTcom/universal-dev-architecture/patterns/whole-argument-reconstruction.md`; HRP bytes remain unchanged.
+- Universal integration: `20.5.13` added the source-wide whole-argument reconstruction gate; canonical source `20.5.14` adds the research-before-reinvention gate. HRP bytes remain unchanged.
+
+## Completed 2026-08-21 unspecified-hip-pain research run
+
+- The accepted compact Gemini candidate packet has now been carried through a
+  complete, diagnosis-contingent HRP research run for the de-identified prompt
+  `how can i fix my bad hip`. The synthesis and machine-readable source ledger
+  are `docs/audits/2026-08-21-unspecified-hip-pain-full-hrp.md` and
+  `docs/audits/2026-08-21-unspecified-hip-pain-source-ledger.json`; the durable
+  execution plan is adjacent under `docs/superpowers/plans/`.
+- Formal work covered current triage, imaging, OA-care, arthroplasty-timing,
+  exercise, condition-specific gluteal loading, injection, orthobiologic,
+  supplement, device, and replacement evidence plus four unresolved trial
+  registry records. Decision-critical open full text was inspected for the
+  AAOS guideline, LEAP, and HIT; abstract-only material is labelled and is not
+  the sole basis for a treatment ranking. Two wider evidence-frontier passes
+  added no decision-changing option or contradiction, and eight decisive DOI
+  records received a traceable Crossref retraction-metadata check.
+- Forum Signal used six terminal YouTube discussion pools: 343/343 generic
+  nonsurgical records, a 545-record replacement pool with the declared
+  deterministic 500-record analysis boundary, 32/32 steroid-flare records,
+  31/31 diagnosis-specific gluteal-tendinopathy records, 390/390 persistent-
+  pain-after-replacement records, and 166/166 PRP records. All synthesis locks
+  passed; no raw comments or commenter identities were persisted. Publicly
+  indexed Reddit and Patient.info material supplied an independent-community
+  directional check. Community visibility, attribution, and formal concordance
+  remain separate, and no community incidence or causal rate is claimed.
+- Creator-content claims remain withheld because the installed YouTube
+  Conversation skill permits only Chrome transcript-panel retrieval and no
+  Chrome-control capability was exposed. Titles, comments, and Gemini summaries
+  were not substituted for transcripts. This terminal boundary does not block
+  the completed diagnosis-first synthesis because no creator claim carries a
+  verdict.
+- This research run changes no protocol, product runtime, public MCP/Action
+  inventory, privacy boundary, production service, release, or deployment.
+- The 2026-08-21T05:17:25.891Z lesson checkpoint was available with 1 open
+  candidate, 1 needs review, 0 accepted not incorporated, 2 incorporated or
+  closed, and 0 deletion eligible. No lesson expanded this research run. The
+  complete host-boundary deterministic gate passed typecheck, 59 test files
+  with one declared skip, 979 tests with five declared skips, and build. A
+  preceding sandbox-only run failed solely because the sandbox denied loopback
+  and IPC binds with `EPERM`.
 
 ## Active 2026-08-18 treatment-decision regressions
 
@@ -96,20 +139,38 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   constrain decisive THA trials to their exact comparators, and gave little
   structured steelman treatment to hydration/collagen evidence after exact
   matched studies were not located.
-- Local test-first follow-up work is active on the isolated branch. RED was
+- The owner then exercised the first discovery/weighting candidate
+  (`8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`)
+  through another fresh product run. It audited generic conservative care
+  (`partial` / `completed_with_access_boundary`, 272/272/71), general NSAID
+  experience (`api_visible_complete`, 197/197/110), and postoperative
+  replacement mistakes (`api_visible_complete`, 989/989/103), where each tuple
+  is provider-reported/retrieved/returned-for-analysis. It omitted separate
+  gelatin/collagen and hydration hypotheses, did not locate program-matched
+  preoperative PT videos, collapsed distinct PT/exercise programs, and still
+  labeled the result HRP-complete. This owner-provided UI receipt disproves the
+  sufficiency of the first follow-up; tool execution and passing per-video locks
+  did not establish option-space coverage.
+- The first test-first follow-up merged as PR #37. RED was
   observed because the Project router, Forum module, plugin skill, and generated
   Custom GPT packet lacked the new executable controls. The candidate adds a
   candidate-selection ledger, exact intervention/comparator decomposition,
   preoperative/postoperative separation, comparator-bounded inference, and
   steelman-without-inflation rules, plus regenerated Instructions/sync artifacts
   and a new seven-case discovery/weighting matrix. No canonical
-  protocol, OpenAPI operation, MCP tool, production deployment, GPT editor
-  state, or private lesson changed in this follow-up. The rejected lesson was
-  not retried. Establish the follow-up's current merge and editor-installation
-  state from Git/GitHub and UI receipts; do not infer it from this implementation
-  paragraph. The
+  protocol, OpenAPI operation, MCP tool, production deployment, or private
+  lesson changed in that follow-up. The owner installed and product-tested its
+  exact generated Instructions; that test produced the failure immediately
+  above. The rejected lesson was not retried. The
   dirty original checkout and its unrelated credential-looking files remain
   untouched.
+- A topic-specific second follow-up was tested locally and then superseded
+  before publication because baking the observed hip answers into production
+  would contaminate future tests and fail to generalize. The active candidate
+  instead uses universal evidence-frontier search, exact claim fingerprints,
+  creator-transcript verification, independent comment audits, and a no-padding
+  timestamped watchlist. The failed hip answer remains historical evidence, not
+  a shipped checklist.
 - Owner-reported OpenAI state: individual identity is verified. Business/
   organization verification is blocked after an apparent signup timeout; the
   owner believes the retry delay may be three months, but the exact duration is
@@ -443,22 +504,1091 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   the site release were unchanged; exact rollback image and Compose remain
   ready.
 
-## Current checkpoint
+## Transcript/evidence-frontier implementation checkpoint
 
 - The current repair plan is
-  `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`.
-  The generated local Instructions are 7,799 characters (7,811 UTF-8 bytes), SHA-256
-  `8cbc6a3a5741f46e08cb184dfb32277d85a4897aa86e993865bfdc219f1b41d6`;
-  local sync SHA-256 is
-  `7fe46f703161f3b488f04d60a247528b43c835e073320bf6b55039ab5834d819`.
-  The generated OpenAPI remains byte-identical. The Forum Signal matrix has 15
+  `docs/superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`.
+  The generated local Instructions are 7,797 characters, SHA-256
+  `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
+  generated OpenAPI SHA-256 is
+  `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
+  Synchronization-ledger SHA-256 is
+  `1ca16c082fcfed4f1c90e919aa541827fe1ca8c37e7b1de5c4968cba96ad2f3e`.
+  Production still has 17 research reads plus the lesson write. The source
+  candidate has 18 reads plus the write because `get_youtube_transcript` is
+  Action-only; the exact checksum-locked MCP remains 17 tools. The Forum Signal matrix has 15
   required and 9 not-required cases; the option-space matrix has 9 broad-review
-  and 6 narrow-review controls; the new discovery/weighting matrix has seven
-  cases across four review modes. Its focused suite passed 52/52. The complete
-  Node `24.18.0` gate passed typecheck, 54 test files with one declared
-  credential-gated file skipped, 939 tests with five declared skips, and build.
-  Static tests do not establish deployed or GPT UI behavior.
-- The required pre-publication lesson checkpoint at `2026-08-18T09:37:06.952Z` remained
+  and 6 narrow-review controls; the discovery/weighting matrix has eight cases,
+  plus an unrelated held-out evidence-frontier fixture. The focused
+  router/skill/matrix/packet/transcript/registry suite passed 53/53 at that
+  implementation checkpoint. The then-complete
+  Node `24.18.0` gate passed typecheck, 58 test files with one declared
+  credential-gated file skipped, 964 tests with five declared skips, and build.
+  Public-site validation covered four pages and the deployment suite passed
+  28/28. The current top-level section supersedes these historical counts.
+  Static tests do not establish deployed transcript access or GPT UI
+  behavior.
+- The transcript adapter uses exact `youtube-transcript-plus@2.0.1` behind
+  AskRigor's host allowlist, timeout, response-size, pagination, provenance, and
+  access-state boundaries. It retrieves public caption tracks through an
+  unofficial YouTube interface. Production availability, caption accuracy, and
+  corpus visibility are explicitly unverified; transcript text is not retained
+  between requests.
+- Owner-authorized isolated Gemini/YouTube evaluation is recorded in
+  `docs/audits/2026-08-18-gemini-youtube-discovery-evaluation.md`. With generic,
+  de-identified prompts, Gemini 3.6 produced materially more specific and
+  diverse search directions than the static query families across the failed
+  hip case and two unrelated cases. Ungrounded Gemini URL generation failed
+  independent validation for all 14 generated identifiers and is prohibited by
+  the recommended design. Direct summaries of five real public URLs were rich
+  but took 22.7-33.9 seconds and 82,152-171,688 prompt tokens per video; initial
+  transcript acquisition was `api_visible_complete` and took 2.8-12.2 seconds.
+  Later transcript retries returned `rate_limited`, and an independent subtitle
+  request returned HTTP 429, so the matched transcript-plus-model timing test
+  and the apparent creator-transcript hydration substring remain unresolved
+  rather than negative evidence. A separate bounded `top`-sorted community
+  sample returned 2,000 of an estimated 5,374 comments as `partial` and did
+  locate hydration/electrolyte and gelatin discussion. This confirms that the
+  missed signals were present in the independent comment lane, not that the
+  creator made those claims in the video. No API key, raw transcript, comment
+  corpus, or unrestricted provider response was retained in the repository,
+  and no production or protocol behavior changed.
+- A 2026-08-19 official YouTube Data API follow-up validated a temporary local
+  key without retaining it. Exact metadata for three videos was
+  `api_visible_complete` in 344 milliseconds. The discovery-video comment
+  traversal exhausted 11 top-level pages in 5.358 seconds and returned 1,055
+  threads, 921 embedded replies, and 1,976 unique records, but 35 reply-count
+  mismatches require overall `partial`. Aggregate matches included nine
+  hydration/electrolyte records (two uploader records), nine gelatin records,
+  and 119 collagen records. This supports the official API for
+  search/metadata/comments; it cannot download arbitrary public captions,
+  which Google limits to OAuth users with edit permission.
+- Google documents direct Gemini video input as audio plus one visual frame per
+  second at roughly 300 tokens per video-second by default, explaining the
+  measured 22.7-33.9 seconds and 82,152-171,688 input tokens. Consumer Gemini's
+  approximately one-second YouTube summary uses an undocumented Connected App
+  retrieval contract and may be transcript/metadata or cache based. There is no
+  supported consumer-Gemini API. A personal laptop browser bridge remains a
+  possible but brittle and policy-sensitive experiment; a VPS is higher risk,
+  Gemini Spark MCP runs in the reverse direction, and the supported NotebookLM
+  Enterprise API is disproportionate for this use case.
+- The supported Gemini Spark direction passed account-side connection on
+  2026-08-19 through `https://mcp.askrigor.com/mcp/gemini`. The standard endpoint
+  reached initialization and `tools/list`, but Gemini rejected its 68,038-byte
+  richer catalog. The accepted compatibility profile preserves the same ordered
+  17 read-only tools and handlers while emitting a 12,239-byte catalog without
+  output or execution declarations. This establishes transport and catalog
+  compatibility only.
+- Owner correction rejected the initial `run-askrigor-research` skill because
+  it assigned complex Universal/HRP orchestration and completion judgment to
+  Gemini. The replacement
+  `integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`
+  restricts Gemini to
+  intelligent YouTube discovery, fast creator summaries, selective visual
+  observations, and exact-link validation through `get_youtube_video`. It
+  returns a structured handoff to a separate capable AskRigor agent and cannot
+  claim HRP, Forum Signal, evidence, or recommendation completion. The
+  connection and skill upload are one-time; consumer Gemini's reverse-direction
+  custom-app architecture still requires one compact handoff per research task.
+  `docs/gemini-spark-setup.md` records the corrected installation, scope,
+  removal, and synthetic scout acceptance flow. The replacement passed its
+  skill validator, focused contract 4/4, and complete deterministic gate: 58
+  test files passed with one credential-gated skip; 967 tests passed with five
+  skips; typecheck and build passed. An independent capability-denied forward
+  test failed closed; real consumer-Gemini scout acceptance remains pending
+  owner upload.
+- The first owner-run consumer-Gemini scout then demonstrated useful discovery
+  and detailed regimen extraction, including the previously missed clinician
+  self-management direction, but failed the output contract. It returned
+  `available` rather than a literal AskRigor status, left every timestamp blank,
+  blurred creator summaries with uninspected visual support, and did not
+  distinguish exact long-term outcome matches from adjacent or promotional
+  material. No substantive claim was promoted to evidence. The next skill
+  revision adds a literal-status allowlist, empty-timestamp rejection,
+  attribution/source checks, outcome-match and incentive classes, and a final
+  self-audit; real replacement-skill acceptance remains pending.
+- The second owner-run scout corrected the literal statuses to
+  `api_visible_complete`, produced the requested query ledger and creator
+  incentives, and surfaced a hydration regimen. It still generated blank
+  timecode placeholders and selected six adjacent tutorials with zero exact
+  outcome matches, despite the first run proving firsthand candidates were
+  discoverable. The next revision replaces bare timecodes with rendering-safe
+  clickable Markdown deep links paired with
+  descriptive segment cues, and runs at least three exact-outcome discovery
+  directions before adjacent mechanism or tutorial searches. The owner
+  confirmed that Gemini returned the missing timestamps when directly asked to
+  fix them; the failure was therefore a skill-format gap, not proof that Gemini
+  could not locate timecodes. Clean consumer-Gemini acceptance remains pending.
+- The next displayed consumer-Gemini output passed the rendering-safe timestamp
+  and literal-status checks but repeated six adjacent tutorials after only one
+  broad avoidance query and retained zero non-clinician firsthand patient
+  accounts. Owner/Gemini diagnosis correctly identified clinic SEO dominance
+  and technical-diversity selection pressure; the existing exact-outcome rule
+  was soft and lacked a patient-creator quota. The next revision adds
+  patient-specific queries with negative practitioner/institution terms,
+  separate patient/clinician-self/practitioner-case evidence classes, and a
+  `min(3, ceil(dossier size / 2))` patient target. A real corpus shortfall must
+  remain explicit; the skill cannot pad or misclassify accounts to meet it.
+  Clean consumer-Gemini acceptance remains pending.
+- Owner review then narrowed the desired firsthand signal: a patient speaking on
+  a personal channel does not qualify when the video mainly reviews a clinic,
+  provider, procedure, program, or product. The scout now reserves its quota for
+  `independent_patient_self_learning` accounts that expose personal hypotheses,
+  experiments, routines, failures, adaptations, and takeaways. It classifies
+  `independent_provider_treatment_review`, `clinic_patient_testimonial`, and
+  `independence_unclear` separately; none counts toward the quota. Clean
+  consumer-Gemini acceptance remains pending.
+- Owner review then replaced the premature one-pass summary slate with a staged
+  browse graph. Gemini now defaults to `seed_discovery`: diverse
+  model-provenance query probes, exact/umbrella/anatomy/intervention search
+  rings, fuzzy title recall, metadata triage, and two or three distinct
+  comment-audit seeds without inferred comment findings. AskRigor performs the
+  protocol-governed comment audit and may return a `youtube_rediscovery_packet`;
+  Gemini's optional `targeted_rediscovery` mode then finds and summarizes narrow
+  intervention videos. Broad leads must be back-searched against the exact
+  target, and one creator ecosystem remains one discussion pool. Clean staged
+  consumer-Gemini acceptance remains pending.
+- Owner review then corrected the seed-stage ordering because titles and
+  descriptions can hide the actual intervention. Gemini now must run a
+  lightweight `remedy_extraction_scan` on 6–12 plausible videos and search each
+  promising intervention name before AskRigor spends substantially more work on
+  comment-corpus acquisition. Detailed regimen and dossier work remains deferred
+  to targeted rediscovery. Clean staged consumer-Gemini acceptance remains
+  pending.
+- The next owner-run test found the held-out `GROWING MY HIP BACK` video and
+  useful remedy families, establishing a major discovery-recall improvement.
+  It nevertheless emitted the obsolete eight-record full dossier, old creator
+  classes, and `Videos worth watching` instead of the staged seed packet. That
+  fingerprint indicates an old or cached skill copy. The diagnostic skill is
+  now distinctly named `scout-youtube-for-askrigor-staged` and requires
+  `Scout contract: staged-remedy-scan-v2` as the first response line plus the
+  active mode on line two. Clean acceptance requires those markers and only
+  two or three comment-audit seeds in `seed_discovery`.
+- A fresh-chat staged run then passed the browse-graph structure: heterogeneous
+  probes, eight remedy scans, three metadata-validated seeds, explicit audit
+  questions, and no final watchlist. It nevertheless populated the post-audit
+  `youtube_rediscovery_packet` from creator content, including inferred
+  community outcomes and counter-signals, labeled clinician self-management as
+  the independent-patient role, and reported no access boundary despite every
+  comment count being unavailable. Contract v2 now leaves only an unpopulated
+  AskRigor return schema, forbids predictions about unseen comments, adds an
+  honestly labeled clinician fallback, and preserves missing counts as access
+  boundaries.
+- Contract v2 passed the skill validator at 499 lines, focused Gemini tests 6/6,
+  typecheck, and build. The standard parallel host suite passed 964 tests and
+  timed out in five unrelated tests; those four files then passed 44/44 under
+  isolated serial execution. A complete host serial suite passed all 969
+  runnable tests with five declared skips, confirming the parallel result was
+  load-sensitive rather than a v2 regression.
+- The next owner-run v2 output preserved the post-comment boundary but again
+  selected three overlapping movement/PT ecosystems, predicted unseen comment
+  contents, repeated a seed role, displayed only six of ten claimed scans, used
+  a metadata status as a query-search result, and omitted radical layperson
+  phrasing that had previously found the held-out natural-recovery video.
+  Contract v3 makes terse prompts sufficient, runs default overlooked and
+  conventional-feedback lanes, adds general rebuilt/regrew/restored/healed
+  wording, preserves search-vs-metadata states, requires a complete scan ledger,
+  limits dominant mechanical/PT seeds, reserves heterodox and conventional
+  pools when located, and offers evidence-neutral rabbit-hole depth plus simple
+  `dig into` choices.
+- Contract v3 validates at 496 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips. The standard parallel verifier also
+  reached 969 passes but one existing live-suite security scan exceeded its
+  five-second timeout; that test passed 11/11 in isolation and in the complete
+  serial suite with the established 15-second timeout.
+- The next owner-run v3 report was useful but Gemini appended rich YouTube
+  result surfaces that slowed rendering. Contract v4 requires ordinary Markdown
+  text links only and forbids response-owned embeds, players, cards, carousels,
+  previews, thumbnails, bare YouTube URLs, unnecessary duplicate link lists,
+  and raw search-result appendices. Provider-owned search/tool traces outside the response
+  remain a Gemini interface boundary rather than controllable report content.
+- Contract v4 validates at 489 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips.
+- Audit of the same v3 artifact found additional contract drift: speculative
+  unseen-comment descriptions, omitted radical-outcome rows, specific diagnoses
+  mislabeled exact despite an unspecified baseline, one mismatched rabbit-hole
+  shortcut, untraceable direction counts, result-title query backfilling, and a
+  harm-only conventional seed. Contract v5 freezes prospective probes, requires
+  displayed radical rows, preserves adjacent diagnostic scope, uses balanced
+  conventional seeds and nonpredictive audit rationales, and ties every rabbit-
+  hole count and shortcut to displayed candidate rows and matching semantics.
+- Contract v5 validates at 483 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips.
+- The next owner-run v5 artifact fixed most earlier gates but still emitted a
+  malformed candidate table, selected two supplement-family seeds under
+  different roles, used unsupported rabbit-hole terms and counts, treated
+  formal-evidence questions as access gaps, asked comments to confirm structural
+  harm, and displayed a rich YouTube panel for nearly every broad query. Contract
+  v6 batches 14–22 logical probes into 4–6 text-first site searches, defers native
+  YouTube understanding to 8–12 shortlisted videos, uses complete numbered
+  candidate records, requires unique seed roles and intervention families,
+  enforces neutral audit questions, and maps every rabbit-hole term and count to
+  source rows while separating retrieval gaps from research questions.
+- Contract v6 validates at 482 lines. Its focused contract suite passed 7/7,
+  typecheck and build passed, and the complete serial host suite passed all 970
+  runnable tests with five declared skips.
+- Gemini's file-upload security scan rejected the first v6 artifact without a
+  diagnostic. The file was valid UTF-8 Markdown with no executable payload; its
+  only clear byte-shape regression from the uploadable v5 artifact was a new
+  1,066-character line, crossing a common 1 KiB scanner heuristic boundary.
+  The compatibility revision wraps that schema instruction without changing the
+  contract and adds a regression test requiring every source line to remain at
+  or below 800 characters. The external scanner cause remains an evidence-based
+  inference until an owner upload succeeds.
+- The compatibility revision validates at 499 lines with a 595-character
+  maximum line. The skill validator and focused contract suite passed 8/8;
+  typecheck and build passed. The complete host-boundary serial suite passed 969
+  tests with two fixed-five-second timeout failures; both timeout-prone files
+  then passed 15/15 in isolation, covering all 971 runnable tests, with five
+  declared skips.
+- The owner reported the same security-scan rejection on the wrapped artifact,
+  disproving line length as the operative cause. Contract v7 instead bisects the
+  v6-only semantic delta against uploadable v5: it removes explicit tool-routing
+  phrases such as instructions not to invoke or attach native YouTube entities
+  and removes the literal site-search operator. It preserves four to six broad
+  discovery batches, delayed content inspection, the 12-video ceiling, text-only
+  report output, intervention-family diversity, neutral audit questions, and
+  row-level rabbit-hole traceability. External upload remains the decisive test.
+- Contract v7 validates at 499 lines and 35,551 bytes with a 595-character
+  maximum line. The skill validator and focused contract suite passed 8/8;
+  typecheck and build passed. The preceding compatibility revision covered all
+  971 runnable tests, with its two load-sensitive fixed-timeout tests passing in
+  isolation, and v7 changes no runtime source.
+- The first successful v7 owner run confirmed upload compatibility and reduced
+  raw search-panel clutter, but its output still violated the contract: named
+  diagnoses and replacement queries were labeled exact despite an unspecified
+  baseline; batched probes cited nonmatching rows; all candidate titles were
+  unlinked; cyclic exercise was relabeled behavioral to manufacture seed-family
+  diversity; an exercise-only seed filled the heterodox role; rationales
+  predicted unseen comment content; an audit question requested a proportion;
+  and several rabbit-hole terms mapped to rows that did not contain them.
+- Contract v8 requires one-remedy heterodox probes, explicit probe-to-row match
+  reasons, adjacent scope for every named pathology or procedure under an
+  unspecified baseline, morphologically varied `grow/growing/grew ... back`
+  discovery, linked candidate titles, scan records capped at 110 words, immutable
+  modality-based families, honest role gaps, row-labeled non-prevalence comment
+  questions, and verbatim row-derived rabbit-hole terms. It also requires blank
+  lines so the contract marker, mode, headings, and fields render separately.
+- Contract v8 validates at 499 lines and 37,811 bytes with a 607-character
+  maximum line. The skill validator and focused contract suite passed 8/8;
+  typecheck and build passed. This revision changes no runtime source; the
+  immediately preceding full validation covered all 971 runnable tests with five
+  declared skips after the two load-sensitive files passed in isolation.
+- The owner's v8 forward run successfully rediscovered the held-out independent
+  `GROWING MY HIP BACK` video and preserved diagnostic uncertainty, but four
+  comment-audit questions cited unselected candidates, prevalence language
+  leaked into rabbit-hole questions, several directions mixed unrelated
+  intervention families, and an osteoarthritis account inherited exact target
+  distance from its broad discovery query. Contract v9 makes comment questions
+  executable from selected seeds only, exposes six distinct probe-family labels,
+  derives scope from candidate content, records reach metadata without treating
+  it as evidence, and separates current-seed rabbit holes from future seed
+  candidates with coherent row relevance and retrieval-only gaps.
+- Contract v9 validates at 499 lines and 40,324 bytes with a 760-character
+  maximum line and SHA-256
+  `afd0e18d8b6fb7c91806a82e7a8d873d86cebeaefe843272d55801737144fcbb`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. This revision changes no runtime source, so the immediately preceding
+  complete-suite coverage remains applicable.
+- The owner's external Gemini upload rejected v9 at the security-scan step.
+  Because uploadable v8 was 37,811 bytes while v9 crossed 40 KB at 40,324
+  bytes, contract v10 tests the file-size boundary by removing duplicated prose
+  while preserving the v9 seed-executability, family, scope, reach, and rabbit-
+  hole invariants. External upload remains the decisive compatibility test.
+- Contract v10 validates at 458 lines and 37,052 bytes with a 760-character
+  maximum line and SHA-256
+  `7a2faeed65d93777dc5c80458d8fb8be0e8a9c78ba03206e012b111e57fd8e3b`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. This revision changes no runtime source.
+- The successful v10 owner run confirmed the compact artifact uploads, but
+  exposed semantic failures: batched queries omitted linked probe anchors,
+  radical variants were bundled into one row, probe-family labels leaked into
+  intervention families, a postoperative diary displaced an available
+  independent nonsurgical outcome, audit questions invented uncited diet and
+  injection examples, prevalence wording returned in rabbit questions, mixed-
+  family rabbit holes persisted, and displayed `title_link` fields lacked
+  actual Markdown destinations. Contract v11 makes each of these auditable with
+  closed family values, batch-anchor coverage, seed-derived terms, banned
+  prevalence phrasings, same-family rabbit rows, and literal link syntax.
+- Contract v11 validates at 459 lines and 36,896 bytes with a 726-character
+  maximum line and SHA-256
+  `b84f679df5c4bfc017a53a82c6fdc4d240171447d0364207ba3ef68cb2310586`.
+  It remains smaller than the uploadable v10 artifact. The skill validator and
+  focused contract suite passed 8/8; typecheck and build passed. This revision
+  changes no runtime source.
+- The owner's v11 forward run uploaded successfully and improved family-safe
+  rabbit holes, seed/question alignment, and independent seed classification,
+  but exposed new structural gaps. Its 16 probes were collapsed into five
+  mixed-family batches whose executed queries omitted several linked concepts;
+  no literal grow/rebuild/regrow radical probe ran, so the held-out independent
+  outcome disappeared. It also displayed 9 candidates after claiming 10, used
+  `adjacent` as a semantic scope, omitted literal Markdown title destinations,
+  introduced question details absent from seed rows, and selected a harm-led
+  surgical video without an explicit recognized-benefit field.
+- Contract v12 uses closed probe and semantic-scope enums, separate target
+  distance, 6–10 one-family batches of at most three probes, per-probe required
+  anchors, distinct radical roots including `grow/growing/grew ... back`, exact
+  scan/display counts, contiguous candidate IDs, per-candidate video IDs,
+  evidence-mapped question terms, and explicit conventional benefit/limitation
+  fields. It validates at 387 lines and 36,287 bytes with a 780-character
+  maximum line and SHA-256
+  `fcee4476b45bce7d566260f31746244a939f0795e8bac3867a6b4fa9c2c18491`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. This revision changes no runtime source and remains below the
+  uploadable v10 and v11 artifacts.
+- The owner's v12 forward run populated 10 single-family batches and all 10
+  displayed candidate rows, selected an independent nonsurgical outcome, and
+  preserved conventional benefit plus limitation. It nevertheless treated
+  rapid relief, temporary traction, and a cartilage-mechanism tutorial as direct
+  radical outcomes; counted only five overlooked intervention families once
+  outcome lanes were excluded; supplied only two distinct negative conventional
+  probes; leaked uncited terms and prevalence/efficacy wording into audit
+  questions; and emitted one malformed duplicated rabbit-hole key. The held-out
+  independent `GROWING MY HIP BACK` result was not rediscovered.
+- Contract v13 separates search access from direct claim alignment, requires
+  exact creator-claim evidence for a direct radical match, counts only eight
+  eligible overlooked intervention families, requires two conventional-benefit
+  and three separate conventional-negative rows, and exact-maps every named
+  question term while banning prevalence and efficacy formulations. It also
+  requires a duplicate/malformed-key self-check and states that Gemini is an
+  optional parallel discovery lane: AskRigor may continue formal, grey,
+  clinical, and other-community work while the manual Spark handoff is pending.
+  The setup guide now documents this parallel-but-manual operating model.
+- Contract v13 validates at 357 lines and 36,422 bytes with a 759-character
+  maximum line and SHA-256
+  `e9c6ee9f5a3ce336f55c0b0edd2c3c4184f597624bd56b599a53e31ae7e41352`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. `git diff --check` passed. This revision changes no runtime source and
+  remains smaller than the uploadable v11 artifact; external Gemini upload and
+  a fresh forward run remain the decisive compatibility and behavior tests.
+- The required lesson checkpoint at `2026-08-20T17:37:51.600Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded skill-contract repair.
+- The owner's v13 forward run uploaded successfully, rediscovered the held-out
+  independent `GROWING MY HIP BACK` account, counted seven eligible remedy
+  families, distinguished the second radical tutorial as adjacent, populated
+  balanced conventional and mechanical seeds, and emitted neither embeds nor a
+  raw result dump. It also included the parallel handoff note. However, several
+  batch queries omitted anchors belonging to linked probes, so claimed
+  conventional-negative and other coverage was not fully executed. Two
+  `single_intervention` probes bundled distinct treatments, only two explicit
+  firsthand rows ran, candidate rows used `canonical_intervention_family`, and
+  audit questions invented unmapped stomach, soreness, skin-irritation, and
+  messiness details. Topical and device directions also reused the all-signals
+  shortcut. The copied rendered output did not preserve link destinations, so
+  literal Markdown-link compliance remains unverified rather than failed.
+- Contract v14 requires nonempty anchors and per-probe `batch_anchor_evidence`
+  for every probe, counts families and conventional/firsthand directions only
+  after passing coverage, requires three separately anchored firsthand rows,
+  prevents distinct treatments from masquerading as one intervention, and
+  standardizes the candidate field as `intervention_family`. Question evidence
+  maps must now precede questions, with only a small neutral unmapped vocabulary;
+  plausible adverse details require exact source mappings. Rabbit-hole
+  shortcuts now map to topical, device, regenerative, behavioral, mechanical,
+  nutrition, or conventional families, while `all high-yield` is map-level only.
+- Contract v14 validates at 354 lines and 36,467 bytes with a 660-character
+  maximum line and SHA-256
+  `50781cb39e00af21fe08b7223e4fba4c836c34d4063ddefa91947b93531d1549`.
+  The skill validator and focused contract suite passed 8/8; typecheck, build,
+  and `git diff --check` passed. This revision changes no runtime source and is
+  only 45 bytes larger than uploadable v13 while remaining below v11.
+- The required lesson checkpoint at `2026-08-20T18:01:02.751Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded forward-test repair.
+- The owner reports that Gemini rejected the v14 upload at its security scan.
+  The 45-byte increase over uploadable v13 is a possible boundary signal, but
+  size alone is not a demonstrated cause because larger v10 and v11 artifacts
+  uploaded successfully. Treat the receipt as content- or scanner-sensitive
+  until an external upload establishes otherwise.
+- Contract v15 preserves the v14 anchor, provenance, family, and question-map
+  controls while compacting the final audit, removing newly introduced concrete
+  medical examples, and replacing non-ASCII shortcut arrows. A regression test
+  now caps the upload artifact at 35,600 bytes as well as 800 characters per
+  line. The artifact validates at 350 lines and 35,419 bytes with a
+  660-character maximum line and SHA-256
+  `cd5c832be43358a57633064be4c50e0999bd22336ab9c79801d472f759383275`.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. The sandboxed complete gate recorded 67 listener-related failures
+  (`EPERM` on localhost or a local pipe), then the required host-boundary test
+  rerun passed 971 tests with 5 skipped. This revision changes no runtime
+  source. External Gemini upload is still the decisive scanner test.
+- The required lesson checkpoint at `2026-08-20T18:15:06.138Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded scanner-compatibility repair.
+- The owner reports that the smaller v15 artifact also failed Gemini's security
+  scan. This falsifies the working byte-ceiling explanation; the rejection is
+  content-sensitive, nondeterministic, or an external scanner change.
+- The current upload artifact is therefore a diagnostic control restored
+  byte-for-byte to the owner's last known accepted v13 file: 357 lines, 36,422
+  bytes, maximum line length 759, SHA-256
+  `e9c6ee9f5a3ce336f55c0b0edd2c3c4184f597624bd56b599a53e31ae7e41352`.
+  Tests pin that exact hash. The v14/v15 improvements remain recoverable in Git
+  history but are intentionally absent from the upload control. If this exact
+  artifact now fails, the scanner behavior changed outside the tested content
+  delta and further prompt edits should stop pending platform-side diagnosis.
+  The skill validator and focused contract suite passed 8/8; typecheck and build
+  passed. A complete host-boundary rerun passed 971 tests with 5 skipped.
+- The required lesson checkpoint at `2026-08-20T18:23:58.250Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  diagnostic rollback.
+- The owner then clarified that exact v13 still uploads successfully. This
+  rules out a platform-wide rejection and makes the post-v13 content delta the
+  controlled variable. The rollback commit remains historical evidence, but
+  v15 is restored as the canonical development skill at SHA-256
+  `cd5c832be43358a57633064be4c50e0999bd22336ab9c79801d472f759383275`.
+- Upload-only probe 01 starts from exact v13 and adds only execution/anchor
+  controls. It is a local ignored artifact at
+  `.artifacts/gemini-upload-bisect/01-execution-anchor/SKILL.md`, 36,505 bytes,
+  SHA-256
+  `99d1e3d26bde76a01eb47a90e7ced09ced68cbf48225f79dda7d57ea942174bd`.
+  A pass moves the bisect to schema/question changes; a failure splits this
+  execution group. The durable procedure is recorded in
+  `docs/audits/2026-08-20-gemini-skill-upload-security-bisect.md`. Both skill
+  artifacts passed the skill validator; the canonical focused suite passed
+  8/8, and typecheck and build passed. The complete host suite passed 970 tests
+  before one unrelated 5-second evidence-test timeout; that file then passed
+  all 11 tests standalone. Five tests remained skipped.
+- The required lesson checkpoint at `2026-08-20T18:53:43.444Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded upload bisect.
+- The owner reports upload probe 01 failed Gemini's security scan, localizing
+  the rejection to its six execution/anchor substitutions. Probe 02 now tests
+  only the three counting/granularity substitutions from exact v13. Its local
+  ignored path is
+  `.artifacts/gemini-upload-bisect/02-counting-granularity/SKILL.md`; it is
+  36,429 bytes with SHA-256
+  `a97bf7073bdb391901db4109990fa230f17eaf9dcb4d79aa96c08856b15e1298`
+  and passed the skill validator. A failure splits these three substitutions; a
+  pass moves to the excluded anchor-evidence half.
+- The required lesson checkpoint at `2026-08-20T18:59:43.800Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded second bisect step.
+- The owner reports upload probe 02 also failed, localizing the scanner trigger
+  to its three counting/granularity substitutions. Probe 03 changes only the
+  overlooked-family counting and `single_intervention` paragraph from exact
+  v13. Its ignored path is
+  `.artifacts/gemini-upload-bisect/03-family-granularity/SKILL.md`; it is 36,437
+  bytes with SHA-256
+  `8807a426f843ff8b2729891486bff0559c29ed4576dfa9f90f6b47d3886539b2`
+  and passed the skill validator. A failure splits that paragraph; a pass moves
+  to the conventional/firsthand count pair.
+- The required lesson checkpoint at `2026-08-20T19:03:12.702Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded third bisect step.
+- The owner reports upload probe 03 failed, isolating the scanner trigger to its
+  one family-count/granularity paragraph. Probe 04 is exact v13 plus one inserted
+  clause requiring passing batch coverage before counting an overlooked family.
+  Its ignored path is
+  `.artifacts/gemini-upload-bisect/04-family-count-coverage/SKILL.md`; it is
+  36,487 bytes with SHA-256
+  `81a79526e554c3fa4c40845bcc97f8309f48e4b50858380e992efddb093d2c34`
+  and passed the skill validator. A failure identifies that clause as
+  sufficient; a pass identifies the excluded granularity rewrite.
+- The required lesson checkpoint at `2026-08-20T19:09:31.968Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded fourth bisect step.
+- The owner reports Probe 04 failed despite differing from accepted v13 by only
+  one benign coverage clause. Because every changed artifact has failed, Probe
+  05 is a mutation control: exact v13 plus one trailing LF byte and no semantic
+  change. Its ignored path is
+  `.artifacts/gemini-upload-bisect/05-blank-line-control/SKILL.md`; it is 36,423
+  bytes with SHA-256
+  `36af81951bcede7ac83955d7995e9c7ef417ea18f9fd127be1b8b782097f89f2`
+  and passed the skill validator. A failure stops content bisecting and points
+  to exact-artifact caching/allowlisting or unstable scanner behavior; a pass
+  confirms the Probe 04 clause is sufficient.
+- The required lesson checkpoint at `2026-08-20T19:20:55.628Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  mutation-control step.
+- Owner correction superseding the preceding probe receipts: the intended Probe
+  01 file at
+  `.artifacts/gemini-upload-bisect/01-execution-anchor/SKILL.md` passed Gemini's
+  security scan. The reported Probe 01 through Probe 04 failures came from
+  uploading a different file and are invalid; Probes 02 through 05 remain
+  untested. Resume from Probe 01's pass by testing the excluded schema/question
+  half. The canonical skill was never moved, but diagnostic files were created
+  under `.artifacts/`; before asking the owner to use any moved, renamed, or
+  alternate file, explicitly announce the path change and identify the old and
+  new paths.
+- Upload-only Probe 06 is the complementary schema/question half after Probe
+  01's confirmed pass. It starts from exact v13, retains the v13 contract
+  marker, and adds only the post-v13 `intervention_family` schema wording,
+  evidence-first question construction, compact candidate-ledger wording,
+  exact-family rabbit-hole shortcuts, and compact final self-check. It is a
+  local ignored alternate at
+  `.artifacts/gemini-upload-bisect/06-schema-question-selfcheck/SKILL.md`, 349
+  lines and 35,336 bytes, SHA-256
+  `da09e2276c9dcdff93b042db1d90a02938558286215c9ae637a61cd5593a539a`.
+  It passed the skill validator. The canonical v15 skill remains unmoved and
+  unchanged at SHA-256
+  `cd5c832be43358a57633064be4c50e0999bd22336ab9c79801d472f759383275`.
+  A pass means both split halves are individually accepted and the next test is
+  their combination with the v13 marker; a failure splits Probe 06's group.
+- The owner reports Probe 06 failed Gemini's security scan. Probe 07 splits that
+  group and starts from exact v13 with only three hunks: the exact
+  `intervention_family` field contract, evidence-first question construction,
+  and matching candidate-ledger wording. It excludes Probe 06's shortcut and
+  compact final-self-check changes and all Probe 01 execution-body changes. Its
+  announced local ignored alternate is
+  `.artifacts/gemini-upload-bisect/07-schema-question/SKILL.md`, 358 lines and
+  36,209 bytes, SHA-256
+  `939d47bb5467a0ffb523a47b66e75cafd81eba12db79de1b7dca102b7af6b257`.
+  It passed the skill validator. A failure splits schema from questions; a pass
+  tests the excluded shortcut/self-check half. The canonical v15 skill remains
+  unmoved and unchanged.
+- The owner reports Probe 07 also failed. Probe 08 isolates the exact
+  intervention-family schema from the evidence-first question rewrite: it
+  starts from exact v13 and changes only the core candidate/seed field clause
+  and its matching candidate-ledger output clause. The question rules are exact
+  v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/08-intervention-family-schema/SKILL.md`, 357
+  lines and 36,239 bytes, SHA-256
+  `1493e548dab9659b6386110b21a6ba61bcc637bccdd977b537977c0086c16b1b`.
+  It passed the skill validator. A failure splits the two schema hunks; a pass
+  isolates the excluded question rewrite. The canonical v15 skill remains
+  unmoved and unchanged.
+- The owner reports Probe 08 passed. The exact `intervention_family` schema
+  clauses are therefore accepted by themselves. Probe 09 starts from exact v13
+  and includes only the one evidence-first question-construction hunk, with
+  both schema clauses restored to v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/09-evidence-first-questions/SKILL.md`, 358
+  lines and 36,392 bytes, SHA-256
+  `0feaa036326bd24e1300ffe433d2bd17a706847e208eb0a3065ca29c89d0a3b8`.
+  It passed the skill validator. A failure splits the question hunk; a pass
+  establishes an interaction between individually accepted schema and question
+  changes. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 09 failed. Probe 10 starts from exact v13 and replaces
+  only the concrete question-term mapping line; the evidence-first ordering and
+  compact banned-scan sentences are absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/10-concrete-question-mapping/SKILL.md`, 357
+  lines and 36,161 bytes, SHA-256
+  `013c5029ab0de3a5f862ae947c9ee27169e6381b3065633b7b76a68d2d42af77`.
+  It passed the skill validator. A failure localizes the next semantic split to
+  this one line; a pass tests the excluded evidence-first/banned-scan wording.
+  The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 10 failed. Probe 11 isolates the distinct no-invent
+  clause as exact accepted v13 plus the single sentence `Never invent a
+  plausible concrete detail absent from the map.` Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/11-no-invent-detail-guard/SKILL.md`, 358
+  lines and 36,484 bytes, SHA-256
+  `616b9776e564cdf13679b58f77bfe650e8f4e00385677fcb537e5982a06bb953`.
+  It passed the skill validator. A failure requires scanner-compatible positive
+  wording for this guard; a pass tests the remaining concrete-term coverage
+  clauses. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 11 passed. The standalone no-invent guard is accepted
+  by itself. Probe 12 starts from exact v13 and replaces only the remaining
+  concrete-term coverage, mapped-example, and construction-audit line, with the
+  no-invent sentence absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/12-concrete-coverage-construction/SKILL.md`,
+  357 lines and 36,099 bytes, SHA-256
+  `3120466fd7c1485dd7fd121097896355e4b46e661f53bc03f9250a60bb6a67b9`.
+  It passed the skill validator. A failure splits coverage from
+  example/construction clauses; a pass establishes an interaction within Probe
+  10's individually accepted parts. The canonical v15 skill remains unmoved
+  and unchanged.
+- The owner reports Probe 12 failed. Probe 13 isolates the concrete-term
+  coverage sentence as exact accepted v13 plus that one sentence; the
+  mapped-example and construction-audit changes are absent. Its announced
+  ignored alternate is
+  `.artifacts/gemini-upload-bisect/13-concrete-term-coverage/SKILL.md`, 358
+  lines and 36,548 bytes, SHA-256
+  `f4dfeceaa0ad6d1e821931ecac51ce57cd52997d5e140710d1ea02a6ee283a31`.
+  It passed the skill validator. A failure splits the coverage vocabulary from
+  the exact-mapping command; a pass tests the excluded example/construction
+  clauses. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 13 failed. Probe 14 preserves its command form while
+  removing the medical/intervention vocabulary list: it is exact accepted v13
+  plus `Every other concrete example must map exactly.` Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/14-exact-mapping-command/SKILL.md`, 358 lines
+  and 36,469 bytes, SHA-256
+  `590cd9344246dce4a9688d35c4eb9c8b12a72674491576a13225dd8dbc8c4a95`.
+  It passed the skill validator. A failure requires positive source-alignment
+  wording; a pass isolates the expanded vocabulary list or its interaction.
+  The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 14 failed even after its medical/intervention
+  vocabulary list was removed. The terse `Every other ... must map exactly`
+  command form is therefore the useful boundary. Probe 15 is exact accepted
+  v13 plus the positive replacement `Use a cited source field for each concrete
+  question detail.` Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/15-positive-source-alignment/SKILL.md`, 358
+  lines and 36,482 bytes, SHA-256
+  `cc4d45fbed10b34688ebdc173832607c84de9e66143471c57732e1320b400495`.
+  It passed the skill validator. A pass makes this the production replacement;
+  a failure means retain v13's existing evidence rule without a redundant new
+  sentence. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 15 passed. Its positive source-alignment sentence is
+  the scanner-compatible production replacement for the rejected terse mapping
+  command. Probe 16 starts from exact accepted v13 and contains only the
+  remaining evidence-first ordering and compact banned-scan clauses, retaining
+  v13's original evidence-mapping line. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/16-evidence-order-banned-scan/SKILL.md`, 358
+  lines and 36,653 bytes, SHA-256
+  `f725a9e983b6e8fcefbef69d31292a4f5203d88ccc97f9f60ce78861392eeb8d`.
+  It passed the skill validator. A failure splits ordering from banned-scan; a
+  pass combines these clauses with the positive replacement and accepted schema
+  group. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 16 failed. Probe 17 isolates its evidence-first
+  ordering hunk while removing the added compact banned-scan sentence; v13's
+  original evidence-mapping and banned-scan rule remains. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/17-evidence-first-only/SKILL.md`, 357 lines
+  and 36,304 bytes, SHA-256
+  `7cb55b117cf85d3b48a3a57b1eed77a235ea5ff86f27d09611b9403d988be42f`.
+  It passed the skill validator. A failure splits map-first ordering from the
+  exact-keys command; a pass tests the compact banned-scan sentence alone. The
+  canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 17 failed. Probe 18 preserves evidence-map-first
+  ordering using positive wording while removing the `using only those exact
+  keys` command, neutral-vocabulary list, and compact banned-scan sentence. It
+  is exact accepted v13 plus `Build question_term_evidence or
+  research_question_term_evidence before drafting each question.` Its announced
+  ignored alternate is
+  `.artifacts/gemini-upload-bisect/18-evidence-map-first-positive/SKILL.md`, 358
+  lines and 36,521 bytes, SHA-256
+  `7b7723af384289268224955c90f664dfa1082d2bf42ff6df94311e9943019648`.
+  It passed the skill validator. A pass makes this the production ordering
+  replacement; a failure retains v13 without an additional ordering sentence.
+  The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 18 passed. Its positive evidence-map-first sentence
+  is the scanner-compatible production replacement for Probe 17's rejected
+  exact-keys construction. Probe 19 is exact accepted v13 plus only the compact
+  banned-phrase scan sentence from Probe 16; the deliberate duplication
+  isolates scanner compatibility. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/19-compact-banned-scan/SKILL.md`, 358 lines
+  and 36,771 bytes, SHA-256
+  `45504fb8dee50f4620c6f16b793a12cdeb24988b7a2d8ea5459f08b7c4e89191`.
+  It passed the skill validator. A failure retains v13's existing wording; a
+  pass permits the compact form before assembling the repaired question and
+  schema groups. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 19 passed. Its compact banned-phrase scan is
+  scanner-compatible but redundant with v13's existing ban and is omitted from
+  the concise production candidate. Probe 20 combines only accepted,
+  production-worthy changes: Probe 08's exact `intervention_family` schema and
+  candidate-output wording, Probe 18's positive evidence-map-first ordering,
+  and Probe 15's positive source-alignment sentence. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/20-repaired-schema-question-group/SKILL.md`,
+  359 lines and 36,398 bytes, SHA-256
+  `77a74883c7855a138df3e7a173ae90566c2b156dc7af0d775173c21b3112aa80`.
+  It passed the skill validator. A failure bisects schema from the repaired
+  two-sentence question group; a pass retains the group and proceeds to the
+  remaining exact-family shortcut and final-self-check changes. The canonical
+  v15 skill remains unmoved and unchanged.
+- The owner reports Probe 20 failed despite each included component passing
+  independently. Probe 21 removes the accepted schema changes and tests only
+  the two positive question safeguards together: evidence-map-first ordering
+  from Probe 18 and source alignment from Probe 15. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/21-repaired-question-pair/SKILL.md`, 359
+  lines and 36,581 bytes, SHA-256
+  `299da8d50802b20ff84586619f65c844ea98a9664b2f5b74d768245ae7706a42`.
+  It passed the skill validator. A failure identifies interaction between the
+  two individually accepted question sentences; a pass identifies interaction
+  between the question group and the accepted schema group. The canonical v15
+  skill remains unmoved and unchanged.
+- The owner reports Probe 21 passed, confirming the two positive question
+  safeguards are compatible together and localizing Probe 20's failure to an
+  interaction with the accepted schema group. Probe 22 combines Probe 08's
+  accepted schema group with only Probe 18's evidence-ordering sentence. Its
+  announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/22-schema-plus-ordering/SKILL.md`, 358 lines
+  and 36,338 bytes, SHA-256
+  `d06ca3a93f8dfbd4493c1718c9d8079e877e267a03d3e34f762b387a2b8492b7`.
+  It passed the skill validator. A failure identifies schema-plus-ordering as
+  the interaction; a pass moves the interaction boundary to schema plus source
+  alignment. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 22 failed, proving the accepted schema group
+  interacts with the accepted evidence-ordering sentence. Probe 23 splits the
+  schema group: it retains only Probe 08's primary candidate/seed
+  `intervention_family` contract with Probe 18's ordering sentence and restores
+  the candidate-output clause to v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/23-primary-schema-plus-ordering/SKILL.md`,
+  358 lines and 36,455 bytes, SHA-256
+  `a8825d17b1911df8300518041c1fd8369d33aadf0da1ef0ee82e7fca7f77e1a4`.
+  It passed the skill validator. A failure identifies the primary schema
+  paragraph as the interaction; a pass identifies the candidate-output clause.
+  The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 23 failed, identifying the primary schema paragraph
+  as incompatible with the evidence-ordering sentence when combined. That
+  rewrite is excluded from the production candidate in favor of v13's existing
+  functional family rule. Probe 24 restores the primary paragraph to v13 and
+  combines only Probe 08's exact candidate-output field clause with Probe 18's
+  ordering sentence. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/24-output-schema-plus-ordering/SKILL.md`,
+  358 lines and 36,404 bytes, SHA-256
+  `7a79ee9938d70f2079997c2e3840fbecb7dcaa1cc9f4caba06a026d5a92a25e6`.
+  It passed the skill validator. A failure means both schema rewrites interact
+  with ordering; a pass preserves the exact output-field correction while
+  omitting the incompatible primary rewrite. The canonical v15 skill remains
+  unmoved and unchanged.
+- The owner reports Probe 24 passed. Retain the exact candidate-output field
+  correction with evidence ordering and omit the incompatible primary schema
+  rewrite. Probe 25 adds Probe 15's accepted source-alignment sentence to this
+  reduced production group. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/25-reduced-production-question-group/SKILL.md`,
+  359 lines and 36,464 bytes, SHA-256
+  `00ab20508923d073caf49717205a6bf7a2362d200c3a90b372c33a9a7fd1b480`.
+  It passed the skill validator. A failure drops the redundant new source-
+  alignment sentence and relies on v13's mapping rule; a pass retains the
+  reduced group before testing shortcuts and self-check changes. The canonical
+  v15 skill remains unmoved and unchanged.
+- The owner reports Probe 25 failed. The positive source-alignment sentence is
+  therefore omitted from the cumulative production candidate, which relies on
+  v13's existing exact evidence-mapping rule. Probe 24 remains the safe base.
+  Probe 26 adds only the exact-family shortcut rewrite from v15, including
+  dedicated topical, device, regenerative, and behavioral options and moving
+  `dig into all high-yield signals` outside individual directions. Its announced
+  ignored alternate is
+  `.artifacts/gemini-upload-bisect/26-exact-family-shortcuts/SKILL.md`, 353 lines
+  and 36,546 bytes, SHA-256
+  `398995c5362d63177f6c68d793a7343836d08914336a9e3d23d50c8df110639f`.
+  It passed the skill validator. A failure retests the shortcut from exact v13;
+  a pass retains it before the final-self-check probe. The canonical v15 skill
+  remains unmoved and unchanged.
+- The owner reports Probe 26 passed. Retain the exact-family shortcut rewrite
+  on the safe cumulative base. Probe 27 replaces only the thirteen-item v13
+  final self-check with the compact nine-item v15 form while preserving the v13
+  contract marker to isolate content. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/27-compact-final-self-check/SKILL.md`, 349
+  lines and 35,531 bytes, SHA-256
+  `30bcce770938c569b60a7227efd017fb658425a5486a77fe8ee7180fda3cfb48`.
+  It passed the skill validator. A failure splits final-self-check items; a pass
+  retains them before combining the accepted execution/anchor body from Probe
+  01. The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 27 failed. Probe 28 splits the compact final self-
+  check by using compact items 1–5 while retaining v13's substantive lower-half
+  checks for evidence mapping, remedy scans, rabbit holes, radical claims, and
+  rediscovery. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/28-compact-self-check-top-half/SKILL.md`, 350
+  lines and 35,783 bytes, SHA-256
+  `a3da1ee279517b4a208c5bac90b755fa1a07d316db0ff6401833909ba0394ecb`.
+  It passed the skill validator. A failure splits compact items 1–5; a pass
+  localizes the rejected wording to compact items 6–9. The canonical v15 skill
+  remains unmoved and unchanged.
+- The owner reports Probe 28 failed. Probe 29 narrows the compact self-check to
+  items 1–3 only: mode/packet framing, metadata and attribution, and text-only
+  link hygiene. All coverage, scope/family, evidence, remedy-scan, rabbit-hole,
+  radical-claim, and rediscovery checks remain v13. Its announced ignored
+  alternate is
+  `.artifacts/gemini-upload-bisect/29-compact-self-check-items-1-3/SKILL.md`,
+  351 lines and 36,203 bytes, SHA-256
+  `cb1d3006654248c57c1666537aecc7aa4e847a18e5baec30ff6382b124e60b7b`.
+  It passed the skill validator. A failure splits items 1–3; a pass localizes
+  the rejected top-half wording to compact items 4–5. The canonical v15 skill
+  remains unmoved and unchanged.
+- The owner reports Probe 29 passed. Compact self-check items 1–3 are safe on
+  the cumulative base. Probe 30 adds only compact item 4, covering
+  `batch_anchor_evidence`, three firsthand rows, passing-only coverage, and the
+  one-treatment-per-batch rule; scope/family and later checks remain v13. Its
+  announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/30-compact-self-check-item-4/SKILL.md`, 351
+  lines and 36,162 bytes, SHA-256
+  `17151ab0f727d3f5ded0221e70265f508a4c3c6684b6c383963f64be70c567a7`.
+  It passed the skill validator. A failure localizes the wording to item 4; a
+  pass localizes the top-half failure to compact item 5. The canonical v15
+  skill remains unmoved and unchanged.
+- The owner reports Probe 30 passed. Compact self-check item 4 is safe, so
+  compact item 5 is the top-half failure and is omitted in favor of v13's
+  detailed scope/family checks. Probe 31 retains this hybrid top half and tests
+  compact lower items 6–9 for evidence, remedy/rabbit-hole, radical-claim, and
+  rediscovery checks. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/31-compact-self-check-lower-half/SKILL.md`,
+  350 lines and 35,910 bytes, SHA-256
+  `434c87ebdfe76e12e57ce13b21d05dea189d8b5aa05720e0322e0b1e9ada8056`.
+  It passed the skill validator. A failure splits the lower half beginning with
+  compact item 6; a pass retains the hybrid self-check before combining Probe
+  01's accepted execution/anchor body. The canonical v15 skill remains unmoved
+  and unchanged.
+- The owner reports Probe 31 passed. The scanner-compatible hybrid self-check
+  is compact items 1–4 and 6–9 plus v13's detailed scope/family checks; compact
+  item 5 remains excluded. Probe 32 applies the already accepted Probe 01
+  execution/anchor body to this cumulative candidate: passing-only counts,
+  single-remedy granularity, nonempty per-probe anchors, batch anchor evidence,
+  and three separately anchored firsthand rows plus matching output fields. Its
+  announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/32-cumulative-execution-anchor/SKILL.md`, 351
+  lines and 35,993 bytes, SHA-256
+  `e2925b60ab394740bcf0d536e7270497d6eb89d2356aad8cdb903ff6457c9ca4`.
+  It passed the skill validator. A failure splits the execution group; a pass
+  establishes the cumulative production candidate before a separate contract-
+  marker test. The canonical v15 skill remains unmoved and unchanged.
+- The required lesson checkpoint at `2026-08-20T19:36:27.067Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded complementary upload probe.
+- The owner reports Probe 32 failed. This localizes the new rejection to an
+  interaction between Probe 01's accepted execution/anchor body and the
+  accepted cumulative Probe 31 base. Probe 33 splits that group by applying
+  only passing-coverage counting and one-remedy `single_intervention`
+  granularity to Probe 31; all anchor, firsthand-quota, and matching output-
+  ledger changes remain v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/33-counting-granularity/SKILL.md`, 351 lines
+  and 35,919 bytes, SHA-256
+  `1ac680edc39e5c12c3e1e2914b558a95cf5283d4261b1630b89e1d2c9e83810c`.
+  It passed the skill validator. A failure splits counting from granularity; a
+  pass tests the anchor/firsthand half separately on accepted Probe 31. The
+  canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 33 passed. Passing-coverage counting and one-remedy
+  granularity are therefore compatible with accepted Probe 31. Probe 34 starts
+  from Probe 31 and adds only the complementary universal anchor, batch anchor
+  evidence, three-row firsthand quota, and matching output-ledger clauses; it
+  excludes Probe 33's counting/granularity changes. Its announced ignored
+  alternate is `.artifacts/gemini-upload-bisect/34-anchor-firsthand/SKILL.md`,
+  350 lines and 35,984 bytes, SHA-256
+  `f2985645907eef06914c84a690bb28ee7cb1b8b66dcd9d6933821a5ea61c55c9`.
+  It passed the skill validator. A failure splits anchors from firsthand/output;
+  a pass confirms both execution halves independently before recombination.
+  The canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 34 failed. Probe 35 now isolates its universal anchor
+  half against accepted Probe 31: nonempty per-probe anchors, per-batch literal
+  anchor evidence, and shared query coverage. The radical sentence drops its
+  redundant narrower anchor clause, while the firsthand quota and output-ledger
+  changes remain v13. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/35-anchor-contract/SKILL.md`, 350 lines and
+  35,982 bytes, SHA-256
+  `0f6529b987c32cb161dfb272c86695d0c1c46c96f00b87f3faea5e89a016bfb2`.
+  It passed the skill validator. A failure splits the universal paragraph from
+  radical cleanup; a pass moves to firsthand/output. The canonical v15 skill
+  remains unmoved and unchanged.
+- The owner reports Probe 35 failed. Probe 36 removes its radical-sentence
+  cleanup and changes only Probe 31's batch/coverage paragraph to require
+  nonempty anchors for every probe, batch anchor evidence, and literal coverage
+  in frozen and executed queries. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/36-universal-anchor-paragraph/SKILL.md`, 350
+  lines and 36,135 bytes, SHA-256
+  `29aefd07ef4887b80f051ff27075b31e0ecb91b2b49b02ae06810378fac8d0fe`.
+  It passed the skill validator. A failure requires splitting or positively
+  rewriting this paragraph; a pass excludes the radical cleanup. The canonical
+  v15 skill remains unmoved and unchanged.
+- The owner reports Probe 36 failed. Probe 37 replaces only Probe 31's batch
+  paragraph with a minimal positive requirement: every probe records one to
+  three literal anchors found in both frozen and batch queries plus coverage.
+  It excludes batch evidence, sentinel-value prohibitions, and correction
+  commands. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/37-positive-per-probe-anchors/SKILL.md`, 350
+  lines and 35,906 bytes, SHA-256
+  `b6ac1ac26bc6769d940f0a64b8e4049478ec0dc374e377f63f7c9d3a2386a027`.
+  It passed the skill validator. A failure retains v13 anchor scope; a pass
+  adopts this positive replacement. The canonical v15 skill remains unmoved
+  and unchanged.
+- The owner reports Probe 37 passed. Its positive every-probe anchor sentence
+  is the scanner-compatible replacement for Probe 36's rejected paragraph.
+  Probe 38 now starts from accepted Probe 31 and changes only the exact-outcome
+  paragraph to emit `independent_firsthand_probe_count`, require three
+  separately anchored firsthand rows, and count passing coverage. The output-
+  ledger rewrite is absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/38-firsthand-quota/SKILL.md`, 350 lines and
+  35,908 bytes, SHA-256
+  `bcfb67df9eb12937f04139e5e4ddf8a8163c53926cfb3abe8e13ce8f783c7d3c`.
+  It passed the skill validator. A failure rewrites or omits the counter clause;
+  a pass moves to the output-ledger clause. The canonical v15 skill remains
+  unmoved and unchanged.
+- The owner reports Probe 38 passed. Its three-row firsthand quota is therefore
+  compatible with accepted Probe 31. Probe 39 starts from Probe 31 and changes
+  only seed-packet output item 1 to add the firsthand count, nonempty anchors,
+  batch anchor evidence, and compact query/search-ledger wording. All matching
+  execution-body changes are absent. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/39-output-ledger/SKILL.md`, 350 lines and
+  35,914 bytes, SHA-256
+  `03388ff4880218bac054504fc87094edafe3bc166a42deed188d546399b9933c`.
+  It passed the skill validator. A failure splits fields from compact wording;
+  a pass permits cumulative assembly from accepted positive replacements. The
+  canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 39 passed through the Gemini conversation-upload
+  path after a transient scanner disagreement: Gemini first reported a failed
+  virus check, then rechecked itself, reported the file was fine, and replaced
+  the prior skill. No owner-directed local file revision was reported between
+  those outcomes. Installed bytes were not exported for readback, so preserve
+  both outcomes and treat this as an accepted replacement receipt for the
+  intended Probe 39 hash, not proof of byte-identical installation. Future
+  automatic rewrites must be exported and diffed before they count as the
+  tested artifact.
+- Probe 40 now assembles the independently accepted positive clauses on Probe
+  31: Probe 33's passing-coverage counts and one-remedy granularity, Probe 37's
+  positive per-probe anchors, Probe 38's firsthand quota, and Probe 39's output
+  ledger. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/40-cumulative-positive-contract/SKILL.md`,
+  351 lines and 35,917 bytes, maximum line length 726, SHA-256
+  `60bb2ac4d273a406d39fabb923cc4cf38c6561cc4a4a5d55758260c22d9d1687`.
+  It passed the local skill validator and focused Gemini contract suite 8/8.
+  The complete host-boundary deterministic gate passed typecheck, 58 test files
+  with one declared skip, 971 tests with five declared skips, and build. Probe
+  40 retains the v13 marker so a pass can isolate the v15 marker next; the
+  canonical v15 skill remains unmoved and unchanged.
+- The owner reports Probe 40 passed, with no additional scanner discrepancy or
+  content rewrite reported. Probe 41 changes only Probe 40's two equal-length
+  contract-marker occurrences from `staged-remedy-scan-v13` to
+  `staged-remedy-scan-v15`. Its announced ignored alternate is
+  `.artifacts/gemini-upload-bisect/41-v15-contract-marker/SKILL.md`, 351 lines
+  and 35,917 bytes, maximum line length 726, SHA-256
+  `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
+  It passed the local skill validator, and its direct diff against Probe 40
+  contains only the two marker substitutions. The canonical v15 skill remains
+  unmoved and unchanged.
+- The owner corrected the workflow goal: repeated manual owner uploads are
+  suspended. This Codex session has no authenticated Gemini/Spark connector or
+  browser-control capability, and its available plugin-management surface has
+  no searchable Gemini integration, so it cannot perform the Spark conversation
+  upload directly. The fallback is one self-contained conversation packet at
+  `.artifacts/gemini-upload-diagnostic/ASK-SPARK-ABOUT-V15.md`, 395 lines and
+  38,165 bytes, SHA-256
+  `0133bed433406811f06c1ceecf6c29ba23700fc02ce2a39f17f0cfabcfecc713`.
+  Its mechanically extracted skill bytes are identical to Probe 41 and retain
+  SHA-256
+  `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
+  The packet asks Spark to recheck an initial rejection, install unchanged when
+  safe and supported, or return an exact trigger, minimal diff, and full
+  corrected skill without silently rewriting or executing it.
+- On 2026-08-21, the owner reported a clean Spark pass for the one-shot packet's
+  complete embedded v15 skill, with no scanner failure or rewrite reported.
+  This establishes conversation-path upload compatibility for exact SHA-256
+  `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`;
+  installed-byte readback and behavioral execution remain separate evidence
+  boundaries. The exact accepted bytes are now canonical at
+  `integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md`.
+  The focused contract pins that hash and the accepted positive formulations,
+  and the setup guide prefers conversation diagnosis/recheck with reviewable
+  diffs rather than iterative owner-operated upload probes.
+- The canonical promotion was test-first: the aligned focused contract failed
+  against the old scanner-incompatible canonical wording, then passed 8/8
+  after exact-byte promotion. The skill validator passed and the complete
+  host-boundary deterministic gate passed typecheck, 58 test files with one
+  declared skip, 971 tests with five declared skips, and build. No protocol,
+  runtime, production, privacy, or public-GPT behavior changed.
+- The owner's first clean-uploaded v15 forward run used the correct marker and
+  returned 10 real candidate identifiers, but failed behavioral acceptance.
+  Unsupported direct joins included Cissus for collagen/boron and an unrelated
+  personal outcome for avoided surgery; a supplement-led personal account was
+  classified as mechanical, manufacturing nominal seed-family diversity; and
+  the packet discarded API-visible comment counts. Independent AskRigor calls
+  returned `api_visible_complete` for all 10 identifiers and comment counts 54,
+  4,156, and 100 for the three selected seeds. A separate exact-query search
+  returned the held-out `XpZHKGGCK-o`; this establishes a cross-provider recall
+  discrepancy, not Gemini's internal search receipt. Rendered-copy link targets
+  remain unverified rather than failed.
+- Contract v16 repairs only those demonstrated boundaries: probe access status
+  copies the linked batch; every direct join requires exact candidate-field
+  evidence; dominant family follows the remedy claimed to enable resumed
+  activity; seed statistics stay on one `get_youtube_video` receipt; and
+  applicable promotion flags plus the exact active heading are explicit. The
+  locally validated candidate is 35,987 bytes with a 666-character maximum line
+  and SHA-256
+  `8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b`.
+  The skill validator and focused contract passed 8/8; the complete gate passed
+  typecheck, 58 test files with one declared skip, 971 tests with five declared
+  skips, and build. At that checkpoint upload, installed-byte readback, and
+  forward behavior remained pending; the next v16-marked run supplied the
+  behavioral result below without exact byte readback.
+- The owner's v16 forward run found the held-out `XpZHKGGCK-o` account and all
+  10 reported IDs independently validated as real `api_visible_complete`
+  videos, but the evidence ledger still failed. It counted 6 families while
+  listing 7 and executing only 5 eligible families, marked missing batch
+  anchors covered, left direct matched-row lists blank, cited exact phrases not
+  present in their candidate fields, missed obvious promotion, misclassified
+  creator/family evidence, omitted question source rows, and used unsupported
+  rabbit-hole mappings and access gaps. At 2026-08-21T02:46Z, literal seed
+  receipts contained comment counts 5,375, 166, and 31; Spark again reported all
+  three as unavailable.
+- This is the stopping-point failure for the large natural-language contract.
+  Do not create or request another incremental upload probe. Treat current
+  Spark output only as an untrusted high-recall set of candidate IDs and
+  provisional vocabulary; AskRigor must independently validate identity,
+  metadata, selection, and comment work. A compact candidate-only handoff with
+  AskRigor-side validation is the recommended separate redesign, not an
+  accepted current skill. The focused contract remained green 8/8 and the
+  complete deterministic gate passed typecheck, 58 test files with one declared
+  skip, 971 tests with five declared skips, and build.
+- The separate candidate-only redesign is now implemented locally. The exact
+  `youtube-candidate-handoff-v1` skill is 6,577 bytes with SHA-256
+  `1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b`.
+  It emits only one raw strict JSON packet with bounded executed queries, unique
+  candidate IDs, provisional creator annotations, suggested seeds, gaps, and
+  fixed disclosures. `@askrigor/sources` now parses that packet at a 32 KiB
+  ceiling, validates every identity through the existing YouTube adapter, and
+  returns exact rejection and mechanical seed-eligibility receipts. The local
+  CLI is `npm run validate:gemini-handoff -- <response-file|->`. This adds no
+  public MCP/Action tool and does not validate creator claims or semantic
+  materiality. Skill validation passed; focused tests passed 16/16; the host-
+  boundary complete gate passed typecheck, 59 test files with one declared
+  skip, 979 tests with five declared skips, and build. No local YouTube key was
+  available for a new CLI live call, but the first owner-supplied candidate-only
+  packet has now passed its strict schema and independent AskRigor metadata
+  validation. All 7 candidates were public and `api_visible_complete` with
+  exact ID, canonical URL, title, and channel matches. Its 3 suggested seeds
+  used distinct provider channels and had provider-reported comment counts 343,
+  545, and 32, yielding `accepted` mechanical validation. Spark returned raw
+  JSON rather than the redundant outer marker/fence, so raw strict JSON is now
+  canonical and exact old framing remains backward compatible. No rerun is
+  needed. This did not inspect comments or validate provisional semantic labels,
+  creator claims, efficacy, safety, causality, or medical conclusions.
+- The required lesson checkpoint at `2026-08-21T04:01:24.073Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  acceptance repair.
+- The accepted packet's three suggested discussions have now been audited to
+  terminal states and recorded in
+  `docs/audits/2026-08-21-gemini-candidate-comment-audit.md` plus its adjacent
+  `youtube_rediscovery_packet`. `Hz3Gd51hBn0` returned all 343 records and
+  `stZdnA9zeQE` all 32, both `api_visible_complete`; `LnlhK4MBaPw` retrieved
+  545 unique records and returned the protocol-defined deterministic 500-record
+  sample with `completed_with_access_boundary` because moving pagination and
+  one repeated reply prevent a stable complete-snapshot claim. All three
+  synthesis locks passed. The packet contains six non-identifying comment-signal
+  leads covering glute-focused progression, diagnosis/stage discrimination,
+  replacement trajectories, corticosteroid flare, sequential conservative
+  care, and multicomponent-regimen confounding. Creator content remains withheld
+  because no Chrome transcript capability was exposed; this handoff is not
+  Forum Signal or HRP completion.
+- The required lesson checkpoint at `2026-08-21T04:23:04.458Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded the
+  bounded comment audit.
+- The required lesson closeout at `2026-08-21T03:26:23.139Z` was available with
+  1 open candidate, 1 needs review, 0 accepted not incorporated, 2 incorporated
+  or closed, and 0 deletion eligible. No lesson expanded the compact redesign.
+- The required lesson checkpoint at `2026-08-21T02:44:42.860Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  stopping decision.
+- The required lesson checkpoint at `2026-08-21T02:02:21.406Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  evidence-join repair.
+- The required lesson checkpoint at `2026-08-21T00:24:16.944Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  exact-byte promotion.
+- The required lesson checkpoint at `2026-08-20T23:46:20.159Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded marker probe.
+- The required lesson checkpoint at `2026-08-20T23:17:34.096Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  bounded upload probe.
+- For an earlier diagnostic revision, local validation passed the skill
+  validator at 499 lines, the focused Gemini
+  contract suite 6/6, typecheck, and build. The sandboxed complete test run
+  passed 899 tests but recorded 70 failures dominated by prohibited localhost
+  listeners plus secondary timeouts. Two attempts to rerun `npm run verify`
+  through the required host boundary expired in the automatic approval review
+  before execution, so the complete deterministic gate remains unverified for
+  this diagnostic revision rather than failed on product behavior.
+- The required lesson checkpoint at `2026-08-20T08:55:45.993Z` remained
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The failed current
   candidate was not resubmitted.
@@ -521,11 +1651,21 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Remaining
 
-- Complete branch publication, protected PR review, and merge; install the exact
-  generated Instructions with empty Knowledge; and pass fresh Custom GPT cases
-  for candidate selection, intervention decomposition, decisive-comparator
-  scope, and heterodox weighting. No server deployment is required unless the
-  final diff changes runtime source or public contracts.
+- After the transcript-provider rate limit resets, one matched
+  transcript-plus-Gemini versus direct-video comparison may characterize the
+  fallback. The default is transcript-first: direct video used
+  82,152-171,688 input tokens per video, cannot see comments, and should be
+  limited to a small identified segment when a material claim genuinely
+  depends on visuals. Do not integrate Gemini before an owner decision on the
+  Google privacy/data-flow boundary. If approved later, use Gemini for query
+  planning, real-candidate selection, and bounded text summary; never accept an
+  ungrounded generated YouTube identifier.
+- Complete local verification and review, branch publication, protected PR
+  review, and merge. Then deploy the changed runtime and privacy notice, import
+  the 19-operation Action schema, install the exact generated Instructions with
+  empty Knowledge, and pass bounded direct and fresh Custom GPT acceptance for
+  transcript availability, evidence-frontier selection, transcript/comment
+  separation, access gaps, and the no-padding timestamped watchlist.
 - The owner reports individual identity verified and business/organization
   verification currently unavailable after a signup timeout. Choose the
   publisher-identity path, then complete the portal HTTPS domain challenge; do
@@ -540,11 +1680,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Blockers / unresolved
 
-- The completion and option-space failures were merged, deployed, and installed;
-  the ensuing discovery/weighting failure remains a public-submission blocker
-  until the follow-up is merged, installed, and passes fresh GPT UI cases.
-  Static instruction assertions do not prove model obedience. The rejected
-  lesson is non-retryable.
+- The completion and option-space failures were merged, deployed, and installed.
+  The first discovery/weighting repair merged as PR #37 but failed its product
+  retest; the resulting creator-content verification gap remains a public-
+  submission blocker until the universal runtime/privacy/instruction follow-up
+  is merged, deployed, installed, and passes fresh direct and GPT UI cases.
+  Static instruction assertions do not prove model obedience or provider
+  availability. The rejected lesson is non-retryable.
 
 - The importer fix is merged, green, deployed, and passed the product importer.
   Protocol and formal-source UI cases passed. The short-handle and terminal
@@ -580,6 +1722,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `docs/superpowers/plans/2026-08-18-custom-gpt-forum-signal-regression-repair.md`
 - Heterodox discovery/weighting repair plan:
   `docs/superpowers/plans/2026-08-18-heterodox-discovery-weighting-regression-repair.md`
+- Universal transcript/evidence-frontier repair plan:
+  `docs/superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`
+- Gemini YouTube discovery evaluation:
+  `docs/audits/2026-08-18-gemini-youtube-discovery-evaluation.md`
 - Public-review runner/cases: `docs/public-review-automation.md` and
   `docs/public-review-cases-v0.1.0.json`
 - Ignored local sanitized evidence:
@@ -589,19 +1735,33 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Inspect Git and GitHub for the candidate's exact publication/PR state, then
-continue the protected review and merge sequence from that boundary. Do not
-retry the failed lesson, call live providers, change production, update the GPT
-editor, deploy, or resume portal Scan Tools before the protected merge sequence.
+Do not resume iterative manual upload probes or ask the owner for another rerun.
+The compact candidate-only replacement has now passed its first forward run and
+independent metadata validation. For later runs, save the raw JSON unchanged and
+run the deterministic validator; use its exact issue paths rather than asking
+the owner to diagnose or patch the skill. Its first packet has already completed
+the bounded three-seed comment audit and produced a rediscovery packet. If the
+health research itself continues, execute targeted rediscovery plus the still-
+open formal, grey, trial, independent-community, transcript, bidirectional, and
+final-audit work. Do not treat mechanical acceptance or the rediscovery packet
+as claim validation, Forum Signal completion, or an evidence verdict.
+Separately finish the
+matched Gemini/transcript timing comparison after the recorded
+provider rate limit resets, then make the owner privacy/data-flow decision
+before any production integration. Separately finish exact local verification
+and diff review of the existing transcript/evidence-frontier follow-up, commit
+the durable evaluation note, and inspect GitHub before any push or PR update.
+Do not retry the failed lesson, change production, update the GPT editor,
+deploy, or resume portal Scan Tools before the protected merge sequence.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #35, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #39, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. The recorded GitHub baseline is PR #35
-merge `f603a384efbb028d1865c57c232bd134d8c5584b`; production is PR #32 merge
-`d1af238325ee1e0584574e47bbcbe7764d17cf7e`.
+unless production identity has changed. The recorded GitHub source baseline is
+PR #39 merge `793c331ad90b9918246105e5f998ab9d1a258de9`; production remains PR #36
+merge `cfce806345fe65a13fd0330aa7e8f000c1587d01`.
