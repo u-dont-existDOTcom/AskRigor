@@ -32,6 +32,11 @@ complete XML protocol.
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary
+- `audits/2026-08-21-gemini-candidate-comment-audit.md` and
+  `audits/2026-08-21-youtube-rediscovery-packet.json`: first accepted compact
+  Gemini handoff's three-pool AskRigor comment audit, terminal acquisition
+  receipts, non-identifying rediscovery leads, and explicit incomplete-HRP
+  boundary
 - `gemini-spark-setup.md`: owner-operated candidate-only Gemini Spark scout,
   one-pass installation, strict JSON handoff, deterministic AskRigor metadata
   validation, privacy boundary, and acceptance check
@@ -83,6 +88,9 @@ complete XML protocol.
 - `superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`:
   current universal creator-transcript, evidence-frontier discovery, held-out
   regression, privacy, and verification plan; deployment remains pending
+- `superpowers/plans/2026-08-21-gemini-candidate-comment-audit.md`: bounded
+  protocol-governed audit of the first accepted compact Gemini handoff and
+  privacy-safe rediscovery-packet persistence
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail

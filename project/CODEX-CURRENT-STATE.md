@@ -1496,6 +1496,24 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
   acceptance repair.
+- The accepted packet's three suggested discussions have now been audited to
+  terminal states and recorded in
+  `docs/audits/2026-08-21-gemini-candidate-comment-audit.md` plus its adjacent
+  `youtube_rediscovery_packet`. `Hz3Gd51hBn0` returned all 343 records and
+  `stZdnA9zeQE` all 32, both `api_visible_complete`; `LnlhK4MBaPw` retrieved
+  545 unique records and returned the protocol-defined deterministic 500-record
+  sample with `completed_with_access_boundary` because moving pagination and
+  one repeated reply prevent a stable complete-snapshot claim. All three
+  synthesis locks passed. The packet contains six non-identifying comment-signal
+  leads covering glute-focused progression, diagnosis/stage discrimination,
+  replacement trajectories, corticosteroid flare, sequential conservative
+  care, and multicomponent-regimen confounding. Creator content remains withheld
+  because no Chrome transcript capability was exposed; this handoff is not
+  Forum Signal or HRP completion.
+- The required lesson checkpoint at `2026-08-21T04:23:04.458Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded the
+  bounded comment audit.
 - The required lesson closeout at `2026-08-21T03:26:23.139Z` was available with
   1 open candidate, 1 needs review, 0 accepted not incorporated, 2 incorporated
   or closed, and 0 deletion eligible. No lesson expanded the compact redesign.
@@ -1678,11 +1696,12 @@ Do not resume iterative manual upload probes or ask the owner for another rerun.
 The compact candidate-only replacement has now passed its first forward run and
 independent metadata validation. For later runs, save the raw JSON unchanged and
 run the deterministic validator; use its exact issue paths rather than asking
-the owner to diagnose or patch the skill. If this accepted packet proceeds into
-research, the next step is protocol-governed AskRigor semantic seed selection
-and any required comment audit. Do not treat mechanical acceptance as claim
-validation, semantic seed selection, Forum Signal completion, or an evidence
-verdict.
+the owner to diagnose or patch the skill. Its first packet has already completed
+the bounded three-seed comment audit and produced a rediscovery packet. If the
+health research itself continues, execute targeted rediscovery plus the still-
+open formal, grey, trial, independent-community, transcript, bidirectional, and
+final-audit work. Do not treat mechanical acceptance or the rediscovery packet
+as claim validation, Forum Signal completion, or an evidence verdict.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision

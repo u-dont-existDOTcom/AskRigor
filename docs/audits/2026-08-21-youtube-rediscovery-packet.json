@@ -1,0 +1,227 @@
+{
+  "producer": "AskRigor_after_protocol_governed_comment_audit",
+  "packet_name": "youtube_rediscovery_packet",
+  "status": "leads_available",
+  "research_target": "how can i fix my bad hip",
+  "leads": [
+    {
+      "lead_id": "lead_01_glute_focused_progression",
+      "provenance": "comment_signal",
+      "source_video_ids": [
+        "Hz3Gd51hBn0"
+      ],
+      "source_discussion_pools": [
+        "El Paso Manual Physical Therapy — Brutally Honest Advice to Avoid Hip Replacement Surgery"
+      ],
+      "normalized_claim": "Some commenters with self-described hip pain or hip arthritis reported less pain or better walking after consistent glute-focused strengthening and changes to how they loaded the hip.",
+      "non_identifying_community_wording": "Reports ranged from improvement within one or two weeks to gradual gains over several months; commenters repeatedly emphasized consistency, while some still had limited mobility.",
+      "regimen_clues": [
+        "glute strengthening performed daily or several times per day",
+        "reduced emphasis on quad-dominant exercise",
+        "retraining ordinary walking and other daily movements",
+        "low-impact activity and pacing during symptom flares"
+      ],
+      "reported_outcome": "Self-reported outcomes included lower morning pain, improved walking tolerance, return to yard work or dog walking, and in a few accounts no current pain; these outcomes were not independently verified.",
+      "counter_signals": [
+        "One commenter reported persistent buttock-muscle soreness despite hip improvement.",
+        "Some commenters reported that prior physical therapy or exercise did not resolve severe symptoms associated with dysplasia, advanced bone-on-bone changes, or major mobility loss.",
+        "The strongest surgical-avoidance report combined exercise with diet and several supplements, preventing attribution to the exercise program alone."
+      ],
+      "target_distance": "exact",
+      "suggested_queries": [
+        "hip arthritis glute strengthening several times daily experience",
+        "hip pain avoid quad strengthening glute exercises walking outcome",
+        "hip recovery program buttock soreness delayed flare",
+        "hip dysplasia glute strengthening failed physical therapy"
+      ],
+      "discovery_priority": "high",
+      "decision_usefulness": "Could distinguish a tolerable, time-bounded mechanical rehabilitation trial from anatomy or disease stages in which commenters describe poor response or unacceptable delay."
+    },
+    {
+      "lead_id": "lead_02_stage_and_diagnosis_discriminator",
+      "provenance": "comment_signal",
+      "source_video_ids": [
+        "Hz3Gd51hBn0",
+        "LnlhK4MBaPw"
+      ],
+      "source_discussion_pools": [
+        "El Paso Manual Physical Therapy — Brutally Honest Advice to Avoid Hip Replacement Surgery",
+        "E3 Rehab — Total Hip Replacement Q&A"
+      ],
+      "normalized_claim": "Commenter outcomes differed materially by self-reported structural diagnosis and functional stage; severe dysplasia, avascular necrosis, deformity, leg-length change, or inability to perform basic activities often appeared in accounts that progressed to surgery.",
+      "non_identifying_community_wording": "Several people described conservative care as useful for coping or strength but not as a substitute for replacement when walking, dressing, showering, sleep, or weight bearing had become severely limited.",
+      "regimen_clues": [
+        "separate symptom response from imaging and structural diagnosis",
+        "record walking, stairs, dressing, sleep, and weight-bearing function",
+        "distinguish osteoarthritis from dysplasia, avascular necrosis, fracture, labral injury, and referred spine pain",
+        "record whether conservative care is intended to recover function, bridge a wait, or permanently avoid surgery"
+      ],
+      "reported_outcome": "Some commenters regretted delaying replacement after prolonged disability, while others reported that strengthening helped them function during a surgical wait or before a later replacement.",
+      "counter_signals": [
+        "Diagnoses and severity were self-reported and not clinically verified.",
+        "The same discussion pools also contained people reporting nonsurgical improvement, so anatomy and stage require direct assessment rather than inference from a symptom label.",
+        "Surgical indication and outcome varied across osteoarthritis, avascular necrosis, trauma, and congenital dysplasia."
+      ],
+      "target_distance": "exact",
+      "suggested_queries": [
+        "advanced hip osteoarthritis physical therapy failed replacement experience",
+        "hip dysplasia exercises versus total hip replacement patient story",
+        "avascular necrosis delayed hip replacement outcome experience",
+        "bone on bone hip basic activities surgery timing"
+      ],
+      "discovery_priority": "high",
+      "decision_usefulness": "Directly challenges one-size-fits-all advice for an unspecified 'bad hip' and identifies diagnosis and functional stage as prerequisites to interpreting any intervention report."
+    },
+    {
+      "lead_id": "lead_03_total_hip_replacement_trajectory",
+      "provenance": "comment_signal",
+      "source_video_ids": [
+        "LnlhK4MBaPw",
+        "Hz3Gd51hBn0"
+      ],
+      "source_discussion_pools": [
+        "E3 Rehab — Total Hip Replacement Q&A",
+        "El Paso Manual Physical Therapy — Brutally Honest Advice to Avoid Hip Replacement Surgery"
+      ],
+      "normalized_claim": "Many commenters described substantial pain relief and return of function after total hip replacement, alongside a smaller but material set of difficult recoveries or longer-term complications.",
+      "non_identifying_community_wording": "Positive accounts described early assisted walking and later return to hiking, cycling, gym work, or sport; counter-accounts described dislocation, persistent limp, leg-length difference, nerve symptoms, prolonged pain, metallosis, or revision.",
+      "regimen_clues": [
+        "preoperative conditioning when tolerable",
+        "early assisted walking and prescribed rehabilitation",
+        "gradual activity progression rather than a fixed recovery deadline",
+        "separate unilateral from closely staged bilateral recovery",
+        "record surgical approach, implant history, and desired high-impact activities"
+      ],
+      "reported_outcome": "The visible sample contains both rapid pain relief and return-to-activity reports and mixed or adverse trajectories extending from weeks to many years.",
+      "counter_signals": [
+        "The replacement discussion is a self-selected audience and cannot estimate complication or success rates.",
+        "Recovery advice and activity restrictions differed between commenters and clinicians.",
+        "Emergency fracture surgery, elective osteoarthritis replacement, avascular necrosis, and revision surgery are not interchangeable populations."
+      ],
+      "target_distance": "adjacent",
+      "suggested_queries": [
+        "total hip replacement firsthand pain relief return to activity timeline",
+        "total hip replacement persistent limp leg length difference experience",
+        "hip replacement dislocation nerve pain revision patient story",
+        "bilateral hip replacement staged recovery experience"
+      ],
+      "discovery_priority": "high",
+      "decision_usefulness": "Provides real-world benefit and failure trajectories needed to compare prolonged conservative care with surgery when a diagnosis and indication are eventually established."
+    },
+    {
+      "lead_id": "lead_04_corticosteroid_flare_and_systemic_effects",
+      "provenance": "comment_signal",
+      "source_video_ids": [
+        "stZdnA9zeQE",
+        "Hz3Gd51hBn0"
+      ],
+      "source_discussion_pools": [
+        "Dr. David Geier — Ask the Doctor: Pain after a cortisone shot",
+        "El Paso Manual Physical Therapy — Brutally Honest Advice to Avoid Hip Replacement Surgery"
+      ],
+      "normalized_claim": "Commenters described heterogeneous corticosteroid trajectories: transient relief, severe short-term post-injection pain, symptom rebound, and systemic glucose elevation.",
+      "non_identifying_community_wording": "The one hip-specific account described marked initial relief followed within 24 hours by new episodic knee pain; adjacent shoulder, knee, foot, and wrist accounts ranged from about two days of aching before improvement to severe or prolonged pain.",
+      "regimen_clues": [
+        "record joint and injection target",
+        "separate local-anesthetic relief from later steroid response",
+        "track onset in hours, duration in days or weeks, and rebound after benefit",
+        "track glucose in people with diabetes or other steroid-sensitive conditions"
+      ],
+      "reported_outcome": "One commenter reported complete improvement after a roughly two-day flare in a non-hip joint; others described severe pain or limited movement, and one diabetic commenter described elevated glucose for about a week.",
+      "counter_signals": [
+        "Only one retrieved firsthand episode was explicitly a hip-joint injection, making most of this pool anatomically adjacent.",
+        "The exact injected formulation, technique, diagnosis, and clinical follow-up were usually missing.",
+        "Comment reports cannot determine whether later pain was caused by the injection."
+      ],
+      "target_distance": "adjacent",
+      "suggested_queries": [
+        "hip cortisone injection flare 24 hours patient experience",
+        "hip steroid injection relief wore off worse than before",
+        "joint cortisone flare two days after numbing wears off",
+        "intra articular corticosteroid blood glucose one week"
+      ],
+      "discovery_priority": "high",
+      "decision_usefulness": "Identifies timing, anatomy, transient benefit, severe flare, and glucose effects that should be separated in later formal and community searches."
+    },
+    {
+      "lead_id": "lead_05_sequential_conservative_care",
+      "provenance": "comment_signal",
+      "source_video_ids": [
+        "Hz3Gd51hBn0",
+        "LnlhK4MBaPw"
+      ],
+      "source_discussion_pools": [
+        "El Paso Manual Physical Therapy — Brutally Honest Advice to Avoid Hip Replacement Surgery",
+        "E3 Rehab — Total Hip Replacement Q&A"
+      ],
+      "normalized_claim": "A small number of commenters described sequential trials of anti-inflammatory medication, corticosteroid injection, physical therapy, or PRP before proceeding toward replacement.",
+      "non_identifying_community_wording": "One detailed hip-osteoarthritis account reported about five weeks of relief after cortisone, no decisive resolution after eight weeks of physical therapy, uncertain benefit ten weeks after PRP, and a scheduled replacement; another described about four weeks of near-normal function before steroid benefit wore off.",
+      "regimen_clues": [
+        "record the order and duration of each treatment",
+        "separate temporary symptom relief from durable functional change",
+        "record whether rehabilitation targeted the same diagnosis and program",
+        "record out-of-pocket treatment and the decision threshold for surgery"
+      ],
+      "reported_outcome": "The retrieved accounts suggest that temporary relief can coexist with eventual escalation, but the number of detailed sequential episodes was small.",
+      "counter_signals": [
+        "These are isolated self-reports with no standardized outcome measurement.",
+        "An umbrella label such as physical therapy does not reveal the actual exercise program or adherence.",
+        "Uncertain PRP response at ten weeks does not establish failure or efficacy."
+      ],
+      "target_distance": "exact",
+      "suggested_queries": [
+        "hip osteoarthritis cortisone physical therapy PRP then replacement experience",
+        "hip injection five weeks relief physical therapy failed",
+        "PRP hip ten weeks uncertain benefit patient story",
+        "hip conservative treatment sequence surgery decision"
+      ],
+      "discovery_priority": "high",
+      "decision_usefulness": "Could surface decision timelines and comparator-program details that single-intervention videos omit."
+    },
+    {
+      "lead_id": "lead_06_mechanical_program_cointerventions",
+      "provenance": "comment_signal",
+      "source_video_ids": [
+        "Hz3Gd51hBn0"
+      ],
+      "source_discussion_pools": [
+        "El Paso Manual Physical Therapy — Brutally Honest Advice to Avoid Hip Replacement Surgery"
+      ],
+      "normalized_claim": "Some strong nonsurgical improvement reports combined mechanical rehabilitation with diet or supplements, making the active component unclear.",
+      "non_identifying_community_wording": "One severe-osteoarthritis account combined frequent glute exercises with collagen, omega-3, glucosamine, and an anti-inflammatory diet; another commenter attributed long relief periods to changing glucosamine products.",
+      "regimen_clues": [
+        "collagen",
+        "omega-3",
+        "glucosamine",
+        "anti-inflammatory diet",
+        "frequent glute-focused exercise"
+      ],
+      "reported_outcome": "The combined-program account reported increasing good days, current pain freedom, and no surgery; the supplement-only account reported long but product-dependent relief. Neither outcome was verified.",
+      "counter_signals": [
+        "The combined regimen prevents attribution to any component.",
+        "The supplement reports came from a single discussion pool and may reflect product switching, natural symptom variation, or other unreported changes.",
+        "Structural improvement was not established."
+      ],
+      "target_distance": "exact",
+      "suggested_queries": [
+        "hip osteoarthritis glute exercise collagen omega 3 glucosamine experience",
+        "hip bone on bone glucosamine long term pain relief story",
+        "hip arthritis anti inflammatory diet plus exercise outcome",
+        "hip pain combined rehab supplement regimen"
+      ],
+      "discovery_priority": "medium",
+      "decision_usefulness": "Prevents a dramatic multicomponent self-report from being misattributed to one intervention and supplies exact vocabulary for component-specific rediscovery."
+    }
+  ],
+  "access_boundaries": [
+    "The research target remains diagnosis_not_specified; no pathology, disease stage, or surgical indication was inferred.",
+    "Hz3Gd51hBn0 reached api_visible_complete with 194 top-level comments, 149 replies, 343 unique records returned for analysis, corpus SHA-256 d382fcc3fba9cf4ccb1959377eefbcf205041ae894a0f36db2e49d48f502d6ad, and synthesis_lock pass.",
+    "LnlhK4MBaPw reached completed_with_access_boundary with 277 top-level comments, 268 replies, 545 unique records retrieved, a deterministic_hash_chronological sample of 500 returned for analysis, corpus SHA-256 78de021809afe9dee399bf27b7af5a1bcb79d7032a4fcedf972268ab8fc0a7b5, and synthesis_lock pass. Moving provider pagination and one repeated reply prevent a stable complete-snapshot claim.",
+    "stZdnA9zeQE reached api_visible_complete with 17 top-level comments, 15 replies, 32 unique records returned for analysis, corpus SHA-256 dad8c6de51ab3e7ef68f005c1c25f8c75f1e2bbc8bf1b738103d697e802b4453, and synthesis_lock pass.",
+    "The cortisone discussion was mostly about non-hip joints; only one retrieved firsthand episode explicitly concerned a hip injection.",
+    "Creator content was not verified because the current environment exposed no Chrome transcript capability. No named_video_or_creator lead is emitted, and Gemini creator summaries were not used as evidence.",
+    "The deployed AskRigor Universal protocol was version 20.5.13 and failed the repository's canonical 20.5.14 SHA-256 expectation; repository canonical bytes remained authoritative for this audit.",
+    "This packet contains non-identifying rediscovery leads, not raw comments. It does not establish prevalence, efficacy, safety, causality, structural repair, diagnosis, or treatment suitability.",
+    "This comment-audit handoff does not complete Forum Signal, formal literature, grey literature, clinical-trial, bidirectional, or final HRP synthesis requirements."
+  ]
+}
