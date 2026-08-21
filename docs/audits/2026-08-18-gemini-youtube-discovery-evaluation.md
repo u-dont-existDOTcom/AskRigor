@@ -409,3 +409,51 @@ scout acceptance procedure are recorded in `docs/gemini-spark-setup.md`.
 - `git diff --check` and the bounded credential-pattern scan passed. Public site
   sources, generated Custom GPT artifacts, source code, and canonical protocols
   were unchanged by this evaluation note.
+
+## V15 forward run and v16 correction
+
+The owner's first clean-uploaded v15 `seed_discovery` run returned the correct
+diagnostic marker, 20 probes, 12 single-family batches, 10 displayed candidate
+records, three nominal seed roles, mapped questions, six rabbit-hole directions,
+and the unpopulated AskRigor return contract. It did not analyze comments or
+claim Forum Signal completion.
+
+Independent `get_youtube_video` calls at 2026-08-21T01:58Z returned
+`api_visible_complete` for all 10 reported identifiers and matched every title.
+The output therefore found real public videos, but failed behavioral acceptance
+at its evidence joins:
+
+- direct rows lacked source-aligned evidence. The report joined a Cissus video
+  to a collagen/boron probe, a practitioner diet video to a firsthand carnivore
+  probe, a side-effect explainer to a `did not help` probe, and a supplement-led
+  personal account to an avoided-surgery probe without corresponding candidate
+  fields;
+- `probe_04` reported `exhausted_zero_results` while its linked batch reported
+  `successful_with_candidates`. A separate AskRigor YouTube search at
+  2026-08-21T02:00Z returned `XpZHKGGCK-o` for the exact frozen query
+  `"growing my hip back"`. That countercheck demonstrates a recall discrepancy,
+  not the exact internal result of Gemini's different search surface;
+- the personal outcome video's API-visible description centers glucosamine and
+  chondroitin as the claimed enabling remedy, while the packet classified it as
+  mechanical movement. Correcting the dominant family would collide with the
+  selected diet seed and invalidate the claimed family diversity; and
+- the same metadata receipts exposed comment counts for all three selected
+  seeds: 54, 4,156, and 100. The packet instead wrote `not reported` and declared
+  a general comment-count access gap.
+
+The pasted rendered copy did not retain hyperlink destinations, so literal
+Markdown-link compliance remains unverified rather than failed. No creator
+claim was accepted as medically verified evidence.
+
+Contract v16 is a narrow repair. Every probe now copies its linked batch status;
+every direct candidate join requires an exact candidate-field evidence map;
+dominant family follows the remedy claimed to enable resumed activity; and seed
+statistics come from one literal `get_youtube_video` receipt without discarding
+a present `comment_count`. Candidate output also exposes the exact promotion
+flag and final-checks the active heading. The current v16 file is 35,987 bytes,
+has a 666-character maximum line, and SHA-256
+`8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b`.
+The skill validator and focused contract passed 8/8. The complete deterministic
+gate passed typecheck, 58 test files with one declared skip, 971 tests with five
+declared skips, and build. V16 has no external upload, installed-byte, or
+behavioral acceptance receipt yet.

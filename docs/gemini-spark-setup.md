@@ -63,15 +63,19 @@ deliberately contains no Universal or HRP orchestration.
 The exact v15 file cleanly passed the conversation upload check on 2026-08-21.
 Its SHA-256 is
 `da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c`.
-This is an upload-compatibility receipt, not behavioral acceptance of a scout
-run or proof of the installed bytes without an export/readback.
+That upload-compatible file then failed behavioral acceptance: its report used
+unsupported probe-to-candidate joins, misclassified a supplement-led outcome as
+mechanical, and dropped available comment counts. The corrected v16 candidate
+has SHA-256
+`8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b`.
+V16 is locally validated but has no upload or installed-byte receipt yet.
 
 ## Normal scout task
 
 Give Gemini the de-identified research question and ask it to find surprising,
 firsthand, exact-variant, failure, harm, or implementation videos. To force the
 skill, choose `/scout-youtube-for-askrigor-staged`. Its response must begin with
-`Scout contract: staged-remedy-scan-v15`, followed by the active mode on the
+`Scout contract: staged-remedy-scan-v16`, followed by the active mode on the
 second line. If the marker is absent, stop: Gemini did not execute the current
 skill. Let Gemini complete broad result discovery before it inspects video
 content. Detailed content inspection is limited to the shortlisted 8–12 scan
@@ -89,8 +93,9 @@ claim coverage unless both its frozen query and the batch query contain them;
 the returned search-batch ledger includes `batch_anchor_evidence`. Gemini counts
 only executed, anchor-covered remedy, firsthand, and conventional directions,
 keeps one remedy in every `single_intervention` probe, separates direct radical
-claims from adjacent tutorials, and recomputes the displayed scan count. It
-then runs a required
+claims from adjacent tutorials, copies each batch status to its probes, and
+requires exact direct-match evidence for every direct candidate join. It also
+recomputes the displayed scan count before running a required
 `remedy_extraction_scan` on 8–12 plausible videos. It extracts only intervention
 names, creator-claimed mechanisms and outcomes, creator relationship, novel
 search vocabulary, and discussion-hub value. Gemini then searches each
@@ -98,6 +103,10 @@ promising intervention individually before returning an **AskRigor comment-
 audit seed packet** with two or three distinct seed videos and an unpopulated
 return contract. Copy that packet into AskRigor. Gemini has not audited the
 comments and must not pre-populate the later `youtube_rediscovery_packet`.
+Each seed copies view, like, and comment counts from the same `get_youtube_video` receipt;
+a present comment count cannot become a general
+metadata gap. A remedy that allegedly enables resumed activity determines the
+intervention family instead of the activity resumed afterward.
 Question evidence maps are built before the questions, which may then use only
 mapped phrases plus neutral benefit, timing, tolerability, flare, worsening,
 adherence, and discontinuation vocabulary. A conventional feedback seed must
@@ -154,7 +163,7 @@ confirm in the task trace and response that Gemini:
    comment seeds, without producing full dossiers or watching whole videos;
 5. validates two or three distinct seed videos through `get_youtube_video` and
    preserves literal status plus provider-reported view, like, and comment
-   counts as reach metadata rather than evidence;
+   counts from the same receipt as reach metadata rather than evidence;
 6. returns an **AskRigor comment-audit seed packet** rather than invented
    comment findings or a premature final watch verdict; and
 7. expands terse prompts across overlooked/self-directed and conventional
@@ -189,7 +198,10 @@ confirm in the task trace and response that Gemini:
     evidence maps precede questions, unmapped plausible details are absent,
     rabbit questions avoid prevalence wording, and title links contain actual
     canonical Markdown destinations. Confirm three separately covered
-    firsthand probes and family-specific shortcuts; and
+    firsthand probes and family-specific shortcuts. Confirm each probe copies
+    its batch status, every direct row has source-aligned direct-match evidence,
+    promotion flags are explicit, and a remedy-led outcome is not classified by
+    the activity resumed afterward; and
 14. makes no protocol-manifest, protocol-load, formal-source, community-survey,
    community-audit, `HRP-complete`, efficacy, safety, causality, treatment, or
    individualized recommendation claim.

@@ -8,7 +8,7 @@ description: "Runs staged YouTube scouting for AskRigor: broad query probes, che
 Perform bounded, staged YouTube discovery. Search broadly and cheaply first, then summarize only narrow rediscovery survivors for a separate AskRigor agent.
 
 Begin every response, before any heading or prose, with these as the first two non-empty lines. Put a blank line after each so renderers do not join them:
-`Scout contract: staged-remedy-scan-v15`
+`Scout contract: staged-remedy-scan-v16`
 
 `Mode: seed_discovery` or `Mode: targeted_rediscovery`, matching the active mode.
 Never omit, paraphrase, or move either diagnostic line.
@@ -60,8 +60,8 @@ Include two conventional-benefit and three conventional-negative rows. Give each
 
 Group probes into six to twelve executed `discovery_batch` searches, with at most three probes and exactly one `probe_family` per batch. For every probe, record one to three literal `required_batch_anchors` found in both its frozen query and the batch query, plus `anchor_coverage: pass | fail`.
 
-Complete broad triage before content inspection. Record query, `probe_ids`, and status per batch. Per probe record `matched_candidate_row_ids`, `adjacent_candidate_row_ids`, match reason, and `claim_alignment: direct | adjacent_only | none`. Access success means the search returned inspectable candidates; it does not prove a direct match.
-Put a row in `matched_candidate_row_ids` only when its scanned fields directly support the searched claim; otherwise put it in `adjacent_candidate_row_ids`. For `radical_outcome`, rapid relief, temporary decompression, a mechanism tutorial, or generic cartilage support is never a direct healed/regrown/restored outcome.
+Complete broad triage before content inspection. Record query, `probe_ids`, and status per batch. Each probe copies its linked batch status as `access_result`; express probe support with `matched_candidate_row_ids`, `adjacent_candidate_row_ids`, reason, and `claim_alignment: direct | adjacent_only | none`. Access success does not prove a direct match.
+Put a row in `matched_candidate_row_ids` only when its scanned fields directly support the searched claim. For each such row emit `direct_match_evidence: prospective-query intervention/outcome -> candidate_row_id.field_name -> exact candidate phrase`; shared anatomy alone is insufficient. Without this evidence, move the row to `adjacent_candidate_row_ids` or omit it. For `radical_outcome`, rapid relief, temporary decompression, a mechanism tutorial, or generic cartilage support is never a direct healed/regrown/restored outcome.
 Cite `radical_claim_evidence: candidate_field -> exact creator-claim phrase` for every direct radical match; otherwise write `none`.
 
 Label each generated idea `model_generated_query_probe`. It is a search hypothesis, not a discovered remedy, community signal, or treatment finding.
@@ -120,7 +120,8 @@ Select two or three seeds for AskRigor using distinct applicable roles:
 - `contrarian_failure_or_anatomy` and optional `firsthand_clinician_self_management`, neither relabeled as an independent patient.
 
 A `conventional_benefit_failure_hub` candidate must contain nonempty, creator-supported `recognized_benefit_or_indication` and `real_world_limitation` fields. Repeat both in its seed record. A harm-only candidate cannot fill this role; report the role gap when no balanced candidate is located.
-Assign every candidate and seed exactly one canonical `intervention_family`: `oral supplement/nutrition`, `local mechanical/movement`, `injection/procedure`, `medication`, `surgery`, `behavioral/environmental`, `topical/traditional`, `regenerative/biologic`, or `device/energy`. Never use a `probe_family` value here. Classify by the dominant delivered intervention, not title or desired outcome: exercise, stretching, somatics, fascial work, loading, traction, gait, and cyclic motion are `local mechanical/movement`, even when aimed at sleep; pacing, sleep setup, seating, footwear, and aids are behavioral only when no exercise dominates. Never relabel to manufacture diversity. Seed roles and families must both be unique.
+Assign every candidate and seed exactly one canonical `intervention_family`: `oral supplement/nutrition`, `local mechanical/movement`, `injection/procedure`, `medication`, `surgery`, `behavioral/environmental`, `topical/traditional`, `regenerative/biologic`, or `device/energy`. Never use a `probe_family` value here.
+Classify by the dominant delivered intervention, not title or desired outcome: exercise, stretching, somatics, fascial work, loading, traction, gait, and cyclic motion are `local mechanical/movement`; pacing, sleep setup, seating, footwear, and aids are behavioral when no exercise dominates. If a remedy allegedly enables resumed walking or exercise, classify the remedy, not the resumed activity. Never relabel to manufacture diversity. Seed roles and families must both be unique.
 
 When relevant candidates exist, reserve one seed for heterodox/natural material and one for conventional feedback. A heterodox seed must center a nonstandard systemic, nutritional, topical, traditional, regenerative, or device intervention; exercise alone cannot fill it. Use at most one mechanical/PT seed. For any broad query that does not explicitly request surgery, prefer an independent self-directed nonsurgical outcome over a postoperative diary for the `independent_exact_outcome` slot. Distinct creators do not establish family diversity. Report unfilled roles rather than padding.
 
@@ -131,7 +132,7 @@ Write neutral questions labeled `source_seed_row_ids`, citing selected seeds onl
 Build `question_term_evidence` or `research_question_term_evidence` before drafting each question.
 For every named intervention, brand, diet, adverse effect, symptom, synonym, or example, add `question_term_evidence` or `research_question_term_evidence` as `exact question phrase -> source_candidate_row_id.field_name`; the exact phrase must occur in that field. Generic benefit, no effect, timing, adherence, worsening, and discontinuation need no mapping. Never use `e.g.` or `such as` unless every example is mapped. Emit `unmapped_question_terms: none`; if any remain, remove or repair them. Run a literal banned-phrase scan across every question before return.
 
-For every seed, preserve validated `statistics.view_count`, `statistics.like_count`, and `statistics.comment_count` as `provider_reported_views`, `provider_reported_likes`, and `provider_reported_comments`, or `not reported`. They are metadata, not analyzed comments. Exclude `comments_disabled`; record missing counts as a metadata access boundary.
+For every seed, copy `statistics.view_count`, `statistics.like_count`, and `statistics.comment_count` from the same literal `get_youtube_video` receipt into `provider_reported_views`, `provider_reported_likes`, and `provider_reported_comments`. Use `not reported` only for an absent key; never turn a present `comment_count` into a metadata access boundary. These counts are metadata, not analyzed comments. Exclude `comments_disabled`.
 
 If a role is not located, state the gap, queries, and confidence effect. A practitioner case or clinic testimonial cannot fill an unlocated independent-patient role. Seeds do not satisfy Forum Signal.
 
@@ -197,13 +198,7 @@ long-term avoidance, delay, recovery, or structural change.
 
 ## Summarization
 
-Use detailed native YouTube summary only for final `targeted_rediscovery` candidates. Recover only what each video supports:
-
-- the central account, outcome, baseline, horizon, and relevant disease stage;
-- the self-directed learning process: initial ideas, trials, failures, changes, reasons, and personal conclusions;
-- self-managed versus provider-delivered components and concrete dose, frequency, duration, sequence, supervision, adherence, and cointerventions;
-- surprising claims, benefits, harms, discontinuation, and implementation problems;
-- clickable timestamp links with segment cues, distinct value, and the precise claim AskRigor should investigate.
+In `targeted_rediscovery`, summarize only supported account, baseline, outcome, horizon, regimen, cointerventions, implementation problems, self-directed learning process, and timestamped decision-useful claims.
 
 Attribute medical, mechanistic, structural, and outcome statements: write **the creator claims**, reports, proposes, or demonstrates. Record the creator relationship or incentive. For `independent_patient_self_learning`, state uploader/channel relationship, commercial ties, and qualifying self-directed learning; do not claim independence when unclear.
 
@@ -247,8 +242,8 @@ In `seed_discovery`, emit only the two diagnostic lines, the stipulated packet s
 In `seed_discovery`, begin with the research question and a compact search
 summary. Then return:
 
-1. `overlooked_intervention_family_count` and values, `independent_firsthand_probe_count`, `conventional_benefit_probe_count`, and `conventional_negative_probe_count`; a **query-probe ledger** with provenance, scope, distance, family, granularity, conventional direction when applicable, nonempty anchors, coverage, batch, prospective query, access result, direct and adjacent candidate rows, claim alignment, radical evidence when applicable, and reason; then a **search-batch ledger** with one family, exact query, at most three probes, `batch_anchor_evidence`, and status;
-2. `remedy_extraction_scan_count`, `displayed_candidate_row_count`, and a **candidate-title ledger** as contiguous numbered records, never a table. Keep each at or below 110 words and include `row_id`, `video_identifier`, `title_link: [Title](canonical URL)`, channel, scope, distance, match class, the field named exactly `intervention_family`, interventions, attributed mechanism/outcome/horizon, creator class/incentive, novel terms, and decision. Add conventional benefit/limitation fields when applicable. A link is valid only if its literal Markdown contains `](https://www.youtube.com/watch?v=`; plain titles fail;
+1. `overlooked_intervention_family_count` and values, `independent_firsthand_probe_count`, `conventional_benefit_probe_count`, and `conventional_negative_probe_count`; a **query-probe ledger** with provenance, scope, distance, family, granularity, conventional direction when applicable, nonempty anchors, coverage, batch, prospective query, batch-copied access result, direct and adjacent candidate rows, `direct_match_evidence` for every direct row, claim alignment, radical evidence when applicable, and reason; then a **search-batch ledger** with one family, exact query, at most three probes, `batch_anchor_evidence`, and status;
+2. `remedy_extraction_scan_count`, `displayed_candidate_row_count`, and a **candidate-title ledger** as contiguous numbered records, never a table. Keep each at or below 110 words and include `row_id`, `video_identifier`, `title_link: [Title](canonical URL)`, channel, scope, distance, match class, the field named exactly `intervention_family`, interventions, attributed mechanism/outcome/horizon, creator class/incentive, `commercial_or_promotional` when applicable, novel terms, and decision. Add conventional benefit/limitation fields when applicable. A link is valid only if its literal Markdown contains `](https://www.youtube.com/watch?v=`; plain titles fail;
 3. two or three metadata-validated seed records containing `source_candidate_row_id`, `title_link: [Title](canonical URL)`,
    channel, video identifier, literal `access_status`,
    `provider_reported_views`, `provider_reported_likes`, `provider_reported_comments`, seed role, `intervention_family`, creator class and incentive, lead
@@ -339,13 +334,13 @@ material when its information still merits inclusion. Do not pad the list.
 
 Before returning, repair every failed item:
 
-1. Start with `Scout contract: staged-remedy-scan-v15`, then one `Mode:` line. Seed mode returns only the unaudited packet; rediscovery requires a supplied packet.
+1. Start with `Scout contract: staged-remedy-scan-v16`, then one `Mode:` line and the exact active heading `AskRigor comment-audit seed packet` or `AskRigor handoff`. Seed mode returns only the unaudited packet; rediscovery requires a supplied packet.
 2. Preserve literal metadata receipts/status; exclude failures and never say `available`. Attribute claims, label match/distance/creator/incentive, and use linked timestamps or `not located`; reserve `visual_observation` for inspected segments.
 3. Give each candidate an ID and every candidate/seed a literal Markdown `title_link`; repair missing destinations. Emit no embeds, cards, previews, thumbnails, bare URLs, raw panels, or duplicate lists.
-4. Freeze probes. Show 6–12 one-family batches of at most 3 probes; every probe has anchors and `batch_anchor_evidence`. Count only passing coverage: 6 overlooked families, 3 firsthand rows, 4 single/tight probes, 2 benefits, 3 negatives, and 2–4 radical variants. Never bundle separate treatments as one.
+4. Freeze probes. Show 6–12 one-family batches of at most 3 probes; every probe has anchors, its batch's exact status, and direct evidence for each direct row. Count only passing coverage: 6 overlooked families, 3 firsthand rows, 4 single/tight probes, 2 benefits, 3 negatives, and 2–4 radical variants. Never bundle separate treatments as one.
 5. Use only the closed semantic-scope enum and a separate target distance for every probe, candidate, and seed. Preserve `diagnosis_not specified`: named pathology, structural state, or procedure remains adjacent regardless of query or outcome class.
-6. Recompute `remedy_extraction_scan_count` and `displayed_candidate_row_count`; repair any mismatch or noncontiguous row IDs. Keep roles and canonical intervention families unique. Never copy a `probe_family` into `intervention_family`; exercise and somatics stay mechanical. A conventional hub has nonempty creator-supported benefit and limitation fields.
-7. Mark rationales `comments uninspected`. Build evidence maps before questions, use only mapped phrases plus the generic vocabulary, emit `unmapped_question_terms: none`, and pass the banned scan. Reach is metadata only.
+6. Recompute scan/display counts and contiguous `row_id` fields. Keep roles and canonical families unique; classify an enabling remedy rather than the activity resumed afterward. A conventional hub has creator-supported benefit and limitation fields.
+7. Mark rationales `comments uninspected`. Copy seed counts from one metadata receipt, retain every present `comment_count`, flag promotion, then build evidence maps before questions and pass the banned scan. Reach is metadata only.
 8. Run `remedy_extraction_scan` for each seed and search promising interventions individually. Keep each rabbit hole one family with row relevance, verbatim terms, counts, retrieval-only gaps, `auditability`, one `next_work`, one exact-family shortcut, and no malformed keys. Put `all high-yield` after the map.
 9. Direct radical rows require exact creator-claim evidence; move relief, decompression, mechanism, and generic support to `adjacent_candidate_row_ids`.
 10. In rediscovery, retain exact matches and meet the independent-patient quota or report the shortfall without padding.

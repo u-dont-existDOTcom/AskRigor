@@ -1426,6 +1426,33 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   host-boundary deterministic gate passed typecheck, 58 test files with one
   declared skip, 971 tests with five declared skips, and build. No protocol,
   runtime, production, privacy, or public-GPT behavior changed.
+- The owner's first clean-uploaded v15 forward run used the correct marker and
+  returned 10 real candidate identifiers, but failed behavioral acceptance.
+  Unsupported direct joins included Cissus for collagen/boron and an unrelated
+  personal outcome for avoided surgery; a supplement-led personal account was
+  classified as mechanical, manufacturing nominal seed-family diversity; and
+  the packet discarded API-visible comment counts. Independent AskRigor calls
+  returned `api_visible_complete` for all 10 identifiers and comment counts 54,
+  4,156, and 100 for the three selected seeds. A separate exact-query search
+  returned the held-out `XpZHKGGCK-o`; this establishes a cross-provider recall
+  discrepancy, not Gemini's internal search receipt. Rendered-copy link targets
+  remain unverified rather than failed.
+- Contract v16 repairs only those demonstrated boundaries: probe access status
+  copies the linked batch; every direct join requires exact candidate-field
+  evidence; dominant family follows the remedy claimed to enable resumed
+  activity; seed statistics stay on one `get_youtube_video` receipt; and
+  applicable promotion flags plus the exact active heading are explicit. The
+  locally validated candidate is 35,987 bytes with a 666-character maximum line
+  and SHA-256
+  `8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b`.
+  The skill validator and focused contract passed 8/8; the complete gate passed
+  typecheck, 58 test files with one declared skip, 971 tests with five declared
+  skips, and build. External upload, installed-byte readback, and forward
+  behavior remain pending.
+- The required lesson checkpoint at `2026-08-21T02:02:21.406Z` was available
+  with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
+  incorporated or closed, and 0 deletion eligible. No lesson expanded this
+  evidence-join repair.
 - The required lesson checkpoint at `2026-08-21T00:24:16.944Z` was available
   with 1 open candidate, 1 needs review, 0 accepted not incorporated, 2
   incorporated or closed, and 0 deletion eligible. No lesson expanded this
@@ -1593,13 +1620,14 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 
 ## Next safe action
 
-Do not resume iterative manual upload probes. The clean-passing exact v15 bytes
-are canonical and locally verified on the task branch. Preserve this exact
-branch for protected publication when separately authorized. Behavioral Spark
-acceptance remains distinct from upload
-compatibility and should run only through an authenticated Spark capability;
-do not hand the owner another probe loop. Preserve any later exported installed
-skill or model response against the pinned canonical hash.
+Do not resume iterative manual upload probes. V15 passed upload compatibility
+but failed behavior; v16 is the canonical local replacement. Use at most one
+conversation-path replacement with the exact pinned v16 file when an
+authenticated Spark capability or owner transfer is available, letting Spark
+diagnose any scanner rejection in that same conversation. Do not hand the owner
+another bisect loop. Preserve any exported installed skill and later response
+against the pinned canonical hash; upload, byte readback, and behavior remain
+separate receipts.
 Separately finish the
 matched Gemini/transcript timing comparison after the recorded
 provider rate limit resets, then make the owner privacy/data-flow decision

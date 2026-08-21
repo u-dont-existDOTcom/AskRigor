@@ -17,7 +17,7 @@ describe("Gemini Spark AskRigor skill", () => {
 
     expect(longestLine).toBeLessThanOrEqual(800);
     expect(Buffer.byteLength(skill, "utf8")).toBeLessThanOrEqual(36_000);
-    expect(sha256).toBe("da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c");
+    expect(sha256).toBe("8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b");
   });
 
   it("keeps Gemini in the bounded YouTube scout role", async () => {
@@ -156,8 +156,8 @@ describe("Gemini Spark AskRigor skill", () => {
   it("self-identifies the staged contract before any report content", async () => {
     const skill = await readFile(skillUrl, "utf8");
 
-    expect(skill).toContain("Scout contract: staged-remedy-scan-v15");
-    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v14");
+    expect(skill).toContain("Scout contract: staged-remedy-scan-v16");
+    expect(skill).not.toContain("Scout contract: staged-remedy-scan-v15");
     expect(skill).toContain("Mode: seed_discovery");
     expect(skill).toContain("Mode: targeted_rediscovery");
     expect(skill).toMatch(/Begin every response, before any heading or prose/);
@@ -235,6 +235,9 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("`independent_firsthand_probe_count`");
     expect(skill).toContain("three separately anchored `firsthand_outcome` rows");
     expect(skill).toContain("scanned fields directly support the searched claim");
+    expect(skill).toContain("Each probe copies its linked batch status as `access_result`");
+    expect(skill).toContain("`direct_match_evidence`");
+    expect(skill).toContain("shared anatomy alone is insufficient");
     expect(skill).toContain("search-batch ledger");
     expect(skill).toContain("Complete broad triage before content inspection");
     expect(skill).toContain("Inspect content once for each shortlisted candidate");
@@ -247,6 +250,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("Seed roles and families must both be unique");
     expect(skill).toContain("exercise, stretching, somatics, fascial work, loading, traction, gait, and cyclic motion");
     expect(skill).toContain("Never relabel to manufacture diversity");
+    expect(skill).toContain("classify the remedy, not the resumed activity");
     expect(skill).toContain("exercise alone cannot fill it");
     expect(skill).toContain("does not explicitly request surgery, prefer an independent self-directed nonsurgical outcome");
     expect(skill).toContain("cannot fill an unlocated independent-patient role");
@@ -294,6 +298,8 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(skill).toContain("`recognized_benefit_or_indication`");
     expect(skill).toContain("`real_world_limitation`");
     expect(skill).toContain("Repeat both in its seed record");
+    expect(skill).toContain("same literal `get_youtube_video` receipt");
+    expect(skill).toContain("present `comment_count`");
     expect(skill).toContain("one `next_work`, one exact-family shortcut");
     expect(skill).toContain("`dig into topical signal`");
     expect(skill).toContain("`dig into device signal`");
@@ -314,7 +320,7 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toMatch(/needs\s+no credential/);
     expect(setup).toContain("17 expected tools");
     expect(setup).toContain("scout-youtube-for-askrigor-staged");
-    expect(setup).toContain("Scout contract: staged-remedy-scan-v15");
+    expect(setup).toContain("Scout contract: staged-remedy-scan-v16");
     expect(setup).toContain("complete broad result discovery before it inspects video\ncontent");
     expect(setup).toContain("how can I fix my bad hip");
     expect(setup).toContain("rabbit-hole map");
@@ -324,7 +330,9 @@ describe("Gemini Spark AskRigor skill", () => {
     expect(setup).toContain("parallel high-recall lane");
     expect(setup).toContain("user remains the cross-app scheduler");
     expect(setup).toContain("the returned search-batch ledger includes `batch_anchor_evidence`");
-    expect(setup).toContain("da64098a21da7bdcb12558958c5ad7699faa85ff4bb1c8613ec629761783202c");
+    expect(setup).toContain("8ca33e86269841adfd237e8e4c92bbdef56cc157f274eadc744538fbf85a3a0b");
+    expect(setup).toContain("direct-match evidence");
+    expect(setup).toContain("same `get_youtube_video` receipt");
     expect(setup).toContain("Question evidence maps are built before the questions");
     expect(setup).toContain(
       "[10:18](https://www.youtube.com/watch?v=VIDEO_ID&t=618s)",
