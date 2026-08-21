@@ -77,7 +77,7 @@ describe("AskRigor plugin package", () => {
     expect(skill.startsWith(`${EXPECTED_SKILL_FRONTMATTER}\n`)).toBe(true);
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(500);
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(575);
   });
 
   it("routes every AskRigor invocation through Universal first and applies the exact HRP boundary", async () => {
@@ -134,7 +134,7 @@ describe("AskRigor plugin package", () => {
     const accessParagraph = skill
       .split(/\n\s*\n/)
       .find((paragraph) =>
-        paragraph.startsWith("Preserve every returned `access_status` literally:")
+        paragraph.startsWith("Preserve internally returned `access_status` literally:")
       );
     expect(accessParagraph).toBeDefined();
     const expectedStatuses = [

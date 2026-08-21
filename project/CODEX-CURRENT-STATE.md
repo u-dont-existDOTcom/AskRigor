@@ -63,9 +63,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - The privacy release is effective `2026-08-21` and discloses the bounded
   diagnostics while preserving disabled-by-default production behavior. All
   four public pages returned `200`; HTTP privacy redirected once to HTTPS.
-- The current editor artifacts are `docs/custom-gpt-instructions.md` SHA-256
-  `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`
-  and `docs/custom-gpt-action-openapi.json` SHA-256
+- The production-accepted pre-repair editor Instructions had SHA-256
+  `4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc`;
+  the active repair below supersedes that local artifact. The unchanged
+  `docs/custom-gpt-action-openapi.json` has SHA-256
   `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`.
   Knowledge must remain empty. No available tool exposes the owner's signed-in
   Custom GPT editor, so installation and a fresh current product UI run remain
@@ -117,6 +118,41 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   with one declared skip, 979 tests with five declared skips, and build. A
   preceding sandbox-only run failed solely because the sandbox denied loopback
   and IPC binds with `EPERM`.
+
+## Active 2026-08-21 partial-answer and intervention-conflation repair
+
+- A fresh owner-provided Custom GPT result exposed a new escape: it declared
+  important modules incomplete, then presented a long conventional synthesis
+  while still-executable YouTube creator-content and evidence-frontier work was
+  omitted. The private answer is not persisted; the sanitized structural audit
+  is `docs/audits/2026-08-21-custom-gpt-partial-answer-escape.md`.
+- The same result treated exercise and physical therapy largely as umbrella
+  classes. The repair requires materially distinct program hypotheses,
+  program-specific evidence and comparison, and a `program unspecified`
+  internal state when material components are missing. Such evidence cannot
+  support a class-wide benefit, failure, comparison, or ranking.
+- Ordinary answers must now be concise, name programs plainly, omit protocol or
+  compliance preambles, translate internal status codes into normal language,
+  and keep raw enums/receipt keys in an explicitly requested technical audit.
+  Machine completion blocks are now separated from user-facing output in the
+  Forum module.
+- The regenerated Instructions are 7,962 characters with SHA-256
+  `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`.
+  Its synchronization-ledger SHA-256 is
+  `a1e6e4390fb640a95ab01e51be9b3c70774368fa3208d65cc0723e1df4427ecc`.
+  The Action OpenAPI remains unchanged. The final post-review host gate passed
+  typecheck, build, 60 test files with one declared live-file skip, and 989 tests
+  with five declared credential-gated skips. Public-site validation covered four
+  pages and site-deployment tests passed 28/28. Independent review prompted
+  restoration of comparator scope, directional YouTube discovery, and current
+  recovery truth; final re-review found no blocker or Important issue. Protected
+  publication/merge, signed-in editor installation, and fresh UI acceptance
+  remain pending; no runtime or site deployment is required for this
+  instruction-only repair.
+- The pre-release lesson checkpoint at `2026-08-21T08:40:20.176Z` was
+  available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
+  2 incorporated or closed, and 0 deletion eligible. No queued lesson expands
+  or blocks this repair.
 
 ## Active 2026-08-18 treatment-decision regressions
 
@@ -1780,24 +1816,25 @@ and completed rollout at the top of this file.
 
 ## Next safe action
 
-First reconcile `agent/prod-evidence-closeout-20260821` with `origin/main`: if
-its one-file recovery closeout is not merged, finish its checks, protected PR,
-and merge; if it is already contained in `origin/main`, proceed without another
-documentation-only closeout. Then use the owner's signed-in Custom GPT editor
-to replace Instructions with exact
+Finish `agent/gpt-partial-escape-repair-20260821`: preserve the clean rollback
+base, complete independent review and release checks, open a protected pull
+request, pass required workflows, and merge it to `main`. This candidate changes
+instructions, tests, and evidence only; do not rebuild or redeploy the unchanged
+runtime, Action schema, or public site merely to install editor text. Then use
+the owner's signed-in Custom GPT editor to replace Instructions with exact
 `docs/custom-gpt-instructions.md`, keep Knowledge empty, import
 `https://mcp.askrigor.com/actions/openapi.json`, retain the existing API Key →
 Bearer authentication, set `https://askrigor.com/privacy`, and save without
 publishing. Run the fresh product-interface cases in
 `docs/custom-gpt-action-live-acceptance.md` and record only observed UI results.
-Do not repeat the completed deployment/direct acceptance, retry the rejected
+Do not repeat the completed runtime deployment/direct acceptance, retry the rejected
 lesson, publish the GPT, or treat direct checks as UI proof.
 
 ## Recovery rule
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #42, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #43, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
@@ -1805,7 +1842,6 @@ unless production identity has changed. The recorded production-source baseline 
 PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96`; production is the healthy
 exact image with that tag and image ID
 `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`.
-Deployment evidence is merged through PR #42. The only expected product
-boundary is signed-in editor installation and fresh current GPT UI acceptance.
-The conditional closeout branch check in **Next safe action** is deliberately
-stable across its merge and must be resolved from actual Git state.
+Deployment and recovery evidence is merged through PR #43. The active
+partial-answer repair must complete its protected merge before the remaining
+signed-in editor installation and fresh current GPT UI acceptance boundary.

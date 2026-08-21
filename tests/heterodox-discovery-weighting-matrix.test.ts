@@ -135,7 +135,7 @@ describe("heterodox discovery and weighting matrix", () => {
     expect(project).toContain("transcript status");
     expect(forum).toContain("exact claim fingerprint");
     expect(forum).toContain("hard to recover from studies");
-    expect(forum).toContain("relevant transcript timestamp");
+    expect(forum).toContain("relevant timestamp");
     expect(forum).toContain("No content-verified watchlist candidate located");
 
     for (const compactSurface of [skill, generated]) {
