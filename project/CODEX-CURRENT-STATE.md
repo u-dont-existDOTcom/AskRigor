@@ -9,13 +9,16 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current verified GitHub baseline is PR #41 merge
+- Canonical branch: `main`; current verified production-source baseline is PR #41 merge
   `386497415a187354c6396e69a902d5bece9a9c96`. PR #40 added the transcript-
   verified evidence frontier, the exact unspecified-hip-pain research record,
   and a capability-safe MCP-plugin fallback. PR #41 reconciled that baseline
   with the accepted Gemini compact catalog and disabled-by-default bounded
   handshake diagnostics while preserving the 17-tool MCP surface and the
-  19-operation Custom GPT Action document.
+  19-operation Custom GPT Action document. Deployment/direct-acceptance
+  evidence merged through PR #42 as
+  `a30631ac1240289ea0a864f00f1c0e6b42ab933a`; its deterministic,
+  workflow-policy, and CodeQL checks passed both before and after merge.
 - Production runs exact image
   `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`, image ID
   `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`,
@@ -70,7 +73,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 - The pre-deployment lesson checkpoint at `2026-08-21T06:28:49.742Z` was
   available with 1 open candidate, 1 needs review, 0 accepted not incorporated,
   2 incorporated or closed, and 0 deletion eligible. The pre-evidence checkpoint
-  at `2026-08-21T07:05:04.177Z` returned the same counts. No lesson expanded the
+  at `2026-08-21T07:05:04.177Z` and post-merge evidence-closeout checkpoint at
+  `2026-08-21T07:19:25.956Z` returned the same counts. No lesson expanded the
   rollout or evidence closeout.
 
 ## Completed 2026-08-21 unspecified-hip-pain research run
@@ -1776,10 +1780,12 @@ and completed rollout at the top of this file.
 
 ## Next safe action
 
-Finish and merge the evidence-only branch
-`agent/prod-deployment-evidence-20260821` after its exact-tree gates and review
-pass. Then use the owner's signed-in Custom GPT editor to replace Instructions
-with exact `docs/custom-gpt-instructions.md`, keep Knowledge empty, import
+First reconcile `agent/prod-evidence-closeout-20260821` with `origin/main`: if
+its one-file recovery closeout is not merged, finish its checks, protected PR,
+and merge; if it is already contained in `origin/main`, proceed without another
+documentation-only closeout. Then use the owner's signed-in Custom GPT editor
+to replace Instructions with exact
+`docs/custom-gpt-instructions.md`, keep Knowledge empty, import
 `https://mcp.askrigor.com/actions/openapi.json`, retain the existing API Key →
 Bearer authentication, set `https://askrigor.com/privacy`, and save without
 publishing. Run the fresh product-interface cases in
@@ -1791,14 +1797,15 @@ lesson, publish the GPT, or treat direct checks as UI proof.
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #41, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
+through #42, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`
 and `ARL-0007`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
-unless production identity has changed. The recorded GitHub source baseline is
+unless production identity has changed. The recorded production-source baseline is
 PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96`; production is the healthy
 exact image with that tag and image ID
 `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`.
-The evidence-only branch may be unmerged after interruption; verify its actual
-GitHub state before resuming. The only expected product boundary is signed-in
-editor installation and fresh current GPT UI acceptance.
+Deployment evidence is merged through PR #42. The only expected product
+boundary is signed-in editor installation and fresh current GPT UI acceptance.
+The conditional closeout branch check in **Next safe action** is deliberately
+stable across its merge and must be resolved from actual Git state.
