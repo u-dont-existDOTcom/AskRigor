@@ -48,6 +48,9 @@ complete XML protocol.
 - `audits/2026-08-21-treatment-landscape-selection-lock.md`: validated narrow-
   selection failure, independent breadth/depth gates, deterministic controller,
   privacy boundary, regressions, and Universal lesson disposition
+- `audits/2026-08-22-treatment-landscape-lesson-closeout.md`: immutable
+  AskRigor source receipt plus exact Universal promotion, closeout, and
+  post-merge verification receipts
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

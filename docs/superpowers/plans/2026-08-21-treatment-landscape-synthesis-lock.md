@@ -124,15 +124,14 @@ from transcript access and per-video comment-corpus completion.
 
 ## Recovery
 
-- AskRigor baseline: `origin/main`
-  `faa81747362593654f015df1e1bda313c056d2fa`; task branch
-  `agent/treatment-landscape-synthesis-lock-20260821` in the existing isolated
-  worktree. The dirty primary checkout and credential-looking untracked files
-  are out of scope and must remain untouched.
-- Universal baseline: `origin/main`
-  `129ac00bccaf7c45f388d7db8b4b61bbd4baf71b`; task branch
-  `agent/treatment-landscape-gate-20260821` in
-  `/tmp/universal-dev-architecture-treatment-landscape-20260821`.
+- AskRigor began from `origin/main`
+  `faa81747362593654f015df1e1bda313c056d2fa` and completed through PR #49
+  merge `458190ab1be0849fba3f5193d59321a9c7f0d8df`. The dirty primary checkout
+  and credential-looking untracked files remained untouched.
+- Universal began from `origin/main`
+  `129ac00bccaf7c45f388d7db8b4b61bbd4baf71b` and completed through PR #30
+  promotion merge `2e81fefcca500265cad0e1209bab5e8fa2306743` and PR #31 closeout merge
+  `9c773e28c75b1ba87956fe0b5dfb9fd5593c8a1f`.
 - This file is the one integration/recovery ledger for both repositories.
 - Start lesson checkpoint: available at `2026-08-21T18:06:33.643Z` with 1 open,
   1 needing review, 0 accepted but not incorporated, 3 incorporated or closed,
@@ -161,6 +160,17 @@ from transcript access and per-video comment-corpus completion.
   the deployment-boundary suite passed 28/28.
 - The final pre-PR lesson checkpoint at `2026-08-21T21:55:59.133Z` remained
   available with the same counts.
-- Universal's provisional draft passed 10/10 focused tests, 107/107 full tests,
-  its repository audit, and diff hygiene. Exact AskRigor merge/PR provenance is
-  still required before Universal promotion may be marked complete.
+- Before the AskRigor merge, Universal's provisional draft passed 10/10 focused
+  tests, 107/107 full tests, its repository audit, and diff hygiene; promotion
+  correctly remained blocked at that historical checkpoint.
+- AskRigor PR #49 merged as
+  `458190ab1be0849fba3f5193d59321a9c7f0d8df`; its exact PR and merged-main
+  deterministic, workflow-policy, and CodeQL runs passed.
+- Universal PR #30 promoted the domain-neutral pattern and exact AskRigor
+  provenance, merging as `2e81fefcca500265cad0e1209bab5e8fa2306743`.
+  Universal PR #31 moved the plan to completed and merged as
+  `9c773e28c75b1ba87956fe0b5dfb9fd5593c8a1f`. Both PR and merged-main checks
+  passed for both boundaries.
+- The cross-repository lesson loop is complete. Exact receipts and the
+  immutable AskRigor source digest are recorded in
+  `docs/audits/2026-08-22-treatment-landscape-lesson-closeout.md`.
