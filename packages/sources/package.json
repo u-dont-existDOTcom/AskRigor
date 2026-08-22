@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@askrigor/contracts": "0.1.0",
-    "fast-xml-parser": "5.10.1",
+    "fast-xml-parser": "5.11.0",
     "youtube-transcript-plus": "2.0.1",
     "zod": "4.4.3"
   }
