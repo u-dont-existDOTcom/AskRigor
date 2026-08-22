@@ -90,9 +90,11 @@ function invalidResult(
 }
 
 function actionJsonSchema(schema: z.ZodType): Record<string, unknown> {
-  return z.toJSONSchema(schema, {
-    target: "draft-7",
+  const converted = z.toJSONSchema(schema, {
+    target: "draft-2020-12",
     unrepresentable: "any",
     reused: "inline"
   }) as Record<string, unknown>;
+  const { $schema: _dialect, ...openApiSchema } = converted;
+  return openApiSchema;
 }

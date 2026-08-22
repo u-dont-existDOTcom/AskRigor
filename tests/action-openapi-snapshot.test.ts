@@ -77,6 +77,7 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(serialized).not.toContain("test-openai-key");
     expect(serialized).not.toContain("u-dont-existDOTcom");
     expect(serialized).not.toContain("github.com");
+    expect(arrayValuedItemsPaths(document)).toEqual([]);
   });
 });
 
@@ -93,4 +94,19 @@ function objectKeys(value: unknown): string[] {
   if (Array.isArray(value)) return value.flatMap(objectKeys);
   if (typeof value !== "object" || value === null) return [];
   return Object.entries(value).flatMap(([key, child]) => [key, ...objectKeys(child)]);
+}
+
+function arrayValuedItemsPaths(value: unknown, path = "$"): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((child, index) =>
+      arrayValuedItemsPaths(child, `${path}[${index}]`)
+    );
+  }
+  if (typeof value !== "object" || value === null) return [];
+  return Object.entries(value).flatMap(([key, child]) => {
+    const childPath = `${path}.${key}`;
+    return key === "items" && Array.isArray(child)
+      ? [childPath]
+      : arrayValuedItemsPaths(child, childPath);
+  });
 }

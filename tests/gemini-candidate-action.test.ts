@@ -38,6 +38,24 @@ describe("Gemini Spark candidate validation Action", () => {
       .toBeLessThanOrEqual(GEMINI_CANDIDATE_ACTION_REQUEST_MAX_BYTES);
   });
 
+  it("uses OpenAPI 3.1 tuple syntax in the generated response schema", () => {
+    const route = createGeminiCandidateActionRoute();
+    const schema = route.responseSchemas[200] as {
+      $schema?: unknown;
+      properties?: {
+        access_boundaries?: {
+          items?: unknown;
+          prefixItems?: unknown[];
+        };
+      };
+    };
+    const boundaries = schema.properties?.access_boundaries;
+
+    expect(schema.$schema).toBeUndefined();
+    expect(boundaries?.items).toBeUndefined();
+    expect(boundaries?.prefixItems).toHaveLength(4);
+  });
+
   it("accepts a raw v2 packet and returns independent validation", async () => {
     const receipt = rejectedReceipt();
     const validate = vi.fn<typeof validateGeminiYoutubeCandidateHandoff>(async () => receipt);
