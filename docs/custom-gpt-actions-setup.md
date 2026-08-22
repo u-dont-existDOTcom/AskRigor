@@ -86,9 +86,10 @@ Privacy: https://askrigor.com/privacy
    must arrive as verified runtime Action results, not stale uploaded copies.
 4. Import the Action URL, select **API Key** then **Bearer**, and retain only
    the existing protected Action key in the editor authentication control.
-5. Confirm the 19 research operations are non-consequential, including the
+5. Confirm the 20 research operations are non-consequential, including the
    Action-only `get_youtube_transcript` and
-   `assess_treatment_landscape_coverage`, and the single
+   `assess_treatment_landscape_coverage`, plus
+   `validate_gemini_youtube_candidate_handoff`, and the single
    `submit_lesson_candidate` operation remains consequential. The MCP inventory
    must remain the frozen 17-tool contract.
 6. Save the GPT without publishing and test in a new chat.
@@ -101,7 +102,7 @@ Do not stop at a source merge when deployment and installation are authorized.
 Complete and verify each distinct surface in order:
 
 1. deploy the exact reviewed `main` commit and retain a rollback image/config;
-2. directly verify health, the 20-operation Action document, protocol
+2. directly verify health, the 21-operation Action document, protocol
    manifests/integrity, and security boundaries;
 3. verify the installed AskRigor plugin still exposes exactly the frozen 17 MCP
    tools, returns the newly deployed protocol manifests, and completes one
@@ -208,8 +209,9 @@ browser-visible transcript can still be `inaccessible`, `rate_limited`,
 creator content from metadata or comments.
 
 `assess_treatment_landscape_coverage` is also a Custom GPT Action only. It
-makes no provider call or stored state. It reconciles discovery batches with
-candidate/class/fingerprint links, derives candidate counts and normalized
+makes no provider call or stored state. It reconciles discovery batches and
+specific-program query/term/result receipts with candidate/class/fingerprint
+links, derives candidate counts and normalized
 program signatures, uses stable channel IDs, and checks deterministic
 projections of the actual transcript/comment receipt shapes. Invalid records do
 not enter aggregates. Its strictly validated request may be up to **65,536
@@ -219,6 +221,17 @@ not semantic completeness, efficacy, safety, representativeness, or a
 recommendation. Partial, retryable, rate-limited, or unrecovered work remains a
 continue state; bounded output requires a terminal nonretryable boundary after
 attempted recovery.
+
+`validate_gemini_youtube_candidate_handoff` is a Custom GPT Action only. Pass
+the complete raw JSON packet as the `packet` string. The Action validates the
+v1 or v2 packet and independently checks every public YouTube identity. It
+retrieves no comments or transcripts and stores nothing. Spark's program,
+population/stage, outcome/horizon, and creator-summary fields remain clearly
+provisional: use them to decide what to screen next, never as proof of what the
+creator said or whether a treatment works. Preserve the returned complete
+frontier receipt. Retryable identity failures remain unresolved; every
+validated lead must be screened regardless of caller materiality or redundancy
+labels before broad synthesis.
 
 ## 5. Synthetic acceptance and queue status
 

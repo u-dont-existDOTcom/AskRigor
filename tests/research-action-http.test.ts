@@ -4,10 +4,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   createAskRigorHttpServer,
+  createGeminiCandidateActionRoute,
   createResearchActionRoutes,
   type ResearchOperation,
   type ActionRoute
 } from "../apps/research-mcp/src/index.js";
+import { MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES } from
+  "../packages/sources/src/index.js";
 import {
   createConcurrencyLimiter,
   createTokenBucketLimiter
@@ -204,6 +207,30 @@ describe("research Action HTTP boundaries", () => {
       expect(response.status).toBe(502);
       expect(await response.json()).toEqual({
         error: { code: "action_response_too_large", retryable: false }
+      });
+    });
+  });
+
+  it("admits a maximally escaped 32 KiB Spark packet to the validator", async () => {
+    await withServer({
+      researchActionsEnabled: true,
+      actionsEnabled: false,
+      actionRoutes: [createGeminiCandidateActionRoute({ youtubeApiKey: "unused" })]
+    }, async (baseUrl) => {
+      const response = await fetch(new URL(
+        "/actions/research/validate_gemini_youtube_candidate_handoff",
+        baseUrl
+      ), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          packet: "\\".repeat(MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES)
+        })
+      });
+
+      expect(response.status).toBe(422);
+      expect(await response.json()).toMatchObject({
+        error: { code: "invalid_framing", retryable: false }
       });
     });
   });

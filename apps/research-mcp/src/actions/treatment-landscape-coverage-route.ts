@@ -93,6 +93,43 @@ const treatmentClassSchema = z.object({
   access_boundary_ids: z.array(shortId).max(4).default([])
 }).strict();
 
+const scoutSourceSchema = z.enum(["gemini_spark", "other_external_scout"]);
+
+const externalScoutFrontierSchema = z.object({
+  frontier_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+  source: scoutSourceSchema,
+  source_candidate_video_ids: z.array(youtubeVideoId).min(1).max(40),
+  validated_candidate_video_ids: z.array(youtubeVideoId).max(40),
+  terminally_rejected_video_ids: z.array(youtubeVideoId).max(40),
+  unresolved_candidate_video_ids: z.array(youtubeVideoId).max(40)
+}).strict();
+
+const externalScoutCandidateSchema = z.object({
+  frontier_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+  source: scoutSourceSchema,
+  video_id: youtubeVideoId,
+  materiality: materialitySchema,
+  redundancy: z.enum(["distinct", "duplicate", "unknown"]),
+  screening_status: z.enum(["screened", "unscreened", "inaccessible"]),
+  fingerprint_id: shortId.optional(),
+  duplicate_of_video_id: youtubeVideoId.optional(),
+  ...omissionSchema,
+  access_boundary_id: shortId.optional()
+}).strict();
+
+const specificImplementationSearchSchema = z.object({
+  search_id: shortId,
+  discovery_batch_id: shortId,
+  treatment_class_id: shortId,
+  implementation_terms: z.array(programField).min(1).max(8),
+  discriminator_terms: z.array(programField).min(1).max(8),
+  candidate_video_ids: z.array(youtubeVideoId).max(100),
+  result_status: z.enum([
+    "specific_candidates_found", "exhausted_zero_results", "inaccessible"
+  ]),
+  access_boundary_id: shortId.optional()
+}).strict();
+
 const programFingerprintSchema = z.object({
   fingerprint_id: shortId,
   treatment_class_id: shortId,
@@ -215,9 +252,12 @@ export const treatmentLandscapeCoverageInputSchema = z.object({
   broad_treatment_choice: z.boolean(),
   substantial_youtube_corpus: z.enum(["yes", "no", "unknown"]),
   discovery_batches: z.array(discoveryBatchSchema).min(1).max(40),
+  specific_implementation_searches: z.array(specificImplementationSearchSchema).max(120),
   treatment_classes: z.array(treatmentClassSchema).min(1).max(80),
   program_fingerprints: z.array(programFingerprintSchema).max(120),
   candidate_videos: z.array(candidateVideoSchema).max(100),
+  external_scout_frontiers: z.array(externalScoutFrontierSchema).max(8).default([]),
+  external_scout_candidates: z.array(externalScoutCandidateSchema).max(40).default([]),
   selected_videos: z.array(selectedVideoSchema).max(15),
   further_expansion_likely_to_improve_answer: z.enum(["yes", "no", "blocked"]),
   directional_searches: z.object({
@@ -259,9 +299,12 @@ const auditedVideoSchema = z.object({
 
 const invalidRecordIdsSchema = z.object({
   discovery_batches: z.array(shortId),
+  specific_implementation_searches: z.array(shortId),
   treatment_classes: z.array(shortId),
   program_fingerprints: z.array(shortId),
   candidate_videos: z.array(youtubeVideoId),
+  external_scout_frontiers: z.array(z.string().regex(/^[a-f0-9]{64}$/u)),
+  external_scout_candidates: z.array(youtubeVideoId),
   selected_videos: z.array(youtubeVideoId),
   access_boundaries: z.array(shortId)
 }).strict();
@@ -269,8 +312,16 @@ const invalidRecordIdsSchema = z.object({
 export const treatmentLandscapeCoverageOutputSchema = z.object({
   coverage_claim: z.literal("ledger_consistency_only"),
   treatment_classes_discovered: z.number().int().nonnegative(),
+  specific_implementation_search_status_by_class: z.array(z.object({
+    treatment_class_id: shortId,
+    status: z.enum([
+      "specific_candidates_found", "exhausted_zero_results", "incomplete", "inaccessible"
+    ])
+  }).strict()),
   materially_distinct_program_fingerprints: z.number().int().nonnegative(),
   candidate_videos_screened: z.number().int().nonnegative(),
+  external_scout_candidates_screened: z.number().int().nonnegative(),
+  external_scout_candidates_pending: z.array(youtubeVideoId),
   material_videos_selected: z.number().int().nonnegative(),
   material_videos_fully_audited: z.number().int().nonnegative(),
   independent_channels_or_pools: z.number().int().nonnegative(),
@@ -403,19 +454,29 @@ export function assessTreatmentLandscapeCoverage(
   const planningWarnings: string[] = [];
   const usedBoundaryIds = new Set<string>();
   const invalid = {
-    discovery_batches: new Set<string>(), treatment_classes: new Set<string>(),
+    discovery_batches: new Set<string>(), specific_implementation_searches: new Set<string>(),
+    treatment_classes: new Set<string>(),
     program_fingerprints: new Set<string>(), candidate_videos: new Set<string>(),
-    selected_videos: new Set<string>(), access_boundaries: new Set<string>()
+    external_scout_frontiers: new Set<string>(),
+    external_scout_candidates: new Set<string>(), selected_videos: new Set<string>(),
+    access_boundaries: new Set<string>()
   };
 
   markDuplicates(input.discovery_batches, ({ batch_id }) => batch_id,
     invalid.discovery_batches, selectionBlockers, "Discovery batch");
+  markDuplicates(input.specific_implementation_searches, ({ search_id }) => search_id,
+    invalid.specific_implementation_searches, selectionBlockers,
+    "Specific-implementation search");
   markDuplicates(input.treatment_classes, ({ class_id }) => class_id,
     invalid.treatment_classes, selectionBlockers, "Treatment class");
   markDuplicates(input.program_fingerprints, ({ fingerprint_id }) => fingerprint_id,
     invalid.program_fingerprints, selectionBlockers, "Program fingerprint");
   markDuplicates(input.candidate_videos, ({ video_id }) => video_id,
     invalid.candidate_videos, selectionBlockers, "Candidate video");
+  markDuplicates(input.external_scout_frontiers, ({ frontier_digest }) => frontier_digest,
+    invalid.external_scout_frontiers, selectionBlockers, "External scout frontier");
+  markDuplicates(input.external_scout_candidates, ({ video_id }) => video_id,
+    invalid.external_scout_candidates, selectionBlockers, "External scout candidate");
   markDuplicates(input.selected_videos, ({ video_id }) => video_id,
     invalid.selected_videos, selectionBlockers, "Selected video");
   markDuplicates(input.access_boundaries, ({ boundary_id }) => boundary_id,
@@ -460,6 +521,76 @@ export function assessTreatmentLandscapeCoverage(
   );
   const rawCandidateById = mapValid(
     input.candidate_videos, ({ video_id }) => video_id, invalid.candidate_videos
+  );
+  const rawSpecificSearchById = mapValid(
+    input.specific_implementation_searches, ({ search_id }) => search_id,
+    invalid.specific_implementation_searches
+  );
+  const frontierByDigest = mapValid(
+    input.external_scout_frontiers, ({ frontier_digest }) => frontier_digest,
+    invalid.external_scout_frontiers
+  );
+  let externalScoutById = mapValid(
+    input.external_scout_candidates, ({ video_id }) => video_id,
+    invalid.external_scout_candidates
+  );
+
+  for (const frontier of frontierByDigest.values()) {
+    const partition = [
+      ...frontier.validated_candidate_video_ids,
+      ...frontier.terminally_rejected_video_ids,
+      ...frontier.unresolved_candidate_video_ids
+    ];
+    if (
+      duplicates(frontier.source_candidate_video_ids).length > 0 ||
+      duplicates(partition).length > 0 ||
+      !sameStringSet(frontier.source_candidate_video_ids, partition) ||
+      deriveExternalScoutFrontierDigest(frontier) !== frontier.frontier_digest
+    ) {
+      invalidate(
+        invalid.external_scout_frontiers, frontier.frontier_digest, selectionBlockers,
+        `External scout frontier ${frontier.frontier_digest.slice(0, 12)} has an invalid digest or candidate partition.`
+      );
+    }
+  }
+  const validFrontierByDigest = mapValid(
+    input.external_scout_frontiers, ({ frontier_digest }) => frontier_digest,
+    invalid.external_scout_frontiers
+  );
+
+  for (const frontier of validFrontierByDigest.values()) {
+    for (const videoId of frontier.validated_candidate_video_ids) {
+      const scout = externalScoutById.get(videoId);
+      if (
+        scout === undefined || scout.frontier_digest !== frontier.frontier_digest ||
+        scout.source !== frontier.source
+      ) {
+        selectionBlockers.push(
+          `Validated external scout candidate ${videoId} is missing from its complete frontier reconciliation.`
+        );
+      }
+    }
+    for (const videoId of frontier.unresolved_candidate_video_ids) {
+      selectionBlockers.push(
+        `External scout candidate ${videoId} has an unresolved identity-validation result.`
+      );
+    }
+  }
+  for (const scout of externalScoutById.values()) {
+    const frontier = validFrontierByDigest.get(scout.frontier_digest);
+    if (
+      frontier === undefined || frontier.source !== scout.source ||
+      !frontier.validated_candidate_video_ids.includes(scout.video_id)
+    ) {
+      invalidate(
+        invalid.external_scout_candidates, scout.video_id, selectionBlockers,
+        `External scout candidate ${scout.video_id} lacks a reciprocal validated-frontier link.`
+      );
+    }
+  }
+  externalScoutById = mapValid(
+    input.external_scout_candidates, ({ video_id }) => video_id,
+    invalid.external_scout_candidates
   );
 
   for (const fingerprint of rawFingerprintById.values()) {
@@ -583,6 +714,124 @@ export function assessTreatmentLandscapeCoverage(
   );
   const reconciledBatchById = mapValid(
     input.discovery_batches, ({ batch_id }) => batch_id, invalid.discovery_batches
+  );
+
+  for (const search of rawSpecificSearchById.values()) {
+    const batch = reconciledBatchById.get(search.discovery_batch_id);
+    const treatmentClass = classById.get(search.treatment_class_id);
+    if (
+      batch === undefined || treatmentClass === undefined ||
+      !batch.treatment_class_ids.includes(search.treatment_class_id)
+    ) {
+      invalidate(
+        invalid.specific_implementation_searches, search.search_id, selectionBlockers,
+        `Specific-implementation search ${search.search_id} lacks reciprocal batch or class links.`
+      );
+      continue;
+    }
+    const allTerms = [...search.implementation_terms, ...search.discriminator_terms];
+    if (
+      duplicates(allTerms.map(normalizeSearchPhrase)).length > 0 ||
+      search.implementation_terms.some(isGenericUmbrellaTerm) ||
+      allTerms.some((term) => !normalizedTextContains(batch.query_or_scope, term))
+    ) {
+      invalidate(
+        invalid.specific_implementation_searches, search.search_id, selectionBlockers,
+        `Specific-implementation search ${search.search_id} lacks distinct non-generic terms reciprocally present in its executed query.`
+      );
+      continue;
+    }
+    const duplicateCandidateIds = duplicates(search.candidate_video_ids);
+    const linkedCandidates = search.candidate_video_ids.map((videoId) => {
+      const candidate = candidateById.get(videoId);
+      const fingerprint = candidate === undefined
+        ? undefined
+        : fingerprintById.get(candidate.fingerprint_id);
+      const reciprocal = candidate !== undefined &&
+        batch.candidate_video_ids.includes(videoId) &&
+        candidate.discovery_batch_ids.includes(batch.batch_id) &&
+        candidate.treatment_class_id === search.treatment_class_id &&
+        fingerprint !== undefined &&
+        fingerprint.treatment_class_id === search.treatment_class_id &&
+        !isProgramNotDescribed(fingerprint.components);
+      const implementationMatch = reciprocal && search.implementation_terms.some((term) =>
+        normalizedTextContains(fingerprint.components, term)
+      );
+      return { videoId, reciprocal, implementationMatch };
+    });
+    if (
+      duplicateCandidateIds.length > 0 ||
+      linkedCandidates.some(({ reciprocal }) => !reciprocal)
+    ) {
+      invalidate(
+        invalid.specific_implementation_searches, search.search_id, selectionBlockers,
+        `Specific-implementation search ${search.search_id} has duplicate, missing, or nonreciprocal candidate links.`
+      );
+      continue;
+    }
+    const batchComplete = isCompleteAccess(batch.access_status) &&
+      batch.pagination.exhausted && !batch.pagination.next_cursor_present;
+    if (search.result_status === "specific_candidates_found") {
+      if (
+        !batchComplete || search.candidate_video_ids.length === 0 ||
+        linkedCandidates.some(({ implementationMatch }) => !implementationMatch) ||
+        search.access_boundary_id !== undefined
+      ) {
+        invalidate(
+          invalid.specific_implementation_searches, search.search_id, selectionBlockers,
+          `Specific-implementation search ${search.search_id} claims candidates without an exhausted, reciprocal result whose described program matches the named implementation.`
+        );
+      }
+    } else if (search.result_status === "exhausted_zero_results") {
+      if (!batchComplete || search.candidate_video_ids.length !== 0 || search.access_boundary_id !== undefined) {
+        invalidate(
+          invalid.specific_implementation_searches, search.search_id, selectionBlockers,
+          `Specific-implementation search ${search.search_id} claims exhausted zero results while its own candidate list is nonempty or retrieval is not exhausted.`
+        );
+      }
+    } else {
+      requireBoundary({
+        boundaryId: search.access_boundary_id,
+        expectedScopeType: "discovery_batch",
+        expectedScopeId: search.discovery_batch_id,
+        boundaryById,
+        usedBoundaryIds,
+        substantiveTarget: selectionBlockers,
+        boundedTarget: selectionBoundaryBlockers
+      });
+    }
+  }
+  const specificSearchById = mapValid(
+    input.specific_implementation_searches, ({ search_id }) => search_id,
+    invalid.specific_implementation_searches
+  );
+  const specificSearchesByClass = new Map<string, Array<z.output<
+    typeof specificImplementationSearchSchema
+  >>>();
+  for (const search of specificSearchById.values()) {
+    const searches = specificSearchesByClass.get(search.treatment_class_id) ?? [];
+    searches.push(search);
+    specificSearchesByClass.set(search.treatment_class_id, searches);
+  }
+  const specificImplementationSearchStatusByClass = [...classById.values()].map(
+    (treatmentClass) => {
+      const searches = specificSearchesByClass.get(treatmentClass.class_id) ?? [];
+      const status = searches.some(({ result_status }) =>
+        result_status === "specific_candidates_found"
+      )
+        ? "specific_candidates_found" as const
+        : searches.some(({ result_status }) => result_status === "exhausted_zero_results")
+          ? "exhausted_zero_results" as const
+          : searches.some(({ result_status }) => result_status === "inaccessible")
+            ? "inaccessible" as const
+            : "incomplete" as const;
+      return { treatment_class_id: treatmentClass.class_id, status };
+    }
+  );
+  const specificStatusByClass = new Map(
+    specificImplementationSearchStatusByClass.map(({ treatment_class_id, status }) =>
+      [treatment_class_id, status] as const
+    )
   );
 
   const signatureByFingerprintId = new Map<string, string>();
@@ -758,6 +1007,16 @@ export function assessTreatmentLandscapeCoverage(
         selectionBlockers, selectionBoundaryBlockers
       );
     }
+    const specificSearchStatus = specificStatusByClass.get(treatmentClass.class_id) ??
+      "incomplete";
+    if (specificSearchStatus === "incomplete") {
+      uncovered.add(treatmentClass.class_id);
+      selectionBlockers.push(
+        `Treatment class ${treatmentClass.class_id} has not completed specific-program discovery.`
+      );
+    } else if (specificSearchStatus === "inaccessible") {
+      uncovered.add(treatmentClass.class_id);
+    }
     if ((candidateCountByClass.get(treatmentClass.class_id) ?? 0) > 0 &&
       !selectedClasses.has(treatmentClass.class_id)) {
       uncovered.add(treatmentClass.class_id);
@@ -826,6 +1085,78 @@ export function assessTreatmentLandscapeCoverage(
       handleOmission(
         `Program fingerprint ${fingerprint.fingerprint_id} is available but not selected`,
         fingerprint, false, selectionBlockers, planningWarnings
+      );
+    }
+  }
+
+  const pendingExternalScoutCandidates: string[] = [];
+  let screenedExternalScoutCandidates = 0;
+  for (const scout of externalScoutById.values()) {
+    if (scout.screening_status !== "inaccessible" && scout.access_boundary_id !== undefined) {
+      invalidate(
+        invalid.external_scout_candidates, scout.video_id, selectionBlockers,
+        `External scout candidate ${scout.video_id} cites an access boundary without an inaccessible state.`
+      );
+      continue;
+    }
+    if (scout.screening_status === "screened") {
+      const candidate = candidateById.get(scout.video_id);
+      if (
+        candidate === undefined || scout.fingerprint_id !== candidate.fingerprint_id ||
+        scout.materiality !== candidate.materiality
+      ) {
+        invalidate(
+          invalid.external_scout_candidates, scout.video_id, selectionBlockers,
+          `Screened external scout candidate ${scout.video_id} lacks a state-consistent candidate and fingerprint record.`
+        );
+      } else {
+        screenedExternalScoutCandidates += 1;
+        if (scout.redundancy === "unknown") {
+          pendingExternalScoutCandidates.push(scout.video_id);
+          selectionBlockers.push(
+            `Screened external scout candidate ${scout.video_id} still has unresolved program redundancy.`
+          );
+        } else if (scout.redundancy === "duplicate") {
+          const duplicate = scout.duplicate_of_video_id === undefined
+            ? undefined
+            : candidateById.get(scout.duplicate_of_video_id);
+          if (
+            duplicate === undefined ||
+            signatureByFingerprintId.get(duplicate.fingerprint_id) !==
+              signatureByFingerprintId.get(candidate.fingerprint_id)
+          ) {
+            selectionBlockers.push(
+              `External scout candidate ${scout.video_id} claims duplication without a matching normalized program.`
+            );
+          }
+        } else if (scout.duplicate_of_video_id !== undefined) {
+          selectionBlockers.push(
+            `Distinct external scout candidate ${scout.video_id} cites an inconsistent duplicate target.`
+          );
+        }
+        if (scout.materiality === "not_material") {
+          handleOmission(
+            `External scout candidate ${scout.video_id} was screened as not material`,
+            scout,
+            true,
+            selectionBlockers,
+            planningWarnings
+          );
+        }
+      }
+    } else if (scout.screening_status === "inaccessible") {
+      requireBoundary({
+        boundaryId: scout.access_boundary_id,
+        expectedScopeType: "candidate_video", expectedScopeId: scout.video_id,
+        boundaryById, usedBoundaryIds,
+        substantiveTarget: selectionBlockers,
+        boundedTarget: selectionBoundaryBlockers
+      });
+      pendingExternalScoutCandidates.push(scout.video_id);
+    } else {
+      pendingExternalScoutCandidates.push(scout.video_id);
+      selectionBlockers.push(
+        `Validated external scout candidate ${scout.video_id} remains unscreened; materiality and redundancy cannot waive screening.`
       );
     }
   }
@@ -1009,8 +1340,12 @@ export function assessTreatmentLandscapeCoverage(
   return treatmentLandscapeCoverageOutputSchema.parse({
     coverage_claim: "ledger_consistency_only",
     treatment_classes_discovered: materialClasses.length,
+    specific_implementation_search_status_by_class:
+      specificImplementationSearchStatusByClass,
     materially_distinct_program_fingerprints: validMaterialSignatures.size,
     candidate_videos_screened: candidateById.size,
+    external_scout_candidates_screened: screenedExternalScoutCandidates,
+    external_scout_candidates_pending: unique(pendingExternalScoutCandidates),
     material_videos_selected: videosActuallyAudited.length,
     material_videos_fully_audited: fullyAuditedVideos,
     independent_channels_or_pools: independentChannelIds.size,
@@ -1032,9 +1367,12 @@ export function assessTreatmentLandscapeCoverage(
     videos_actually_audited: videosActuallyAudited,
     invalid_record_ids: {
       discovery_batches: [...invalid.discovery_batches],
+      specific_implementation_searches: [...invalid.specific_implementation_searches],
       treatment_classes: [...invalid.treatment_classes],
       program_fingerprints: [...invalid.program_fingerprints],
       candidate_videos: [...invalid.candidate_videos],
+      external_scout_frontiers: [...invalid.external_scout_frontiers],
+      external_scout_candidates: [...invalid.external_scout_candidates],
       selected_videos: [...invalid.selected_videos],
       access_boundaries: [...invalid.access_boundaries]
     },
@@ -1304,6 +1642,65 @@ function isProgramNotDescribed(value: string): boolean {
 function normalizeProgramValue(value: string): string {
   return value.trim().toLocaleLowerCase("en-US")
     .replaceAll(/[_-]+/gu, " ").replaceAll(/\s+/gu, " ");
+}
+
+const GENERIC_UMBRELLA_TERMS = new Set([
+  "adverse effects", "alternative treatment", "approach", "approaches", "benefit",
+  "benefits", "care", "conservative care", "diet", "exercise", "failure", "function",
+  "functional outcome", "harm", "harms", "injection", "injections", "intervention",
+  "interventions", "lifestyle", "management", "mechanical", "method", "methods",
+  "mobility", "modality", "modalities", "no effect", "outcome", "outcomes", "pain",
+  "physical therapy", "procedure", "procedures", "program", "programs", "progression",
+  "protocol", "protocols", "pt", "recovery", "regimen", "regimens", "rehab",
+  "rehabilitation", "results", "routine", "routines", "safety", "specific program",
+  "strategy", "strategies", "surgery", "symptoms", "therapy", "treatment"
+]);
+
+const GENERIC_IMPLEMENTATION_TOKENS = new Set([
+  "a", "an", "and", "approach", "approaches", "care", "conservative", "diet",
+  "exercise", "general", "home", "injection", "injections", "intervention",
+  "interventions", "lifestyle", "management", "mechanical", "method", "methods",
+  "modality", "modalities", "or", "physical", "procedure", "procedures", "program",
+  "programs", "protocol", "protocols", "pt", "regimen", "regimens", "rehab",
+  "rehabilitation", "routine", "routines", "specific", "standard", "strategy",
+  "strategies", "surgery", "therapy", "treatment", "usual"
+]);
+
+function isGenericUmbrellaTerm(value: string): boolean {
+  const normalized = normalizeSearchPhrase(value);
+  return GENERIC_UMBRELLA_TERMS.has(normalized) ||
+    normalized.split(" ").every((token) => GENERIC_IMPLEMENTATION_TOKENS.has(token));
+}
+
+function normalizedTextContains(haystack: string, needle: string): boolean {
+  const normalizedHaystack = normalizeSearchPhrase(haystack);
+  const normalizedNeedle = normalizeSearchPhrase(needle);
+  return normalizedHaystack === normalizedNeedle ||
+    normalizedHaystack.startsWith(`${normalizedNeedle} `) ||
+    normalizedHaystack.endsWith(` ${normalizedNeedle}`) ||
+    normalizedHaystack.includes(` ${normalizedNeedle} `);
+}
+
+function normalizeSearchPhrase(value: string): string {
+  return normalizeProgramValue(value)
+    .replaceAll(/[^\p{L}\p{N}]+/gu, " ").trim().replaceAll(/\s+/gu, " ");
+}
+
+function sameStringSet(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightSet = new Set(right);
+  return left.every((value) => rightSet.has(value));
+}
+
+function deriveExternalScoutFrontierDigest(
+  frontier: z.output<typeof externalScoutFrontierSchema>
+): string {
+  return createHash("sha256").update(JSON.stringify({
+    source_candidate_video_ids: frontier.source_candidate_video_ids,
+    validated_candidate_video_ids: frontier.validated_candidate_video_ids,
+    terminally_rejected_video_ids: frontier.terminally_rejected_video_ids,
+    unresolved_candidate_video_ids: frontier.unresolved_candidate_video_ids
+  }), "utf8").digest("hex");
 }
 
 function programFieldEntries(

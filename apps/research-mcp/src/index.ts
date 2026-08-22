@@ -14,6 +14,11 @@ export {
   youtubeTranscriptActionOutputSchema
 } from "./actions/youtube-transcript-route.js";
 export {
+  GEMINI_CANDIDATE_ACTION_REQUEST_MAX_BYTES,
+  createGeminiCandidateActionRoute,
+  geminiCandidateActionInputSchema
+} from "./actions/gemini-candidate-route.js";
+export {
   assessTreatmentLandscapeCoverage,
   createTreatmentLandscapeCoverageActionRoute,
   deriveProgramSignature,

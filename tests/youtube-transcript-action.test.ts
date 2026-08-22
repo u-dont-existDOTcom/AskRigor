@@ -98,7 +98,7 @@ describe("Custom GPT-only YouTube transcript Action", () => {
     };
     const routes = createActionOnlyResearchRoutes();
 
-    expect(routes).toHaveLength(2);
+    expect(routes).toHaveLength(3);
     expect(routes.find(({ operationId }) => operationId === "get_youtube_transcript"))
       .toMatchObject({
       method: "POST",

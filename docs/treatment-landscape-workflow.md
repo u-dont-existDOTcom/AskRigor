@@ -10,6 +10,9 @@ This map explains the current implementation. Canonical behavior remains in
 flowchart TD
     Q[Research question] --> I[Treatment-space inventory]
     I --> B[Repeated broad discovery batches<br/>up to six searches per batch]
+    I --> E[Optional external high-recall scout]
+    E --> V[Validate public identities;<br/>preserve complete frontier receipt]
+    V --> B
     B --> R[Reciprocal candidate ledger<br/>batch, class, fingerprint, stable source]
     R --> C[Derived counts and normalized<br/>program signatures]
     C --> L{Aggregate landscape lock}
@@ -50,3 +53,20 @@ passes, unresolved selected-source receipts, and executable expansion are
 blockers. A supported not-decision-relevant omission is only a warning.
 Terminal gaps count only when a structured boundary matches the literal source
 state and affected scope, is nonretryable, and records attempted recovery.
+
+The gate applies to every condition. Each material umbrella class needs a
+reciprocal specific-program search receipt linking its executed query,
+non-generic implementation and discriminator terms, result, exact per-search
+candidate IDs, matching described components, pagination, and exhaustion or access boundary. Outcome, stage, and horizon fields cannot establish the implementation match. A generic exercise, PT, diet,
+injection, surgery, conservative-care, alternative-treatment, program,
+approach, method, protocol, regimen, care, or management label is not
+an implementation.
+
+An external-scout frontier preserves one digest plus the exact source,
+validated, terminally rejected, and unresolved candidate-ID partition. Every
+validated lead must be screened regardless of caller materiality or redundancy
+labels. Only a literal not-found/not-visible result or verified identity mismatch
+rejects a lead; every other validation failure stays unresolved regardless of
+immediate retryability. A scout summary can
+guide selection, but it cannot replace transcript verification or establish
+creator content or efficacy.

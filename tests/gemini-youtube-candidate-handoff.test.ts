@@ -18,7 +18,7 @@ const YOUTUBE = { apiKey: "fixture-youtube-key" };
 function packet(): GeminiYoutubeCandidatePacket {
   return {
     packet_name: "gemini_youtube_candidate_handoff",
-    packet_version: "1.0",
+    packet_version: "2.0",
     research_target: "how can I fix my bad hip",
     diagnosis_status: "diagnosis_not_specified",
     discovery_queries: [
@@ -27,7 +27,9 @@ function packet(): GeminiYoutubeCandidatePacket {
       { purpose: "overlooked_intervention", query: '"hip pain" nightshades' },
       { purpose: "overlooked_intervention", query: '"hip pain" progressive loading' },
       { purpose: "conventional_benefit", query: '"hip injection" relief experience' },
-      { purpose: "conventional_negative", query: '"hip injection" failed OR flare' }
+      { purpose: "conventional_negative", query: '"hip injection" failed OR flare' },
+      { purpose: "overlooked_intervention", query: '"hip pain" aquatic conditioning results' },
+      { purpose: "firsthand_outcome", query: '"advanced hip arthritis" exercise program experience' }
     ],
     candidates: VIDEO_IDS.map((videoId, index) => ({
       video_id: videoId,
@@ -41,6 +43,14 @@ function packet(): GeminiYoutubeCandidatePacket {
           ? "regenerative_or_biologic"
           : "local_mechanical",
       creator_claim_summary: `The creator reports candidate ${index + 1} as a personal or clinical approach.`,
+      provisional_specific_program: index === 2
+        ? "progressive tendon loading with relative rest"
+        : `specific candidate program ${index + 1}`,
+      provisional_population_or_stage: index === 0
+        ? "people describing advanced hip symptoms"
+        : "stage not described",
+      provisional_outcome_and_horizon: `reported function or symptom outcome ${index + 1}; horizon not described`,
+      summary_basis: "spark_public_video_context_not_transcript_verified_by_askrigor",
       why_surfaced: `Candidate ${index + 1} may expose decision-useful implementation vocabulary.`
     })),
     suggested_seed_video_ids: [VIDEO_IDS[0], VIDEO_IDS[1]],
@@ -54,11 +64,31 @@ function packet(): GeminiYoutubeCandidatePacket {
   };
 }
 
+function legacyPacket(): GeminiYoutubeCandidatePacket {
+  const current = packet();
+  return {
+    ...current,
+    packet_version: "1.0",
+    discovery_queries: current.discovery_queries.slice(0, 6),
+    candidates: current.candidates.map((candidate) => ({
+      video_id: candidate.video_id,
+      canonical_url: candidate.canonical_url,
+      title: candidate.title,
+      channel: candidate.channel,
+      target_distance: candidate.target_distance,
+      provisional_intervention_family: candidate.provisional_intervention_family,
+      creator_claim_summary: candidate.creator_claim_summary,
+      why_surfaced: candidate.why_surfaced
+    })),
+    suggested_seed_video_ids: current.suggested_seed_video_ids.slice(0, 4)
+  };
+}
+
 function response(value: GeminiYoutubeCandidatePacket = packet()): string {
   return JSON.stringify(value, null, 2);
 }
 
-function legacyFramedResponse(value: GeminiYoutubeCandidatePacket = packet()): string {
+function legacyFramedResponse(value: GeminiYoutubeCandidatePacket = legacyPacket()): string {
   return [
     "Scout contract: youtube-candidate-handoff-v1",
     "",
@@ -80,6 +110,7 @@ function videoEnvelope(
     channelId?: string;
     commentCount?: string;
     omitCommentCount?: boolean;
+    omitPrivacyStatus?: boolean;
     privacyStatus?: "public" | "private" | "unlisted";
   } = {}
 ): ProvenanceEnvelope<YoutubeVideo> {
@@ -104,7 +135,9 @@ function videoEnvelope(
       title,
       channel_id: channelId,
       channel_title: channel,
-      privacy_status: options.privacyStatus ?? "public",
+      ...(options.omitPrivacyStatus
+        ? {}
+        : { privacy_status: options.privacyStatus ?? "public" }),
       statistics: {
         view_count: "100",
         like_count: "10",
@@ -119,6 +152,7 @@ describe("Gemini YouTube candidate handoff", () => {
     const parsed = parseGeminiYoutubeCandidateHandoff(`\n${response()}\n`);
 
     expect(parsed.packet_name).toBe("gemini_youtube_candidate_handoff");
+    expect(parsed.packet_version).toBe("2.0");
     expect(parsed.candidates.map(({ video_id }) => video_id)).toEqual(VIDEO_IDS);
     expect(parsed.discovery_queries.map(({ purpose }) => purpose)).toContain("radical_outcome");
   });
@@ -204,11 +238,18 @@ describe("Gemini YouTube candidate handoff", () => {
     expect(receipt).toMatchObject({
       status: "accepted",
       rejected_candidates: [],
+      unresolved_candidates: [],
       suggested_seed_receipts: [
         { video_id: VIDEO_IDS[0], disposition: "eligible", reasons: [] },
         { video_id: VIDEO_IDS[1], disposition: "eligible", reasons: [] }
       ],
       eligible_seed_video_ids: [VIDEO_IDS[0], VIDEO_IDS[1]]
+    });
+    expect(receipt.candidate_frontier).toMatchObject({
+      source_candidate_video_ids: VIDEO_IDS,
+      validated_candidate_video_ids: VIDEO_IDS,
+      terminally_rejected_video_ids: [],
+      unresolved_candidate_video_ids: []
     });
     expect(receipt.validated_candidates).toHaveLength(3);
     expect(receipt.validated_candidates[0]).toMatchObject({
@@ -220,12 +261,34 @@ describe("Gemini YouTube candidate handoff", () => {
         statistics: { comment_count: "5" }
       },
       gemini_provisional_annotations: {
-        intervention_family: "nutrition_or_elimination"
+        intervention_family: "nutrition_or_elimination",
+        specific_program: "specific candidate program 1",
+        summary_basis: "spark_public_video_context_not_transcript_verified_by_askrigor"
       }
     });
     expect(receipt.access_boundaries).toContain(
       "No YouTube comments or transcripts were retrieved by this validation."
     );
+  });
+
+  it("keeps legacy annotations usable for discovery without inventing program details", async () => {
+    const receipt = await validateGeminiYoutubeCandidateHandoff(
+      response(legacyPacket()),
+      YOUTUBE,
+      { get_video: vi.fn(async (videoId: string) => videoEnvelope(videoId)) }
+    );
+
+    expect(receipt).toMatchObject({
+      packet_version: "2.0",
+      source_contract: "youtube-candidate-handoff-v1",
+      source_packet_version: "1.0"
+    });
+    expect(receipt.validated_candidates[0]?.gemini_provisional_annotations).toMatchObject({
+      specific_program: "not described",
+      population_or_stage: "not described",
+      outcome_and_horizon: "not described",
+      summary_basis: "legacy_spark_annotation_not_transcript_verified_by_askrigor"
+    });
   });
 
   it("rejects mismatched declarations without discarding valid candidates", async () => {
@@ -254,6 +317,41 @@ describe("Gemini YouTube candidate handoff", () => {
       disposition: "rejected",
       reasons: ["candidate_rejected"]
     });
+  });
+
+  it("keeps an API-visible candidate unresolved when required identity fields are missing", async () => {
+    const getVideo = vi.fn(async (videoId: string) => {
+      const envelope = videoEnvelope(videoId);
+      if (videoId !== VIDEO_IDS[0]) return envelope;
+      return {
+        ...envelope,
+        data: {
+          ...envelope.data,
+          title: undefined,
+          channel_id: undefined,
+          channel_title: undefined
+        }
+      };
+    });
+
+    const receipt = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: getVideo }
+    );
+
+    expect(receipt.rejected_candidates).toEqual([]);
+    expect(receipt.unresolved_candidates).toEqual([
+      expect.objectContaining({
+        video_id: VIDEO_IDS[0],
+        metadata_access_status: "api_visible_complete",
+        retryable: false,
+        provider_error_code: "youtube_candidate_identity_fields_missing"
+      })
+    ]);
+    expect(receipt.candidate_frontier.terminally_rejected_video_ids).toEqual([]);
+    expect(receipt.candidate_frontier.unresolved_candidate_video_ids)
+      .toEqual([VIDEO_IDS[0]]);
   });
 
   it("keeps comment-count and creator-diversity limits mechanical and explicit", async () => {
@@ -318,7 +416,7 @@ describe("Gemini YouTube candidate handoff", () => {
     expect(receipt.eligible_seed_video_ids).toEqual([]);
   });
 
-  it("preserves provider access failures without leaking a false validation", async () => {
+  it("terminally rejects a literal provider result that the video is not visible", async () => {
     const getVideo = vi.fn(async (videoId: string) => videoId === VIDEO_IDS[0]
       ? {
           provider: "youtube",
@@ -344,9 +442,158 @@ describe("Gemini YouTube candidate handoff", () => {
     expect(receipt.rejected_candidates[0]).toMatchObject({
       video_id: VIDEO_IDS[0],
       metadata_access_status: "inaccessible",
+      retryable: false,
       provider_error_code: "youtube_video_not_visible",
       rejection_reasons: expect.arrayContaining(["metadata_not_api_visible_complete"]),
       limitations: ["Provider did not expose the video."]
+    });
+  });
+
+  it.each([
+    ["youtube_api_key_missing", "inaccessible"],
+    ["youtube_access_denied", "inaccessible"],
+    ["youtube_response_invalid", "error"]
+  ] as const)(
+    "keeps non-identity provider failure %s unresolved",
+    async (providerErrorCode, accessStatus) => {
+      const getVideo = vi.fn(async (videoId: string) => videoId === VIDEO_IDS[0]
+        ? {
+            provider: "youtube",
+            record_type: "youtube_video",
+            primary_identifier: videoId,
+            retrieved_at: "2026-08-21T03:00:00.000Z",
+            source_identity: {},
+            pagination: { returned: 0, exhausted: false },
+            access_status: accessStatus,
+            limitations: ["Identity validation could not complete."],
+            error: {
+              code: providerErrorCode,
+              message: "Provider validation unavailable",
+              retryable: false
+            },
+            data: {} as YoutubeVideo
+          }
+        : videoEnvelope(videoId));
+
+      const receipt = await validateGeminiYoutubeCandidateHandoff(
+        response(),
+        YOUTUBE,
+        { get_video: getVideo }
+      );
+
+      expect(receipt.rejected_candidates).toEqual([]);
+      expect(receipt.unresolved_candidates).toEqual([
+        expect.objectContaining({
+          video_id: VIDEO_IDS[0],
+          metadata_access_status: accessStatus,
+          retryable: false,
+          provider_error_code: providerErrorCode
+        })
+      ]);
+      expect(receipt.candidate_frontier.terminally_rejected_video_ids).toEqual([]);
+      expect(receipt.candidate_frontier.unresolved_candidate_video_ids)
+        .toEqual([VIDEO_IDS[0]]);
+    }
+  );
+
+  it("terminally rejects a literal provider result that the video was not found", async () => {
+    const getVideo = vi.fn(async (videoId: string) => videoId === VIDEO_IDS[0]
+      ? {
+          provider: "youtube",
+          record_type: "youtube_video",
+          primary_identifier: videoId,
+          retrieved_at: "2026-08-21T03:00:00.000Z",
+          source_identity: {},
+          pagination: { returned: 0, exhausted: true },
+          access_status: "not_found" as const,
+          limitations: ["The provider reported that the video was not found."],
+          error: {
+            code: "youtube_video_not_found",
+            message: "Video not found",
+            retryable: false
+          },
+          data: {} as YoutubeVideo
+        }
+      : videoEnvelope(videoId));
+
+    const receipt = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: getVideo }
+    );
+
+    expect(receipt.rejected_candidates[0]).toMatchObject({
+      video_id: VIDEO_IDS[0],
+      metadata_access_status: "not_found",
+      retryable: false,
+      provider_error_code: "youtube_video_not_found"
+    });
+    expect(receipt.unresolved_candidates).toEqual([]);
+    expect(receipt.candidate_frontier.terminally_rejected_video_ids)
+      .toEqual([VIDEO_IDS[0]]);
+  });
+
+  it("keeps retryable identity failures unresolved instead of rejecting the lead", async () => {
+    const getVideo = vi.fn(async (videoId: string) => videoId === VIDEO_IDS[0]
+      ? {
+          provider: "youtube",
+          record_type: "youtube_video",
+          primary_identifier: videoId,
+          retrieved_at: "2026-08-21T03:00:00.000Z",
+          source_identity: {},
+          pagination: { returned: 0, exhausted: false },
+          access_status: "rate_limited" as const,
+          limitations: ["Provider retry is required."],
+          error: {
+            code: "youtube_rate_limited",
+            message: "Rate limited",
+            retryable: true
+          },
+          data: {} as YoutubeVideo
+        }
+      : videoEnvelope(videoId));
+
+    const receipt = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: getVideo }
+    );
+
+    expect(receipt.status).toBe("partial");
+    expect(receipt.rejected_candidates).toEqual([]);
+    expect(receipt.unresolved_candidates).toEqual([
+      expect.objectContaining({
+        video_id: VIDEO_IDS[0],
+        metadata_access_status: "rate_limited",
+        retryable: true,
+        provider_error_code: "youtube_rate_limited"
+      })
+    ]);
+    expect(receipt.candidate_frontier.unresolved_candidate_video_ids)
+      .toEqual([VIDEO_IDS[0]]);
+    expect(receipt.suggested_seed_receipts[0]).toEqual({
+      video_id: VIDEO_IDS[0],
+      disposition: "unresolved",
+      reasons: ["candidate_validation_incomplete"]
+    });
+  });
+
+  it("does not mark a seed eligible when public privacy status is unreported", async () => {
+    const getVideo = vi.fn(async (videoId: string) => videoEnvelope(
+      videoId,
+      videoId === VIDEO_IDS[0] ? { omitPrivacyStatus: true } : {}
+    ));
+
+    const receipt = await validateGeminiYoutubeCandidateHandoff(
+      response(),
+      YOUTUBE,
+      { get_video: getVideo }
+    );
+
+    expect(receipt.suggested_seed_receipts[0]).toEqual({
+      video_id: VIDEO_IDS[0],
+      disposition: "ineligible",
+      reasons: ["privacy_not_reported"]
     });
   });
 });

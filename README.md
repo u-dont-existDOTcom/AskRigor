@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.19` (2026-08-21), SHA-256
-`afa8e3ff9ac6936b7e277a1b21f99c36507e44e2a3595036265d395ff2883b94`,
+The current canonical files identify HRP `20.5.20` (2026-08-22), SHA-256
+`803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`,
 and Universal Instructions `20.5.14` (2026-08-18), SHA-256
 `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -40,7 +40,7 @@ acceptance pass.
 - Install pinned dependencies with `npm ci`
 - Run the deterministic fixture suite with `npm run test:run`
 - Run the release verification sequence with `npm run verify`
-- Validate a complete candidate-only Spark response with
+- Validate a complete high-recall Spark candidate response with
   `npm run validate:gemini-handoff -- path/to/spark-response.md`; this optional
   live command uses the existing `YOUTUBE_API_KEY` and is not part of the
   hermetic default gate
@@ -271,11 +271,16 @@ response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 
-Production still exposes 17 public research reads. The current source candidate
-adds `get_youtube_transcript` only to the Custom GPT bridge, making 18 public
-reads plus the lesson write while preserving the exact frozen 17-tool MCP. The
-new Action/OpenAPI/privacy source is not deployed or installed in the editor,
-and production transcript access has not been live-tested.
+Production exposes 18 public research reads plus the lesson write. The current
+source candidate adds the Action-only treatment-landscape assessor and Gemini
+Spark candidate validator, making 20 public reads plus the lesson write while
+preserving the exact frozen 17-tool MCP. Spark remains an optional high-recall
+finder: public identities are checked independently, its complete candidate
+frontier is preserved, non-identity validation failures remain unresolved,
+every validated
+candidate is screened, and provisional summaries are not transcript
+verification or treatment evidence. The new Action/OpenAPI/privacy
+source has not been deployed or installed in the editor.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application
@@ -363,12 +368,12 @@ stage-mismatched videos, collapsed distinct programs, and missed plausible
 hard-to-find hypotheses. PR #37 added candidate selection, program
 decomposition, comparator scope, and steelman gates, but its product retest
 showed that metadata and comment auditing still did not verify creator content.
-The current universal repair uses vernacular evidence-frontier discovery,
-transcript-verified claim fingerprints, independent failure/harm comment audits,
-and a no-padding timestamped watchlist. Topic-specific answers remain in
-held-out fixtures rather than production instructions. Its merge,
-server/privacy deployment, editor installation, and fresh product acceptance
-remain pending. The
+The current generic repair uses vernacular evidence-frontier discovery,
+specific-program fingerprints, optional independently validated Spark leads,
+independent failure/harm comment audits, and a no-padding timestamped watchlist.
+Topic-specific answers remain in held-out fixtures rather than production
+instructions. Its merge, server/privacy deployment, editor installation, and
+fresh product acceptance remain pending. The
 associated lesson attempt returned non-retryable `privacy_rejected` and was not
 resubmitted. After that
 gate closes, remaining work includes the publisher-identity/domain path, Scan

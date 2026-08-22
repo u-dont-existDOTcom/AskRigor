@@ -54,9 +54,10 @@ complete XML protocol.
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
-- `gemini-spark-setup.md`: owner-operated candidate-only Gemini Spark scout,
-  one-pass installation, strict JSON handoff, deterministic AskRigor metadata
-  validation, privacy boundary, and acceptance check
+- `gemini-spark-setup.md`: owner-operated high-recall Gemini Spark scout,
+  iterative specific-program discovery, strict JSON handoff, deterministic
+  AskRigor identity validation, provisional-summary boundary, and acceptance
+  check
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
@@ -79,9 +80,10 @@ complete XML protocol.
 - `custom-gpt-instructions.md` (repository path
   `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
   artifact; Knowledge remains empty
-- `custom-gpt-action-openapi.json`: generated 19-read/one-write Action schema;
-  `get_youtube_transcript` and `assess_treatment_landscape_coverage` are
-  Action-only and MCP remains frozen at 17 tools
+- `custom-gpt-action-openapi.json`: generated 20-read/one-write Action schema;
+  `get_youtube_transcript`, `assess_treatment_landscape_coverage`, and
+  `validate_gemini_youtube_candidate_handoff` are Action-only and MCP remains
+  frozen at 17 tools
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
@@ -117,7 +119,11 @@ complete XML protocol.
   ledger for the breadth-before-depth repair
 - `superpowers/plans/2026-08-22-treatment-landscape-deployment-installation.md`:
   exact production, plugin-synchronization, Custom GPT installation, rollback,
-  and fresh product-acceptance ledger for the merged repair
+  and fresh product-acceptance ledger, updated to the generic candidate-quality
+  release target
+- `superpowers/plans/2026-08-22-spark-candidate-quality-repair.md`: generic
+  specific-program discovery gate, high-recall Spark handoff, independent
+  validation, release, plugin, and installation ledger
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail

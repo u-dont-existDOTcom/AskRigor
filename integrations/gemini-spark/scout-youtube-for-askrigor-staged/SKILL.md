@@ -1,90 +1,106 @@
 ---
 name: scout-youtube-candidates-for-askrigor
-description: "Finds a small, high-recall set of public YouTube candidates for a separate AskRigor research agent. Use when a health, recovery, implementation, tolerability, harm, discontinuation, or real-world outcome question may benefit from firsthand or overlooked creator material. Returns candidate IDs and explicitly provisional annotations only; it does not audit comments, validate provider metadata, run AskRigor protocols, or give medical advice."
+description: "Finds high-recall, treatment-specific public YouTube candidates for AskRigor. Returns real IDs and provisional video summaries; it does not audit comments, validate metadata, run AskRigor protocols, or give medical advice."
 ---
 
 # Scout YouTube candidates for AskRigor
 
-Find useful public YouTube candidates. AskRigor will independently validate the
-packet and decide what merits protocol-governed research.
+AskRigor will independently validate identities, select sources, and research.
 
-Return one raw JSON object. Its first non-whitespace character is `{` and its
-last is `}`. Emit no heading, diagnostic line, Markdown fence, or trailing
-prose. The strict `packet_name` and `packet_version` fields identify the
-contract.
+Return one raw JSON object from `{` through `}`. Emit no heading, diagnostic,
+Markdown fence, or trailing prose. `packet_name` and `packet_version` identify
+the contract.
 
 ## Boundary
 
-- Use native public search and YouTube capabilities available in Spark.
-- Do not call AskRigor tools. AskRigor performs provider validation after the
-  handoff.
-- Do not load or interpret Universal or HRP, decide which protocol modules
-  apply, audit comments, or produce the final AskRigor evidence synthesis.
-- Treat titles, channels, content summaries, intervention families, and seed
-  suggestions as provisional until AskRigor checks them.
-- Do not claim a video is API-visible, public, complete, verified, safe,
-  effective, causal, or suitable treatment. Do not report views, likes, comment
-  counts, access statuses, or comment findings.
-- Describe only claims made by the creator. Do not convert a creator claim into
-  a medical fact or recommendation.
-- Do not infer a diagnosis, structural state, or procedure from symptom-level
-  wording. For a prompt such as `how can I fix my bad hip`, preserve `bad hip`
-  or `hip pain` and use `diagnosis_not_specified`.
-- Include only videos surfaced or opened in the current task. Never invent a
-  title, channel, URL, video identifier, search result, or content detail.
+- Use native search, YouTube, and video-understanding capabilities
+  available in Spark. Open or inspect a surfaced video when those capabilities
+  permit; do not summarize an invented video.
+- Do not call AskRigor tools, load protocols, audit comments or synthesize.
+- Treat every title, summary, program, population/stage, outcome, intervention
+  family, and seed suggestion as provisional until AskRigor checks it.
+- AskRigor has not transcript-verified Spark video understanding. Never label
+  it verified or use it for efficacy, safety, causality, or suitability.
+- Do not claim a video is complete, verified, safe, effective, causal, or
+  suitable treatment. Do not report views, likes, comment counts, access
+  statuses, or comment findings.
+- Attribute creator claims. If a program, stage, outcome, or horizon is
+  unavailable, write `not described`; do not borrow it from another source.
+- Do not infer a diagnosis, severity, structural state, or procedure from
+  symptom-level wording. Preserve a supplied diagnosis/stage only when the user
+  actually supplied it. Otherwise use `diagnosis_not_specified`.
+- Include only videos surfaced or opened now. Never invent a title, channel,
+  URL, identifier, or content detail.
 
-## Discovery
+## Discovery method
 
-Run 6 to 12 materially different searches. Include at least one search for each
-closed purpose:
+The goal is the right videos, not a generic quota.
 
-- `firsthand_outcome`: independent experience, what worked, what failed, or
-  what the person learned;
+1. Inventory broad plausible classes as discovery hypotheses, not endorsements.
+2. Split each material umbrella class into specific implementations using
+   vocabulary found in search results and public video context. `exercise`,
+   `physical therapy`, `diet`, `injection`, `conservative care`, `surgery`, or
+   `alternative treatment` alone is not a specific program.
+3. Distinguish candidates by components; dose/intensity; frequency/duration;
+   supervision; co-interventions; population/stage; outcome/horizon; and care
+   sequence. Missing details stay `not described`.
+4. After an initial broad batch, search surfaced named methods, specific
+   implementations, stage/outcome combinations, failures, and gaps. Search a
+   promising named program individually for firsthand use or failure.
+5. Prefer exact target/stage matches. Keep an adjacent candidate only for a
+   clearly identified transferable implementation or discriminator.
+6. Prefer firsthand trajectories, exact regimens, longitudinal outcomes,
+   independent channels, nonresponse, harm, discontinuation, and progression.
+   Popularity and rank are not credibility.
+7. Stop when later searches add no material program/outcome hypothesis, or
+   record the gap. Do not manufacture diversity or pad weak results.
+
+Run 8 to 18 materially different searches in total. Include every closed
+purpose at least once:
+
+- `firsthand_outcome`: what worked, failed, changed, or was learned;
 - `radical_outcome`: unusually strong reversal, repair, regrowth, or avoided-
   procedure wording, searched as a claim rather than accepted as truth;
-- `overlooked_intervention`: natural, mechanical, behavioral, traditional,
-  device, regenerative, supplement, elimination, or self-directed approaches;
+- `overlooked_intervention`: specific natural, mechanical, behavioral,
+  traditional, device, regenerative, supplement, elimination, or
+  self-directed programs;
 - `conventional_benefit`: real-world benefit or indication for conventional
   care; and
 - `conventional_negative`: no effect, failure, flare, harm, tolerability,
-  adherence, modification, discontinuation, or recurrence after conventional
-  care.
+  adherence, modification, discontinuation, recurrence, or later escalation.
 
-Use the user's exact anatomy or condition in the exact-outcome lane. Broader
-condition, anatomy, symptom, and intervention-first searches may add adjacent
-candidates. Search promising intervention names individually when that can
-surface firsthand use or failure reports. Prefer candidate diversity over many
-near-duplicate tutorials.
-
-Record only queries actually executed. The packet does not contain probe
-counts, anchor ledgers, inferred coverage, or query-to-candidate joins.
+Use the exact anatomy or condition in the exact-outcome lane. Broader or
+intervention-, stage-, and outcome-first searches may add adjacent candidates.
+Record only executed queries. Do not emit probe counts, anchor ledgers,
+evidence maps, coverage claims, or query-to-candidate joins Spark cannot prove.
 
 ## Candidate selection
 
-Return 3 to 12 unique videos. For each candidate:
+Normally return 6 to 16 unique, materially useful videos; return as few as 3
+when further searches expose no additional material candidate. For each:
 
 - copy the exact 11-character `video_id` from the surfaced YouTube result;
 - construct `canonical_url` exactly as
   `https://www.youtube.com/watch?v=VIDEO_ID`;
 - copy the displayed title and channel without rewriting them;
 - use `target_distance: exact` only when the video directly addresses the
-  supplied condition or symptom and claimed outcome; otherwise use `adjacent`
-  or `remote`;
-- assign one provisional intervention family from the closed enum in the output
-  contract;
-- summarize the creator's claim with attribution and no validation language;
-  and
-- say briefly why the candidate may expand AskRigor's evidence frontier.
+  supplied target and relevant claimed outcome; otherwise use `adjacent` or
+  `remote`;
+- assign one provisional intervention family from the closed enum;
+- attribute and summarize the creator's claim without validation language;
+- state the actual specific program or component combination rather than an
+  umbrella label;
+- state the population/stage and claimed outcome/time horizon available from
+  Spark's video context, or `not described`; and
+- explain briefly what nonredundant program, stage, outcome, failure, or
+  vocabulary the candidate may add.
 
-Suggest 1 to 4 candidate IDs as possible comment-audit seeds. Prefer distinct
-channels and a useful mix of firsthand outcome, unconventional discussion hub,
-and conventional benefit/failure feedback when actually found. This suggestion
-is not an audit decision. Do not pad missing roles or manufacture diversity by
-relabeling exercise, stretching, loading, traction, gait, or somatic work as
-behavioral.
+Suggest 1 to 8 IDs for later selection. Prefer exact target/stage fit, specific
+programs, useful horizons, distinct channels, and benefit or failure/harm
+value. A suggestion is not an audit decision. Do not pad roles or relabel
+similar implementations to manufacture diversity.
 
-List concrete search gaps observed in this run. A zero-result query is a search
-gap, not evidence that no such video exists.
+List concrete gaps. Zero or weak results do not show a program does not exist.
 
 ## Output contract
 
@@ -94,19 +110,21 @@ Return one strict JSON object with exactly these top-level keys, in this order:
 and `disclosures`.
 
 Set `packet_name` to `gemini_youtube_candidate_handoff` and `packet_version` to
-`1.0`. Each discovery-query object has only `purpose` and `query`. Each
-candidate object has only `video_id`, `canonical_url`, `title`, `channel`,
-`target_distance`, `provisional_intervention_family`, `creator_claim_summary`,
-and `why_surfaced`.
+`2.0`. Each discovery-query object has only `purpose` and `query`.
 
-`diagnosis_status` is `diagnosis_not_specified` or
-`user_supplied_diagnosis`.
+Each candidate object has only these keys, in this order: `video_id`,
+`canonical_url`, `title`, `channel`, `target_distance`,
+`provisional_intervention_family`, `creator_claim_summary`,
+`provisional_specific_program`, `provisional_population_or_stage`,
+`provisional_outcome_and_horizon`, `summary_basis`, and `why_surfaced`.
 
-Every `purpose` is one of `firsthand_outcome`, `radical_outcome`,
+Set every `summary_basis` to
+`spark_public_video_context_not_transcript_verified_by_askrigor`.
+
+`diagnosis_status` is `diagnosis_not_specified` or `user_supplied_diagnosis`.
+Every `purpose` is `firsthand_outcome`, `radical_outcome`,
 `overlooked_intervention`, `conventional_benefit`, or
-`conventional_negative`. Include all five across 6 to 12 query objects.
-
-Every `target_distance` is `exact`, `adjacent`, or `remote`.
+`conventional_negative`. `target_distance` is `exact`, `adjacent`, or `remote`.
 
 Every `provisional_intervention_family` is one of
 `nutrition_or_elimination`, `oral_supplement`, `local_mechanical`,
@@ -114,17 +132,17 @@ Every `provisional_intervention_family` is one of
 `regenerative_or_biologic`, `conventional_injection`,
 `conventional_surgery`, or `other`.
 
-Return 6 to 12 unique query objects, 3 to 12 unique candidate objects, and 1 to
-4 unique suggested IDs drawn from those candidates. Keep the complete response
-below 32 KiB. Set `disclosures` to exactly these four strings in this order:
+Return 8–18 unique queries, 3–16 unique candidates, and 1–8 unique suggested
+IDs drawn from them. Keep the response below 32 KiB. Set `disclosures` to:
 `comments_not_retrieved`, `provider_metadata_not_validated_by_gemini`,
-`creator_claims_not_validated`, and `not_medical_advice`. Add no keys, Markdown,
-comments, ellipses, trailing commas, prose, tables, embeds, cards, thumbnails,
-or standalone YouTube URLs.
+`creator_claims_not_validated`, and `not_medical_advice`, in that order. Add no
+other keys, Markdown, comments, ellipses, prose, or standalone YouTube URLs.
 
 ## Final check
 
-Before responding, check that the response is raw parseable JSON,
-all five search purposes occur, IDs and queries are unique, every URL is derived
-from its ID, every suggested ID exists among the candidates, all required
-disclosures are exact, and no forbidden metadata or comment claim appears.
+Before responding, check that the response is raw parseable JSON; all five
+purposes occur; IDs and queries are unique; each URL comes from its ID; every
+candidate has a specific program or explicit `not described`; every suggested
+ID exists among the candidates; the summary basis and disclosures are exact;
+and no forbidden metadata, comment claim, audit receipt, or treatment verdict
+appears.

@@ -1,9 +1,10 @@
 # Gemini Spark YouTube candidate scout for AskRigor
 
-This is an owner-operated, optional high-recall lane. Gemini finds public
-YouTube candidates; AskRigor independently validates their identities and
-decides which sources merit protocol-governed research. Gemini does not execute
-HRP, audit comments, validate treatment claims, or replace AskRigor.
+This is an owner-operated, optional high-recall lane. Spark finds and
+provisionally summarizes treatment-specific public YouTube candidates;
+AskRigor independently validates their identities and decides which sources
+merit protocol-governed research. Spark does not execute HRP, audit comments,
+validate treatment claims, or replace AskRigor.
 
 ## Prerequisites
 
@@ -34,22 +35,24 @@ disable `scout-youtube-for-askrigor-staged` and any older AskRigor YouTube scout
 copy so only the candidate-only replacement can trigger.
 
 The exact repository file has SHA-256
-`1ecd387b95af48050590f8f5d8a6ea900b7cfb79b18a9dd8562057929560b02b`. The
-old `staged-remedy-scan-v16` contract is retired. Do not repair, merge, or run it
-again; its forward test found useful videos but failed its own counts, joins,
-classification, evidence-map, and metadata contracts.
+`bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08`.
+The old `staged-remedy-scan-v16` contract remains retired: its forward test
+found useful videos but failed its own counts, joins, classifications,
+evidence-map, and metadata contracts. The current v2 skill restores its useful
+high-recall and provisional video-understanding behavior without restoring
+those unsupported pseudo-audit receipts.
 
 ## Run a scout task
 
 Give Spark only the de-identified research question and select
 `/scout-youtube-candidates-for-askrigor`. The response must be one raw JSON
 object identified by `packet_name: gemini_youtube_candidate_handoff` and
-`packet_version: 1.0`, with no diagnostic lines, Markdown fence, heading, or
-trailing prose. It contains executed discovery queries, 3–12 candidate IDs with
-provisional creator-claim annotations, 1–4 suggested seed IDs, observed search
-gaps, and fixed disclosures. It contains no AskRigor access status, provider
-statistics, comment findings, evidence verdict, rabbit-hole map, or return-
-packet contract.
+`packet_version: 2.0`, with no diagnostic lines, Markdown fence, heading, or
+trailing prose. It contains 8–18 executed discovery queries, 3–16 candidate IDs
+with provisional creator-claim, specific-program, population/stage, and
+outcome/horizon annotations, 1–8 suggested IDs, observed search gaps, and fixed
+disclosures. It contains no AskRigor access status, provider statistics,
+comment findings, evidence verdict, rabbit-hole map, or return-packet contract.
 
 Copy or save the complete response unchanged. This is the only manual transfer
 in the optional lane; there is no iterative owner-operated probe or correction
@@ -57,8 +60,9 @@ loop.
 
 ## Validate in AskRigor
 
-The deterministic validator checks the complete response before trusting any
-candidate. With `YOUTUBE_API_KEY` already present in the environment, run:
+The Custom GPT can call `validate_gemini_youtube_candidate_handoff` with the
+complete packet. For local operator validation, with `YOUTUBE_API_KEY` already
+present in the environment, run:
 
 `npm run validate:gemini-handoff -- path/to/spark-response.md`
 
@@ -67,43 +71,54 @@ the command or the packet. The command:
 
 1. requires one strict raw JSON object, field bounds, closed enums, unique IDs
    and queries, canonical links, all five query purposes, the 32 KiB response
-   ceiling, seed-subset rule, and disclosures; exact legacy framed packets are
-   accepted only for backward compatibility;
+   ceiling, seed-subset rule, provisional summary basis, and disclosures; exact
+   v1 packets remain accepted only for backward compatibility;
 2. calls the existing AskRigor YouTube adapter for every candidate;
 3. compares the declared ID, canonical URL, title, and channel with provider
    metadata;
-4. preserves provider access states, statistics, errors, and limitations;
+4. preserves provider access states, retryability, statistics, errors, and
+   limitations; only literal not-found/not-visible results or verified identity
+   mismatches reject a lead, while every other validation failure remains
+   unresolved regardless of immediate retryability;
 5. marks a suggested seed mechanically eligible only when its identity is
    validated, its reported privacy state is public, its provider comment count
    is positive, and an earlier eligible suggestion does not use the same
    provider channel; and
-6. emits `accepted`, `partial`, or `rejected` with exact machine-readable
-   reasons.
+6. emits `accepted`, `partial`, `rejected`, or `blocked` with exact
+   machine-readable reasons and a SHA-256 frontier receipt partitioning every
+   supplied ID into validated, terminally rejected, or unresolved state.
 
 An `accepted` receipt validates structure, provider identity, and mechanical
-comment-audit eligibility only. Gemini intervention labels and creator summaries
-remain provisional. A positive comment count does not prove that comment
-retrieval will be accessible or complete. AskRigor must still choose material
-seeds, retrieve required corpora, preserve completion receipts, research formal
+comment-audit eligibility only. Spark's program, population/stage,
+outcome/horizon, and creator summaries remain provisional and were not checked
+against an AskRigor transcript. They may guide discovery and selection but not
+support efficacy, safety, causality, comparison, or recommendation claims. A
+positive comment count does not prove that comment retrieval will be accessible
+or complete. AskRigor must still choose material
+seeds, carry the complete frontier into coverage assessment, screen every
+validated lead regardless of caller materiality or redundancy labels, retrieve
+required corpora, preserve completion receipts, research formal
 and other community sources, and obey the synthesis gate.
 
-The validator is available as
+The validator is also available as
 `validateGeminiYoutubeCandidateHandoff` from `@askrigor/sources` for an
-authorized supervisor or agent that already has the complete response. It is
-not a new public MCP or Action operation.
+authorized supervisor or agent that already has the complete response. The
+read-only Custom GPT Action is intentionally absent from the frozen MCP catalog.
 
 ## Acceptance check
 
 Use the de-identified prompt `how can I fix my bad hip`. Confirm that Spark:
 
-1. emits one raw strict `gemini_youtube_candidate_handoff` v1.0 JSON object;
+1. emits one raw strict `gemini_youtube_candidate_handoff` v2.0 JSON object;
 2. preserves `diagnosis_not_specified`;
-3. records 6–12 unique executed searches spanning firsthand outcome, radical
+3. records 8–18 unique executed searches spanning firsthand outcome, radical
    outcome, overlooked intervention, conventional benefit, and conventional
    negative purposes;
-4. returns 3–12 unique surfaced videos and 1–4 suggested IDs drawn from them;
-5. attributes every creator claim and omits metadata status, counts, comment
-   findings, efficacy, safety, causality, and treatment recommendations; and
+4. returns 3–16 unique surfaced videos and 1–8 suggested IDs drawn from them;
+5. splits umbrella classes into specific implementations, records provisional
+   population/stage and outcome/horizon, attributes every creator claim, and
+   omits metadata status, counts, comment findings, efficacy, safety, causality,
+   and treatment recommendations; and
 6. passes the deterministic validator against independent YouTube metadata.
 
 If Spark violates the JSON contract, keep the rejected receipt and exact issue
@@ -111,9 +126,9 @@ paths. Do not ask the owner to diagnose or patch the skill. Repair the repositor
 contract only if repeated independent runs expose the same decision-relevant
 failure.
 
-## First accepted candidate-only packet
+## Prior accepted v1 packet
 
-The 2026-08-21 forward run for `how can i fix my bad hip` returned the canonical
+The 2026-08-21 forward run for `how can i fix my bad hip` returned the former
 raw JSON form. The strict packet schema accepted all 10 unique searches, all 7
 unique candidates, and all 3 suggested seeds. Independent AskRigor metadata
 receipts found every declared ID, canonical URL, exact title, and channel public
@@ -123,9 +138,10 @@ The suggested seeds `Hz3Gd51hBn0`, `LnlhK4MBaPw`, and `stZdnA9zeQE` were
 mechanically eligible, with provider-reported comment counts 343, 545, and 32
 respectively and three distinct provider channels. The result validates the
 handoff structure, source identities, and mechanical audit eligibility only.
-Gemini's target-distance labels, intervention-family labels, claim summaries,
-and seed usefulness remain provisional; no comments, transcripts, treatment
-claims, or medical conclusions were validated.
+Gemini's labels, summaries, and seed usefulness remained provisional; no
+comments, transcripts, treatment claims, or medical conclusions were
+validated. That packet remains parser-compatible evidence history, not the
+current v2 acceptance artifact.
 
 ## Evidence and privacy boundary
 
