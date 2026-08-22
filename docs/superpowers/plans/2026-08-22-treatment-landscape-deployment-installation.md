@@ -76,6 +76,9 @@ and fresh product-interface acceptance without conflating those surfaces.
   and a bounded real-identity Spark packet passed.
 - [x] Personal plugin source and installed package match byte-for-byte after
   reinstall.
+- [x] PR #56 repaired the Custom GPT editor-incompatible Spark-validator
+  response schema, merged as `abcfb6728601f83f7589bbc195ad2b9683f710ad`,
+  deployed reversibly, and passed direct 21-operation schema acceptance.
 - [ ] Install the exact Instructions and live schema in the Custom GPT editor,
   keeping Knowledge empty.
 - [ ] Upload the exact Spark scout skill and run fresh product checks.

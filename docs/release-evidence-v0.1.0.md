@@ -10,7 +10,7 @@ boundary: the new Spark-validator response used draft-7 tuple syntax inside an
 OpenAPI 3.1 document, and the Custom GPT editor rejected the array-valued
 `items` field before listing any operations.
 
-This candidate aligns that route with the existing 2020-12 Action schemas and
+The merged repair aligns that route with the existing 2020-12 Action schemas and
 adds a whole-document regression that rejects every array-valued `items` field.
 The Instructions remain 7,783 characters (7,815 UTF-8 bytes), SHA-256
 `1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08`;
@@ -20,9 +20,19 @@ the synchronization ledger SHA-256 is
 `ffecff639022b7b0cbdd338cb5adc8d76aa334714abeb3604e2381c16b4c9d73`;
 and its installation-bundle digest is
 `ac40a100a8fd0cabd8a4f01b5b091547e330a44353cb0fddb2d90c304e565c02`.
-The Spark skill and Instructions bytes are unchanged. Deployment, a successful
-editor re-import, exact operation-list inspection, and fresh product-interface
-acceptance remain required before this installation is current.
+The Spark skill and Instructions bytes are unchanged. PR #56 merged as
+`abcfb6728601f83f7589bbc195ad2b9683f710ad` and is deployed as image ID
+`sha256:a643cd1d5040a269e3f5b48516f98889eb44fe615f41f6e630cd470001642f08`
+in healthy container `ba29902d5b6e`. The compact live OpenAPI SHA-256 is
+`3130bf9480ac85138a7ae585c0ae684c4d17ed1526204180e9131035e2d5ee0a`;
+it exposes 21 operations and the corrected four-member `prefixItems` form with
+no array-valued `items`. Compose SHA-256 is
+`9bdb02a546ddddde7a39bc4ef448a191f51550b39f02ca492354f1c9923b718d`.
+Immediate rollback is `askrigor-research:rollback-abcfb672-predeploy` plus
+`/opt/askrigor/compose.yaml.rollback-abcfb672`, SHA-256
+`cb95791899db20792281f3c7d9fb922c911af8e88e2ee68ea665037b2b78d103`.
+The signed-in editor re-import, exact operation-list inspection, and fresh
+product-interface acceptance remain required before the installation is current.
 
 
 Release disposition at 2026-08-22: **PUBLIC SUBMISSION BLOCKED**. Developer
