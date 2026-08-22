@@ -161,7 +161,7 @@ describe("AskRigor ChatGPT Project router", () => {
     for (const required of [
       "treatment-space inventory",
       "per discovery batch",
-      "planning heuristics, not pass/fail quotas",
+      "hard availability-conditioned minimum",
       "Two or three videos cannot establish broad coverage",
       "ten renamed or redundant videos cannot repair",
       "assess_treatment_landscape_coverage",
@@ -179,7 +179,7 @@ describe("AskRigor ChatGPT Project router", () => {
     ]) {
       expect(module).toContain(required);
     }
-    expect(module).toContain("caller's corpus-size or scope label cannot deactivate");
+    expect(module).toContain("caller corpus-size/scope labels cannot deactivate");
     expect(module).toContain("contiguous chain from the first page through exhaustion");
     expect(module).toContain("Reject caller-editable provider cursors");
   });

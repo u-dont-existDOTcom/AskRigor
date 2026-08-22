@@ -106,8 +106,9 @@ complete XML protocol.
   test-driven implementation, deployment, rollback, and live-acceptance plan
   for the approved Custom GPT Action bridge
 - `superpowers/plans/2026-08-18-youtube-transcript-evidence-frontier-repair.md`:
-  current universal creator-transcript, evidence-frontier discovery, held-out
-  regression, privacy, and verification plan; deployment remains pending
+  historical universal creator-transcript, evidence-frontier discovery,
+  held-out regression, privacy, and verification plan; its runtime path is now
+  represented by the current deployment acceptance record
 - `superpowers/plans/2026-08-21-gemini-candidate-comment-audit.md`: bounded
   protocol-governed audit of the first accepted compact Gemini handoff and
   privacy-safe rediscovery-packet persistence

@@ -68,13 +68,13 @@ describe("treatment option-space prompt matrix", () => {
     });
   });
 
-  it("links the breadth gate to Project, skill, and generated Instructions", async () => {
+  it("preserves internal breadth triggers while keeping the public comparison educational", async () => {
     const [projectRouter, skill, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
-    for (const instruction of [projectRouter, skill, generated]) {
+    for (const instruction of [projectRouter, skill]) {
       for (const fragment of [
         "option-space ledger",
         "do you agree",
@@ -93,6 +93,32 @@ describe("treatment option-space prompt matrix", () => {
       ]) {
         expect(instruction, fragment).toContain(fragment);
       }
+    }
+
+    for (const fragment of [
+      "option-space ledger",
+      "the named approach",
+      "diagnosis alternatives",
+      "nonaction/natural history",
+      "conventional nonsurgical",
+      "lifestyle/rehab/mechanical",
+      "relevant heterodox/adjunct",
+      "procedural/surgical",
+      "across plausible classes",
+      "A request to omit alternatives limits execution, not applicability",
+      "educational evidence comparison",
+      "never a recommendation or ranking for a person",
+    ]) {
+      expect(generated, fragment).toContain(fragment);
+    }
+    for (const fragment of [
+      "do you agree",
+      "named or prescribed treatment",
+      "proposed care",
+      "no-verdict gate",
+      "No verdict",
+    ]) {
+      expect(generated, fragment).not.toContain(fragment);
     }
   });
 

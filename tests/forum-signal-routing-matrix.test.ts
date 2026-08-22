@@ -96,13 +96,13 @@ describe("Forum Signal routing prompt matrix", () => {
     ]));
   });
 
-  it("links the matrix boundary to both routing instruction surfaces", async () => {
+  it("preserves internal routing while the public surface stays educational-only", async () => {
     const [projectRouter, skill, generated] = await Promise.all([
       readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
       readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
-    for (const instruction of [projectRouter, skill, generated]) {
+    for (const instruction of [projectRouter, skill]) {
       for (const fragment of [
         "personal or practical treatment decision",
         "good idea for me",
@@ -117,6 +117,30 @@ describe("Forum Signal routing prompt matrix", () => {
       ]) {
         expect(instruction, fragment).toContain(fragment);
       }
+    }
+
+    for (const fragment of [
+      "For general population-level health research, require Forum Signal",
+      "treatment alternatives",
+      "avoiding joint replacement or other surgery",
+      "A request to exclude forums limits execution, not applicability",
+      "simple definition or terminology",
+      "pure chemistry or mechanism with no real-world outcome or safety claim",
+      "emergency triage before stabilization",
+      "no meaningful user-experience corpus",
+      "If uncertain, require it",
+      "never a recommendation or ranking for a person",
+    ]) {
+      expect(generated, fragment).toContain(fragment);
+    }
+    for (const fragment of [
+      "personal or practical treatment decision",
+      "good idea for me",
+      "now versus wait or delay",
+      "even if alternatives are unstated",
+      "`do you agree`",
+    ]) {
+      expect(generated, fragment).not.toContain(fragment);
     }
   });
 

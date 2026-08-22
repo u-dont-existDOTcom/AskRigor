@@ -38,9 +38,11 @@ const completeInput = (): TreatmentLandscapeCoverageInput => {
       fingerprintId: `fp-${id}`,
       batchId: `batch-${id}`,
       channelId: `UC-${classIndex}-${candidateIndex}`,
-      selected: candidateIndex === 0
+      selected: candidateIndex === 0 || (classIndex < 2 && candidateIndex === 1)
     }))
   );
+  const sparkVideo = candidates[0]!;
+  const spark = sparkFrontier([sparkVideo.video_id]);
   return {
     research_target: "Compare materially different care approaches",
     broad_treatment_choice: true,
@@ -70,11 +72,23 @@ const completeInput = (): TreatmentLandscapeCoverageInput => {
     treatment_classes: treatmentClasses,
     program_fingerprints: fingerprints,
     candidate_videos: candidates,
-    external_scout_frontiers: [],
-    external_scout_candidates: [],
+    external_scout_frontiers: [spark],
+    external_scout_candidates: [{
+      frontier_digest: spark.frontier_digest,
+      source: "gemini_spark",
+      video_id: sparkVideo.video_id,
+      materiality: "material",
+      redundancy: "distinct",
+      screening_status: "screened",
+      fingerprint_id: sparkVideo.fingerprint_id,
+      omission_impact: "uncertain",
+      omission_rationale: "The validated Spark lead was screened into the ordinary ledger."
+    }],
     selected_videos: candidates
       .filter(({ selection_status }) => selection_status === "selected")
-      .map(({ video_id, fingerprint_id }) => selectedVideo(video_id, fingerprint_id)),
+      .map(({ video_id, fingerprint_id, channel_id }) =>
+        selectedVideo(video_id, fingerprint_id, channel_id)
+      ),
     further_expansion_likely_to_improve_answer: "no",
     directional_searches: {
       benefit: directionalComplete(),
@@ -120,18 +134,21 @@ describe("treatment-landscape coverage Action", () => {
       treatment_classes_discovered: 6,
       materially_distinct_program_fingerprints: 6,
       candidate_videos_screened: 24,
-      external_scout_candidates_screened: 0,
+      external_scout_candidates_screened: 1,
       external_scout_candidates_pending: [],
-      material_videos_selected: 6,
-      material_videos_fully_audited: 6,
-      independent_channels_or_pools: 6,
+      broad_structural_minimums_applied: true,
+      broad_structural_minimums_met: true,
+      material_videos_selected: 8,
+      material_videos_fully_audited: 8,
+      materially_distinct_programs_fully_audited: 6,
+      independent_channels_or_pools: 8,
       selection_coverage_lock: "pass",
       per_video_depth_lock: "pass",
       synthesis_lock: "pass",
       answer_boundary: "ledger_consistent_for_synthesis",
       blockers: []
     });
-    expect(result.planning_warnings.join(" ")).toContain("8-15");
+    expect(result.planning_warnings.join(" ")).not.toContain("8-15");
     expect(result.videos_actually_audited[0]).toMatchObject({
       canonical_url: "https://www.youtube.com/watch?v=v-strength-0",
       channel_id: "UC-0-0",
@@ -141,6 +158,86 @@ describe("treatment-landscape coverage Action", () => {
       discussion_access_status: "api_visible_complete",
       discussion_synthesis_lock: "pass"
     });
+  });
+
+  it("blocks a broad substantial audit when the required Spark frontier is absent", () => {
+    const input = completeInput();
+    input.external_scout_frontiers = [];
+    input.external_scout_candidates = [];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "validated Gemini Spark candidate frontier"
+    );
+  });
+
+  it("does not count a selected video toward the structural minimum until both audits finish", () => {
+    const input = completeInput();
+    const video = input.selected_videos[0]!;
+    video.transcript_receipt = {
+      ...video.transcript_receipt,
+      access_status: "partial",
+      pagination: {
+        ...video.transcript_receipt.pagination,
+        exhausted: false,
+        next_cursor_present: true
+      }
+    };
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.material_videos_selected).toBe(8);
+    expect(result.material_videos_fully_audited).toBe(7);
+    expect(result.broad_structural_minimums_applied).toBe(true);
+    expect(result.broad_structural_minimums_met).toBe(false);
+    expect(result.synthesis_lock).toBe("block");
+  });
+
+  it("blocks four audited videos even when they span four distinct programs", () => {
+    const input = completeInput();
+    const selectedIds = new Set(classSpecs.slice(0, 4).map(([id]) => `v-${id}-0`));
+    input.candidate_videos = input.candidate_videos.map((candidate) => ({
+      ...candidate,
+      selection_status: selectedIds.has(candidate.video_id)
+        ? "selected" as const
+        : "screened_not_selected" as const
+    }));
+    input.selected_videos = input.selected_videos.filter(({ video_id }) =>
+      selectedIds.has(video_id)
+    );
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.material_videos_fully_audited).toBe(4);
+    expect(result.materially_distinct_program_fingerprints).toBe(6);
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.broad_structural_minimums_applied).toBe(true);
+    expect(result.broad_structural_minimums_met).toBe(false);
+  });
+
+  it("blocks six audited videos when eight material candidates are available", () => {
+    const input = completeInput();
+    const selectedIds = new Set(classSpecs.map(([id]) => `v-${id}-0`));
+    input.candidate_videos = input.candidate_videos.map((candidate) => ({
+      ...candidate,
+      selection_status: selectedIds.has(candidate.video_id)
+        ? "selected" as const
+        : "screened_not_selected" as const
+    }));
+    input.selected_videos = input.selected_videos.filter(({ video_id }) =>
+      selectedIds.has(video_id)
+    );
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.material_videos_fully_audited).toBe(6);
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.broad_structural_minimums_met).toBe(false);
+    expect(result.selection_blockers.join(" ")).toContain(
+      "selecting at least eight material videos for full audit"
+    );
   });
 
   it("blocks every condition when an umbrella class has not completed specific-program discovery", () => {
@@ -809,8 +906,8 @@ describe("treatment-landscape coverage Action", () => {
 
     expect(result.invalid_record_ids.candidate_videos).toContain("v-strength-0");
     expect(result.candidate_videos_screened).toBe(20);
-    expect(result.material_videos_selected).toBe(5);
-    expect(result.independent_channels_or_pools).toBe(5);
+    expect(result.material_videos_selected).toBe(6);
+    expect(result.independent_channels_or_pools).toBe(6);
     expect(result.selection_coverage_lock).toBe("block");
   });
 
@@ -919,8 +1016,8 @@ function candidateVideo(input: {
   };
 }
 
-function selectedVideo(videoId: string, fingerprintId: string) {
-  const channel = channelForVideo(videoId);
+function selectedVideo(videoId: string, fingerprintId: string, channelId?: string) {
+  const channel = channelId ?? channelForVideo(videoId);
   return {
     video_id: videoId,
     fingerprint_id: fingerprintId,

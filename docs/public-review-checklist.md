@@ -1,5 +1,34 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-22 executable acceptance-gate repair candidate
+
+The latest fresh GPT result proved that the prior release checks were insufficient:
+four videos were presented as broad coverage, Spark was not actually used, two
+deployed Actions were reported unavailable because the editor schema was stale,
+one audited-video title/link disappeared, and internal retrieval jargon reached
+ordinary prose. This is an instruction, installation, and product-acceptance
+failure; it is not repaired by another prose reminder.
+
+The runtime and Custom GPT bundle are not yet deployed or installed. Its generated
+Instructions are 7,783 characters (7,815 UTF-8 bytes), SHA-256
+1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08;
+the synchronization ledger SHA-256 is
+62f8e554ebb2f6ea855ccd16467da20470d085b2cf4069c502b254b340ba92da;
+and the candidate Action OpenAPI SHA-256 is
+6f51ef2435549b42efbfa7a4fde3c2d5f4a121f7bfd3374240ed826d11b6e58a.
+The personal Codex plugin was independently reinstalled as
+`0.1.0+codex.20260822101226`; its source and installed skill SHA-256 both equal
+`92318182cee19bac5ffa803613be63be9fa720cd5736d7805235254ff047652c`.
+The synchronized installation bundle now covers Instructions, Action schema,
+and Spark skill as one release. Broad substantial synthesis hard-blocks below
+eight fully audited videos spanning six materially different programs when that
+valid supply exists, and also blocks without a reconciled Spark frontier. A
+local product validator rejects stale tools, missing required calls, missing
+linked titles, insufficient diversity, and ordinary-output jargon. Repository
+verification cannot complete the UI gate; a fresh synthetic replay must pass
+after deployment and installation.
+
+
 This packet is prepared for a future public-directory submission. It is not
 permission to submit or publish. The machine-readable portal handoff is
 `docs/public-submission-packet-v0.1.0.json`; its unverified external gates remain
@@ -29,13 +58,17 @@ receipt applies to the prior 7,962-character artifact, SHA-256
 Fresh GPT-UI acceptance is still required before public submission;
 installation alone is not proof of the repaired behavior.
 
-The current generic candidate-quality source candidate has 7,946-character
-Instructions (7,974 UTF-8 bytes), SHA-256
-`019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`.
-It is neither deployed nor installed. Its source-only 21-operation Action
-schema adds Spark candidate validation and strengthens the treatment-landscape
-lock so generic umbrella labels cannot substitute for specific-program search.
-It requires separate runtime, editor, and fresh GPT-interface acceptance.
+The owner installed the generic candidate-quality Instructions, but public
+review rejected that 7,946-character artifact as potentially providing tailored
+medical or health advice. The repaired public educational-scope Instructions
+are 7,892 characters (7,920 UTF-8 bytes), SHA-256
+`2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`.
+They place the non-personal boundary first and remove phrases inviting personal
+treatment verdicts while preserving general population research and the
+generic treatment-landscape/Spark workflow. The runtime and 21-operation Action
+schema are deployed, and the plugin is unchanged and already current. The
+repaired Instructions are not yet installed and still require fresh public-
+directory review.
 
 ## Optional lesson Action deployment truth
 
@@ -114,7 +147,7 @@ preoperative PT videos, collapsed PT/exercise variants, and falsely labeled the
 answer HRP-complete. Those are retained as historical observations, not a
 topic-specific production checklist.
 
-The current source candidate preserves transcript verification, adds
+The current deployed runtime preserves transcript verification, adds
 independently validated Spark candidates as an optional high-recall discovery
 frontier, and retains a separate treatment-landscape selection gate. It
 inventories materially distinct programs before deep auditing, requires every
@@ -126,10 +159,10 @@ Missing caption access remains a confidence-limiting gap. The Action-only
 `get_youtube_transcript`, `assess_treatment_landscape_coverage`, and
 `validate_gemini_youtube_candidate_handoff` produce a 20-read schema plus the
 lesson write while preserving the exact 17-tool MCP.
-The generated hashes are recorded by `docs/custom-gpt-sync.json`. Runtime,
-privacy notice, Action schema, editor Instructions, and fresh GPT behavior must
-be reviewed as separate deployment/installation states rather than inferred
-from source completion.
+The generated hashes are recorded by `docs/custom-gpt-sync.json`. Runtime and
+Action-schema acceptance passed on 2026-08-22; privacy notice, editor
+Instructions, and fresh GPT behavior remain separate states rather than being
+inferred from that deployment.
 
 ## Source-generated MCP tools/list inventory
 

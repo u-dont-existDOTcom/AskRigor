@@ -12,6 +12,10 @@ type Control =
   | "program_unspecified"
   | "no_classwide_inference"
   | "program_diverse_discovery"
+  | "required_spark_frontier"
+  | "installed_action_preflight"
+  | "availability_conditioned_minimum"
+  | "linked_audited_titles"
   | "plain_language_statuses"
   | "machine_audit_opt_in";
 
@@ -40,8 +44,8 @@ describe("Custom GPT partial-answer regressions", () => {
 
     expect(fixture.schema_version).toBe(1);
     expect(fixture.purpose).toContain("does not contain private research output");
-    expect(fixture.cases).toHaveLength(4);
-    expect(new Set(fixture.cases.map(({ id }) => id)).size).toBe(4);
+    expect(fixture.cases).toHaveLength(5);
+    expect(new Set(fixture.cases.map(({ id }) => id)).size).toBe(5);
     expect(fixture.cases.find(({ id }) => id === "held-out-umbrella-intervention")?.prompt)
       .toContain("shoulder");
     expect(JSON.stringify(fixture)).not.toContain("api_visible_complete");
@@ -72,7 +76,7 @@ describe("Custom GPT partial-answer regressions", () => {
     for (const surface of [project, forum, skill, generated]) {
       expect(surface).toContain("program not described");
     }
-    expect(project).toContain("Fingerprint each program");
+    expect(project).toContain("Fingerprint components");
     expect(forum).toContain("cannot support a class-wide benefit, failure, comparison, or ranking");
     expect(forum).toContain("materially distinct program hypotheses");
 
@@ -117,6 +121,22 @@ describe("Custom GPT partial-answer regressions", () => {
     expect(forum.slice(internalStart)).toContain("forum_signal_receipt:");
   });
 
+  it("turns the failed broad-treatment replay into explicit Custom GPT gates", async () => {
+    const generated = await readFile(
+      rootFile("docs/custom-gpt-instructions.md"), "utf8"
+    );
+
+    for (const required of [
+      "require supplied `gemini_youtube_candidate_handoff`",
+      "Action setup is out of date and stop",
+      "hard-block synthesis below 8 fully audited videos/6 audited programs",
+      "A missing title/link is a render failure",
+      "Ordinary answers omit API-visible"
+    ]) {
+      expect(generated).toContain(required);
+    }
+  });
+
   it("maps every declared control to at least one case", async () => {
     const fixture = await loadFixture();
     const observed = new Set(fixture.cases.flatMap(({ required_controls }) => required_controls));
@@ -128,6 +148,10 @@ describe("Custom GPT partial-answer regressions", () => {
       "program_unspecified",
       "no_classwide_inference",
       "program_diverse_discovery",
+      "required_spark_frontier",
+      "installed_action_preflight",
+      "availability_conditioned_minimum",
+      "linked_audited_titles",
       "plain_language_statuses",
       "machine_audit_opt_in",
     ]);

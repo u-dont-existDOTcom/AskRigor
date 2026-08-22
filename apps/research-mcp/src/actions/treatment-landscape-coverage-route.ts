@@ -322,8 +322,11 @@ export const treatmentLandscapeCoverageOutputSchema = z.object({
   candidate_videos_screened: z.number().int().nonnegative(),
   external_scout_candidates_screened: z.number().int().nonnegative(),
   external_scout_candidates_pending: z.array(youtubeVideoId),
+  broad_structural_minimums_applied: z.boolean(),
+  broad_structural_minimums_met: z.boolean(),
   material_videos_selected: z.number().int().nonnegative(),
   material_videos_fully_audited: z.number().int().nonnegative(),
+  materially_distinct_programs_fully_audited: z.number().int().nonnegative(),
   independent_channels_or_pools: z.number().int().nonnegative(),
   treatment_classes_with_no_selected_video: z.array(shortId),
   treatment_classes_with_no_formal_evidence_follow_up: z.array(shortId),
@@ -863,6 +866,7 @@ export function assessTreatmentLandscapeCoverage(
   const selectedClasses = new Set<string>();
   const selectedFingerprintIds = new Set<string>();
   const selectedSignatureCounts = new Map<string, number>();
+  const fullyAuditedSignatures = new Set<string>();
   const videosActuallyAudited: z.output<typeof auditedVideoSchema>[] = [];
   let fullyAuditedVideos = 0;
   for (const video of selectedById.values()) {
@@ -907,7 +911,10 @@ export function assessTreatmentLandscapeCoverage(
       video.video_id, video.discussion_receipt, boundaryById, usedBoundaryIds,
       depthBlockers, depthBoundaryBlockers
     );
-    if (transcriptComplete && discussionComplete) fullyAuditedVideos += 1;
+    if (transcriptComplete && discussionComplete) {
+      fullyAuditedVideos += 1;
+      fullyAuditedSignatures.add(signature);
+    }
     videosActuallyAudited.push({
       video_id: video.video_id,
       canonical_url: `https://www.youtube.com/watch?v=${video.video_id}`,
@@ -1252,6 +1259,25 @@ export function assessTreatmentLandscapeCoverage(
   const ledgerShowsSubstantialCorpus = candidateById.size >= 20;
   const effectiveSubstantialCorpus =
     input.substantial_youtube_corpus === "yes" || ledgerShowsSubstantialCorpus;
+  const geminiSparkFrontiers = [...validFrontierByDigest.values()].filter(
+    ({ source }) => source === "gemini_spark"
+  );
+  const validatedGeminiSparkCandidates = unique(geminiSparkFrontiers.flatMap(
+    ({ validated_candidate_video_ids }) => validated_candidate_video_ids
+  ));
+  const availableMaterialCandidateCount = [...candidateById.values()].filter((candidate) => {
+    const treatmentClass = classById.get(candidate.treatment_class_id);
+    const fingerprint = fingerprintById.get(candidate.fingerprint_id);
+    return candidate.materiality !== "not_material" &&
+      treatmentClass !== undefined && treatmentClass.materiality !== "not_material" &&
+      fingerprint !== undefined && fingerprint.materiality !== "not_material" &&
+      fingerprint.availability_status === "available";
+  }).length;
+  const broadStructuralMinimumsApplied = effectiveBroadTreatmentChoice &&
+    effectiveSubstantialCorpus && availableMaterialCandidateCount >= 8 &&
+    validMaterialSignatures.size >= 6;
+  const broadStructuralMinimumsMet = !broadStructuralMinimumsApplied ||
+    (fullyAuditedVideos >= 8 && fullyAuditedSignatures.size >= 6);
   if (
     effectiveBroadTreatmentChoice &&
     input.substantial_youtube_corpus === "no" &&
@@ -1267,6 +1293,33 @@ export function assessTreatmentLandscapeCoverage(
   ) {
     selectionBlockers.push(
       "Two or three videos cannot establish broad treatment-space coverage in a substantial corpus."
+    );
+  }
+  if (effectiveBroadTreatmentChoice && effectiveSubstantialCorpus) {
+    if (geminiSparkFrontiers.length === 0) {
+      selectionBlockers.push(
+        "Broad treatment-space completion requires a validated Gemini Spark candidate frontier; native generic discovery cannot silently substitute for the configured high-recall scout."
+      );
+    } else if (validatedGeminiSparkCandidates.length === 0) {
+      selectionBlockers.push(
+        "The Gemini Spark frontier contains no identity-validated candidate, so broad treatment-space completion remains open."
+      );
+    }
+  }
+  if (
+    broadStructuralMinimumsApplied &&
+    videosActuallyAudited.length < 8
+  ) {
+    selectionBlockers.push(
+      "Broad completion requires selecting at least eight material videos for full audit when the valid ledger contains that many candidates across six distinct programs."
+    );
+  }
+  if (
+    broadStructuralMinimumsApplied &&
+    selectedSignatureCounts.size < 6
+  ) {
+    selectionBlockers.push(
+      "The valid ledger contains at least six available distinct programs; broad completion requires selecting at least six of them for full audit."
     );
   }
   if (
@@ -1302,11 +1355,8 @@ export function assessTreatmentLandscapeCoverage(
     if (validMaterialSignatures.size < 8) planningWarnings.push(
       "Planning heuristic: seek about 8 materially distinct program hypotheses when the corpus supports them."
     );
-    if (videosActuallyAudited.length < 8 || videosActuallyAudited.length > 15) planningWarnings.push(
-      "Planning heuristic: a broad deep audit ordinarily spans about 8-15 material videos, without turning the count into a quota."
-    );
-    if (selectedSignatureCounts.size < 6) planningWarnings.push(
-      "Planning heuristic: a broad deep audit ordinarily spans at least 6 materially distinct programs when available."
+    if (videosActuallyAudited.length > 15) planningWarnings.push(
+      "Planning heuristic: a broad deep audit ordinarily stays within about 8-15 material videos after minimum coverage is met."
     );
   }
 
@@ -1346,8 +1396,11 @@ export function assessTreatmentLandscapeCoverage(
     candidate_videos_screened: candidateById.size,
     external_scout_candidates_screened: screenedExternalScoutCandidates,
     external_scout_candidates_pending: unique(pendingExternalScoutCandidates),
+    broad_structural_minimums_applied: broadStructuralMinimumsApplied,
+    broad_structural_minimums_met: broadStructuralMinimumsMet,
     material_videos_selected: videosActuallyAudited.length,
     material_videos_fully_audited: fullyAuditedVideos,
+    materially_distinct_programs_fully_audited: fullyAuditedSignatures.size,
     independent_channels_or_pools: independentChannelIds.size,
     treatment_classes_with_no_selected_video: materialClasses
       .filter(({ class_id }) => !selectedClasses.has(class_id))

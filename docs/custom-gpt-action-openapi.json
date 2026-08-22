@@ -10216,12 +10216,23 @@
                         "pattern": "^[A-Za-z0-9_-]+$"
                       }
                     },
+                    "broad_structural_minimums_applied": {
+                      "type": "boolean"
+                    },
+                    "broad_structural_minimums_met": {
+                      "type": "boolean"
+                    },
                     "material_videos_selected": {
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
                     },
                     "material_videos_fully_audited": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "materially_distinct_programs_fully_audited": {
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
@@ -10734,8 +10745,11 @@
                     "candidate_videos_screened",
                     "external_scout_candidates_screened",
                     "external_scout_candidates_pending",
+                    "broad_structural_minimums_applied",
+                    "broad_structural_minimums_met",
                     "material_videos_selected",
                     "material_videos_fully_audited",
+                    "materially_distinct_programs_fully_audited",
                     "independent_channels_or_pools",
                     "treatment_classes_with_no_selected_video",
                     "treatment_classes_with_no_formal_evidence_follow_up",

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.20" revisionDate="2026-08-22" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.21" revisionDate="2026-08-22" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -482,6 +482,18 @@
    matching the implementation terms; outcome, stage, horizon, or other discriminator fields cannot substitute. Non-identity
    provider, configuration, access, missing-field, or response failures remain unresolved even when not immediately retryable;
    only literal not-found/not-visible outcomes or verified identity mismatches terminally reject a scout lead.
+  </Revision>
+  <Revision version="20.5.21" priority="Critical">
+   Converted the broad-video diversity floor from prose guidance into an availability-conditioned synthesis block. When a
+   valid broad, substantial ledger contains at least eight material candidate videos across at least six materially distinct
+   programs, final synthesis requires at least eight fully audited material videos spanning at least six such programs;
+   counts and renamed programs cannot substitute for those conditions. A configured external high-recall scout is likewise
+   a required discovery lane rather than an optional decoration: its absence or an unreconciled frontier blocks completion.
+
+   Added user-facing render controls that prohibit internal retrieval codes, lock names, sampling implementation terms, and
+   protocol-compliance preambles in ordinary answers. Every audited-video entry must retain its linked title. Added
+   regressions for four superficially diverse videos presented as broad coverage, omitted configured scouting, and a
+   technically complete internal record rendered as jargon-heavy or structurally broken public prose.
   </Revision>
 </RevisionHistory>
 
@@ -1037,8 +1049,10 @@
    multiple independent channels or discussion pools when such candidates exist. Establish channel or pool independence
    from stable source identifiers linked to retrieval receipts, not free-text channel names. Unknown independence affects
    the selection lock. Derive whether structural breadth rules apply from the valid candidate and selection ledger; a
-   caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate them. These ranges are
-   planning heuristics, not evidence quotas or automatic pass/fail thresholds.
+   caller-supplied claim that the corpus is small, narrow, or non-substantial cannot deactivate them. Screening ranges remain
+   planning heuristics. But when the valid ledger contains at least eight material candidate videos across at least six
+   materially distinct available programs, eight fully audited material videos spanning at least six such programs are an
+   availability-conditioned minimum for broad synthesis, not an optional target.
   </Rule>
 
   <Rule name="DiversityBeforeConcentration" priority="Critical">
@@ -1090,7 +1104,8 @@
    boundaries; selection_coverage_lock; per_video_depth_lock; and overall treatment_landscape_synthesis_lock. The two
    component locks are independent, and the overall lock passes only when both pass.
 
-   selection_coverage_lock is block when a materially plausible class remains unsearched; a material umbrella class remains
+   selection_coverage_lock is block when a configured external high-recall scout is absent or its supplied frontier remains
+   unreconciled; a materially plausible class remains unsearched; a material umbrella class remains
    represented only by generic candidates despite discoverable specific implementations; a validated, potentially material,
    nonredundant external-scout candidate remains unscreened; a searched material class has
    discoverable candidates but no selected video; a materially distinct available fingerprint remains unselected; any batch
@@ -1102,7 +1117,9 @@
    omissions. A not-decision-relevant label produces only a warning when nonrelevance follows from the structured record,
    such as a nonmaterial item or the same normalized program already selected; caller assertion alone cannot waive a material
    class, distinct program, formal return pass, or executable retrieval. A
-   caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
+   When a broad substantial valid ledger contains at least eight material candidate videos across at least six available
+   distinct programs, selection_coverage_lock also blocks unless at least eight material videos across at least six such
+   programs have completed both selected-video depth requirements. A caller's optimistic aggregate, corpus-size or scope label, renamed ID, or unsupported relevance label cannot turn
    discoverable material into coverage or disable a structural check.
 
    per_video_depth_lock is block when any selected transcript track is not exhausted and content-verified or any selected
@@ -1121,8 +1138,8 @@
    boundary after attempted recovery can authorize bounded output. An asserted or mismatched boundary fails closed. Do not
    emit a final treatment ranking or broad decision synthesis while treatment_landscape_synthesis_lock is block. Keep the
    Action request and response under their declared transport limits using strict input bounds, compact selected-video output,
-   and causal worst-case transport tests. Planning heuristics alone create warnings; the explicit decision-relevant omissions
-   above create blockers.
+   and causal worst-case transport tests. Screening heuristics alone create warnings; the availability-conditioned audit
+   minimum and the explicit decision-relevant omissions above create blockers.
   </Rule>
  </TreatmentLandscapeAndVideoSelectionGate>
 
@@ -7117,6 +7134,42 @@ Final integrated synthesis rule:
    </ExpectedBehavior>
   </Case>
 
+  <Case id="FourDistinctVideosPresentedAsBroadCoverage">
+   <Prompt>
+    A broad treatment review screens forty candidates and fully audits four videos from four different programs. The valid
+    ledger still contains at least eight material candidates across at least six materially distinct programs, but the review
+    calls the remaining audit range a planning heuristic and publishes a final comparison.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail the treatment-landscape synthesis lock. Once the valid availability condition is met, at least eight fully audited
+    material videos spanning at least six materially distinct programs are a completion minimum. Continue selecting for
+    nonredundant decision value; do not repair the failure with redundant videos or generic umbrella labels.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="ConfiguredExternalScoutSilentlySkipped">
+   <Prompt>
+    The project configures an external high-recall candidate scout for broad treatment discovery. The review never obtains or
+    validates its candidate frontier, substitutes native generic search results, and claims broad coverage.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage. A configured discovery lane is required work, not optional decoration. Obtain and reconcile the
+    frontier, or report the exact terminal capability boundary and withhold broad ranking; never claim the scout ran merely
+    because a validator or skill exists.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="InternalAuditJargonLeaksIntoOrdinaryAnswer">
+   <Prompt>
+    A technically complete internal audit is rendered for a general reader using raw access codes, lock names, sampling
+    implementation terms, and an audited-video entry whose title and link are missing.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail the public render check. Translate internal states into ordinary language, omit protocol-compliance preambles and
+    implementation jargon, and require every audited-video entry to contain its linked title before returning the answer.
+   </ExpectedBehavior>
+  </Case>
+
   <Case id="GenericUmbrellaCandidatesHideSpecificPrograms">
    <Prompt>
     A review selects several videos labeled exercise, physical therapy, diet, and conservative care. Search results and an
@@ -7723,5 +7776,8 @@ Final integrated synthesis rule:
  <Check id="FS185">Did I derive structural breadth applicability from the valid ledger instead of allowing caller corpus-size or scope labels to waive it?</Check>
  <Check id="FS186">Did I decompose every material umbrella treatment class into specific implementation searches and preserve the reciprocal executed-query, non-generic-term, exact per-search candidate IDs, matching described fingerprints, pagination, and exhaustion or boundary receipts?</Check>
  <Check id="FS187">For every external-scout frontier, did I reconcile its digest and complete candidate partition, leave all non-identity validation gaps unresolved regardless of immediate retryability, screen every validated lead regardless of caller labels, preserve discovery value, and prevent unverified summaries from becoming evidence?</Check>
+ <Check id="FS188">When the valid broad substantial ledger contained at least eight material candidates across at least six distinct available programs, did I require at least eight fully audited material videos spanning at least six such programs before synthesis?</Check>
+ <Check id="FS189">When the project configured an external high-recall scout, did I obtain and reconcile its candidate frontier or withhold broad completion under an explicit boundary instead of silently substituting native generic results?</Check>
+ <Check id="FS190">Did the ordinary answer omit internal retrieval codes, lock names, sampling implementation terms, and protocol-compliance preambles while preserving a linked title for every audited-video entry?</Check>
 </FinalSelfCheck>
 </Protocol>

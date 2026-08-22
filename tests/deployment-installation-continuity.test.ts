@@ -63,7 +63,7 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
       "superpowers/plans/2026-08-22-treatment-landscape-deployment-installation.md",
     );
     for (const required of [
-      "d4f2af0f86844c743b3b5fbc6c70f66c72a4637d",
+      "6d8ae92943fb2ae875b055221d85b146713e2aed",
       "secret-free Git archive",
       "concrete rollback points",
       "recreate only the research service",
@@ -75,6 +75,36 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
     ]) {
       expect(normalizedPlan).toContain(required);
     }
+  });
+
+  it("records deployed runtime and plugin currency without inventing editor acceptance", async () => {
+    const [state, acceptance, release, checklist] = await Promise.all([
+      readFile(rootFile("project/CODEX-CURRENT-STATE.md"), "utf8"),
+      readFile(rootFile("docs/custom-gpt-action-live-acceptance.md"), "utf8"),
+      readFile(rootFile("docs/release-evidence-v0.1.0.md"), "utf8"),
+      readFile(rootFile("docs/public-review-checklist.md"), "utf8"),
+    ]);
+    const documents = [state, acceptance, release];
+    for (const document of documents) {
+      expect(document).toContain("6d8ae92943fb2ae875b055221d85b146713e2aed");
+      expect(document).toContain(
+        "a0e98726a32b81d8e0de4c0171f06c2460f2fe2303bc03d0942c70306d98f17a",
+      );
+      expect(document).toContain(
+        "a61a8ba9e1d4675a29e09a5010ab33b1119c388b7cf166669400cac554bbe535",
+      );
+      expect(document).toContain("21");
+      expect(document).toContain("17");
+    }
+    for (const document of [state, release]) {
+      expect(document).toContain("0.1.0+codex.20260822072920");
+      expect(document).toContain(
+        "d196d783895e3ed093e33f6779b91ae9bb4bdafb3550de327c5f91a9643876c6",
+      );
+    }
+    expect(checklist).toMatch(/runtime and 21-operation Action\s+schema are deployed/u);
+    expect(checklist).toMatch(/repaired Instructions are not yet installed/u);
+    expect(acceptance).toMatch(/does not establish installation or review/u);
   });
 
   it("produces a byte-derived plugin package receipt and fails closed on drift", async () => {

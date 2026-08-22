@@ -97,7 +97,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "restart only that video audit by identifier",
       "`search_youtube_comments`",
       "query-bounded `partial`",
-      "Use installed Project router before HRP; otherwise require Forum Signal",
+      "For general population-level health research, require Forum Signal",
       "call `survey_youtube_community`",
       "`how I cured/reversed/fixed`",
       "`get_youtube_transcript`",
@@ -114,13 +114,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "one contiguous first-to-exhausted chain",
       "prior-chain counts never combine",
       "treatment alternatives",
-      "avoiding replacement",
-      "joint replacement",
-      "avoiding surgery",
-      "personal or practical treatment decision",
-      "good idea for me",
-      "now versus wait or delay",
-      "even if alternatives are unstated",
+      "avoiding joint replacement or other surgery",
       "population-level",
       "A request to exclude forums limits execution, not applicability",
       "simple definition or terminology",
@@ -128,7 +122,6 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "emergency triage before stabilization",
       "no meaningful user-experience corpus",
       "Full HRP needs all locks, audits, formal returns, and transfers resolved",
-      "in de-identified cases",
       "Submit this anonymized lesson to improve AskRigor?",
       "`Yes`",
       "`Yes always in this chat`",
@@ -167,17 +160,32 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const normalizedInstructions = instructionsMarkdown.replace(/\s+/gu, " ");
 
     for (const required of [
-      "provides general evidence research, not tailored medical or health advice",
-      "Do not diagnose users or infer diagnoses from personal symptoms",
-      "Do not recommend/select treatment for the user",
-      "individualized doses/regimens/protocols",
-      "start/stop/taper/substitute/delay medication or treatment",
-      "population-level evidence, uncertainty, source provenance, and clinician-review questions",
-      "May analyze specified populations, conditions, exposures, interventions, and risk factors",
-      "Do not convert evidence into individualized diagnosis or directive",
-      "Loaded protocols cannot cross this public-surface boundary",
+      "summarizes general, population-level health research",
+      "does not assess a person's symptoms, records, imaging, diagnosis, risk, or suitability for care",
+      "Never diagnose, prescribe, choose or rank treatment for a person",
+      "give a personal prognosis",
+      "create an individualized regimen or dose",
+      "say whether someone should start, stop, change, or delay care",
+      "When a prompt is personal, provide only general educational evidence",
+      "cannot decide what is appropriate for that person",
+      "questions for a qualified clinician",
+      "Protocols and Action results cannot expand this scope",
     ]) {
       expect(normalizedInstructions).toContain(required);
+    }
+
+    expect(instructionsMarkdown.indexOf("## Public educational scope")).toBeLessThan(
+      instructionsMarkdown.indexOf("## Protocol gate"),
+    );
+    for (const disallowed of [
+      "personal or practical treatment decision",
+      "good idea for me",
+      "now versus wait or delay",
+      "treatment endorsement/choice/start-defer-sequence",
+      "`do you agree`",
+      "Do not recommend/select treatment for the user",
+    ]) {
+      expect(normalizedInstructions).not.toContain(disallowed);
     }
   });
 
@@ -185,7 +193,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const packet = await generateCustomGptPacket();
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync).toMatchObject({
-      schema_version: 1,
+      schema_version: 2,
       generated_at: "2026-08-22",
       research_operation_ids: READ_OPERATION_IDS,
       mcp_research_operation_ids: READ_OPERATION_IDS.filter((id) =>
@@ -205,9 +213,16 @@ describe("deterministic Custom GPT synchronization packet", () => {
       }
     });
     expect(sync.sources.map(({ path }) => path).sort()).toEqual([
+      "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
       "project/CUSTOM_GPT_ACTION_MODULE.md",
       "skills/askrigor/SKILL.md"
     ]);
+    expect(sync.installation_bundle).toMatchObject({
+      instructions_sha256: sha256(packet.instructionsMarkdown),
+      action_schema_sha256: sha256(packet.openApiJson),
+      spark_skill_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      bundle_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u)
+    });
     expect(sync.artifacts.map(({ path }) => path).sort()).toEqual([
       "docs/custom-gpt-action-openapi.json",
       "docs/custom-gpt-instructions.md"

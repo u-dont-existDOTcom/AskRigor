@@ -1,7 +1,36 @@
 
 # AskRigor v0.1.0 release evidence
 
-Release disposition at 2026-08-21: **PUBLIC SUBMISSION BLOCKED**. Developer
+## 2026-08-22 executable acceptance-gate repair candidate
+
+The latest fresh GPT result proved that the prior release checks were insufficient:
+four videos were presented as broad coverage, Spark was not actually used, two
+deployed Actions were reported unavailable because the editor schema was stale,
+one audited-video title/link disappeared, and internal retrieval jargon reached
+ordinary prose. This is an instruction, installation, and product-acceptance
+failure; it is not repaired by another prose reminder.
+
+The runtime and Custom GPT bundle are not yet deployed or installed. Its generated
+Instructions are 7,783 characters (7,815 UTF-8 bytes), SHA-256
+1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08;
+the synchronization ledger SHA-256 is
+62f8e554ebb2f6ea855ccd16467da20470d085b2cf4069c502b254b340ba92da;
+and the candidate Action OpenAPI SHA-256 is
+6f51ef2435549b42efbfa7a4fde3c2d5f4a121f7bfd3374240ed826d11b6e58a.
+The personal Codex plugin was independently reinstalled as
+`0.1.0+codex.20260822101226`; its source and installed skill SHA-256 both equal
+`92318182cee19bac5ffa803613be63be9fa720cd5736d7805235254ff047652c`.
+The synchronized installation bundle now covers Instructions, Action schema,
+and Spark skill as one release. Broad substantial synthesis hard-blocks below
+eight fully audited videos spanning six materially different programs when that
+valid supply exists, and also blocks without a reconciled Spark frontier. A
+local product validator rejects stale tools, missing required calls, missing
+linked titles, insufficient diversity, and ordinary-output jargon. Repository
+verification cannot complete the UI gate; a fresh synthetic replay must pass
+after deployment and installation.
+
+
+Release disposition at 2026-08-22: **PUBLIC SUBMISSION BLOCKED**. Developer
 Mode connector retrieval is ready based on the recorded production Inspector and
 ChatGPT evidence below, and the public website/support/privacy/terms URL gate is
 now resolved. The fresh post-deployment ChatGPT interface check did not reproduce
@@ -12,12 +41,14 @@ installed, but successive product retests exposed deeper discovery/weighting
 and creator-content verification gaps. PRs #40 and #41 now address those gaps
 universally with transcript-verified claim selection rather than a
 topic-specific required-answer list, and the exact PR #41 merge is deployed and
-directly accepted. The owner reports that the preceding 7,962-character editor
-packet (SHA-256
-`4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`) is
-installed; neither the subsequent 7,978-character citation-display candidate
-nor the current 7,946-character generic candidate-quality Instructions are
-installed.
+directly accepted. The owner installed the 7,946-character generic candidate-
+quality Instructions (SHA-256
+`019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`), but
+public-directory review rejected that content as potentially providing tailored
+medical or health advice. The successor 7,892-character public-educational-
+scope Instructions are not yet installed. The current runtime and plugin
+package are nevertheless deployed and independently verified as described
+below.
 Public submission cannot proceed until the current candidate passes fresh product-interface
 acceptance, the publisher-identity/domain path is resolved, Scan Tools and the
 demo recording pass, the opaque model-receipt release decision is explicit, and
@@ -26,12 +57,13 @@ separates the validated distributable package from the portal-only handoff in
 `docs/public-submission-packet-v0.1.0.json`; that file does not prove any hosted
 state.
 
-The current generic candidate-quality source candidate is not deployed or
-installed. Its generated Instructions are 7,946 characters (7,974 UTF-8
-bytes), SHA-256
-`019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`;
+The generic candidate-quality runtime is deployed from PR #54 merge
+`6d8ae92943fb2ae875b055221d85b146713e2aed`. Its first generated Instructions
+were installed but failed public-directory content review. The successor public-
+scope repair is 7,892 characters (7,920 UTF-8 bytes), SHA-256
+`2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`;
 the synchronization ledger is
-`0d184838299ca1a25cfd9498ab756622261670587d71795e4fb5cbcfd2a998c8`;
+`437b09f94eda9de6b6e0f8701e2db865b30a8ef86596d821ba067ad7e4783b62`;
 and its 21-operation Action OpenAPI is
 `280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540`.
 It restores Gemini Spark as an optional high-recall finder while keeping every
@@ -39,8 +71,79 @@ Spark summary provisional, independently validating public video identity, and
 blocking broad synthesis when a material umbrella class lacks specific-program
 search or a valid nonduplicate scout remains unscreened. The rule is generic;
 hip arthritis appears only in historical/regression evidence.
-These source hashes do not supersede the production and installed-artifact
-receipts below.
+The committed and live artifact receipts are recorded below.
+
+## Public educational-scope repair candidate — 2026-08-22
+
+- Public review of the installed 7,946-character packet failed with the stated
+  content reason `May provide tailored medical/health advice`. This is a
+  product-interface failure, not a runtime, Action, protocol, or plugin failure.
+- The repaired public build opens with an educational-only scope. It cannot
+  assess a person's symptoms, records, imaging, diagnosis, risk, suitability,
+  prognosis, regimen, or dose; choose or rank care for a person; or say whether
+  someone should start, stop, change, or delay care. Personal prompts receive
+  only general population evidence and clinician-review questions.
+- The public build no longer advertises `good idea for me`, `do you agree`, or
+  `now versus wait or delay` as handled decision requests. The internal project
+  router and canonical protocols remain generic and unchanged; only the public
+  Custom GPT projection is narrowed.
+- Exact repaired Instructions: 7,892 characters, 7,920 UTF-8 bytes, SHA-256
+  `2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`.
+  Exact synchronization ledger SHA-256:
+  `437b09f94eda9de6b6e0f8701e2db865b30a8ef86596d821ba067ad7e4783b62`.
+  Installation and a fresh public-directory review remain pending.
+- The complete deterministic gate passed 1,064 tests with five declared skips,
+  plus the production build. Public-site validation covered four pages and the
+  deployment suite passed 28/28. The OpenAPI and server runtime are unchanged,
+  so no production redeploy is required.
+- The repository, personal-plugin source, and installed plugin skill remain
+  byte-identical at SHA-256
+  `d5c5731b4142b5c93ea21283a0855cc118f7bed15ee53decd19eaedd5199c834`;
+  the installed plugin is already current.
+
+## Generic candidate-quality production and plugin acceptance — 2026-08-22
+
+- PR #54 passed deterministic verification, workflow policy, and CodeQL before
+  merge. Local release verification passed 1,063 tests with 5 skipped, the
+  production build, four public-site pages, and 28 deployment tests.
+- The secret-free merge archive had 401 members, 1,117,416 bytes, and SHA-256
+  `fd36810c147598a50dbfde4cb29a812822527fabbe9a9171296eb6a5409d4b01`.
+  Production runs image
+  `askrigor-research:6d8ae92943fb2ae875b055221d85b146713e2aed`, image ID
+  `sha256:a0e98726a32b81d8e0de4c0171f06c2460f2fe2303bc03d0942c70306d98f17a`,
+  in healthy container `b3adc7a5735f`. The runtime remains user `node`,
+  read-only, capability-free, and `no-new-privileges:true`; its accepted log
+  contained one startup line. Only `research-mcp` was recreated and Caddy kept
+  its prior start time.
+- Immediate rollback is `askrigor-research:rollback-6d8ae92-predeploy`, image
+  ID `sha256:d4892bb61d4c05cfdc59943a1b4b5ab2e648798646cd93c3bcd46f6b31c351df`,
+  plus `/opt/askrigor/compose.yaml.rollback-6d8ae92`, SHA-256
+  `7ea1680c3ac2bccd82f352d2b2776a6f63fd6a18ad095d861d543c0b803faba4`.
+  Current Compose SHA-256 is
+  `ca773eaa40593f0e510c8cba454051d80bebb2f080ef8a681c9488bbe7493a47`.
+- Public acceptance found 21 Action operations with live compact OpenAPI
+  SHA-256 `a61a8ba9e1d4675a29e09a5010ab33b1119c388b7cf166669400cac554bbe535`,
+  while standard MCP stayed at exactly 17 tools. HRP `20.5.20`, SHA-256
+  `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`,
+  and Universal `20.5.14`, SHA-256
+  `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`,
+  both verified true. The lesson route returned `401` without authorization and
+  malformed Spark input returned its declared `422`.
+- A bounded live Spark validator probe accepted three public video identities,
+  with no rejected or unresolved candidates and frontier SHA-256
+  `c560f06afac0f56e64722a249cab208249c1543ebc0bb3b473aeb71d384402fe`.
+  The receipt explicitly keeps summaries provisional and does not establish
+  creator content, efficacy, safety, causality, or selection.
+- The personal plugin was synchronized, validated, and reinstalled as
+  `0.1.0+codex.20260822072920`. Source and installed receipts match byte-for-byte
+  at package SHA-256
+  `d196d783895e3ed093e33f6779b91ae9bb4bdafb3550de327c5f91a9643876c6`;
+  the skill SHA-256 is
+  `d5c5731b4142b5c93ea21283a0855cc118f7bed15ee53decd19eaedd5199c834`.
+  A new Codex thread is required to load the updated package.
+- Custom GPT Instructions, Action-schema import, Spark skill upload, and fresh
+  product-interface acceptance remain unobserved and must not be inferred from
+  runtime or plugin acceptance.
 
 A later owner-provided GPT-UI result exposed a partial-answer escape,
 intervention-program conflation, and implementation-jargon leakage. PR #44
@@ -81,7 +184,7 @@ the post-closeout lesson checkpoint reported 1 open candidate, 1 needing review,
 eligible. This repository completion does not replace the pending editor
 installation and fresh GPT-UI acceptance boundary.
 
-## Custom GPT research bridge — CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; PRECEDING EDITOR ARTIFACT OWNER-REPORTED INSTALLED; CURRENT CANDIDATE INSTALLATION AND GPT-UI ACCEPTANCE PENDING
+## Custom GPT research bridge — CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; INSTALLED CANDIDATE PUBLIC-REVIEW REJECTED; PUBLIC-SCOPE CANDIDATE INSTALLATION AND REVIEW PENDING
 
 PR #15 merged exact implementation head
 `be641bf568c401992ff4aa9fe885552d6cfb2dca` as
@@ -110,10 +213,13 @@ reconciliation. The owner previously installed exact 7,753-character Instruction
 `efd1567e185d2c9c3c209812a26dde630de802ba7a0b878ee9640af7886c14ec`
 with empty Knowledge. The later 7,962-character repair, SHA-256
 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`,
-  has an owner-reported signed-in editor installation receipt. The current
-  7,946-character generic candidate-quality Instructions, SHA-256
+  has an owner-reported signed-in editor installation receipt. The owner later
+  installed the 7,946-character generic candidate-quality Instructions,
+  SHA-256
   `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`,
-  do not yet have that receipt. The editor was not independently inspected.
+  and reported the public-content rejection. The repaired 7,892-character
+  public-scope candidate is not yet installed. The editor was not independently
+  inspected.
 
 The earlier deployed bridge release passed direct protocol, PubMed, ClinicalTrials.gov,
 Crossref, YouTube, malformed/oversized transport, rate/recovery, private lesson,
@@ -276,11 +382,11 @@ remain unchanged until their separate deployment and live checks occur.
 | Item | Evidence |
 | --- | --- |
 | Local packet base | `cd19514e8701af3a2e6294fa0c2ab74fad5af466` (`docs: add ChatGPT plugin connection workflow`). |
-| Production connector revision | PR #41 merge `386497415a187354c6396e69a902d5bece9a9c96`, image tag `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`, image ID `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`, healthy container `c1dc68972ded`. Current Compose SHA-256 is `ecfeaf12db7de685edc84d200485866a699f9a0f7df569e8bc4450bb4c77361c`. Immediate rollback is `askrigor-research:rollback-3864974-predeploy` plus the retained pre-deploy Compose SHA-256 `5f3d6fb76174f0edb2dac290db9c64e153ae95cf8d6d5c2d30d9ca928a28f3af`, restoring image ID `sha256:df01992c604e618af4e5f7df733a30759855da2c973c48ab2ebbd67e39f86452`. |
+| Production connector revision | PR #54 merge `6d8ae92943fb2ae875b055221d85b146713e2aed`, image tag `askrigor-research:6d8ae92943fb2ae875b055221d85b146713e2aed`, image ID `sha256:a0e98726a32b81d8e0de4c0171f06c2460f2fe2303bc03d0942c70306d98f17a`, healthy container `b3adc7a5735f`. Current Compose SHA-256 is `ca773eaa40593f0e510c8cba454051d80bebb2f080ef8a681c9488bbe7493a47`. Immediate rollback is `askrigor-research:rollback-6d8ae92-predeploy` plus `/opt/askrigor/compose.yaml.rollback-6d8ae92`, SHA-256 `7ea1680c3ac2bccd82f352d2b2776a6f63fd6a18ad095d861d543c0b803faba4`, restoring image ID `sha256:d4892bb61d4c05cfdc59943a1b4b5ab2e648798646cd93c3bcd46f6b31c351df`. |
 | Production MCP endpoint | `https://mcp.askrigor.com/mcp` (public streamable HTTP). |
 | Published Custom GPT | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; `gpt.askrigor.com` reaches it through one verified temporary redirect. |
-| Deployed production protocols | HRP `20.5.18`, revision `2026-08-16`, SHA-256 `4d27c5cd50b9cb097e247101128a89759b2da9c5ca1d758cfec812724b210ae5`; Universal `20.5.14`, revision `2026-08-18`, SHA-256 `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Current direct production Action loading reconstructed and verified every exact byte of both documents. |
-| Production source packet | Exact secret-free `git archive` from `386497415a187354c6396e69a902d5bece9a9c96`; SHA-256 `61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0`, 377 members, 1,010,125 bytes. The image was built on the server from that verified archive; no image archive was created. |
+| Deployed production protocols | HRP `20.5.20`, revision `2026-08-22`, SHA-256 `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`; Universal `20.5.14`, revision `2026-08-18`, SHA-256 `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`. Current direct production integrity checks matched both hashes and returned verified true. |
+| Production source packet | Exact secret-free `git archive` from `6d8ae92943fb2ae875b055221d85b146713e2aed`; SHA-256 `fd36810c147598a50dbfde4cb29a812822527fabbe9a9171296eb6a5409d4b01`, 401 members, 1,117,416 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | Protocol evidence | Formal-source Inspector evidence: `/opt/askrigor/validation/https-20260811T045226Z`. |
 | YouTube evidence | Keyed YouTube Inspector evidence: `/opt/askrigor/validation/youtube-20260811T152149Z`. |
 | Fresh public YouTube Inspector | `/opt/askrigor/validation/youtube-20260811T172256Z`; validator image `askrigor-youtube-validator:2.1.0`. |
@@ -288,7 +394,7 @@ remain unchanged until their separate deployment and live checks occur.
 | Historical fresh live-provider suite | Controller remote validation at `/root/askrigor-validation-stage/live-suite-v6-6a9d536b7845`; clean archive/image build, scanner, ANSI-safe parser, and evidence checksum all passed. |
 | Public site source | Current privacy disclosure active at `/opt/askrigor/site/releases/386497415a18/site`; live privacy bytes SHA-256 `229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc`, effective `2026-08-21`. |
 | Public site packet | Deployment archive `site-386497415a18.tar.gz`, 18,929 bytes; transactional installer SHA-256 `faeb5f9f6394473f9402c3ae008b2391219ded14cbcd892a4536fa1176e94e09`. The four live page hashes are recorded in the current direct acceptance document. |
-| Custom GPT packet | Live compact OpenAPI SHA-256 `368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9`; deployed pretty OpenAPI `9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31`. Current source-candidate Instructions are `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`, 7,946 characters; source-candidate OpenAPI is `280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540`. Runtime/OpenAPI/privacy acceptance applies to the preceding deployed schema. Installation is owner-reported only for `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`; current deployment, installation, and fresh GPT UI behavior remain pending. |
+| Custom GPT packet | Live compact OpenAPI SHA-256 `a61a8ba9e1d4675a29e09a5010ab33b1119c388b7cf166669400cac554bbe535`; committed pretty OpenAPI `280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540`. Current repaired Instructions are `2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`, 7,892 characters. Runtime/schema acceptance is complete. The owner installed the preceding `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532` Instructions and reported public-content rejection. Repaired editor installation and fresh public review remain pending. |
 | Package version | `0.1.0`; the ingestion-valid manifest includes the verified website, privacy-policy, and terms URLs, square SVG logo/composer assets, and no environment-specific `.app.json` reference. The portal handoff separately records `https://askrigor.com/support` because the package schema exposes no support-URL field. |
 
 The two Inspector locations are recorded production evidence supplied by the
@@ -314,8 +420,8 @@ run the VPS validation.
 | HRP 20.5.16 execution-reliability rollout | The public `get_protocol_manifest` result returned version `20.5.16`, revision date `2026-08-12`, and exact SHA-256 `d41e37b13357542c8439ca5199d50eef9eec8aa6ec4beeafbfbbe44213362597`. Public `load_protocol` contained `CommunityCorpusCompletionGate` and `OneQueryBoundedYouTubeCommentPresentedAsReconnaissance`. The previous image remains tagged `askrigor-research:rollback-3e6686a341b1`. |
 | Forum Signal router rollout | Production exposes the compact Project router package and the compound YouTube audit. Pre-traffic validation passed exact 15-tool discovery and schema checks. Only `research-mcp` was recreated as container `4f72903f8789`; Caddy remained `81b212e28866`, the site release remained `f928b95e29cd`, and both loopback and public health checks passed. The immediately prior application image remains tagged `askrigor-research:rollback-1c308231c67a`. |
 | Automated public review | Final protected run `20260815T110708.728Z-baa07445` used clean commit `8ed8c0f7aaab9609dfb067780c05838f98903bab`, case-file SHA-256 `daf2b0e895956d759f382f9d592632d5ea094b0a28f0711efdc9c0f09f7bd7c1`, and `chat-latest` as both requested and returned model. Direct production checks passed 9/9; model checks passed 6/9 and left three explicit `model_output` blocks because the remote-MCP layer supplied opaque receipts. Run failure class was none; the report and summary passed their checksum manifest and safety scan. |
-| Current Custom GPT bridge direct acceptance | HRP `20.5.18` loaded in 11/11 contiguous chunks totaling 490,256 bytes and Universal `20.5.14` loaded in 3/3 totaling 105,798 bytes; both matched their whole-document hashes and verified true. The deployed 19-operation Action inventory, bounded live PubMed/Europe PMC/ClinicalTrials.gov/DOI/YouTube probes, transcript complete/unavailable states, malformed/strict/oversized transport, unauthenticated lesson isolation, trusted/untrusted CORS, exact 17-tool standard and Gemini MCP catalogs, and hardening passed. An isolated 80-request exact-image burst returned 60 declared `406`, 20 declared `429`, and health bypass `200`. Installation is owner-reported for the preceding 7,962-character Instructions, SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`. The current 7,946-character/21-operation source candidate is not deployed or installed; fresh GPT UI acceptance remains pending. |
-| Historical OpenAI Action importer compatibility | Exact merge `6639086a33b44f029c9f8405f69bd06b725e78d0` introduced the live-compatible schema and remains in the current release ancestry. At that checkpoint, public schema checks found 18 operations, object-valued `components.schemas`, every summary/description within 300 characters, and both repaired legacy descriptions at 201 characters. The GPT editor subsequently imported that historical schema. The owner receipt concerns the preceding 7,962-character Instructions, SHA-256 `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`; the current 7,946-character/21-operation source candidate is not deployed or installed. Fresh UI acceptance must still confirm the current Action is usable from the product interface. |
+| Current Custom GPT bridge direct acceptance | The prior full reconstruction loaded HRP `20.5.18` in 11/11 contiguous chunks totaling 490,256 bytes and Universal `20.5.14` in 3/3 totaling 105,798 bytes. The current deployment separately verified HRP `20.5.20` and unchanged Universal `20.5.14`, exposed 21 Actions, retained exactly 17 MCP tools, kept unauthenticated lesson isolation at `401`, and accepted a bounded real-identity Spark packet with no rejected or unresolved candidates. The owner installed the 7,946-character candidate and reported public-content rejection. Current 7,892-character public-scope Instructions and fresh review remain pending. |
+| Historical OpenAI Action importer compatibility | Exact merge `6639086a33b44f029c9f8405f69bd06b725e78d0` introduced the live-compatible schema and remains in the current release ancestry. At that checkpoint, public schema checks found 18 operations, object-valued `components.schemas`, every summary/description within 300 characters, and both repaired legacy descriptions at 201 characters. The GPT editor subsequently imported that historical schema. The current 21-operation runtime schema is deployed and directly accepted; the repaired 7,892-character Instructions are not installed. Fresh UI acceptance must still confirm the current Action is usable from the product interface. |
 | YouTube terminal-refetch release | PR #23 merge `905ac22ab42479c15ff0d6385a51de864271f862` remains in current production ancestry. A test-first provider-boundary regression limits `comments.list` ID filters to 50 after the exact provider returned `200` for 50 IDs and `400 invalidFilters` for 51. The known 16-record video remained one-call `api_visible_complete`; the formerly failing two-call video reached 149 records, returned a deterministic 111-record sample, ended `completed_with_access_boundary`, reported no error or further continuation, and passed synthesis. The repaired two-call GPT UI continuation retest passed on 2026-08-17. The subsequent Universal-only runtime rollout did not repeat provider calls. |
 
 The first compatibility build was rejected in a disposable pre-traffic smoke

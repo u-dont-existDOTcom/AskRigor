@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.20` (2026-08-22), SHA-256
-`803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`,
+The current canonical files identify HRP `20.5.21` (2026-08-22), SHA-256
+`2def834840caa45944234bb884ea3710e8dcaf2e0d21fae9e5d78116bd67ded7`,
 and Universal Instructions `20.5.14` (2026-08-18), SHA-256
 `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -41,7 +41,7 @@ acceptance pass.
 - Run the deterministic fixture suite with `npm run test:run`
 - Run the release verification sequence with `npm run verify`
 - Validate a complete high-recall Spark candidate response with
-  `npm run validate:gemini-handoff -- path/to/spark-response.md`; this optional
+  `npm run validate:gemini-handoff -- path/to/spark-response.md`; this
   live command uses the existing `YOUTUBE_API_KEY` and is not part of the
   hermetic default gate
 
@@ -271,16 +271,17 @@ response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 
-Production exposes 18 public research reads plus the lesson write. The current
-source candidate adds the Action-only treatment-landscape assessor and Gemini
-Spark candidate validator, making 20 public reads plus the lesson write while
-preserving the exact frozen 17-tool MCP. Spark remains an optional high-recall
+Production exposes 20 public research reads plus the lesson write, including
+the Action-only treatment-landscape assessor and Gemini Spark candidate
+validator, while preserving the exact frozen 17-tool MCP. Spark remains an
+optional high-recall
 finder: public identities are checked independently, its complete candidate
 frontier is preserved, non-identity validation failures remain unresolved,
 every validated
 candidate is screened, and provisional summaries are not transcript
-verification or treatment evidence. The new Action/OpenAPI/privacy
-source has not been deployed or installed in the editor.
+verification or treatment evidence. The runtime and Action schema are deployed
+and directly accepted; the current Instructions are not yet installed in the
+editor.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application
