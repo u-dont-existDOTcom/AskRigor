@@ -30,10 +30,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`) in
   chat, the owner reported that exact artifact was already installed in the
   signed-in Custom GPT editor. The current 21-operation schema is deployed and
-  directly accepted. The current 7,946-character generic candidate-quality
-  Instructions are not yet installed. Runtime, Action-schema, editor, and fresh
-  GPT-UI acceptance remain separate product boundaries; editor state is
-  owner-reported, not independently inspectable from this environment.
+  directly accepted. The owner then installed the 7,946-character generic
+  candidate-quality Instructions, but public-directory review rejected their
+  content as potentially providing tailored medical or health advice. A new
+  7,892-character public educational-scope packet is verified locally but not
+  yet installed. Runtime, Action-schema, editor, and fresh GPT-UI acceptance
+  remain separate product boundaries; editor state is owner-reported, not
+  independently inspectable from this environment.
 - Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
 - Verified packet-repair boundary:
@@ -109,6 +112,32 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
   deletion eligible. The open candidate is unrelated and did not expand this
   repair.
+
+## Active 2026-08-22 public educational-scope repair
+
+- The owner installed exact Instructions SHA-256
+  `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`
+  and reported a public-directory rejection with reason `May provide tailored
+  medical/health advice`.
+- The repaired Custom GPT projection places its educational-only boundary
+  before protocol routing. It cannot assess personal symptoms, records,
+  imaging, diagnosis, risk, suitability, prognosis, regimen, or dose; choose or
+  rank care for a person; or say whether someone should start, stop, change, or
+  delay care. A personal prompt is converted only to general population
+  evidence and clinician-review questions.
+- The public projection no longer contains the personal-decision invitations
+  `good idea for me`, `do you agree`, or `now versus wait or delay`. The generic
+  internal treatment-space protocol remains unchanged.
+- The new packet is 7,892 characters (7,920 UTF-8 bytes), SHA-256
+  `2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`;
+  synchronization-ledger SHA-256 is
+  `437b09f94eda9de6b6e0f8701e2db865b30a8ef86596d821ba067ad7e4783b62`.
+  Editor installation and fresh public review remain pending.
+- Full verification passed 1,064 tests with five declared skips and the build;
+  public-site validation covered four pages and deployment tests passed 28/28.
+  Runtime/OpenAPI are unchanged, so no server redeploy is required. Repository,
+  plugin source, and installed plugin skill remain byte-identical at
+  `d5c5731b4142b5c93ea21283a0855cc118f7bed15ee53decd19eaedd5199c834`.
 
 ## Completed 2026-08-21 production rollout and direct acceptance
 

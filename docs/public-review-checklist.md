@@ -29,14 +29,17 @@ receipt applies to the prior 7,962-character artifact, SHA-256
 Fresh GPT-UI acceptance is still required before public submission;
 installation alone is not proof of the repaired behavior.
 
-The current generic candidate-quality release has 7,946-character
-Instructions (7,974 UTF-8 bytes), SHA-256
-`019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`.
-Its runtime and 21-operation Action schema are deployed and directly accepted;
-the Instructions are not yet installed. The schema adds Spark candidate
-validation and strengthens the treatment-landscape
-lock so generic umbrella labels cannot substitute for specific-program search.
-It still requires separate editor and fresh GPT-interface acceptance.
+The owner installed the generic candidate-quality Instructions, but public
+review rejected that 7,946-character artifact as potentially providing tailored
+medical or health advice. The repaired public educational-scope Instructions
+are 7,892 characters (7,920 UTF-8 bytes), SHA-256
+`2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`.
+They place the non-personal boundary first and remove phrases inviting personal
+treatment verdicts while preserving general population research and the
+generic treatment-landscape/Spark workflow. The runtime and 21-operation Action
+schema are deployed, and the plugin is unchanged and already current. The
+repaired Instructions are not yet installed and still require fresh public-
+directory review.
 
 ## Optional lesson Action deployment truth
 

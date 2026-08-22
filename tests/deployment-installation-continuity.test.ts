@@ -102,9 +102,9 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
         "d196d783895e3ed093e33f6779b91ae9bb4bdafb3550de327c5f91a9643876c6",
       );
     }
-    expect(checklist).toMatch(/runtime and 21-operation Action schema are deployed/u);
-    expect(checklist).toMatch(/Instructions are not yet installed/u);
-    expect(acceptance).toMatch(/does not establish editor installation/u);
+    expect(checklist).toMatch(/runtime and 21-operation Action\s+schema are deployed/u);
+    expect(checklist).toMatch(/repaired Instructions are not yet installed/u);
+    expect(acceptance).toMatch(/does not establish installation or review/u);
   });
 
   it("produces a byte-derived plugin package receipt and fails closed on drift", async () => {

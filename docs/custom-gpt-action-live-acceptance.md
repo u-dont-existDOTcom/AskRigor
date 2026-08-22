@@ -1,8 +1,8 @@
 # Custom GPT Action live acceptance
 
 Status: **CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS;
-PRIOR EDITOR INSTALLATION OWNER-REPORTED; UPDATED EDITOR INSTALLATION AND FRESH
-GPT-UI ACCEPTANCE PENDING**. PR #54 merged the generic candidate-quality
+PRIOR INSTRUCTIONS INSTALLED BUT PUBLIC REVIEW REJECTED; PUBLIC EDUCATIONAL-SCOPE
+INSTALLATION AND FRESH REVIEW PENDING**. PR #54 merged the generic candidate-quality
 release as `6d8ae92943fb2ae875b055221d85b146713e2aed`. That exact revision is active
 in production and passed the sanitized direct acceptance recorded below.
 After reviewing the complete preceding 7,962-character Instructions
@@ -18,19 +18,21 @@ the current editor packet. Direct server proof is never relabeled as ChatGPT UI
 proof.
 
 The current generic candidate-quality runtime and 21-operation schema are
-deployed; the Instructions are not yet installed. They are 7,946 characters
-(7,974 UTF-8
-bytes), SHA-256
-`019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`;
+deployed. The owner installed its 7,946-character Instructions, but public
+review rejected their content as potentially providing tailored medical or
+health advice. The repaired public educational-scope packet is 7,892 characters
+(7,920 UTF-8 bytes), SHA-256
+`2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`;
 the synchronization ledger is
-`0d184838299ca1a25cfd9498ab756622261670587d71795e4fb5cbcfd2a998c8`;
+`437b09f94eda9de6b6e0f8701e2db865b30a8ef86596d821ba067ad7e4783b62`;
 and its 21-operation Action OpenAPI is
 `280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540`.
 It adds a bounded Spark packet validator and a generic specific-program and
 external-scout screening lock. Spark summaries remain provisional discovery
 annotations rather than transcript-verified evidence.
 The 2026-08-22 direct production acceptance below applies to the runtime and
-schema only; it does not establish editor installation or GPT-interface behavior.
+schema only; it does not establish installation or review of the repaired
+Instructions.
 
 The latest owner-provided GPT-UI result exposed a partial-answer escape,
 umbrella-program conflation, and raw implementation labels. PR #44 merged the
@@ -67,7 +69,7 @@ issue content, or health details.
 
 | Field | Value |
 | --- | --- |
-| UTC time | Current production deployment and direct acceptance completed on `2026-08-22`; installation of the preceding 7,962-character Instructions was owner-reported at `2026-08-21T15:20:33Z`; the current 7,946-character generic candidate-quality Instructions are not installed and fresh GPT UI acceptance remains pending. |
+| UTC time | Current production deployment and direct acceptance completed on `2026-08-22`; the owner later installed the 7,946-character candidate and reported public-content rejection; the repaired 7,892-character public-scope Instructions are not installed and fresh review remains pending. |
 | deployed commit | PR #54 merge `6d8ae92943fb2ae875b055221d85b146713e2aed`. |
 | deployed image | `askrigor-research:6d8ae92943fb2ae875b055221d85b146713e2aed`; image ID `sha256:a0e98726a32b81d8e0de4c0171f06c2460f2fe2303bc03d0942c70306d98f17a`; healthy container `b3adc7a5735f`; only the research service changed during runtime activation. |
 | current runtime configuration | `/opt/askrigor/compose.yaml` SHA-256 `ca773eaa40593f0e510c8cba454051d80bebb2f080ef8a681c9488bbe7493a47`; Caddy container `18209d960259` retained its prior start time; runtime environment mode remained root-owned `0600` and its contents were not read. Request diagnostics remain disabled by default and were not enabled in production. |
@@ -75,7 +77,7 @@ issue content, or health details.
 | rollback image/config | `askrigor-research:rollback-6d8ae92-predeploy` preserves image ID `sha256:d4892bb61d4c05cfdc59943a1b4b5ab2e648798646cd93c3bcd46f6b31c351df`; rollback Compose is `/opt/askrigor/compose.yaml.rollback-6d8ae92`, SHA-256 `7ea1680c3ac2bccd82f352d2b2776a6f63fd6a18ad095d861d543c0b803faba4`. |
 | deployment archive | Exact secret-free Git archive from the deployed merge: SHA-256 `fd36810c147598a50dbfde4cb29a812822527fabbe9a9171296eb6a5409d4b01`; 401 members, 1,117,416 bytes. The image was built on the server from that verified archive; no image archive was created. |
 | OpenAPI SHA-256 | Committed pretty artifact: `280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540`; compact live response: `a61a8ba9e1d4675a29e09a5010ab33b1119c388b7cf166669400cac554bbe535`. |
-| instructions SHA-256 | Current source candidate: `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`, 7,946 characters; installation and fresh GPT-UI acceptance pending. The last owner-reported installed artifact is `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`, 7,962 characters; the editor was not independently inspected. Knowledge must remain empty. |
+| instructions SHA-256 | Current public-scope candidate: `2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba`, 7,892 characters; installation and fresh public review pending. The owner installed preceding artifact `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`, 7,946 characters, and reported the rejection. The editor was not independently inspected. Knowledge must remain empty. |
 | current Action/MCP boundary | Production exposes 20 non-consequential research reads plus the consequential lesson write, including `assess_treatment_landscape_coverage` and `validate_gemini_youtube_candidate_handoff`. Standard MCP and Gemini-compatible MCP each preserve the same exact 17 read-only handlers; Gemini uses the compact service name `askrigor_research`. |
 | privacy URL/result | `https://askrigor.com/privacy` returned `200`, byte SHA-256 `229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc`, with effective date `2026-08-21` and the disabled-by-default bounded diagnostic disclosure. Active site release: `/opt/askrigor/site/releases/386497415a18/site`. |
 | direct GPT URL | `https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol`; the public page returned `200` and identified **AskRigor.com Heterodox Research Protocol**. |

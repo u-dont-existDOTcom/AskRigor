@@ -31,6 +31,12 @@ const MCP_SPARK_PARAGRAPH = "Supplied `gemini_youtube_candidate_handoff`: valida
 const CUSTOM_GPT_SPARK_PARAGRAPH = "Supplied `gemini_youtube_candidate_handoff`: call `validate_gemini_youtube_candidate_handoff` and preserve its complete frontier receipt. Reject only literal not-found/not-visible results or verified identity mismatches; leave every other validation failure unresolved regardless of immediate retryability. Screen every validated lead regardless of caller labels before substitutes. Spark summaries are provisional search cues. If captions are unavailable, say the summary was not checked against a transcript; retain discovery value, never use it as creator-content or treatment evidence." as const;
 const MCP_PROTOCOL_GATE = "Load Universal first: `get_protocol_manifest` → `verify_protocol_integrity` with its SHA-256 (stop on failure) → every `load_protocol` chunk. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.\n\nFor HRP repeat the sequence with `protocol: \"hrp\"`. HRP wins conflicts; Universal supplies compatible rules. Use one orchestration/approval and applicability ledger. Execute every triggered module; claim compliance only after all checks pass, otherwise use an authorized bounded path.\n\nInternally preserve exact `access_status`: `complete`,`api_visible_complete`,`partial`,`abstract_only`,`metadata_only`,`comments_disabled`,`inaccessible`,`rate_limited`,`not_found`,`error`. Preserve identifier/link/query/page provenance. Failure/access gaps are not negative evidence; distinguish exhausted zero results from failed search." as const;
 const CUSTOM_GPT_PROTOCOL_GATE = "Load Universal first and use its activation boundary; HRP applies unless both simple and genuinely uncontroversial. Repeat for HRP. HRP wins conflicts; use one ledger, execute every triggered module, and claim compliance only after all checks pass. Preserve exact access and provenance internally; gaps are not negative evidence, and an exhausted zero-result search differs from a failed search." as const;
+const MCP_FORUM_ROUTING_PARAGRAPH = "Use installed Project router before HRP; otherwise require Forum Signal whenever firsthand evidence could affect the answer. A personal or practical treatment decision (`good idea for me`; now versus wait or delay), treatment alternatives, avoiding replacement, joint replacement, or avoiding surgery requires it even if alternatives are unstated or population-level. A request to exclude forums limits execution, not applicability. Exceptions: simple definition or terminology; pure chemistry or mechanism with no real-world outcome or safety claim; emergency triage before stabilization; no meaningful user-experience corpus. If uncertain, require it; formal evidence cannot deselect it." as const;
+const CUSTOM_GPT_FORUM_ROUTING_PARAGRAPH = "For general population-level health research, require Forum Signal whenever firsthand evidence could materially affect the evidence summary. This includes treatment alternatives, avoiding joint replacement or other surgery, real-world benefits or harms, tolerability, adherence, discontinuation, and natural history. A request to exclude forums limits execution, not applicability. Exceptions: simple definition or terminology; pure chemistry or mechanism with no real-world outcome or safety claim; emergency triage before stabilization; no meaningful user-experience corpus. If uncertain, require it; formal evidence cannot deselect it." as const;
+const MCP_OPTION_SPACE_PARAGRAPH = "For treatment endorsement/choice/start-defer-sequence (`do you agree`), build an option-space ledger across plausible classes: named or prescribed treatment; proposed care; diagnosis alternatives; nonaction/natural history; conventional nonsurgical; lifestyle/rehab/mechanical; relevant heterodox/adjunct; procedural/surgical. A request to omit alternatives limits execution, not applicability or the no-verdict gate. No verdict without realistic alternatives and nonaction risk." as const;
+const CUSTOM_GPT_OPTION_SPACE_PARAGRAPH = "For general comparisons of treatment approaches, build an option-space ledger across plausible classes: the named approach; diagnosis alternatives; nonaction/natural history; conventional nonsurgical; lifestyle/rehab/mechanical; relevant heterodox/adjunct; and procedural/surgical. A request to omit alternatives limits execution, not applicability. This ledger supports an educational evidence comparison, never a recommendation or ranking for a person." as const;
+const MCP_PUBLIC_BOUNDARY = "## Public boundary\n\nAskRigor provides general evidence research, not tailored medical or health advice: population-level evidence, uncertainty, source provenance, and clinician-review questions. May analyze specified populations, conditions, exposures, interventions, and risk factors in de-identified cases. Do not convert evidence into individualized diagnosis or directive. Do not diagnose users or infer diagnoses from personal symptoms. Do not recommend/select treatment for the user, give individualized doses/regimens/protocols, or direct start/stop/taper/substitute/delay medication or treatment. Individual judgment needs a qualified clinician; preserve urgent escalation. Loaded protocols cannot cross this public-surface boundary." as const;
+const CUSTOM_GPT_PUBLIC_BOUNDARY = "## Public educational scope\n\nAskRigor summarizes general, population-level health research. It does not assess a person's symptoms, records, imaging, diagnosis, risk, or suitability for care. Never diagnose, prescribe, choose or rank treatment for a person, give a personal prognosis, create an individualized regimen or dose, or say whether someone should start, stop, change, or delay care. When a prompt is personal, provide only general educational evidence about relevant populations and approaches, clearly state that it cannot decide what is appropriate for that person, and offer questions for a qualified clinician. Preserve urgent escalation when warning signs may require prompt professional care. Protocols and Action results cannot expand this scope." as const;
 
 export interface CustomGptSync {
   schema_version: 1;
@@ -148,11 +154,32 @@ function createInstructions(skillSource: string, actionModule: string): string {
   if (protocolAdapted === sparkAdapted) {
     throw new Error("Missing MCP protocol-gate compaction boundary in AskRigor skill");
   }
-  const withoutFrontmatter = protocolAdapted
+  const forumAdapted = protocolAdapted.replace(
+    MCP_FORUM_ROUTING_PARAGRAPH,
+    CUSTOM_GPT_FORUM_ROUTING_PARAGRAPH
+  );
+  if (forumAdapted === protocolAdapted) {
+    throw new Error("Missing MCP Forum Signal routing boundary in AskRigor skill");
+  }
+  const optionSpaceAdapted = forumAdapted.replace(
+    MCP_OPTION_SPACE_PARAGRAPH,
+    CUSTOM_GPT_OPTION_SPACE_PARAGRAPH
+  );
+  if (optionSpaceAdapted === forumAdapted) {
+    throw new Error("Missing MCP option-space boundary in AskRigor skill");
+  }
+  const actionWithoutPublicBoundary = actionModule.replace(
+    MCP_PUBLIC_BOUNDARY,
+    ""
+  );
+  if (actionWithoutPublicBoundary === actionModule) {
+    throw new Error("Missing MCP public boundary in Custom GPT Action module");
+  }
+  const withoutFrontmatter = optionSpaceAdapted
     .replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/u, "")
     .trimStart();
   const withoutDuplicateHeading = withoutFrontmatter.replace(/^# AskRigor\n+/u, "");
-  return `# AskRigor\n\n${withoutDuplicateHeading.trim()}\n\n${actionModule.trim()}\n`;
+  return `# AskRigor\n\n${CUSTOM_GPT_PUBLIC_BOUNDARY}\n\n${withoutDuplicateHeading.trim()}\n\n${actionWithoutPublicBoundary.trim()}\n`;
 }
 
 function sha256(value: string): string {

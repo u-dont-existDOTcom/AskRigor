@@ -300,11 +300,13 @@ describe("AskRigor public-review packet", () => {
     const normalizedCase10 = case10.replace(/\s+/gu, " ");
 
     expect(releaseStatus).toContain(
-      "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; PRECEDING EDITOR ARTIFACT OWNER-REPORTED INSTALLED; CURRENT CANDIDATE INSTALLATION AND GPT-UI ACCEPTANCE PENDING"
+      "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; INSTALLED CANDIDATE PUBLIC-REVIEW REJECTED; PUBLIC-SCOPE CANDIDATE INSTALLATION AND REVIEW PENDING"
     );
-    expect(releaseStatus).toMatch(/current\s+7,946-character generic candidate-quality Instructions/u);
+    expect(releaseStatus).toMatch(/repaired 7,892-character\s+public-scope candidate/u);
     expect(releaseStatus).toContain("source candidate adds");
-    expect(releaseStatus).toContain("The editor was not independently inspected");
+    expect(releaseStatus.replace(/\s+/gu, " ")).toContain(
+      "The editor was not independently inspected",
+    );
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);
     expect(releaseStatus).toContain("Universal `20.5.12`");
@@ -335,7 +337,7 @@ describe("AskRigor public-review packet", () => {
       expect(document).toContain("privacy_rejected");
     }
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
-      "CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS; PRIOR EDITOR INSTALLATION OWNER-REPORTED; UPDATED EDITOR INSTALLATION AND FRESH GPT-UI ACCEPTANCE PENDING",
+      "CURRENT RUNTIME AND PRIVACY SITE DEPLOYED; DIRECT ACCEPTANCE PASS; PRIOR INSTRUCTIONS INSTALLED BUT PUBLIC REVIEW REJECTED; PUBLIC EDUCATIONAL-SCOPE INSTALLATION AND FRESH REVIEW PENDING",
     );
     expect(acceptance.replace(/\s+/gu, " ")).toContain(
       "all formal retrieval required by the applicability ledger",
