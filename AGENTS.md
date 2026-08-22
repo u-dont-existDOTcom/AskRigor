@@ -33,6 +33,27 @@ separate from live checks. Run the complete applicable gate, inspect results,
 review the final diff, update release/privacy documentation when affected, and
 complete lesson closeout before reporting completion.
 
+### Release completion and plugin synchronization
+
+For an authorized product change, source merge is an intermediate state. Keep
+advancing through exact production deployment, direct acceptance, Custom GPT
+editor installation, and fresh product-interface acceptance while those
+surfaces are technically accessible and no genuine consequential boundary
+intervenes.
+
+At every backend or Custom GPT release, also verify the installed AskRigor
+plugin against the release: exact 17-tool MCP catalog, live HRP/Universal
+manifests, one read-only connector probe, and an exact installed-package
+receipt covering `.codex-plugin/plugin.json`, `skills/askrigor/SKILL.md`, and
+the packaged asset/inventory set. An unchanged catalog can become current
+through the backend deployment without a package reinstall, but it does not
+prove that the installed skill bytes are current. If installed-package bytes
+cannot be read back, mark package currency unverified and reinstall the exact
+reviewed package. Before refresh or reinstall, preserve a non-secret prior
+package/registration receipt and an explicit rollback path. Never infer
+plugin-package currency from source files, a working connector, or live
+manifests alone.
+
 ### Lesson-queue checkpoints
 
 Run `npm run lessons:status` using the maintainer's local GitHub authentication:

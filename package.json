@@ -17,6 +17,7 @@
     "validate:gemini-handoff": "tsx scripts/validate-gemini-youtube-candidate-handoff.mts",
     "generate:action-openapi": "tsx scripts/generate-action-openapi.mts",
     "generate:custom-gpt": "tsx scripts/generate-custom-gpt-packet.mts",
+    "plugin:receipt": "node scripts/plugin-package-receipt.mjs",
     "lessons:status": "tsx scripts/lessons-status.mts",
     "review:public-live": "tsx scripts/run-public-review-eval.mts",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
