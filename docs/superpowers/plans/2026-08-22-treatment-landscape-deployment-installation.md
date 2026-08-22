@@ -8,21 +8,23 @@ and fresh product-interface acceptance without conflating those surfaces.
 
 - Owner standing instruction on 2026-08-22: continue authorized product work
   through Custom GPT installation and always ensure the plugin is current.
-- Canonical source baseline: AskRigor `main`
-  `d4f2af0f86844c743b3b5fbc6c70f66c72a4637d`.
+- Canonical source and deployed baseline: AskRigor `main` PR #54 merge
+  `6d8ae92943fb2ae875b055221d85b146713e2aed`.
 - Previous treatment-landscape implementation boundary: PR #49 merge
   `458190ab1be0849fba3f5193d59321a9c7f0d8df`; the generic Spark
   candidate-quality repair supersedes its release artifact before deployment.
 - Current production image:
-  `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`.
-- Current live HRP: 20.5.18; target HRP: 20.5.20, SHA-256
+  `askrigor-research:6d8ae92943fb2ae875b055221d85b146713e2aed`,
+  image ID
+  `sha256:a0e98726a32b81d8e0de4c0171f06c2460f2fe2303bc03d0942c70306d98f17a`.
+- Current live HRP: 20.5.20, SHA-256
   `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`.
   Universal remains 20.5.14.
-- The connected AskRigor app currently exposes the intended frozen 17-tool MCP
-  catalog. Its backend is stale until deployment because the live HRP manifest
-  is still 20.5.18. The generated remote-app wrapper does not contain the
-  repository's `skills/askrigor/SKILL.md`, so source plugin-package currency is
-  not yet verified.
+- The connected AskRigor app exposes the intended frozen 17-tool MCP catalog
+  and current live manifests. The personal plugin is synchronized and
+  reinstalled as `0.1.0+codex.20260822072920`, with matching source and installed
+  package SHA-256
+  `d196d783895e3ed093e33f6779b91ae9bb4bdafb3550de327c5f91a9643876c6`.
 - Target Custom GPT packet: 7,946-character Instructions SHA-256
   `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`,
   21-operation OpenAPI SHA-256
@@ -63,6 +65,22 @@ and fresh product-interface acceptance without conflating those surfaces.
 9. Record sanitized deployment/plugin/editor/UI receipts, rerun applicable
    gates, merge the evidence PR, and verify exact post-merge workflows.
 
+## Current completion state
+
+- [x] PR #54 merged after all required checks passed.
+- [x] Complete deterministic, site, deployment-policy, and lesson preflight
+  passed.
+- [x] Exact 401-member secret-free merge archive was verified and transferred.
+- [x] Production rollback was armed and only `research-mcp` was recreated.
+- [x] Public health, 21 Actions, 17 MCP tools, exact protocols, auth boundaries,
+  and a bounded real-identity Spark packet passed.
+- [x] Personal plugin source and installed package match byte-for-byte after
+  reinstall.
+- [ ] Install the exact Instructions and live schema in the Custom GPT editor,
+  keeping Knowledge empty.
+- [ ] Upload the exact Spark scout skill and run fresh product checks.
+- [ ] Merge the final installation/UI evidence after those owner-observed steps.
+
 ## Rollback and stop conditions
 
 - If the disposable image fails, do not activate it.
@@ -81,13 +99,12 @@ and fresh product-interface acceptance without conflating those surfaces.
 ## Preflight receipt
 
 - Read-only VPS check on 2026-08-22 confirmed the documented host, healthy
-  production research and Caddy containers, exact old image, root-owned `0600`
-  runtime environment, and 92 GB free capacity.
-- Connected-app readback exposed exactly 17 AskRigor tools and returned HRP
-  20.5.18 plus Universal 20.5.14. This proves connector/catalog compatibility
-  and the backend deployment gap, not source plugin-package currency. The
-  installed remote-app wrapper contains no `SKILL.md`; exact source-package
-  installation is therefore required after the release commit is reviewed.
+  production research and Caddy containers, root-owned `0600` runtime
+  environment, and 92 GB free capacity. Deployment and direct acceptance then
+  produced the exact receipts in `docs/custom-gpt-action-live-acceptance.md`.
+- Connected-app readback exposed exactly 17 AskRigor tools. Direct runtime
+  checks returned HRP 20.5.20 plus Universal 20.5.14, and the personal plugin
+  reinstall produced matching source/installed package receipts.
 - Lesson checkpoint at `2026-08-22T05:28:10.089Z`: 1 open, 1 needing review, 0
   accepted but not incorporated, 3 incorporated or closed, 0 deletion eligible.
   The unreviewed candidate is unrelated and does not expand this release.

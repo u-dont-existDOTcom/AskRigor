@@ -353,7 +353,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(release).toContain("Deployed production protocols");
     expect(release).toContain(
-      "Current direct production Action loading reconstructed and verified every exact byte of both documents.",
+      "Current direct production integrity checks matched both hashes and returned verified true.",
     );
     expect(state).toContain("PR #37");
     expect(state.replace(/\s+/gu, " ")).toContain(
@@ -393,17 +393,17 @@ describe("AskRigor public-review packet", () => {
     expect(acceptance).toContain("reuse exactly the same previously displayed generalized candidate");
 
     for (const exactIdentity of [
-      "386497415a187354c6396e69a902d5bece9a9c96",
-      "sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e",
-      "ecfeaf12db7de685edc84d200485866a699f9a0f7df569e8bc4450bb4c77361c",
+      "6d8ae92943fb2ae875b055221d85b146713e2aed",
+      "sha256:a0e98726a32b81d8e0de4c0171f06c2460f2fe2303bc03d0942c70306d98f17a",
+      "ca773eaa40593f0e510c8cba454051d80bebb2f080ef8a681c9488bbe7493a47",
       "18209d960259",
-      "61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0",
-      "9a7e19fc4b9b3b8e7e330865925628da7deea54529800dfcf630626ee03efc31",
-      "368b0bb0c98a121a66cc64d46d7c391f83cfc28d56faa55f83596fa19015e9b9",
-      "4b0d3382ee1f214a54c87e8c493d34b42e02467a66ee031f06fd33a2215b90bc",
+      "fd36810c147598a50dbfde4cb29a812822527fabbe9a9171296eb6a5409d4b01",
+      "280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540",
+      "a61a8ba9e1d4675a29e09a5010ab33b1119c388b7cf166669400cac554bbe535",
+      "019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532",
       "/opt/askrigor/site/releases/386497415a18/site",
-      "askrigor-research:rollback-3864974-predeploy",
-      "/opt/askrigor/releases/386497415a187354c6396e69a902d5bece9a9c96/compose.pre-3864974.yaml",
+      "askrigor-research:rollback-6d8ae92-predeploy",
+      "/opt/askrigor/compose.yaml.rollback-6d8ae92",
       "229ea4e7a86efcfc005570666b1c2fbb2c8fefda8b1f2ca60ee7c802f9995abc",
     ]) {
       expect(deploymentIdentity).toContain(exactIdentity);
@@ -412,7 +412,7 @@ describe("AskRigor public-review packet", () => {
     expect(deploymentIdentity).toContain("490,256 bytes");
     expect(deploymentIdentity).toContain("3 contiguous");
     expect(deploymentIdentity).toContain("105,798 bytes");
-    expect(releaseIdentity).toContain("61db400d75de3627fcaa77370eeed44a6a1c26033f6b292d04bf483401502fe0");
+    expect(releaseIdentity).toContain("fd36810c147598a50dbfde4cb29a812822527fabbe9a9171296eb6a5409d4b01");
     expect(releaseIdentity).toContain("no image archive was created");
 
     expect((acceptance.match(/^### Case /gmu) ?? [])).toHaveLength(11);

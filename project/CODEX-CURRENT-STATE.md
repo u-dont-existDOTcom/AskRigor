@@ -9,32 +9,30 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Current verified source baseline is PR #49 merge
-  `458190ab1be0849fba3f5193d59321a9c7f0d8df`; production remains on the
-  separately recorded PR #41 image until an authorized deployment occurs.
-- Canonical branch: `main`; the currently deployed production source is PR #41 merge
-  `386497415a187354c6396e69a902d5bece9a9c96`. PR #40 added the transcript-
+- Current verified and deployed source baseline is PR #54 merge
+  `6d8ae92943fb2ae875b055221d85b146713e2aed`.
+- Canonical branch: `main`. PR #40 added the transcript-
   verified evidence frontier, the exact unspecified-hip-pain research record,
   and a capability-safe MCP-plugin fallback. PR #41 reconciled that baseline
   with the accepted Gemini compact catalog and disabled-by-default bounded
   handshake diagnostics while preserving the 17-tool MCP surface and the
-  19-operation Custom GPT Action document. Deployment/direct-acceptance
+  19-operation Custom GPT Action document. Its deployment/direct-acceptance
   evidence merged through PR #42 as
   `a30631ac1240289ea0a864f00f1c0e6b42ab933a`; its deterministic,
   workflow-policy, and CodeQL checks passed both before and after merge.
-- Production runs exact image
-  `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`, image ID
-  `sha256:84fb1527d37f4003dc0f3670818c3d7f5987a1a1c53861fca236da1f8975db1e`,
-  in healthy container `c1dc68972ded`. The privacy site is active at
+- Production now runs exact image
+  `askrigor-research:6d8ae92943fb2ae875b055221d85b146713e2aed`, image ID
+  `sha256:a0e98726a32b81d8e0de4c0171f06c2460f2fe2303bc03d0942c70306d98f17a`,
+  in healthy container `b3adc7a5735f`. The privacy site remains active at
   `/opt/askrigor/site/releases/386497415a18/site`. Runtime/OpenAPI/privacy are
   deployed and directly accepted. After displaying the complete preceding
   7,962-character Instructions (SHA-256
   `4fff01a07aa817941c5b8cd4c3b0ea2e79621901288140d6cf1056bf402312e5`) in
   chat, the owner reported that exact artifact was already installed in the
-  signed-in Custom GPT editor. The current 7,946-character generic
-  candidate-quality Instructions and 21-operation schema are not deployed or
-  installed. Runtime, Action-schema, editor, and
-  fresh GPT-UI acceptance remain separate product boundaries; editor state is
+  signed-in Custom GPT editor. The current 21-operation schema is deployed and
+  directly accepted. The current 7,946-character generic candidate-quality
+  Instructions are not yet installed. Runtime, Action-schema, editor, and fresh
+  GPT-UI acceptance remain separate product boundaries; editor state is
   owner-reported, not independently inspectable from this environment.
 - Recovery branch `recovery/custom-gpt-bridge-pre-main-7be7923` preserves the
   pre-integration bridge candidate.
@@ -44,21 +42,22 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Active source candidate: HRP `20.5.20` / 2026-08-22 /
+- Active canonical and deployed HRP: `20.5.20` / 2026-08-22 /
   `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`;
   Universal remains `20.5.14` / 2026-08-18 /
   `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
-  Production still serves the separately recorded HRP `20.5.18` bytes until a
-  reviewed deployment occurs; source state is not deployment evidence.
+  Production reconstructed and verified those exact bytes after deployment.
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`
 - Universal integration: `20.5.13` added the source-wide whole-argument reconstruction gate; canonical source `20.5.14` adds the research-before-reinvention gate.
 
-## Active 2026-08-22 generic candidate-quality repair
+## Completed 2026-08-22 generic candidate-quality release
 
-- Work proceeds on isolated branch `agent/spark-candidate-quality-20260822`
-  from `origin/main` baseline `d4f2af0`. Do not use the dirty original checkout
-  as an integration surface.
+- PR #54 merged the reviewed repair as
+  `6d8ae92943fb2ae875b055221d85b146713e2aed` after deterministic verification,
+  workflow-policy, and CodeQL passed. The isolated release archive contained
+  401 tracked members, 1,117,416 bytes, and SHA-256
+  `fd36810c147598a50dbfde4cb29a812822527fabbe9a9171296eb6a5409d4b01`.
 - The repair is condition-independent. Every material umbrella class must be
   searched for specific implementations using the relevant population or
   stage, outcome, horizon, benefit, failure, and progression vocabulary. A
@@ -69,7 +68,7 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   as explicitly provisional. AskRigor independently validates public video
   identity, screens every potentially material nonduplicate lead, and never
   treats the Spark summary as transcript verification or treatment evidence.
-- The source candidate adds the public read-only Action-only
+- The deployed release adds the public read-only Action-only
   `validate_gemini_youtube_candidate_handoff`; the Custom GPT surface is now 20
   research reads plus the isolated lesson write while MCP remains exactly 17
   read-only tools. The treatment-landscape controller blocks incomplete
@@ -81,8 +80,31 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540`;
   synchronization-ledger SHA-256 is
   `0d184838299ca1a25cfd9498ab756622261670587d71795e4fb5cbcfd2a998c8`.
-  These are source receipts only until review, merge, deployment, plugin
-  synchronization, editor installation, and fresh product testing are recorded.
+  The live compact schema has SHA-256
+  `a61a8ba9e1d4675a29e09a5010ab33b1119c388b7cf166669400cac554bbe535`
+  and the exact 21 operations. Production retained 17 MCP tools. HRP 20.5.20
+  and Universal 20.5.14 reconstructed and verified true.
+- The public Spark validator accepted a bounded three-video packet with all
+  identities validated, no rejected or unresolved IDs, and frontier SHA-256
+  `c560f06afac0f56e64722a249cab208249c1543ebc0bb3b473aeb71d384402fe`.
+  This validates the route and public identities, not the scout summaries or
+  treatment claims.
+- Production activation recreated only `research-mcp`. Immediate rollback is
+  `askrigor-research:rollback-6d8ae92-predeploy`, image ID
+  `sha256:d4892bb61d4c05cfdc59943a1b4b5ab2e648798646cd93c3bcd46f6b31c351df`,
+  plus `/opt/askrigor/compose.yaml.rollback-6d8ae92`, SHA-256
+  `7ea1680c3ac2bccd82f352d2b2776a6f63fd6a18ad095d861d543c0b803faba4`.
+  Current Compose SHA-256 is
+  `ca773eaa40593f0e510c8cba454051d80bebb2f080ef8a681c9488bbe7493a47`.
+  Caddy was not recreated.
+- The personal plugin was synchronized and reinstalled as
+  `0.1.0+codex.20260822072920`. Source and installed package receipts match at
+  `d196d783895e3ed093e33f6779b91ae9bb4bdafb3550de327c5f91a9643876c6`;
+  the installed skill SHA-256 is
+  `d5c5731b4142b5c93ea21283a0855cc118f7bed15ee53decd19eaedd5199c834`.
+  A new Codex thread is required to load it. Custom GPT and Spark installation
+  remain separate owner-paste boundaries; fresh product acceptance remains
+  pending.
 - Session-start lesson status was available: 1 open candidate, 1 needing
   review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
   deletion eligible. The open candidate is unrelated and did not expand this

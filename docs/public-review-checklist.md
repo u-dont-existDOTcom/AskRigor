@@ -29,13 +29,14 @@ receipt applies to the prior 7,962-character artifact, SHA-256
 Fresh GPT-UI acceptance is still required before public submission;
 installation alone is not proof of the repaired behavior.
 
-The current generic candidate-quality source candidate has 7,946-character
+The current generic candidate-quality release has 7,946-character
 Instructions (7,974 UTF-8 bytes), SHA-256
 `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`.
-It is neither deployed nor installed. Its source-only 21-operation Action
-schema adds Spark candidate validation and strengthens the treatment-landscape
+Its runtime and 21-operation Action schema are deployed and directly accepted;
+the Instructions are not yet installed. The schema adds Spark candidate
+validation and strengthens the treatment-landscape
 lock so generic umbrella labels cannot substitute for specific-program search.
-It requires separate runtime, editor, and fresh GPT-interface acceptance.
+It still requires separate editor and fresh GPT-interface acceptance.
 
 ## Optional lesson Action deployment truth
 
@@ -114,7 +115,7 @@ preoperative PT videos, collapsed PT/exercise variants, and falsely labeled the
 answer HRP-complete. Those are retained as historical observations, not a
 topic-specific production checklist.
 
-The current source candidate preserves transcript verification, adds
+The current deployed runtime preserves transcript verification, adds
 independently validated Spark candidates as an optional high-recall discovery
 frontier, and retains a separate treatment-landscape selection gate. It
 inventories materially distinct programs before deep auditing, requires every
@@ -126,10 +127,10 @@ Missing caption access remains a confidence-limiting gap. The Action-only
 `get_youtube_transcript`, `assess_treatment_landscape_coverage`, and
 `validate_gemini_youtube_candidate_handoff` produce a 20-read schema plus the
 lesson write while preserving the exact 17-tool MCP.
-The generated hashes are recorded by `docs/custom-gpt-sync.json`. Runtime,
-privacy notice, Action schema, editor Instructions, and fresh GPT behavior must
-be reviewed as separate deployment/installation states rather than inferred
-from source completion.
+The generated hashes are recorded by `docs/custom-gpt-sync.json`. Runtime and
+Action-schema acceptance passed on 2026-08-22; privacy notice, editor
+Instructions, and fresh GPT behavior remain separate states rather than being
+inferred from that deployment.
 
 ## Source-generated MCP tools/list inventory
 
