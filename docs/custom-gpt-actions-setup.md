@@ -95,6 +95,36 @@ Privacy: https://askrigor.com/privacy
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
 
+### Release completion and plugin synchronization
+
+Do not stop at a source merge when deployment and installation are authorized.
+Complete and verify each distinct surface in order:
+
+1. deploy the exact reviewed `main` commit and retain a rollback image/config;
+2. directly verify health, the 20-operation Action document, protocol
+   manifests/integrity, and security boundaries;
+3. verify the installed AskRigor plugin still exposes exactly the frozen 17 MCP
+   tools, returns the newly deployed protocol manifests, and completes one
+   read-only probe;
+4. compare an exact installed-package receipt covering `plugin.json`,
+   `SKILL.md`, and packaged assets/inventory with the reviewed source package;
+   a matching tool catalog or working connector is not a package receipt;
+5. if installed bytes cannot be read back, mark package currency unverified,
+   preserve a non-secret prior package/registration receipt and rollback path,
+   then reinstall the exact reviewed package;
+6. install the exact generated Instructions and Action schema in the signed-in
+   Custom GPT editor, keep Knowledge empty, preserve authentication and privacy
+   settings, save, and start a fresh chat;
+7. run fresh product-interface acceptance and record only observed results.
+
+Plugin-package currency, backend currency, Custom GPT installation, and fresh
+UI behavior are separate receipts. Never infer one from another.
+
+Generate the reviewed source receipt with `npm run plugin:receipt`. Run the
+same receipt generator against the installed package path and require the
+package digest and every inventory member digest to match before recording the
+package as current.
+
 This boundary applies only to the public Custom GPT. It does not narrow the
 plugin, MCP server, or canonical protocols.
 Those surfaces retain their existing behavior; the public GPT is limited to

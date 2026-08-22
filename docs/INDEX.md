@@ -115,6 +115,9 @@ complete XML protocol.
 - `superpowers/plans/2026-08-21-treatment-landscape-synthesis-lock.md`: cross-
   repository implementation, recovery, verification, and Universal-promotion
   ledger for the breadth-before-depth repair
+- `superpowers/plans/2026-08-22-treatment-landscape-deployment-installation.md`:
+  exact production, plugin-synchronization, Custom GPT installation, rollback,
+  and fresh product-acceptance ledger for the merged repair
 - `superpowers/specs/`: accepted design specifications
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail
