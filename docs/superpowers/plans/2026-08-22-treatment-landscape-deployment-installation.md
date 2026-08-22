@@ -9,21 +9,24 @@ and fresh product-interface acceptance without conflating those surfaces.
 - Owner standing instruction on 2026-08-22: continue authorized product work
   through Custom GPT installation and always ensure the plugin is current.
 - Canonical source baseline: AskRigor `main`
-  `f8427b826b948b6592243f2a0b69a9e751e762cf`.
-- Product implementation boundary: PR #49 merge
-  `458190ab1be0849fba3f5193d59321a9c7f0d8df`.
+  `d4f2af0f86844c743b3b5fbc6c70f66c72a4637d`.
+- Previous treatment-landscape implementation boundary: PR #49 merge
+  `458190ab1be0849fba3f5193d59321a9c7f0d8df`; the generic Spark
+  candidate-quality repair supersedes its release artifact before deployment.
 - Current production image:
   `askrigor-research:386497415a187354c6396e69a902d5bece9a9c96`.
-- Current live HRP: 20.5.18; target HRP: 20.5.19. Universal remains 20.5.14.
+- Current live HRP: 20.5.18; target HRP: 20.5.20, SHA-256
+  `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`.
+  Universal remains 20.5.14.
 - The connected AskRigor app currently exposes the intended frozen 17-tool MCP
   catalog. Its backend is stale until deployment because the live HRP manifest
   is still 20.5.18. The generated remote-app wrapper does not contain the
   repository's `skills/askrigor/SKILL.md`, so source plugin-package currency is
   not yet verified.
-- Target Custom GPT packet: 7,991-character Instructions SHA-256
-  `9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`,
-  20-operation OpenAPI SHA-256
-  `35a9a2d51a4a3629795ea0224473e6273caf88febbbc0fefbe0095b1e73cc0ce`,
+- Target Custom GPT packet: 7,946-character Instructions SHA-256
+  `019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`,
+  21-operation OpenAPI SHA-256
+  `280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540`,
   and empty Knowledge.
 
 ## Completion gates
@@ -38,8 +41,8 @@ and fresh product-interface acceptance without conflating those surfaces.
 4. On the VPS, preserve the current image and Compose file as concrete rollback
    points, build the exact new image, run a disposable hardening/health/contract
    gate, and recreate only the research service.
-5. Verify the exact image/container, loopback/public health, 20-operation
-   OpenAPI, HRP 20.5.19 and Universal 20.5.14 manifests/integrity, Action auth
+5. Verify the exact image/container, loopback/public health, 21-operation
+   OpenAPI, HRP 20.5.20 and Universal 20.5.14 manifests/integrity, Action auth
    boundaries, logs, and rollback state.
 6. Verify the connected app has exactly 17 MCP tools, the current live
    manifests, and a successful read-only probe. Separately compare an exact
@@ -85,6 +88,6 @@ and fresh product-interface acceptance without conflating those surfaces.
   and the backend deployment gap, not source plugin-package currency. The
   installed remote-app wrapper contains no `SKILL.md`; exact source-package
   installation is therefore required after the release commit is reviewed.
-- Lesson checkpoint at `2026-08-22T00:27:23.677Z`: 1 open, 1 needing review, 0
+- Lesson checkpoint at `2026-08-22T05:28:10.089Z`: 1 open, 1 needing review, 0
   accepted but not incorporated, 3 incorporated or closed, 0 deletion eligible.
   The unreviewed candidate is unrelated and does not expand this release.

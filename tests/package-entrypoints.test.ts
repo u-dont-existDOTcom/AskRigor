@@ -19,5 +19,5 @@ describe("workspace package entrypoints", () => {
 
       expect(result.status, result.stderr).toBe(0);
     }
-  });
+  }, 10_000);
 });

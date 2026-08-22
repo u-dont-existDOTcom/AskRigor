@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { YoutubeTranscriptEnvelope } from "@askrigor/sources";
 import { describe, expect, it } from "vitest";
 
@@ -16,17 +18,19 @@ import type { YoutubeVideoCommunityAuditOutput } from
   "../apps/research-mcp/src/youtube-video-community-audit.js";
 
 const classSpecs = [
-  ["strength", "Progressive resistance training"],
-  ["aquatic", "Aquatic exercise"],
-  ["nutrition", "Nutritional approach"],
-  ["injection", "Injection procedure"],
-  ["multimodal", "Multimodal conservative program"],
-  ["surgery", "Surgery and recovery"]
+  ["strength", "Progressive resistance training", "progressive resistance training"],
+  ["aquatic", "Aquatic exercise", "deep water interval walking"],
+  ["nutrition", "Nutritional approach", "ketogenic carbohydrate restriction"],
+  ["injection", "Injection procedure", "platelet rich plasma injection"],
+  ["multimodal", "Multimodal conservative program", "education paced loading coaching"],
+  ["surgery", "Surgery and recovery", "total joint replacement"]
 ] as const;
 
 const completeInput = (): TreatmentLandscapeCoverageInput => {
   const treatmentClasses = classSpecs.map(([id, label]) => treatmentClass(id, label));
-  const fingerprints = classSpecs.map(([id]) => fingerprint(`fp-${id}`, id));
+  const fingerprints = classSpecs.map(([id, , implementation]) =>
+    fingerprint(`fp-${id}`, id, implementation)
+  );
   const candidates = classSpecs.flatMap(([id], classIndex) =>
     Array.from({ length: 4 }, (_, candidateIndex) => candidateVideo({
       videoId: `v-${id}-${candidateIndex}`,
@@ -41,9 +45,9 @@ const completeInput = (): TreatmentLandscapeCoverageInput => {
     research_target: "Compare materially different care approaches",
     broad_treatment_choice: true,
     substantial_youtube_corpus: "yes",
-    discovery_batches: classSpecs.map(([id], index) => ({
+    discovery_batches: classSpecs.map(([id, , implementation], index) => ({
       batch_id: `batch-${id}`,
-      query_or_scope: `Search for ${id} outcomes, failures, and harms`,
+      query_or_scope: `Search ${implementation} outcomes, failures, and harms`,
       treatment_class_ids: [id],
       access_status: "api_visible_complete",
       pagination: { exhausted: true, next_cursor_present: false },
@@ -52,9 +56,22 @@ const completeInput = (): TreatmentLandscapeCoverageInput => {
         .map(({ video_id }) => video_id),
       new_program_fingerprint_ids: index === classSpecs.length - 1 ? [] : [`fp-${id}`]
     })),
+    specific_implementation_searches: classSpecs.map(([id, , implementation]) => ({
+      search_id: `specific-${id}`,
+      discovery_batch_id: `batch-${id}`,
+      treatment_class_id: id,
+      implementation_terms: [implementation],
+      discriminator_terms: ["outcomes"],
+      candidate_video_ids: candidates
+        .filter(({ treatment_class_id }) => treatment_class_id === id)
+        .map(({ video_id }) => video_id),
+      result_status: "specific_candidates_found" as const
+    })),
     treatment_classes: treatmentClasses,
     program_fingerprints: fingerprints,
     candidate_videos: candidates,
+    external_scout_frontiers: [],
+    external_scout_candidates: [],
     selected_videos: candidates
       .filter(({ selection_status }) => selection_status === "selected")
       .map(({ video_id, fingerprint_id }) => selectedVideo(video_id, fingerprint_id)),
@@ -80,7 +97,7 @@ describe("treatment-landscape coverage Action", () => {
       operationId === "assess_treatment_landscape_coverage"
     );
 
-    expect(routes).toHaveLength(2);
+    expect(routes).toHaveLength(3);
     expect(route).toMatchObject({
       method: "POST",
       path: "/actions/research/assess_treatment_landscape_coverage",
@@ -103,6 +120,8 @@ describe("treatment-landscape coverage Action", () => {
       treatment_classes_discovered: 6,
       materially_distinct_program_fingerprints: 6,
       candidate_videos_screened: 24,
+      external_scout_candidates_screened: 0,
+      external_scout_candidates_pending: [],
       material_videos_selected: 6,
       material_videos_fully_audited: 6,
       independent_channels_or_pools: 6,
@@ -122,6 +141,284 @@ describe("treatment-landscape coverage Action", () => {
       discussion_access_status: "api_visible_complete",
       discussion_synthesis_lock: "pass"
     });
+  });
+
+  it("blocks every condition when an umbrella class has not completed specific-program discovery", () => {
+    const input = completeInput();
+    input.research_target = "Compare care for any condition";
+    input.specific_implementation_searches = input.specific_implementation_searches
+      .filter(({ treatment_class_id }) => treatment_class_id !== "strength");
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.uncovered_material_treatment_classes).toContain("strength");
+    expect(result.selection_blockers.join(" ")).toContain("specific-program discovery");
+  });
+
+  it("blocks a validated material Spark candidate until it is screened", () => {
+    const input = completeInput();
+    input.external_scout_frontiers = [sparkFrontier(["spark-candidate"])];
+    input.external_scout_candidates = [{
+      frontier_digest: input.external_scout_frontiers[0]!.frontier_digest,
+      source: "gemini_spark",
+      video_id: "spark-candidate",
+      materiality: "material",
+      redundancy: "distinct",
+      screening_status: "unscreened",
+      omission_impact: "uncertain",
+      omission_rationale: "The lead may add a distinct program."
+    }];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.external_scout_candidates_pending).toEqual(["spark-candidate"]);
+    expect(result.selection_blockers.join(" ")).toContain("remains unscreened");
+  });
+
+  it("does not let materiality or duplicate labels waive Spark screening", () => {
+    const input = completeInput();
+    input.external_scout_frontiers = [sparkFrontier(["spark-candidate"])];
+    input.external_scout_candidates = [{
+      frontier_digest: input.external_scout_frontiers[0]!.frontier_digest,
+      source: "gemini_spark",
+      video_id: "spark-candidate",
+      materiality: "not_material",
+      redundancy: "duplicate",
+      screening_status: "unscreened",
+      omission_impact: "not_decision_relevant",
+      omission_rationale: "Caller claims the lead is redundant."
+    }];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "materiality and redundancy cannot waive screening"
+    );
+  });
+
+  it("blocks when any identity-validated Spark candidate is omitted from reconciliation", () => {
+    const input = completeInput();
+    const video = input.candidate_videos[0]!;
+    input.external_scout_frontiers = [sparkFrontier([
+      video.video_id,
+      "omitted-scout"
+    ])];
+    input.external_scout_candidates = [{
+      frontier_digest: input.external_scout_frontiers[0]!.frontier_digest,
+      source: "gemini_spark",
+      video_id: video.video_id,
+      materiality: "material",
+      redundancy: "distinct",
+      screening_status: "screened",
+      fingerprint_id: video.fingerprint_id,
+      omission_impact: "uncertain",
+      omission_rationale: "The lead was reconciled with a material candidate."
+    }];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "omitted-scout is missing from its complete frontier reconciliation"
+    );
+  });
+
+  it("blocks an unresolved identity-validation result carried by the Spark frontier", () => {
+    const input = completeInput();
+    input.external_scout_frontiers = [sparkFrontier([], ["retryable-scout"])];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "retryable-scout has an unresolved identity-validation result"
+    );
+  });
+
+  it("reconciles a screened Spark lead with the ordinary candidate ledger", () => {
+    const input = completeInput();
+    const video = input.candidate_videos[0]!;
+    input.external_scout_frontiers = [sparkFrontier([video.video_id])];
+    input.external_scout_candidates = [{
+      frontier_digest: input.external_scout_frontiers[0]!.frontier_digest,
+      source: "gemini_spark",
+      video_id: video.video_id,
+      materiality: "material",
+      redundancy: "distinct",
+      screening_status: "screened",
+      fingerprint_id: video.fingerprint_id,
+      omission_impact: "uncertain",
+      omission_rationale: "The lead was reconciled with a material candidate."
+    }];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("pass");
+    expect(result.external_scout_candidates_screened).toBe(1);
+    expect(result.external_scout_candidates_pending).toEqual([]);
+  });
+
+  it("rejects a false zero-result claim when a specific candidate is linked", () => {
+    const input = completeInput();
+    input.specific_implementation_searches[0]!.result_status =
+      "exhausted_zero_results";
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "claims exhausted zero results while its own candidate list is nonempty"
+    );
+  });
+
+  it("does not let an unrelated same-class candidate close a named implementation search", () => {
+    const input = completeInput();
+    input.specific_implementation_searches[0]!.implementation_terms = ["eccentric loading"];
+    input.discovery_batches[0]!.query_or_scope =
+      "Search eccentric loading outcomes, failures, and harms";
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.invalid_record_ids.specific_implementation_searches)
+      .toContain("specific-strength");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "described program matches"
+    );
+  });
+
+  it("does not mistake a stage field for a named implementation", () => {
+    const input = completeInput();
+    input.specific_implementation_searches[0]!.implementation_terms = ["baseline reported"];
+    input.specific_implementation_searches[0]!.discriminator_terms = ["outcomes"];
+    input.discovery_batches[0]!.query_or_scope =
+      "Search baseline reported outcomes, failures, and harms";
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.invalid_record_ids.specific_implementation_searches)
+      .toContain("specific-strength");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "described program matches"
+    );
+  });
+
+  it("rejects a generic outcome label supplied as an implementation term", () => {
+    const input = completeInput();
+    input.specific_implementation_searches[0]!.implementation_terms = ["function"];
+    input.discovery_batches[0]!.query_or_scope =
+      "Search function outcomes, failures, and harms";
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.invalid_record_ids.specific_implementation_searches)
+      .toContain("specific-strength");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "distinct non-generic terms"
+    );
+  });
+
+  it.each([
+    "program", "program!", "specific program", "specific program.",
+    "home exercise program", "care management"
+  ])(
+    "rejects generic implementation placeholder %s",
+    (placeholder) => {
+      const input = completeInput();
+      input.specific_implementation_searches[0]!.implementation_terms = [placeholder];
+      input.discovery_batches[0]!.query_or_scope =
+        `Search ${placeholder} outcomes, failures, and harms`;
+
+      const result = assessTreatmentLandscapeCoverage(input);
+
+      expect(result.synthesis_lock).toBe("block");
+      expect(result.invalid_record_ids.specific_implementation_searches)
+        .toContain("specific-strength");
+      expect(result.selection_blockers.join(" ")).toContain(
+        "distinct non-generic terms"
+      );
+    }
+  );
+
+  it("treats punctuation variants as duplicate implementation and discriminator terms", () => {
+    const input = completeInput();
+    input.specific_implementation_searches[0]!.implementation_terms = [
+      "progressive resistance training"
+    ];
+    input.specific_implementation_searches[0]!.discriminator_terms = [
+      "progressive resistance training!"
+    ];
+    input.discovery_batches[0]!.query_or_scope =
+      "Search progressive resistance training outcomes, failures, and harms";
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.invalid_record_ids.specific_implementation_searches)
+      .toContain("specific-strength");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "distinct non-generic terms"
+    );
+  });
+
+  it("requires each search candidate to link reciprocally to its batch and class", () => {
+    const input = completeInput();
+    input.specific_implementation_searches[0]!.candidate_video_ids = [
+      input.candidate_videos.find(({ treatment_class_id }) =>
+        treatment_class_id === "aquatic"
+      )!.video_id
+    ];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.invalid_record_ids.specific_implementation_searches)
+      .toContain("specific-strength");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "nonreciprocal candidate links"
+    );
+  });
+
+  it("does not accept an umbrella-only query as specific-program discovery", () => {
+    const input = completeInput();
+    input.discovery_batches[0]!.query_or_scope = "Search exercise outcomes";
+    input.specific_implementation_searches[0]!.implementation_terms = ["exercise"];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.invalid_record_ids.specific_implementation_searches)
+      .toContain("specific-strength");
+    expect(result.selection_blockers.join(" ")).toContain(
+      "non-generic terms reciprocally present"
+    );
+  });
+
+  it("excludes an unreconciled screened scout from aggregate counts", () => {
+    const input = completeInput();
+    input.external_scout_frontiers = [sparkFrontier(["unlinked-scout"])];
+    input.external_scout_candidates = [{
+      frontier_digest: input.external_scout_frontiers[0]!.frontier_digest,
+      source: "gemini_spark",
+      video_id: "unlinked-scout",
+      materiality: "material",
+      redundancy: "distinct",
+      screening_status: "screened",
+      fingerprint_id: "fp-strength",
+      omission_impact: "uncertain",
+      omission_rationale: "The lead may add a distinct program."
+    }];
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.synthesis_lock).toBe("block");
+    expect(result.external_scout_candidates_screened).toBe(0);
+    expect(result.invalid_record_ids.external_scout_candidates).toEqual(["unlinked-scout"]);
   });
 
   it("derives diversity from normalized program contents, not caller IDs", () => {
@@ -151,6 +448,15 @@ describe("treatment-landscape coverage Action", () => {
         ...video.discussion_receipt,
         channel_id: "UC-SAME"
       }
+    }));
+    input.specific_implementation_searches = input.specific_implementation_searches
+      .map((search) => ({
+        ...search,
+        implementation_terms: ["progressive resistance training"]
+      }));
+    input.discovery_batches = input.discovery_batches.map((batch) => ({
+      ...batch,
+      query_or_scope: "Search progressive resistance training outcomes, failures, and harms"
     }));
 
     const result = assessTreatmentLandscapeCoverage(input);
@@ -564,7 +870,7 @@ function treatmentClass(id: string, label: string) {
   };
 }
 
-function fingerprint(id: string, classId: string) {
+function fingerprint(id: string, classId: string, components = `A specific ${classId} program`) {
   return {
     fingerprint_id: id,
     treatment_class_id: classId,
@@ -573,7 +879,7 @@ function fingerprint(id: string, classId: string) {
     formal_follow_up: "complete" as const,
     omission_impact: "uncertain" as const,
     omission_rationale: "A distinct program could change the comparison.",
-    components: `A specific ${classId} program`,
+    components,
     dose_or_intensity: `Moderate ${classId} intensity`,
     frequency: "Three times weekly",
     duration: "Twelve weeks",
@@ -637,6 +943,22 @@ function channelForVideo(videoId: string): string {
 
 function directionalComplete() {
   return { status: "complete" as const };
+}
+
+function sparkFrontier(validatedVideoIds: string[], unresolvedVideoIds: string[] = []) {
+  const payload = {
+    source_candidate_video_ids: [...validatedVideoIds, ...unresolvedVideoIds],
+    validated_candidate_video_ids: validatedVideoIds,
+    terminally_rejected_video_ids: [],
+    unresolved_candidate_video_ids: unresolvedVideoIds
+  };
+  return {
+    frontier_digest: createHash("sha256")
+      .update(JSON.stringify(payload), "utf8")
+      .digest("hex"),
+    source: "gemini_spark" as const,
+    ...payload
+  };
 }
 
 function accessBoundary(input: {

@@ -29,12 +29,13 @@ receipt applies to the prior 7,962-character artifact, SHA-256
 Fresh GPT-UI acceptance is still required before public submission;
 installation alone is not proof of the repaired behavior.
 
-The newer treatment-landscape source candidate has 7,991-character
-Instructions, SHA-256
-`9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`.
-It is neither deployed nor installed; the source-only 20-operation Action
-schema and its treatment-landscape lock require separate runtime, editor, and
-fresh GPT-interface acceptance.
+The current generic candidate-quality source candidate has 7,946-character
+Instructions (7,974 UTF-8 bytes), SHA-256
+`019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532`.
+It is neither deployed nor installed. Its source-only 21-operation Action
+schema adds Spark candidate validation and strengthens the treatment-landscape
+lock so generic umbrella labels cannot substitute for specific-program search.
+It requires separate runtime, editor, and fresh GPT-interface acceptance.
 
 ## Optional lesson Action deployment truth
 
@@ -113,15 +114,18 @@ preoperative PT videos, collapsed PT/exercise variants, and falsely labeled the
 answer HRP-complete. Those are retained as historical observations, not a
 topic-specific production checklist.
 
-The current source candidate preserves transcript verification and adds a
-separate treatment-landscape selection gate. It inventories materially distinct
-programs before deep auditing, computes separate selection, per-video-depth,
-and overall locks,
+The current source candidate preserves transcript verification, adds
+independently validated Spark candidates as an optional high-recall discovery
+frontier, and retains a separate treatment-landscape selection gate. It
+inventories materially distinct programs before deep auditing, requires every
+material umbrella class to complete specific-program discovery, computes
+separate selection, per-video-depth, and overall locks,
 and requires **Videos actually audited** to expose the selected program, stage,
 outcome horizon, nonredundant value, and plain-language retrieval boundaries.
 Missing caption access remains a confidence-limiting gap. The Action-only
-`get_youtube_transcript` and `assess_treatment_landscape_coverage` reads produce
-a 19-read schema plus the lesson write while preserving the exact 17-tool MCP.
+`get_youtube_transcript`, `assess_treatment_landscape_coverage`, and
+`validate_gemini_youtube_candidate_handoff` produce a 20-read schema plus the
+lesson write while preserving the exact 17-tool MCP.
 The generated hashes are recorded by `docs/custom-gpt-sync.json`. Runtime,
 privacy notice, Action schema, editor Instructions, and fresh GPT behavior must
 be reviewed as separate deployment/installation states rather than inferred

@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.19" revisionDate="2026-08-21" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.20" revisionDate="2026-08-22" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -464,6 +464,24 @@
    per-selected-video treatment record, Action-produced coverage receipts, plain-language output rules, and regressions for
    redundant concentration, unsupported relevance waivers, live continuations mislabeled as terminal, missing per-program
    formal return passes, and premature synthesis while any discovery batch leaves a material hypothesis unresolved.
+  </Revision>
+  <Revision version="20.5.20" priority="Critical">
+   Strengthened treatment-landscape discovery at the candidate-quality boundary. Every material umbrella class must be
+   decomposed into specific implementation hypotheses using condition, population or stage, outcome, horizon, and
+   implementation vocabulary before generic candidates can satisfy selection coverage. More videos or broader class labels
+   cannot substitute for finding the decision-relevant programs inside those classes.
+
+   Restored optional external high-recall scouts as provisional discovery inputs. Independently validated video identities
+   and clearly attributed scout summaries may guide candidate selection and new searches even when AskRigor cannot retrieve
+   captions, but unverified summaries cannot establish creator content, efficacy, safety, causality, comparison, or a
+   recommendation. Added explicit controls against both discarding useful candidate leads solely for lack of transcript
+   verification and laundering those provisional summaries into evidence.
+
+   Closed two fail-open candidate-reconciliation paths. A specific-implementation result now names its own candidate IDs,
+   and every named candidate must link reciprocally to the executed batch and class and have described program components
+   matching the implementation terms; outcome, stage, horizon, or other discriminator fields cannot substitute. Non-identity
+   provider, configuration, access, missing-field, or response failures remain unresolved even when not immediately retryable;
+   only literal not-found/not-visible outcomes or verified identity mismatches terminally reject a scout lead.
   </Revision>
 </RevisionHistory>
 
@@ -976,6 +994,40 @@
    a complete fingerprint. A material fingerprint with no described components cannot count as distinct coverage.
   </Rule>
 
+  <Rule name="SpecificImplementationDiscoveryAndProvisionalScouts" priority="Critical">
+   Candidate discovery must descend from every material umbrella class into materially different implementation hypotheses.
+   Use vocabulary from the actual target, formal and grey sources, search results, creator context, and community reports to
+   search named methods, components or bundles, dose or intensity, frequency or duration, supervision, population or stage,
+   outcome, horizon, benefit, no effect, failure, worsening, discontinuation, and progression. A result set described only as
+   exercise, physical therapy, diet, injection, surgery, conservative care, alternative treatment, program, approach, method,
+   protocol, regimen, care, or management is generic and cannot close candidate discovery for that class. A phrase made only
+   from such placeholders remains generic. For each material class preserve a reciprocal receipt linking the executed
+   query, non-generic implementation and discriminator terms, discovery batch, literal result, the exact per-search candidate
+   IDs, pagination, and exhaustion or access boundary. Each returned candidate must link reciprocally to that batch and class,
+   and its described program-components field must match at least one named implementation term. Outcome, population or stage,
+   horizon, and care-stage fields are discriminators and cannot establish the implementation match. Another candidate from
+   the same class or batch cannot close the search. Rewrite or reopen searches while specific implementations likely to
+   change the ranking remain discoverable.
+
+   An external model-assisted scout may supply a high-recall candidate frontier. Treat every scout title, channel, program,
+   population or stage, outcome, horizon, summary, and selection suggestion as provisional. Independently validate each
+   identifier, canonical link, exact title, and channel before it enters the candidate ledger; never accept an ungrounded or
+   invented identifier. Preserve a complete frontier receipt whose digest and exact source, validated, terminally rejected,
+   and unresolved ID partition reconcile every supplied candidate. Only a literal provider not-found/not-visible result or
+   a mismatch between present values after complete provider identity retrieval may terminally reject a lead. Missing title
+   or channel fields, configuration, credential, access, malformed-response, runtime, rate-limit, and other non-identity
+   failures remain unresolved; whether an immediate retry is possible does not turn them into negative evidence. Screen every
+   validated candidate before substituting a generic native result or declaring coverage; caller materiality or redundancy
+   labels cannot waive screening.
+
+   A clearly attributed scout summary may guide candidate prioritization, query vocabulary, and discovery reopening when a
+   transcript cannot be retrieved. State in ordinary language that AskRigor did not check that summary against a transcript.
+   Do not discard an otherwise useful candidate solely for that reason. The same summary cannot establish what the creator
+   said for evidentiary synthesis and cannot support efficacy, safety, causal, comparative, structural, or recommendation
+   claims. Selected creator-content evidence still requires transcript verification. A genuine terminal boundary permits only
+   bounded output that withholds creator-content claims; comments, metadata, titles, and scout summaries do not replace it.
+  </Rule>
+
   <Rule name="BroadDiscoveryBeforeDeepAudit" priority="Critical">
    Separate broad discovery from full comment auditing. Use repeated nonredundant discovery batches of no more than six
    searches per batch. Later batches must target uncovered treatment classes and hypotheses discovered in earlier
@@ -1038,7 +1090,9 @@
    boundaries; selection_coverage_lock; per_video_depth_lock; and overall treatment_landscape_synthesis_lock. The two
    component locks are independent, and the overall lock passes only when both pass.
 
-   selection_coverage_lock is block when a materially plausible class remains unsearched; a searched material class has
+   selection_coverage_lock is block when a materially plausible class remains unsearched; a material umbrella class remains
+   represented only by generic candidates despite discoverable specific implementations; a validated, potentially material,
+   nonredundant external-scout candidate remains unscreened; a searched material class has
    discoverable candidates but no selected video; a materially distinct available fingerprint remains unselected; any batch
    still leaves a decision-relevant hypothesis unresolved; four or more selected videos are concentrated in one or two
    fingerprints for a broad treatment question; a required directional trajectory was not deliberately sought; formal-evidence follow-up for
@@ -5726,6 +5780,7 @@ Treatment-space and selection coverage:
 - Materiality and searched / unsearched / inaccessible state for each class:
 - Omission impact and rationale: not decision-relevant / confidence-changing / ranking-changing / potentially conclusion-changing / uncertain
 - Discovery batches: exact query or scope; literal access and pagination state; covered class IDs; candidate video IDs; new fingerprint IDs:
+- External-scout candidate frontier: scout/source; identity-validation state; provisional program, population/stage, outcome/horizon, and summary basis; screened/omitted state and rationale:
 - Candidate ledger: video and stable channel IDs; reciprocal batch, class, and fingerprint links; selected / screened-not-selected / inaccessible state; omission impact and rationale:
 - Formal-evidence follow-up state for each material class and each material program fingerprint:
 - Exact program fingerprints: components; dose or intensity; frequency; duration; supervision; adherence; co-interventions; stage; outcome; horizon; and care stage:
@@ -7038,9 +7093,9 @@ Final integrated synthesis rule:
 
   <Case id="ManyVideosButOneTreatmentClass">
    <Prompt>
-    A hip-osteoarthritis audit reviews ten videos, but eight concern substantially similar strengthening or physical-therapy
-    programs while swimming, diet, injections, nutritional interventions, multimodal programs, nonaction, and eventual
-    surgery trajectories remain discoverable.
+    A broad treatment audit reviews ten videos, but eight concern substantially similar programs inside one umbrella class
+    while materially different implementations, other classes, nonaction, failure, progression, and eventual standard-care
+    trajectories remain discoverable.
    </Prompt>
    <ExpectedBehavior>
     Fail treatment-space coverage. Raw video count does not establish diversity. Record the repeated program fingerprints,
@@ -7050,15 +7105,88 @@ Final integrated synthesis rule:
    </ExpectedBehavior>
   </Case>
 
-  <Case id="TwoVideosPresentedAsBroadHipCommunityAudit">
+  <Case id="TwoVideosPresentedAsBroadCommunityAudit">
    <Prompt>
-    A broad hip-replacement decision review audits two material YouTube videos and stops even though additional treatment
-    approaches and independent channels are readily discoverable.
+    A broad treatment decision review audits two material YouTube videos and stops even though additional specific programs,
+    treatment classes, and independent channels are readily discoverable.
    </Prompt>
    <ExpectedBehavior>
     Fail the treatment-landscape synthesis lock. Record uncovered treatment classes and continue broad discovery and
     material-video auditing while additional nonredundant treatment hypotheses have positive expected information gain.
     Two completed comment corpora do not establish broad selection coverage and cannot support a final treatment ranking.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="GenericUmbrellaCandidatesHideSpecificPrograms">
+   <Prompt>
+    A review selects several videos labeled exercise, physical therapy, diet, and conservative care. Search results and an
+    external scout expose materially different named or dosed implementations within those classes, but the review does not
+    screen them because its raw video target has already been reached.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage. A quota and umbrella labels do not establish candidate quality. Search and screen the specific
+    implementations using relevant population or stage, outcome, horizon, benefit, failure, and progression vocabulary, then
+    update the program fingerprints and unresolved-hypothesis ledger before synthesis.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="ProvisionalScoutCandidateDiscardedWithoutTranscript">
+   <Prompt>
+    An external scout supplies a real, independently identity-validated video with a highly specific, nonredundant program
+    and relevant population/outcome description. Caption retrieval is unavailable, so the review discards the candidate and
+    substitutes a generic high-ranked tutorial.
+   </Prompt>
+   <ExpectedBehavior>
+    Keep the candidate as a provisional discovery lead, state that its scout summary was not checked against a transcript,
+    and use it to guide further retrieval and searches. Do not treat the summary as creator-content evidence, but do not let
+    missing captions erase a better candidate frontier or manufacture support for the generic substitute.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="GenericSearchFalselyClosedAsSpecificZeroResults">
+   <Prompt>
+    A material class has only a generic umbrella query. The review labels specific-program discovery exhausted with zero
+    results without preserving an executed query containing a non-generic implementation and outcome or stage discriminator.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage. Require the reciprocal specific-program search receipt and literal exhaustion or boundary;
+    caller assertion cannot convert a generic query into a completed implementation search.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="SpecificSearchClosedByWrongCandidate">
+   <Prompt>
+    A search names one implementation, but the claimed result points only to another candidate in the same broad class or
+    discovery batch whose described program does not contain that implementation.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage. Require exact per-search candidate IDs, reciprocal batch/class links, and a described program
+    components field matching at least one genuinely named implementation term; generic program, approach, method, regimen,
+    care, or management placeholders and outcome, stage, and horizon fields cannot substitute.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="ExternalScoutFrontierCandidateOmittedOrUnresolved">
+   <Prompt>
+    A scout packet contains several candidates. The review omits one identity-validated lead from screening and treats a
+    different credential, access, response, runtime, or rate-limited identity check as a terminal rejection, then claims the
+    remaining frontier is complete.
+   </Prompt>
+   <ExpectedBehavior>
+    Fail selection coverage. Reconcile the complete frontier digest and candidate partition, screen every validated lead
+    regardless of caller materiality or redundancy labels, and keep every non-identity validation failure unresolved.
+   </ExpectedBehavior>
+  </Case>
+
+  <Case id="ProvisionalScoutSummaryUsedAsTreatmentEvidence">
+   <Prompt>
+    A model-assisted scout summarizes a candidate video, AskRigor validates only the video identity, and the final answer
+    cites the summary as proof that the creator's program works.
+   </Prompt>
+   <ExpectedBehavior>
+    Reject the evidentiary upgrade. Label the summary provisional and not transcript-verified, use it only for discovery, and
+    require creator-content verification plus the appropriate independent evidence before any efficacy, safety, causal,
+    comparative, structural, or recommendation claim.
    </ExpectedBehavior>
   </Case>
 
@@ -7593,5 +7721,7 @@ Final integrated synthesis rule:
  <Check id="FS183">Did I reject unsupported not-decision-relevant labels for material classes, distinct programs, formal return passes, and executable retrieval?</Check>
  <Check id="FS184">Did each completed transcript receipt prove one authenticated or server-held contiguous chain from first page through exhaustion, without skipped pages or mixed restart counts?</Check>
  <Check id="FS185">Did I derive structural breadth applicability from the valid ledger instead of allowing caller corpus-size or scope labels to waive it?</Check>
+ <Check id="FS186">Did I decompose every material umbrella treatment class into specific implementation searches and preserve the reciprocal executed-query, non-generic-term, exact per-search candidate IDs, matching described fingerprints, pagination, and exhaustion or boundary receipts?</Check>
+ <Check id="FS187">For every external-scout frontier, did I reconcile its digest and complete candidate partition, leave all non-identity validation gaps unresolved regardless of immediate retryability, screen every validated lead regardless of caller labels, preserve discovery value, and prevent unverified summaries from becoming evidence?</Check>
 </FinalSelfCheck>
 </Protocol>

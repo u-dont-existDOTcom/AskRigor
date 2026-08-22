@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   ACCESS_STATUSES,
   type ProvenanceEnvelope
@@ -15,14 +17,16 @@ import {
   type YoutubeVideo
 } from "./youtube.js";
 
-export const GEMINI_YOUTUBE_CANDIDATE_CONTRACT = "youtube-candidate-handoff-v1";
+export const GEMINI_YOUTUBE_CANDIDATE_CONTRACT = "youtube-candidate-handoff-v2";
+export const GEMINI_YOUTUBE_CANDIDATE_LEGACY_CONTRACT = "youtube-candidate-handoff-v1";
 export const GEMINI_YOUTUBE_CANDIDATE_MODE = "candidate_discovery";
 export const GEMINI_YOUTUBE_CANDIDATE_PACKET_NAME = "gemini_youtube_candidate_handoff";
-export const GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION = "1.0";
+export const GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION = "2.0";
+export const GEMINI_YOUTUBE_CANDIDATE_LEGACY_PACKET_VERSION = "1.0";
 export const MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES = 32 * 1_024;
 
 const LEGACY_RESPONSE_PREFIX = [
-  `Scout contract: ${GEMINI_YOUTUBE_CANDIDATE_CONTRACT}`,
+  `Scout contract: ${GEMINI_YOUTUBE_CANDIDATE_LEGACY_CONTRACT}`,
   "",
   `Mode: ${GEMINI_YOUTUBE_CANDIDATE_MODE}`,
   "",
@@ -66,7 +70,7 @@ const discoveryQuerySchema = z.object({
   query: boundedText(500)
 }).strict();
 
-const geminiCandidateSchema = z.object({
+const geminiCandidateV1Schema = z.object({
   video_id: youtubeVideoIdSchema,
   canonical_url: z.string().url().max(2_048),
   title: boundedText(500),
@@ -85,6 +89,17 @@ const geminiCandidateSchema = z.object({
   }
 });
 
+export const geminiYoutubeSummaryBasisSchema = z.enum([
+  "spark_public_video_context_not_transcript_verified_by_askrigor"
+]);
+
+const geminiCandidateV2Schema = geminiCandidateV1Schema.safeExtend({
+  provisional_specific_program: boundedText(900),
+  provisional_population_or_stage: boundedText(500),
+  provisional_outcome_and_horizon: boundedText(500),
+  summary_basis: geminiYoutubeSummaryBasisSchema
+}).strict();
+
 const REQUIRED_DISCLOSURES = [
   "comments_not_retrieved",
   "provider_metadata_not_validated_by_gemini",
@@ -92,14 +107,10 @@ const REQUIRED_DISCLOSURES = [
   "not_medical_advice"
 ] as const;
 
-export const geminiYoutubeCandidatePacketSchema = z.object({
+const packetCommonShape = {
   packet_name: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_NAME),
-  packet_version: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION),
   research_target: boundedText(1_000),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
-  discovery_queries: z.array(discoveryQuerySchema).min(6).max(12),
-  candidates: z.array(geminiCandidateSchema).min(3).max(12),
-  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(4),
   search_gaps: z.array(boundedText(500)).max(8),
   disclosures: z.tuple([
     z.literal(REQUIRED_DISCLOSURES[0]),
@@ -107,7 +118,34 @@ export const geminiYoutubeCandidatePacketSchema = z.object({
     z.literal(REQUIRED_DISCLOSURES[2]),
     z.literal(REQUIRED_DISCLOSURES[3])
   ])
-}).strict().superRefine((packet, context) => {
+} as const;
+
+const geminiYoutubeCandidateV1PacketSchema = z.object({
+  ...packetCommonShape,
+  packet_version: z.literal(GEMINI_YOUTUBE_CANDIDATE_LEGACY_PACKET_VERSION),
+  discovery_queries: z.array(discoveryQuerySchema).min(6).max(12),
+  candidates: z.array(geminiCandidateV1Schema).min(3).max(12),
+  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(4)
+}).strict().superRefine(addPacketRelationshipIssues);
+
+const geminiYoutubeCandidateV2PacketSchema = z.object({
+  ...packetCommonShape,
+  packet_version: z.literal(GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION),
+  discovery_queries: z.array(discoveryQuerySchema).min(8).max(18),
+  candidates: z.array(geminiCandidateV2Schema).min(3).max(16),
+  suggested_seed_video_ids: z.array(youtubeVideoIdSchema).min(1).max(8)
+}).strict().superRefine(addPacketRelationshipIssues);
+
+export const geminiYoutubeCandidatePacketSchema = z.union([
+  geminiYoutubeCandidateV2PacketSchema,
+  geminiYoutubeCandidateV1PacketSchema
+]);
+
+function addPacketRelationshipIssues(
+  packet: z.output<typeof geminiYoutubeCandidateV1PacketSchema> |
+    z.output<typeof geminiYoutubeCandidateV2PacketSchema>,
+  context: z.RefinementCtx
+): void {
   addDuplicateIssues(
     packet.discovery_queries.map(({ query }) => comparableQuery(query)),
     "discovery_queries",
@@ -141,20 +179,20 @@ export const geminiYoutubeCandidatePacketSchema = z.object({
       });
     }
   });
-});
+}
 
 const identityRejectionReasonSchema = z.enum([
   "metadata_not_api_visible_complete",
   "provider_video_id_mismatch",
   "provider_canonical_url_mismatch",
-  "provider_title_missing",
-  "provider_channel_missing",
   "declared_title_mismatch",
   "declared_channel_mismatch"
 ]);
 
 const seedIneligibilityReasonSchema = z.enum([
   "candidate_rejected",
+  "candidate_validation_incomplete",
+  "privacy_not_reported",
   "privacy_not_public",
   "comment_count_not_reported",
   "comment_count_zero",
@@ -162,10 +200,17 @@ const seedIneligibilityReasonSchema = z.enum([
 ]);
 
 const provisionalAnnotationsSchema = z.object({
-  target_distance: geminiCandidateSchema.shape.target_distance,
+  target_distance: geminiCandidateV1Schema.shape.target_distance,
   intervention_family: geminiYoutubeInterventionFamilySchema,
-  creator_claim_summary: geminiCandidateSchema.shape.creator_claim_summary,
-  why_surfaced: geminiCandidateSchema.shape.why_surfaced
+  creator_claim_summary: geminiCandidateV1Schema.shape.creator_claim_summary,
+  specific_program: boundedText(900),
+  population_or_stage: boundedText(500),
+  outcome_and_horizon: boundedText(500),
+  summary_basis: z.enum([
+    "spark_public_video_context_not_transcript_verified_by_askrigor",
+    "legacy_spark_annotation_not_transcript_verified_by_askrigor"
+  ]),
+  why_surfaced: geminiCandidateV1Schema.shape.why_surfaced
 }).strict();
 
 const providerMetadataSchema = z.object({
@@ -193,6 +238,7 @@ const validatedCandidateSchema = z.object({
 const rejectedCandidateSchema = z.object({
   video_id: youtubeVideoIdSchema,
   metadata_access_status: accessStatusSchema,
+  retryable: z.literal(false),
   rejection_reasons: z.array(identityRejectionReasonSchema).min(1),
   provider_title: z.string().optional(),
   provider_channel: z.string().optional(),
@@ -200,25 +246,50 @@ const rejectedCandidateSchema = z.object({
   limitations: z.array(z.string())
 }).strict();
 
+const unresolvedCandidateSchema = z.object({
+  video_id: youtubeVideoIdSchema,
+  metadata_access_status: accessStatusSchema,
+  retryable: z.boolean(),
+  provider_error_code: z.string().optional(),
+  limitations: z.array(z.string())
+}).strict();
+
 const suggestedSeedReceiptSchema = z.object({
   video_id: youtubeVideoIdSchema,
-  disposition: z.enum(["eligible", "ineligible", "rejected"]),
+  disposition: z.enum(["eligible", "ineligible", "rejected", "unresolved"]),
   reasons: z.array(seedIneligibilityReasonSchema)
+}).strict();
+
+export const geminiYoutubeCandidateFrontierSchema = z.object({
+  frontier_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+  source_candidate_video_ids: z.array(youtubeVideoIdSchema).min(3).max(16),
+  validated_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16),
+  terminally_rejected_video_ids: z.array(youtubeVideoIdSchema).max(16),
+  unresolved_candidate_video_ids: z.array(youtubeVideoIdSchema).max(16)
 }).strict();
 
 export const geminiYoutubeCandidateValidationReceiptSchema = z.object({
   packet_name: z.literal("askrigor_gemini_youtube_candidate_validation"),
-  packet_version: z.literal("1.0"),
-  source_contract: z.literal(GEMINI_YOUTUBE_CANDIDATE_CONTRACT),
-  status: z.enum(["accepted", "partial", "rejected"]),
+  packet_version: z.literal("2.0"),
+  source_contract: z.enum([
+    GEMINI_YOUTUBE_CANDIDATE_CONTRACT,
+    GEMINI_YOUTUBE_CANDIDATE_LEGACY_CONTRACT
+  ]),
+  source_packet_version: z.enum([
+    GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION,
+    GEMINI_YOUTUBE_CANDIDATE_LEGACY_PACKET_VERSION
+  ]),
+  status: z.enum(["accepted", "partial", "rejected", "blocked"]),
   research_target: boundedText(1_000),
-  validated_candidates: z.array(validatedCandidateSchema).max(12),
-  rejected_candidates: z.array(rejectedCandidateSchema).max(12),
-  suggested_seed_receipts: z.array(suggestedSeedReceiptSchema).min(1).max(4),
-  eligible_seed_video_ids: z.array(youtubeVideoIdSchema).max(4),
+  candidate_frontier: geminiYoutubeCandidateFrontierSchema,
+  validated_candidates: z.array(validatedCandidateSchema).max(16),
+  rejected_candidates: z.array(rejectedCandidateSchema).max(16),
+  unresolved_candidates: z.array(unresolvedCandidateSchema).max(16),
+  suggested_seed_receipts: z.array(suggestedSeedReceiptSchema).min(1).max(8),
+  eligible_seed_video_ids: z.array(youtubeVideoIdSchema).max(8),
   access_boundaries: z.tuple([
     z.literal(
-      "Gemini annotations remain provisional; this receipt validates packet structure and provider identity only."
+      "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
     ),
     z.literal(
       "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality."
@@ -269,7 +340,15 @@ interface RejectedCandidateResult {
   candidate: z.output<typeof rejectedCandidateSchema>;
 }
 
-type CandidateValidationResult = ValidatedCandidateResult | RejectedCandidateResult;
+interface UnresolvedCandidateResult {
+  kind: "unresolved";
+  candidate: z.output<typeof unresolvedCandidateSchema>;
+}
+
+type CandidateValidationResult =
+  | ValidatedCandidateResult
+  | RejectedCandidateResult
+  | UnresolvedCandidateResult;
 
 export function parseGeminiYoutubeCandidateHandoff(
   response: string
@@ -315,17 +394,36 @@ export function parseGeminiYoutubeCandidateHandoff(
       message: "must contain valid JSON"
     }]);
   }
-  const parsed = geminiYoutubeCandidatePacketSchema.safeParse(value);
-  if (!parsed.success) {
-    throw new GeminiYoutubeCandidateHandoffError(
-      "invalid_packet",
-      parsed.error.issues.map((issue) => ({
-        path: issue.path.join("."),
-        message: issue.message
-      }))
-    );
+  const packetVersion = isRecord(value) ? value.packet_version : undefined;
+  if (packetVersion === GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION) {
+    return parseVersionedPacket(geminiYoutubeCandidateV2PacketSchema, value);
   }
-  return parsed.data;
+  if (packetVersion === GEMINI_YOUTUBE_CANDIDATE_LEGACY_PACKET_VERSION) {
+    return parseVersionedPacket(geminiYoutubeCandidateV1PacketSchema, value);
+  }
+  throw new GeminiYoutubeCandidateHandoffError("invalid_packet", [{
+    path: "packet_version",
+    message: `must be ${GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION} or ${GEMINI_YOUTUBE_CANDIDATE_LEGACY_PACKET_VERSION}`
+  }]);
+}
+
+function parseVersionedPacket<T extends GeminiYoutubeCandidatePacket>(
+  schema: z.ZodType<T>,
+  value: unknown
+): T {
+  const parsed = schema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  throw new GeminiYoutubeCandidateHandoffError(
+    "invalid_packet",
+    parsed.error.issues.map((issue) => ({
+      path: issue.path.join("."),
+      message: issue.message
+    }))
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export async function validateGeminiYoutubeCandidateHandoff(
@@ -349,10 +447,21 @@ export async function validateGeminiYoutubeCandidateHandoff(
   const rejectedCandidates = results
     .filter((result): result is RejectedCandidateResult => result.kind === "rejected")
     .map(({ candidate }) => candidate);
+  const unresolvedCandidates = results
+    .filter((result): result is UnresolvedCandidateResult => result.kind === "unresolved")
+    .map(({ candidate }) => candidate);
   const validatedById = new Map(validatedCandidates.map((candidate) => [candidate.video_id, candidate]));
   const rejectedIds = new Set(rejectedCandidates.map(({ video_id }) => video_id));
+  const unresolvedIds = new Set(unresolvedCandidates.map(({ video_id }) => video_id));
   const seenEligibleChannels = new Set<string>();
   const suggestedSeedReceipts = packet.suggested_seed_video_ids.map((videoId) => {
+    if (unresolvedIds.has(videoId)) {
+      return {
+        video_id: videoId,
+        disposition: "unresolved" as const,
+        reasons: ["candidate_validation_incomplete" as const]
+      };
+    }
     if (rejectedIds.has(videoId)) {
       return {
         video_id: videoId,
@@ -362,10 +471,9 @@ export async function validateGeminiYoutubeCandidateHandoff(
     }
     const candidate = validatedById.get(videoId)!;
     const reasons: Array<z.output<typeof seedIneligibilityReasonSchema>> = [];
-    if (
-      candidate.provider_metadata.privacy_status !== undefined &&
-      candidate.provider_metadata.privacy_status !== "public"
-    ) {
+    if (candidate.provider_metadata.privacy_status === undefined) {
+      reasons.push("privacy_not_reported");
+    } else if (candidate.provider_metadata.privacy_status !== "public") {
       reasons.push("privacy_not_public");
     }
     const commentCount = candidate.provider_metadata.statistics?.comment_count;
@@ -384,28 +492,42 @@ export async function validateGeminiYoutubeCandidateHandoff(
   const eligibleSeedVideoIds = suggestedSeedReceipts
     .filter(({ disposition }) => disposition === "eligible")
     .map(({ video_id }) => video_id);
-  const allCandidatesValidated = rejectedCandidates.length === 0;
+  const allCandidatesValidated = rejectedCandidates.length === 0 &&
+    unresolvedCandidates.length === 0;
   const allSuggestedSeedsEligible = suggestedSeedReceipts.every(
     ({ disposition }) => disposition === "eligible"
   );
   const status = validatedCandidates.length === 0
-    ? "rejected" as const
+    ? unresolvedCandidates.length > 0
+      ? "blocked" as const
+      : "rejected" as const
     : allCandidatesValidated && allSuggestedSeedsEligible
       ? "accepted" as const
       : "partial" as const;
+  const candidateFrontier = deriveGeminiYoutubeCandidateFrontier(
+    packet.candidates.map(({ video_id }) => video_id),
+    validatedCandidates.map(({ video_id }) => video_id),
+    rejectedCandidates.map(({ video_id }) => video_id),
+    unresolvedCandidates.map(({ video_id }) => video_id)
+  );
 
   return geminiYoutubeCandidateValidationReceiptSchema.parse({
     packet_name: "askrigor_gemini_youtube_candidate_validation",
-    packet_version: "1.0",
-    source_contract: GEMINI_YOUTUBE_CANDIDATE_CONTRACT,
+    packet_version: "2.0",
+    source_contract: packet.packet_version === GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION
+      ? GEMINI_YOUTUBE_CANDIDATE_CONTRACT
+      : GEMINI_YOUTUBE_CANDIDATE_LEGACY_CONTRACT,
+    source_packet_version: packet.packet_version,
     status,
     research_target: packet.research_target,
+    candidate_frontier: candidateFrontier,
     validated_candidates: validatedCandidates,
     rejected_candidates: rejectedCandidates,
+    unresolved_candidates: unresolvedCandidates,
     suggested_seed_receipts: suggestedSeedReceipts,
     eligible_seed_video_ids: eligibleSeedVideoIds,
     access_boundaries: [
-      "Gemini annotations remain provisional; this receipt validates packet structure and provider identity only.",
+      "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only.",
       "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality.",
       "Comment-audit eligibility is mechanical; AskRigor must still perform protocol-governed semantic selection and any required audit.",
       "No YouTube comments or transcripts were retrieved by this validation."
@@ -436,13 +558,30 @@ function validateCandidateIdentity(
   metadata: ProvenanceEnvelope<YoutubeVideo>
 ): CandidateValidationResult {
   if (metadata.access_status !== "api_visible_complete") {
+    const providerErrorCode = metadata.error?.code;
+    if (
+      providerErrorCode === "youtube_video_not_found" ||
+      providerErrorCode === "youtube_video_not_visible"
+    ) {
+      return {
+        kind: "rejected",
+        candidate: {
+          video_id: candidate.video_id,
+          metadata_access_status: metadata.access_status,
+          retryable: false,
+          rejection_reasons: ["metadata_not_api_visible_complete"],
+          provider_error_code: providerErrorCode,
+          limitations: metadata.limitations
+        }
+      };
+    }
     return {
-      kind: "rejected",
+      kind: "unresolved",
       candidate: {
         video_id: candidate.video_id,
         metadata_access_status: metadata.access_status,
-        rejection_reasons: ["metadata_not_api_visible_complete"],
-        ...(metadata.error?.code === undefined ? {} : { provider_error_code: metadata.error.code }),
+        retryable: metadata.error?.retryable === true,
+        ...(providerErrorCode === undefined ? {} : { provider_error_code: providerErrorCode }),
         limitations: metadata.limitations
       }
     };
@@ -453,13 +592,16 @@ function validateCandidateIdentity(
   if (metadata.source_identity.canonical_url !== candidate.canonical_url) {
     reasons.push("provider_canonical_url_mismatch");
   }
-  if (providerVideo.title === undefined) reasons.push("provider_title_missing");
-  else if (comparableLabel(providerVideo.title) !== comparableLabel(candidate.title)) {
+  if (
+    providerVideo.title !== undefined &&
+    comparableLabel(providerVideo.title) !== comparableLabel(candidate.title)
+  ) {
     reasons.push("declared_title_mismatch");
   }
-  if (providerVideo.channel_id === undefined || providerVideo.channel_title === undefined) {
-    reasons.push("provider_channel_missing");
-  } else if (comparableLabel(providerVideo.channel_title) !== comparableLabel(candidate.channel)) {
+  if (
+    providerVideo.channel_title !== undefined &&
+    comparableLabel(providerVideo.channel_title) !== comparableLabel(candidate.channel)
+  ) {
     reasons.push("declared_channel_mismatch");
   }
 
@@ -469,11 +611,31 @@ function validateCandidateIdentity(
       candidate: {
         video_id: candidate.video_id,
         metadata_access_status: metadata.access_status,
+        retryable: false,
         rejection_reasons: reasons,
         ...(providerVideo.title === undefined ? {} : { provider_title: providerVideo.title }),
         ...(providerVideo.channel_title === undefined ? {} : { provider_channel: providerVideo.channel_title }),
         ...(metadata.error?.code === undefined ? {} : { provider_error_code: metadata.error.code }),
         limitations: metadata.limitations
+      }
+    };
+  }
+
+  if (
+    providerVideo.title === undefined || providerVideo.channel_id === undefined ||
+    providerVideo.channel_title === undefined
+  ) {
+    return {
+      kind: "unresolved",
+      candidate: {
+        video_id: candidate.video_id,
+        metadata_access_status: metadata.access_status,
+        retryable: false,
+        provider_error_code: "youtube_candidate_identity_fields_missing",
+        limitations: [
+          ...metadata.limitations,
+          "Provider metadata omitted one or more fields required to validate the candidate title and channel."
+        ]
       }
     };
   }
@@ -486,9 +648,9 @@ function validateCandidateIdentity(
       metadata_access_status: "api_visible_complete",
       provider_metadata: {
         retrieved_at: metadata.retrieved_at,
-        title: providerVideo.title!,
-        channel_id: providerVideo.channel_id!,
-        channel_title: providerVideo.channel_title!,
+        title: providerVideo.title,
+        channel_id: providerVideo.channel_id,
+        channel_title: providerVideo.channel_title,
         ...(providerVideo.privacy_status === undefined
           ? {}
           : { privacy_status: youtubePrivacyStatusSchema.parse(providerVideo.privacy_status) }),
@@ -500,6 +662,18 @@ function validateCandidateIdentity(
         target_distance: candidate.target_distance,
         intervention_family: candidate.provisional_intervention_family,
         creator_claim_summary: candidate.creator_claim_summary,
+        specific_program: "provisional_specific_program" in candidate
+          ? candidate.provisional_specific_program
+          : "not described",
+        population_or_stage: "provisional_population_or_stage" in candidate
+          ? candidate.provisional_population_or_stage
+          : "not described",
+        outcome_and_horizon: "provisional_outcome_and_horizon" in candidate
+          ? candidate.provisional_outcome_and_horizon
+          : "not described",
+        summary_basis: "summary_basis" in candidate
+          ? candidate.summary_basis
+          : "legacy_spark_annotation_not_transcript_verified_by_askrigor",
         why_surfaced: candidate.why_surfaced
       },
       limitations: metadata.limitations
@@ -507,17 +681,37 @@ function validateCandidateIdentity(
   };
 }
 
-function rejectedRuntimeCandidate(videoId: string): RejectedCandidateResult {
+function rejectedRuntimeCandidate(videoId: string): UnresolvedCandidateResult {
   return {
-    kind: "rejected",
+    kind: "unresolved",
     candidate: {
       video_id: videoId,
       metadata_access_status: "error",
-      rejection_reasons: ["metadata_not_api_visible_complete"],
+      retryable: true,
       provider_error_code: "youtube_candidate_validation_runtime_error",
       limitations: ["YouTube metadata validation failed before a provider receipt was returned."]
     }
   };
+}
+
+export function deriveGeminiYoutubeCandidateFrontier(
+  sourceCandidateVideoIds: readonly string[],
+  validatedCandidateVideoIds: readonly string[],
+  terminallyRejectedVideoIds: readonly string[],
+  unresolvedCandidateVideoIds: readonly string[]
+): z.output<typeof geminiYoutubeCandidateFrontierSchema> {
+  const payload = {
+    source_candidate_video_ids: [...sourceCandidateVideoIds],
+    validated_candidate_video_ids: [...validatedCandidateVideoIds],
+    terminally_rejected_video_ids: [...terminallyRejectedVideoIds],
+    unresolved_candidate_video_ids: [...unresolvedCandidateVideoIds]
+  };
+  return geminiYoutubeCandidateFrontierSchema.parse({
+    frontier_digest: createHash("sha256")
+      .update(JSON.stringify(payload), "utf8")
+      .digest("hex"),
+    ...payload
+  });
 }
 
 function comparableLabel(value: string): string {

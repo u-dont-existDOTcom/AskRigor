@@ -2,11 +2,11 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "35a9a2d51a4a3629795ea0224473e6273caf88febbbc0fefbe0095b1e73cc0ce"
+      "sha256": "280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9"
+      "sha256": "019277ee0b3943c85bf70f521b1a28069f5e7fed9a9c1d9223527b5cd469a532"
     }
   ],
   "consequential_operation_ids": [
@@ -19,7 +19,7 @@
     "privacy_url": "https://askrigor.com/privacy",
     "schema_url": "https://mcp.askrigor.com/actions/openapi.json"
   },
-  "generated_at": "2026-08-21",
+  "generated_at": "2026-08-22",
   "mcp_research_operation_ids": [
     "audit_youtube_community",
     "audit_youtube_video_community",
@@ -58,13 +58,14 @@
     "search_youtube",
     "search_youtube_comments",
     "survey_youtube_community",
+    "validate_gemini_youtube_candidate_handoff",
     "verify_protocol_integrity"
   ],
   "schema_version": 1,
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "92c5320c50ab53e2ce940f1c4488ac1aa324153022ff8f535dae9e99eb14a2df"
+      "sha256": "d5c5731b4142b5c93ea21283a0855cc118f7bed15ee53decd19eaedd5199c834"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",

@@ -28,7 +28,8 @@ const READ_OPERATION_IDS = [
   "audit_youtube_community",
   "survey_youtube_community",
   "audit_youtube_video_community",
-  "assess_treatment_landscape_coverage"
+  "assess_treatment_landscape_coverage",
+  "validate_gemini_youtube_candidate_handoff"
 ].sort();
 
 const EXACT_LESSON_CONSENT_SHELL = `**Proposed anonymized lesson**
@@ -51,7 +52,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     expect(packet.syncJson).toBe(sync);
   });
 
-  it("contains 19 reads, including both Action-only reads, and one authenticated write", async () => {
+  it("contains 20 reads, including all Action-only reads, and one authenticated write", async () => {
     const packet = await generateCustomGptPacket();
     const document = JSON.parse(packet.openApiJson) as {
       paths: Record<string, Record<string, {
@@ -78,7 +79,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       security: [{ bearerAuth: [] }],
       "x-openai-isConsequential": true
     });
-    expect(operations).toHaveLength(20);
+    expect(operations).toHaveLength(21);
   });
 
   it("keeps the compact instructions complete, bounded, and free of stale Knowledge", async () => {
@@ -104,6 +105,9 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "Metadata/comments cannot establish creator content",
       "and pre-/postoperative care stage",
       "`assess_treatment_landscape_coverage`",
+      "`validate_gemini_youtube_candidate_handoff`",
+      "summary was not checked against a transcript",
+      "specific implementations",
       "Require all three locks pass",
       "Videos actually audited",
       "continue only its opaque Action handle",
@@ -182,10 +186,14 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync).toMatchObject({
       schema_version: 1,
-      generated_at: "2026-08-21",
+      generated_at: "2026-08-22",
       research_operation_ids: READ_OPERATION_IDS,
       mcp_research_operation_ids: READ_OPERATION_IDS.filter((id) =>
-        !["get_youtube_transcript", "assess_treatment_landscape_coverage"].includes(id)
+        ![
+          "get_youtube_transcript",
+          "assess_treatment_landscape_coverage",
+          "validate_gemini_youtube_candidate_handoff"
+        ].includes(id)
       ),
       consequential_operation_ids: ["submit_lesson_candidate"],
       editor: {

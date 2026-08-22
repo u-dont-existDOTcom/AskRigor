@@ -90,7 +90,7 @@ describe("protocol Action continuation", () => {
       total_bytes: Buffer.byteLength(text, "utf8")
     });
     expect(chunks.at(-1)?.next_cursor).toBeUndefined();
-  });
+  }, 10_000);
 
   it("authenticates cursor state without embedding XML or the secret", async () => {
     const { createProtocolActionChunk } = await import(

@@ -37,7 +37,7 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
     for (const required of [
       "Plugin-package currency, backend currency, Custom GPT installation, and fresh",
       "UI behavior are separate receipts",
-      "20-operation Action document",
+      "21-operation Action document",
       "a matching tool catalog or working connector is not a package receipt",
       "reinstall the exact reviewed package",
       "keep Knowledge empty",
@@ -63,14 +63,14 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
       "superpowers/plans/2026-08-22-treatment-landscape-deployment-installation.md",
     );
     for (const required of [
-      "f8427b826b948b6592243f2a0b69a9e751e762cf",
+      "d4f2af0f86844c743b3b5fbc6c70f66c72a4637d",
       "secret-free Git archive",
       "concrete rollback points",
       "recreate only the research service",
       "exactly 17 MCP tools",
       "installed-package receipt covering `plugin.json`, `SKILL.md`, and packaged assets/inventory",
-      "7,991-character Instructions",
-      "20-operation OpenAPI",
+      "7,946-character Instructions",
+      "21-operation OpenAPI",
       "no authenticated editor-control capability exists",
     ]) {
       expect(normalizedPlan).toContain(required);

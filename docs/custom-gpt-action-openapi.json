@@ -10164,6 +10164,34 @@
                       "minimum": 0,
                       "maximum": 9007199254740991
                     },
+                    "specific_implementation_search_status_by_class": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "treatment_class_id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9._:-]+$"
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "specific_candidates_found",
+                              "exhausted_zero_results",
+                              "incomplete",
+                              "inaccessible"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "treatment_class_id",
+                          "status"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
                     "materially_distinct_program_fingerprints": {
                       "type": "integer",
                       "minimum": 0,
@@ -10173,6 +10201,20 @@
                       "type": "integer",
                       "minimum": 0,
                       "maximum": 9007199254740991
+                    },
+                    "external_scout_candidates_screened": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "external_scout_candidates_pending": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80,
+                        "pattern": "^[A-Za-z0-9_-]+$"
+                      }
                     },
                     "material_videos_selected": {
                       "type": "integer",
@@ -10521,6 +10563,15 @@
                             "pattern": "^[A-Za-z0-9._:-]+$"
                           }
                         },
+                        "specific_implementation_searches": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9._:-]+$"
+                          }
+                        },
                         "treatment_classes": {
                           "type": "array",
                           "items": {
@@ -10540,6 +10591,22 @@
                           }
                         },
                         "candidate_videos": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          }
+                        },
+                        "external_scout_frontiers": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "external_scout_candidates": {
                           "type": "array",
                           "items": {
                             "type": "string",
@@ -10569,9 +10636,12 @@
                       },
                       "required": [
                         "discovery_batches",
+                        "specific_implementation_searches",
                         "treatment_classes",
                         "program_fingerprints",
                         "candidate_videos",
+                        "external_scout_frontiers",
+                        "external_scout_candidates",
                         "selected_videos",
                         "access_boundaries"
                       ],
@@ -10659,8 +10729,11 @@
                   "required": [
                     "coverage_claim",
                     "treatment_classes_discovered",
+                    "specific_implementation_search_status_by_class",
                     "materially_distinct_program_fingerprints",
                     "candidate_videos_screened",
+                    "external_scout_candidates_screened",
+                    "external_scout_candidates_pending",
                     "material_videos_selected",
                     "material_videos_fully_audited",
                     "independent_channels_or_pools",
@@ -11041,6 +11114,87 @@
                       "additionalProperties": false
                     }
                   },
+                  "specific_implementation_searches": {
+                    "maxItems": 120,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "search_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
+                        },
+                        "discovery_batch_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
+                        },
+                        "treatment_class_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
+                        },
+                        "implementation_terms": {
+                          "minItems": 1,
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 240
+                          }
+                        },
+                        "discriminator_terms": {
+                          "minItems": 1,
+                          "maxItems": 8,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 240
+                          }
+                        },
+                        "candidate_video_ids": {
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          }
+                        },
+                        "result_status": {
+                          "type": "string",
+                          "enum": [
+                            "specific_candidates_found",
+                            "exhausted_zero_results",
+                            "inaccessible"
+                          ]
+                        },
+                        "access_boundary_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
+                        }
+                      },
+                      "required": [
+                        "search_id",
+                        "discovery_batch_id",
+                        "treatment_class_id",
+                        "implementation_terms",
+                        "discriminator_terms",
+                        "candidate_video_ids",
+                        "result_status"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
                   "treatment_classes": {
                     "minItems": 1,
                     "maxItems": 80,
@@ -11404,6 +11558,172 @@
                         "discovery_batch_ids",
                         "materiality",
                         "selection_status",
+                        "omission_impact",
+                        "omission_rationale"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "external_scout_frontiers": {
+                    "default": [],
+                    "maxItems": 8,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "frontier_digest": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "gemini_spark",
+                            "other_external_scout"
+                          ]
+                        },
+                        "source_candidate_video_ids": {
+                          "minItems": 1,
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          }
+                        },
+                        "validated_candidate_video_ids": {
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          }
+                        },
+                        "terminally_rejected_video_ids": {
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          }
+                        },
+                        "unresolved_candidate_video_ids": {
+                          "maxItems": 40,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 80,
+                            "pattern": "^[A-Za-z0-9_-]+$"
+                          }
+                        }
+                      },
+                      "required": [
+                        "frontier_digest",
+                        "source",
+                        "source_candidate_video_ids",
+                        "validated_candidate_video_ids",
+                        "terminally_rejected_video_ids",
+                        "unresolved_candidate_video_ids"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "external_scout_candidates": {
+                    "default": [],
+                    "maxItems": 40,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "frontier_digest": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "source": {
+                          "type": "string",
+                          "enum": [
+                            "gemini_spark",
+                            "other_external_scout"
+                          ]
+                        },
+                        "video_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9_-]+$"
+                        },
+                        "materiality": {
+                          "type": "string",
+                          "enum": [
+                            "material",
+                            "not_material",
+                            "uncertain"
+                          ]
+                        },
+                        "redundancy": {
+                          "type": "string",
+                          "enum": [
+                            "distinct",
+                            "duplicate",
+                            "unknown"
+                          ]
+                        },
+                        "screening_status": {
+                          "type": "string",
+                          "enum": [
+                            "screened",
+                            "unscreened",
+                            "inaccessible"
+                          ]
+                        },
+                        "fingerprint_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
+                        },
+                        "duplicate_of_video_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9_-]+$"
+                        },
+                        "omission_impact": {
+                          "type": "string",
+                          "enum": [
+                            "not_decision_relevant",
+                            "confidence_changing",
+                            "ranking_changing",
+                            "potentially_conclusion_changing",
+                            "uncertain"
+                          ]
+                        },
+                        "omission_rationale": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 800
+                        },
+                        "access_boundary_id": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 80,
+                          "pattern": "^[A-Za-z0-9._:-]+$"
+                        }
+                      },
+                      "required": [
+                        "frontier_digest",
+                        "source",
+                        "video_id",
+                        "materiality",
+                        "redundancy",
+                        "screening_status",
                         "omission_impact",
                         "omission_rationale"
                       ],
@@ -12084,13 +12404,771 @@
                   "broad_treatment_choice",
                   "substantial_youtube_corpus",
                   "discovery_batches",
+                  "specific_implementation_searches",
                   "treatment_classes",
                   "program_fingerprints",
                   "candidate_videos",
+                  "external_scout_frontiers",
+                  "external_scout_candidates",
                   "selected_videos",
                   "further_expansion_likely_to_improve_answer",
                   "directional_searches",
                   "access_boundaries"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/actions/research/validate_gemini_youtube_candidate_handoff": {
+      "post": {
+        "operationId": "validate_gemini_youtube_candidate_handoff",
+        "summary": "AskRigor validate Spark YouTube candidates",
+        "description": "Validate a provisional Gemini Spark candidate packet and each public YouTube identity. Summaries remain unverified discovery leads, not treatment evidence.",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "HTTP 200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "packet_name": {
+                      "type": "string",
+                      "const": "askrigor_gemini_youtube_candidate_validation"
+                    },
+                    "packet_version": {
+                      "type": "string",
+                      "const": "2.0"
+                    },
+                    "source_contract": {
+                      "type": "string",
+                      "enum": [
+                        "youtube-candidate-handoff-v2",
+                        "youtube-candidate-handoff-v1"
+                      ]
+                    },
+                    "source_packet_version": {
+                      "type": "string",
+                      "enum": [
+                        "2.0",
+                        "1.0"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "partial",
+                        "rejected",
+                        "blocked"
+                      ]
+                    },
+                    "research_target": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "candidate_frontier": {
+                      "type": "object",
+                      "properties": {
+                        "frontier_digest": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "source_candidate_video_ids": {
+                          "minItems": 3,
+                          "maxItems": 16,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          }
+                        },
+                        "validated_candidate_video_ids": {
+                          "maxItems": 16,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          }
+                        },
+                        "terminally_rejected_video_ids": {
+                          "maxItems": 16,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          }
+                        },
+                        "unresolved_candidate_video_ids": {
+                          "maxItems": 16,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          }
+                        }
+                      },
+                      "required": [
+                        "frontier_digest",
+                        "source_candidate_video_ids",
+                        "validated_candidate_video_ids",
+                        "terminally_rejected_video_ids",
+                        "unresolved_candidate_video_ids"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "validated_candidates": {
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "video_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          },
+                          "canonical_url": {
+                            "type": "string",
+                            "format": "uri"
+                          },
+                          "metadata_access_status": {
+                            "type": "string",
+                            "const": "api_visible_complete"
+                          },
+                          "provider_metadata": {
+                            "type": "object",
+                            "properties": {
+                              "retrieved_at": {
+                                "type": "string",
+                                "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                              },
+                              "title": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 10000
+                              },
+                              "channel_id": {
+                                "type": "string",
+                                "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                              },
+                              "channel_title": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 10000
+                              },
+                              "privacy_status": {
+                                "type": "string",
+                                "enum": [
+                                  "public",
+                                  "private",
+                                  "unlisted"
+                                ]
+                              },
+                              "statistics": {
+                                "type": "object",
+                                "properties": {
+                                  "view_count": {
+                                    "type": "string",
+                                    "pattern": "^\\d+$"
+                                  },
+                                  "like_count": {
+                                    "type": "string",
+                                    "pattern": "^\\d+$"
+                                  },
+                                  "comment_count": {
+                                    "type": "string",
+                                    "pattern": "^\\d+$"
+                                  }
+                                },
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "retrieved_at",
+                              "title",
+                              "channel_id",
+                              "channel_title"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "gemini_provisional_annotations": {
+                            "type": "object",
+                            "properties": {
+                              "target_distance": {
+                                "type": "string",
+                                "enum": [
+                                  "exact",
+                                  "adjacent",
+                                  "remote"
+                                ]
+                              },
+                              "intervention_family": {
+                                "type": "string",
+                                "enum": [
+                                  "nutrition_or_elimination",
+                                  "oral_supplement",
+                                  "local_mechanical",
+                                  "behavioral_environmental",
+                                  "topical_or_traditional",
+                                  "device_or_energy",
+                                  "regenerative_or_biologic",
+                                  "conventional_injection",
+                                  "conventional_surgery",
+                                  "other"
+                                ]
+                              },
+                              "creator_claim_summary": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 600
+                              },
+                              "specific_program": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 900
+                              },
+                              "population_or_stage": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "outcome_and_horizon": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "summary_basis": {
+                                "type": "string",
+                                "enum": [
+                                  "spark_public_video_context_not_transcript_verified_by_askrigor",
+                                  "legacy_spark_annotation_not_transcript_verified_by_askrigor"
+                                ]
+                              },
+                              "why_surfaced": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 300
+                              }
+                            },
+                            "required": [
+                              "target_distance",
+                              "intervention_family",
+                              "creator_claim_summary",
+                              "specific_program",
+                              "population_or_stage",
+                              "outcome_and_horizon",
+                              "summary_basis",
+                              "why_surfaced"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "limitations": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "video_id",
+                          "canonical_url",
+                          "metadata_access_status",
+                          "provider_metadata",
+                          "gemini_provisional_annotations",
+                          "limitations"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "rejected_candidates": {
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "video_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          },
+                          "metadata_access_status": {
+                            "type": "string",
+                            "enum": [
+                              "complete",
+                              "api_visible_complete",
+                              "partial",
+                              "abstract_only",
+                              "metadata_only",
+                              "comments_disabled",
+                              "inaccessible",
+                              "rate_limited",
+                              "not_found",
+                              "error"
+                            ]
+                          },
+                          "retryable": {
+                            "type": "boolean",
+                            "const": false
+                          },
+                          "rejection_reasons": {
+                            "minItems": 1,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "metadata_not_api_visible_complete",
+                                "provider_video_id_mismatch",
+                                "provider_canonical_url_mismatch",
+                                "declared_title_mismatch",
+                                "declared_channel_mismatch"
+                              ]
+                            }
+                          },
+                          "provider_title": {
+                            "type": "string"
+                          },
+                          "provider_channel": {
+                            "type": "string"
+                          },
+                          "provider_error_code": {
+                            "type": "string"
+                          },
+                          "limitations": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "video_id",
+                          "metadata_access_status",
+                          "retryable",
+                          "rejection_reasons",
+                          "limitations"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "unresolved_candidates": {
+                      "maxItems": 16,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "video_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          },
+                          "metadata_access_status": {
+                            "type": "string",
+                            "enum": [
+                              "complete",
+                              "api_visible_complete",
+                              "partial",
+                              "abstract_only",
+                              "metadata_only",
+                              "comments_disabled",
+                              "inaccessible",
+                              "rate_limited",
+                              "not_found",
+                              "error"
+                            ]
+                          },
+                          "retryable": {
+                            "type": "boolean"
+                          },
+                          "provider_error_code": {
+                            "type": "string"
+                          },
+                          "limitations": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          }
+                        },
+                        "required": [
+                          "video_id",
+                          "metadata_access_status",
+                          "retryable",
+                          "limitations"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "suggested_seed_receipts": {
+                      "minItems": 1,
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "video_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9_-]{11}$"
+                          },
+                          "disposition": {
+                            "type": "string",
+                            "enum": [
+                              "eligible",
+                              "ineligible",
+                              "rejected",
+                              "unresolved"
+                            ]
+                          },
+                          "reasons": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "candidate_rejected",
+                                "candidate_validation_incomplete",
+                                "privacy_not_reported",
+                                "privacy_not_public",
+                                "comment_count_not_reported",
+                                "comment_count_zero",
+                                "duplicate_suggested_channel"
+                              ]
+                            }
+                          }
+                        },
+                        "required": [
+                          "video_id",
+                          "disposition",
+                          "reasons"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "eligible_seed_video_ids": {
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_-]{11}$"
+                      }
+                    },
+                    "access_boundaries": {
+                      "type": "array",
+                      "items": [
+                        {
+                          "type": "string",
+                          "const": "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
+                        },
+                        {
+                          "type": "string",
+                          "const": "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality."
+                        },
+                        {
+                          "type": "string",
+                          "const": "Comment-audit eligibility is mechanical; AskRigor must still perform protocol-governed semantic selection and any required audit."
+                        },
+                        {
+                          "type": "string",
+                          "const": "No YouTube comments or transcripts were retrieved by this validation."
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "packet_name",
+                    "packet_version",
+                    "source_contract",
+                    "source_packet_version",
+                    "status",
+                    "research_target",
+                    "candidate_frontier",
+                    "validated_candidates",
+                    "rejected_candidates",
+                    "unresolved_candidates",
+                    "suggested_seed_receipts",
+                    "eligible_seed_video_ids",
+                    "access_boundaries"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_invalid_json",
+                            "action_request_read_failed"
+                          ]
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "HTTP 413 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_body_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HTTP 422 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "invalid_framing",
+                            "invalid_json",
+                            "invalid_packet"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "const": false
+                        },
+                        "issues": {
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string"
+                              },
+                              "message": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "message"
+                            ],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "retryable",
+                        "issues"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_rate_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_internal_error"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "HTTP 502 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_response_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "HTTP 503 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_concurrency_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "packet": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 32768
+                  }
+                },
+                "required": [
+                  "packet"
                 ],
                 "additionalProperties": false
               }

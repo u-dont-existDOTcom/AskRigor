@@ -302,8 +302,8 @@ describe("AskRigor public-review packet", () => {
     expect(releaseStatus).toContain(
       "CURRENT RUNTIME DEPLOYED AND DIRECTLY ACCEPTED; PRECEDING EDITOR ARTIFACT OWNER-REPORTED INSTALLED; CURRENT CANDIDATE INSTALLATION AND GPT-UI ACCEPTANCE PENDING"
     );
-    expect(releaseStatus).toMatch(/current\s+7,991-character treatment-landscape candidate/u);
-    expect(releaseStatus).toContain("does not yet have that receipt");
+    expect(releaseStatus).toMatch(/current\s+7,946-character generic candidate-quality Instructions/u);
+    expect(releaseStatus).toContain("source candidate adds");
     expect(releaseStatus).toContain("The editor was not independently inspected");
     expect(releaseStatus).toMatch(/Product-interface protocol and\s+formal-source cases passed on 2026-08-16/u);
     expect(releaseStatus).toMatch(/The repaired two-call Custom GPT UI retest passed on\s+2026-08-17/u);

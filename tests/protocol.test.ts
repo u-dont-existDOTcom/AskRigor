@@ -16,7 +16,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "afa8e3ff9ac6936b7e277a1b21f99c36507e44e2a3595036265d395ff2883b94";
+  "803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23";
 const UNIVERSAL_SHA_256 =
   "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221";
 
@@ -34,8 +34,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.19",
-      revisionDate: "2026-08-21"
+      version: "20.5.20",
+      revisionDate: "2026-08-22"
     });
   });
 
@@ -248,7 +248,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.19" revisionDate="2026-08-21"/
+      /<Protocol name="HRP" version="20\.5\.20" revisionDate="2026-08-22"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -289,13 +289,13 @@ describe("canonical protocol loader", () => {
 
     const many = section("ManyVideosButOneTreatmentClass");
     expect(many).toContain("ten videos");
-    expect(many).toContain("eight concern substantially similar strengthening or physical-therapy programs");
+    expect(many).toContain("eight concern substantially similar programs inside one umbrella class");
     expect(many).toContain("Raw video count does not establish diversity");
     expect(many).toContain("Fail treatment-space coverage");
 
-    const two = section("TwoVideosPresentedAsBroadHipCommunityAudit");
+    const two = section("TwoVideosPresentedAsBroadCommunityAudit");
     expect(two).toContain("two material YouTube videos");
-    expect(two).toContain("additional treatment approaches and independent channels are readily discoverable");
+    expect(two).toContain("additional specific programs, treatment classes, and independent channels are readily discoverable");
     expect(two).toContain("Fail the treatment-landscape synthesis lock");
     expect(two).toContain("positive expected information gain");
 
@@ -321,6 +321,31 @@ describe("canonical protocol loader", () => {
       .toContain("Caller-supplied corpus-size or scope labels cannot deactivate");
     expect(text).toContain('<Check id="FS184">');
     expect(text).toContain('<Check id="FS185">');
+  });
+
+  it("requires the HRP 20.5.20 generic specific-program and provisional-scout gate", async () => {
+    const text = await loadProtocol("hrp");
+
+    for (const required of [
+      '<Revision version="20.5.20" priority="Critical">',
+      'name="SpecificImplementationDiscoveryAndProvisionalScouts"',
+      "every material umbrella class",
+      "exercise, physical therapy, diet, injection, surgery, conservative care, alternative treatment, program, approach, method",
+      "Independently validate each",
+      "provisional discovery lead",
+      'Case id="GenericUmbrellaCandidatesHideSpecificPrograms"',
+      'Case id="GenericSearchFalselyClosedAsSpecificZeroResults"',
+      'Case id="SpecificSearchClosedByWrongCandidate"',
+      'Case id="ProvisionalScoutCandidateDiscardedWithoutTranscript"',
+      'Case id="ExternalScoutFrontierCandidateOmittedOrUnresolved"',
+      'Case id="ProvisionalScoutSummaryUsedAsTreatmentEvidence"',
+      "Selected creator-content evidence still requires transcript verification",
+      "A genuine terminal boundary permits only",
+      '<Check id="FS186">',
+      '<Check id="FS187">'
+    ]) {
+      expect(text).toContain(required);
+    }
   });
 
   it("returns the original canonical file text unchanged", async () => {
