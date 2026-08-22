@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-Updated: 2026-08-21
+Updated: 2026-08-22
 
 ## Goal
 
@@ -9,7 +9,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
 ## Authority / baseline
 
 - Repository: `u-dont-existDOTcom/AskRigor`
-- Canonical branch: `main`; current verified production-source baseline is PR #41 merge
+- Current verified source baseline is PR #49 merge
+  `458190ab1be0849fba3f5193d59321a9c7f0d8df`; production remains on the
+  separately recorded PR #41 image until an authorized deployment occurs.
+- Canonical branch: `main`; the currently deployed production source is PR #41 merge
   `386497415a187354c6396e69a902d5bece9a9c96`. PR #40 added the transcript-
   verified evidence frontier, the exact unspecified-hip-pain research record,
   and a capability-safe MCP-plugin fallback. PR #41 reconciled that baseline
@@ -72,9 +75,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   isolated rate-limit burst with 60 declared `406`, 20 declared `429`, and
   health bypass `200`.
 
-## Active 2026-08-21 treatment-landscape selection repair
+## Completed 2026-08-21 treatment-landscape selection repair
 
-- Branch `agent/treatment-landscape-synthesis-lock-20260821` adds the canonical
+- AskRigor PR #49 merged as
+  `458190ab1be0849fba3f5193d59321a9c7f0d8df` and adds the canonical
   HRP 20.5.19 treatment-space inventory, exact program fingerprints,
   breadth-before-depth video selection, bidirectional reopening, per-video
   treatment records, and separate selection, per-video-depth, and overall
@@ -104,8 +108,10 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   validation covered four pages and the deployment-boundary suite passed 28/28.
 - `docs/treatment-landscape-workflow.md` is the living map;
   `docs/audits/2026-08-21-treatment-landscape-selection-lock.md` records the
-  validated failure and lesson disposition. The generalized lesson is staged
-  in `universal-dev-architecture` pending exact AskRigor merge provenance.
+  validated failure and immutable source receipt. The generalized lesson was
+  promoted in Universal PR #30 and closed in PR #31. Exact cross-repository
+  receipts are in
+  `docs/audits/2026-08-22-treatment-landscape-lesson-closeout.md`.
 - The generated source candidate is 7,991 characters, SHA-256
   `9e5e7dab751def42a26ffdf971c666f58ecfc9016b1f0cf27e8846a132f146a9`;
   its synchronization ledger is
@@ -118,6 +124,12 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   available: 1 open candidate, 1 needing review, 0 accepted but not
   incorporated, 3 incorporated or closed, and 0 deletion eligible. The
   unreviewed candidate did not expand this task.
+- The required closeout checkpoint at `2026-08-21T23:55:34.292Z` remained
+  available with the same counts. The cross-repository lesson loop is complete;
+  the unreviewed candidate did not expand the closeout.
+- The 2026-08-22 closeout regression passed 2/2. The complete host-boundary
+  gate passed typecheck, build, 65 test files with one declared skip, and 1,026
+  tests with five declared skips.
 - The privacy release is effective `2026-08-21` and discloses the bounded
   diagnostics while preserving disabled-by-default production behavior. All
   four public pages returned `200`; HTTP privacy redirected once to HTTPS.
@@ -1961,7 +1973,8 @@ lesson, publish the GPT, or treat direct checks as UI proof.
 
 After interruption, inspect actual Git/GitHub and production state, this
 checkpoint, complete protocol files, current release evidence, merged PRs #9
-through #46, AskRigor hardening issue #6, private synthetic lessons `ARL-0006`,
+through #49, Universal lesson PRs #30 and #31, AskRigor hardening issue #6,
+private synthetic lessons `ARL-0006`,
 `ARL-0007`, and `ARL-0009`, and newer owner instructions. Resume from the latest verified
 boundary without
 touching the dirty original checkout or repeating direct production acceptance
