@@ -39,6 +39,17 @@
         "plain_language_statuses",
         "machine_audit_opt_in"
       ]
+    },
+    {
+      "id": "broad-treatment-install-and-scout-gate",
+      "prompt": "Compare surgery with nonsurgical approaches for a chronic joint condition. Forty relevant YouTube candidates exist, but only four videos from four programs were audited; no Spark packet was validated, and the installed GPT does not expose its transcript or treatment-landscape Actions.",
+      "required_controls": [
+        "required_spark_frontier",
+        "installed_action_preflight",
+        "availability_conditioned_minimum",
+        "linked_audited_titles",
+        "plain_language_statuses"
+      ]
     }
   ]
 }

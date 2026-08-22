@@ -2,11 +2,11 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "280a26ddbcd512357f12733f896cd32b166102d45524492642618a403c0f5540"
+      "sha256": "6f51ef2435549b42efbfa7a4fde3c2d5f4a121f7bfd3374240ed826d11b6e58a"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "2299daae039e8c46df8a09b1e99e423e9361ff233648190dd3065d2f9b9528ba"
+      "sha256": "1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08"
     }
   ],
   "consequential_operation_ids": [
@@ -20,6 +20,12 @@
     "schema_url": "https://mcp.askrigor.com/actions/openapi.json"
   },
   "generated_at": "2026-08-22",
+  "installation_bundle": {
+    "action_schema_sha256": "6f51ef2435549b42efbfa7a4fde3c2d5f4a121f7bfd3374240ed826d11b6e58a",
+    "bundle_sha256": "1100f1929092faaa5d746e4f84aff27aaf90915f123688985d4f7c795d4c9d05",
+    "instructions_sha256": "1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08",
+    "spark_skill_sha256": "bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08"
+  },
   "mcp_research_operation_ids": [
     "audit_youtube_community",
     "audit_youtube_video_community",
@@ -61,15 +67,19 @@
     "validate_gemini_youtube_candidate_handoff",
     "verify_protocol_integrity"
   ],
-  "schema_version": 1,
+  "schema_version": 2,
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "d5c5731b4142b5c93ea21283a0855cc118f7bed15ee53decd19eaedd5199c834"
+      "sha256": "92318182cee19bac5ffa803613be63be9fa720cd5736d7805235254ff047652c"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",
       "sha256": "4c0e69caf26659380cbc1b7747634b7f1f4f9482a83910004fd8e5652b3e5af1"
+    },
+    {
+      "path": "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
+      "sha256": "bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08"
     }
   ]
 }

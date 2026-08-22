@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.20` (2026-08-22), SHA-256
-`803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`,
+The current canonical files identify HRP `20.5.21` (2026-08-22), SHA-256
+`2def834840caa45944234bb884ea3710e8dcaf2e0d21fae9e5d78116bd67ded7`,
 and Universal Instructions `20.5.14` (2026-08-18), SHA-256
 `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -41,7 +41,7 @@ acceptance pass.
 - Run the deterministic fixture suite with `npm run test:run`
 - Run the release verification sequence with `npm run verify`
 - Validate a complete high-recall Spark candidate response with
-  `npm run validate:gemini-handoff -- path/to/spark-response.md`; this optional
+  `npm run validate:gemini-handoff -- path/to/spark-response.md`; this
   live command uses the existing `YOUTUBE_API_KEY` and is not part of the
   hermetic default gate
 

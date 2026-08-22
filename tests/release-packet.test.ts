@@ -205,7 +205,7 @@ describe("AskRigor public-review packet", () => {
     for (const document of [readme, checklist]) {
       expect(document).toContain("lesson Action");
       expect(document).toContain("deployed");
-      expect(document).not.toContain("not yet deployed");
+      expect(document).not.toContain("lesson Action is not yet deployed");
       expect(document).toContain("existing chats");
       expect(document).toContain("MCP");
     }

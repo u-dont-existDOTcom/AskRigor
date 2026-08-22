@@ -193,7 +193,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const packet = await generateCustomGptPacket();
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync).toMatchObject({
-      schema_version: 1,
+      schema_version: 2,
       generated_at: "2026-08-22",
       research_operation_ids: READ_OPERATION_IDS,
       mcp_research_operation_ids: READ_OPERATION_IDS.filter((id) =>
@@ -213,9 +213,16 @@ describe("deterministic Custom GPT synchronization packet", () => {
       }
     });
     expect(sync.sources.map(({ path }) => path).sort()).toEqual([
+      "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
       "project/CUSTOM_GPT_ACTION_MODULE.md",
       "skills/askrigor/SKILL.md"
     ]);
+    expect(sync.installation_bundle).toMatchObject({
+      instructions_sha256: sha256(packet.instructionsMarkdown),
+      action_schema_sha256: sha256(packet.openApiJson),
+      spark_skill_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
+      bundle_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u)
+    });
     expect(sync.artifacts.map(({ path }) => path).sort()).toEqual([
       "docs/custom-gpt-action-openapi.json",
       "docs/custom-gpt-instructions.md"

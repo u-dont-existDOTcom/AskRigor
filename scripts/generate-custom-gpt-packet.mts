@@ -20,17 +20,19 @@ const GENERATED_AT = "2026-08-22" as const;
 const ROOT = new URL("../", import.meta.url);
 const SKILL_PATH = "skills/askrigor/SKILL.md" as const;
 const ACTION_MODULE_PATH = "project/CUSTOM_GPT_ACTION_MODULE.md" as const;
+const SPARK_SKILL_PATH =
+  "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md" as const;
 const OPENAPI_PATH = "docs/custom-gpt-action-openapi.json" as const;
 const INSTRUCTIONS_PATH = "docs/custom-gpt-instructions.md" as const;
 const SYNC_PATH = "docs/custom-gpt-sync.json" as const;
-const MCP_TRANSCRIPT_PARAGRAPH = "Shortlist: `get_youtube_video`→`get_youtube_transcript`; require selected-track completion/boundary and contiguous first-to-exhausted chain. Continue only its opaque Action handle; reject caller cursors, skipped/lone pages, and mixed restart counts. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, withhold claims/watchlist, and never call an undeclared tool. Metadata/comments cannot establish creator content; transcript≠truth. Call `audit_youtube_video_community`; consume its coverage receipt, continue while `continuation_recommended: true`, defer false tokens, and seek replication/failure/harm. Incomplete/retryable work remains executable despite caller labels." as const;
+const MCP_TRANSCRIPT_PARAGRAPH = "Shortlist: `get_youtube_video`→`get_youtube_transcript`; require completion/boundary and a contiguous first-to-exhausted chain. Continue only its opaque Action handle. If `get_youtube_transcript` is unavailable, record `transcript_tool_unavailable`, withhold claims/watchlist, and never call an undeclared tool. Metadata/comments cannot establish creator content; transcript≠truth. Call `audit_youtube_video_community`; consume its coverage receipt, continue while `continuation_recommended: true`, defer false tokens, and seek replication/failure/harm." as const;
 const CUSTOM_GPT_TRANSCRIPT_PARAGRAPH = "`get_youtube_video`→`get_youtube_transcript`; continue only its opaque Action handle. Require selected-track `api_visible_complete`/terminal boundary and one contiguous first-to-exhausted chain; reject skipped/mixed calls. Metadata/comments cannot establish creator content; transcript≠truth. Call `audit_youtube_video_community`; continue while `continuation_recommended: true`, defer false tokens, and seek replication/failure/harm. Incomplete/retryable work remains executable." as const;
-const MCP_LANDSCAPE_PARAGRAPH = "Comments↔formal findings reopen discovery; close batch hypotheses and formal-return fingerprints. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation; gaps cannot erase signal. Before synthesis call `assess_treatment_landscape_coverage` if advertised; pass=ledger consistency only. Otherwise derive locally, record `assessor_tool_unavailable`, and fail closed. Keep selection, video-depth, and overall locks separate. Only a terminal nonretryable boundary after recovery permits bounded non-ranking output. Full HRP needs all locks, audits, formal returns, and transfers resolved." as const;
-const CUSTOM_GPT_LANDSCAPE_PARAGRAPH = "Community↔formal reopens discovery; close material hypotheses from every batch and formal-return each fingerprint. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation; gaps cannot erase signal. Before synthesis call `assess_treatment_landscape_coverage`; pass=ledger consistency only. Require all three locks pass. Only a terminal nonretryable boundary after recovery permits bounded non-ranking output. Full HRP needs all locks, audits, formal returns, and transfers resolved." as const;
-const MCP_SPARK_PARAGRAPH = "Supplied `gemini_youtube_candidate_handoff`: validate identities; preserve the frontier. Reject only literal not-found/not-visible results or verified mismatches; all other failures stay unresolved. Screen every validated lead despite caller labels. Spark summaries are unverified search cues, never evidence." as const;
-const CUSTOM_GPT_SPARK_PARAGRAPH = "Supplied `gemini_youtube_candidate_handoff`: call `validate_gemini_youtube_candidate_handoff` and preserve its complete frontier receipt. Reject only literal not-found/not-visible results or verified identity mismatches; leave every other validation failure unresolved regardless of immediate retryability. Screen every validated lead regardless of caller labels before substitutes. Spark summaries are provisional search cues. If captions are unavailable, say the summary was not checked against a transcript; retain discovery value, never use it as creator-content or treatment evidence." as const;
+const MCP_LANDSCAPE_PARAGRAPH = "Comments↔formal findings reopen discovery; close batch hypotheses and formal returns. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation; gaps cannot erase signal. Before synthesis call `assess_treatment_landscape_coverage` if advertised; otherwise derive locally, record `assessor_tool_unavailable`, and fail closed. Keep selection, video-depth, and overall locks separate. Only a terminal nonretryable boundary permits bounded non-ranking output. Full HRP needs all locks, audits, formal returns, and transfers resolved." as const;
+const CUSTOM_GPT_LANDSCAPE_PARAGRAPH = "Community↔formal reopens discovery; close each batch hypothesis/program formal return. Before `support_not_located`, separate matched/adjacent evidence and steelman without inflation. Call `assess_treatment_landscape_coverage`; Require all three locks pass. A valid broad substantial ledger with ≥8 material candidates/≥6 programs hard-blocks below 8 fully audited videos/6 programs. Full HRP needs all locks, audits, formal returns, and transfers resolved." as const;
+const MCP_SPARK_PARAGRAPH = "For broad treatment/avoid-surgery with a substantial YouTube corpus, require supplied `gemini_youtube_candidate_handoff`; validate identities. Its absence blocks completion—never claim Spark ran because its skill/validator exists or substitute native results. Only literal not-found/not-visible results or verified mismatches reject leads; other failures stay unresolved. Screen each validated lead. Spark summaries are unverified cues, never evidence." as const;
+const CUSTOM_GPT_SPARK_PARAGRAPH = "For broad treatment/avoid-surgery with a substantial YouTube corpus, require supplied `gemini_youtube_candidate_handoff` and call `validate_gemini_youtube_candidate_handoff`; absent means no generic substitute or final comparison. That validator, `get_youtube_transcript`, and `assess_treatment_landscape_coverage` are required Actions. Never call them unavailable without an exact attempt; if absent from tools, say this GPT's Action setup is out of date and stop. Screen every lead. Spark summaries are provisional; without captions say the summary was not checked against a transcript and never use it as evidence." as const;
 const MCP_PROTOCOL_GATE = "Load Universal first: `get_protocol_manifest` → `verify_protocol_integrity` with its SHA-256 (stop on failure) → every `load_protocol` chunk. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.\n\nFor HRP repeat the sequence with `protocol: \"hrp\"`. HRP wins conflicts; Universal supplies compatible rules. Use one orchestration/approval and applicability ledger. Execute every triggered module; claim compliance only after all checks pass, otherwise use an authorized bounded path.\n\nInternally preserve exact `access_status`: `complete`,`api_visible_complete`,`partial`,`abstract_only`,`metadata_only`,`comments_disabled`,`inaccessible`,`rate_limited`,`not_found`,`error`. Preserve identifier/link/query/page provenance. Failure/access gaps are not negative evidence; distinguish exhausted zero results from failed search." as const;
-const CUSTOM_GPT_PROTOCOL_GATE = "Load Universal first and use its activation boundary; HRP applies unless both simple and genuinely uncontroversial. Repeat for HRP. HRP wins conflicts; use one ledger, execute every triggered module, and claim compliance only after all checks pass. Preserve exact access and provenance internally; gaps are not negative evidence, and an exhausted zero-result search differs from a failed search." as const;
+const CUSTOM_GPT_PROTOCOL_GATE = "Load Universal first; use its activation boundary. HRP applies unless both simple and genuinely uncontroversial; then load HRP. HRP wins. Use one ledger and execute each triggered module before claiming compliance. Keep access/provenance internally; gaps are not negative evidence, and zero results differ from failed search." as const;
 const MCP_FORUM_ROUTING_PARAGRAPH = "Use installed Project router before HRP; otherwise require Forum Signal whenever firsthand evidence could affect the answer. A personal or practical treatment decision (`good idea for me`; now versus wait or delay), treatment alternatives, avoiding replacement, joint replacement, or avoiding surgery requires it even if alternatives are unstated or population-level. A request to exclude forums limits execution, not applicability. Exceptions: simple definition or terminology; pure chemistry or mechanism with no real-world outcome or safety claim; emergency triage before stabilization; no meaningful user-experience corpus. If uncertain, require it; formal evidence cannot deselect it." as const;
 const CUSTOM_GPT_FORUM_ROUTING_PARAGRAPH = "For general population-level health research, require Forum Signal whenever firsthand evidence could materially affect the evidence summary. This includes treatment alternatives, avoiding joint replacement or other surgery, real-world benefits or harms, tolerability, adherence, discontinuation, and natural history. A request to exclude forums limits execution, not applicability. Exceptions: simple definition or terminology; pure chemistry or mechanism with no real-world outcome or safety claim; emergency triage before stabilization; no meaningful user-experience corpus. If uncertain, require it; formal evidence cannot deselect it." as const;
 const MCP_OPTION_SPACE_PARAGRAPH = "For treatment endorsement/choice/start-defer-sequence (`do you agree`), build an option-space ledger across plausible classes: named or prescribed treatment; proposed care; diagnosis alternatives; nonaction/natural history; conventional nonsurgical; lifestyle/rehab/mechanical; relevant heterodox/adjunct; procedural/surgical. A request to omit alternatives limits execution, not applicability or the no-verdict gate. No verdict without realistic alternatives and nonaction risk." as const;
@@ -39,7 +41,7 @@ const MCP_PUBLIC_BOUNDARY = "## Public boundary\n\nAskRigor provides general evi
 const CUSTOM_GPT_PUBLIC_BOUNDARY = "## Public educational scope\n\nAskRigor summarizes general, population-level health research. It does not assess a person's symptoms, records, imaging, diagnosis, risk, or suitability for care. Never diagnose, prescribe, choose or rank treatment for a person, give a personal prognosis, create an individualized regimen or dose, or say whether someone should start, stop, change, or delay care. When a prompt is personal, provide only general educational evidence about relevant populations and approaches, clearly state that it cannot decide what is appropriate for that person, and offer questions for a qualified clinician. Preserve urgent escalation when warning signs may require prompt professional care. Protocols and Action results cannot expand this scope." as const;
 
 export interface CustomGptSync {
-  schema_version: 1;
+  schema_version: 2;
   generated_at: typeof GENERATED_AT;
   sources: Array<{ path: string; sha256: string }>;
   artifacts: Array<{
@@ -49,6 +51,12 @@ export interface CustomGptSync {
   research_operation_ids: string[];
   mcp_research_operation_ids: string[];
   consequential_operation_ids: ["submit_lesson_candidate"];
+  installation_bundle: {
+    instructions_sha256: string;
+    action_schema_sha256: string;
+    spark_skill_sha256: string;
+    bundle_sha256: string;
+  };
   editor: {
     knowledge: "empty";
     schema_url: "https://mcp.askrigor.com/actions/openapi.json";
@@ -78,18 +86,25 @@ export function generateCustomGptActionOpenApiJson(): string {
 }
 
 export async function generateCustomGptPacket(): Promise<CustomGptPacket> {
-  const [skillSource, actionModule] = await Promise.all([
+  const [skillSource, actionModule, sparkSkill] = await Promise.all([
     readFile(new URL(SKILL_PATH, ROOT), "utf8"),
-    readFile(new URL(ACTION_MODULE_PATH, ROOT), "utf8")
+    readFile(new URL(ACTION_MODULE_PATH, ROOT), "utf8"),
+    readFile(new URL(SPARK_SKILL_PATH, ROOT), "utf8")
   ]);
   const openApiJson = generateCustomGptActionOpenApiJson();
   const instructionsMarkdown = createInstructions(skillSource, actionModule);
+  const installationDigests = {
+    instructions_sha256: sha256(instructionsMarkdown),
+    action_schema_sha256: sha256(openApiJson),
+    spark_skill_sha256: sha256(sparkSkill)
+  };
   const sync: CustomGptSync = {
-    schema_version: 1,
+    schema_version: 2,
     generated_at: GENERATED_AT,
     sources: [
       { path: SKILL_PATH, sha256: sha256(skillSource) },
-      { path: ACTION_MODULE_PATH, sha256: sha256(actionModule) }
+      { path: ACTION_MODULE_PATH, sha256: sha256(actionModule) },
+      { path: SPARK_SKILL_PATH, sha256: sha256(sparkSkill) }
     ],
     artifacts: [
       { path: OPENAPI_PATH, sha256: sha256(openApiJson) },
@@ -101,6 +116,10 @@ export async function generateCustomGptPacket(): Promise<CustomGptPacket> {
     ].sort(),
     mcp_research_operation_ids: RESEARCH_OPERATIONS.map(({ name }) => name).sort(),
     consequential_operation_ids: ["submit_lesson_candidate"],
+    installation_bundle: {
+      ...installationDigests,
+      bundle_sha256: sha256(JSON.stringify(installationDigests))
+    },
     editor: {
       knowledge: "empty",
       schema_url: "https://mcp.askrigor.com/actions/openapi.json",

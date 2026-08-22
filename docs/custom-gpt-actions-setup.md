@@ -70,6 +70,12 @@ screening or reaches GitHub.
 
 ## 3. Configure the Custom GPT from the generated packet
 
+Treat installation as one transaction, not three independent edits. The
+Instructions, live Action schema, and Gemini Spark scout skill must match the
+single `installation_bundle` in `docs/custom-gpt-sync.json`. Updating only the
+Instructions is a failed installation even when the editor saves successfully;
+it leaves newly required tools invisible and must never be reported as current.
+
 Use only this checked handoff:
 
 ```text
@@ -96,6 +102,14 @@ Privacy: https://askrigor.com/privacy
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
 
+Before calling the installation current, record the exact three member digests
+and bundle digest from `docs/custom-gpt-sync.json`. In the editor, confirm the
+complete operation list after importing the live schema—not merely that an
+Action with the old name still exists. A broad-treatment replay must visibly
+call `validate_gemini_youtube_candidate_handoff`, `get_youtube_transcript`, and
+`assess_treatment_landscape_coverage`. If the last two are absent, re-import the
+schema URL; do not attempt the research with a stale Action.
+
 ### Release completion and plugin synchronization
 
 Do not stop at a source merge when deployment and installation are authorized.
@@ -117,6 +131,27 @@ Complete and verify each distinct surface in order:
    Custom GPT editor, keep Knowledge empty, preserve authentication and privacy
    settings, save, and start a fresh chat;
 7. run fresh product-interface acceptance and record only observed results.
+
+The release remains incomplete until one synthetic, fresh-chat broad-treatment
+replay includes a validated Spark packet and passes the local product contract:
+
+```text
+npm run validate:custom-gpt-product -- /tmp/askrigor-custom-gpt-acceptance.json
+```
+
+The local JSON records only synthetic output, the three reviewed digests, the
+installed and observed operation IDs, and the returned landscape counts. Never
+save a user's health details or raw private research. The validator fails stale
+Instructions/schema/skill bytes; missing required calls; fewer than eight fully
+audited material videos or six materially different programs when the broad
+minimum applies; no screened Spark lead; missing linked video titles; and
+ordinary-output leakage such as API coverage codes, lock/receipt names,
+deterministic-sample terminology, or protocol-compliance preambles.
+
+Static repository tests, production health, and matching plugin bytes are
+necessary but cannot substitute for this exact product replay. If the UI replay
+has not passed, report the installation or acceptance state as pending—never as
+implemented, installed, restored, or complete.
 
 Plugin-package currency, backend currency, Custom GPT installation, and fresh
 UI behavior are separate receipts. Never infer one from another.

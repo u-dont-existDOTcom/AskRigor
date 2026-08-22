@@ -16,7 +16,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23";
+  "2def834840caa45944234bb884ea3710e8dcaf2e0d21fae9e5d78116bd67ded7";
 const UNIVERSAL_SHA_256 =
   "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221";
 
@@ -34,7 +34,7 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.20",
+      version: "20.5.21",
       revisionDate: "2026-08-22"
     });
   });
@@ -248,7 +248,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.20" revisionDate="2026-08-22"/
+      /<Protocol name="HRP" version="20\.5\.21" revisionDate="2026-08-22"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -343,6 +343,25 @@ describe("canonical protocol loader", () => {
       "A genuine terminal boundary permits only",
       '<Check id="FS186">',
       '<Check id="FS187">'
+    ]) {
+      expect(text).toContain(required);
+    }
+  });
+
+  it("requires the HRP 20.5.21 executable broad-coverage and plain-render gate", async () => {
+    const text = await loadProtocol("hrp");
+
+    for (const required of [
+      '<Revision version="20.5.21" priority="Critical">',
+      "availability-conditioned synthesis block",
+      "at least eight fully audited material videos spanning at least six",
+      "configured external high-recall scout",
+      'Case id="FourDistinctVideosPresentedAsBroadCoverage"',
+      'Case id="ConfiguredExternalScoutSilentlySkipped"',
+      'Case id="InternalAuditJargonLeaksIntoOrdinaryAnswer"',
+      '<Check id="FS188">',
+      '<Check id="FS189">',
+      '<Check id="FS190">'
     ]) {
       expect(text).toContain(required);
     }

@@ -1,6 +1,35 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-22 executable acceptance-gate repair candidate
+
+The latest fresh GPT result proved that the prior release checks were insufficient:
+four videos were presented as broad coverage, Spark was not actually used, two
+deployed Actions were reported unavailable because the editor schema was stale,
+one audited-video title/link disappeared, and internal retrieval jargon reached
+ordinary prose. This is an instruction, installation, and product-acceptance
+failure; it is not repaired by another prose reminder.
+
+The runtime and Custom GPT bundle are not yet deployed or installed. Its generated
+Instructions are 7,783 characters (7,815 UTF-8 bytes), SHA-256
+1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08;
+the synchronization ledger SHA-256 is
+62f8e554ebb2f6ea855ccd16467da20470d085b2cf4069c502b254b340ba92da;
+and the candidate Action OpenAPI SHA-256 is
+6f51ef2435549b42efbfa7a4fde3c2d5f4a121f7bfd3374240ed826d11b6e58a.
+The personal Codex plugin was independently reinstalled as
+`0.1.0+codex.20260822101226`; its source and installed skill SHA-256 both equal
+`92318182cee19bac5ffa803613be63be9fa720cd5736d7805235254ff047652c`.
+The synchronized installation bundle now covers Instructions, Action schema,
+and Spark skill as one release. Broad substantial synthesis hard-blocks below
+eight fully audited videos spanning six materially different programs when that
+valid supply exists, and also blocks without a reconciled Spark frontier. A
+local product validator rejects stale tools, missing required calls, missing
+linked titles, insufficient diversity, and ordinary-output jargon. Repository
+verification cannot complete the UI gate; a fresh synthetic replay must pass
+after deployment and installation.
+
+
 Release disposition at 2026-08-22: **PUBLIC SUBMISSION BLOCKED**. Developer
 Mode connector retrieval is ready based on the recorded production Inspector and
 ChatGPT evidence below, and the public website/support/privacy/terms URL gate is
