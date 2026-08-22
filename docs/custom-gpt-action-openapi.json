@@ -12448,7 +12448,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$schema": "http://json-schema.org/draft-07/schema#",
                   "type": "object",
                   "properties": {
                     "packet_name": {
@@ -12870,7 +12869,7 @@
                     },
                     "access_boundaries": {
                       "type": "array",
-                      "items": [
+                      "prefixItems": [
                         {
                           "type": "string",
                           "const": "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
@@ -12983,7 +12982,6 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$schema": "http://json-schema.org/draft-07/schema#",
                   "type": "object",
                   "properties": {
                     "error": {
@@ -13172,7 +13170,6 @@
           "content": {
             "application/json": {
               "schema": {
-                "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
                   "packet": {
