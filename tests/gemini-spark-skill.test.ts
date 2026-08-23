@@ -9,15 +9,15 @@ const skillUrl = new URL(
 );
 const setupUrl = new URL("../docs/gemini-spark-setup.md", import.meta.url);
 
-describe("Gemini Spark AskRigor candidate scout", () => {
-  it("pins the materially smaller replacement bytes", async () => {
+describe("automated Gemini AskRigor candidate scout", () => {
+  it("pins the bounded production scout instructions", async () => {
     const skill = await readFile(skillUrl, "utf8");
     const longestLine = Math.max(...skill.split(/\r?\n/u).map((line) => line.length));
     const sha256 = createHash("sha256").update(skill).digest("hex");
 
     expect(Buffer.byteLength(skill, "utf8")).toBeLessThanOrEqual(8_000);
     expect(longestLine).toBeLessThanOrEqual(500);
-    expect(sha256).toBe("bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08");
+    expect(sha256).toBe("562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645");
   });
 
   it("keeps Gemini in a candidate-only role", async () => {
@@ -81,28 +81,26 @@ describe("Gemini Spark AskRigor candidate scout", () => {
     expect(skill).toContain("`provisional_specific_program`");
     expect(skill).toContain("`provisional_population_or_stage`");
     expect(skill).toContain("`provisional_outcome_and_horizon`");
-    expect(skill).toContain("spark_public_video_context_not_transcript_verified_by_askrigor");
+    expect(skill).toContain("gemini_public_search_or_video_context_not_transcript_verified_by_askrigor");
     expect(skill).toContain("Add no\nother keys");
     expect(skill).toContain("all five\npurposes occur");
     expect(skill).toMatch(/every suggested\s+ID exists among the candidates/u);
   });
 
-  it("documents the one-pass upload and deterministic AskRigor validation path", async () => {
+  it("documents the no-transfer server Action and deterministic AskRigor validation path", async () => {
     const setup = await readFile(setupUrl, "utf8");
 
-    expect(setup).toContain("scout-youtube-candidates-for-askrigor");
-    expect(setup).toContain("Replace my existing AskRigor YouTube scout");
-    expect(setup).toContain("Do not merge it with the old staged contract");
-    expect(setup).toContain("old `staged-remedy-scan-v16` contract remains retired");
-    expect(setup).toContain("there is no iterative owner-operated probe");
-    expect(setup).toContain("npm run validate:gemini-handoff -- path/to/spark-response.md");
-    expect(setup).toContain("one raw JSON");
-    expect(setup).toContain("v1 packets remain accepted");
-    expect(setup).toContain("validateGeminiYoutubeCandidateHandoff");
-    expect(setup).toContain("read-only Custom GPT Action");
-    expect(setup).toContain("currently exposes 21");
-    expect(setup).toContain("does not prove that comment");
-    expect(setup).toContain("Do not ask the owner to diagnose or patch the skill");
-    expect(setup).toContain("bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08");
+    expect(setup).toContain("https://generativelanguage.googleapis.com/v1beta/interactions");
+    expect(setup).toContain("`gemini-3.6-flash`");
+    expect(setup).toContain("`store:false`");
+    expect(setup).toContain("`ASKRIGOR_GEMINI_API_KEY`");
+    expect(setup).toContain("`scout_gemini_youtube_candidates`");
+    expect(setup).toContain("must not ask the owner to run Gemini or transfer a packet");
+    expect(setup).toContain("backward-compatible technical validation of historical packets");
+    expect(setup).toContain("installing that file in consumer Spark is not part");
+    expect(setup).toContain("read-only Action operation");
+    expect(setup).toContain("MCP remains unchanged");
+    expect(setup).toContain("$1.00");
+    expect(setup).toContain("$50.00");
   });
 });

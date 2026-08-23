@@ -15,6 +15,7 @@ import {
   type TranscriptCoverageReceipt
 } from "./treatment-landscape-coverage-route.js";
 import { createGeminiCandidateActionRoute } from "./gemini-candidate-route.js";
+import { createAutomatedGeminiScoutActionRoute } from "./gemini-scout-route.js";
 import { createOpenFullTextActionRoutes } from "./open-full-text-route.js";
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
 import {
@@ -175,6 +176,7 @@ export function createActionOnlyResearchRoutes(): readonly ActionRoute[] {
   return Object.freeze([
     createYoutubeTranscriptActionRoute(),
     createTreatmentLandscapeCoverageActionRoute(),
+    createAutomatedGeminiScoutActionRoute(),
     createGeminiCandidateActionRoute(),
     ...createOpenFullTextActionRoutes()
   ]);

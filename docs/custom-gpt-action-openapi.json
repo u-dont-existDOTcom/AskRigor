@@ -12436,6 +12436,995 @@
         }
       }
     },
+    "/actions/research/scout_gemini_youtube_candidates": {
+      "post": {
+        "operationId": "scout_gemini_youtube_candidates",
+        "summary": "AskRigor scout and validate Gemini YouTube candidates",
+        "description": "Run a stateless server-side Gemini Google-Search scout for a de-identified population-level research target, then independently validate every public YouTube identity. Candidate summaries remain provisional discovery leads, not treatment evidence.",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "HTTP 200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "packet_name": {
+                      "type": "string",
+                      "const": "askrigor_automated_gemini_youtube_scout"
+                    },
+                    "packet_version": {
+                      "type": "string",
+                      "const": "1.0"
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "accepted",
+                        "partial",
+                        "rejected",
+                        "blocked"
+                      ]
+                    },
+                    "research_target": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "diagnosis_status": {
+                      "type": "string",
+                      "enum": [
+                        "diagnosis_not_specified",
+                        "user_supplied_diagnosis"
+                      ]
+                    },
+                    "discovery_queries": {
+                      "maxItems": 18,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "purpose": {
+                            "type": "string",
+                            "enum": [
+                              "firsthand_outcome",
+                              "radical_outcome",
+                              "overlooked_intervention",
+                              "conventional_benefit",
+                              "conventional_negative"
+                            ]
+                          },
+                          "query": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          }
+                        },
+                        "required": [
+                          "purpose",
+                          "query"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "search_gaps": {
+                      "maxItems": 8,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      }
+                    },
+                    "scout_receipt": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "const": "gemini_api"
+                        },
+                        "model": {
+                          "type": "string",
+                          "const": "gemini-3.6-flash"
+                        },
+                        "access_status": {
+                          "type": "string",
+                          "enum": [
+                            "complete",
+                            "api_visible_complete",
+                            "partial",
+                            "abstract_only",
+                            "metadata_only",
+                            "comments_disabled",
+                            "inaccessible",
+                            "rate_limited",
+                            "not_found",
+                            "error"
+                          ]
+                        },
+                        "google_search_grounded": {
+                          "type": "boolean"
+                        },
+                        "provider_storage_disabled": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "executed_search_queries": {
+                          "maxItems": 18,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          }
+                        },
+                        "usage": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "total_input_tokens": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "total_output_tokens": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "total_thought_tokens": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "maximum": 9007199254740991
+                                },
+                                "google_search_queries": {
+                                  "type": "integer",
+                                  "minimum": 8,
+                                  "maximum": 18
+                                }
+                              },
+                              "required": [
+                                "google_search_queries"
+                              ],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "accounted_nano_usd": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 1000000000
+                        }
+                      },
+                      "required": [
+                        "provider",
+                        "model",
+                        "access_status",
+                        "google_search_grounded",
+                        "provider_storage_disabled",
+                        "executed_search_queries",
+                        "usage",
+                        "accounted_nano_usd"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "validation": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "packet_name": {
+                              "type": "string",
+                              "const": "askrigor_gemini_youtube_candidate_validation"
+                            },
+                            "packet_version": {
+                              "type": "string",
+                              "const": "2.0"
+                            },
+                            "source_contract": {
+                              "type": "string",
+                              "enum": [
+                                "youtube-candidate-handoff-v2",
+                                "youtube-candidate-handoff-v1"
+                              ]
+                            },
+                            "source_packet_version": {
+                              "type": "string",
+                              "enum": [
+                                "2.0",
+                                "1.0"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "accepted",
+                                "partial",
+                                "rejected",
+                                "blocked"
+                              ]
+                            },
+                            "research_target": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 1000
+                            },
+                            "candidate_frontier": {
+                              "type": "object",
+                              "properties": {
+                                "frontier_digest": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "source_candidate_video_ids": {
+                                  "minItems": 3,
+                                  "maxItems": 16,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  }
+                                },
+                                "validated_candidate_video_ids": {
+                                  "maxItems": 16,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  }
+                                },
+                                "terminally_rejected_video_ids": {
+                                  "maxItems": 16,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  }
+                                },
+                                "unresolved_candidate_video_ids": {
+                                  "maxItems": 16,
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  }
+                                }
+                              },
+                              "required": [
+                                "frontier_digest",
+                                "source_candidate_video_ids",
+                                "validated_candidate_video_ids",
+                                "terminally_rejected_video_ids",
+                                "unresolved_candidate_video_ids"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "validated_candidates": {
+                              "maxItems": 16,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "video_id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  },
+                                  "canonical_url": {
+                                    "type": "string",
+                                    "format": "uri"
+                                  },
+                                  "metadata_access_status": {
+                                    "type": "string",
+                                    "const": "api_visible_complete"
+                                  },
+                                  "provider_metadata": {
+                                    "type": "object",
+                                    "properties": {
+                                      "retrieved_at": {
+                                        "type": "string",
+                                        "pattern": "^\\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\\d|3[01])T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|[+-](?:[01]\\d|2[0-3]):[0-5]\\d)$"
+                                      },
+                                      "title": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 10000
+                                      },
+                                      "channel_id": {
+                                        "type": "string",
+                                        "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                                      },
+                                      "channel_title": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 10000
+                                      },
+                                      "privacy_status": {
+                                        "type": "string",
+                                        "enum": [
+                                          "public",
+                                          "private",
+                                          "unlisted"
+                                        ]
+                                      },
+                                      "statistics": {
+                                        "type": "object",
+                                        "properties": {
+                                          "view_count": {
+                                            "type": "string",
+                                            "pattern": "^\\d+$"
+                                          },
+                                          "like_count": {
+                                            "type": "string",
+                                            "pattern": "^\\d+$"
+                                          },
+                                          "comment_count": {
+                                            "type": "string",
+                                            "pattern": "^\\d+$"
+                                          }
+                                        },
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "required": [
+                                      "retrieved_at",
+                                      "title",
+                                      "channel_id",
+                                      "channel_title"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "gemini_provisional_annotations": {
+                                    "type": "object",
+                                    "properties": {
+                                      "target_distance": {
+                                        "type": "string",
+                                        "enum": [
+                                          "exact",
+                                          "adjacent",
+                                          "remote"
+                                        ]
+                                      },
+                                      "intervention_family": {
+                                        "type": "string",
+                                        "enum": [
+                                          "nutrition_or_elimination",
+                                          "oral_supplement",
+                                          "local_mechanical",
+                                          "behavioral_environmental",
+                                          "topical_or_traditional",
+                                          "device_or_energy",
+                                          "regenerative_or_biologic",
+                                          "conventional_injection",
+                                          "conventional_surgery",
+                                          "other"
+                                        ]
+                                      },
+                                      "creator_claim_summary": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 600
+                                      },
+                                      "specific_program": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 900
+                                      },
+                                      "population_or_stage": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                      },
+                                      "outcome_and_horizon": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 500
+                                      },
+                                      "summary_basis": {
+                                        "type": "string",
+                                        "enum": [
+                                          "gemini_public_search_or_video_context_not_transcript_verified_by_askrigor",
+                                          "spark_public_video_context_not_transcript_verified_by_askrigor",
+                                          "legacy_spark_annotation_not_transcript_verified_by_askrigor"
+                                        ]
+                                      },
+                                      "why_surfaced": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 300
+                                      }
+                                    },
+                                    "required": [
+                                      "target_distance",
+                                      "intervention_family",
+                                      "creator_claim_summary",
+                                      "specific_program",
+                                      "population_or_stage",
+                                      "outcome_and_horizon",
+                                      "summary_basis",
+                                      "why_surfaced"
+                                    ],
+                                    "additionalProperties": false
+                                  },
+                                  "limitations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "video_id",
+                                  "canonical_url",
+                                  "metadata_access_status",
+                                  "provider_metadata",
+                                  "gemini_provisional_annotations",
+                                  "limitations"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "rejected_candidates": {
+                              "maxItems": 16,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "video_id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  },
+                                  "metadata_access_status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "complete",
+                                      "api_visible_complete",
+                                      "partial",
+                                      "abstract_only",
+                                      "metadata_only",
+                                      "comments_disabled",
+                                      "inaccessible",
+                                      "rate_limited",
+                                      "not_found",
+                                      "error"
+                                    ]
+                                  },
+                                  "retryable": {
+                                    "type": "boolean",
+                                    "const": false
+                                  },
+                                  "rejection_reasons": {
+                                    "minItems": 1,
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "metadata_not_api_visible_complete",
+                                        "provider_video_id_mismatch",
+                                        "provider_canonical_url_mismatch",
+                                        "declared_title_mismatch",
+                                        "declared_channel_mismatch"
+                                      ]
+                                    }
+                                  },
+                                  "provider_title": {
+                                    "type": "string"
+                                  },
+                                  "provider_channel": {
+                                    "type": "string"
+                                  },
+                                  "provider_error_code": {
+                                    "type": "string"
+                                  },
+                                  "limitations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "video_id",
+                                  "metadata_access_status",
+                                  "retryable",
+                                  "rejection_reasons",
+                                  "limitations"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "unresolved_candidates": {
+                              "maxItems": 16,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "video_id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  },
+                                  "metadata_access_status": {
+                                    "type": "string",
+                                    "enum": [
+                                      "complete",
+                                      "api_visible_complete",
+                                      "partial",
+                                      "abstract_only",
+                                      "metadata_only",
+                                      "comments_disabled",
+                                      "inaccessible",
+                                      "rate_limited",
+                                      "not_found",
+                                      "error"
+                                    ]
+                                  },
+                                  "retryable": {
+                                    "type": "boolean"
+                                  },
+                                  "provider_error_code": {
+                                    "type": "string"
+                                  },
+                                  "limitations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "video_id",
+                                  "metadata_access_status",
+                                  "retryable",
+                                  "limitations"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "suggested_seed_receipts": {
+                              "minItems": 1,
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "video_id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9_-]{11}$"
+                                  },
+                                  "disposition": {
+                                    "type": "string",
+                                    "enum": [
+                                      "eligible",
+                                      "ineligible",
+                                      "rejected",
+                                      "unresolved"
+                                    ]
+                                  },
+                                  "reasons": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string",
+                                      "enum": [
+                                        "candidate_rejected",
+                                        "candidate_validation_incomplete",
+                                        "privacy_not_reported",
+                                        "privacy_not_public",
+                                        "comment_count_not_reported",
+                                        "comment_count_zero",
+                                        "duplicate_suggested_channel"
+                                      ]
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "video_id",
+                                  "disposition",
+                                  "reasons"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "eligible_seed_video_ids": {
+                              "maxItems": 8,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^[A-Za-z0-9_-]{11}$"
+                              }
+                            },
+                            "access_boundaries": {
+                              "type": "array",
+                              "prefixItems": [
+                                {
+                                  "type": "string",
+                                  "const": "Gemini scout summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality."
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "Comment-audit eligibility is mechanical; AskRigor must still perform protocol-governed semantic selection and any required audit."
+                                },
+                                {
+                                  "type": "string",
+                                  "const": "No YouTube comments or transcripts were retrieved by this validation."
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "packet_name",
+                            "packet_version",
+                            "source_contract",
+                            "source_packet_version",
+                            "status",
+                            "research_target",
+                            "candidate_frontier",
+                            "validated_candidates",
+                            "rejected_candidates",
+                            "unresolved_candidates",
+                            "suggested_seed_receipts",
+                            "eligible_seed_video_ids",
+                            "access_boundaries"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "boundary": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "code": {
+                              "type": "string",
+                              "enum": [
+                                "gemini_provider_not_configured",
+                                "youtube_provider_not_configured",
+                                "gemini_scout_budget_unavailable",
+                                "gemini_scout_budget_exhausted",
+                                "gemini_youtube_scout_rate_limited",
+                                "gemini_youtube_scout_inaccessible",
+                                "gemini_youtube_scout_invalid_response",
+                                "gemini_youtube_scout_ungrounded",
+                                "gemini_youtube_scout_missing_output",
+                                "gemini_youtube_scout_invalid_packet",
+                                "gemini_youtube_scout_query_receipt_mismatch",
+                                "gemini_youtube_scout_upstream_unavailable",
+                                "gemini_youtube_scout_request_failed",
+                                "gemini_youtube_candidate_validation_failed",
+                                "gemini_youtube_candidate_validation_response_too_large",
+                                "gemini_youtube_scout_unclassified_failure"
+                              ]
+                            },
+                            "retryable": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "code",
+                            "retryable"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "access_boundaries": {
+                      "type": "array",
+                      "prefixItems": [
+                        {
+                          "type": "string",
+                          "const": "Gemini candidate summaries are provisional discovery annotations and were not transcript-verified by AskRigor."
+                        },
+                        {
+                          "type": "string",
+                          "const": "The Gemini request was stateless with provider interaction storage disabled; only the screened population-level target and public scout instructions were sent."
+                        },
+                        {
+                          "type": "string",
+                          "const": "Independent YouTube identity validation does not establish creator content, efficacy, safety, causality, scientific validity, or treatment suitability."
+                        },
+                        {
+                          "type": "string",
+                          "const": "No YouTube transcript or discussion was retrieved by this operation; required downstream research remains required."
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "packet_name",
+                    "packet_version",
+                    "status",
+                    "research_target",
+                    "diagnosis_status",
+                    "discovery_queries",
+                    "search_gaps",
+                    "scout_receipt",
+                    "validation",
+                    "boundary",
+                    "access_boundaries"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_invalid_json",
+                            "action_request_read_failed"
+                          ]
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "HTTP 413 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_body_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HTTP 422 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_input_invalid",
+                            "research_target_not_deidentified"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_rate_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_internal_error"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "HTTP 502 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_response_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "HTTP 503 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_concurrency_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "research_target": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "diagnosis_status": {
+                    "type": "string",
+                    "enum": [
+                      "diagnosis_not_specified",
+                      "user_supplied_diagnosis"
+                    ]
+                  }
+                },
+                "required": [
+                  "research_target",
+                  "diagnosis_status"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/actions/research/validate_gemini_youtube_candidate_handoff": {
       "post": {
         "operationId": "validate_gemini_youtube_candidate_handoff",
@@ -12659,6 +13648,7 @@
                               "summary_basis": {
                                 "type": "string",
                                 "enum": [
+                                  "gemini_public_search_or_video_context_not_transcript_verified_by_askrigor",
                                   "spark_public_video_context_not_transcript_verified_by_askrigor",
                                   "legacy_spark_annotation_not_transcript_verified_by_askrigor"
                                 ]
@@ -12872,7 +13862,7 @@
                       "prefixItems": [
                         {
                           "type": "string",
-                          "const": "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
+                          "const": "Gemini scout summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
                         },
                         {
                           "type": "string",

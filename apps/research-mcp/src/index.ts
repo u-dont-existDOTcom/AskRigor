@@ -19,6 +19,15 @@ export {
   geminiCandidateActionInputSchema
 } from "./actions/gemini-candidate-route.js";
 export {
+  GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD,
+  automatedGeminiScoutReceiptSchema,
+  calculateGeminiScoutNanoUsd,
+  createAutomatedGeminiScoutActionRoute,
+  isDeidentifiedResearchTarget,
+  type AutomatedGeminiScoutReceipt,
+  type CreateAutomatedGeminiScoutActionRouteOptions
+} from "./actions/gemini-scout-route.js";
+export {
   createResearchSessionPrototypeRoutes,
   type CreateResearchSessionPrototypeRoutesOptions
 } from "./actions/research-session-prototype-route.js";

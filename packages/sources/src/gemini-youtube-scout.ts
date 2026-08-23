@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import {
   GeminiYoutubeCandidateHandoffError,
+  GEMINI_YOUTUBE_SUMMARY_BASIS,
   geminiYoutubeCandidateV2PacketSchema,
   parseGeminiYoutubeCandidateHandoff,
   type GeminiYoutubeCandidatePacket
@@ -16,6 +17,9 @@ import { fetchJson, UpstreamHttpError } from "./http.js";
 
 const GEMINI_INTERACTIONS_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/interactions";
+export const GEMINI_YOUTUBE_SCOUT_MODEL = "gemini-3.6-flash" as const;
+export const GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS = 12_000 as const;
+const GEMINI_YOUTUBE_SCOUT_TIMEOUT_MS = 45_000;
 const diagnosisStatusSchema = z.enum([
   "diagnosis_not_specified",
   "user_supplied_diagnosis"
@@ -37,7 +41,16 @@ const interactionResponseSchema = z.object({
   id: z.string().min(1),
   status: z.string().min(1),
   model: z.string().optional(),
-  steps: z.array(interactionStepSchema)
+  steps: z.array(interactionStepSchema),
+  usage: z.object({
+    total_input_tokens: z.number().int().nonnegative().optional(),
+    total_output_tokens: z.number().int().nonnegative().optional(),
+    total_thought_tokens: z.number().int().nonnegative().optional(),
+    grounding_tool_count: z.array(z.object({
+      type: z.string(),
+      count: z.number().int().nonnegative()
+    }).passthrough()).optional()
+  }).passthrough().optional()
 }).passthrough();
 
 export interface GeminiYoutubeScoutInput {
@@ -55,6 +68,14 @@ export interface GeminiYoutubeScoutData {
   response_id: string;
   model: string;
   google_search_grounded: true;
+  provider_storage_disabled: true;
+  executed_search_queries: string[];
+  usage: {
+    total_input_tokens?: number;
+    total_output_tokens?: number;
+    total_thought_tokens?: number;
+    google_search_queries: number;
+  };
   packet: GeminiYoutubeCandidatePacket;
 }
 
@@ -74,8 +95,13 @@ export async function scoutGeminiYoutubeCandidates(
 
   const request = {
     model: parsedConfig.data.model,
+    store: false,
     input: buildScoutPrompt(parsedInput.data),
     tools: [{ type: "google_search" }],
+    generation_config: {
+      max_output_tokens: GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS,
+      thinking_level: "low"
+    },
     response_format: {
       type: "text",
       mime_type: "application/json",
@@ -91,7 +117,8 @@ export async function scoutGeminiYoutubeCandidates(
         "x-goog-api-key": parsedConfig.data.apiKey
       },
       body: JSON.stringify(request),
-      maxRetries: 0
+      maxRetries: 0,
+      timeoutMs: GEMINI_YOUTUBE_SCOUT_TIMEOUT_MS
     });
     const response = interactionResponseSchema.safeParse(raw);
     if (!response.success || response.data.status !== "completed") {
@@ -114,6 +141,7 @@ export async function scoutGeminiYoutubeCandidates(
         retryable: false
       });
     }
+    const executedSearchQueries = findExecutedSearchQueries(response.data.steps);
 
     const output = findModelOutput(response.data.steps);
     if (output === undefined) {
@@ -137,6 +165,29 @@ export async function scoutGeminiYoutubeCandidates(
         retryable: false
       });
     }
+    if (!searchQueriesReconcile(packet, executedSearchQueries)) {
+      return scoutErrorEnvelope(parsedInput.data, {
+        accessStatus: "error",
+        code: "gemini_youtube_scout_query_receipt_mismatch",
+        message: "Gemini scout packet did not reconcile with its executed Google searches",
+        retryable: false
+      });
+    }
+    if (
+      packet.packet_version !== "2.0" ||
+      packet.candidates.some(({ summary_basis }) =>
+        summary_basis !== GEMINI_YOUTUBE_SUMMARY_BASIS
+      )
+    ) {
+      return scoutErrorEnvelope(parsedInput.data, {
+        accessStatus: "error",
+        code: "gemini_youtube_scout_invalid_packet",
+        message: "Gemini scout output did not use the current provisional-summary basis",
+        retryable: false
+      });
+    }
+
+    const usage = providerUsage(response.data.usage, executedSearchQueries.length);
 
     return okEnvelope({
       provider: "gemini_api",
@@ -152,12 +203,17 @@ export async function scoutGeminiYoutubeCandidates(
       limitations: scoutLimitations(),
       rawMetadata: {
         model: response.data.model ?? parsedConfig.data.model,
-        google_search_grounded: true
+        google_search_grounded: true,
+        provider_storage_disabled: true,
+        usage
       },
       data: {
         response_id: response.data.id,
         model: response.data.model ?? parsedConfig.data.model,
         google_search_grounded: true,
+        provider_storage_disabled: true,
+        executed_search_queries: executedSearchQueries,
+        usage,
         packet
       }
     });
@@ -204,6 +260,7 @@ function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
     "",
     `Diagnosis status: ${input.diagnosisStatus}`,
     "",
+    "Perform between 8 and 18 Google Search queries and no more than 18. Copy every executed query string exactly into discovery_queries and do not list an unexecuted query.",
     "Return only the required version 2 JSON packet. Use public web and YouTube discovery context for candidate selection. Treat every creator summary as provisional and not transcript-verified by AskRigor."
   ].join("\n");
 }
@@ -248,6 +305,62 @@ function findModelOutput(steps: z.output<typeof interactionStepSchema>[]): strin
     if (text.trim().length > 0) return text;
   }
   return undefined;
+}
+
+function findExecutedSearchQueries(
+  steps: z.output<typeof interactionStepSchema>[]
+): string[] {
+  const queries: string[] = [];
+  for (const step of steps) {
+    if (step.type !== "google_search_call") continue;
+    const argumentsValue = step.arguments;
+    if (typeof argumentsValue !== "object" || argumentsValue === null) continue;
+    const values = (argumentsValue as Record<string, unknown>).queries;
+    if (!Array.isArray(values)) continue;
+    for (const value of values) {
+      if (typeof value !== "string" || value.trim().length === 0) continue;
+      queries.push(value.trim());
+    }
+  }
+  return [...new Map(queries.map((query) => [comparableSearchQuery(query), query])).values()];
+}
+
+function searchQueriesReconcile(
+  packet: GeminiYoutubeCandidatePacket,
+  executedSearchQueries: readonly string[]
+): boolean {
+  if (executedSearchQueries.length < 8 || executedSearchQueries.length > 18) return false;
+  const executed = new Set(executedSearchQueries.map(comparableSearchQuery));
+  const declared = new Set(packet.discovery_queries.map(({ query }) =>
+    comparableSearchQuery(query)
+  ));
+  if (executed.size !== declared.size) return false;
+  return [...declared].every((query) => executed.has(query));
+}
+
+function comparableSearchQuery(value: string): string {
+  return value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLocaleLowerCase("en-US");
+}
+
+function providerUsage(
+  usage: z.output<typeof interactionResponseSchema>["usage"],
+  executedSearchQueryCount: number
+): GeminiYoutubeScoutData["usage"] {
+  const reportedSearchCount = usage?.grounding_tool_count
+    ?.filter(({ type }) => type === "google_search")
+    .reduce((sum, { count }) => sum + count, 0);
+  return {
+    ...(usage?.total_input_tokens === undefined
+      ? {}
+      : { total_input_tokens: usage.total_input_tokens }),
+    ...(usage?.total_output_tokens === undefined
+      ? {}
+      : { total_output_tokens: usage.total_output_tokens }),
+    ...(usage?.total_thought_tokens === undefined
+      ? {}
+      : { total_thought_tokens: usage.total_thought_tokens }),
+    google_search_queries: Math.max(reportedSearchCount ?? 0, executedSearchQueryCount)
+  };
 }
 
 function scoutLimitations(): string[] {

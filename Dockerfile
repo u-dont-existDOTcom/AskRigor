@@ -5,6 +5,7 @@ COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
 COPY protocols ./protocols
+COPY integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md ./integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md
 COPY tsconfig.base.json ./
 RUN npm ci
 RUN npm run build
@@ -19,6 +20,7 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps ./apps
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/protocols ./protocols
+COPY --from=build /app/integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md ./integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md
 
 USER node
 EXPOSE 3000

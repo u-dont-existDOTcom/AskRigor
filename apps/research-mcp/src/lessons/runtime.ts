@@ -3,7 +3,7 @@ import { dirname, isAbsolute, normalize } from "node:path";
 
 import type { ActionRoute } from "../actions/types.js";
 import {
-  createFileAiBudget,
+  createSharedFileAiBudget,
   MONTHLY_AI_BUDGET_NANO_USD,
 } from "./ai-budget.js";
 import { createLessonActionRoute } from "./action-route.js";
@@ -57,7 +57,7 @@ export function createLessonRuntimeFromEnv(): LessonSubmissionService {
     }
 
     const now = () => new Date();
-    const budget = createFileAiBudget({
+    const budget = createSharedFileAiBudget({
       ledgerPath,
       monthlyLimitNanoUsd: MONTHLY_AI_BUDGET_NANO_USD,
       expectedUid: process.getuid?.(),

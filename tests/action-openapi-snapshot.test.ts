@@ -29,13 +29,13 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(JSON.parse(committed)).toEqual(document);
   });
 
-  it("describes 24 public reads and one private consequential lesson operation without secrets", () => {
+  it("describes 25 public reads and one private consequential lesson operation without secrets", () => {
     const document = createActionOpenApiDocument(completeActionRoutes()) as {
       paths: Record<string, Record<string, Record<string, unknown>>>;
     };
     const operation = document.paths["/actions/lessons"]?.post;
 
-    expect(Object.keys(document.paths)).toHaveLength(25);
+    expect(Object.keys(document.paths)).toHaveLength(26);
     expect(operation).toMatchObject({
       operationId: "submit_lesson_candidate",
       "x-openai-isConsequential": true,

@@ -51,7 +51,7 @@ function packet(): GeminiYoutubeCandidatePacket {
       provisional_specific_program: `Materially distinct program ${index + 1}.`,
       provisional_population_or_stage: "Population or stage provisionally described.",
       provisional_outcome_and_horizon: "Reported outcome and horizon provisionally described.",
-      summary_basis: "spark_public_video_context_not_transcript_verified_by_askrigor",
+      summary_basis: "gemini_public_search_or_video_context_not_transcript_verified_by_askrigor",
       why_surfaced: "May add nonredundant vocabulary for formal and community investigation."
     })),
     suggested_seed_video_ids: [VIDEO_IDS[0], VIDEO_IDS[1]],
@@ -68,7 +68,10 @@ function packet(): GeminiYoutubeCandidatePacket {
 function interactionResponse(
   output = JSON.stringify(packet()),
   steps: Record<string, unknown>[] = [
-    { type: "google_search_call", query: "fixture query" },
+    {
+      type: "google_search_call",
+      arguments: { queries: packet().discovery_queries.map(({ query }) => query) }
+    },
     { type: "google_search_result", results: [] },
     { type: "model_output", content: [{ type: "text", text: output }] }
   ]
@@ -77,7 +80,13 @@ function interactionResponse(
     id: "interaction-fixture-1",
     status: "completed",
     model: CONFIG.model,
-    steps
+    steps,
+    usage: {
+      total_input_tokens: 1_000,
+      total_output_tokens: 2_000,
+      total_thought_tokens: 500,
+      grounding_tool_count: [{ type: "google_search", count: 8 }]
+    }
   }), {
     status: 200,
     headers: { "content-type": "application/json" }
@@ -95,6 +104,13 @@ describe("Gemini YouTube scout adapter", () => {
     expect(result.data).toMatchObject({
       response_id: "interaction-fixture-1",
       google_search_grounded: true,
+      provider_storage_disabled: true,
+      usage: {
+        total_input_tokens: 1_000,
+        total_output_tokens: 2_000,
+        total_thought_tokens: 500,
+        google_search_queries: 8
+      },
       packet: { packet_version: "2.0" }
     });
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -105,7 +121,12 @@ describe("Gemini YouTube scout adapter", () => {
     expect(JSON.stringify(request)).not.toContain(CONFIG.apiKey);
     expect(request).toMatchObject({
       model: CONFIG.model,
+      store: false,
       tools: [{ type: "google_search" }],
+      generation_config: {
+        max_output_tokens: 12_000,
+        thinking_level: "low"
+      },
       response_format: {
         type: "text",
         mime_type: "application/json"
@@ -142,6 +163,47 @@ describe("Gemini YouTube scout adapter", () => {
 
     expect(result.access_status).toBe("error");
     expect(result.error?.code).toBe("gemini_youtube_scout_ungrounded");
+    expect(result.data).toEqual({});
+  });
+
+  it("rejects a packet whose declared searches do not match executed Google queries", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => interactionResponse(
+      JSON.stringify(packet()),
+      [
+        {
+          type: "google_search_call",
+          arguments: {
+            queries: Array.from({ length: 8 }, (_, index) => `different query ${index}`)
+          }
+        },
+        { type: "google_search_result", result: [] },
+        { type: "model_output", content: [{ type: "text", text: JSON.stringify(packet()) }] }
+      ]
+    )));
+
+    const result = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error?.code).toBe("gemini_youtube_scout_query_receipt_mismatch");
+    expect(result.data).toEqual({});
+  });
+
+  it("requires the current generic summary basis on new automated packets", async () => {
+    const stalePacket = packet();
+    for (const candidate of stalePacket.candidates) {
+      if ("summary_basis" in candidate) {
+        candidate.summary_basis =
+          "spark_public_video_context_not_transcript_verified_by_askrigor";
+      }
+    }
+    vi.stubGlobal("fetch", vi.fn(async () => interactionResponse(
+      JSON.stringify(stalePacket)
+    )));
+
+    const result = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error?.code).toBe("gemini_youtube_scout_invalid_packet");
     expect(result.data).toEqual({});
   });
 

@@ -54,10 +54,10 @@ complete XML protocol.
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
-- `gemini-spark-setup.md`: owner-operated high-recall Gemini Spark scout,
-  iterative specific-program discovery, strict JSON handoff, deterministic
-  AskRigor identity validation, provisional-summary boundary, and acceptance
-  check
+- `gemini-spark-setup.md`: automated server-side Gemini Google-Search scout,
+  protected paid-provider configuration, privacy/cost bounds, strict query-
+  reconciled candidate packet, independent YouTube identity validation,
+  provisional-summary boundary, removal path, and acceptance check
 - `live-validation-v3.md`: bounded live-validation procedure
 - `release-evidence-v0.1.0.md`: current release evidence
 - `public-review-checklist.md`: public-release review gate
@@ -80,10 +80,11 @@ complete XML protocol.
 - `custom-gpt-instructions.md` (repository path
   `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
   artifact; Knowledge remains empty
-- `custom-gpt-action-openapi.json`: generated 20-read/one-write Action schema;
-  `get_youtube_transcript`, `assess_treatment_landscape_coverage`, and
+- `custom-gpt-action-openapi.json`: generated 25-read/one-write Action schema;
+  `get_youtube_transcript`, `assess_treatment_landscape_coverage`,
+  `scout_gemini_youtube_candidates`, and
   `validate_gemini_youtube_candidate_handoff` are Action-only and MCP remains
-  frozen at 17 tools
+  frozen at 21 tools
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
@@ -104,6 +105,9 @@ complete XML protocol.
   research state, automated high-recall scouting, accessible full-text study
   audits, claim-local inaccessible-source boundaries, and real Custom GPT
   product acceptance
+- `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
+  no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
+  plugin/editor synchronization, live acceptance, and provider owner gate
 - `superpowers/plans/2026-08-16-calibrated-discovery-phase-1-implementation.md`:
   TDD plan for the private deterministic calibrated-discovery benchmark; live
   providers and public v0.2 remain outside Phase 1

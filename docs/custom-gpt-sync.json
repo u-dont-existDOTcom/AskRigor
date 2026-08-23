@@ -2,11 +2,11 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "99e5f45fb0b27e7dc4943f0896d5a6de66c910819ad1a2a9bfd8df53212749e3"
+      "sha256": "ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1"
+      "sha256": "e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944"
     }
   ],
   "consequential_operation_ids": [
@@ -21,10 +21,10 @@
   },
   "generated_at": "2026-08-23",
   "installation_bundle": {
-    "action_schema_sha256": "99e5f45fb0b27e7dc4943f0896d5a6de66c910819ad1a2a9bfd8df53212749e3",
-    "bundle_sha256": "ada3338d73a255088ee8b2033cb63201a4956fab3011b97bf5279bd561f5db30",
-    "instructions_sha256": "667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1",
-    "spark_skill_sha256": "bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08"
+    "action_schema_sha256": "ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce",
+    "bundle_sha256": "ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5",
+    "instructions_sha256": "e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944",
+    "spark_skill_sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645"
   },
   "mcp_research_operation_ids": [
     "acquire_open_full_text",
@@ -64,6 +64,7 @@
     "get_youtube_video",
     "load_protocol",
     "resolve_doi",
+    "scout_gemini_youtube_candidates",
     "search_clinical_trials",
     "search_europe_pmc",
     "search_pubmed",
@@ -79,7 +80,7 @@
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "97700c7930d4c28c9047a11d1f4131d715414d62847d78d01602a28a2b434658"
+      "sha256": "5fb0f9c62de8163c93939de0e5bf382fe9da0dc60b6db481f252afad1546fed5"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",
@@ -87,7 +88,7 @@
     },
     {
       "path": "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
-      "sha256": "bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08"
+      "sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645"
     }
   ]
 }

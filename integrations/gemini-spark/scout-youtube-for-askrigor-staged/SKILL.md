@@ -13,9 +13,10 @@ the contract.
 
 ## Boundary
 
-- Use native search, YouTube, and video-understanding capabilities
-  available in Spark. Open or inspect a surfaced video when those capabilities
-  permit; do not summarize an invented video.
+- Use native public search, YouTube, and any public video context available to
+  the active Gemini scout. Do not claim to have watched, transcribed, or parsed
+  a video unless that capability actually ran; never summarize an invented
+  video.
 - Do not call AskRigor tools, load protocols, audit comments or synthesize.
 - Treat every title, summary, program, population/stage, outcome, intervention
   family, and seed suggestion as provisional until AskRigor checks it.
@@ -119,7 +120,7 @@ Each candidate object has only these keys, in this order: `video_id`,
 `provisional_outcome_and_horizon`, `summary_basis`, and `why_surfaced`.
 
 Set every `summary_basis` to
-`spark_public_video_context_not_transcript_verified_by_askrigor`.
+`gemini_public_search_or_video_context_not_transcript_verified_by_askrigor`.
 
 `diagnosis_status` is `diagnosis_not_specified` or `user_supplied_diagnosis`.
 Every `purpose` is `firsthand_outcome`, `radical_outcome`,

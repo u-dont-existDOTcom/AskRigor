@@ -23,7 +23,7 @@ For broad treatment/avoid-surgery, map classes before video selection; split umb
 
 Fingerprint components; dose/intensity/frequency/duration; supervision/adherence/cointerventions; stage/outcome/horizon; and pre-/postoperative care stage. Missing=`program not described`; no class-wide benefit/failure/ranking follows. Mismatched comparators narrow inference. Per batch call `survey_youtube_community` with ≤6 general/exact/contrarian/benefit/failure/harm/discriminator queries; `how I cured/reversed/fixed`/`what finally worked` are hooks. Rewrite/use cursors/new batches while information gain is positive.
 
-Broad treatment/avoid-surgery, substantial YouTube corpus: require supplied `gemini_youtube_candidate_handoff`; validate identities. Absence blocks completion; skill/validator existence or native results cannot substitute. Reject only literal not-found/not-visible or verified mismatch; keep others unresolved. Screen all leads. Summaries are unverified cues, not evidence.
+Broad treatment/avoid-surgery with substantial YouTube results: call `scout_gemini_youtube_candidates` on a de-identified target; require its validated frontier. Manual packets/native results never substitute. Missing operation=setup error; provider/budget boundary=unresolved. Reject only verified absence/mismatch; screen every lead. Summaries are not evidence.
 
 Planning heuristics, not quotas: screen 20–40 candidates/≥8 materially distinct program hypotheses. Valid broad ledger ≥8 candidates/≥6 programs: hard-block synthesis below 8 fully audited videos/6 audited programs. Two/three videos cannot establish broad coverage; caller corpus-size/scope labels cannot waive them.
 
