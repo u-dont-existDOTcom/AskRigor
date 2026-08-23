@@ -100,7 +100,7 @@ describe("Gemini Spark AskRigor candidate scout", () => {
     expect(setup).toContain("v1 packets remain accepted");
     expect(setup).toContain("validateGeminiYoutubeCandidateHandoff");
     expect(setup).toContain("read-only Custom GPT Action");
-    expect(setup).toContain("17 expected");
+    expect(setup).toContain("currently exposes 21");
     expect(setup).toContain("does not prove that comment");
     expect(setup).toContain("Do not ask the owner to diagnose or patch the skill");
     expect(setup).toContain("bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08");
