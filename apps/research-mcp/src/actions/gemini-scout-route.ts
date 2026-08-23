@@ -47,6 +47,8 @@ const scoutProviderReceiptSchema = z.object({
   access_status: z.enum(ACCESS_STATUSES),
   google_search_grounded: z.boolean(),
   provider_storage_disabled: z.literal(true),
+  correction_attempted: z.boolean().nullable(),
+  provider_interaction_count: z.number().int().min(1).max(2).nullable(),
   executed_search_queries: z.array(z.string().min(1).max(500)).max(18),
   usage: providerUsageSchema.nullable(),
   accounted_nano_usd: z.number().int().nonnegative()
@@ -91,7 +93,7 @@ export const automatedGeminiScoutReceiptSchema = z.object({
   boundary: automatedScoutBoundarySchema.nullable(),
   access_boundaries: z.tuple([
     z.literal("Gemini candidate summaries are provisional discovery annotations and were not transcript-verified by AskRigor."),
-    z.literal("The Gemini request was stateless with provider interaction storage disabled; only the screened population-level target and public scout instructions were sent."),
+    z.literal("Gemini interaction storage was disabled; the grounded request received only the screened population-level target and public scout instructions, and one no-search correction, when needed, received only the public candidate output, exact executed searches, and safe validation issues."),
     z.literal("Independent YouTube identity validation does not establish creator content, efficacy, safety, causality, scientific validity, or treatment suitability."),
     z.literal("No YouTube transcript or discussion was retrieved by this operation; required downstream research remains required.")
   ])
@@ -253,6 +255,8 @@ export function createAutomatedGeminiScoutActionRoute(
           access_status: "complete",
           google_search_grounded: true,
           provider_storage_disabled: true,
+          correction_attempted: scoutData.correction_attempted,
+          provider_interaction_count: scoutData.provider_interaction_count,
           executed_search_queries: scoutData.executed_search_queries,
           usage: scoutData.usage,
           accounted_nano_usd: accountedNanoUsd
@@ -374,6 +378,8 @@ function successfulBoundary(
         access_status: accessStatus,
         google_search_grounded: false,
         provider_storage_disabled: true,
+        correction_attempted: null,
+        provider_interaction_count: null,
         executed_search_queries: [],
         usage: null,
         accounted_nano_usd: accountedNanoUsd
@@ -407,7 +413,7 @@ function accessBoundaries(): z.output<
 >["access_boundaries"] {
   return [
     "Gemini candidate summaries are provisional discovery annotations and were not transcript-verified by AskRigor.",
-    "The Gemini request was stateless with provider interaction storage disabled; only the screened population-level target and public scout instructions were sent.",
+    "Gemini interaction storage was disabled; the grounded request received only the screened population-level target and public scout instructions, and one no-search correction, when needed, received only the public candidate output, exact executed searches, and safe validation issues.",
     "Independent YouTube identity validation does not establish creator content, efficacy, safety, causality, scientific validity, or treatment suitability.",
     "No YouTube transcript or discussion was retrieved by this operation; required downstream research remains required."
   ];

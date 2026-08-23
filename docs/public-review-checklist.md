@@ -1,6 +1,21 @@
 # AskRigor v0 public-review checklist
 
-## 2026-08-23 automated Gemini scout deployed; final provider/UI gates pending
+## 2026-08-23 automated Gemini scout repair; final provider/UI gates pending
+
+PR #66 and exact production merge
+`c1dc216bd8a203fe3a49ac8c876f5d1d00320c80` fixed the provider schema
+complexity and stateless receipt issues. The next paid replay reached grounded
+search but exposed a second transport defect: unconstrained nested candidate
+objects drifted from the strict packet. The current branch uses an empirically
+accepted fixed-column row shape, reconstructs the canonical object packet on
+the server, and keeps the strict parser unchanged. One storage-disabled,
+no-search correction may repair structure/constants only; it receives no new
+private input, cannot add a search batch, and a second invalid result fails
+closed. Focused adapter/Action/OpenAPI tests pass 26/26. The complete gate
+passes 1,138 tests with six declared skips, typechecking, and build; all four
+site pages, 28/28 deployment tests, and the zero-vulnerability production
+dependency audit also pass. Merge, exact deployment, paid quality replay,
+editor install, and fresh product acceptance remain separate open gates.
 
 The protected key is installed, but the first paid de-identified replay failed
 closed before search or candidate acceptance because Gemini rejected the full
@@ -23,11 +38,11 @@ identities, and preserves every downstream research gate.
 Generated Instructions are 7,985 characters (8,015 UTF-8 bytes), SHA-256
 `e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`;
 the synchronization ledger SHA-256 is
-`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+`1771854cdb04e1bb3f3471254ea36eb06c035d229dc232f0f011610c15f0a5fd`;
 the Action OpenAPI SHA-256 is
-`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+`68294b46a9ec1ac9e1c39297b276545566cdf7ab54ca597e8ed2c5e50ae2ff89`;
 and the installation-bundle digest is
-`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+`25231b91b296aa5866d1c46f9db8e0b4558ce919e02a135ad4447f651633fcce`.
 The 26-operation source schema, reviewed privacy notice, protected Gemini key,
 paid-project controls, deployment, exact editor import, and fresh product replay
 are separate gates. PR #64 merge

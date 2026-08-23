@@ -12550,6 +12550,28 @@
                           "type": "boolean",
                           "const": true
                         },
+                        "correction_attempted": {
+                          "anyOf": [
+                            {
+                              "type": "boolean"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "provider_interaction_count": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 2
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "executed_search_queries": {
                           "maxItems": 18,
                           "type": "array",
@@ -12607,6 +12629,8 @@
                         "access_status",
                         "google_search_grounded",
                         "provider_storage_disabled",
+                        "correction_attempted",
+                        "provider_interaction_count",
                         "executed_search_queries",
                         "usage",
                         "accounted_nano_usd"
@@ -13130,7 +13154,7 @@
                         },
                         {
                           "type": "string",
-                          "const": "The Gemini request was stateless with provider interaction storage disabled; only the screened population-level target and public scout instructions were sent."
+                          "const": "Gemini interaction storage was disabled; the grounded request received only the screened population-level target and public scout instructions, and one no-search correction, when needed, received only the public candidate output, exact executed searches, and safe validation issues."
                         },
                         {
                           "type": "string",
