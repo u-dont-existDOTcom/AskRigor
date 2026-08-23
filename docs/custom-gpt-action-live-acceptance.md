@@ -1,6 +1,70 @@
 # Custom GPT Action live acceptance
 
-## 2026-08-23 automated Gemini scout repair — provider and UI acceptance pending
+## 2026-08-23 automated Gemini scout live accepted; Custom GPT acceptance pending
+
+PR #67 merged as `8b26dcef2d4f9b892df909391f8253545dd67399`; the exact
+merged image
+`sha256:bac9483e2bb2b96c0ea3da6ff12f3af840ef3bc40e3176a2f9c0b4d3583de917`
+is live in healthy read-only `node` container `67768684e184`. Production
+exposes 26 Actions and the unchanged 21-tool MCP. Live compact OpenAPI SHA-256
+is `51ed214117ededcecd46162fddcfb08ede1f0b56067f6b6dd137c831d14190f4`;
+it contains the automated scout plus correction/interactions receipt fields.
+Active Compose SHA-256 is
+`91cb6137660e4335557dff98c4f5e8bba53792ca3225bf327b68e0bf99ceaa8b`.
+Rollback is the prior image
+`sha256:567c2a3d1ebf9dfec1463645268370302b106dcb6fde8ec85db2811942b4e241`
+plus `/opt/askrigor/compose.yaml.rollback-8b26dcef`, SHA-256
+`9ba48dfaac2ba3e2e8a0ab47a75b89941973b852e7d84ab312038e9054ff291f`.
+The root-owned mode-0600 deployment archive is 107,479,040 bytes, SHA-256
+`27f6d5705787c8035877670c6699b795aee1b1f3f23d8477eb5b061064307473`.
+
+The updated privacy site is live and byte-identical to source SHA-256
+`05f3a15dd6918f27636b7d42dd03e1a1ddfe4ac8787fd533a2d5f5ef617515ff`.
+Its exact archive SHA-256 is
+`6570ea91fd9df3d7f35692e7be6a76a9e052635dd6b0c7bcdd1a15d5944f04d3`.
+The reviewed installer recreated only Caddy for the site activation; current
+Caddy is healthy/running as `24b368764527`. Research health remained green.
+
+One paid de-identified production replay returned HTTP 200, `status: partial`,
+and no blocking boundary. Its grounded request executed ten reconciled Google
+searches. The initial compact packet needed the single no-search correction;
+the corrected packet passed strict validation, proving the bounded repair path
+rather than merely the happy path. Both interactions used storage-disabled
+mode. Combined usage was 7,405 input, 4,455 output, and 4,106 thought tokens;
+the ten searches produced an accounted charge of 177,657,500 nano-USD under
+the existing $1 scout reservation.
+
+The packet contained eight public video candidates. Independent YouTube
+identity validation accepted six, terminally rejected two channel-name
+mismatches, and left zero unresolved. Frontier SHA-256 is
+`1a4201faa116002299bd2b339614f6ee7f6013ab8adde5575a03e4582c7d631d`.
+Accepted candidates were materially non-identical:
+
+| Public video | Provisional family/program surfaced |
+| --- | --- |
+| `pUwhyTid_lk` — *A Major 2026 Hip Arthritis Study Revealed a Huge Problem With Exercise* | Four-phase glute-focused recovery program, distinct from generic exercise |
+| `FS2c14pjrhM` — *8 Things You Should Absolutely Avoid If You Have Hip Arthritis* | Glute re-education plus avoidance of quad/hip-flexor-dominant movements |
+| `JEOwn6a1QFE` — *Best Exercises for Hip Arthritis (Backed by Research)* | Squat, bridge, lateral step-down, and single-leg hinge progression |
+| `Iue0dkXt7eo` — *Do Stem Cells Regrow Cartilage for Arthritis?* | Mesenchymal-cell injection framed as inflammatory modulation rather than proven regrowth |
+| `MY1_6EnkChg` — *Actually Surprising Helpful Benefits Of Anti-Inflammatory Diet For Arthritis* | Mediterranean-style diet, weight loss, and targeted supplements |
+| `qO6-xvWl4o4` — *Cortisone injection SIDE effects and RISKS in knees and hips* | Intra-articular corticosteroid benefit/risk investigation |
+
+The two rejected IDs were real surgery videos, but Gemini declared the wrong
+channels; AskRigor correctly rejected them as `declared_channel_mismatch`
+instead of silently accepting inaccurate metadata. This makes the frontier
+truthfully partial and leaves independent surgical coverage required. Gemini
+also declared thin public-video coverage for long-term joint distraction and
+direct bone-marrow-concentrate comparisons. Candidate annotations remain
+provisional until transcript, discussion, formal-evidence, method-audit, and
+treatment-landscape work occurs.
+
+The personal Codex plugin remains validated, installed, and byte-identical to
+source as `0.1.0+codex.20260823192716`; no reinstall was needed because this
+release changed no plugin file. The exact 7,985-character Custom GPT
+Instructions were copied to the desktop clipboard and the single exact editor
+URL was opened. Signed-in editor save/schema refresh and a fresh product replay
+are not technically observable from this environment and remain the only
+integration gates not yet evidenced.
 
 PR #66 merged as `c1dc216bd8a203fe3a49ac8c876f5d1d00320c80` and its exact
 image `sha256:567c2a3d1ebf9dfec1463645268370302b106dcb6fde8ec85db2811942b4e241`

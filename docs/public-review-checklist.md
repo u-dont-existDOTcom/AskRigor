@@ -1,6 +1,24 @@
 # AskRigor v0 public-review checklist
 
-## 2026-08-23 automated Gemini scout repair; final provider/UI gates pending
+## 2026-08-23 automated Gemini scout live accepted; final UI gate pending
+
+PR #67 merge `8b26dcef2d4f9b892df909391f8253545dd67399` is deployed
+as exact healthy image
+`sha256:bac9483e2bb2b96c0ea3da6ff12f3af840ef3bc40e3176a2f9c0b4d3583de917`.
+Direct public checks passed health, 26 Actions, the unchanged 21-tool MCP,
+the correction receipt, and source-identical privacy bytes. One paid production
+replay passed ten grounded searches plus the single no-search correction and
+returned 6 independently validated candidates, 2 terminal channel mismatches,
+and 0 unresolved. Distinct validated directions included multiple specified
+mechanical programs, regenerative injection, nutrition, and corticosteroid
+risk. The incorrect surgical channel declarations were rejected, so the
+partial frontier does not pretend surgical coverage is complete.
+
+The plugin remains current without a needless reinstall. The exact generated
+Instructions are on the desktop clipboard and the exact GPT editor was opened
+once. Repository, server, provider, privacy, and plugin gates are complete;
+the signed-in editor save/schema refresh and fresh product replay remain the
+only open gates.
 
 PR #66 and exact production merge
 `c1dc216bd8a203fe3a49ac8c876f5d1d00320c80` fixed the provider schema
