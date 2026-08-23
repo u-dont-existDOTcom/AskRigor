@@ -1,0 +1,33 @@
+{
+  "case_id": "broad-treatment-premature-synthesis",
+  "input_class": "de_identified_broad_treatment_comparison",
+  "observed_failure": {
+    "candidate_videos_discovered": 32,
+    "material_discussions_fully_audited": 1,
+    "decision_important_formal_sources": [
+      {
+        "access": "abstract_only",
+        "design_label_used_as_reliability_shortcut": true,
+        "exact_program_generalized_to_treatment_class": true
+      }
+    ],
+    "automated_scout_executed": false,
+    "coverage_assessment_executed": false,
+    "comparative_synthesis_emitted": true
+  },
+  "required_behavior": {
+    "server_owned_state": true,
+    "synthesis_permitted": false,
+    "manual_scout_packet_substitution": false,
+    "abstract_only_source_treated_as_full_study": false,
+    "distinct_programs_preserved": true,
+    "remaining_work_includes": [
+      "automated_video_scout",
+      "candidate_screening",
+      "community_discussion_audit",
+      "accessible_full_text_acquisition",
+      "study_method_audit",
+      "treatment_landscape_finalization"
+    ]
+  }
+}

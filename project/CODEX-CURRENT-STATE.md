@@ -23,11 +23,28 @@ research leads requiring further investigation; their unseen contents are not
 evidence, but their inaccessibility does not freeze unrelated executable work or
 prevent a bounded synthesis from inspected sources.
 
-No runtime, protocol, deployment, plugin, Spark, or Custom GPT change has yet
-been made for this plan. The next safe step is Phase 1 feasibility: prove an
-automated supported scout route, provenance-bound accessible-full-text
-acquisition, and a minimal server-owned session that refuses premature
-finalization before broad implementation. Session-start lesson status was
+The isolated feasibility implementation is recorded in commits `6d9a142` and
+its successor on the same task branch. Europe PMC full-text XML acquisition
+preserves exact bytes, identity, completeness, and SHA-256; a bounded live
+repository fetch passed. Unpaywall DOI resolution now discovers additional
+lawful open publisher/repository locations while preserving them as unfetched
+versioned leads; a bounded live provider lookup passed. The official Gemini
+Interactions adapter requests Google-grounded structured output, validates the
+strict candidate packet, and retains no raw failed provider response. It is not
+activated because this environment has no approved Gemini API key/model
+configuration and paid-provider activation still requires owner judgment.
+
+A non-production session prototype now binds exact protocol hashes in
+server-owned ephemeral state, performs one bounded automated-scout step through
+injected provider dependencies, rejects caller-authored completion claims, and
+refuses finalization while candidate screening, source acquisition, full-text
+audit, bidirectional research, and landscape finalization remain. It is
+deliberately absent from the production Action inventory until broader
+orchestration, privacy, provider, regression, and real-product acceptance gates
+pass. No protocol, deployment, plugin, Spark, or Custom GPT installation has
+yet changed for this plan. The next safe action is Phase 2 session integration
+and method-audit receipts while the live Gemini quality benchmark remains an
+explicit provider-configuration boundary. Session-start lesson status was
 available: 1 open candidate, 1 needing review, 0 accepted but not incorporated,
 3 incorporated or closed, and 0 deletion eligible.
 

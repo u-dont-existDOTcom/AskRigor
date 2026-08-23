@@ -352,7 +352,7 @@ discovery client.
 ### Phase 0 — Preserve the incident and baseline
 
 - [x] Save the owner-approved plan and full-text correction in this document.
-- [ ] Record the failed output as a sanitized regression fixture without user
+- [x] Record the failed output as a sanitized regression fixture without user
       identity, medical details, credentials, or private provider content.
 - [x] Inventory the exact current operations and distinguish real producers,
       validators, retrieval adapters, consistency checkers, and synthetic
@@ -374,7 +374,7 @@ before the failure contract and rollback baseline are durable.
 - [x] Investigate lawful machine-readable full-text providers and implement a
       read-only acquisition prototype that preserves identity, completeness,
       provenance, and hashes.
-- [ ] Prototype a server-owned research session with one bounded continuation
+- [x] Prototype a server-owned research session with one bounded continuation
       and one refusal to finalize incomplete work.
 
 **Gate:** Stop and report before broad implementation if automated scouting is
