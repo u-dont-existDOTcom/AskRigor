@@ -4,6 +4,8 @@ Date: 2026-08-23
 
 Branch: `agent/execution-control-phase-a-20260823`
 
+Pull request: #69
+
 Base: `origin/main` at `030d03abaac8f75a559d6e50ce862709cade9655`
 
 Authority: current owner requirements, complete canonical HRP and Universal

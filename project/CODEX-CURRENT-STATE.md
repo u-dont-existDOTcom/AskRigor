@@ -6,6 +6,7 @@ Branch `agent/execution-control-phase-a-20260823` starts from exact current
 `origin/main` commit `030d03abaac8f75a559d6e50ce862709cade9655` and implements
 Phase A of
 `docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+The reviewed delivery vehicle is PR #69.
 It does not create a parallel controller: the existing non-production research-
 session prototype now delegates authoritative state and transitions to the new
 transport-independent `research-session-controller.ts` core.
