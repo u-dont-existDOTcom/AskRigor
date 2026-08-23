@@ -60,6 +60,23 @@ describe("Europe PMC reusable full-text retrieval", () => {
     );
   });
 
+  it("extracts ordered nested element text without regex-based markup stripping", async () => {
+    const xml = (await fixture())
+      .replace(
+        "Recorded <italic>full-text</italic> study",
+        "Recorded <italic>full-text</italic> &lt;methods&gt; study"
+      );
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(xml, { status: 200 })));
+
+    const result = await fetchEuropePmcFullText("PMC1234567");
+
+    expect(result).toMatchObject({
+      access_status: "complete",
+      source_identity: { title: "Recorded full-text <methods> study" },
+      data: { title: "Recorded full-text <methods> study" }
+    });
+  });
+
   it("rejects a response whose PMCID does not match the request", async () => {
     const xml = (await fixture()).replaceAll("PMC1234567", "PMC7654321");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(xml, { status: 200 })));

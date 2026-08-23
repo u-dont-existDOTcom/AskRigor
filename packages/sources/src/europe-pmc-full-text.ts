@@ -22,6 +22,14 @@ const parser = new XMLParser({
   parseTagValue: false,
   trimValues: false
 });
+const orderedTextParser = new XMLParser({
+  preserveOrder: true,
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  textNodeName: "#text",
+  parseTagValue: false,
+  trimValues: false
+});
 
 export interface EuropePmcFullTextArticle {
   pmcid: string;
@@ -143,8 +151,10 @@ export async function fetchEuropePmcFullText(
 
 function parseArticle(xml: string, expectedPmcid: string): EuropePmcFullTextArticle {
   let parsed: unknown;
+  let ordered: unknown;
   try {
     parsed = parser.parse(xml);
+    ordered = orderedTextParser.parse(xml);
   } catch {
     throw new FullTextXmlError();
   }
@@ -167,9 +177,9 @@ function parseArticle(xml: string, expectedPmcid: string): EuropePmcFullTextArti
   const permissions = asRecord(articleMeta.permissions);
   const license = arrayOf(permissions?.license)[0];
   const licenseRecord = asRecord(license);
-  const licenseText = xmlElementText(xml, "license-p") ??
+  const licenseText = orderedElementText(ordered, "license-p") ??
     cleanText(textOf(licenseRecord?.["license-p"] ?? license));
-  const title = xmlElementText(xml, "article-title") ??
+  const title = orderedElementText(ordered, "article-title") ??
     cleanText(textOf(titleGroup?.["article-title"]));
   const pmid = identifier(identifiers, "pmid");
   const doi = identifier(identifiers, "doi");
@@ -230,26 +240,34 @@ function cleanText(value: string): string | undefined {
   return cleaned.length === 0 ? undefined : cleaned;
 }
 
-function xmlElementText(xml: string, tag: string): string | undefined {
-  const match = new RegExp(
-    `<${tag}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tag}>`,
-    "iu"
-  ).exec(xml);
-  if (match?.[1] === undefined) return undefined;
-  return cleanText(decodeXmlEntities(match[1].replace(/<[^>]+>/gu, "")));
+function orderedElementText(value: unknown, tag: string): string | undefined {
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      const found = orderedElementText(child, tag);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  }
+  const record = asRecord(value);
+  if (record === undefined) return undefined;
+  if (tag in record) return cleanText(orderedTextOf(record[tag]));
+  for (const [key, child] of Object.entries(record)) {
+    if (key === ":@") continue;
+    const found = orderedElementText(child, tag);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 }
 
-function decodeXmlEntities(value: string): string {
-  return value
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", "\"")
-    .replaceAll("&apos;", "'")
-    .replaceAll("&amp;", "&")
-    .replace(/&#(\d+);/gu, (_match, digits: string) =>
-      String.fromCodePoint(Number(digits)))
-    .replace(/&#x([0-9a-f]+);/giu, (_match, digits: string) =>
-      String.fromCodePoint(Number.parseInt(digits, 16)));
+function orderedTextOf(value: unknown): string {
+  if (typeof value === "string" || typeof value === "number") return String(value);
+  if (Array.isArray(value)) return value.map(orderedTextOf).join("");
+  const record = asRecord(value);
+  if (record === undefined) return "";
+  return Object.entries(record)
+    .filter(([key]) => key !== ":@")
+    .map(([, child]) => orderedTextOf(child))
+    .join("");
 }
 
 function arrayOf(value: unknown): unknown[] {
