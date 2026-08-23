@@ -152,6 +152,11 @@ const programFingerprintSchema = z.object({
   formal_follow_up_boundary_id: shortId.optional()
 }).strict();
 
+export type ProgramSignatureFields = Pick<
+  z.output<typeof programFingerprintSchema>,
+  z.output<typeof programFieldNameSchema>
+>;
+
 const candidateVideoSchema = z.object({
   video_id: youtubeVideoId,
   title: outputDisplayText,
@@ -365,7 +370,7 @@ export type TranscriptCoverageReceipt = z.output<typeof transcriptReceiptSchema>
 export type DiscussionCoverageReceipt = z.output<typeof discussionReceiptSchema>;
 
 export function deriveProgramSignature(
-  fingerprint: z.output<typeof programFingerprintSchema>
+  fingerprint: ProgramSignatureFields
 ): string {
   const fields = programFieldEntries(fingerprint).map(([, value]) =>
     normalizeProgramValue(value)
@@ -1757,7 +1762,7 @@ function deriveExternalScoutFrontierDigest(
 }
 
 function programFieldEntries(
-  fingerprint: z.output<typeof programFingerprintSchema>
+  fingerprint: ProgramSignatureFields
 ): Array<[z.output<typeof programFieldNameSchema>, string]> {
   return [
     ["components", fingerprint.components],
