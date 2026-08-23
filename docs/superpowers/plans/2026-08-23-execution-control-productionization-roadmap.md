@@ -1,6 +1,10 @@
 # AskRigor execution-control productionization roadmap
 
-**Status:** Active continuation roadmap after PR #58/#59/#61/#62. This document does not replace the complete canonical protocols or the owner-approved scientific corrections in `2026-08-23-executable-research-orchestrator-and-study-audit.md`. It reconciles that plan with the implementation that has already landed and now also integrates the owner-supplied post-publication review, retraction, replication, and study-reliability workstream.
+**Status:** Active. Phase A is implemented and deterministically verified on
+`agent/execution-control-phase-a-20260823`; Phase B is next after reviewed
+merge. This document does not replace the complete canonical protocols or the
+owner-approved scientific corrections in
+`2026-08-23-executable-research-orchestrator-and-study-audit.md`.
 
 **Audited baseline:** `main` at `795f1bc3aa1dc39676b8d03c8c564da32b0f6c7c` on 2026-08-23.
 
@@ -35,7 +39,9 @@ Do **not** build a second execution controller from scratch. The current reposit
 7. Open full-text acquisition, contiguous document handles, study/review method-audit receipts, and source-block identity checks are already implemented and deployed.
 8. Study-method receipts prove document identity, block linkage, checklist coverage, and bounded claim capability/non-capability structure. They explicitly do **not** claim semantic correctness merely because the schema passed.
 9. The current study audit already contains the domain `replication_contradiction_and_evidence_ancestry`; the predecessor plan identifies replication/evidence-ancestry records as unfinished work.
-10. Current production has 21 MCP tools and 25 public Actions after the full-text/method-audit release. The research-session prototype is deliberately **not** in the production inventory.
+10. Current production has 21 MCP tools and 26 public Actions after the
+    automated Gemini scout release. The research-session prototype remains
+    deliberately **outside** the production inventory.
 
 ### Important remaining gaps
 
@@ -302,26 +308,31 @@ Each numbered phase is a separate reviewed PR unless an implementation plan show
 
 Tasks:
 
-- [ ] Refactor session state/transition logic out of the Action prototype so transport is not the source of truth.
-- [ ] Add explicit controller schemas for module applicability/status covering `HRP`, `DIRECT_HUMAN`, `EXTENDED_GREY`, `FORUM_SIGNAL`, `BIDIRECTIONAL_ITERATION`, and `FINAL_COMPLETION_AUDIT` where current canonical protocols allow deterministic representation.
-- [ ] Preserve uncertainty/fail-closed behavior from the project router. Do not invent a new applicability policy.
-- [ ] Add canonical `required_next_capabilities` (or equivalent) derived directly from state conditions, not by parsing human blocker strings.
-- [ ] Re-check current HRP/Universal manifests before authoritative continuation and finalization. Add explicit protocol-drift state and tests.
-- [ ] Define one canonical output-boundary enum matching the three semantics above and map existing treatment-landscape boundaries into it without weakening them.
-- [ ] Define the finalization-permit contract but keep successful permit issuance unreachable until later phases wire all required gates.
-- [ ] Keep the prototype outside the production Action inventory.
+- [x] Refactor session state/transition logic out of the Action prototype so transport is not the source of truth.
+- [x] Add explicit controller schemas for module applicability/status covering `HRP`, `DIRECT_HUMAN`, `EXTENDED_GREY`, `FORUM_SIGNAL`, `BIDIRECTIONAL_ITERATION`, and `FINAL_COMPLETION_AUDIT` where current canonical protocols allow deterministic representation.
+- [x] Preserve uncertainty/fail-closed behavior from the project router. Do not invent a new applicability policy.
+- [x] Add canonical `required_next_capabilities` (or equivalent) derived directly from state conditions, not by parsing human blocker strings.
+- [x] Re-check current HRP/Universal manifests before authoritative continuation and finalization. Add explicit protocol-drift state and tests.
+- [x] Define one canonical output-boundary enum matching the three semantics above and map existing treatment-landscape boundaries into it without weakening them.
+- [x] Define the finalization-permit contract but keep successful permit issuance unreachable until later phases wire all required gates.
+- [x] Keep the prototype outside the production Action inventory.
 
 Required hostile tests:
 
-- [ ] `REQUIRED -> NOT_REQUIRED` caller demotion fails.
-- [ ] caller-authored `complete`, `synthesis_permitted`, counts, or completed-operation arrays cannot advance state.
-- [ ] current-protocol drift prevents finalization.
-- [ ] stale/unknown session cannot advance.
-- [ ] a treatment-landscape `continue_research` state maps only to continued work.
-- [ ] `bounded_nonranking_only` cannot become full synthesis.
-- [ ] removal of each major completion condition causes a mutation/regression failure.
+- [x] `REQUIRED -> NOT_REQUIRED` caller demotion fails.
+- [x] caller-authored `complete`, `synthesis_permitted`, counts, or completed-operation arrays cannot advance state.
+- [x] current-protocol drift prevents finalization.
+- [x] stale/unknown session cannot advance.
+- [x] a treatment-landscape `continue_research` state maps only to continued work.
+- [x] `bounded_nonranking_only` cannot become full synthesis.
+- [x] removal of each major completion condition causes a mutation/regression failure.
 
 **Exit gate:** a pure/controller-level test can simulate early synthesis, deny it, advance only through valid server-derived state, and still cannot reach success because downstream phases are intentionally unfinished.
+
+Phase A verification: the pure controller and prototype hostile suites pass
+12/12; the complete host-boundary deterministic suite passes 1,146 tests with
+six declared skips, and the full verification gate passes typechecking and the
+production build. The public inventory remains 21 MCP tools and 26 Actions.
 
 ### Phase B — Make discovery and candidate state server-derived
 

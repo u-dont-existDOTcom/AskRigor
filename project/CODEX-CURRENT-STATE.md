@@ -1,5 +1,52 @@
 # AskRigor Codex Current State
 
+## 2026-08-23 execution-control Phase A candidate
+
+Branch `agent/execution-control-phase-a-20260823` starts from exact current
+`origin/main` commit `030d03abaac8f75a559d6e50ce862709cade9655` and implements
+Phase A of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+The reviewed delivery vehicle is PR #69.
+It does not create a parallel controller: the existing non-production research-
+session prototype now delegates authoritative state and transitions to the new
+transport-independent `research-session-controller.ts` core.
+
+The controller binds exact HRP/Universal identities, represents all six router
+modules explicitly, preserves unresolved applicability as fail-closed state,
+makes `REQUIRED` monotonic, derives machine-readable next capabilities from
+structured operation state, and rechecks protocol identities before every
+authoritative continuation/finalization attempt. Exact drift becomes monotonic
+`DRIFTED` state and requires a fresh execution under current protocol bytes.
+
+One canonical boundary now distinguishes continued research, bounded nonranking
+output, and future successful finalization. Existing treatment-landscape
+outcomes map into it without treating a passing component ledger as global
+completion. A compact finalization-permit schema is defined, but Phase A has no
+issuance path: even a synthetic all-gates-complete fixture remains denied until
+later controller phases are wired.
+
+Hostile tests reject module demotion; caller-injected completion Booleans,
+counts, arrays, and module claims; unknown/stale session advancement; silent
+protocol drift; treatment-boundary escalation; and terminal-boundary-as-
+completion. A mutation matrix removes every required module and operation in
+turn and confirms the completion guard fails. Focused controller/prototype
+tests pass 12/12. The complete host-boundary deterministic suite passes 1,146
+tests with six declared skips, and `npm run verify` passes typechecking, that
+same suite, and the production build. The sandbox-only suite recorded the known
+loopback/IPC `EPERM` boundary; no controller/product assertion failed there.
+
+The prototype remains unregistered. Public inventory is unchanged at 21 MCP
+tools and 26 Actions; generated Custom GPT Instructions, Action OpenAPI,
+plugin bytes, privacy retention, provider footprint, deployment configuration,
+and production runtime are unchanged. Phase B is the next phase after reviewed
+merge. The session-start lesson checkpoint was available with 1 open candidate,
+1 needing review, 0 accepted but not incorporated, 3 incorporated or closed,
+and 0 deletion eligible. The pre-PR checkpoint at
+`2026-08-23T22:22:00.222Z` returned the same counts. No unreviewed lesson
+expanded this phase; closeout is project-specific/no-new-lesson because this
+implements the already approved controller architecture rather than exposing a
+new transferable failure.
+
 ## 2026-08-23 automated Gemini YouTube scout deployed and live accepted
 
 PR #67 merged as `8b26dcef2d4f9b892df909391f8253545dd67399`. Its exact
