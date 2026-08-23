@@ -2,6 +2,26 @@
 
 ## 2026-08-23 automated Gemini YouTube scout deployed; provider/UI acceptance pending
 
+The protected Gemini key is now installed in the root-owned mode-0600 runtime
+environment. Recreating only `research-mcp` preserved the exact deployed image
+and hardening. The first paid de-identified replay failed closed with
+`gemini_youtube_scout_request_failed`, no Google Search receipts or candidate
+frontier, no raw provider body, and a conservative $1 ledger charge.
+
+Sanitized diagnostics established that the key and fixed model are
+valid and that the Interactions endpoint, generation settings, and shallow JSON
+schema work. Gemini rejects the complete nested candidate validation schema,
+consistent with its documented schema-complexity boundary. A one-query Google
+Search probe confirmed the live search/result/text step shape and that a
+stateless response omits its interaction ID. Branch
+`agent/gemini-scout-schema-repair-20260823` replaces only the provider-facing
+schema with the empirically accepted shallow shape and derives a content-safe
+SHA-256 receipt identifier when the provider supplies no ID. The exact public
+output contract and strict server-side packet parser remain authoritative and
+unchanged. Focused adapter/Action tests pass 19/19; `npm run verify` passes
+1,137 tests with six declared skips, typechecking, and build. Merge, exact
+deployment, a fresh paid replay, and Custom GPT UI acceptance remain pending.
+
 PR #64 adds a public read-only
 `scout_gemini_youtube_candidates` Action. It sends only a deterministically
 screened, de-identified population-level target plus the public checked-in
@@ -43,10 +63,9 @@ The personal plugin is synchronized and reinstalled as
 `0.1.0+codex.20260823192716`, package SHA-256
 `7846db90fe54b1a1f896b29f6d90150dc3a468f01758db1fc57c424ad6a5d12e`.
 
-No `ASKRIGOR_GEMINI_API_KEY` exists in the protected production environment,
-so no paid Gemini scout has run; a replacement key must be installed without
-entering chat or Git. Provider activation, Custom GPT installation, and fresh
-product acceptance remain pending. After this integration is completed, begin Phase A of
+The protected key is installed; successful provider quality, Custom GPT
+installation, and fresh product acceptance remain pending. After this
+integration is completed, begin Phase A of
 `docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`
 from fresh `main`; do not mix Phase A into this branch.
 
@@ -54,6 +73,11 @@ The required pre-deployment lesson checkpoint at
 `2026-08-23T19:03:04.712Z` was available: 1 open candidate, 1 needing review,
 0 accepted but not incorporated, 3 incorporated or closed, and 0 deletion
 eligible. No unreviewed lesson expanded this task.
+
+The schema-repair pre-release checkpoint at
+`2026-08-23T20:28:28.283Z` returned the same exact counts: 1 open candidate,
+1 needing review, 0 accepted but not incorporated, 3 incorporated or closed,
+and 0 deletion eligible.
 
 The complete source gate passed: `npm run test:run` and `npm run verify` each
 reported 1,135 passed tests, six declared skips, 79 passing files, and one

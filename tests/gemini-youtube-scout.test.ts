@@ -74,10 +74,11 @@ function interactionResponse(
     },
     { type: "google_search_result", results: [] },
     { type: "model_output", content: [{ type: "text", text: output }] }
-  ]
+  ],
+  includeId = true
 ): Response {
   return new Response(JSON.stringify({
-    id: "interaction-fixture-1",
+    ...(includeId ? { id: "interaction-fixture-1" } : {}),
     status: "completed",
     model: CONFIG.model,
     steps,
@@ -134,12 +135,45 @@ describe("Gemini YouTube scout adapter", () => {
     });
     const headers = init?.headers as Record<string, string>;
     expect(headers["x-goog-api-key"]).toBe(CONFIG.apiKey);
-    const schemaText = JSON.stringify(
-      (request.response_format as Record<string, unknown>).schema
-    );
+    const providerSchema = (
+      request.response_format as Record<string, unknown>
+    ).schema as Record<string, unknown>;
+    const schemaText = JSON.stringify(providerSchema);
     expect(schemaText).not.toContain('"const"');
     expect(schemaText).not.toContain('"$schema"');
+    expect(schemaText).not.toContain('"minLength"');
+    expect(schemaText).not.toContain('"maxLength"');
+    expect(schemaText).not.toContain('"pattern"');
+    expect(schemaText).not.toContain('"format"');
     expect(schemaText).toContain('"packet_version"');
+    expect(providerSchema).toMatchObject({
+      properties: {
+        discovery_queries: { type: "array", items: { type: "object" } },
+        candidates: { type: "array", items: { type: "object" } }
+      },
+      additionalProperties: false
+    });
+  });
+
+  it("accepts the stateless live response shape without an interaction id", async () => {
+    const fetchMock = vi.fn(async () => interactionResponse(
+      JSON.stringify(packet()),
+      undefined,
+      false
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const first = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+    const second = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(first.access_status).toBe("complete");
+    expect(first.primary_identifier).toMatch(/^sha256:[a-f0-9]{64}$/u);
+    expect(first.data).toMatchObject({
+      response_id: first.primary_identifier,
+      provider_storage_disabled: true
+    });
+    expect(second.primary_identifier).toBe(first.primary_identifier);
+    expect(first.primary_identifier).not.toContain("Candidate");
   });
 
   it("rejects missing configuration before any provider request", async () => {
@@ -216,6 +250,21 @@ describe("Gemini YouTube scout adapter", () => {
     expect(result.access_status).toBe("error");
     expect(result.error?.code).toBe("gemini_youtube_scout_invalid_packet");
     expect(JSON.stringify(result)).not.toContain("private_provider_detail");
+  });
+
+  it("keeps the strict packet parser authoritative over the shallow provider schema", async () => {
+    const incompletePacket = packet() as unknown as Record<string, unknown>;
+    const candidates = incompletePacket.candidates as Record<string, unknown>[];
+    delete candidates[0]!.provisional_specific_program;
+    vi.stubGlobal("fetch", vi.fn(async () => interactionResponse(
+      JSON.stringify(incompletePacket)
+    )));
+
+    const result = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error?.code).toBe("gemini_youtube_scout_invalid_packet");
+    expect(result.data).toEqual({});
   });
 
   it("maps rate limits without returning provider body details", async () => {

@@ -2,6 +2,17 @@
 
 ## 2026-08-23 automated Gemini scout deployed; final provider/UI gates pending
 
+The protected key is installed, but the first paid de-identified replay failed
+closed before search or candidate acceptance because Gemini rejected the full
+nested validation schema, consistent with its documented complexity boundary.
+The repair candidate uses an accepted shallow provider JSON shape while retaining
+the exact prompt contract and unchanged strict AskRigor packet validation. A
+grounded one-query shape probe also confirmed the stateless response omits its
+interaction ID, so the repair derives a content-safe SHA-256 receipt identifier.
+Focused tests pass 19/19 and the complete deterministic gate passes 1,137 tests
+with six declared skips. Successful provider quality and Custom GPT UI
+acceptance remain open gates.
+
 The release adds one non-consequential server-side Action,
 `scout_gemini_youtube_candidates`, without changing the 21-tool MCP catalog.
 It removes the manual consumer-Spark packet handoff from ordinary research,
@@ -21,8 +32,8 @@ The 26-operation source schema, reviewed privacy notice, protected Gemini key,
 paid-project controls, deployment, exact editor import, and fresh product replay
 are separate gates. PR #64 merge
 `bcb494c11277aac41f736e8a050758d238536cbb` is deployed with 26 Actions and
-21 MCP tools. The key, successful provider replay, editor import, and fresh
-product replay remain open gates.
+21 MCP tools. Key installation is complete; successful provider replay, editor
+import, and fresh product replay remain open gates.
 
 Source verification passed: 1,135 deterministic tests with six declared skips,
 typechecking, production build, four-page site validation, 28/28 deployment

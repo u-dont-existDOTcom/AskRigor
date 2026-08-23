@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   errorEnvelope,
   okEnvelope,
@@ -9,7 +11,6 @@ import { z } from "zod";
 import {
   GeminiYoutubeCandidateHandoffError,
   GEMINI_YOUTUBE_SUMMARY_BASIS,
-  geminiYoutubeCandidateV2PacketSchema,
   parseGeminiYoutubeCandidateHandoff,
   type GeminiYoutubeCandidatePacket
 } from "./gemini-youtube-candidate-handoff.js";
@@ -38,7 +39,7 @@ const interactionStepSchema = z.object({
   type: z.string().min(1)
 }).passthrough();
 const interactionResponseSchema = z.object({
-  id: z.string().min(1),
+  id: z.string().min(1).optional(),
   status: z.string().min(1),
   model: z.string().optional(),
   steps: z.array(interactionStepSchema),
@@ -129,6 +130,7 @@ export async function scoutGeminiYoutubeCandidates(
         retryable: false
       });
     }
+    const responseIdentifier = response.data.id ?? statelessResponseIdentifier(raw);
 
     const searchGrounded = response.data.steps.some((step) =>
       step.type === "google_search_call" || step.type === "google_search_result"
@@ -192,7 +194,7 @@ export async function scoutGeminiYoutubeCandidates(
     return okEnvelope({
       provider: "gemini_api",
       recordType: "gemini_youtube_candidate_frontier",
-      primaryIdentifier: response.data.id,
+      primaryIdentifier: responseIdentifier,
       query: {
         research_target: parsedInput.data.researchTarget,
         diagnosis_status: parsedInput.data.diagnosisStatus
@@ -208,7 +210,7 @@ export async function scoutGeminiYoutubeCandidates(
         usage
       },
       data: {
-        response_id: response.data.id,
+        response_id: responseIdentifier,
         model: response.data.model ?? parsedConfig.data.model,
         google_search_grounded: true,
         provider_storage_disabled: true,
@@ -251,6 +253,10 @@ export async function scoutGeminiYoutubeCandidates(
   }
 }
 
+function statelessResponseIdentifier(raw: unknown): string {
+  return `sha256:${createHash("sha256").update(JSON.stringify(raw)).digest("hex")}`;
+}
+
 function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
   return [
     input.scoutInstructions,
@@ -266,24 +272,32 @@ function buildScoutPrompt(input: z.output<typeof scoutInputSchema>): string {
 }
 
 function structuredPacketSchema(): Record<string, unknown> {
-  const converted = z.toJSONSchema(geminiYoutubeCandidateV2PacketSchema) as Record<string, unknown>;
-  return normalizeStructuredSchema(converted) as Record<string, unknown>;
-}
-
-function normalizeStructuredSchema(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(normalizeStructuredSchema);
-  if (typeof value !== "object" || value === null) return value;
-  const record = value as Record<string, unknown>;
-  const normalized: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(record)) {
-    if (key === "$schema") continue;
-    if (key === "const") {
-      normalized.enum = [normalizeStructuredSchema(child)];
-      continue;
-    }
-    normalized[key] = normalizeStructuredSchema(child);
-  }
-  return normalized;
+  return {
+    type: "object",
+    properties: {
+      packet_name: { type: "string" },
+      packet_version: { type: "string" },
+      research_target: { type: "string" },
+      diagnosis_status: { type: "string" },
+      discovery_queries: { type: "array", items: { type: "object" } },
+      candidates: { type: "array", items: { type: "object" } },
+      suggested_seed_video_ids: { type: "array", items: { type: "string" } },
+      search_gaps: { type: "array", items: { type: "string" } },
+      disclosures: { type: "array", items: { type: "string" } }
+    },
+    required: [
+      "packet_name",
+      "packet_version",
+      "research_target",
+      "diagnosis_status",
+      "discovery_queries",
+      "candidates",
+      "suggested_seed_video_ids",
+      "search_gaps",
+      "disclosures"
+    ],
+    additionalProperties: false
+  };
 }
 
 function findModelOutput(steps: z.output<typeof interactionStepSchema>[]): string | undefined {

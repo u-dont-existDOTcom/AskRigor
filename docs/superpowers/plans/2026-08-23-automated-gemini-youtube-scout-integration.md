@@ -4,9 +4,20 @@
 `bcb494c11277aac41f736e8a050758d238536cbb`; exact runtime and privacy-site
 deployment, direct missing-provider acceptance, and personal-plugin
 synchronization are complete. The owner authorized paid Gemini API activation
-and Google processing of the screened scout request on 2026-08-23. A protected
-replacement key, successful live quality replay, exact Custom GPT editor
+and Google processing of the screened scout request on 2026-08-23. The protected
+key is installed; successful live quality replay, exact Custom GPT editor
 installation, and fresh product acceptance remain pending.
+
+The replacement key is now installed. The first paid replay failed closed
+before search/candidate acceptance because the full nested provider schema was
+rejected, consistent with Gemini's documented structured-output complexity
+boundary. Sanitized probes isolated that boundary, proved an exact shallow JSON
+shape is accepted, and confirmed the current grounded-search step shape plus
+the missing interaction ID on a stateless response.
+Branch `agent/gemini-scout-schema-repair-20260823` implements that provider-only
+compatibility shape and a content-safe SHA-256 stateless receipt while leaving
+the strict AskRigor packet validator intact. Its deterministic gate is green;
+merge, deployment, and a fresh paid quality replay remain pending.
 
 **Goal:** Replace the owner-operated Gemini Spark packet transfer with one
 public, read-only AskRigor Action that runs a server-side Gemini Google-Search

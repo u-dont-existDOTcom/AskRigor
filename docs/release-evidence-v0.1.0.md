@@ -3,6 +3,27 @@
 
 ## 2026-08-23 deployed automated Gemini YouTube scout
 
+After the deployment receipt below, the protected key was installed and only
+the research service was recreated. It remained healthy on the exact image.
+The first paid de-identified replay failed closed with
+`gemini_youtube_scout_request_failed` before any Google Search receipt or
+candidate frontier; the conservative $1 reservation was charged and no raw
+provider response was exposed.
+
+Sanitized provider probes established that the key, model,
+Interactions endpoint, generation options, and shallow structured output all
+work. The complete nested Zod-derived packet schema was rejected, consistent
+with Gemini's documented structured-output complexity boundary. A one-query
+Google Search shape probe confirmed the current search/result/text steps and
+that `store:false` responses omit the interaction ID. The repair keeps the
+public prompt's exact packet contract, uses an empirically accepted shallow
+provider JSON shape, derives a content-safe SHA-256 receipt identifier for a
+stateless response, and continues to require the unchanged strict server-side
+packet parser before YouTube validation. Focused adapter/Action coverage passes
+19/19; the full deterministic gate passes 1,137 tests with six declared skips,
+typechecking, and build. The repair still requires merge, exact deployment,
+and a fresh paid replay.
+
 This release replaces the owner-operated consumer-Spark packet transfer with
 the public read-only `scout_gemini_youtube_candidates` Action. The server sends
 only a deterministically screened, de-identified population-level target and
@@ -35,10 +56,9 @@ provider processing, stateless request, and absence of AskRigor candidate
 persistence. The owner authorized paid Gemini API activation and Google
 processing of the screened scout request on 2026-08-23. PR #64 merged as
 `bcb494c11277aac41f736e8a050758d238536cbb`; that exact merge and its privacy
-site are deployed. Read-only checks still find no Gemini credential in the
-protected production environment, so no paid provider call has been made.
-Replacement-key installation, Custom GPT editor installation, and fresh
-product acceptance remain pending.
+site are deployed. The protected replacement key was installed later as
+recorded above. Successful live provider quality, Custom GPT editor
+installation, and fresh product acceptance remain pending.
 
 Deterministic verification passed 1,135 tests with six declared skips across
 79 passing files and one skipped file, followed by typechecking and the
