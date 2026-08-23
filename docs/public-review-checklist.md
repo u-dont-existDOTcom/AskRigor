@@ -1,8 +1,8 @@
 # AskRigor v0 public-review checklist
 
-## 2026-08-23 automated Gemini scout candidate
+## 2026-08-23 automated Gemini scout deployed; final provider/UI gates pending
 
-The candidate adds one non-consequential server-side Action,
+The release adds one non-consequential server-side Action,
 `scout_gemini_youtube_candidates`, without changing the 21-tool MCP catalog.
 It removes the manual consumer-Spark packet handoff from ordinary research,
 rejects personal or identifying targets before any provider work, uses provider
@@ -19,13 +19,21 @@ and the installation-bundle digest is
 `ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
 The 26-operation source schema, reviewed privacy notice, protected Gemini key,
 paid-project controls, deployment, exact editor import, and fresh product replay
-are separate gates. The current live 25-Action deployment remains authoritative
-until those checks pass.
+are separate gates. PR #64 merge
+`bcb494c11277aac41f736e8a050758d238536cbb` is deployed with 26 Actions and
+21 MCP tools. The key, successful provider replay, editor import, and fresh
+product replay remain open gates.
 
 Source verification passed: 1,135 deterministic tests with six declared skips,
 typechecking, production build, four-page site validation, 28/28 deployment
-tests, and zero production dependency vulnerabilities. Live provider quality,
-editor installation, and fresh product behavior remain deliberately unchecked.
+tests, and zero production dependency vulnerabilities. Direct production
+acceptance passed the exact image, 26-operation schema, unchanged 21-tool MCP
+catalog, exact protocol integrity, and the truthful missing-provider boundary.
+The privacy site is deployed and byte-identical to source. The personal plugin
+is synchronized and reinstalled as `0.1.0+codex.20260823192716`, package
+SHA-256 `7846db90fe54b1a1f896b29f6d90150dc3a468f01758db1fc57c424ad6a5d12e`.
+Live provider quality, editor installation, and fresh product behavior remain
+deliberately unchecked.
 
 ## 2026-08-23 open-full-text audit deployed release
 

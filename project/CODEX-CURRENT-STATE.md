@@ -1,8 +1,8 @@
 # AskRigor Codex Current State
 
-## 2026-08-23 automated Gemini YouTube scout candidate
+## 2026-08-23 automated Gemini YouTube scout deployed; provider/UI acceptance pending
 
-Branch `agent/automated-gemini-scout-20260823` adds a public read-only
+PR #64 adds a public read-only
 `scout_gemini_youtube_candidates` Action. It sends only a deterministically
 screened, de-identified population-level target plus the public checked-in
 scout instructions to fixed `gemini-3.6-flash` with Google Search and provider
@@ -32,18 +32,26 @@ candidate persistence, separate paid API billing, and the protected server-key
 boundary.
 
 The owner authorized paid Gemini API activation and Google processing of the
-screened scout request on 2026-08-23. No `ASKRIGOR_GEMINI_API_KEY` exists
-locally or in the protected production environment, so no paid Gemini scout has
-run; a replacement key must be installed without entering chat or Git.
-The current deployed runtime therefore remains at 25 Actions and 21 MCP tools.
-Merge/deployment, provider-key installation, privacy-site deployment, plugin receipt,
-Custom GPT installation, and fresh product acceptance remain pending. After
-this integration is completed, begin Phase A of
+screened scout request on 2026-08-23. Exact merge
+`bcb494c11277aac41f736e8a050758d238536cbb` is deployed as healthy image ID
+`sha256:bec3fa4f4f19ca76e123a546b818f572f05df49d68281feb67558880eea32da3`
+with 26 Actions and 21 MCP tools. Direct acceptance passed exact protocol
+integrity and the truthful zero-cost missing-provider boundary. The current
+privacy site matches source SHA-256
+`c234035bd1ebf91a809896d2074bcb1b3d40123065d9ff0de70ea8a8ad8a4092`.
+The personal plugin is synchronized and reinstalled as
+`0.1.0+codex.20260823192716`, package SHA-256
+`7846db90fe54b1a1f896b29f6d90150dc3a468f01758db1fc57c424ad6a5d12e`.
+
+No `ASKRIGOR_GEMINI_API_KEY` exists in the protected production environment,
+so no paid Gemini scout has run; a replacement key must be installed without
+entering chat or Git. Provider activation, Custom GPT installation, and fresh
+product acceptance remain pending. After this integration is completed, begin Phase A of
 `docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`
 from fresh `main`; do not mix Phase A into this branch.
 
-The required pre-release lesson checkpoint at
-`2026-08-23T15:36:32.056Z` was available: 1 open candidate, 1 needing review,
+The required pre-deployment lesson checkpoint at
+`2026-08-23T19:03:04.712Z` was available: 1 open candidate, 1 needing review,
 0 accepted but not incorporated, 3 incorporated or closed, and 0 deletion
 eligible. No unreviewed lesson expanded this task.
 

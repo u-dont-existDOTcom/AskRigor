@@ -1,9 +1,9 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-23 automated Gemini YouTube scout candidate
+## 2026-08-23 deployed automated Gemini YouTube scout
 
-This candidate replaces the owner-operated consumer-Spark packet transfer with
+This release replaces the owner-operated consumer-Spark packet transfer with
 the public read-only `scout_gemini_youtube_candidates` Action. The server sends
 only a deterministically screened, de-identified population-level target and
 the checked-in public scout instructions to the fixed paid Gemini model with
@@ -14,7 +14,7 @@ captions or discussions, establish creator content or treatment evidence, or
 authorize synthesis. The legacy packet validator remains available only for
 backward compatibility.
 
-The generated candidate Instructions are 7,985 characters (8,015 UTF-8 bytes),
+The generated Instructions are 7,985 characters (8,015 UTF-8 bytes),
 SHA-256 `e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`.
 The candidate Action OpenAPI SHA-256 is
 `ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
@@ -30,23 +30,41 @@ isolated consequential lesson write, while MCP remains exactly 21 tools.
 The route shares the existing aggregate $50 monthly AI ledger and reserves at
 most $1 per scout, never stores target or candidate content in that ledger, and
 returns a small explicit boundary rather than an oversized Action response.
-The public privacy candidate now names Google Gemini/Search, the screened data,
+The public privacy notice now names Google Gemini/Search, the screened data,
 provider processing, stateless request, and absence of AskRigor candidate
 persistence. The owner authorized paid Gemini API activation and Google
-processing of the screened scout request on 2026-08-23. Read-only checks found
-no Gemini credential locally or in the protected production environment, so
-this source candidate is not live and no paid provider call has been made.
-Replacement-key installation, privacy-site deployment, source merge, Custom
-GPT editor installation, and fresh product acceptance remain pending later
-release checks. The deployed runtime remains the 25-Action,
-21-MCP release documented below.
+processing of the screened scout request on 2026-08-23. PR #64 merged as
+`bcb494c11277aac41f736e8a050758d238536cbb`; that exact merge and its privacy
+site are deployed. Read-only checks still find no Gemini credential in the
+protected production environment, so no paid provider call has been made.
+Replacement-key installation, Custom GPT editor installation, and fresh
+product acceptance remain pending.
 
 Deterministic verification passed 1,135 tests with six declared skips across
 79 passing files and one skipped file, followed by typechecking and the
 production build. The four-page public-site validator passed, deployment tests
-passed 28/28, and `npm audit --omit=dev` reported zero vulnerabilities. These
-checks establish the source candidate only; they do not substitute for a paid
-live Gemini/YouTube replay or Custom GPT product acceptance.
+passed 28/28, and `npm audit --omit=dev` reported zero vulnerabilities. The
+deployed image ID is
+`sha256:bec3fa4f4f19ca76e123a546b818f572f05df49d68281feb67558880eea32da3`
+in healthy container `e0e43b538f0f`. Direct public acceptance passed health,
+26 Actions, 21 MCP tools, exact HRP `20.5.22` and Universal `20.5.14`
+integrity, and the precise zero-cost `gemini_provider_not_configured` boundary.
+The compact live OpenAPI SHA-256 is
+`5f0a6dfffc02247eb94b2af29a9e9aff83c8a24d78c6cec19a61f3d1d989b372`.
+Active Compose SHA-256 is
+`8f2fbc7fb1fd6d471290e61060bfec3d5dfac71a2153b47ddee5bb9f0a55bd42`;
+the rollback image is
+`sha256:1968fa4cfeb4ad2b6c47b3b85e685d94d020f529b565b0023ab73596572b3409`
+with rollback Compose SHA-256
+`90d5bae8970975fa49eb14c0571e772b454f70e2a8ffbf5195c6448ecaff1f0b`.
+The live privacy page exactly matches source SHA-256
+`c234035bd1ebf91a809896d2074bcb1b3d40123065d9ff0de70ea8a8ad8a4092`.
+
+The personal plugin is synchronized and installed as
+`0.1.0+codex.20260823192716`; source and installed package SHA-256 both equal
+`7846db90fe54b1a1f896b29f6d90150dc3a468f01758db1fc57c424ad6a5d12e`.
+These checks do not substitute for a successful paid Gemini/YouTube replay or
+Custom GPT product acceptance.
 
 ## 2026-08-23 deployed open-full-text audit release
 

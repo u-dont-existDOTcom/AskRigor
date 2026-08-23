@@ -1,13 +1,14 @@
 # Custom GPT Action live acceptance
 
-## 2026-08-23 automated Gemini scout candidate — acceptance pending
+## 2026-08-23 automated Gemini scout deployed — provider and UI acceptance pending
 
-The candidate packet exposes `scout_gemini_youtube_candidates` as a real
+The deployed packet exposes `scout_gemini_youtube_candidates` as a real
 server-side Action, so ordinary Custom GPT research no longer asks the owner to
-run consumer Spark or copy JSON. The candidate still requires deployment,
-provider activation, exact editor import, and a fresh broad-treatment replay;
-none is inferred from the static packet. Production remains at 25 Actions and
-21 MCP tools until that release occurs.
+run consumer Spark or copy JSON. Exact merge
+`bcb494c11277aac41f736e8a050758d238536cbb` is active in production. The
+provider key, exact editor import, and a fresh broad-treatment replay remain
+required; none is inferred from the deployed schema. Production now exposes
+26 Actions and preserves the exact 21-tool MCP catalog.
 
 Candidate Instructions are 7,985 characters (8,015 UTF-8 bytes), SHA-256
 `e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`;
@@ -24,8 +25,22 @@ work; a successful candidate frontier alone cannot pass acceptance.
 
 The source gate passed 1,135 deterministic tests with six declared skips,
 typechecking, production build, all four public-site pages, 28/28 deployment
-tests, and a zero-vulnerability production dependency audit. No signed-in
-editor or live provider result is recorded in this candidate section.
+tests, and a zero-vulnerability production dependency audit. The exact release
+image ID is
+`sha256:bec3fa4f4f19ca76e123a546b818f572f05df49d68281feb67558880eea32da3`;
+healthy production container `e0e43b538f0f` passed direct public health,
+26-operation OpenAPI, 21-tool MCP, and exact protocol-integrity checks. The
+compact live OpenAPI SHA-256 is
+`5f0a6dfffc02247eb94b2af29a9e9aff83c8a24d78c6cec19a61f3d1d989b372`.
+Without a key, the live scout returned the precise
+`gemini_provider_not_configured` boundary at zero cost. The public privacy
+page was deployed from the same merge and its bytes match source SHA-256
+`c234035bd1ebf91a809896d2074bcb1b3d40123065d9ff0de70ea8a8ad8a4092`.
+
+The personal plugin was synchronized and reinstalled as
+`0.1.0+codex.20260823192716`. Its source and installed package SHA-256 both
+equal `7846db90fe54b1a1f896b29f6d90150dc3a468f01758db1fc57c424ad6a5d12e`.
+No signed-in editor or successful live Gemini result is recorded here.
 
 ## 2026-08-23 open-full-text audit deployment and direct acceptance
 
