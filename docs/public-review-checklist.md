@@ -1,8 +1,8 @@
 # AskRigor v0 public-review checklist
 
-## 2026-08-23 open-full-text audit candidate
+## 2026-08-23 open-full-text audit deployed release
 
-The current unmerged bundle adds four public read-only full-text Actions and the
+The current bundle adds four public read-only full-text Actions and the
 matching MCP tools: acquire through Europe PMC then Unpaywall, continue the
 server-owned document chain, validate an individual-study method audit, and
 validate a review/guideline method audit. The generated Instructions are 7,957
@@ -15,11 +15,19 @@ and the Action OpenAPI SHA-256 is
 The complete deterministic gate passed 1,121 tests with six declared skips,
 typechecking, and the production build. Four public-site pages and all 28
 deployment tests passed; the production dependency audit found zero
-vulnerabilities. A bounded live Unpaywall smoke completed secure PDF
-acquisition, extraction, identity verification, and indexing for DOI
-`10.1038/nature12373`.
-Repository checks do not satisfy deployment, editor installation, or fresh
-product-interface acceptance.
+vulnerabilities. A bounded provider-diverse live Unpaywall smoke completed
+secure PDF acquisition, extraction, and exact DOI verification, accepting the
+first complete verified copy among Frontiers, Scientific Reports, and an
+institutional repository rather than depending on one brittle external URL.
+
+PRs #58 and #59 are merged; exact merge
+`e7409dfc0567c07e5fba3f2641b735028d132e1f` is deployed in healthy image
+`sha256:1968fa4cfeb4ad2b6c47b3b85e685d94d020f529b565b0023ab73596572b3409`.
+Fresh public acceptance passed 25 Actions, 21 MCP tools, protocol integrity,
+lesson isolation, malformed-identifier rejection, and open-study acquisition.
+The personal plugin is current. Repository, server, and plugin checks do not
+satisfy exact Custom GPT editor installation or fresh product-interface
+acceptance; those remain pending.
 
 ## 2026-08-22 executable acceptance-gate repair candidate
 

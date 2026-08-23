@@ -1,20 +1,22 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-23 open-full-text audit source candidate
+## 2026-08-23 deployed open-full-text audit release
 
-This unmerged source candidate adds automatic DOI full-text acquisition through
+PR #58 merged automatic DOI full-text acquisition through
 Europe PMC and then Unpaywall. Unpaywall-discovered PDFs are fetched only through
 bounded public-network transport that rejects mixed/private DNS answers and
 pins each TLS request to a vetted public address. Copies are checked against the requested DOI or title,
 version-labeled, segmented through a server-owned handle, and withheld from
 synthesis until a source-linked study or review method audit validates. A copy
 that cannot be fetched, extracted, or identity-checked remains a possibly useful
-lead; its unseen contents are not evidence.
+lead; its unseen contents are not evidence. PR #59 then hardened the public
+Action boundary so malformed DOI and PMCID values return `422` before any
+provider request.
 
-The generated candidate Instructions are 7,957 characters (7,987 UTF-8 bytes),
+The generated release Instructions are 7,957 characters (7,987 UTF-8 bytes),
 SHA-256 `667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`.
-The candidate Action OpenAPI SHA-256 is
+The release Action OpenAPI SHA-256 is
 `99e5f45fb0b27e7dc4943f0896d5a6de66c910819ad1a2a9bfd8df53212749e3`;
 the synchronization ledger SHA-256 is
 `2c896b263ad47a37637f823bc6f3807b9f05a1fb8724ff5af3bcb7576afad1bc`;
@@ -24,11 +26,38 @@ The complete deterministic gate passed 1,121 tests with six declared skips
 across 78 passing files and one skipped file, followed by typechecking and the
 production build. Public-site validation passed for four pages, the deployment
 suite passed 28/28, and `npm audit --omit=dev` reported zero vulnerabilities.
-A bounded live smoke acquired DOI `10.1038/nature12373` through Unpaywall,
-fetched its PDF over the DNS-pinned transport, extracted it, verified document
-identity, and built the source index used by the audit Actions.
-No deployment, plugin reinstall, editor import, or product-interface acceptance
-is claimed for this candidate.
+A bounded provider-diverse live Unpaywall smoke passed secure PDF retrieval,
+extraction, and exact DOI verification. Direct probes indexed published copies
+from Frontiers (`10.3389/fpsyg.2020.02084`) and Scientific Reports
+(`10.1038/s41598-020-73777-8`) and an institutional submitted manuscript for
+`10.7554/eLife.43882`; the release smoke accepts the first complete verified
+copy from that small diverse set. The previous single Nature fixture now
+correctly returns a possibly useful lead because its available locations fail
+retrieval or identity verification; safeguards were not weakened to preserve a
+brittle external URL.
+
+The exact PR #59 merge `e7409dfc0567c07e5fba3f2641b735028d132e1f` is deployed
+as `askrigor-research:e7409dfc0567c07e5fba3f2641b735028d132e1f`, image ID
+`sha256:1968fa4cfeb4ad2b6c47b3b85e685d94d020f529b565b0023ab73596572b3409`,
+in healthy container `3f333fadee14`. The exact secret-free archive SHA-256 is
+`bc3b9589bc96ad95af9f5a6969d9d1d9b4b82d6b0fd7ed0f85b66e29d45bc103`
+(1,213,273 bytes; 431 members). Active Compose SHA-256 is
+`90d5bae8970975fa49eb14c0571e772b454f70e2a8ffbf5195c6448ecaff1f0b`.
+Immediate rollback remains `askrigor-research:rollback-9703ef1-predeploy`, image
+ID `sha256:a643cd1d5040a269e3f5b48516f98889eb44fe615f41f6e630cd470001642f08`,
+plus `/opt/askrigor/compose.yaml.rollback-9703ef1`, SHA-256
+`9bdb02a546ddddde7a39bc4ef448a191f51550b39f02ca492354f1c9923b718d`.
+
+Fresh public acceptance passed health, 25 Actions, 21 MCP tools, the exact HRP
+`20.5.22` and Universal `20.5.14` hashes, lesson isolation at `401`, malformed
+full-text input at `422`, and a complete method-audit-locked open study. The
+compact live OpenAPI SHA-256 is
+`87711a1bcac4939137bd4166803c85f153a6a345036a400dc078b542c8f0041a`.
+The personal plugin is current at `0.1.0+codex.20260823023619`; its installed
+skill SHA-256 is
+`97700c7930d4c28c9047a11d1f4131d715414d62847d78d01602a28a2b434658`.
+Exact Custom GPT editor import and fresh product-interface acceptance remain
+pending and are not inferred from server or plugin checks.
 
 ## 2026-08-22 Custom GPT editor-schema compatibility repair candidate
 

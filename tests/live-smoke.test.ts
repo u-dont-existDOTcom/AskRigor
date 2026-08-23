@@ -82,30 +82,43 @@ describe.runIf(live)("live provider smoke tests", () => {
   }, LIVE_TIMEOUT_MS);
 
   it("discovers, fetches, extracts, and identity-checks one open PDF through Unpaywall", async () => {
-    const result = await acquireUnpaywallFullText(
-      "10.1038/nature12373",
-      { email: unpaywallEmail }
-    );
-
-    expect(result.provider).toBe("unpaywall");
-    if (result.access_status !== "complete") {
-      throw new Error(JSON.stringify({
-        access_status: result.access_status,
-        limitations: result.limitations,
-        access_boundary: result.data.access_boundary,
-        attempted_locations: result.data.attempted_locations
-      }));
+    const candidates = [
+      "10.3389/fpsyg.2020.02084",
+      "10.1038/s41598-020-73777-8",
+      "10.7554/eLife.43882"
+    ];
+    const attempts = [];
+    let result: Awaited<ReturnType<typeof acquireUnpaywallFullText>> | undefined;
+    for (const doi of candidates) {
+      const candidate = await acquireUnpaywallFullText(doi, { email: unpaywallEmail });
+      attempts.push({
+        doi,
+        access_status: candidate.access_status,
+        limitations: candidate.limitations,
+        access_boundary: candidate.data.access_boundary,
+        attempted_locations: candidate.data.attempted_locations
+      });
+      if (candidate.access_status === "complete") {
+        result = candidate;
+        break;
+      }
     }
+
+    if (result === undefined) throw new Error(JSON.stringify({ attempts }));
+    expect(result.provider).toBe("unpaywall");
     expect(result.access_status).toBe("complete");
     expect(result.data.outcome).toBe("full_text_indexed");
     expect(result.data.document_index).toMatchObject({
       source: {
         provider: "unpaywall_open_location",
-        primary_identifier: "10.1038/nature12373",
         format: "pdf_text",
-        document_completeness: "full_text_with_body"
+        document_completeness: "full_text_with_body",
+        identity_verification: "doi_exact"
       }
     });
+    expect(result.data.document_index?.source.primary_identifier).toBe(
+      result.data.requested_doi
+    );
     expect(result.data.document_index?.blocks.length).toBeGreaterThan(0);
   }, 60_000);
 
