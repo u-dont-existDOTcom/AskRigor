@@ -32,12 +32,31 @@ export {
   type UnpaywallOpenLocation
 } from "./unpaywall.js";
 export {
+  acquireUnpaywallFullText,
+  extractAuditablePdf,
+  type AcquireUnpaywallFullTextRuntime,
+  type UnpaywallFullTextData
+} from "./unpaywall-full-text.js";
+export {
+  acquireOpenFullText,
+  type AcquireOpenFullTextInput,
+  type AcquireOpenFullTextRuntime,
+  type OpenFullTextAcquisitionData
+} from "./open-full-text.js";
+export {
   indexJatsStudyDocument,
   jatsStudyBlockSchema,
   jatsStudyIndexSchema,
   type JatsStudyBlock,
   type JatsStudyIndex
 } from "./jats-study-index.js";
+export {
+  auditableDocumentBlockSchema,
+  auditableDocumentIndexSchema,
+  toAuditableDocumentIndex,
+  type AuditableDocumentBlock,
+  type AuditableDocumentIndex
+} from "./auditable-document-index.js";
 export {
   fetchClinicalTrial,
   searchClinicalTrials,

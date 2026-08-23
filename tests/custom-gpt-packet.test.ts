@@ -29,7 +29,11 @@ const READ_OPERATION_IDS = [
   "survey_youtube_community",
   "audit_youtube_video_community",
   "assess_treatment_landscape_coverage",
-  "validate_gemini_youtube_candidate_handoff"
+  "validate_gemini_youtube_candidate_handoff",
+  "acquire_open_full_text",
+  "continue_open_full_text",
+  "validate_study_method_audit",
+  "validate_review_method_audit"
 ].sort();
 
 const EXACT_LESSON_CONSENT_SHELL = `**Proposed anonymized lesson**
@@ -52,7 +56,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     expect(packet.syncJson).toBe(sync);
   });
 
-  it("contains 20 reads, including all Action-only reads, and one authenticated write", async () => {
+  it("contains 24 reads, including all Action-only reads, and one authenticated write", async () => {
     const packet = await generateCustomGptPacket();
     const document = JSON.parse(packet.openApiJson) as {
       paths: Record<string, Record<string, {
@@ -79,7 +83,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       security: [{ bearerAuth: [] }],
       "x-openai-isConsequential": true
     });
-    expect(operations).toHaveLength(21);
+    expect(operations).toHaveLength(25);
   });
 
   it("keeps the compact instructions complete, bounded, and free of stale Knowledge", async () => {
@@ -122,6 +126,14 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "emergency triage before stabilization",
       "no meaningful user-experience corpus",
       "Full HRP needs all locks, audits, formal returns, and transfers resolved",
+      "`acquire_open_full_text`",
+      "Europe PMC, then Unpaywall",
+      "`continue_open_full_text`",
+      "`validate_study_method_audit`",
+      "`validate_review_method_audit`",
+      "Randomization, peer review, journal, or guideline labels are not reliability verdicts",
+      "possibly useful lead requiring investigation",
+      "unseen contents are not evidence",
       "Submit this anonymized lesson to improve AskRigor?",
       "`Yes`",
       "`Yes always in this chat`",
@@ -194,7 +206,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync).toMatchObject({
       schema_version: 2,
-      generated_at: "2026-08-22",
+      generated_at: "2026-08-23",
       research_operation_ids: READ_OPERATION_IDS,
       mcp_research_operation_ids: READ_OPERATION_IDS.filter((id) =>
         ![

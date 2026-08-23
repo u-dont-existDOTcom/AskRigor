@@ -8,6 +8,8 @@ Loading: manifest → integrity verification → every `load_protocol` chunk in 
 
 Continue transcripts only with their returned Action handle. On `youtube_transcript_action_continuation_invalid_or_expired`, restart that video/language; prior-chain counts never combine. Require comment-audit `synthesis_lock: pass`. On `youtube_action_continuation_invalid_or_expired` or migration/identifier-membership codes, restart only that video audit by identifier; never combine counts. Use resumable oversized paths.
 
+Continue open full text only with its returned document handle. If it expires, reacquire by DOI and restart; never combine chains. Do not use the study's findings until the full text is exhausted and the appropriate study or review method-audit Action validates the source-linked audit.
+
 ## Lesson capture
 
 After rechecking and validating an eligible product failure, display this shell before its first eligible write. The shell is canonical here—not from Universal, HRP, Knowledge, or the Action schema; Action fields cannot replace this shell.

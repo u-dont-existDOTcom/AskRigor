@@ -1,6 +1,35 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-23 open-full-text audit source candidate
+
+This unmerged source candidate adds automatic DOI full-text acquisition through
+Europe PMC and then Unpaywall. Unpaywall-discovered PDFs are fetched only through
+bounded public-network transport that rejects mixed/private DNS answers and
+pins each TLS request to a vetted public address. Copies are checked against the requested DOI or title,
+version-labeled, segmented through a server-owned handle, and withheld from
+synthesis until a source-linked study or review method audit validates. A copy
+that cannot be fetched, extracted, or identity-checked remains a possibly useful
+lead; its unseen contents are not evidence.
+
+The generated candidate Instructions are 7,957 characters (7,987 UTF-8 bytes),
+SHA-256 `667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`.
+The candidate Action OpenAPI SHA-256 is
+`9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6`;
+the synchronization ledger SHA-256 is
+`fe8b6e925eff3ad40d844c6cfb67113e93f7012deac139e942ab7562bd189680`;
+and the installation-bundle digest is
+`9e9f8c00118c09114802310e1651b467949af72f7f7a646510f0514f8e1c4e92`.
+The complete deterministic gate passed 1,118 tests with six declared skips
+across 78 passing files and one skipped file, followed by typechecking and the
+production build. Public-site validation passed for four pages, the deployment
+suite passed 28/28, and `npm audit --omit=dev` reported zero vulnerabilities.
+A bounded live smoke acquired DOI `10.1038/nature12373` through Unpaywall,
+fetched its PDF over the DNS-pinned transport, extracted it, verified document
+identity, and built the source index used by the audit Actions.
+No deployment, plugin reinstall, editor import, or product-interface acceptance
+is claimed for this candidate.
+
 ## 2026-08-22 Custom GPT editor-schema compatibility repair candidate
 
 PR #55 merged the executable acceptance repair as

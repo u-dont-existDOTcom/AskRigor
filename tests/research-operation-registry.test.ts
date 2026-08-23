@@ -11,6 +11,10 @@ const EXPECTED_NAMES = [
   "search_pubmed",
   "fetch_pubmed_record",
   "search_europe_pmc",
+  "acquire_open_full_text",
+  "continue_open_full_text",
+  "validate_study_method_audit",
+  "validate_review_method_audit",
   "search_clinical_trials",
   "fetch_clinical_trial",
   "resolve_doi",
@@ -35,7 +39,7 @@ interface RegistryEntry {
 }
 
 describe("shared research-operation registry", () => {
-  it("is the exact frozen 17-operation source without changing the MCP inventory", async () => {
+  it("is the exact frozen 21-operation source with executable full-text audits", async () => {
     const researchModule = await import("../apps/research-mcp/src/index.js") as
       Record<string, unknown>;
     const operations = researchModule.RESEARCH_OPERATIONS as
@@ -43,7 +47,7 @@ describe("shared research-operation registry", () => {
 
     expect(operations).toBeDefined();
     expect(operations!.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(17);
+    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(21);
     expect(operations!.every(({ name, actionPath, annotations }) =>
       actionPath === `/actions/research/${name}` &&
       annotations.readOnlyHint === true &&
@@ -53,9 +57,9 @@ describe("shared research-operation registry", () => {
 
     const inventory = await createToolInventory();
     expect(inventory.tools.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(inventory.tools).toHaveLength(17);
+    expect(inventory.tools).toHaveLength(21);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "dbff1edc405982fb58eac6a5b28840ffcf07fd93cad0e55c349f65b2fffcf5e9"
+      "671fac79f1ab28d621991f47ec8af0139950066cae1800e69c0446003ddeef7f"
     );
   });
 });

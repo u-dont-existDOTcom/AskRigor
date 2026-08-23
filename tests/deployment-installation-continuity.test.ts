@@ -22,7 +22,7 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
       "source merge is an intermediate state",
       "Custom GPT editor installation",
       "fresh product-interface acceptance",
-      "exact 17-tool MCP catalog",
+      "exact 21-tool MCP catalog",
       "live HRP/Universal manifests",
       "exact installed-package receipt",
       "skills/askrigor/SKILL.md",
@@ -37,7 +37,7 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
     for (const required of [
       "Plugin-package currency, backend currency, Custom GPT installation, and fresh",
       "UI behavior are separate receipts",
-      "21-operation Action document",
+      "25-operation Action document",
       "a matching tool catalog or working connector is not a package receipt",
       "reinstall the exact reviewed package",
       "keep Knowledge empty",

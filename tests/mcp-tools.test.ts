@@ -32,6 +32,10 @@ const TOOL_NAMES = [
   "search_pubmed",
   "fetch_pubmed_record",
   "search_europe_pmc",
+  "acquire_open_full_text",
+  "continue_open_full_text",
+  "validate_study_method_audit",
+  "validate_review_method_audit",
   "search_clinical_trials",
   "fetch_clinical_trial",
   "resolve_doi",
@@ -65,7 +69,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the seventeen read-only retrieval tools", async () => {
+  it("registers exactly the twenty-one read-only research tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {

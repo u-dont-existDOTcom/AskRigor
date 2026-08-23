@@ -23,6 +23,10 @@ const TOOL_NAMES = [
   "search_pubmed",
   "fetch_pubmed_record",
   "search_europe_pmc",
+  "acquire_open_full_text",
+  "continue_open_full_text",
+  "validate_study_method_audit",
+  "validate_review_method_audit",
   "search_clinical_trials",
   "fetch_clinical_trial",
   "resolve_doi",
@@ -127,6 +131,7 @@ describe("AskRigor public-review packet", () => {
       ASKRIGOR_ACTIONS_ENABLED: "Exact literal `true` only when ready to accept Actions.",
       ASKRIGOR_RESEARCH_ACTIONS_ENABLED: "Exact literal `true` only when ready to expose public read-only research Actions.",
       ASKRIGOR_YOUTUBE_CONTINUATION_SECRET: "Server-only secret containing at least 32 UTF-8 bytes; required at startup when research Actions are enabled and never returned or logged.",
+      ASKRIGOR_UNPAYWALL_EMAIL: "Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential.",
       ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
       OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
       ASKRIGOR_AI_BUDGET_LEDGER: "Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`.",
@@ -220,7 +225,9 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 21, 2026");
+    expect(privacySite).toContain("Effective August 23, 2026");
+    expect(privacySite).toContain("Unpaywall");
+    expect(privacySite).toContain("64 handles and 128 MiB");
     expect(privacySite).toContain("Optional lesson feedback");
     expect(readme).toContain("The lesson Action is deployed and live-accepted");
     expect(checklist).toContain(
@@ -533,9 +540,13 @@ describe("AskRigor public-review packet", () => {
       "MCP client-carried continuation state",
       "Custom GPT Action continuation handle map",
       "Custom GPT transcript Action continuation handle map",
+      "Open-full-text Action handle map",
       "2,048",
       "16 MiB",
       "4 MiB",
+      "64 handles and 128 MiB",
+      "extracted public publication text",
+      "service contact email sent to Unpaywall",
       "next expected segment index",
       "no caption text, title, channel name, request text, provider credential, or protocol text",
       "process memory",
@@ -564,9 +575,9 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(17);
+    expect(inventory.tools).toHaveLength(21);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "dbff1edc405982fb58eac6a5b28840ffcf07fd93cad0e55c349f65b2fffcf5e9"
+      "671fac79f1ab28d621991f47ec8af0139950066cae1800e69c0446003ddeef7f"
     );
 
     for (const tool of inventory.tools) {

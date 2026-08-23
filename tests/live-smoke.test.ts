@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acquireUnpaywallFullText,
   getYoutubeComments,
   getYoutubeVideo,
   resolveDoi,
@@ -15,6 +16,8 @@ const ncbiEmail = process.env.NCBI_EMAIL?.trim();
 const crossrefMailto = process.env.CROSSREF_MAILTO?.trim();
 const youtubeApiKey = process.env.YOUTUBE_API_KEY?.trim();
 const youtubeVideoId = process.env.ASKRIGOR_YOUTUBE_SMOKE_VIDEO_ID?.trim();
+const unpaywallEmail = process.env.ASKRIGOR_UNPAYWALL_EMAIL?.trim() ||
+  "support@askrigor.com";
 const LIVE_TIMEOUT_MS = 30_000;
 const YOUTUBE_SMOKE_RUNTIME: YoutubeCommentRetrievalRuntime = {
   budgets: {
@@ -77,6 +80,34 @@ describe.runIf(live)("live provider smoke tests", () => {
     expect(result.data.length).toBeLessThanOrEqual(1);
     expect(result.data.every(({ nct_id }) => /^NCT\d{8}$/.test(nct_id))).toBe(true);
   }, LIVE_TIMEOUT_MS);
+
+  it("discovers, fetches, extracts, and identity-checks one open PDF through Unpaywall", async () => {
+    const result = await acquireUnpaywallFullText(
+      "10.1038/nature12373",
+      { email: unpaywallEmail }
+    );
+
+    expect(result.provider).toBe("unpaywall");
+    if (result.access_status !== "complete") {
+      throw new Error(JSON.stringify({
+        access_status: result.access_status,
+        limitations: result.limitations,
+        access_boundary: result.data.access_boundary,
+        attempted_locations: result.data.attempted_locations
+      }));
+    }
+    expect(result.access_status).toBe("complete");
+    expect(result.data.outcome).toBe("full_text_indexed");
+    expect(result.data.document_index).toMatchObject({
+      source: {
+        provider: "unpaywall_open_location",
+        primary_identifier: "10.1038/nature12373",
+        format: "pdf_text",
+        document_completeness: "full_text_with_body"
+      }
+    });
+    expect(result.data.document_index?.blocks.length).toBeGreaterThan(0);
+  }, 60_000);
 
   it.skipIf(crossrefMailto === undefined || crossrefMailto.length === 0)(
     "resolves a known DOI when CROSSREF_MAILTO enables the adapter",

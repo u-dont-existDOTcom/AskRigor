@@ -1,7 +1,10 @@
 import { createHash } from "node:crypto";
 
 import {
+  auditableDocumentIndexSchema,
   jatsStudyIndexSchema,
+  toAuditableDocumentIndex,
+  type AuditableDocumentIndex,
   type JatsStudyIndex
 } from "@askrigor/sources";
 import { z } from "zod";
@@ -23,7 +26,7 @@ export const STUDY_METHOD_AUDIT_DOMAINS = [
 ] as const;
 
 const domainSchema = z.enum(STUDY_METHOD_AUDIT_DOMAINS);
-const blockIdSchema = z.string().regex(/^jats_[0-9]{6}_[a-f0-9]{12}$/u);
+const blockIdSchema = z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u);
 const boundedPlainText = (maximum: number) => z.string().trim().min(1).max(maximum);
 const programSchema = z.object({
   name: boundedPlainText(500),
@@ -94,7 +97,7 @@ const claimCapabilitySchema = z.object({
 });
 
 export const studyMethodAuditSubmissionSchema = z.object({
-  source_pmcid: z.string().regex(/^PMC[1-9]\d{0,15}$/u),
+  source_primary_identifier: boundedPlainText(2_048),
   source_content_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   design_label: boundedPlainText(200),
   design_capability_statement: boundedPlainText(2_000),
@@ -146,23 +149,23 @@ export const studyMethodAuditReceiptSchema = studyMethodAuditSubmissionSchema.ex
   cited_source_block_count: z.number().int().nonnegative(),
   audit_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
   design_label_is_not_reliability_verdict: z.literal(true),
-  limitations: z.tuple([
-    z.literal("This receipt proves source linkage and checklist coverage, not that every interpretation is semantically correct."),
-    z.literal("Randomization, peer review, journal prestige, indexing, guideline inclusion, and institutional authority were not accepted as reliability verdicts."),
-    z.literal("The study can support only the exact program, population, comparator, outcomes, and horizon recorded here.")
-  ])
+  limitations: z.array(z.enum([
+    "This receipt proves source linkage and checklist coverage, not that every interpretation is semantically correct.",
+    "Randomization, peer review, journal prestige, indexing, guideline inclusion, and institutional authority were not accepted as reliability verdicts.",
+    "The study can support only the exact program, population, comparator, outcomes, and horizon recorded here."
+  ])).length(3)
 }).strict();
 
 export type StudyMethodAuditReceipt = z.output<typeof studyMethodAuditReceiptSchema>;
 
 export function validateStudyMethodAudit(
-  rawIndex: JatsStudyIndex,
+  rawIndex: JatsStudyIndex | AuditableDocumentIndex,
   rawSubmission: StudyMethodAuditSubmission
 ): StudyMethodAuditReceipt {
-  const index = jatsStudyIndexSchema.parse(rawIndex);
+  const index = normalizeDocumentIndex(rawIndex);
   const submission = studyMethodAuditSubmissionSchema.parse(rawSubmission);
   if (
-    submission.source_pmcid !== index.source.pmcid ||
+    submission.source_primary_identifier !== index.source.primary_identifier ||
     submission.source_content_sha256 !== index.source.content_sha256 ||
     index.source.document_completeness !== "full_text_with_body"
   ) {
@@ -199,6 +202,14 @@ export function validateStudyMethodAudit(
       "The study can support only the exact program, population, comparator, outcomes, and horizon recorded here."
     ]
   });
+}
+
+function normalizeDocumentIndex(
+  rawIndex: JatsStudyIndex | AuditableDocumentIndex
+): AuditableDocumentIndex {
+  const auditable = auditableDocumentIndexSchema.safeParse(rawIndex);
+  if (auditable.success) return auditable.data;
+  return toAuditableDocumentIndex(jatsStudyIndexSchema.parse(rawIndex));
 }
 
 function verifyBlocks(

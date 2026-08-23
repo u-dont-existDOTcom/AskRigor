@@ -52,6 +52,7 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_ACTIONS_ENABLED` | Exact literal `true` only when ready to accept Actions. |
 | `ASKRIGOR_RESEARCH_ACTIONS_ENABLED` | Exact literal `true` only when ready to expose public read-only research Actions. |
 | `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET` | Server-only secret containing at least 32 UTF-8 bytes; required at startup when research Actions are enabled and never returned or logged. |
+| `ASKRIGOR_UNPAYWALL_EMAIL` | Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential. |
 | `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
 | `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
 | `ASKRIGOR_AI_BUDGET_LEDGER` | Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
@@ -92,12 +93,13 @@ Privacy: https://askrigor.com/privacy
    must arrive as verified runtime Action results, not stale uploaded copies.
 4. Import the Action URL, select **API Key** then **Bearer**, and retain only
    the existing protected Action key in the editor authentication control.
-5. Confirm the 20 research operations are non-consequential, including the
+5. Confirm the 24 research operations are non-consequential, including the
    Action-only `get_youtube_transcript` and
    `assess_treatment_landscape_coverage`, plus
-   `validate_gemini_youtube_candidate_handoff`, and the single
+   `validate_gemini_youtube_candidate_handoff`, the four open-full-text and
+   method-audit operations, and the single
    `submit_lesson_candidate` operation remains consequential. The MCP inventory
-   must remain the frozen 17-tool contract.
+   must expose the reviewed 21-tool contract.
 6. Save the GPT without publishing and test in a new chat.
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
@@ -116,9 +118,9 @@ Do not stop at a source merge when deployment and installation are authorized.
 Complete and verify each distinct surface in order:
 
 1. deploy the exact reviewed `main` commit and retain a rollback image/config;
-2. directly verify health, the 21-operation Action document, protocol
+2. directly verify health, the 25-operation Action document, protocol
    manifests/integrity, and security boundaries;
-3. verify the installed AskRigor plugin still exposes exactly the frozen 17 MCP
+3. verify the installed AskRigor plugin exposes exactly the reviewed 21 MCP
    tools, returns the newly deployed protocol manifests, and completes one
    read-only probe;
 4. compare an exact installed-package receipt covering `plugin.json`,
@@ -220,6 +222,22 @@ forged, expired, replayed, or mismatched handle returns
 `youtube_transcript_action_continuation_invalid_or_expired`; restart that
 video/language and never combine prior-chain counts.
 
+`acquire_open_full_text` automatically tries an exact Europe PMC copy and then
+Unpaywall for every supplied DOI. An Unpaywall result is only a discovery lead:
+the server fetches the public PDF through bounded HTTPS transport, rejects
+private/reserved or mixed DNS destinations, pins TLS to a vetted public address,
+rejects oversized or non-PDF responses, extracts the
+text, and verifies the requested DOI or a strong title match before indexing it.
+The returned 37-character document handle keeps the exact public document index
+and next block/character cursor in process memory for no more than one hour,
+with at most 64 entries and 128 MiB total. Continue the handle to exhaustion
+before calling `validate_study_method_audit` or
+`validate_review_method_audit`. The audit must link every domain to returned
+source blocks and limits synthesis to the methods and claims actually audited.
+Unavailable, unreadable, or identity-unverified copies remain possibly useful
+leads; their unseen contents are never evidence. Expired or evicted handles must
+be reacquired and never combined with an earlier chain.
+
 Every research Action response is limited to exactly **60,000 serialized UTF-8
 bytes**. `load_protocol` returns at most **48,000 UTF-8 bytes** of exact protocol
 text per ordered authenticated chunk. Continue until `complete: true`; missing,
@@ -293,7 +311,7 @@ unavailable never means zero.
 
 Set `ASKRIGOR_RESEARCH_ACTIONS_ENABLED` to a value other than `true` and
 recreate only the research service to remove public research Actions while
-preserving `/healthz`, the exact 17-tool `/mcp` inventory, and the lesson
+preserving `/healthz`, the exact 21-tool `/mcp` inventory, and the lesson
 Action's prior enabled state. This does not disable lesson capture or MCP.
 
 Separately, set `ASKRIGOR_ACTIONS_ENABLED` to a value other than `true` or

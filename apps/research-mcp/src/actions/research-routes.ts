@@ -107,7 +107,7 @@ export function createResearchActionRoutes(
   const operations = options.operations ?? RESEARCH_OPERATIONS;
   const youtubeContinuationHandles = options.youtubeContinuationHandles ??
     createYoutubeActionContinuationHandleStore();
-  return Object.freeze(operations.map((operation) =>
+  return Object.freeze(operations.filter(({ actionEnabled }) => actionEnabled !== false).map((operation) =>
     operation.name === "load_protocol"
       ? createProtocolActionRoute(
           operation,

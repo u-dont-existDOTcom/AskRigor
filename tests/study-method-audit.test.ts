@@ -42,7 +42,7 @@ async function submission(): Promise<StudyMethodAuditSubmission> {
     section_path.includes("Results")
   )!.block_id;
   return {
-    source_pmcid: index.source.pmcid,
+    source_primary_identifier: index.source.pmcid,
     source_content_sha256: index.source.content_sha256,
     design_label: "randomized parallel-group comparison",
     design_capability_statement: "Random assignment can support the assigned contrast if implementation, follow-up, analysis, and reporting are adequate; it is not a reliability verdict.",
@@ -107,7 +107,7 @@ describe("study-method audit receipts", () => {
       receipt_name: "askrigor_study_method_audit",
       receipt_version: "1.0",
       audit_status: "complete_with_unresolved_fields",
-      source_pmcid: "PMC1234567",
+      source_primary_identifier: "PMC1234567",
       source_content_sha256: index.source.content_sha256,
       design_label_is_not_reliability_verdict: true,
       source_block_count: index.blocks.length,

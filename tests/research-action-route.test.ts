@@ -35,7 +35,8 @@ describe("read-only research Action routes", () => {
     expect(factory).toBeTypeOf("function");
     const routes = factory!();
     expect(routes.map(({ operationId }) => operationId)).toEqual(
-      operations.map(({ name }) => name)
+      operations.filter(({ actionEnabled }) => actionEnabled !== false)
+        .map(({ name }) => name)
     );
     expect(routes.every((route) =>
       route.method === "POST" &&

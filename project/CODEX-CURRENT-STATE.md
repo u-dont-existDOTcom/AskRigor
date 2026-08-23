@@ -1,5 +1,33 @@
 # AskRigor Codex Current State
 
+## 2026-08-23 executable Unpaywall acquisition and method-audit candidate
+
+The task branch now goes beyond Unpaywall metadata discovery. It automatically
+tries Europe PMC and then Unpaywall for a decision-important DOI; safely fetches
+direct open PDF candidates; rejects private-network destinations, oversized
+or mixed DNS answers, pins TLS to a vetted public address, rejects oversized
+documents, non-PDF responses, and identity mismatches; preserves manuscript
+version and content SHA-256; and exposes bounded, contiguous document segments.
+An individual-study or review/guideline audit cannot validate until that exact
+document chain is exhausted. Inaccessible or unverified copies remain possibly
+useful leads whose unseen contents are not evidence.
+
+The four operations are available through both MCP and the public read-only
+Action schema. The generated Instructions are 7,957 characters (7,987 UTF-8
+bytes), SHA-256
+`667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`;
+the Action OpenAPI SHA-256 is
+`9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6`;
+and the synchronization ledger SHA-256 is
+`fe8b6e925eff3ad40d844c6cfb67113e93f7012deac139e942ab7562bd189680`.
+The complete deterministic gate passed 1,118 tests with six declared skips,
+typechecking, and the production build. Public-site and deployment validation
+passed, the production dependency audit found zero vulnerabilities, and a
+bounded live Unpaywall smoke completed secure PDF acquisition, extraction,
+identity verification, and indexing for DOI `10.1038/nature12373`.
+No merge, deployment, plugin reinstall, Custom GPT installation, or fresh
+product acceptance is claimed yet.
+
 ## 2026-08-23 executable research-orchestrator and study-audit plan
 
 The owner approved replacing prompt-only research compliance with a

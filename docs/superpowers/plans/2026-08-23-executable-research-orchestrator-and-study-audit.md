@@ -402,7 +402,7 @@ completed comparative report.
 ### Phase 3 — Scientific-method auditing
 
 - [x] Implement the accessible full-text evidence envelope.
-- [ ] Implement study and review audit receipts with source-linked fields.
+- [x] Implement study and review audit receipts with source-linked fields.
 - [x] Implement exact intervention/comparator identity and claim-capability
       output.
 - [ ] Implement replication and evidence-ancestry records.

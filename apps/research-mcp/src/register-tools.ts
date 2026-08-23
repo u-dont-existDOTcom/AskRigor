@@ -62,6 +62,19 @@ import type {
   ResearchOperation,
   ResearchOperationHandler
 } from "./research-operation.js";
+import {
+  acquireOpenFullTextActionInputSchema,
+  availableOpenFullTextActionOutputSchema,
+  continueOpenFullTextActionInputSchema,
+  createOpenFullTextActionRoutes,
+  openFullTextMcpOutputSchema,
+  reviewMethodAuditActionInputSchema,
+  reviewMethodAuditActionOutputSchema,
+  studyMethodAuditActionInputSchema,
+  studyMethodAuditActionOutputSchema
+} from "./actions/open-full-text-route.js";
+
+const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes();
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -394,6 +407,12 @@ const DEFAULT_CLINICAL_TRIALS_PAGE_SIZE = 20;
 const MAX_CLINICAL_TRIALS_PAGE_SIZE = 100;
 const PUBMED_EFETCH_LIMITATION =
   "PubMed EFetch returns indexed citation metadata and abstracts when present; full-text availability was not evaluated.";
+const OPEN_FULL_TEXT_MCP_OPERATION_NAMES = new Set([
+  "acquire_open_full_text",
+  "continue_open_full_text",
+  "validate_study_method_audit",
+  "validate_review_method_audit"
+]);
 
 function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): void {
   registrar.registerTool(
@@ -579,6 +598,8 @@ function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): v
       }
     }
   );
+
+  registerOpenFullTextMcpTools(registrar);
 
   registrar.registerTool(
     "search_clinical_trials",
@@ -895,6 +916,82 @@ function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): v
   );
 }
 
+function registerOpenFullTextMcpTools(
+  registrar: Pick<McpServer, "registerTool">
+): void {
+  registrar.registerTool(
+    "acquire_open_full_text",
+    {
+      description: "Try Europe PMC and then Unpaywall for a lawful complete study text; return bounded source-linked segments or an explicit access boundary.",
+      inputSchema: acquireOpenFullTextActionInputSchema,
+      outputSchema: openFullTextMcpOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => invokeOpenFullTextMcp("acquire_open_full_text", input)
+  );
+  registrar.registerTool(
+    "continue_open_full_text",
+    {
+      description: "Continue the exact open full text from its server-owned cursor until the coverage receipt says it is exhausted.",
+      inputSchema: continueOpenFullTextActionInputSchema,
+      outputSchema: availableOpenFullTextActionOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => invokeOpenFullTextMcp("continue_open_full_text", input)
+  );
+  registrar.registerTool(
+    "validate_study_method_audit",
+    {
+      description: "Validate a full-text, source-linked audit of an individual study; design and publication labels never substitute for method inspection.",
+      inputSchema: studyMethodAuditActionInputSchema,
+      outputSchema: studyMethodAuditActionOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => invokeOpenFullTextMcp("validate_study_method_audit", input)
+  );
+  registrar.registerTool(
+    "validate_review_method_audit",
+    {
+      description: "Validate a full-text, source-linked audit of a review or guideline, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope.",
+      inputSchema: reviewMethodAuditActionInputSchema,
+      outputSchema: reviewMethodAuditActionOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => invokeOpenFullTextMcp("validate_review_method_audit", input)
+  );
+}
+
+async function invokeOpenFullTextMcp(
+  operationId: string,
+  body: unknown
+): Promise<CallToolResult> {
+  const route = OPEN_FULL_TEXT_MCP_ROUTES.find((candidate) =>
+    candidate.operationId === operationId
+  );
+  if (route === undefined) throw new Error("Open full-text MCP route is missing");
+  const result = await route.handle({
+    request: {} as never,
+    clientIp: "mcp",
+    body
+  });
+  if (result.status !== 200) {
+    return {
+      content: [{
+        type: "text",
+        text: `${operationId.replaceAll("_", " ")} could not complete.`
+      }],
+      isError: true
+    };
+  }
+  return {
+    content: [{
+      type: "text",
+      text: `${operationId.replaceAll("_", " ")} completed.`
+    }],
+    structuredContent: result.body as Record<string, unknown>
+  };
+}
+
 export const RESEARCH_OPERATIONS = Object.freeze(collectResearchOperations());
 
 export function registerTools(server: McpServer): void {
@@ -938,6 +1035,7 @@ function collectResearchOperations(): readonly ResearchOperation[] {
         inputSchema: config.inputSchema,
         outputSchema: config.outputSchema,
         annotations,
+        actionEnabled: !OPEN_FULL_TEXT_MCP_OPERATION_NAMES.has(name),
         execute,
         mcpConfig
       }));
@@ -946,8 +1044,8 @@ function collectResearchOperations(): readonly ResearchOperation[] {
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar);
-  if (operations.length !== 17) {
-    throw new Error(`Expected 17 research operations; received ${operations.length}`);
+  if (operations.length !== 21) {
+    throw new Error(`Expected 21 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");
