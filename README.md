@@ -275,8 +275,10 @@ The deployed release exposes 24 public research reads plus the lesson write and
 the exact 21-tool MCP. The current source candidate adds one Action-only
 automated Gemini scout, for 25 reads plus the lesson write, while MCP stays at
 21. The scout accepts only a de-identified population target, runs a stateless
-Google-grounded candidate search, and independently validates public YouTube
-identities. Its complete frontier is preserved, non-identity failures remain
+Google-grounded candidate search, reconstructs a compact fixed-column response
+into the strict canonical packet, and independently validates public YouTube
+identities. One storage-disabled no-search correction is allowed when the
+initial packet is malformed; a second failure closes the route. Its complete frontier is preserved, non-identity failures remain
 unresolved, every validated candidate is screened, and provisional summaries
 are not transcript verification or treatment evidence. That new route is not
 deployed or provider-enabled until its explicit release and paid-provider gates

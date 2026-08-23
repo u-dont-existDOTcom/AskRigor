@@ -1,6 +1,35 @@
 # Custom GPT Action live acceptance
 
-## 2026-08-23 automated Gemini scout deployed — provider and UI acceptance pending
+## 2026-08-23 automated Gemini scout repair — provider and UI acceptance pending
+
+PR #66 merged as `c1dc216bd8a203fe3a49ac8c876f5d1d00320c80` and its exact
+image `sha256:567c2a3d1ebf9dfec1463645268370302b106dcb6fde8ec85db2811942b4e241`
+is deployed in healthy container `b76d67f60b1b`. Production still exposes 26
+Actions and 21 MCP tools, and the live compact OpenAPI remains SHA-256
+`5f0a6dfffc02247eb94b2af29a9e9aff83c8a24d78c6cec19a61f3d1d989b372`.
+The protected key remains installed; it does not need to be supplied again.
+
+A second paid de-identified replay reached Gemini Google Search and model
+output but failed closed as `gemini_youtube_scout_invalid_packet`. That receipt
+proved the transport, key, model, search execution, and response extraction
+worked, while the shallow unconstrained candidate-object shape did not reliably
+preserve the strict packet. A schema-free probe reproduced the shape drift.
+Separate bounded probes then demonstrated reliable complete output when both
+discovery queries and candidates use fixed-column string rows.
+
+Branch `agent/gemini-scout-compact-packet-20260823` therefore makes the compact
+row form a machine-only transport, reconstructs the canonical object packet on
+the server, and leaves the strict AskRigor parser authoritative. If the first
+packet fails, the server permits exactly one storage-disabled, no-search
+correction containing only the public candidate output, exact executed public
+queries, and safe validation issues. It combines usage for both interactions,
+records whether correction occurred, never reruns Google Search, and fails
+closed after the second validation. Focused adapter/Action/OpenAPI tests pass
+26/26. The complete gate passes 1,138 tests with six declared skips,
+typechecking, and build; all four site pages, 28/28 deployment tests, and the
+zero-vulnerability production dependency audit also pass. Merge, exact
+deployment, one new paid replay, and the Custom GPT product acceptance remain
+pending.
 
 The protected Gemini key was installed after the deployment receipt below and
 only `research-mcp` was recreated. The exact image remained
@@ -36,11 +65,11 @@ required; none is inferred from the deployed schema. Production now exposes
 Candidate Instructions are 7,985 characters (8,015 UTF-8 bytes), SHA-256
 `e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`;
 candidate Action OpenAPI SHA-256 is
-`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+`68294b46a9ec1ac9e1c39297b276545566cdf7ab54ca597e8ed2c5e50ae2ff89`;
 candidate synchronization-ledger SHA-256 is
-`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+`1771854cdb04e1bb3f3471254ea36eb06c035d229dc232f0f011610c15f0a5fd`;
 and the installation-bundle digest is
-`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+`25231b91b296aa5866d1c46f9db8e0b4558ce919e02a135ad4447f651633fcce`.
 The candidate Action document has 26 operations and the MCP catalog remains
 exactly 21. The required live test must observe the automated scout call and
 downstream transcript, discussion, formal, method-audit, and treatment-coverage

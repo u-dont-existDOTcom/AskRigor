@@ -66,14 +66,16 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_LESSONS_REPOSITORY` | Exact private repository name `u-dont-existDOTcom/AskRigor-lessons`. |
 
 The server enforces one shared hard monthly cap of **$50.00**, recorded as an aggregate
-nano-USD ledger. Each Gemini scout must reserve at most **$1.00** from that
-same cap before provider execution. The server accepts only the fixed privacy model
+nano-USD ledger. Each Gemini scout reserves at most **$1.00** from that
+same cap before provider execution. One scout can use one grounded-search
+interaction and, only if its packet fails strict validation, one no-search
+correction interaction under the same reservation. The server accepts only the fixed privacy model
 `gpt-5.4-nano-2026-03-17`; no moving alias is allowed.
-The privacy and Gemini requests use provider storage-disabled modes. Budget exhaustion, ledger failure,
+The privacy and both possible Gemini interactions use provider storage-disabled modes. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses
 screening or reaches GitHub. The Gemini route also fails closed on missing
-grounded-search receipts, mismatched executed queries, invalid candidate JSON,
-or an oversized validated frontier.
+grounded-search receipts, mismatched executed queries, invalid candidate JSON
+after the one bounded correction, or an oversized validated frontier.
 
 ## 3. Configure the Custom GPT from the generated packet
 
@@ -297,8 +299,10 @@ labels before broad synthesis.
 only a de-identified population-level target and diagnosis-status category,
 rejects personal or identifier-bearing text before any provider work, calls
 Gemini with interaction storage disabled, reconciles the actual Google Search
-queries, and feeds the strict packet directly into the same independent
-YouTube validator. It retrieves no captions or discussions and cannot authorize
+queries, reconstructs its compact fixed-column output into the strict canonical
+packet, and feeds that packet directly into the same independent YouTube
+validator. If strict validation fails, it permits exactly one storage-disabled,
+no-search correction and then fails closed. It retrieves no captions or discussions and cannot authorize
 synthesis. The manual validator above exists for historical compatibility, not
 as a step the user must perform.
 

@@ -73,6 +73,8 @@ function scoutData(): GeminiYoutubeScoutData {
     model: "gemini-3.6-flash",
     google_search_grounded: true,
     provider_storage_disabled: true,
+    correction_attempted: false,
+    provider_interaction_count: 1,
     executed_search_queries: value.discovery_queries.map(({ query }) => query),
     usage: {
       total_input_tokens: 1_000,
@@ -205,6 +207,8 @@ describe("automated Gemini YouTube scout Action", () => {
         model: "gemini-3.6-flash",
         access_status: "complete",
         provider_storage_disabled: true,
+        correction_attempted: false,
+        provider_interaction_count: 1,
         accounted_nano_usd: 122_125_000
       },
       validation: {
@@ -305,6 +309,10 @@ describe("automated Gemini YouTube scout Action", () => {
 
     expect(result.body).toMatchObject({
       status: "blocked",
+      scout_receipt: {
+        correction_attempted: null,
+        provider_interaction_count: null
+      },
       boundary: {
         code: "gemini_youtube_candidate_validation_response_too_large",
         retryable: false

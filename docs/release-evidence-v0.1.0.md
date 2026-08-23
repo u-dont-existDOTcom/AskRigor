@@ -3,6 +3,27 @@
 
 ## 2026-08-23 deployed automated Gemini YouTube scout
 
+PR #66 merged the first provider compatibility repair as
+`c1dc216bd8a203fe3a49ac8c876f5d1d00320c80`; its exact healthy production
+image is
+`sha256:567c2a3d1ebf9dfec1463645268370302b106dcb6fde8ec85db2811942b4e241`.
+A second paid replay reached grounded search and model output but failed strict
+packet validation, demonstrating that an unconstrained nested candidate object
+was not a reliable transport. Bounded provider probes then passed a complete
+fixed-column row schema for both query and candidate records.
+
+The current repair candidate decodes that compact transport into the unchanged
+canonical packet and strict parser. It permits one no-search correction—using
+only the provider's public candidate output, exact executed public queries, and
+safe validation issues—then fails closed. It never performs a second discovery
+search. Successful responses expose correction occurrence and a one-or-two
+interaction count; token accounting combines both interactions under the same
+$1 scout reservation. Focused adapter/Action/OpenAPI tests pass 26/26. The
+complete gate passes 1,138 tests with six declared skips, typechecking, and
+build; all four site pages, 28/28 deployment tests, and the zero-vulnerability
+production dependency audit also pass. Merge, deployment, and one final paid
+replay remain pending.
+
 After the deployment receipt below, the protected key was installed and only
 the research service was recreated. It remained healthy on the exact image.
 The first paid de-identified replay failed closed with
@@ -38,13 +59,13 @@ backward compatibility.
 The generated Instructions are 7,985 characters (8,015 UTF-8 bytes),
 SHA-256 `e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`.
 The candidate Action OpenAPI SHA-256 is
-`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+`68294b46a9ec1ac9e1c39297b276545566cdf7ab54ca597e8ed2c5e50ae2ff89`;
 the synchronization ledger SHA-256 is
-`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+`1771854cdb04e1bb3f3471254ea36eb06c035d229dc232f0f011610c15f0a5fd`;
 the checked-in scout-instruction SHA-256 is
 `562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645`;
 and the installation-bundle digest is
-`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+`25231b91b296aa5866d1c46f9db8e0b4558ce919e02a135ad4447f651633fcce`.
 The candidate schema contains 25 non-consequential research Actions plus the
 isolated consequential lesson write, while MCP remains exactly 21 tools.
 

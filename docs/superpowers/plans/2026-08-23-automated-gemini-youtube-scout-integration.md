@@ -10,14 +10,18 @@ installation, and fresh product acceptance remain pending.
 
 The replacement key is now installed. The first paid replay failed closed
 before search/candidate acceptance because the full nested provider schema was
-rejected, consistent with Gemini's documented structured-output complexity
-boundary. Sanitized probes isolated that boundary, proved an exact shallow JSON
-shape is accepted, and confirmed the current grounded-search step shape plus
-the missing interaction ID on a stateless response.
-Branch `agent/gemini-scout-schema-repair-20260823` implements that provider-only
-compatibility shape and a content-safe SHA-256 stateless receipt while leaving
-the strict AskRigor packet validator intact. Its deterministic gate is green;
-merge, deployment, and a fresh paid quality replay remain pending.
+rejected. PR #66 replaced only that provider-facing schema and deployed exact
+merge `c1dc216bd8a203fe3a49ac8c876f5d1d00320c80`. The next paid replay reached
+Google Search and model output but failed strict validation: an unconstrained
+nested `candidates` shape did not reliably preserve the canonical packet.
+Sanitized probes then proved that Gemini reliably emits a compact fixed-column
+packet whose complete top-level and row shapes are constrained. Branch
+`agent/gemini-scout-compact-packet-20260823` decodes that transport into the
+unchanged strict AskRigor contract. If validation fails, one storage-disabled
+no-search correction receives only the public candidate output, exact executed
+queries, and safe validation issues; the server validates again and fails
+closed rather than looping. Merge, exact deployment, and one fresh paid quality
+replay remain pending.
 
 **Goal:** Replace the owner-operated Gemini Spark packet transfer with one
 public, read-only AskRigor Action that runs a server-side Gemini Google-Search
@@ -47,6 +51,11 @@ an optional historical/manual tool, not an execution dependency.
    - Set `store:false`, bound output/thinking, preserve aggregate usage, and
      require the packet's declared queries to reconcile with actual
      `google_search_call` receipts.
+   - Encode provider output as fixed-column rows, reconstruct the canonical
+     object packet server-side, and keep the existing strict parser authoritative.
+   - On a strict-validation failure, permit exactly one no-search correction
+     containing only bounded public candidate data, executed public query
+     receipts, and safe validation issues; never blindly rerun discovery.
    - Never retain or return raw invalid provider output, search-result HTML, or
      model thought content.
 
@@ -93,15 +102,15 @@ Gemini API project. On 2026-08-23 the owner explicitly authorized:
 - sharing the existing fixed monthly AskRigor AI budget ledger; and
 - setting a provider-account budget/quota as defense in depth.
 
-The selected implementation remains paid-tier `gemini-3.6-flash`, stateless requests,
+The selected implementation remains paid-tier `gemini-3.6-flash`, storage-disabled requests,
 de-identified input enforcement, existing aggregate $50 monthly application
 cap, and a matching Google project budget alert/quota. Do not activate a free
 tier that permits submitted content to be used to improve Google products.
 
-The authorization does not supply a credential. Read-only checks confirmed no
-Gemini key remains locally or in the root-owned mode-0600 production runtime
-environment, so a replacement key must be created and installed without chat,
-Git, logs, or command-line disclosure before the live call.
+The protected key is installed in the root-owned mode-0600 production runtime
+environment and must never be pasted into chat, Git, logs, the GPT editor, or
+command output. On 2026-08-23 the owner additionally confirmed that Google may
+process the bounded same-provider correction payload under its own policies.
 
 ## Completion boundary
 
@@ -113,6 +122,18 @@ installed Custom GPT invokes the automated operation without requesting a
 manual packet.
 
 ## Verification checkpoint
+
+Compact-packet repair candidate:
+
+- focused adapter/Action/OpenAPI tests: 26/26 passed;
+- `npm run verify`: 1,138 passed, six declared skips, typecheck and build passed;
+- `npm run test:site`: all four public pages passed;
+- `npm run test:site-deploy`: 28/28 passed;
+- `npm audit --omit=dev`: zero vulnerabilities;
+- source Action inventory remains 26 and MCP remains 21;
+- required lesson status at `2026-08-23T21:13:53.413Z`: 1 open, 1 needing
+  review, 0 accepted not incorporated, 3 incorporated or closed, 0 deletion
+  eligible.
 
 - `npm run test:run`: 1,135 passed, 6 declared skips, 79 passing files and 1
   skipped file.

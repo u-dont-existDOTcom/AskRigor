@@ -1,6 +1,37 @@
 # AskRigor Codex Current State
 
-## 2026-08-23 automated Gemini YouTube scout deployed; provider/UI acceptance pending
+## 2026-08-23 automated Gemini YouTube scout compact repair in progress
+
+PR #66 merged as `c1dc216bd8a203fe3a49ac8c876f5d1d00320c80` and its exact
+healthy production image is
+`sha256:567c2a3d1ebf9dfec1463645268370302b106dcb6fde8ec85db2811942b4e241`.
+The protected key remains installed in the root-owned mode-0600 runtime and
+must not be requested or pasted again.
+
+The next paid de-identified replay reached grounded Google Search and model
+output but failed strict packet validation. The cause was provider transport
+shape, not missing search capability: a shallow nested candidate-object schema
+left the inner form unconstrained. Bounded provider probes reproduced that
+drift and then passed a complete fixed-column row schema.
+
+Branch `agent/gemini-scout-compact-packet-20260823` uses that compact form only
+between AskRigor and Gemini, reconstructs the canonical packet server-side, and
+keeps the existing strict parser authoritative. If the first packet fails,
+exactly one no-search correction receives only bounded public candidate output,
+exact executed public queries, and safe validation issues. It cannot create a
+second search batch; usage is combined; failure after correction is terminal.
+Focused adapter/Action/OpenAPI tests pass 26/26. The complete gate passes 1,138
+tests with six declared skips, typechecking, and build; all four site pages,
+28/28 deployment tests, and the zero-vulnerability production dependency audit
+also pass. Privacy/setup/release documents disclose that same-provider
+correction. Merge, exact deployment, one paid acceptance replay, plugin
+synchronization, and Custom GPT installation/acceptance remain pending. After those gates, Phase A begins from
+fresh `main` in a separate branch.
+
+The required pre-release lesson checkpoint at
+`2026-08-23T21:13:53.413Z` was available: 1 open candidate, 1 needing review,
+0 accepted but not incorporated, 3 incorporated or closed, and 0 deletion
+eligible. No unreviewed lesson expanded this repair.
 
 The protected Gemini key is now installed in the root-owned mode-0600 runtime
 environment. Recreating only `research-mcp` preserved the exact deployed image
@@ -36,11 +67,11 @@ The candidate preserves 21 MCP tools and produces a 26-operation Action schema
 Generated Instructions are 7,985 characters (8,015 UTF-8 bytes), SHA-256
 `e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`;
 Action OpenAPI SHA-256 is
-`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+`68294b46a9ec1ac9e1c39297b276545566cdf7ab54ca597e8ed2c5e50ae2ff89`;
 synchronization-ledger SHA-256 is
-`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+`1771854cdb04e1bb3f3471254ea36eb06c035d229dc232f0f011610c15f0a5fd`;
 and installation-bundle digest is
-`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+`25231b91b296aa5866d1c46f9db8e0b4558ce919e02a135ad4447f651633fcce`.
 
 The route uses the existing aggregate $50 monthly AI ledger through one shared
 process-wide mutex owner and reserves at most $1 per Gemini call. Missing usage
