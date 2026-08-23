@@ -67,7 +67,9 @@ const candidateRecordSchema = z.object({
   materiality: z.enum(["UNASSESSED", "MATERIAL", "NOT_MATERIAL"]),
   redundancy: z.enum(["UNASSESSED", "DISTINCT", "DUPLICATE"]),
   duplicate_of_video_id: youtubeVideoId.optional(),
-  screening_status: z.enum(["PENDING", "SCREENED"])
+  selection_status: z.enum(["UNASSESSED", "SELECTED", "NOT_SELECTED"]),
+  screening_status: z.enum(["PENDING", "SCREENED"]),
+  screening_rationale: boundedText(1_000).optional()
 }).strict().superRefine((candidate, context) => {
   if (
     candidate.redundancy === "DUPLICATE" !==
@@ -84,6 +86,50 @@ const candidateRecordSchema = z.object({
     context.addIssue({
       code: "custom",
       message: "Candidate program signature must be derived from normalized program fields"
+    });
+  }
+  if (
+    (candidate.screening_status === "SCREENED") !==
+      (candidate.screening_rationale !== undefined)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Screened candidate status and screening rationale must agree"
+    });
+  }
+  if (
+    candidate.screening_status === "PENDING" &&
+    (
+      candidate.materiality !== "UNASSESSED" ||
+      candidate.redundancy !== "UNASSESSED" ||
+      candidate.selection_status !== "UNASSESSED"
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Pending candidates cannot contain semantic screening decisions"
+    });
+  }
+  if (
+    candidate.screening_status === "SCREENED" &&
+    (
+      candidate.materiality === "UNASSESSED" ||
+      candidate.redundancy === "UNASSESSED" ||
+      candidate.selection_status === "UNASSESSED"
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Screened candidates require resolved semantic decisions"
+    });
+  }
+  if (
+    candidate.selection_status === "SELECTED" &&
+    (candidate.materiality !== "MATERIAL" || candidate.redundancy !== "DISTINCT")
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Only material, distinct candidates can be selected for depth work"
     });
   }
 });
@@ -155,6 +201,49 @@ export type ResearchCandidateDiscoveryState = z.output<
   typeof researchCandidateDiscoveryStateSchema
 >;
 export type ResearchCandidateRecord = z.output<typeof candidateRecordSchema>;
+
+const candidateScreeningSourceSchema = z.object({
+  video_id: youtubeVideoId,
+  canonical_url: z.string().url().max(200),
+  channel_id: z.union([boundedText(100), z.literal("not_reported")]),
+  channel_title: z.union([boundedText(500), z.literal("not_reported")]),
+  title: z.union([boundedText(500), z.literal("not_reported")]),
+  metadata_access_status: z.enum(["complete", "api_visible_complete"]),
+  origins: z.array(discoveryOriginSchema).min(1).max(2),
+  target_distance: z.enum(["exact", "adjacent", "remote", "unassessed"]),
+  stage_distance: z.enum(["exact", "adjacent", "remote", "unassessed"]),
+  provisional_treatment_class: boundedText(160),
+  provisional_claim_summary: boundedText(600),
+  program: programFieldsSchema,
+  program_description_status: z.enum(["PARTIAL_PROVISIONAL", "NOT_DESCRIBED"]),
+  program_signature: digest
+}).strict();
+
+export const candidateScreeningWorkPackageSchema = z.object({
+  package_version: z.literal("askrigor_candidate_screening_v1"),
+  discovery_digest: digest,
+  candidates: z.array(candidateScreeningSourceSchema).min(1).max(76)
+}).strict();
+
+export const candidateScreeningSubmissionSchema = z.object({
+  package_version: z.literal("askrigor_candidate_screening_v1"),
+  discovery_digest: digest,
+  decisions: z.array(z.object({
+    video_id: youtubeVideoId,
+    materiality: z.enum(["MATERIAL", "NOT_MATERIAL"]),
+    redundancy: z.enum(["DISTINCT", "DUPLICATE"]),
+    duplicate_of_video_id: youtubeVideoId.optional(),
+    selection_status: z.enum(["SELECTED", "NOT_SELECTED"]),
+    rationale: boundedText(1_000)
+  }).strict()).min(1).max(76)
+}).strict();
+
+export type CandidateScreeningWorkPackage = z.output<
+  typeof candidateScreeningWorkPackageSchema
+>;
+export type CandidateScreeningSubmission = z.output<
+  typeof candidateScreeningSubmissionSchema
+>;
 
 export const candidateDiscoveryDiagnosticsSchema = z.object({
   external_source_candidates: z.number().int().nonnegative(),
@@ -397,6 +486,128 @@ export function candidateDiscoveryReadyForScreening(
     state.candidates.length > 0;
 }
 
+export function createCandidateScreeningWorkPackage(
+  rawState: ResearchCandidateDiscoveryState
+): CandidateScreeningWorkPackage {
+  const state = researchCandidateDiscoveryStateSchema.parse(rawState);
+  if (!candidateDiscoveryReadyForScreening(state)) {
+    throw new Error("Candidate discovery is not ready for a screening work package");
+  }
+  return candidateScreeningWorkPackageSchema.parse({
+    package_version: "askrigor_candidate_screening_v1",
+    discovery_digest: candidateDiscoveryScreeningDigest(state),
+    candidates: state.candidates.map((candidate) => ({
+      video_id: candidate.video_id,
+      canonical_url: candidate.canonical_url,
+      channel_id: candidate.channel_id,
+      channel_title: candidate.channel_title,
+      title: candidate.title,
+      metadata_access_status: candidate.metadata_access_status,
+      origins: candidate.origins,
+      target_distance: candidate.target_distance,
+      stage_distance: candidate.stage_distance,
+      provisional_treatment_class: candidate.provisional_treatment_class,
+      provisional_claim_summary: candidate.provisional_claim_summary,
+      program: candidate.program,
+      program_description_status: candidate.program_description_status,
+      program_signature: candidate.program_signature
+    }))
+  });
+}
+
+export function ingestCandidateScreeningSubmission(
+  rawState: ResearchCandidateDiscoveryState,
+  rawSubmission: CandidateScreeningSubmission
+): ResearchCandidateDiscoveryState {
+  const state = researchCandidateDiscoveryStateSchema.parse(rawState);
+  const workPackage = createCandidateScreeningWorkPackage(state);
+  const submission = candidateScreeningSubmissionSchema.parse(rawSubmission);
+  if (submission.discovery_digest !== workPackage.discovery_digest) {
+    throw new Error("Candidate screening submission is bound to a different frontier");
+  }
+  if (!sameMembers(
+    submission.decisions.map(({ video_id }) => video_id),
+    state.candidates.map(({ video_id }) => video_id)
+  )) {
+    throw new Error("Candidate screening must decide every packaged identity exactly once");
+  }
+  const decisions = new Map(submission.decisions.map((decision) => [
+    decision.video_id,
+    decision
+  ]));
+  const screened = researchCandidateDiscoveryStateSchema.parse({
+    ...state,
+    candidates: state.candidates.map((candidate) => {
+      const decision = decisions.get(candidate.video_id)!;
+      return {
+        ...candidate,
+        materiality: decision.materiality,
+        redundancy: decision.redundancy,
+        duplicate_of_video_id: decision.duplicate_of_video_id,
+        selection_status: decision.selection_status,
+        screening_status: "SCREENED" as const,
+        screening_rationale: decision.rationale
+      };
+    })
+  });
+  assertCandidateScreeningComplete(screened);
+  return screened;
+}
+
+export function candidateDiscoveryScreeningDigest(
+  rawState: ResearchCandidateDiscoveryState
+): string {
+  const state = researchCandidateDiscoveryStateSchema.parse(rawState);
+  return createHash("sha256").update(JSON.stringify({
+    external_scout: state.external_scout,
+    native_youtube: state.native_youtube,
+    candidates: state.candidates.map((candidate) => ({
+      video_id: candidate.video_id,
+      canonical_url: candidate.canonical_url,
+      channel_id: candidate.channel_id,
+      channel_title: candidate.channel_title,
+      title: candidate.title,
+      metadata_access_status: candidate.metadata_access_status,
+      origins: candidate.origins,
+      target_distance: candidate.target_distance,
+      stage_distance: candidate.stage_distance,
+      provisional_treatment_class: candidate.provisional_treatment_class,
+      provisional_claim_summary: candidate.provisional_claim_summary,
+      program: candidate.program,
+      program_description_status: candidate.program_description_status,
+      program_signature: candidate.program_signature
+    }))
+  }), "utf8").digest("hex");
+}
+
+export function selectedCandidateVideoIds(
+  rawState: ResearchCandidateDiscoveryState
+): string[] {
+  const state = researchCandidateDiscoveryStateSchema.parse(rawState);
+  assertCandidateScreeningComplete(state);
+  return state.candidates
+    .filter(({ selection_status }) => selection_status === "SELECTED")
+    .map(({ video_id }) => video_id);
+}
+
+export function candidateScreeningResultDigest(
+  rawState: ResearchCandidateDiscoveryState
+): string {
+  const state = researchCandidateDiscoveryStateSchema.parse(rawState);
+  assertCandidateScreeningComplete(state);
+  return createHash("sha256").update(JSON.stringify({
+    discovery_digest: candidateDiscoveryScreeningDigest(state),
+    decisions: state.candidates.map((candidate) => ({
+      video_id: candidate.video_id,
+      materiality: candidate.materiality,
+      redundancy: candidate.redundancy,
+      duplicate_of_video_id: candidate.duplicate_of_video_id ?? null,
+      selection_status: candidate.selection_status,
+      screening_rationale: candidate.screening_rationale
+    }))
+  }), "utf8").digest("hex");
+}
+
 export function assertCandidateScreeningComplete(
   rawState: ResearchCandidateDiscoveryState
 ): void {
@@ -407,9 +618,21 @@ export function assertCandidateScreeningComplete(
   if (state.candidates.some((candidate) =>
     candidate.screening_status !== "SCREENED" ||
     candidate.materiality === "UNASSESSED" ||
-    candidate.redundancy === "UNASSESSED"
+    candidate.redundancy === "UNASSESSED" ||
+    candidate.selection_status === "UNASSESSED"
   )) {
     throw new Error("Candidate semantic screening remains unresolved");
+  }
+  const selected = state.candidates.filter(({ selection_status }) =>
+    selection_status === "SELECTED"
+  );
+  if (selected.length === 0) {
+    throw new Error("Candidate screening must select at least one source for depth work");
+  }
+  if (selected.some((candidate) =>
+    candidate.materiality !== "MATERIAL" || candidate.redundancy !== "DISTINCT"
+  )) {
+    throw new Error("Selected candidates must be material and nonredundant");
   }
   const byId = new Map(state.candidates.map((candidate) => [candidate.video_id, candidate]));
   const materialGroups = new Map<string, ResearchCandidateRecord[]>();
@@ -617,6 +840,7 @@ function externalCandidate(
     program_signature: deriveProgramSignature(program),
     materiality: "UNASSESSED",
     redundancy: "UNASSESSED",
+    selection_status: "UNASSESSED",
     screening_status: "PENDING"
   });
 }
@@ -657,6 +881,7 @@ function nativeCandidate(
     program_signature: deriveProgramSignature(program),
     materiality: "UNASSESSED",
     redundancy: "UNASSESSED",
+    selection_status: "UNASSESSED",
     screening_status: "PENDING"
   });
 }

@@ -1,8 +1,9 @@
 # AskRigor execution-control productionization roadmap
 
 **Status:** Active. Phase A is merged as
-`1dd18f91fa94da391c3b5e30c604850e3813f4de`; Phase B is implemented and
-deterministically verified on `agent/execution-control-phase-b-20260823` and is
+`1dd18f91fa94da391c3b5e30c604850e3813f4de`; Phase B is merged as
+`f4800e45e810a34e03657334949b6e8fef883b50`; Phase C is implemented and
+deterministically verified on `agent/execution-control-phase-c-20260823` and is
 the current reviewed delivery candidate. This document does not replace the complete canonical protocols or the
 owner-approved scientific corrections in
 `2026-08-23-executable-research-orchestrator-and-study-audit.md`.
@@ -369,14 +370,32 @@ declared skips, and the production build.
 
 Tasks:
 
-- [ ] Wire selected candidate identities to `get_youtube_video`/transcript retrieval and existing server-produced transcript receipts.
-- [ ] Continue transcript handles until exhaustion or a valid boundary; never accept caller-reconstructed pagination.
-- [ ] Wire selected discussions to `audit_youtube_video_community` and its server-produced receipt.
-- [ ] Continue automatically while `continuation_recommended=true` unless a genuine nonretryable boundary applies.
-- [ ] Store only the bounded provenance/receipt facts required for execution control; do not turn the session store into a raw transcript/comment archive.
-- [ ] Derive per-video work packages and next capabilities from receipt state.
+- [x] Wire selected candidate identities to `get_youtube_video`/transcript retrieval and existing server-produced transcript receipts.
+- [x] Continue transcript handles until exhaustion or a valid boundary; never accept caller-reconstructed pagination.
+- [x] Wire selected discussions to `audit_youtube_video_community` and its server-produced receipt.
+- [x] Continue automatically while `continuation_recommended=true` unless a genuine nonretryable boundary applies.
+- [x] Store only the bounded provenance/receipt facts required for execution control; do not turn the session store into a raw transcript/comment archive.
+- [x] Derive per-video work packages and next capabilities from receipt state.
 
 **Exit gate:** skipped/restarted/mixed chains, retryable failures, one-of-many audited discussions, transcript-free creator claims, or caller-reported exhaustion cannot satisfy depth requirements.
+
+Phase C verification: semantic candidate selection is accepted only for one
+exact server-packaged discovery digest and every packaged public identity;
+structural validation binds the worker decision to that package without
+claiming the semantic judgment is automatically true. Selected identities
+initialize exact transcript and discussion records. The controller derives
+first-page and continuation Action inputs, follows only short server-issued
+handles automatically, preserves retryable and terminal boundaries, and
+requires every selected video to finish independently. State retains bounded
+public identity, receipt, count/hash, attempt, and opaque-handle facts only;
+transcript segments and comment records are not stored. Hostile tests reject
+wrong-video receipts, skipped/replayed/decreasing or mixed chains, caller
+cursor/count/exhaustion injection, stale evidence after restart, one-of-many
+completion, missing transcript timestamps, and blocked discussion synthesis
+locks. The focused controller/frontier/prototype suite passes 27/27 and the
+complete host-boundary deterministic suite passes 1,161 tests with six
+declared skips. Public inventory remains 21 MCP tools and 26 Actions; the
+prototype remains unregistered.
 
 ### Phase D — Make formal search, full text, method audit, and external study evidence session-owned
 

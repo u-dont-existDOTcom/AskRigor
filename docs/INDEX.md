@@ -105,6 +105,9 @@ complete XML protocol.
   research state, automated high-recall scouting, accessible full-text study
   audits, claim-local inaccessible-source boundaries, and real Custom GPT
   product acceptance
+- `superpowers/plans/2026-08-23-execution-control-phase-c-implementation.md`:
+  selected-video transcript/community receipt state, automatic opaque-handle
+  continuation, restart isolation, bounded retention, and hostile-test plan
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

@@ -15,7 +15,10 @@ import {
   protocolBindingsFromManifests,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
+  recordCandidateScreeningCompletion,
+  recordDiscussionDepthResult,
   recordNativeYoutubeDiscovery,
+  recordTranscriptDepthResult,
   researchSessionStateSchema,
   type ResearchSessionState
 } from "../apps/research-mcp/src/index.js";
@@ -26,6 +29,11 @@ import {
   researchPacket,
   researchReceipt
 } from "./helpers/research-session-fixtures.js";
+import {
+  discussionOutput,
+  screeningSubmissionFor,
+  transcriptOutput
+} from "./helpers/research-video-depth-fixtures.js";
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
@@ -58,21 +66,19 @@ function scoutComplete(state = initialState()): ResearchSessionState {
 
 function phaseACompletionFixture(): ResearchSessionState {
   const discovered = recordNativeYoutubeDiscovery(scoutComplete(), nativeSurvey());
-  const candidateDiscovery = structuredClone(discovered.candidate_discovery);
-  candidateDiscovery.candidates = candidateDiscovery.candidates.map((candidate) => ({
-    ...candidate,
-    materiality: "MATERIAL" as const,
-    redundancy: "DISTINCT" as const,
-    screening_status: "SCREENED" as const
-  }));
-  const state = researchSessionStateSchema.parse({
-    ...discovered,
-    candidate_discovery: candidateDiscovery,
-    operations: {
-      ...discovered.operations,
-      candidate_screening: { status: "COMPLETE" }
-    }
-  });
+  let state = recordCandidateScreeningCompletion(
+    discovered,
+    screeningSubmissionFor(discovered.candidate_discovery)
+  );
+  for (const videoId of state.video_depth.selected_video_ids) {
+    state = recordTranscriptDepthResult(state, videoId, transcriptOutput(videoId));
+    state = recordDiscussionDepthResult(
+      state,
+      videoId,
+      undefined,
+      discussionOutput(videoId)
+    );
+  }
   const modules = structuredClone(state.modules);
   for (const moduleId of RESEARCH_MODULE_IDS) {
     modules[moduleId] = {
@@ -296,6 +302,15 @@ describe("research session controller core", () => {
       if (operationId === "automated_video_scout") continue;
       const operations = structuredClone(finished.operations);
       operations[operationId] = { status: "NOT_STARTED" };
+      if (
+        operationId === "candidate_screening" ||
+        operationId === "transcript_acquisition" ||
+        operationId === "community_discussion_audit"
+      ) {
+        expect(() => researchSessionStateSchema.parse({ ...finished, operations }))
+          .toThrow(/depth|derived.*per-video receipt state/u);
+        continue;
+      }
       const mutated = researchSessionStateSchema.parse({ ...finished, operations });
       expect(
         evaluateResearchFinalization(SESSION_ID, mutated).denial_reasons,

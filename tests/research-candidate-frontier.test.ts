@@ -149,7 +149,9 @@ describe("server-owned research candidate frontier", () => {
       } : {}),
       materiality: index < 2 ? "MATERIAL" as const : "NOT_MATERIAL" as const,
       redundancy: "DISTINCT" as const,
-      screening_status: "SCREENED" as const
+      selection_status: index === 0 ? "SELECTED" as const : "NOT_SELECTED" as const,
+      screening_status: "SCREENED" as const,
+      screening_rationale: "Fixture semantic screening decision."
     }));
     const forged = researchCandidateDiscoveryStateSchema.parse({
       ...reconciled,
