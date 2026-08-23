@@ -37,7 +37,7 @@ describe("Universal whole-argument reconstruction integration", () => {
     }
   });
 
-  it("preserves premise-integrity and leaves the HRP canonical bytes unchanged", async () => {
+  it("preserves premise-integrity alongside the current HRP canonical bytes", async () => {
     const [universal, hrp] = await Promise.all([
       readFile(UNIVERSAL_URL, "utf8"),
       readFile(HRP_URL, "utf8")
@@ -48,7 +48,7 @@ describe("Universal whole-argument reconstruction integration", () => {
     );
     expect(universal).toContain("Accuracy outranks agreement");
     expect(sha256(hrp)).toBe(
-      "2def834840caa45944234bb884ea3710e8dcaf2e0d21fae9e5d78116bd67ded7"
+      "9389f0f364280f32e5d0c8e9d6b26f93473a205f3134f1f4ab9ef819ca4e3fcf"
     );
   });
 });

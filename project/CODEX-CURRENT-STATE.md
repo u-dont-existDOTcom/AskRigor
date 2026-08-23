@@ -24,7 +24,7 @@ evidence, but their inaccessibility does not freeze unrelated executable work or
 prevent a bounded synthesis from inspected sources.
 
 The isolated feasibility implementation is recorded in commits `6d9a142` and
-its successor on the same task branch. Europe PMC full-text XML acquisition
+`3aed717` plus current Phase 3 work on the same task branch. Europe PMC full-text XML acquisition
 preserves exact bytes, identity, completeness, and SHA-256; a bounded live
 repository fetch passed. Unpaywall DOI resolution now discovers additional
 lawful open publisher/repository locations while preserving them as unfetched
@@ -127,8 +127,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Current canonical source candidate HRP: `20.5.21` / 2026-08-22 /
-  `2def834840caa45944234bb884ea3710e8dcaf2e0d21fae9e5d78116bd67ded7`.
+- Current canonical source candidate HRP: `20.5.22` / 2026-08-23 /
+  `9389f0f364280f32e5d0c8e9d6b26f93473a205f3134f1f4ab9ef819ca4e3fcf`.
   The deployed baseline remains HRP `20.5.20` / 2026-08-22 /
   `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`
   until this candidate passes review and deployment. Universal remains

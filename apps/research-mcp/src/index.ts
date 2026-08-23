@@ -32,6 +32,14 @@ export {
   type ResearchSessionStoreOptions
 } from "./actions/research-session-store.js";
 export {
+  STUDY_METHOD_AUDIT_DOMAINS,
+  studyMethodAuditReceiptSchema,
+  studyMethodAuditSubmissionSchema,
+  validateStudyMethodAudit,
+  type StudyMethodAuditReceipt,
+  type StudyMethodAuditSubmission
+} from "./actions/study-method-audit.js";
+export {
   assessTreatmentLandscapeCoverage,
   createTreatmentLandscapeCoverageActionRoute,
   deriveProgramSignature,

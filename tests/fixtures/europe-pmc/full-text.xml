@@ -8,6 +8,9 @@
       <title-group>
         <article-title>Recorded <italic>full-text</italic> study</article-title>
       </title-group>
+      <abstract>
+        <p>The abstract reports only a bounded study summary.</p>
+      </abstract>
       <permissions>
         <license license-type="open-access">
           <license-p>Creative Commons Attribution 4.0</license-p>
@@ -19,6 +22,22 @@
     <sec>
       <title>Methods</title>
       <p>The exact intervention and comparator were recorded.</p>
+      <sec>
+        <title>Outcomes</title>
+        <p>The registered primary outcome was function at twelve weeks.</p>
+        <list>
+          <list-item><p>Adherence was measured for both programs.</p></list-item>
+        </list>
+      </sec>
+    </sec>
+    <sec>
+      <title>Results</title>
+      <p>Assigned and analyzed denominators were reported separately.</p>
+      <table-wrap>
+        <label>Table 1</label>
+        <caption><p>Participant flow by assigned program.</p></caption>
+        <table><tbody><tr><td>Assigned</td><td>100</td></tr></tbody></table>
+      </table-wrap>
     </sec>
   </body>
 </article>

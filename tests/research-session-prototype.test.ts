@@ -28,8 +28,8 @@ function route(routes: readonly ActionRoute[], operationId: string): ActionRoute
 function protocolManifest(protocol: "universal" | "hrp") {
   return {
     name: protocol === "universal" ? "Universal Instructions" : "Health Research Protocol",
-    version: protocol === "universal" ? "20.5.14" : "20.5.21",
-    revisionDate: protocol === "universal" ? "2026-08-18" : "2026-08-22",
+    version: protocol === "universal" ? "20.5.14" : "20.5.22",
+    revisionDate: protocol === "universal" ? "2026-08-18" : "2026-08-23",
     sha256: protocol === "universal" ? HASH_A : HASH_B
   };
 }
@@ -171,7 +171,7 @@ describe("server-owned research session feasibility routes", () => {
         synthesis_permitted: false,
         protocols: [
           { version: "20.5.14", sha256: HASH_A },
-          { version: "20.5.21", sha256: HASH_B }
+          { version: "20.5.22", sha256: HASH_B }
         ]
       }
     });

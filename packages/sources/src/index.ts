@@ -32,6 +32,13 @@ export {
   type UnpaywallOpenLocation
 } from "./unpaywall.js";
 export {
+  indexJatsStudyDocument,
+  jatsStudyBlockSchema,
+  jatsStudyIndexSchema,
+  type JatsStudyBlock,
+  type JatsStudyIndex
+} from "./jats-study-index.js";
+export {
   fetchClinicalTrial,
   searchClinicalTrials,
   type ClinicalTrial,

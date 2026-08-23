@@ -401,14 +401,14 @@ completed comparative report.
 
 ### Phase 3 — Scientific-method auditing
 
-- [ ] Implement the accessible full-text evidence envelope.
+- [x] Implement the accessible full-text evidence envelope.
 - [ ] Implement study and review audit receipts with source-linked fields.
-- [ ] Implement exact intervention/comparator identity and claim-capability
+- [x] Implement exact intervention/comparator identity and claim-capability
       output.
 - [ ] Implement replication and evidence-ancestry records.
-- [ ] Reconcile existing HRP full-text rules with the owner's claim-local
+- [x] Reconcile existing HRP full-text rules with the owner's claim-local
       inaccessible-source boundary.
-- [ ] Remove language that allows design names, peer review, journal prestige,
+- [x] Remove language that allows design names, peer review, journal prestige,
       guidelines, or reviews to operate as reliability shortcuts.
 
 **Gate:** An abstract-only randomized trial cannot produce `high confidence`,

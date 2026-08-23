@@ -16,7 +16,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "2def834840caa45944234bb884ea3710e8dcaf2e0d21fae9e5d78116bd67ded7";
+  "9389f0f364280f32e5d0c8e9d6b26f93473a205f3134f1f4ab9ef819ca4e3fcf";
 const UNIVERSAL_SHA_256 =
   "8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221";
 
@@ -34,8 +34,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.21",
-      revisionDate: "2026-08-22"
+      version: "20.5.22",
+      revisionDate: "2026-08-23"
     });
   });
 
@@ -248,7 +248,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.21" revisionDate="2026-08-22"/
+      /<Protocol name="HRP" version="20\.5\.22" revisionDate="2026-08-23"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -362,6 +362,27 @@ describe("canonical protocol loader", () => {
       '<Check id="FS188">',
       '<Check id="FS189">',
       '<Check id="FS190">'
+    ]) {
+      expect(text).toContain(required);
+    }
+  });
+
+  it("requires the HRP 20.5.22 study-method and claim-local full-text gate", async () => {
+    const text = await loadProtocol("hrp");
+
+    for (const required of [
+      '<Revision version="20.5.22" priority="Critical">',
+      '<StudyMethodReliabilityGate priority="Critical">',
+      'name="NoDesignOrPublicationStatusReliabilityShortcut"',
+      'name="DecisionImportantStudyAudit"',
+      'name="AccessibleFullTextFirst"',
+      "does not make a study scientific",
+      "Peer review, journal prestige, indexing, guideline",
+      "Unpaywall",
+      'name="ClaimLocalStatusUntilMaterialGapResolved"',
+      "possibly useful research lead",
+      "Do not impose a global `Partial HRP` label",
+      'Case id="RandomizedPeerReviewedStudyUsedAsScienceShortcut"'
     ]) {
       expect(text).toContain(required);
     }
