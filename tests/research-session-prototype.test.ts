@@ -167,12 +167,28 @@ describe("server-owned research session feasibility routes", () => {
       status: 200,
       body: {
         session_id: expect.stringMatching(/^ars1_/u),
-        next_required_operation: "automated_video_scout",
-        synthesis_permitted: false,
-        protocols: [
-          { version: "20.5.14", sha256: HASH_A },
-          { version: "20.5.22", sha256: HASH_B }
-        ]
+        execution_status: "IN_PROGRESS",
+        output_boundary: "CONTINUE_RESEARCH",
+        protocol_binding: {
+          currency: "CURRENT",
+          expected: [
+            { protocol: "universal", version: "20.5.14", sha256: HASH_A },
+            { protocol: "hrp", version: "20.5.22", sha256: HASH_B }
+          ]
+        },
+        modules: {
+          HRP: { applicability: "REQUIRED", execution_status: "IN_PROGRESS" },
+          FORUM_SIGNAL: { applicability: "UNRESOLVED" },
+          FINAL_COMPLETION_AUDIT: {
+            applicability: "REQUIRED",
+            execution_status: "NOT_STARTED"
+          }
+        },
+        required_next_capabilities: [
+          "route_module_applicability",
+          "automated_video_scout"
+        ],
+        finalization_permit: null
       }
     });
     const sessionId = (started.body as { session_id: string }).session_id;
@@ -183,17 +199,24 @@ describe("server-owned research session feasibility routes", () => {
     expect(continued).toMatchObject({
       status: 200,
       body: {
-        next_required_operation: "candidate_screening_and_source_acquisition",
-        synthesis_permitted: false,
+        execution_status: "IN_PROGRESS",
+        output_boundary: "CONTINUE_RESEARCH",
         scout: {
-          status: "complete",
+          status: "COMPLETE",
           candidate_count: 3,
           validated_candidate_count: 3,
           unresolved_candidate_count: 0
         },
-        completed_operations: ["automated_video_scout"],
-        last_operation: {
-          operation: "automated_video_scout",
+        operations: {
+          automated_video_scout: { status: "COMPLETE" }
+        },
+        required_next_capabilities: [
+          "route_module_applicability",
+          "candidate_screening",
+          "formal_evidence_search"
+        ],
+        last_transition: {
+          capability: "automated_video_scout",
           result: "complete"
         }
       }
@@ -217,34 +240,80 @@ describe("server-owned research session feasibility routes", () => {
     expect(finalized).toMatchObject({
       status: 200,
       body: {
-        status: "incomplete",
-        synthesis_permitted: false,
-        report: null,
-        reason: "required_research_operations_remain",
-        remaining_work: expect.arrayContaining([
+        authorization: "DENIED",
+        output_boundary: "CONTINUE_RESEARCH",
+        finalization_permit: null,
+        denial_reasons: expect.arrayContaining([
+          "MODULE_APPLICABILITY_UNRESOLVED",
+          "REQUIRED_MODULE_INCOMPLETE",
+          "REQUIRED_OPERATION_INCOMPLETE",
+          "PHASE_A_FINALIZATION_NOT_ENABLED"
+        ]),
+        required_next_capabilities: expect.arrayContaining([
           "candidate_screening",
-          "accessible_full_text_acquisition",
-          "study_method_audit",
-          "treatment_landscape_finalization"
+          "formal_evidence_search"
         ])
       }
     });
   });
 
-  it("rejects caller-authored completion state instead of trusting it", async () => {
+  it("rejects every caller-authored completion, count, and module claim", async () => {
     const routes = createResearchSessionPrototypeRoutes({
       getProtocolManifest: async (protocol) => protocolManifest(protocol)
     });
     const result = await route(routes, "start_research_session").handle(context({
       research_target: "de-identified treatment comparison",
       diagnosis_status: "diagnosis_not_specified",
+      complete: true,
       synthesis_permitted: true,
-      completed_operations: ["everything"]
+      completed_operations: ["everything"],
+      completed_operation_count: 99,
+      candidate_count: 99,
+      modules: {
+        HRP: { applicability: "NOT_REQUIRED" }
+      }
     }));
 
     expect(result).toEqual({
       status: 422,
       body: { error: { code: "action_input_invalid", retryable: false } }
+    });
+
+    const started = await route(routes, "start_research_session").handle(context({
+      research_target: "de-identified treatment comparison",
+      diagnosis_status: "diagnosis_not_specified"
+    }));
+    const sessionId = (started.body as { session_id: string }).session_id;
+    const forgedContinuation = await route(
+      routes,
+      "continue_research_session"
+    ).handle(context({
+      session_id: sessionId,
+      complete: true,
+      completed_operations: ["automated_video_scout"],
+      completed_operation_count: 1
+    }));
+    expect(forgedContinuation).toEqual(result);
+    const forgedFinalization = await route(
+      routes,
+      "finalize_research_report"
+    ).handle(context({
+      session_id: sessionId,
+      synthesis_permitted: true,
+      all_work_done: true
+    }));
+    expect(forgedFinalization).toEqual(result);
+
+    const status = await route(routes, "get_research_session_status").handle(context({
+      session_id: sessionId
+    }));
+    expect(status).toMatchObject({
+      status: 200,
+      body: {
+        operations: { automated_video_scout: { status: "NOT_STARTED" } },
+        output_boundary: "CONTINUE_RESEARCH",
+        finalization_permit: null
+      }
     });
   });
 
@@ -267,16 +336,75 @@ describe("server-owned research session feasibility routes", () => {
     expect(continued).toMatchObject({
       status: 200,
       body: {
-        status: "blocked",
-        next_required_operation: "resolve_access_boundary",
-        synthesis_permitted: false,
+        execution_status: "BLOCKED_RETRYABLE",
+        output_boundary: "CONTINUE_RESEARCH",
         scout: {
-          status: "blocked",
-          access_boundary: expect.stringContaining("no manual packet was substituted")
+          status: "BLOCKED",
+          access_boundary: {
+            classification: "RETRYABLE",
+            code: "AUTOMATED_SCOUT_NOT_CONFIGURED",
+            summary: expect.stringContaining("no manual packet was substituted")
+          }
+        },
+        required_next_capabilities: expect.arrayContaining([
+          "automated_video_scout"
+        ])
+      }
+    });
+    expect(scout).not.toHaveBeenCalled();
+  });
+
+  it("rechecks protocol identity before continuation and finalization", async () => {
+    let drifted = false;
+    const scout = vi.fn<typeof scoutGeminiYoutubeCandidates>();
+    const routes = createResearchSessionPrototypeRoutes({
+      getProtocolManifest: async (protocol) => ({
+        ...protocolManifest(protocol),
+        sha256: drifted && protocol === "hrp" ? "c".repeat(64) :
+          protocolManifest(protocol).sha256
+      }),
+      scout,
+      geminiConfig: { apiKey: "server-held-gemini-key", model: "fixture-model" },
+      youtubeApiKey: "server-held-youtube-key"
+    });
+    const started = await route(routes, "start_research_session").handle(context({
+      research_target: "de-identified treatment comparison",
+      diagnosis_status: "diagnosis_not_specified"
+    }));
+    const sessionId = (started.body as { session_id: string }).session_id;
+    drifted = true;
+
+    const continued = await route(routes, "continue_research_session").handle(context({
+      session_id: sessionId
+    }));
+    expect(continued).toMatchObject({
+      status: 200,
+      body: {
+        execution_status: "PROTOCOL_DRIFT",
+        output_boundary: "CONTINUE_RESEARCH",
+        protocol_binding: { currency: "DRIFTED" },
+        required_next_capabilities: ["restart_under_current_protocols"],
+        last_transition: {
+          capability: "protocol_currency_recheck",
+          result: "protocol_drift"
         }
       }
     });
     expect(scout).not.toHaveBeenCalled();
+
+    const finalized = await route(routes, "finalize_research_report").handle(context({
+      session_id: sessionId
+    }));
+    expect(finalized).toMatchObject({
+      status: 200,
+      body: {
+        authorization: "DENIED",
+        output_boundary: "CONTINUE_RESEARCH",
+        finalization_permit: null,
+        denial_reasons: expect.arrayContaining(["PROTOCOL_DRIFT"]),
+        required_next_capabilities: ["restart_under_current_protocols"]
+      }
+    });
   });
 
   it("returns a bounded invalid-or-expired error for unknown sessions", async () => {
@@ -294,5 +422,10 @@ describe("server-owned research session feasibility routes", () => {
         }
       }
     });
+
+    const continued = await route(routes, "continue_research_session").handle(context({
+      session_id: `ars1_${"A".repeat(32)}`
+    }));
+    expect(continued).toEqual(result);
   });
 });

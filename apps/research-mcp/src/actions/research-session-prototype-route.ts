@@ -3,21 +3,28 @@ import { readFile } from "node:fs/promises";
 import {
   scoutGeminiYoutubeCandidates,
   validateGeminiYoutubeCandidateHandoff,
-  type GeminiYoutubeCandidateValidationReceipt,
   type GeminiYoutubeScoutConfig,
   type GeminiYoutubeScoutInput
 } from "@askrigor/sources";
-import {
-  getProtocolManifest,
-  type ProtocolManifest
-} from "@askrigor/protocol";
+import { getProtocolManifest } from "@askrigor/protocol";
 import { z } from "zod";
 
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
 import {
+  applyProtocolRecheck,
+  createInitialResearchSessionState,
+  evaluateResearchFinalization,
+  finalizationDecisionSchema,
+  projectResearchSessionView,
+  protocolBindingsFromManifests,
+  recordAutomatedScoutBoundary,
+  recordAutomatedScoutCompletion,
+  researchSessionViewSchema,
+  type ResearchSessionState
+} from "./research-session-controller.js";
+import {
   createResearchSessionStore,
   ResearchSessionUnavailableError,
-  type ResearchSessionState,
   type ResearchSessionStore
 } from "./research-session-store.js";
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
@@ -29,50 +36,18 @@ const startInputSchema = z.object({
 const sessionInputSchema = z.object({
   session_id: z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u)
 }).strict();
-const protocolIdentitySchema = z.object({
-  name: z.string(),
-  version: z.string(),
-  revision_date: z.string(),
-  sha256: z.string().regex(/^[a-f0-9]{64}$/u)
-}).strict();
-const scoutViewSchema = z.object({
-  status: z.enum(["not_started", "complete", "blocked"]),
-  candidate_count: z.number().int().nonnegative(),
-  validated_candidate_count: z.number().int().nonnegative(),
-  unresolved_candidate_count: z.number().int().nonnegative(),
-  access_boundary: z.string().optional()
-}).strict();
-const sessionViewSchema = z.object({
-  session_id: z.string(),
-  status: z.enum(["in_progress", "blocked"]),
-  next_required_operation: z.enum([
-    "automated_video_scout",
-    "candidate_screening_and_source_acquisition",
-    "resolve_access_boundary"
-  ]),
-  synthesis_permitted: z.literal(false),
-  protocols: z.tuple([protocolIdentitySchema, protocolIdentitySchema]),
-  scout: scoutViewSchema,
-  completed_operations: z.array(z.literal("automated_video_scout")),
-  remaining_work: z.array(z.string()).min(1)
-}).strict();
-const continuationOutputSchema = sessionViewSchema.extend({
-  last_operation: z.object({
-    operation: z.literal("automated_video_scout"),
-    result: z.enum(["complete", "blocked", "already_complete"])
+const continuationOutputSchema = researchSessionViewSchema.extend({
+  last_transition: z.object({
+    capability: z.enum(["protocol_currency_recheck", "automated_video_scout"]),
+    result: z.enum([
+      "protocol_current",
+      "protocol_drift",
+      "complete",
+      "blocked_retryable",
+      "blocked_terminal",
+      "already_complete"
+    ])
   }).strict()
-}).strict();
-const finalizationOutputSchema = z.object({
-  session_id: z.string(),
-  status: z.enum(["incomplete", "blocked"]),
-  synthesis_permitted: z.literal(false),
-  report: z.null(),
-  reason: z.enum([
-    "required_research_operations_remain",
-    "research_access_boundary_requires_resolution"
-  ]),
-  completed_operations: z.array(z.string()),
-  remaining_work: z.array(z.string()).min(1)
 }).strict();
 const actionErrorSchema = z.object({
   error: z.object({
@@ -95,8 +70,8 @@ export interface CreateResearchSessionPrototypeRoutesOptions {
 }
 
 /**
- * Feasibility route set. It is intentionally not added to the production
- * Action inventory until the owner-approved provider and acceptance gates pass.
+ * Non-production transport adapter for the server-owned controller. It remains
+ * absent from the installed Action and MCP inventories.
  */
 export function createResearchSessionPrototypeRoutes(
   options: CreateResearchSessionPrototypeRoutesOptions = {}
@@ -117,17 +92,14 @@ export function createResearchSessionPrototypeRoutes(
   function startRoute(): ActionRoute {
     return route({
       operationId: "start_research_session",
-      description: "Start an ephemeral server-owned research workflow bound to exact protocol identities. This does not permit synthesis.",
+      description: "Start an ephemeral server-owned research workflow bound to exact protocol identities. This never authorizes synthesis.",
       inputSchema: startInputSchema,
-      outputSchema: sessionViewSchema,
+      outputSchema: researchSessionViewSchema,
       async handle(input) {
-        const [universal, hrp] = await Promise.all([
-          manifests("universal"),
-          manifests("hrp")
-        ]);
-        const state = initialState(input, universal, hrp);
+        const protocols = await currentProtocolBindings(manifests);
+        const state = createInitialResearchSessionState(input, protocols);
         const sessionId = store.issue(state);
-        return sessionView(sessionId, state);
+        return projectResearchSessionView(sessionId, state);
       }
     });
   }
@@ -135,32 +107,50 @@ export function createResearchSessionPrototypeRoutes(
   function continueRoute(): ActionRoute {
     return route({
       operationId: "continue_research_session",
-      description: "Execute only the next server-required bounded research operation. Caller completion assertions are not accepted.",
+      description: "Execute the next supported server-required operation after rechecking protocol identity. Caller completion assertions are rejected.",
       inputSchema: sessionInputSchema,
       outputSchema: continuationOutputSchema,
       async handle({ session_id: sessionId }) {
-        const current = store.claim(sessionId);
+        const claimed = store.claim(sessionId);
         try {
-          if (current.scout.status === "complete") {
-            store.replace(sessionId, current);
+          const checked = applyProtocolRecheck(
+            claimed,
+            await currentProtocolBindings(manifests)
+          );
+          if (checked.protocol_binding.currency === "DRIFTED") {
+            store.replace(sessionId, checked);
             return {
-              ...sessionView(sessionId, current),
-              last_operation: {
-                operation: "automated_video_scout" as const,
+              ...projectResearchSessionView(sessionId, checked),
+              last_transition: {
+                capability: "protocol_currency_recheck" as const,
+                result: "protocol_drift" as const
+              }
+            };
+          }
+
+          if (checked.scout.status === "COMPLETE") {
+            store.replace(sessionId, checked);
+            return {
+              ...projectResearchSessionView(sessionId, checked),
+              last_transition: {
+                capability: "automated_video_scout" as const,
                 result: "already_complete" as const
               }
             };
           }
 
-          const next = await runScout(current);
+          const next = await runScout(checked);
           store.replace(sessionId, next);
+          const operationStatus = next.operations.automated_video_scout.status;
           return {
-            ...sessionView(sessionId, next),
-            last_operation: {
-              operation: "automated_video_scout" as const,
-              result: next.scout.status === "complete"
+            ...projectResearchSessionView(sessionId, next),
+            last_transition: {
+              capability: "automated_video_scout" as const,
+              result: operationStatus === "COMPLETE"
                 ? "complete" as const
-                : "blocked" as const
+                : operationStatus === "BLOCKED_TERMINAL"
+                  ? "blocked_terminal" as const
+                  : "blocked_retryable" as const
             }
           };
         } catch (error) {
@@ -174,11 +164,11 @@ export function createResearchSessionPrototypeRoutes(
   function statusRoute(): ActionRoute {
     return route({
       operationId: "get_research_session_status",
-      description: "Read server-derived research progress and remaining work. It does not accept caller-authored evidence or completion state.",
+      description: "Read server-derived research state and next capabilities. It accepts no caller-authored evidence or completion state.",
       inputSchema: sessionInputSchema,
-      outputSchema: sessionViewSchema,
+      outputSchema: researchSessionViewSchema,
       async handle({ session_id: sessionId }) {
-        return sessionView(sessionId, store.read(sessionId));
+        return projectResearchSessionView(sessionId, store.read(sessionId));
       }
     });
   }
@@ -186,22 +176,22 @@ export function createResearchSessionPrototypeRoutes(
   function finalizeRoute(): ActionRoute {
     return route({
       operationId: "finalize_research_report",
-      description: "Return a report only when server-owned research gates pass. This prototype proves refusal while required work remains.",
+      description: "Evaluate the one server-owned output boundary after rechecking protocol identity. Phase A cannot issue a successful permit.",
       inputSchema: sessionInputSchema,
-      outputSchema: finalizationOutputSchema,
+      outputSchema: finalizationDecisionSchema,
       async handle({ session_id: sessionId }) {
-        const state = store.read(sessionId);
-        return {
-          session_id: sessionId,
-          status: state.phase === "blocked" ? "blocked" as const : "incomplete" as const,
-          synthesis_permitted: false as const,
-          report: null,
-          reason: state.phase === "blocked"
-            ? "research_access_boundary_requires_resolution" as const
-            : "required_research_operations_remain" as const,
-          completed_operations: state.completed_operations,
-          remaining_work: state.remaining_work
-        };
+        const claimed = store.claim(sessionId);
+        try {
+          const checked = applyProtocolRecheck(
+            claimed,
+            await currentProtocolBindings(manifests)
+          );
+          store.replace(sessionId, checked);
+          return evaluateResearchFinalization(sessionId, checked);
+        } catch (error) {
+          store.rollback(sessionId);
+          throw error;
+        }
       }
     });
   }
@@ -216,10 +206,11 @@ export function createResearchSessionPrototypeRoutes(
       youtubeApiKey === undefined ||
       youtubeApiKey.trim().length === 0
     ) {
-      return blockedScoutState(
-        state,
-        "Automated candidate discovery is not configured; no manual packet was substituted."
-      );
+      return recordAutomatedScoutBoundary(state, {
+        classification: "RETRYABLE",
+        code: "AUTOMATED_SCOUT_NOT_CONFIGURED",
+        summary: "Automated candidate discovery is not configured; no manual packet was substituted."
+      });
     }
 
     const scoutInput: GeminiYoutubeScoutInput = {
@@ -229,16 +220,23 @@ export function createResearchSessionPrototypeRoutes(
     };
     const frontier = await scout(scoutInput, config);
     if (frontier.access_status !== "complete" || !("packet" in frontier.data)) {
-      return blockedScoutState(
+      return recordAutomatedScoutBoundary(
         state,
-        plainScoutBoundary(frontier.access_status)
+        scoutBoundary(frontier.access_status)
       );
     }
     const receipt = await validate(
       JSON.stringify(frontier.data.packet),
       { apiKey: youtubeApiKey }
     );
-    return completedScoutState(state, frontier.data.response_id, receipt);
+    return recordAutomatedScoutCompletion(state, {
+      providerResponseId: frontier.data.response_id,
+      sourcePacketVersion: receipt.source_packet_version,
+      validationStatus: receipt.status,
+      sourceCandidateIds: receipt.candidate_frontier.source_candidate_video_ids,
+      validatedCandidateIds: receipt.validated_candidates.map(({ video_id }) => video_id),
+      unresolvedCandidateIds: receipt.unresolved_candidates.map(({ video_id }) => video_id)
+    });
   }
 }
 
@@ -294,125 +292,36 @@ function route<T extends z.ZodObject, O extends z.ZodObject>(
   });
 }
 
-function initialState(
-  input: z.output<typeof startInputSchema>,
-  universal: ProtocolManifest,
-  hrp: ProtocolManifest
-): ResearchSessionState {
-  return {
-    research_target: input.research_target,
-    diagnosis_status: input.diagnosis_status,
-    protocols: [protocolIdentity(universal), protocolIdentity(hrp)],
-    phase: "automated_video_scout",
-    synthesis_permitted: false,
-    scout: {
-      status: "not_started",
-      candidate_count: 0,
-      validated_candidate_ids: [],
-      unresolved_candidate_ids: []
-    },
-    completed_operations: [],
-    remaining_work: allRemainingWork()
-  };
+async function currentProtocolBindings(
+  manifests: typeof getProtocolManifest
+): Promise<ResearchSessionState["protocol_binding"]["expected"]> {
+  const [universal, hrp] = await Promise.all([
+    manifests("universal"),
+    manifests("hrp")
+  ]);
+  return protocolBindingsFromManifests(universal, hrp);
 }
 
-function protocolIdentity(manifest: ProtocolManifest) {
-  return {
-    name: manifest.name,
-    version: manifest.version,
-    revision_date: manifest.revisionDate,
-    sha256: manifest.sha256
-  };
-}
-
-function completedScoutState(
-  state: ResearchSessionState,
-  responseId: string,
-  receipt: GeminiYoutubeCandidateValidationReceipt
-): ResearchSessionState {
-  return {
-    ...state,
-    phase: "candidate_screening_and_source_acquisition",
-    scout: {
-      status: "complete",
-      provider_response_id: responseId,
-      source_packet_version: receipt.source_packet_version,
-      validation_status: receipt.status,
-      candidate_count: receipt.candidate_frontier.source_candidate_video_ids.length,
-      validated_candidate_ids: receipt.validated_candidates.map(({ video_id }) => video_id),
-      unresolved_candidate_ids: receipt.unresolved_candidates.map(({ video_id }) => video_id)
-    },
-    completed_operations: ["automated_video_scout"],
-    remaining_work: allRemainingWork().filter((item) =>
-      item !== "automated_video_scout"
-    )
-  };
-}
-
-function blockedScoutState(
-  state: ResearchSessionState,
-  accessBoundary: string
-): ResearchSessionState {
-  return {
-    ...state,
-    phase: "blocked",
-    scout: {
-      status: "blocked",
-      candidate_count: 0,
-      validated_candidate_ids: [],
-      unresolved_candidate_ids: [],
-      access_boundary: accessBoundary
-    }
-  };
-}
-
-function sessionView(sessionId: string, state: ResearchSessionState) {
-  return {
-    session_id: sessionId,
-    status: state.phase === "blocked" ? "blocked" as const : "in_progress" as const,
-    next_required_operation: state.phase === "automated_video_scout"
-      ? "automated_video_scout" as const
-      : state.phase === "blocked"
-        ? "resolve_access_boundary" as const
-        : "candidate_screening_and_source_acquisition" as const,
-    synthesis_permitted: false as const,
-    protocols: state.protocols,
-    scout: {
-      status: state.scout.status,
-      candidate_count: state.scout.candidate_count,
-      validated_candidate_count: state.scout.validated_candidate_ids.length,
-      unresolved_candidate_count: state.scout.unresolved_candidate_ids.length,
-      ...(state.scout.access_boundary === undefined
-        ? {}
-        : { access_boundary: state.scout.access_boundary })
-    },
-    completed_operations: state.completed_operations,
-    remaining_work: state.remaining_work
-  };
-}
-
-function allRemainingWork(): ResearchSessionState["remaining_work"] {
-  return [
-    "automated_video_scout",
-    "candidate_screening",
-    "transcript_acquisition",
-    "community_discussion_audit",
-    "formal_evidence_search",
-    "accessible_full_text_acquisition",
-    "study_method_audit",
-    "bidirectional_evidence_return",
-    "treatment_landscape_finalization"
-  ];
-}
-
-function plainScoutBoundary(accessStatus: string): string {
+function scoutBoundary(accessStatus: string) {
   if (accessStatus === "rate_limited") {
-    return "Automated candidate discovery was temporarily rate limited; no manual packet was substituted.";
+    return {
+      classification: "RETRYABLE" as const,
+      code: "AUTOMATED_SCOUT_RATE_LIMITED",
+      summary: "Automated candidate discovery was temporarily rate limited; no manual packet was substituted."
+    };
   }
   if (accessStatus === "inaccessible") {
-    return "Automated candidate discovery could not be accessed with the configured provider account; no manual packet was substituted.";
+    return {
+      classification: "RETRYABLE" as const,
+      code: "AUTOMATED_SCOUT_ACCOUNT_INACCESSIBLE",
+      summary: "Automated candidate discovery could not be accessed with the configured provider account; no manual packet was substituted."
+    };
   }
-  return "Automated candidate discovery did not return a valid grounded candidate frontier; no manual packet was substituted.";
+  return {
+    classification: "RETRYABLE" as const,
+    code: "AUTOMATED_SCOUT_INVALID_FRONTIER",
+    summary: "Automated candidate discovery did not return a valid grounded frontier; no manual packet was substituted."
+  };
 }
 
 async function defaultScoutInstructions(): Promise<string> {
