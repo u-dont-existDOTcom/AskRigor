@@ -1,5 +1,36 @@
 # AskRigor Codex Current State
 
+## 2026-08-23 executable research-orchestrator and study-audit plan
+
+The owner approved replacing prompt-only research compliance with a
+server-owned, resumable workflow. The durable implementation contract is
+`docs/superpowers/plans/2026-08-23-executable-research-orchestrator-and-study-audit.md`
+on branch `agent/executable-research-orchestrator-20260823`, based on
+`origin/main` commit `93814af9b8a2c77bf5dedb254a38394dc6f5e3a0`.
+
+The plan records the observed architectural failures: the current Spark Action
+only validates a manually supplied packet; no installed public research Action
+acquires and deeply audits full studies; the treatment assessor checks
+caller-assembled state and can be skipped; and current product acceptance can
+pass a constructed JSON fixture without replaying the real Custom GPT.
+
+The owner's scientific correction is authoritative: randomization, peer review,
+and journal prestige are not reliability certificates; exact study methods,
+program identity, comparator quality, outcome integrity, harms, reproducibility,
+and applicability require audit. Freely and lawfully accessible full texts
+should be audited. Inaccessible studies remain clearly labeled, possibly useful
+research leads requiring further investigation; their unseen contents are not
+evidence, but their inaccessibility does not freeze unrelated executable work or
+prevent a bounded synthesis from inspected sources.
+
+No runtime, protocol, deployment, plugin, Spark, or Custom GPT change has yet
+been made for this plan. The next safe step is Phase 1 feasibility: prove an
+automated supported scout route, provenance-bound accessible-full-text
+acquisition, and a minimal server-owned session that refuses premature
+finalization before broad implementation. Session-start lesson status was
+available: 1 open candidate, 1 needing review, 0 accepted but not incorporated,
+3 incorporated or closed, and 0 deletion eligible.
+
 ## 2026-08-22 Custom GPT editor-schema compatibility repair candidate
 
 PR #55 merged the executable acceptance repair as
