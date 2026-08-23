@@ -1,10 +1,12 @@
 # Automated Gemini YouTube scout integration plan
 
-**Status:** Implementation and deterministic verification complete on
-`agent/automated-gemini-scout-20260823`; the owner authorized paid Gemini API
-activation and Google processing of the screened scout request on 2026-08-23.
-PR merge, a replacement protected key, deployment, plugin synchronization, and
-live product acceptance remain pending.
+**Status:** PR #64 merged as
+`bcb494c11277aac41f736e8a050758d238536cbb`; exact runtime and privacy-site
+deployment, direct missing-provider acceptance, and personal-plugin
+synchronization are complete. The owner authorized paid Gemini API activation
+and Google processing of the screened scout request on 2026-08-23. A protected
+replacement key, successful live quality replay, exact Custom GPT editor
+installation, and fresh product acceptance remain pending.
 
 **Goal:** Replace the owner-operated Gemini Spark packet transfer with one
 public, read-only AskRigor Action that runs a server-side Gemini Google-Search
@@ -109,4 +111,13 @@ manual packet.
 - `npm run test:site-deploy`: 28/28 passed.
 - `npm audit --omit=dev`: zero vulnerabilities.
 - Source Action inventory: 26 operations; MCP inventory: unchanged at 21.
+- Deployment image ID:
+  `sha256:bec3fa4f4f19ca76e123a546b818f572f05df49d68281feb67558880eea32da3`.
+- Compact live OpenAPI SHA-256:
+  `5f0a6dfffc02247eb94b2af29a9e9aff83c8a24d78c6cec19a61f3d1d989b372`.
+- Live privacy bytes match source SHA-256
+  `c234035bd1ebf91a809896d2074bcb1b3d40123065d9ff0de70ea8a8ad8a4092`.
+- Personal plugin source and installed package are
+  `0.1.0+codex.20260823192716`, SHA-256
+  `7846db90fe54b1a1f896b29f6d90150dc3a468f01758db1fc57c424ad6a5d12e`.
 - No live Gemini call was made because production has no installed Gemini key.
