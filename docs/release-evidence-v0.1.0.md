@@ -32,11 +32,13 @@ most $1 per scout, never stores target or candidate content in that ledger, and
 returns a small explicit boundary rather than an oversized Action response.
 The public privacy candidate now names Google Gemini/Search, the screened data,
 provider processing, stateless request, and absence of AskRigor candidate
-persistence. No Gemini credential exists in the current production environment,
-so this source candidate is not live and no paid provider call has been made.
-Provider activation, privacy-site deployment, source merge, Custom GPT editor
-installation, and fresh product acceptance remain pending the recorded owner
-gate and later release checks. The deployed runtime remains the 25-Action,
+persistence. The owner authorized paid Gemini API activation and Google
+processing of the screened scout request on 2026-08-23. Read-only checks found
+no Gemini credential locally or in the protected production environment, so
+this source candidate is not live and no paid provider call has been made.
+Replacement-key installation, privacy-site deployment, source merge, Custom
+GPT editor installation, and fresh product acceptance remain pending later
+release checks. The deployed runtime remains the 25-Action,
 21-MCP release documented below.
 
 Deterministic verification passed 1,135 tests with six declared skips across

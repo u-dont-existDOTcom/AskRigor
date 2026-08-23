@@ -1,8 +1,10 @@
 # Automated Gemini YouTube scout integration plan
 
 **Status:** Implementation and deterministic verification complete on
-`agent/automated-gemini-scout-20260823`; paid-provider/privacy activation gate,
-PR, deployment, plugin synchronization, and live product acceptance pending.
+`agent/automated-gemini-scout-20260823`; the owner authorized paid Gemini API
+activation and Google processing of the screened scout request on 2026-08-23.
+PR merge, a replacement protected key, deployment, plugin synchronization, and
+live product acceptance remain pending.
 
 **Goal:** Replace the owner-operated Gemini Spark packet transfer with one
 public, read-only AskRigor Action that runs a server-side Gemini Google-Search
@@ -68,22 +70,25 @@ an optional historical/manual tool, not an execution dependency.
      acceptance, plugin reinstall, clipboard installation bundle, and fresh
      Custom GPT acceptance where technically available.
 
-## Explicit activation gate
+## Activation decision
 
 Google Search grounding for the selected production model requires a paid
-Gemini API project. Code, hermetic tests, documentation, schema generation, and
-review can proceed without it. Before a live provider call or production
-activation, obtain the owner's explicit decision on:
+Gemini API project. On 2026-08-23 the owner explicitly authorized:
 
 - using a paid Gemini API project and server-side API key;
 - sending only the de-identified target and public scout prompt to Google;
 - sharing the existing fixed monthly AskRigor AI budget ledger; and
 - setting a provider-account budget/quota as defense in depth.
 
-Recommended default: paid-tier `gemini-3.6-flash`, stateless requests,
+The selected implementation remains paid-tier `gemini-3.6-flash`, stateless requests,
 de-identified input enforcement, existing aggregate $50 monthly application
 cap, and a matching Google project budget alert/quota. Do not activate a free
 tier that permits submitted content to be used to improve Google products.
+
+The authorization does not supply a credential. Read-only checks confirmed no
+Gemini key remains locally or in the root-owned mode-0600 production runtime
+environment, so a replacement key must be created and installed without chat,
+Git, logs, or command-line disclosure before the live call.
 
 ## Completion boundary
 
@@ -104,4 +109,4 @@ manual packet.
 - `npm run test:site-deploy`: 28/28 passed.
 - `npm audit --omit=dev`: zero vulnerabilities.
 - Source Action inventory: 26 operations; MCP inventory: unchanged at 21.
-- No live Gemini call was made because production has no approved Gemini key.
+- No live Gemini call was made because production has no installed Gemini key.

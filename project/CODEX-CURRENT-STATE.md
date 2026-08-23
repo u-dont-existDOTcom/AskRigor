@@ -31,9 +31,12 @@ public privacy and setup candidates disclose Google processing, no AskRigor
 candidate persistence, separate paid API billing, and the protected server-key
 boundary.
 
-No `ASKRIGOR_GEMINI_API_KEY` exists in production; no paid Gemini scout has run.
+The owner authorized paid Gemini API activation and Google processing of the
+screened scout request on 2026-08-23. No `ASKRIGOR_GEMINI_API_KEY` exists
+locally or in the protected production environment, so no paid Gemini scout has
+run; a replacement key must be installed without entering chat or Git.
 The current deployed runtime therefore remains at 25 Actions and 21 MCP tools.
-Merge/deployment, provider activation, privacy-site deployment, plugin receipt,
+Merge/deployment, provider-key installation, privacy-site deployment, plugin receipt,
 Custom GPT installation, and fresh product acceptance remain pending. After
 this integration is completed, begin Phase A of
 `docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`
