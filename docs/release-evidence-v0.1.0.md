@@ -39,7 +39,7 @@ installation, and fresh product acceptance remain pending the recorded owner
 gate and later release checks. The deployed runtime remains the 25-Action,
 21-MCP release documented below.
 
-Deterministic verification passed 1,134 tests with six declared skips across
+Deterministic verification passed 1,135 tests with six declared skips across
 79 passing files and one skipped file, followed by typechecking and the
 production build. The four-page public-site validator passed, deployment tests
 passed 28/28, and `npm audit --omit=dev` reported zero vulnerabilities. These

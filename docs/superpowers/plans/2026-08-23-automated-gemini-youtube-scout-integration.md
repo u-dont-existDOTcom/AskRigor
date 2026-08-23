@@ -96,7 +96,7 @@ manual packet.
 
 ## Verification checkpoint
 
-- `npm run test:run`: 1,134 passed, 6 declared skips, 79 passing files and 1
+- `npm run test:run`: 1,135 passed, 6 declared skips, 79 passing files and 1
   skipped file.
 - `npm run verify`: passed typecheck, the same complete deterministic suite,
   and the production build.

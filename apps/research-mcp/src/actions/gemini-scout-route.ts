@@ -293,7 +293,16 @@ export function isDeidentifiedResearchTarget(value: string): boolean {
     return false;
   }
   if (/https?:\/\//iu.test(value)) return false;
-  if (/<\|\s*(?:user|assistant|system|tool)\s*\|>|(?:^|\n)\s*(?:user|assistant|system|tool)\s*:/iu.test(value)) {
+  const lowerValue = value.toLocaleLowerCase("en-US");
+  const compactValue = lowerValue.replace(/\s/gu, "");
+  const hasChatTag = ["<|user|>", "<|assistant|>", "<|system|>", "<|tool|>"]
+    .some((tag) => compactValue.includes(tag));
+  const hasChatRoleLine = lowerValue.split("\n").some((line) => {
+    const trimmed = line.trimStart();
+    return ["user:", "assistant:", "system:", "tool:"]
+      .some((prefix) => trimmed.startsWith(prefix));
+  });
+  if (hasChatTag || hasChatRoleLine) {
     return false;
   }
   if (/\b(?:name|medical record|patient id|date of birth|address|postal code|zip code)\s*[:#]/iu.test(value)) {

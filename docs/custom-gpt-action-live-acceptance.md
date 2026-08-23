@@ -22,7 +22,7 @@ exactly 21. The required live test must observe the automated scout call and
 downstream transcript, discussion, formal, method-audit, and treatment-coverage
 work; a successful candidate frontier alone cannot pass acceptance.
 
-The source gate passed 1,134 deterministic tests with six declared skips,
+The source gate passed 1,135 deterministic tests with six declared skips,
 typechecking, production build, all four public-site pages, 28/28 deployment
 tests, and a zero-vulnerability production dependency audit. No signed-in
 editor or live provider result is recorded in this candidate section.
