@@ -1,5 +1,55 @@
 # AskRigor Codex Current State
 
+## 2026-08-23 automated Gemini YouTube scout candidate
+
+Branch `agent/automated-gemini-scout-20260823` adds a public read-only
+`scout_gemini_youtube_candidates` Action. It sends only a deterministically
+screened, de-identified population-level target plus the public checked-in
+scout instructions to fixed `gemini-3.6-flash` with Google Search and provider
+interaction storage disabled. The adapter reconciles the actual 8–18 executed
+queries, validates strict packet structure, and runs the existing independent
+YouTube identity validator. Consumer Spark and manual packet transfer are not
+part of the ordinary path; the legacy validator remains backward compatible.
+
+The candidate preserves 21 MCP tools and produces a 26-operation Action schema
+(25 non-consequential research operations plus the isolated lesson write).
+Generated Instructions are 7,985 characters (8,015 UTF-8 bytes), SHA-256
+`e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`;
+Action OpenAPI SHA-256 is
+`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+synchronization-ledger SHA-256 is
+`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+and installation-bundle digest is
+`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+
+The route uses the existing aggregate $50 monthly AI ledger through one shared
+process-wide mutex owner and reserves at most $1 per Gemini call. Missing usage
+or provider failure is conservatively charged to the reservation. The ledger
+stores no request or candidate content. A validated result that would exceed
+the 60,000-byte Action ceiling becomes a small explicit blocked receipt. The
+public privacy and setup candidates disclose Google processing, no AskRigor
+candidate persistence, separate paid API billing, and the protected server-key
+boundary.
+
+No `ASKRIGOR_GEMINI_API_KEY` exists in production; no paid Gemini scout has run.
+The current deployed runtime therefore remains at 25 Actions and 21 MCP tools.
+Merge/deployment, provider activation, privacy-site deployment, plugin receipt,
+Custom GPT installation, and fresh product acceptance remain pending. After
+this integration is completed, begin Phase A of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`
+from fresh `main`; do not mix Phase A into this branch.
+
+The required pre-release lesson checkpoint at
+`2026-08-23T15:36:32.056Z` was available: 1 open candidate, 1 needing review,
+0 accepted but not incorporated, 3 incorporated or closed, and 0 deletion
+eligible. No unreviewed lesson expanded this task.
+
+The complete source gate passed: `npm run test:run` and `npm run verify` each
+reported 1,134 passed tests, six declared skips, 79 passing files, and one
+skipped file; verification also passed typechecking and the production build.
+Public-site validation passed all four pages, deployment validation passed
+28/28, and `npm audit --omit=dev` found zero vulnerabilities.
+
 ## 2026-08-23 deployed Unpaywall acquisition and method-audit release
 
 The merged runtime goes beyond Unpaywall metadata discovery. It automatically

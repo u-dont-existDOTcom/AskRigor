@@ -111,7 +111,7 @@ describe("treatment-landscape coverage Action", () => {
       operationId === "assess_treatment_landscape_coverage"
     );
 
-    expect(routes).toHaveLength(7);
+    expect(routes).toHaveLength(8);
     expect(route).toMatchObject({
       method: "POST",
       path: "/actions/research/assess_treatment_landscape_coverage",

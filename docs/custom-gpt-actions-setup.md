@@ -11,6 +11,8 @@ still be asked to approve a consequential call.
 The OpenAI API project and its billing are operationally separate from a
 ChatGPT subscription: **API billing is separate from ChatGPT billing**. The
 privacy-check API key stays only in the protected VPS runtime environment. The
+paid Gemini API project and billing are likewise separate from consumer Gemini
+or Spark subscriptions, and its key stays only in that protected environment. The
 dedicated Action Bearer key is installed only in the protected VPS environment
 and the GPT editor's authentication control. Neither key belongs in GPT
 instructions, the OpenAPI file, repository, image, issue queue, logs,
@@ -55,6 +57,7 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_UNPAYWALL_EMAIL` | Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential. |
 | `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
 | `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
+| `ASKRIGOR_GEMINI_API_KEY` | Dedicated restricted paid Gemini API project key for the stateless automated public-candidate scout. Without it the Action remains present and returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor. |
 | `ASKRIGOR_AI_BUDGET_LEDGER` | Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
 | `ASKRIGOR_AI_MONTHLY_BUDGET_USD` | Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`. |
 | `ASKRIGOR_GITHUB_APP_ID` | Positive decimal App ID. |
@@ -62,17 +65,20 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_GITHUB_PRIVATE_KEY_BASE64` | Base64-encoded dedicated server-only App private key. |
 | `ASKRIGOR_LESSONS_REPOSITORY` | Exact private repository name `u-dont-existDOTcom/AskRigor-lessons`. |
 
-The server enforces a hard monthly cap of **$50.00**, recorded as an aggregate
-nano-USD ledger. The server accepts only the fixed privacy model
+The server enforces one shared hard monthly cap of **$50.00**, recorded as an aggregate
+nano-USD ledger. Each Gemini scout must reserve at most **$1.00** from that
+same cap before provider execution. The server accepts only the fixed privacy model
 `gpt-5.4-nano-2026-03-17`; no moving alias is allowed.
-The request uses `store: false`. Budget exhaustion, ledger failure,
+The privacy and Gemini requests use provider storage-disabled modes. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses
-screening or reaches GitHub.
+screening or reaches GitHub. The Gemini route also fails closed on missing
+grounded-search receipts, mismatched executed queries, invalid candidate JSON,
+or an oversized validated frontier.
 
 ## 3. Configure the Custom GPT from the generated packet
 
 Treat installation as one transaction, not three independent edits. The
-Instructions, live Action schema, and Gemini Spark scout skill must match the
+Instructions, live Action schema, and checked-in Gemini scout-instruction source must match the
 single `installation_bundle` in `docs/custom-gpt-sync.json`. Updating only the
 Instructions is a failed installation even when the editor saves successfully;
 it leaves newly required tools invisible and must never be reported as current.
@@ -93,9 +99,10 @@ Privacy: https://askrigor.com/privacy
    must arrive as verified runtime Action results, not stale uploaded copies.
 4. Import the Action URL, select **API Key** then **Bearer**, and retain only
    the existing protected Action key in the editor authentication control.
-5. Confirm the 24 research operations are non-consequential, including the
+5. Confirm the 25 research operations are non-consequential, including the
    Action-only `get_youtube_transcript` and
    `assess_treatment_landscape_coverage`, plus
+   `scout_gemini_youtube_candidates`,
    `validate_gemini_youtube_candidate_handoff`, the four open-full-text and
    method-audit operations, and the single
    `submit_lesson_candidate` operation remains consequential. The MCP inventory
@@ -108,7 +115,7 @@ Before calling the installation current, record the exact three member digests
 and bundle digest from `docs/custom-gpt-sync.json`. In the editor, confirm the
 complete operation list after importing the live schema—not merely that an
 Action with the old name still exists. A broad-treatment replay must visibly
-call `validate_gemini_youtube_candidate_handoff`, `get_youtube_transcript`, and
+call `scout_gemini_youtube_candidates`, `get_youtube_transcript`, and
 `assess_treatment_landscape_coverage`. If the last two are absent, re-import the
 schema URL; do not attempt the research with a stale Action.
 
@@ -118,7 +125,7 @@ Do not stop at a source merge when deployment and installation are authorized.
 Complete and verify each distinct surface in order:
 
 1. deploy the exact reviewed `main` commit and retain a rollback image/config;
-2. directly verify health, the 25-operation Action document, protocol
+2. directly verify health, the 26-operation Action document, protocol
    manifests/integrity, and security boundaries;
 3. verify the installed AskRigor plugin exposes exactly the reviewed 21 MCP
    tools, returns the newly deployed protocol manifests, and completes one
@@ -285,6 +292,15 @@ creator said or whether a treatment works. Preserve the returned complete
 frontier receipt. Retryable identity failures remain unresolved; every
 validated lead must be screened regardless of caller materiality or redundancy
 labels before broad synthesis.
+
+`scout_gemini_youtube_candidates` is the ordinary automated route. It accepts
+only a de-identified population-level target and diagnosis-status category,
+rejects personal or identifier-bearing text before any provider work, calls
+Gemini with interaction storage disabled, reconciles the actual Google Search
+queries, and feeds the strict packet directly into the same independent
+YouTube validator. It retrieves no captions or discussions and cannot authorize
+synthesis. The manual validator above exists for historical compatibility, not
+as a step the user must perform.
 
 ## 5. Synthetic acceptance and queue status
 

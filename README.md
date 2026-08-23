@@ -271,17 +271,16 @@ response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 
-Production exposes 20 public research reads plus the lesson write, including
-the Action-only treatment-landscape assessor and Gemini Spark candidate
-validator, while preserving the exact frozen 17-tool MCP. Spark remains an
-optional high-recall
-finder: public identities are checked independently, its complete candidate
-frontier is preserved, non-identity validation failures remain unresolved,
-every validated
-candidate is screened, and provisional summaries are not transcript
-verification or treatment evidence. The runtime and Action schema are deployed
-and directly accepted; the current Instructions are not yet installed in the
-editor.
+The deployed release exposes 24 public research reads plus the lesson write and
+the exact 21-tool MCP. The current source candidate adds one Action-only
+automated Gemini scout, for 25 reads plus the lesson write, while MCP stays at
+21. The scout accepts only a de-identified population target, runs a stateless
+Google-grounded candidate search, and independently validates public YouTube
+identities. Its complete frontier is preserved, non-identity failures remain
+unresolved, every validated candidate is screened, and provisional summaries
+are not transcript verification or treatment evidence. That new route is not
+deployed or provider-enabled until its explicit release and paid-provider gates
+pass.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application

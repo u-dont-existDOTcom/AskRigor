@@ -127,8 +127,9 @@ describe("Custom GPT partial-answer regressions", () => {
     );
 
     for (const required of [
-      "require supplied `gemini_youtube_candidate_handoff`",
-      "Action setup is out of date and stop",
+      "call `scout_gemini_youtube_candidates`",
+      "Never ask the user to copy a packet",
+      "Only an absent operation means stale Actions",
       "hard-block synthesis below 8 fully audited videos/6 audited programs",
       "A missing title/link is a render failure",
       "Ordinary answers omit API-visible"

@@ -29,6 +29,7 @@ const READ_OPERATION_IDS = [
   "survey_youtube_community",
   "audit_youtube_video_community",
   "assess_treatment_landscape_coverage",
+  "scout_gemini_youtube_candidates",
   "validate_gemini_youtube_candidate_handoff",
   "acquire_open_full_text",
   "continue_open_full_text",
@@ -56,7 +57,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
     expect(packet.syncJson).toBe(sync);
   });
 
-  it("contains 24 reads, including all Action-only reads, and one authenticated write", async () => {
+  it("contains 25 reads, including all Action-only reads, and one authenticated write", async () => {
     const packet = await generateCustomGptPacket();
     const document = JSON.parse(packet.openApiJson) as {
       paths: Record<string, Record<string, {
@@ -83,7 +84,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       security: [{ bearerAuth: [] }],
       "x-openai-isConsequential": true
     });
-    expect(operations).toHaveLength(25);
+    expect(operations).toHaveLength(26);
   });
 
   it("keeps the compact instructions complete, bounded, and free of stale Knowledge", async () => {
@@ -109,7 +110,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
       "Metadata/comments cannot establish creator content",
       "and pre-/postoperative care stage",
       "`assess_treatment_landscape_coverage`",
-      "`validate_gemini_youtube_candidate_handoff`",
+      "`scout_gemini_youtube_candidates`",
       "summary was not checked against a transcript",
       "specific implementations",
       "Require all three locks pass",
@@ -212,6 +213,7 @@ describe("deterministic Custom GPT synchronization packet", () => {
         ![
           "get_youtube_transcript",
           "assess_treatment_landscape_coverage",
+          "scout_gemini_youtube_candidates",
           "validate_gemini_youtube_candidate_handoff"
         ].includes(id)
       ),

@@ -89,8 +89,13 @@ const geminiCandidateV1Schema = z.object({
   }
 });
 
+export const GEMINI_YOUTUBE_SUMMARY_BASIS =
+  "gemini_public_search_or_video_context_not_transcript_verified_by_askrigor" as const;
+export const LEGACY_SPARK_YOUTUBE_SUMMARY_BASIS =
+  "spark_public_video_context_not_transcript_verified_by_askrigor" as const;
 export const geminiYoutubeSummaryBasisSchema = z.enum([
-  "spark_public_video_context_not_transcript_verified_by_askrigor"
+  GEMINI_YOUTUBE_SUMMARY_BASIS,
+  LEGACY_SPARK_YOUTUBE_SUMMARY_BASIS
 ]);
 
 const geminiCandidateV2Schema = geminiCandidateV1Schema.safeExtend({
@@ -207,7 +212,8 @@ const provisionalAnnotationsSchema = z.object({
   population_or_stage: boundedText(500),
   outcome_and_horizon: boundedText(500),
   summary_basis: z.enum([
-    "spark_public_video_context_not_transcript_verified_by_askrigor",
+    GEMINI_YOUTUBE_SUMMARY_BASIS,
+    LEGACY_SPARK_YOUTUBE_SUMMARY_BASIS,
     "legacy_spark_annotation_not_transcript_verified_by_askrigor"
   ]),
   why_surfaced: geminiCandidateV1Schema.shape.why_surfaced
@@ -289,7 +295,7 @@ export const geminiYoutubeCandidateValidationReceiptSchema = z.object({
   eligible_seed_video_ids: z.array(youtubeVideoIdSchema).max(8),
   access_boundaries: z.tuple([
     z.literal(
-      "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
+      "Gemini scout summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only."
     ),
     z.literal(
       "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality."
@@ -527,7 +533,7 @@ export async function validateGeminiYoutubeCandidateHandoff(
     suggested_seed_receipts: suggestedSeedReceipts,
     eligible_seed_video_ids: eligibleSeedVideoIds,
     access_boundaries: [
-      "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only.",
+      "Gemini scout summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only.",
       "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality.",
       "Comment-audit eligibility is mechanical; AskRigor must still perform protocol-governed semantic selection and any required audit.",
       "No YouTube comments or transcripts were retrieved by this validation."

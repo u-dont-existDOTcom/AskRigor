@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   MONTHLY_AI_BUDGET_NANO_USD,
   createFileAiBudget,
+  createSharedFileAiBudget,
 } from "../apps/research-mcp/src/lessons/ai-budget.js";
 
 const temporaryDirectories: string[] = [];
@@ -27,6 +28,18 @@ describe("persistent lesson AI budget", {
 }, () => {
   it("uses an exact hard monthly limit of $50.00 in nano-USD", () => {
     expect(MONTHLY_AI_BUDGET_NANO_USD).toBe(50_000_000_000);
+  });
+
+  it("shares one process-wide mutex owner for services using the same ledger", async () => {
+    const { ledgerPath } = await temporaryLedger();
+    const options = {
+      ledgerPath,
+      monthlyLimitNanoUsd: MONTHLY_AI_BUDGET_NANO_USD,
+      expectedUid: process.getuid?.(),
+      now: () => new Date("2026-08-23T10:00:00.000Z"),
+    };
+
+    expect(createSharedFileAiBudget(options)).toBe(createSharedFileAiBudget(options));
   });
 
   it("serializes concurrent reservations so their total cannot exceed the limit", async () => {

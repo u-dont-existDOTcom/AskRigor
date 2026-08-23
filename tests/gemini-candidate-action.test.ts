@@ -192,7 +192,7 @@ function rejectedReceipt(): GeminiYoutubeCandidateValidationReceipt {
     }],
     eligible_seed_video_ids: [],
     access_boundaries: [
-      "Spark video summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only.",
+      "Gemini scout summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only.",
       "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality.",
       "Comment-audit eligibility is mechanical; AskRigor must still perform protocol-governed semantic selection and any required audit.",
       "No YouTube comments or transcripts were retrieved by this validation."

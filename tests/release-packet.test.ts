@@ -112,6 +112,15 @@ describe("AskRigor public-review packet", () => {
     expect(automation).toContain("Git is required at runtime");
   });
 
+  it("packages the exact automated Gemini scout instructions into the runtime image", async () => {
+    const dockerfile = await readFile(rootFile("Dockerfile"), "utf8");
+
+    expect(dockerfile.match(
+      /^COPY .*integrations\/gemini-spark\/scout-youtube-for-askrigor-staged\/SKILL\.md .*integrations\/gemini-spark\/scout-youtube-for-askrigor-staged\/SKILL\.md$/gmu
+    )).toHaveLength(2);
+    expect(dockerfile).not.toContain("COPY integrations ./integrations");
+  });
+
   it("documents the exact lesson data, setup, and rollback boundary", async () => {
     const [setup, privacyMap, privacySite, readme, checklist, openApi, releaseEvidence] = await Promise.all([
       readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
@@ -134,6 +143,7 @@ describe("AskRigor public-review packet", () => {
       ASKRIGOR_UNPAYWALL_EMAIL: "Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential.",
       ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
       OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
+      ASKRIGOR_GEMINI_API_KEY: "Dedicated restricted paid Gemini API project key for the stateless automated public-candidate scout. Without it the Action remains present and returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor.",
       ASKRIGOR_AI_BUDGET_LEDGER: "Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`.",
       ASKRIGOR_AI_MONTHLY_BUDGET_USD: "Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`.",
       ASKRIGOR_GITHUB_APP_ID: "Positive decimal App ID.",

@@ -1,6 +1,51 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-23 automated Gemini YouTube scout candidate
+
+This candidate replaces the owner-operated consumer-Spark packet transfer with
+the public read-only `scout_gemini_youtube_candidates` Action. The server sends
+only a deterministically screened, de-identified population-level target and
+the checked-in public scout instructions to the fixed paid Gemini model with
+interaction storage disabled. It reconciles 8–18 actual Google Search receipts,
+parses a strict bounded packet, independently validates every YouTube identity,
+and returns only a provisional candidate frontier. It does not retrieve
+captions or discussions, establish creator content or treatment evidence, or
+authorize synthesis. The legacy packet validator remains available only for
+backward compatibility.
+
+The generated candidate Instructions are 7,985 characters (8,015 UTF-8 bytes),
+SHA-256 `e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`.
+The candidate Action OpenAPI SHA-256 is
+`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+the synchronization ledger SHA-256 is
+`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+the checked-in scout-instruction SHA-256 is
+`562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645`;
+and the installation-bundle digest is
+`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+The candidate schema contains 25 non-consequential research Actions plus the
+isolated consequential lesson write, while MCP remains exactly 21 tools.
+
+The route shares the existing aggregate $50 monthly AI ledger and reserves at
+most $1 per scout, never stores target or candidate content in that ledger, and
+returns a small explicit boundary rather than an oversized Action response.
+The public privacy candidate now names Google Gemini/Search, the screened data,
+provider processing, stateless request, and absence of AskRigor candidate
+persistence. No Gemini credential exists in the current production environment,
+so this source candidate is not live and no paid provider call has been made.
+Provider activation, privacy-site deployment, source merge, Custom GPT editor
+installation, and fresh product acceptance remain pending the recorded owner
+gate and later release checks. The deployed runtime remains the 25-Action,
+21-MCP release documented below.
+
+Deterministic verification passed 1,134 tests with six declared skips across
+79 passing files and one skipped file, followed by typechecking and the
+production build. The four-page public-site validator passed, deployment tests
+passed 28/28, and `npm audit --omit=dev` reported zero vulnerabilities. These
+checks establish the source candidate only; they do not substitute for a paid
+live Gemini/YouTube replay or Custom GPT product acceptance.
+
 ## 2026-08-23 deployed open-full-text audit release
 
 PR #58 merged automatic DOI full-text acquisition through

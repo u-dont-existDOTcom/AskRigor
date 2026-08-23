@@ -1,5 +1,32 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-23 automated Gemini scout candidate — acceptance pending
+
+The candidate packet exposes `scout_gemini_youtube_candidates` as a real
+server-side Action, so ordinary Custom GPT research no longer asks the owner to
+run consumer Spark or copy JSON. The candidate still requires deployment,
+provider activation, exact editor import, and a fresh broad-treatment replay;
+none is inferred from the static packet. Production remains at 25 Actions and
+21 MCP tools until that release occurs.
+
+Candidate Instructions are 7,985 characters (8,015 UTF-8 bytes), SHA-256
+`e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`;
+candidate Action OpenAPI SHA-256 is
+`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+candidate synchronization-ledger SHA-256 is
+`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+and the installation-bundle digest is
+`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+The candidate Action document has 26 operations and the MCP catalog remains
+exactly 21. The required live test must observe the automated scout call and
+downstream transcript, discussion, formal, method-audit, and treatment-coverage
+work; a successful candidate frontier alone cannot pass acceptance.
+
+The source gate passed 1,134 deterministic tests with six declared skips,
+typechecking, production build, all four public-site pages, 28/28 deployment
+tests, and a zero-vulnerability production dependency audit. No signed-in
+editor or live provider result is recorded in this candidate section.
+
 ## 2026-08-23 open-full-text audit deployment and direct acceptance
 
 The deployed runtime automatically tries Europe PMC and then

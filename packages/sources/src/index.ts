@@ -126,6 +126,8 @@ export {
   GEMINI_YOUTUBE_CANDIDATE_MODE,
   GEMINI_YOUTUBE_CANDIDATE_PACKET_NAME,
   GEMINI_YOUTUBE_CANDIDATE_PACKET_VERSION,
+  GEMINI_YOUTUBE_SUMMARY_BASIS,
+  LEGACY_SPARK_YOUTUBE_SUMMARY_BASIS,
   MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES,
   GeminiYoutubeCandidateHandoffError,
   geminiYoutubeCandidatePacketSchema,
@@ -145,6 +147,8 @@ export {
   type GeminiYoutubeCandidateValidationReceipt
 } from "./gemini-youtube-candidate-handoff.js";
 export {
+  GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS,
+  GEMINI_YOUTUBE_SCOUT_MODEL,
   scoutGeminiYoutubeCandidates,
   type GeminiYoutubeScoutConfig,
   type GeminiYoutubeScoutData,

@@ -28,6 +28,8 @@ export interface FileAiBudgetOptions {
   now: () => Date;
 }
 
+const sharedBudgets = new Map<string, AiBudget>();
+
 interface AiBudgetLedger {
   schema_version: 1;
   utc_month: `${number}-${number}`;
@@ -270,6 +272,24 @@ class FileAiBudget implements AiBudget {
 
 export function createFileAiBudget(options: FileAiBudgetOptions): AiBudget {
   return new FileAiBudget(options);
+}
+
+/**
+ * Returns one process-wide mutex owner for a ledger path. Multiple Action
+ * services must not independently reserve against the same file.
+ */
+export function createSharedFileAiBudget(options: FileAiBudgetOptions): AiBudget {
+  const expectedUid = options.expectedUid ?? process.getuid?.();
+  const key = JSON.stringify([
+    options.ledgerPath,
+    options.monthlyLimitNanoUsd,
+    expectedUid,
+  ]);
+  const existing = sharedBudgets.get(key);
+  if (existing) return existing;
+  const budget = createFileAiBudget(options);
+  sharedBudgets.set(key, budget);
+  return budget;
 }
 
 function freshLedger(now: Date): AiBudgetLedger {

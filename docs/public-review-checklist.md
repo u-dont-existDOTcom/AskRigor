@@ -1,5 +1,32 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-23 automated Gemini scout candidate
+
+The candidate adds one non-consequential server-side Action,
+`scout_gemini_youtube_candidates`, without changing the 21-tool MCP catalog.
+It removes the manual consumer-Spark packet handoff from ordinary research,
+rejects personal or identifying targets before any provider work, uses provider
+interaction storage-disabled mode, independently validates public YouTube
+identities, and preserves every downstream research gate.
+
+Generated Instructions are 7,985 characters (8,015 UTF-8 bytes), SHA-256
+`e0942d2f5a9ddb2e965357af896eab8990ae4058ad911aed558fd44872d96944`;
+the synchronization ledger SHA-256 is
+`6ea958cdfadb587bc72198e20715b8bf981acc718d1fae6b22c401d88b4db6dc`;
+the Action OpenAPI SHA-256 is
+`ea97ec2d3ddb2ca81504f171f1c496f84ed76d310f0c5824bcad76f3fe857fce`;
+and the installation-bundle digest is
+`ee8476a8a85cfbb7be70db3b5a51eb5d4cee4ffc74f9360ffcb905f158b8ade5`.
+The 26-operation source schema, reviewed privacy notice, protected Gemini key,
+paid-project controls, deployment, exact editor import, and fresh product replay
+are separate gates. The current live 25-Action deployment remains authoritative
+until those checks pass.
+
+Source verification passed: 1,134 deterministic tests with six declared skips,
+typechecking, production build, four-page site validation, 28/28 deployment
+tests, and zero production dependency vulnerabilities. Live provider quality,
+editor installation, and fresh product behavior remain deliberately unchecked.
+
 ## 2026-08-23 open-full-text audit deployed release
 
 The current bundle adds four public read-only full-text Actions and the

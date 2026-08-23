@@ -24,14 +24,18 @@ AskRigor has three deliberately separate processing paths:
   privacy check, and writes a private GitHub review candidate plus anonymous
   occurrence metadata. It is not an MCP operation and cannot change code,
   protocols, instructions, providers, or releases.
-- **Optional Gemini-candidate validation path:** an operator supplies one
-  de-identified Spark response containing public YouTube identifiers, displayed
-  titles/channels, executed queries, and provisional creator-claim summaries.
-  The local command or public read-only Custom GPT Action parses that packet,
-  requests bounded public video metadata through the existing YouTube adapter,
-  and returns a validation receipt. It is not an MCP route, retrieves no
-  comments or transcripts, makes no medical conclusion, and creates no
-  application-managed persistent store.
+- **Automated Gemini-candidate path:** a public read-only Action accepts only a
+  de-identified population-level research target and a diagnosis-status enum.
+  Deterministic screening rejects personal narratives, identifiers,
+  credentials, raw chat, URLs, and control/injection-like text before any
+  provider request. The server sends the screened target and checked-in public
+  scout instructions to the fixed Gemini model with Google Search and
+  `store:false`, parses strict candidate JSON, and independently validates each
+  public YouTube identity. It retrieves no comments or transcripts, makes no
+  medical conclusion, and creates no content-bearing persistent store. The
+  older operator-supplied validator remains only for backward-compatible
+  technical inspection of historical packets; ordinary research does not
+  require a person to transfer a packet.
 
 The lesson path is deployed from exact code revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` and passed its bounded synthetic
@@ -65,7 +69,8 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | Compound YouTube audit | user-supplied research question and labeled YouTube queries; bounded candidate/video selection; a complete small corpus or deterministic sample; corpus SHA-256; and a completion/synthesis-lock receipt | Performs reproducible multi-query discovery and complete API-visible acquisition in one request without making a medical conclusion. |
 | Adaptive per-video YouTube audit | video metadata; provider-reported comment count; exact top-level, reply, cumulative-retrieval, and returned-for-analysis counts; API-visible comments/replies; deterministic sample; rolling corpus digest; completion receipt; and optional opaque authenticated continuation state | Retrieves one important video's API-visible discussion over bounded calls while preserving exact depth and completion state. |
 | Treatment-landscape coverage assessment | caller-supplied research target; receipt-linked discovery batch queries/scopes, specific implementation/discriminator terms and results, literal access/pagination states, class IDs, and candidate IDs; complete external-scout frontier digests and candidate partitions; treatment-class labels/search/formal-follow-up/omission states; structured program fields with `program not described` normalized; public video and stable channel IDs, titles/dates, selection and omission states; projected transcript chain/language/caption/timestamp fields; projected comment-audit metadata/access/count/reply/lock fields; directional-search states; and terminal/retryable/recovery boundary fields | Reconciles the supplied ledger, derives valid counts and normalized program signatures, excludes invalid records from aggregates, and returns separate selection, per-video-depth, and overall workflow locks plus compact per-video records. It makes no provider call, persistence, semantic-completeness claim, efficacy judgment, or medical conclusion. |
-| Gemini Spark candidate validation | caller-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional program/stage/outcome summaries, independent public YouTube identity metadata, and a SHA-256 candidate-frontier receipt partitioning validated, terminally rejected, and unresolved IDs | Validates packet structure and public video identity so Spark leads can enter ordinary AskRigor screening without silently dropping retryable failures. Only video IDs are sent to YouTube; provisional summaries remain discovery annotations and are not transcript verification or treatment evidence. No comments or transcripts are retrieved and no data is persisted. |
+| Automated Gemini candidate scout and validation | screened de-identified population-level research target; diagnosis-status enum; checked-in scout instructions; aggregate token/Search usage; receipt-reconciled executed searches; public video IDs/URLs/titles/channels; provisional program/stage/outcome summaries; independent public YouTube identity metadata; and a SHA-256 frontier partitioning validated, terminally rejected, and unresolved IDs | Finds a broad public candidate frontier without manual transfer. Gemini receives only the screened target and public instructions in a stateless request. YouTube receives only candidate video IDs. Provisional summaries remain discovery annotations, not transcript verification or treatment evidence. No comments or transcripts are retrieved and no candidate content is persisted by AskRigor. |
+| Legacy Gemini packet validation | operator-supplied de-identified research target, executed searches, public video identity fields, and provisional annotations | Preserves backward-compatible technical validation of historical packets. It is not the ordinary automated research path and creates no additional store. |
 | Completeness/accounting data | top-level/reply counts, mismatch identifiers, page counts, API-visible coverage, output/text byte counts, elapsed time, and provider request attempts | Shows whether a comment corpus is complete, partial, inaccessible, or failed. |
 
 The source-generated full MCP `tools/list` inventory, including every advertised
@@ -132,15 +137,16 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 
 | Location | Data handled | Persistent storage in v0 |
 | --- | --- | --- |
-| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public open-publication content and audit fields, public YouTube identity/comment/caption data, Gemini candidate-validation annotations, treatment-landscape coverage fields, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map rows below. No database, file store, account profile, queue, durable full-text store, transcript-text store, candidate-packet store, treatment-landscape store, or server-side comment corpus is implemented. Transcript continuations re-fetch the selected track; only compact chain metadata is retained under the bounded row below. The coverage assessor makes no provider call. |
+| MCP or Custom GPT research Action request and adapter memory | Request parameters, provider responses, normalized metadata, public open-publication content and audit fields, public YouTube identity/comment/caption data, screened Gemini scout target and provisional candidate annotations, treatment-landscape coverage fields, and the current bounded segment used to update a deterministic sample and rolling corpus digest | Used for the active request only except for the exact Action handle-map rows below. No database, file store, account profile, queue, durable full-text store, transcript-text store, candidate-packet store, treatment-landscape store, or server-side comment corpus is implemented. Gemini requests set `store:false`; AskRigor retains no provider interaction ID or candidate content after the active response. Transcript continuations re-fetch the selected track; only compact chain metadata is retained under the bounded row below. The coverage assessor makes no provider call. |
 | MCP client-carried continuation state | The minimized, opaque authenticated continuation state described above | Returned to the invoking MCP client and processed transiently if resubmitted within one hour. The server keeps no matching MCP session record. |
 | Custom GPT Action continuation handle map | A short random handle mapped to the existing signed minimized token; no comment/reply text, author identity, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 16 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires an approved sticky-routing or shared-state design. |
 | Custom GPT transcript Action continuation handle map | A short random handle mapped to compact transcript chain metadata: provider cursor, public video ID, selected-track metadata, caption-snapshot hash, page size/count, cumulative segment count, next expected index, and timestamp-presence state; no caption text, title, channel name, request text, provider credential, or protocol text | Process memory only on the single application replica, no longer than one hour, at most 2,048 handles and 4 MiB. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; there is no durable research-session store. Horizontal scaling requires approved sticky routing or shared state. |
 | Open-full-text Action handle map | A short random handle mapped to one exact identity-verified public document index plus the next block/character cursor, segment counts, public source metadata, manuscript version, and document/block hashes | Process memory only on the single application replica, no longer than one hour, at most 64 handles and 128 MiB total. The map may contain extracted public publication text but no private copy, provider credential, or user health record. Server restart, expiry, or capacity eviction removes access. Nothing is written to disk or application logs; horizontal scaling requires approved sticky routing or shared state. |
 | MCP or Custom GPT research Action response | The normalized fields in the table above. Action protocol and open-full-text reads use exact ordered chunks; transcript pages contain bounded timestamped caption segments; oversized per-video community samples may be deterministically transport-bounded without changing retrieval counts, digest, access state, or receipt. | Delivered to the connected client. The client/ChatGPT may retain conversation or tool-result data under its own terms; AskRigor v0 does not control that retention. |
 | Server logs | In routine operation the application emits a startup line only. A disabled-by-default MCP connector diagnostic can be enabled temporarily by a maintainer. It emits only a fixed route class, HTTP method class, coarse header/media-presence classes, selected JSON-RPC phase class, completion class, and response status. It never emits a URL or query, IP/network address, user-agent, header value, request or response body, JSON-RPC ID, tool name or argument, prompt, provider payload, comment text, user identifier, or credential. Infrastructure may independently process operational metadata such as time, route, HTTP status, latency, IP/network data, or security signals. | No request-body, response-body, candidate-content, or dedicated application access log is emitted or stored. The temporary connector diagnostic is restricted to a troubleshooting window and must be disabled by recreating the diagnostic container after the needed receipt is captured; its active container log is not a durable research-session store. Infrastructure retention and backups follow each provider's configured policy and are outside AskRigor's application storage. |
-| Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall | Europe PMC, Unpaywall, and any public publisher or repository serving an Unpaywall-discovered copy process requests under their own policies; AskRigor does not persist a provider-side copy. |
-| Optional local Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
+| Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall and the screened population-level target plus public scout instructions sent to Gemini | Europe PMC, Unpaywall, public copy hosts, Google Gemini, Google Search, and YouTube process requests under their own policies. Gemini uses the paid fixed model with `store:false`; the key is server-only. AskRigor does not claim to control provider processing or retain a provider-side copy. |
+| Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini call reserves at most $1 before provider execution. |
+| Optional local legacy Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the historical input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
 
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
@@ -212,6 +218,9 @@ Recipients and provider boundaries are therefore distinct:
 - the AskRigor server receives and validates the generalized structured lesson
   candidate;
 - OpenAI receives those derived fields for the fixed privacy check;
+- Google Gemini receives only a deterministically screened, de-identified
+  population-level research target plus the public candidate-scout
+  instructions; Google Search runs inside that stateless provider request;
 - GitHub receives only the approved private issue fields and anonymous
   recurrence metadata;
 - ChatGPT handles the surrounding conversation and Action result under its own
@@ -219,7 +228,7 @@ Recipients and provider boundaries are therefore distinct:
 - infrastructure providers may process bounded operational metadata for
   security and service operation.
 
-OpenAI API, GitHub, ChatGPT, infrastructure, and research-data providers govern
+OpenAI API, Google Gemini/Search, GitHub, ChatGPT, infrastructure, and research-data providers govern
 their own processing and retention under their respective policies. AskRigor
 does not claim to control provider-side copies or deletion schedules.
 
@@ -256,7 +265,7 @@ history, transcript store, user profile, or automatic-learning database.
 
 ## Response minimization and security controls
 
-- Every MCP tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; the Action-only transcript, treatment-landscape, and Gemini-candidate-validation routes are likewise public, read-only, and non-consequential. No research operation changes provider, user, or server state.
+- Every MCP tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; the Action-only transcript, treatment-landscape, automated Gemini-candidate, and legacy validation routes are likewise public, read-only, and non-consequential. The automated scout consumes bounded provider quota but changes no provider, user, or server content.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Adaptive YouTube continuations are HMAC-authenticated, expire one hour after the chain starts, and disclose neither the server secret nor comment/author content inside the token.
 - Direct MCP clients carry that token. The Custom GPT Action returns a short
@@ -267,6 +276,7 @@ history, transcript store, user profile, or automatic-learning database.
   and a SHA-256 of the selected caption snapshot. They contain no caption text;
   a changed snapshot fails closed and requires a restart.
 - Provider access failures remain explicit (`inaccessible`, `rate_limited`, `not_found`, or `error`) and never become negative evidence.
+- The automated Gemini route rejects first-person or identifier-bearing targets before credentials, budget, or provider access; uses a fixed model, `store:false`, strict structured output, reconciled Search-call receipts, a 45-second upstream deadline, a $1 per-call reservation, and the shared $50 monthly aggregate limit; and never returns the provider key, invalid raw output, thought content, or search-result HTML.
 - Transcript access uses an unofficial HTTPS-only, host-allowlisted YouTube interface with one bounded request deadline and bounded provider bodies. `api_visible_complete` covers only the selected caption track; caption text is not independently verified and may be automatic or inaccurate.
 - The public route is fail-closed, has bounded request body/concurrency/rate limits, and does not return credentials. Source tests check that a test YouTube key never appears in results.
 - Comment retrieval reports API-visible coverage only. It does not claim access to deleted, moderated, private, hidden, held-for-review, unavailable, or never-posted material.
