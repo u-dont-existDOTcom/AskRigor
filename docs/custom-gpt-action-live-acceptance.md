@@ -2,11 +2,34 @@
 
 ## 2026-08-23 automated Gemini scout deployed — provider and UI acceptance pending
 
+The protected Gemini key was installed after the deployment receipt below and
+only `research-mcp` was recreated. The exact image remained
+`sha256:bec3fa4f4f19ca76e123a546b818f572f05df49d68281feb67558880eea32da3`
+and healthy. The first paid de-identified replay failed closed before producing
+any Google Search receipt or candidate: the Action returned
+`gemini_youtube_scout_request_failed`, no raw provider output, and the
+conservative $1 reservation was charged.
+
+Sanitized diagnostics proved the key and fixed
+`gemini-3.6-flash` model are valid, a minimal Interactions request succeeds,
+and Google accepts the generation settings plus a shallow JSON response shape.
+It rejects the complete nested candidate-packet validation schema, consistent
+with Gemini's documented structured-output complexity limit. A one-query
+Google Search shape probe also confirmed `arguments.queries`, search-result and
+text-output steps, and the absence of an interaction ID when `store:false`.
+The repair therefore gives Gemini only the empirically accepted shallow JSON
+shape, derives a content-safe SHA-256 receipt identifier for stateless
+responses, and preserves the unchanged strict AskRigor packet parser as the
+authoritative acceptance gate. Focused adapter/Action tests pass 19/19 and the
+complete deterministic gate passes 1,137 tests with six declared skips,
+typechecking, and build. Deployment of that repair and a fresh paid replay
+remain pending.
+
 The deployed packet exposes `scout_gemini_youtube_candidates` as a real
 server-side Action, so ordinary Custom GPT research no longer asks the owner to
 run consumer Spark or copy JSON. Exact merge
 `bcb494c11277aac41f736e8a050758d238536cbb` is active in production. The
-provider key, exact editor import, and a fresh broad-treatment replay remain
+successful provider replay, exact editor import, and a fresh broad-treatment replay remain
 required; none is inferred from the deployed schema. Production now exposes
 26 Actions and preserves the exact 21-tool MCP catalog.
 
