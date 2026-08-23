@@ -16,7 +16,7 @@ Spark eligibility.
 
 The candidate-only skill does not call the AskRigor custom app. An existing
 connection to `https://mcp.askrigor.com/mcp/gemini` may remain installed, but it
-is not required for this workflow. The public endpoint remains at 17 expected
+is not required for this workflow. The public endpoint currently exposes 21
 read-only tools; this change adds no deployed tool or credential.
 
 ## Install the replacement skill once
