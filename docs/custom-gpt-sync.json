@@ -2,7 +2,7 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6"
+      "sha256": "99e5f45fb0b27e7dc4943f0896d5a6de66c910819ad1a2a9bfd8df53212749e3"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
@@ -21,8 +21,8 @@
   },
   "generated_at": "2026-08-23",
   "installation_bundle": {
-    "action_schema_sha256": "9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6",
-    "bundle_sha256": "9e9f8c00118c09114802310e1651b467949af72f7f7a646510f0514f8e1c4e92",
+    "action_schema_sha256": "99e5f45fb0b27e7dc4943f0896d5a6de66c910819ad1a2a9bfd8df53212749e3",
+    "bundle_sha256": "ada3338d73a255088ee8b2033cb63201a4956fab3011b97bf5279bd561f5db30",
     "instructions_sha256": "667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1",
     "spark_skill_sha256": "bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08"
   },

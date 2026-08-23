@@ -15,12 +15,12 @@ lead; its unseen contents are not evidence.
 The generated candidate Instructions are 7,957 characters (7,987 UTF-8 bytes),
 SHA-256 `667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`.
 The candidate Action OpenAPI SHA-256 is
-`9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6`;
+`99e5f45fb0b27e7dc4943f0896d5a6de66c910819ad1a2a9bfd8df53212749e3`;
 the synchronization ledger SHA-256 is
-`fe8b6e925eff3ad40d844c6cfb67113e93f7012deac139e942ab7562bd189680`;
+`2c896b263ad47a37637f823bc6f3807b9f05a1fb8724ff5af3bcb7576afad1bc`;
 and the installation-bundle digest is
-`9e9f8c00118c09114802310e1651b467949af72f7f7a646510f0514f8e1c4e92`.
-The complete deterministic gate passed 1,119 tests with six declared skips
+`ada3338d73a255088ee8b2033cb63201a4956fab3011b97bf5279bd561f5db30`.
+The complete deterministic gate passed 1,121 tests with six declared skips
 across 78 passing files and one skipped file, followed by typechecking and the
 production build. Public-site validation passed for four pages, the deployment
 suite passed 28/28, and `npm audit --omit=dev` reported zero vulnerabilities.

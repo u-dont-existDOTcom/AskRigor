@@ -17,10 +17,10 @@ Action schema. The generated Instructions are 7,957 characters (7,987 UTF-8
 bytes), SHA-256
 `667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`;
 the Action OpenAPI SHA-256 is
-`9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6`;
+`99e5f45fb0b27e7dc4943f0896d5a6de66c910819ad1a2a9bfd8df53212749e3`;
 and the synchronization ledger SHA-256 is
-`fe8b6e925eff3ad40d844c6cfb67113e93f7012deac139e942ab7562bd189680`.
-The complete deterministic gate passed 1,119 tests with six declared skips,
+`2c896b263ad47a37637f823bc6f3807b9f05a1fb8724ff5af3bcb7576afad1bc`.
+The complete deterministic gate passed 1,121 tests with six declared skips,
 typechecking, and the production build. Public-site and deployment validation
 passed, the production dependency audit found zero vulnerabilities, and a
 bounded live Unpaywall smoke completed secure PDF acquisition, extraction,

@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -37,7 +38,7 @@ export async function createToolInventory(): Promise<ToolInventory> {
     return {
       generated_from: "MCP tools/list against createAskRigorServer()",
       endpoint: "https://mcp.askrigor.com/mcp",
-      tools: tools as unknown as ToolInventoryEntry[]
+      tools: JSON.parse(JSON.stringify(tools)) as ToolInventoryEntry[]
     };
   } finally {
     await client.close();
@@ -49,5 +50,14 @@ if (
   process.argv[1] !== undefined &&
   fileURLToPath(import.meta.url) === resolve(process.argv[1])
 ) {
-  console.log(JSON.stringify(await createToolInventory(), null, 2));
+  const output = `${JSON.stringify(await createToolInventory(), null, 2)}\n`;
+  if (process.argv[2] === "--write") {
+    await writeFile(
+      new URL("../docs/tool-inventory-v0.1.0.json", import.meta.url),
+      output,
+      "utf8"
+    );
+  } else {
+    process.stdout.write(output);
+  }
 }

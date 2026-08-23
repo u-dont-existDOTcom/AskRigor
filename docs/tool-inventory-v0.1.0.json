@@ -1032,12 +1032,12 @@
         "properties": {
           "doi": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 2048
+            "maxLength": 2048,
+            "pattern": "^(?:https?:\\/\\/(?:dx\\.)?doi\\.org\\/)?10\\.\\d{4,9}\\/[!#$%&'*+\\-._;()/:a-z0-9]+$"
           },
           "pmcid": {
             "type": "string",
-            "maxLength": 32
+            "pattern": "^PMC[1-9]\\d{0,15}$"
           }
         },
         "required": [

@@ -30,9 +30,12 @@ import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js
 const SEGMENT_CHARACTERS = 10_000;
 const RESPONSE_TEXT_CHARACTERS = 38_000;
 const handleSchema = z.string().regex(/^aft1_[A-Za-z0-9_-]{32}$/u);
+const actionDoiSchema = z.string().trim().max(2_048).regex(
+  /^(?:https?:\/\/(?:dx\.)?doi\.org\/)?10\.\d{4,9}\/[!#$%&'*+\-._;()/:a-z0-9]+$/iu
+);
 export const acquireOpenFullTextActionInputSchema = z.object({
-  doi: z.string().trim().min(1).max(2_048),
-  pmcid: z.string().trim().max(32).optional()
+  doi: actionDoiSchema,
+  pmcid: z.string().trim().regex(/^PMC[1-9]\d{0,15}$/iu).optional()
 }).strict();
 export const continueOpenFullTextActionInputSchema = z.object({
   document_handle: handleSchema

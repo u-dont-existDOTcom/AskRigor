@@ -17,6 +17,25 @@ import {
 const DOI = "10.1234/open.study";
 
 describe("open-full-text Actions", () => {
+  it.each([
+    [{ doi: "not-a-doi" }],
+    [{ doi: DOI, pmcid: "PMC0" }]
+  ])("rejects malformed study identifiers at the Action boundary", async (body) => {
+    const acquire = vi.fn(async () => acquisition(documentIndex("unused")));
+    const routes = createOpenFullTextActionRoutes({
+      acquire,
+      unpaywallConfig: { email: "research@example.org" }
+    });
+
+    const result = await action(routes, "acquire_open_full_text", body);
+
+    expect(result).toEqual({
+      status: 422,
+      body: { error: { code: "action_input_invalid", retryable: false } }
+    });
+    expect(acquire).not.toHaveBeenCalled();
+  });
+
   it("forces contiguous full-text reading before accepting a method audit", async () => {
     const index = documentIndex("A method-rich source paragraph. ".repeat(1_500));
     const routes = createOpenFullTextActionRoutes({
