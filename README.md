@@ -271,18 +271,18 @@ response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 
-The deployed release exposes 24 public research reads plus the lesson write and
-the exact 21-tool MCP. The current source candidate adds one Action-only
-automated Gemini scout, for 25 reads plus the lesson write, while MCP stays at
-21. The scout accepts only a de-identified population target, runs a stateless
+The deployed release exposes 25 public research reads plus the lesson write and
+the exact 21-tool MCP. One Action-only automated Gemini scout accepts only a
+de-identified population target and runs a storage-disabled
 Google-grounded candidate search, reconstructs a compact fixed-column response
 into the strict canonical packet, and independently validates public YouTube
 identities. One storage-disabled no-search correction is allowed when the
-initial packet is malformed; a second failure closes the route. Its complete frontier is preserved, non-identity failures remain
+initial packet is malformed; a second failure closes the route. Its complete
+frontier is preserved, non-identity failures remain
 unresolved, every validated candidate is screened, and provisional summaries
-are not transcript verification or treatment evidence. That new route is not
-deployed or provider-enabled until its explicit release and paid-provider gates
-pass.
+are not transcript verification or treatment evidence. The route is deployed
+and its live correction-plus-identity-validation path has passed; downstream
+research gates remain required.
 
 The Actions use the same transient provider-retrieval implementation and one
 shared per-client token bucket and concurrency pool with MCP. Application

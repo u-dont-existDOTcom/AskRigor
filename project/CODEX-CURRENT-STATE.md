@@ -1,6 +1,47 @@
 # AskRigor Codex Current State
 
-## 2026-08-23 automated Gemini YouTube scout compact repair in progress
+## 2026-08-23 automated Gemini YouTube scout deployed and live accepted
+
+PR #67 merged as `8b26dcef2d4f9b892df909391f8253545dd67399`. Its exact
+healthy production image is
+`sha256:bac9483e2bb2b96c0ea3da6ff12f3af840ef3bc40e3176a2f9c0b4d3583de917`
+in read-only `node` container `67768684e184`. Production exposes 26 Actions
+and 21 MCP tools; compact OpenAPI SHA-256 is
+`51ed214117ededcecd46162fddcfb08ede1f0b56067f6b6dd137c831d14190f4`.
+Active Compose SHA-256 is
+`91cb6137660e4335557dff98c4f5e8bba53792ca3225bf327b68e0bf99ceaa8b`;
+rollback retains PR #66 image
+`sha256:567c2a3d1ebf9dfec1463645268370302b106dcb6fde8ec85db2811942b4e241`
+and Compose SHA-256
+`9ba48dfaac2ba3e2e8a0ab47a75b89941973b852e7d84ab312038e9054ff291f`.
+The live privacy page exactly matches source SHA-256
+`05f3a15dd6918f27636b7d42dd03e1a1ddfe4ac8787fd533a2d5f5ef617515ff`.
+
+One paid production replay exercised the repair rather than bypassing it. The
+first compact packet failed strict validation, the single no-search correction
+succeeded, and no second discovery batch ran. Ten reconciled searches yielded
+8 source candidates; independent YouTube validation accepted 6, rejected 2
+wrong-channel declarations, and left 0 unresolved. The validated candidates
+span distinct glute-focused, avoid-aggravation, and progressive-strengthening
+programs plus regenerative injection, nutrition, and corticosteroid-risk
+directions. The rejected candidates were genuine surgery videos but cannot
+count as accepted evidence until their identity declarations are correct.
+Frontier digest is
+`1a4201faa116002299bd2b339614f6ee7f6013ab8adde5575a03e4582c7d631d`.
+The Action returned no blocking boundary and truthfully reported
+`correction_attempted: true`, two storage-disabled interactions, combined token
+usage, and 177,657,500 accounted nano-USD.
+
+The Codex plugin is installed/enabled and byte-identical to its validated
+source at `0.1.0+codex.20260823192716`; no package change or reinstall was
+needed. The exact generated Instructions are on the desktop clipboard and the
+single exact GPT editor URL was opened. The environment cannot observe or
+control the signed-in editor, so editor save/schema refresh and the fresh
+Custom GPT product replay remain pending. Do not open repeated editor windows.
+
+After the evidence follow-up merges, begin Phase A of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`
+from fresh `main`; do not mix controller work into this evidence branch.
 
 PR #66 merged as `c1dc216bd8a203fe3a49ac8c876f5d1d00320c80` and its exact
 healthy production image is

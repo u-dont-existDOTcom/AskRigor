@@ -3,6 +3,40 @@
 
 ## 2026-08-23 deployed automated Gemini YouTube scout
 
+PR #67 merged as `8b26dcef2d4f9b892df909391f8253545dd67399` and is
+deployed as exact healthy image
+`sha256:bac9483e2bb2b96c0ea3da6ff12f3af840ef3bc40e3176a2f9c0b4d3583de917`
+in container `67768684e184`. Production exposes 26 Actions and 21 MCP tools;
+live compact OpenAPI SHA-256 is
+`51ed214117ededcecd46162fddcfb08ede1f0b56067f6b6dd137c831d14190f4`.
+The privacy page is byte-identical to source SHA-256
+`05f3a15dd6918f27636b7d42dd03e1a1ddfe4ac8787fd533a2d5f5ef617515ff`.
+Active Compose SHA-256 is
+`91cb6137660e4335557dff98c4f5e8bba53792ca3225bf327b68e0bf99ceaa8b`;
+the prior image and Compose remain reachable as the rollback recorded in the
+live-acceptance document.
+
+The one post-deployment paid replay passed the corrected path: HTTP 200, no
+blocking boundary, ten grounded/reconciled searches, one no-search correction,
+and two total storage-disabled provider interactions. The strict packet and
+YouTube identity validators returned a partial frontier with 8 source IDs, 6
+validated, 2 terminal channel-name mismatches, and 0 unresolved. Frontier
+digest is
+`1a4201faa116002299bd2b339614f6ee7f6013ab8adde5575a03e4582c7d631d`.
+The validated set spans three materially different mechanical programs plus
+regenerative injection, nutrition, and corticosteroid-risk directions. The two
+rejected candidates were surgery videos whose declared channels disagreed with
+provider metadata, so surgical coverage remains required downstream rather
+than being falsely counted. Combined provider usage was 7,405 input, 4,455
+output, and 4,106 thought tokens with 10 searches; accounted cost was
+177,657,500 nano-USD. The temporary raw response was deleted after this
+sanitized receipt was captured.
+
+The personal plugin remains installed, enabled, validated, and byte-identical
+to source at `0.1.0+codex.20260823192716`. The generated Custom GPT
+Instructions were placed on the desktop clipboard and the exact editor URL was
+opened once; signed-in save/schema refresh and product replay remain unverified.
+
 PR #66 merged the first provider compatibility repair as
 `c1dc216bd8a203fe3a49ac8c876f5d1d00320c80`; its exact healthy production
 image is

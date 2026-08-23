@@ -1,12 +1,13 @@
 # Automated Gemini YouTube scout integration plan
 
-**Status:** PR #64 merged as
-`bcb494c11277aac41f736e8a050758d238536cbb`; exact runtime and privacy-site
-deployment, direct missing-provider acceptance, and personal-plugin
-synchronization are complete. The owner authorized paid Gemini API activation
-and Google processing of the screened scout request on 2026-08-23. The protected
-key is installed; successful live quality replay, exact Custom GPT editor
-installation, and fresh product acceptance remain pending.
+**Status:** PR #67 merged as
+`8b26dcef2d4f9b892df909391f8253545dd67399`; its exact runtime and privacy
+site are deployed. A paid live replay exercised and passed the single
+no-search correction, then independently validated 6 of 8 candidate identities
+with 2 terminal channel mismatches and 0 unresolved. The protected key and
+personal plugin are current. Exact Custom GPT editor save/schema refresh and a
+fresh product replay remain pending because no authenticated editor-control
+capability is exposed in this environment.
 
 The replacement key is now installed. The first paid replay failed closed
 before search/candidate acceptance because the full nested provider schema was
@@ -20,8 +21,8 @@ packet whose complete top-level and row shapes are constrained. Branch
 unchanged strict AskRigor contract. If validation fails, one storage-disabled
 no-search correction receives only the public candidate output, exact executed
 queries, and safe validation issues; the server validates again and fails
-closed rather than looping. Merge, exact deployment, and one fresh paid quality
-replay remain pending.
+closed rather than looping. PR #67 merged and deployed this implementation; the
+fresh paid replay passed through the correction path.
 
 **Goal:** Replace the owner-operated Gemini Spark packet transfer with one
 public, read-only AskRigor Action that runs a server-side Gemini Google-Search
@@ -122,6 +123,24 @@ installed Custom GPT invokes the automated operation without requesting a
 manual packet.
 
 ## Verification checkpoint
+
+Deployed/live compact repair:
+
+- PR #67 merge: `8b26dcef2d4f9b892df909391f8253545dd67399`;
+- image: `sha256:bac9483e2bb2b96c0ea3da6ff12f3af840ef3bc40e3176a2f9c0b4d3583de917`;
+- public inventories: 26 Actions, 21 MCP tools;
+- live compact OpenAPI SHA-256:
+  `51ed214117ededcecd46162fddcfb08ede1f0b56067f6b6dd137c831d14190f4`;
+- live privacy/source SHA-256:
+  `05f3a15dd6918f27636b7d42dd03e1a1ddfe4ac8787fd533a2d5f5ef617515ff`;
+- paid replay: HTTP 200, no boundary, 10 grounded searches, correction used,
+  2 interactions, 8 source / 6 validated / 2 terminally rejected / 0
+  unresolved, frontier digest
+  `1a4201faa116002299bd2b339614f6ee7f6013ab8adde5575a03e4582c7d631d`;
+- plugin: validated and source/installed byte-identical at
+  `0.1.0+codex.20260823192716`;
+- editor: exact Instructions copied and exact editor opened once; signed-in
+  save/schema refresh and product replay not yet observable.
 
 Compact-packet repair candidate:
 
