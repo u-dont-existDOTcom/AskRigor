@@ -1,8 +1,8 @@
 # AskRigor execution-control productionization roadmap
 
-**Status:** Proposed continuation roadmap after PR #58/#59/#61. This document does not replace the complete canonical protocols or the owner-approved scientific corrections in `2026-08-23-executable-research-orchestrator-and-study-audit.md`. It reconciles that plan with the implementation that has already landed and defines the remaining stepwise path to hard execution enforcement, then Hermes/n8n orchestration.
+**Status:** Active continuation roadmap after PR #58/#59/#61/#62. This document does not replace the complete canonical protocols or the owner-approved scientific corrections in `2026-08-23-executable-research-orchestrator-and-study-audit.md`. It reconciles that plan with the implementation that has already landed and now also integrates the owner-supplied post-publication review, retraction, replication, and study-reliability workstream.
 
-**Audited baseline:** `main` at `d1e1756117d30eb547248b3d5bc1661a1d4e785a` on 2026-08-23.
+**Audited baseline:** `main` at `795f1bc3aa1dc39676b8d03c8c564da32b0f6c7c` on 2026-08-23.
 
 ## Goal
 
@@ -12,7 +12,7 @@ The governing architectural rule is:
 
 > Models may route, reason, select, audit, and execute bounded research work. Only the AskRigor server-owned controller may advance authoritative execution state or permit finalization.
 
-Hermes, Codex, Custom GPT, n8n, or a future AskRigor UI are clients/workers. They never become protocol or completion authority.
+Hermes, Codex, Custom GPT, n8n, Gemini, or a future AskRigor UI are clients/workers. They never become protocol or completion authority.
 
 ## Audit reconciliation: what already exists
 
@@ -34,11 +34,12 @@ Do **not** build a second execution controller from scratch. The current reposit
 6. YouTube transcript/discussion continuations already use server-owned/opaque continuation machinery and server-produced coverage receipts.
 7. Open full-text acquisition, contiguous document handles, study/review method-audit receipts, and source-block identity checks are already implemented and deployed.
 8. Study-method receipts prove document identity, block linkage, checklist coverage, and bounded claim capability/non-capability structure. They explicitly do **not** claim semantic correctness merely because the schema passed.
-9. Current production has 21 MCP tools and 25 public Actions after the full-text/method-audit release. The research-session prototype is deliberately **not** in the production inventory.
+9. The current study audit already contains the domain `replication_contradiction_and_evidence_ancestry`; the predecessor plan identifies replication/evidence-ancestry records as unfinished work.
+10. Current production has 21 MCP tools and 25 public Actions after the full-text/method-audit release. The research-session prototype is deliberately **not** in the production inventory.
 
 ### Important remaining gaps
 
-1. The session prototype automates only the scout step. Candidate screening, transcript acquisition, discussion audit, formal search, full-text acquisition, method audit, bidirectional return, and landscape finalization remain listed work rather than controller-owned transitions.
+1. The session prototype automates only the scout step. Candidate screening, transcript acquisition, discussion audit, formal search, full-text acquisition, method audit, post-publication/external evidence audit, bidirectional return, and landscape finalization remain listed work rather than controller-owned transitions.
 2. The session is broad-treatment oriented and does not yet encode the complete top-level routing vocabulary: `HRP`, `DIRECT_HUMAN`, `EXTENDED_GREY`, `FORUM_SIGNAL`, `BIDIRECTIONAL_ITERATION`, `FINAL_COMPLETION_AUDIT`.
 3. The prototype has `in_progress`/`blocked` and always sets `synthesis_permitted=false`; it has no implemented successful finalization state yet.
 4. The prototype binds protocol identities at start but must re-check current protocol identities before authoritative continuation/finalization so protocol drift cannot silently remain current.
@@ -46,8 +47,10 @@ Do **not** build a second execution controller from scratch. The current reposit
 6. The current session state contains the raw `research_target`. Before adding persistence or external workflow storage, privacy boundaries must be re-reviewed. Do not push raw private research content into n8n, Hermes memory, logs, diagnostics, or a durable database by accident.
 7. Existing treatment coverage validates a caller-assembled ledger. Its deterministic logic should be reused inside the session, but the session must increasingly generate/reconcile that ledger from actual operation results rather than trust caller counts or completion flags.
 8. Method-audit submissions still contain semantic judgments produced by a worker/model. The server validates source identity, source-block links, required domains, and structure, but semantic correctness remains reviewable model work. Do not mislabel structural validation as truth.
-9. No Hermes or n8n integration currently exists. Adding either before completing the server control boundary would merely automate the existing enforcement gap.
-10. No generic cross-project execution-control package should be extracted yet. Prove the pattern in AskRigor first.
+9. Crossref already detects publication updates/retractions, but the normalized model does not yet preserve the complete ordered publication-integrity event history required by this roadmap.
+10. No controller-owned FORRT FReD/FLoRA replication lookup, PubPeer integration, Epistemonikos ancestry lookup, Scite enrichment, or local Retraction Watch snapshot is currently part of session completion.
+11. No Hermes or n8n integration currently exists. Adding either before completing the server control boundary would merely automate the existing enforcement gap.
+12. No generic cross-project execution-control package should be extracted yet. Prove the pattern in AskRigor first.
 
 ## Non-negotiable invariants
 
@@ -62,9 +65,13 @@ These apply throughout every phase.
 7. Retryable executable work remains executable. A client cannot call it terminal merely because it would prefer to stop.
 8. A genuine terminal access boundary may authorize only the protocol-defined bounded output. It cannot be relabeled as complete comparative evidence.
 9. Protocol drift must fail closed for authoritative finalization until the execution is explicitly revalidated or restarted under current bytes.
-10. Ordinary user-facing output remains plain language; internal state names, locks, receipt schemas, and orchestrator jargon are technical-audit material only.
-11. Do not broaden the 21-tool MCP catalog, public Action inventory, privacy map, data retention, paid-provider footprint, or production write capability without the relevant reviewed phase and owner gate.
-12. Do not replace deterministic system behavior with Hermes/n8n prompts where code can own the invariant.
+10. No single universal study-quality/reliability score may collapse publication status, post-publication criticism, replication, citation context, reporting transparency, risk of bias, applicability, or full-text access.
+11. A provider no-match is provider-scoped only. It is never proof that no concern, replication, review, contradiction, or discussion exists elsewhere.
+12. Comment quantity is not severity; provider-reported replication outcomes are leads until the linked work is inspected; corrections are not retractions; retraction does not itself prove misconduct or that every claim is false.
+13. External provider records can create new work and constrain claims, but cannot substitute for inspection of the original/linked full text when decision-important.
+14. Ordinary user-facing output remains plain language; internal state names, locks, receipt schemas, and orchestrator jargon are technical-audit material only.
+15. Do not broaden the 21-tool MCP catalog, public Action inventory, privacy map, data retention, paid-provider footprint, or production write capability without the relevant reviewed phase and owner gate.
+16. Do not replace deterministic system behavior with Hermes/n8n prompts where code can own the invariant.
 
 ## Target execution model
 
@@ -77,6 +84,213 @@ The completed controller should distinguish at least these authoritative output 
 These names may be normalized to existing repository terminology during implementation, but there must be one canonical machine representation, not parallel synonyms across clients.
 
 A successful finalization artifact should be server-generated and integrity-bound. Prefer an opaque server-held permit or a compact signed permit containing only an execution identifier, protocol identities, state/receipt digest, permitted boundary, issue/expiry metadata, and domain separation. Never put raw user prompts, medical details, transcript text, unrestricted provider output, credentials, or private research prose in a portable token.
+
+## Controller-owned external study evidence audit
+
+Every decision-important scientific study, after exact identity resolution and full-text/method-audit handling, must pass through one controller-owned composite operation:
+
+`external_study_evidence_audit`
+
+Do not expose five independent provider tools and instruct a model to remember to call them. The server-owned research session schedules the composite operation, executes mandatory/configured providers, issues a server-owned receipt, derives new linked-source work or claim restrictions, and feeds those results back into finalization.
+
+Canonical sequence for a decision-important study:
+
+1. Resolve exact study/version identity.
+2. Acquire accessible full text or record the claim-local access boundary.
+3. Complete the existing study/review method audit against exact content identity.
+4. Run mandatory external providers.
+5. Run configured optional providers.
+6. Derive controller directives and claim-local limitations.
+7. Queue linked replications, reproductions, reviews, notices, comments, or citation contexts that could change a decision.
+8. Acquire/audit every potentially decision-changing linked source that is executable.
+9. Recalculate what the original study can and cannot support.
+10. Mark the external evidence operation complete/partial/bounded from server-owned state only.
+
+The caller may never submit `pubpeer_checked`, `replications_checked`, `no_concerns_found`, `external_audit_complete`, provider counts, or equivalent completion assertions.
+
+### Provider roles for the first releases
+
+**Crossref + Retraction Watch metadata**
+
+- Mandatory integrity attempt for every decision-important DOI.
+- Extend the existing Crossref adapter rather than creating a competing retraction adapter.
+- Preserve a complete ordered event history: retraction, withdrawal, expression of concern, correction, update, reinstatement, other.
+- Preserve publisher vs Retraction Watch assertion/source, relation direction, notice/original DOI, raw type/label, date, and provider record ID when present.
+- Derive current publication-record state without using misleading labels such as `clean`, `valid`, or `unretracted`; `no_update_marker_found` means only that the checked source exposed no marker.
+- De-duplicate duplicate assertions without destroying source provenance.
+
+**FORRT FReD/FLoRA**
+
+- Mandatory DOI lookup for every exact decision-important DOI in the initial open core, with provider coverage limits disclosed.
+- Use the official DOI lookup adapter, bounded input, canonical DOI normalization, strict allowlisting, no caller-supplied base URL, and normalized relationship records.
+- Preserve replication vs reproduction and `provider_reported` outcomes (`successful`, `failed`, `mixed`, `unclear`, `not_reported`).
+- A relationship that could change confidence/ranking/conclusion creates `require_linked_replication_acquisition`; the provider label itself never closes the evidential question.
+- No match means only `no_match_in_provider`.
+
+**PubPeer**
+
+- Define the adapter contract/fixtures, but keep live activation disabled until an authorized API key, official base URL/authentication/pagination/rate-limit contract, caching/redistribution/deletion/edit rules, and attribution requirements are known.
+- Do not scrape PubPeer pages/search results/browser feeds.
+- Preserve comments and identified author replies separately; a reply does not automatically resolve a concern.
+- Store only bounded excerpts when permitted; full authorized responses belong in an evidence artifact store, not session state.
+- Image/data/code allegations remain unresolved until the exact referenced artifact can be lawfully inspected.
+
+**Epistemonikos**
+
+- Optional/configured health-research evidence-ancestry provider.
+- Use to find systematic reviews, study threads, relations, and evidence matrices; never treat review inclusion as study approval.
+- Preserve machine vs human-validated classification status.
+- Any decision-important review discovered becomes review acquisition + full-text review audit + family de-duplication + claim-entailment work.
+- Production activation requires a bounded current live smoke and current terms/authentication confirmation.
+
+**Scite**
+
+- Defer from the core release. Treat as optional enrichment even when configured unless later protocol makes a particular citation-context check mandatory.
+- Activate only with approved organizational server-side API, machine-to-machine credential, or tenant-aware per-user OAuth with secure token isolation.
+- Supporting/contrasting/mentioning classifications are citation-context labels, not replication outcomes.
+- Material contexts must lead to citing-source inspection before evidential use.
+
+**Cochrane/review risk-of-bias import**
+
+- Source-triggered, not a universal provider lookup.
+- Import only when AskRigor has actually inspected the review and can bind the judgment to the exact study/result/comparison/outcome/numerical result/follow-up/domain/support/source location.
+- Never transfer one outcome-specific judgment to the whole study.
+
+**Ripeta**
+
+- Do not implement initially. Reconsider only after current commercial integration documentation, pricing, data-use rights, and exact field definitions are available.
+- AskRigor's own method audit already covers much of the relevant reporting/reproducibility hygiene.
+
+### Canonical external evidence contract
+
+Add a strict Zod contract under `packages/contracts/src/study-external-evidence.ts`, exported through the contracts package. The exact TypeScript syntax may follow repository conventions, but preserve these semantics:
+
+- canonical study identity with DOI/PMID/PMCID/arXiv/title/first author/year, identity status/basis/hash;
+- provider attempts with provider, checked time, access/outcome, query identifier, provider response hash/snapshot ID, coverage statement, limitations, error/retryability;
+- publication integrity events with event kind/date/original + notice DOI/provider/source/record ID/relation direction/raw type/label/reasons/hash;
+- replication/reproduction relationships with original/repetition identities, provider-reported outcome, implementation-match audit status, linked-source audit status, limitations, relation hash;
+- post-publication threads/messages with comment/identified-author role, timestamps, hashes/bounded excerpts, audit status/materiality, links, limitations;
+- citation-context aggregates with explicit provider-model statement and audit status;
+- review ancestry links and result-specific imported risk-of-bias judgments;
+- controller directives;
+- unresolved items and claim-local limitations;
+- deterministic bundle hash.
+
+Raw provider fields must be normalized into strict AskRigor schemas before they can influence controller state.
+
+### Server-issued external evidence receipt
+
+The composite coordinator should issue a server-generated receipt bound to at least:
+
+- receipt name/version and domain separation;
+- session ID;
+- exact canonical study identity hash;
+- exact HRP/Universal protocol hashes;
+- provider-attempt records;
+- provider response/artifact hashes;
+- normalized bundle hash;
+- issue time and signing key ID.
+
+Use the repository's established signing primitive if an appropriate one exists by implementation time; otherwise HMAC-SHA256 with a server-held secret of at least 32 random bytes is acceptable. Add only placeholder configuration, never a real secret. A receipt from another DOI/version/session/protocol/provider snapshot must not satisfy the current study.
+
+The external evidence receipt is an integrity/provenance/completion receipt, not semantic proof that every concern or replication interpretation is correct.
+
+### Identity and version rules
+
+The external audit must never run on a guessed identity. Canonicalize supplied DOI forms, verify against Crossref, reconcile PubMed identifiers when available, preserve PMCID/arXiv/trial identifiers separately, compare title/author/year against acquired full text, hash the canonical identity, and stop at `ambiguous`/`unresolved` when candidates conflict.
+
+Do not transfer PubPeer/retraction/replication/review records between a preprint and journal article solely because titles look similar. Link versions explicitly and audit the relationship.
+
+### Study-method audit integration
+
+The existing `replication_contradiction_and_evidence_ancestry` domain must support typed external evidence references without inventing fake `jats_*`/`pdf_*` block IDs.
+
+A compatibility-preserving design may keep `evidence_block_ids` and add strict external references containing at least external receipt hash, provider, and item hash. Other method-audit domains retain their existing document-block requirements. Bind the resulting method-audit receipt to the relevant external-evidence receipt/identity hash so a changed publication version/provider snapshot cannot silently reuse an old ancestry finding.
+
+### Session state additions
+
+The authoritative session should eventually represent, per decision-important study:
+
+- canonical identity hash/status;
+- full-text state;
+- method-audit state;
+- `external_evidence_status` (`not_started`, `in_progress`, `complete`, `partial`, `blocked` or normalized equivalent);
+- external evidence receipt hash;
+- linked source IDs;
+- unresolved external items;
+- possible decision impact (`detail_only`, `confidence_changing`, `ranking_changing`, `potentially_conclusion_changing`, `unknown`).
+
+Add controller work capabilities equivalent to:
+
+- `external_study_evidence_audit`;
+- `linked_replication_and_review_audit`.
+
+Do not store one global Boolean for the whole research run.
+
+### Mandatory/configured provider semantics
+
+For the first production-capable release:
+
+- Crossref integrity: mandatory attempt for each decision-important DOI.
+- FORRT: mandatory attempt for each decision-important DOI.
+- Retraction Watch local verified snapshot: optional until separately deployed/accepted; once enabled by policy/configuration, skipping it is an execution failure.
+- PubPeer: mandatory attempt only when the authorized integration is configured.
+- Epistemonikos: mandatory attempt for applicable health-research studies only when configured.
+- Scite: optional enrichment unless later policy makes a context check decision-important.
+- result-specific review risk-of-bias import: source-triggered.
+- Ripeta: absent initially.
+
+A configured provider that is skipped is an execution failure. An unconfigured optional provider is an explicit coverage limitation. Retryable outages remain retryable; after bounded retry exhaustion, missing information is claim-local unless its plausible impact is ranking/conclusion changing, in which case full finalization remains blocked/bounded.
+
+### Controller directives/effects
+
+At minimum support machine directives equivalent to:
+
+- `exclude_source_from_effect_claims`;
+- `require_update_notice_audit`;
+- `invalidate_prior_source_audit`;
+- `require_linked_replication_acquisition`;
+- `require_postpublication_message_audit`;
+- `require_review_acquisition`;
+- `disclose_provider_coverage_gap`;
+- `no_additional_work`.
+
+Active retraction/withdrawal excludes the source from ordinary effect claims and requires notice audit. Expression of concern requires notice audit, serious unresolved-record disclosure, and prevents sole/decisive use. Correction requires notice/version comparison and prior-audit invalidation when affected content changes. Reinstatement preserves the historical event and requires reinstatement-notice inspection before normal claim capability returns. Material PubPeer concerns create message/artifact audit work. Known replications/reproductions create linked-source audit work when decision-material. Review ancestry creates review-audit work when it could reveal studies, conflicts, or result-specific bias judgments.
+
+### External evidence finalization requirement
+
+A decision-important study may contribute normally only when server-owned state shows, as applicable:
+
+- identity verified;
+- accessible full-text chain exhausted or an explicit claim-local boundary recorded;
+- method audit exists or permitted access boundary is recorded;
+- Crossref integrity attempt completed;
+- FORRT attempt completed;
+- every configured mandatory provider attempted;
+- external evidence receipt matches current study/session/protocol/provider state;
+- every potentially decision-changing linked item was audited or explicitly preserved as a claim-local unresolved limitation.
+
+Finalization tests must fail for skipped external work, forged provider-completion fields, cross-study/session/protocol receipts, corrections newer than audited content, retracted studies used as ordinary effect evidence, omitted expressions of concern, unaudited provider-reported replication outcomes used as conclusions, comment counts converted to severity, no-match converted to no-concern, Scite counts converted to replication, globalized outcome-specific risk-of-bias judgments, or silently omitted unavailable-provider limitations.
+
+### Evidence artifact storage boundary
+
+Introduce a content-addressed `EvidenceArtifactStore` abstraction so raw authorized provider responses, correction notices, PubPeer messages, or citation contexts do not inflate the research-session object. Session state should hold only artifact IDs/hashes, normalized item hashes, provider statuses, directives, limitations, and bounded provenance.
+
+Tests may use an in-memory store immediately. **Do not activate new durable production storage in this phase.** A persistent volume/object store, retention schedule, backups, encryption model, or new external service remains part of Phase G and its privacy/owner gate.
+
+### Provider configuration and HTTP security
+
+Configuration must fail closed. Do not permit environment-defined arbitrary provider URLs.
+
+Core provider host activation may add only the exact FORRT host after the adapter contract is verified. PubPeer/Epistemonikos/Scite hosts are added only when those integrations are officially activated and their current contracts are confirmed.
+
+Preserve HTTPS-only transport, no URL credentials, strict hostname allowlist, byte/time bounds, bounded retry, redirect restrictions appropriate to JSON APIs, strict parsing, provider-specific error normalization, and secret/log redaction.
+
+Never log API/OAuth/refresh tokens, full PubPeer discussions, private session handles, signing secrets, unredacted authorization headers, or raw sensitive research targets. Provider queries should use only the minimum public identifiers required.
+
+### Licensing/attribution
+
+Technical receipts/data-source documentation must preserve provider attribution, retrieval time, relevant source/record/snapshot identifiers, and license/usage constraints. Do not cache or redistribute provider content beyond current terms. FLoRA-derived records retain required attribution. PubPeer edits/deletions and canonical thread linkage must be preserved when activation becomes authorized.
 
 ## Stepwise roadmap
 
@@ -141,22 +355,76 @@ Tasks:
 
 **Exit gate:** skipped/restarted/mixed chains, retryable failures, one-of-many audited discussions, transcript-free creator claims, or caller-reported exhaustion cannot satisfy depth requirements.
 
-### Phase D — Make formal search, full text, and study/review audit session-owned
+### Phase D — Make formal search, full text, method audit, and external study evidence session-owned
 
-**Purpose:** connect the already-deployed full-text/method-audit machinery to execution state.
+**Purpose:** connect the already-deployed full-text/method-audit machinery and the new post-publication/replication evidence workstream to execution state.
 
-Tasks:
+Phase D is intentionally split into reviewed sub-PRs so the open-core provider work can land without forcing credentialed/commercial integrations or durable storage.
+
+#### Phase D1 — External evidence contracts + open providers
+
+- [ ] Create/export the strict external-study-evidence contracts described above.
+- [ ] Extend the existing Crossref adapter to preserve complete ordered publication-integrity events while keeping existing callers/backward-compatible retraction checks working.
+- [ ] Add the FORRT FReD/FLoRA DOI adapter with bounded fixtures/tests and the exact approved host allowlist addition.
+- [ ] Preserve provider no-match/partial/rate-limit/error semantics and provider-reported replication labels.
+- [ ] Add deterministic fixtures for retraction, withdrawal, correction, expression of concern, reinstatement, duplicate assertions, reverse replication links, reproductions, malformed data, provider failure/rate limiting, and no match.
+- [ ] No public Action/MCP change; no canonical protocol change.
+
+**D1 gate:** richer Crossref integrity events and FORRT relationships are normalized, hermetically tested, and cannot be mistaken for global truth/quality/replication verdicts.
+
+#### Phase D2 — Composite coordinator + receipt + typed audit references
+
+- [ ] Add internal `external_study_evidence_audit` coordinator; it calls providers itself and accepts no caller completion booleans/counts.
+- [ ] Add deterministic normalized bundle hashing, controller directives, unresolved/claim-local limitations, and server-issued study-external-evidence receipt.
+- [ ] Bind receipt to session, exact study identity, exact protocol hashes, provider attempts/response hashes, bundle hash, issue time, and key ID.
+- [ ] Add typed external evidence references to the existing replication/evidence-ancestry method-audit domain without fake document block IDs.
+- [ ] Preserve all existing document-block validation for other domains.
+- [ ] Define `EvidenceArtifactStore` abstraction + in-memory tests, but do not activate durable production persistence.
+- [ ] Add placeholder receipt-secret/key-ID configuration only; never expose secret material.
+- [ ] No public Action/MCP change.
+
+**D2 gate:** tampered/cross-study/cross-session/cross-protocol receipts fail, and structural receipt validation is not mislabeled semantic truth.
+
+#### Phase D3 — Session enforcement + formal/full-text integration
 
 - [ ] Generate formal-search records for every material program/outcome hypothesis requiring follow-up.
-- [ ] Track exact DOI/source identity and access attempts.
-- [ ] For decision-important DOIs, invoke existing open-full-text acquisition and exhaust the document handle where a verified copy exists.
-- [ ] Keep inaccessible/unverified sources as claim-local leads, not inspected evidence and not global freeze conditions.
-- [ ] Bind study/review audit submissions to exact document identity/hash and known source blocks through the existing validators.
-- [ ] Record worker-generated semantic audit findings separately from deterministic validation facts.
-- [ ] Add evidence-ancestry/replication records still missing from the predecessor plan.
-- [ ] Derive claim capability/non-capability state without letting design names, journal prestige, peer review, guideline status, or review labels satisfy reliability gates.
+- [ ] Track exact DOI/source/version identity and access attempts.
+- [ ] Invoke/exhaust existing open-full-text acquisition for decision-important accessible DOIs; keep inaccessible/unverified sources as claim-local leads.
+- [ ] Bind existing study/review audit submissions to exact content identity/hash.
+- [ ] Add per-study external-evidence state/work capabilities and automatic scheduling after method audit.
+- [ ] Queue decision-changing linked replications/reviews/notices/comments and require executable linked-source audit before unrestricted use.
+- [ ] Recalculate claim capability/non-capability after external evidence changes.
+- [ ] Add mutation tests proving skipped external work, forged provider completion, hidden retraction/provider failure, mixed receipts, or unaudited replication labels cannot unlock finalization.
 
-**Exit gate:** an abstract-only trial, unexhausted full text, unknown source block, identity mismatch, missing required audit domain, or unseen inaccessible paper cannot authorize a decision-important claim as inspected full-study evidence.
+**D3 gate:** an abstract-only trial, unexhausted full text, unknown source block, identity mismatch, missing required audit domain, unseen inaccessible paper, missing mandatory provider attempt, or unresolved decision-changing linked source cannot authorize unrestricted decision-important use.
+
+#### Phase D4 — Retraction Watch verified local snapshot
+
+- [ ] Implement only after the open-core lookup/coordinator is stable.
+- [ ] Add a controlled sync command using the official source, recording exact source commit/file hash/header schema/row count/sync time.
+- [ ] Parse with standards-compliant CSV handling; reject malformed/duplicate headers; build compact DOI/PMID indexes; atomic replace; verified rollback/stale-snapshot behavior.
+- [ ] Runtime consumes only verified local snapshot + manifest.
+- [ ] Do not dynamically fetch the dataset inside a user request and do not widen ordinary upstream allowlists for the snapshot source.
+
+**Owner/privacy gate:** production activation of durable snapshot storage/cron must be reconciled with Phase G. The recommendation is to deploy a verified daily snapshot, but this roadmap does not silently waive retention/storage review.
+
+#### Phase D5 — PubPeer + Epistemonikos optional adapters
+
+- [ ] Implement strict adapter contracts/fixtures as separate work.
+- [ ] Keep PubPeer live access disabled until official authorized API contract/terms are known.
+- [ ] Keep Epistemonikos disabled until token/current live contract/terms are verified.
+- [ ] Once configured, skipping a provider designated mandatory-by-configuration becomes an execution failure; unconfigured providers remain disclosed coverage gaps.
+- [ ] Preserve bounded provider content, edits/deletions, pagination/completeness, classification provenance, and linked-source audit requirements.
+
+**D5 gate:** credentialed providers can be enabled without changing the completion-authority model or leaking provider content/secrets.
+
+#### Phase D6 — Scite/commercial enrichments
+
+- [ ] Do not begin Scite until an approved organization/server-to-server or tenant-aware OAuth architecture exists.
+- [ ] Do not begin Ripeta until commercial API/documentation/data-rights decisions are available.
+- [ ] Keep Scite citation classification explicitly separate from replication evidence.
+
+**Exit gate for Phase D overall:** every decision-important study has controller-owned formal/full-text/method/external-evidence state sufficient to prove what was actually inspected, which provider coverage exists, which linked work remains, and what the study can/cannot support without relying on prestige/design labels or caller assertions.
 
 ### Phase E — Bidirectional iteration and treatment-space finalization
 
@@ -164,15 +432,16 @@ Tasks:
 
 Tasks:
 
-- [ ] Reopen formal search for material programs, failure modes, harms, durability, adherence, progression, or implementation hypotheses surfaced by community/video evidence.
-- [ ] Reopen community search for material discriminators surfaced by formal evidence.
+- [ ] Reopen formal search for material programs, failure modes, harms, durability, adherence, progression, implementation hypotheses, integrity events, replications/reproductions, or review ancestry surfaced by community/video/external evidence.
+- [ ] Reopen community search for material discriminators surfaced by formal/external evidence.
 - [ ] Represent both transfer directions explicitly and keep `incomplete` executable until resolved/bounded.
+- [ ] Audit decision-changing linked replication/reproduction/review/post-publication sources before converting provider labels into evidential conclusions.
 - [ ] Build the treatment-landscape assessor input from session-owned records as much as possible instead of accepting a caller-authored complete ledger.
 - [ ] Reuse existing selection/depth/synthesis lock logic rather than reimplementing it.
-- [ ] Derive `CONTINUE_RESEARCH`, `BOUNDED_NONRANKING_ONLY`, or `FINALIZATION_ALLOWED` from the complete session state.
+- [ ] Derive `CONTINUE_RESEARCH`, `BOUNDED_NONRANKING_ONLY`, or `FINALIZATION_ALLOWED` from the complete session state, including per-study external evidence requirements.
 - [ ] Require `FINAL_COMPLETION_AUDIT` before success where canonical protocol requires it.
 
-**Exit gate:** known broad-treatment premature-synthesis fixture plus unrelated held-out cases cannot reach finalization with unresolved material hypotheses, incomplete bidirectional fields, unmet treatment locks, retryable work, or omitted required modules.
+**Exit gate:** known broad-treatment premature-synthesis fixture plus unrelated held-out cases cannot reach finalization with unresolved material hypotheses, incomplete bidirectional fields, unmet treatment locks, retryable work, omitted required modules, missing configured provider attempts, or unaudited potentially decision-changing linked external sources.
 
 ### Phase F — Implement real successful finalization and integrity permit
 
@@ -182,9 +451,9 @@ Tasks:
 
 - [ ] Implement successful finalization only from controller-owned state.
 - [ ] Issue an integrity-bound compact finalization permit/report package with no raw private content.
-- [ ] Bind it to exact protocol identities and a deterministic digest of completion-relevant state/receipts.
+- [ ] Bind it to exact protocol identities and a deterministic digest of completion-relevant state/receipts, including study-external-evidence receipts where required.
 - [ ] Make replay/cross-session/tamper behavior explicit and tested.
-- [ ] Generate claim-local limitations automatically for valid bounded output.
+- [ ] Generate claim-local limitations automatically for valid bounded output, including unconfigured provider coverage gaps and unresolved linked external items.
 - [ ] Keep technical execution evidence separable from ordinary reader-facing rendering.
 
 Required hostile tests:
@@ -195,6 +464,9 @@ Required hostile tests:
 - [ ] caller cannot construct a valid permit from public fields;
 - [ ] all required valid receipts allow finalization in a complete fixture;
 - [ ] a terminal boundary yields only its allowed bounded scope;
+- [ ] retraction/correction/expression-of-concern state cannot be dropped from finalization-relevant state;
+- [ ] provider no-match cannot become a no-concern claim;
+- [ ] unaudited replication labels/citation classifications cannot become verified conclusions;
 - [ ] finalization output contains none of the prohibited raw/private fields.
 
 **Exit gate:** end-to-end deterministic fixture demonstrates denial -> required work -> valid receipts -> successful server finalization without a caller-authored completion assertion.
@@ -208,15 +480,16 @@ The current one-hour in-memory store is deliberately bounded. Persistence change
 Tasks before any persistence change:
 
 - [ ] Define minimum data required to resume an execution.
-- [ ] Separate opaque execution metadata/receipt digests from sensitive research payloads.
+- [ ] Separate opaque execution metadata/receipt/artifact digests from sensitive research payloads.
+- [ ] Decide whether/how the D2 `EvidenceArtifactStore` becomes durable in production; test retention/deletion/encryption/backup/rollback/crash recovery.
+- [ ] Decide whether/how the D4 Retraction Watch snapshot/cron is stored/deployed and how stale/failed sync behaves.
 - [ ] Update the privacy data map and threat model.
-- [ ] Compare safe options: bounded server-side persistence, sealed compact checkpoints, or restart-from-source behavior.
+- [ ] Compare safe options: bounded server-side persistence, sealed compact checkpoints, content-addressed artifact storage, or restart-from-source behavior.
 - [ ] Preserve current read-only/no-new-privileges posture as far as possible.
-- [ ] Specify retention, deletion, encryption/secret handling, backup, and crash-recovery semantics.
 
 **Owner gate:** any new durable store, external service, paid account, changed retention, or production write capability requires owner approval before activation.
 
-**Exit gate:** restart/deployment behavior is explicit, privacy-reviewed, tested, and cannot silently lose state while claiming completion.
+**Exit gate:** restart/deployment behavior and external-evidence artifact/snapshot retention are explicit, privacy-reviewed, tested, and cannot silently lose state while claiming completion.
 
 ### Phase H — Add a private orchestration interface without changing public product surfaces
 
@@ -225,10 +498,11 @@ Tasks before any persistence change:
 Tasks:
 
 - [ ] Expose the same controller core through a small authenticated orchestration boundary separate from the public Custom GPT Action document and ordinary MCP catalog unless review shows an existing transport is safer.
-- [ ] Keep operations minimal: start/resume, status/next work, bounded work submission where needed, and finalize.
+- [ ] Keep operations minimal: start/resume, status/next work, bounded semantic-work submission where needed, and finalize.
+- [ ] Keep deterministic provider coordination (`external_study_evidence_audit`) internal to the server; do not expose provider-by-provider completion toggles to Hermes/n8n.
 - [ ] Apply strict request/response schemas, authentication, rate/concurrency limits, body limits, no browser CORS by default, and bounded logs.
 - [ ] Expose only the minimum machine state needed by an orchestrator: opaque session ID, authoritative status/boundary, next capabilities, retry/boundary classification, and safe diagnostics.
-- [ ] Do not send raw private research content to an external workflow system merely because it is convenient.
+- [ ] Do not send raw private research/provider content to an external workflow system merely because it is convenient.
 - [ ] Prove the 21-tool MCP catalog and current public Action inventory remain unchanged in this phase.
 
 **Exit gate:** an authenticated local/integration test can drive the same controller while public OpenAPI/MCP inventories remain byte/semantic stable.
@@ -243,8 +517,8 @@ Tasks:
 
 - [ ] Give Hermes only the minimum AskRigor orchestration capability plus explicitly required research/repo tools.
 - [ ] Load repository `AGENTS.md`/project context for development tasks, but do not let Hermes memory supersede canonical protocols.
-- [ ] For deterministic server-executable work, Hermes requests continuation rather than reproducing the logic.
-- [ ] For semantic work such as candidate judgment or study interpretation, give Hermes a bounded source-linked work package; validate its submission before state advancement.
+- [ ] For deterministic server-executable work, including configured external-study provider coordination, Hermes requests continuation rather than reproducing the logic.
+- [ ] For semantic work such as candidate judgment, study interpretation, replication implementation comparison, or material PubPeer concern analysis, give Hermes a bounded source-linked work package; validate its submission before state advancement.
 - [ ] Prevent direct writes to `main`, autonomous protocol changes, production-secret access, and direct finalization authority.
 - [ ] Add a final-response hook/guard so a Hermes AskRigor task cannot be marked successful without a server-authorized boundary/permit.
 - [ ] Benchmark against held-out research tasks for completion rate, unnecessary work, skipped gates, and cost.
@@ -258,9 +532,9 @@ Tasks:
 Tasks:
 
 - [ ] n8n stores only opaque execution IDs and safe orchestration metadata by default.
-- [ ] n8n reads AskRigor authoritative status and branches only on documented machine fields; it never reimplements HRP/treatment completion rules in IF nodes.
+- [ ] n8n reads AskRigor authoritative status and branches only on documented machine fields; it never reimplements HRP/treatment/provider completion rules in IF nodes.
 - [ ] Route executable worker tasks to Hermes or deterministic services as directed by AskRigor.
-- [ ] Add bounded retry/error workflows for retryable infrastructure failures.
+- [ ] Add bounded retry/error workflows for retryable infrastructure/provider failures.
 - [ ] Stop at true owner gates and notify the owner; do not request ceremonial approval for routine read-only continuation.
 - [ ] Add monitoring for stuck worker/no-progress conditions without treating elapsed time as evidence saturation.
 - [ ] Require a valid AskRigor finalization boundary/permit before the n8n workflow can enter its `complete` state.
@@ -275,11 +549,14 @@ Tasks:
 Tasks:
 
 - [ ] Decide the minimum public Action projection after Hermes/n8n pilots prove the controller.
+- [ ] Keep the external provider coordinator internal during the first accepted server-owned release; do not expose separate Crossref/FORRT/PubPeer/etc. model-callable checkboxes.
+- [ ] If a later technical-audit operation is exposed, expose at most one composite read-only operation and never let caller-submitted output unlock session completion.
 - [ ] Keep public educational scope and current product-policy boundary.
 - [ ] Shrink model-side workflow responsibility: start/resume, obey next required step, render server-authorized result, expose technical state only on request.
 - [ ] Update Instructions/OpenAPI/synchronization ledgers only after the exact product projection is reviewed.
 - [ ] Run fresh signed-in editor import and Preview acceptance.
 - [ ] Run repeated fresh chats on the known failure shape and unrelated held-out treatment questions; record actual operation IDs and finalization result rather than a manually authored acceptance fixture.
+- [ ] Include product cases where a study is retracted/corrected, FORRT has a linked repetition, and optional providers are unconfigured; output must remain plain-language and provider-scoped.
 - [ ] If the Custom GPT repeatedly bypasses even the compact server-directed contract, stop treating it as the authoritative synthesis surface. Keep AskRigor server/application finalization authoritative.
 
 **Exit gate:** every planned fresh-product replay passes. Repository tests alone are not acceptance.
@@ -287,14 +564,110 @@ Tasks:
 ### Phase L — Release, deploy, and close out
 
 - [ ] Run all targeted tests, `npm run test:run`, and `npm run verify`.
+- [ ] Run separately guarded live Crossref/FORRT/provider smoke tests when configured; verify identity/shape, not brittle exact counts.
 - [ ] Run public-site/deployment tests where affected.
-- [ ] Complete privacy/security/release documentation and lesson disposition.
+- [ ] Complete privacy/security/data-source/licensing/release documentation and lesson disposition.
 - [ ] Review final diff and CI; merge through PR only.
 - [ ] Deploy exact merge with retained rollback.
-- [ ] Directly verify runtime health, protocol hashes, expected Action/MCP inventories, orchestration auth boundary, rate limits, and privacy behavior.
+- [ ] Directly verify runtime health, protocol hashes, expected Action/MCP inventories, orchestration auth boundary, rate limits, enabled provider configuration, and privacy behavior.
+- [ ] Verify known publication-integrity and FORRT relationship cases and prove forged/omitted external receipts cannot unlock finalization.
+- [ ] Verify optional unconfigured providers appear as limitations and credentials/raw provider content do not appear in responses/logs.
 - [ ] Synchronize/reinstall the personal plugin when its bytes/surface require it.
 - [ ] Install exact Custom GPT artifacts only in the relevant projection phase.
 - [ ] Run fresh real product acceptance before declaring the release current.
+
+## External evidence implementation map
+
+This map refines Phase D. Re-audit actual repository paths before implementation and follow current conventions if tests live at root rather than package-local locations.
+
+### D1 expected files
+
+Create or equivalent:
+
+- `packages/contracts/src/study-external-evidence.ts`
+- `packages/sources/src/forrt-replication.ts`
+- deterministic FORRT fixtures/tests.
+
+Modify or equivalent:
+
+- `packages/contracts/src/index.ts`
+- `packages/sources/src/index.ts`
+- `packages/sources/src/crossref.ts`
+- strict upstream HTTP allowlist/configuration code;
+- Crossref tests;
+- `.env.example` only for nonsecret flags/placeholders actually needed.
+
+### D2 expected files
+
+Create or equivalent:
+
+- `apps/research-mcp/src/actions/study-external-evidence.ts`
+- coordinator/receipt tests;
+- evidence-artifact-store abstraction + tests.
+
+Modify or equivalent:
+
+- research MCP config;
+- `study-method-audit.ts`;
+- package exports as needed.
+
+### D3 expected files
+
+Modify the existing research-session controller/store/prototype and tests rather than creating a second controller. The prototype may be renamed when it becomes the real implementation.
+
+### D4 expected files
+
+Create or equivalent:
+
+- controlled Retraction Watch sync script;
+- verified snapshot reader/index;
+- snapshot tests/manifest handling.
+
+Add deployment cron only after atomic update, rollback, stale-snapshot, storage, and Phase G privacy review pass.
+
+### D5/D6 expected files
+
+PubPeer/Epistemonikos/Scite adapters follow current source adapter conventions and remain disabled until their respective credential/terms/architecture gates pass.
+
+## External evidence test matrix
+
+All ordinary CI/`npm run verify` tests use deterministic saved fixtures. Live tests are separately guarded/bounded.
+
+Adapter tests should cover valid result, no match, partial result, pagination when applicable, rate limiting, auth failure, timeout, invalid JSON, unexpected fields, malformed required fields, oversized response, and normalized limitation language.
+
+Coordinator/receipt/enforcement tests should cover at least:
+
+- Crossref + FORRT complete;
+- publication event + FORRT no match;
+- FORRT relation + no publication update;
+- optional providers disabled;
+- configured provider inaccessible/rate-limited;
+- correction invalidates or reopens prior audit when affected;
+- active retraction excludes ordinary effect capability;
+- expression of concern cannot silently disappear;
+- material post-publication concern creates follow-up work;
+- replication/reproduction link creates linked-source audit work;
+- review ancestry creates review-audit work;
+- deterministic canonical hashing;
+- verification failure if session/DOI/identity/protocol/provider response/provider status/bundle/issue time/key/signature changes;
+- skipped external operation, forged completion, mixed/cross-study receipts, omitted retraction/provider failure, no-match-as-no-concern, and unaudited provider labels cannot unlock finalization.
+
+Live smoke tests should verify current response shape + exact identifier identity, not fixed relationship counts that may legitimately evolve. PubPeer live tests remain disabled until authorized official API access exists.
+
+## Protocol/documentation sequencing
+
+Do not change canonical protocol XML merely to make implementation easier. Land and verify executable runtime contracts first. If canonical protocol language genuinely needs updating to encode the new server-owned requirement, make that a later owner-reviewed change after the runtime semantics are proven.
+
+Any later protocol update should narrowly preserve these principles:
+
+- decision-important studies require the server-owned external-study-evidence requirement before unrestricted synthesis where the canonical policy adopts it;
+- provider no-match is provider-scoped;
+- post-publication comments are claims requiring evaluation, not verdicts;
+- replication labels are provisional until linked implementation/result is audited;
+- retraction, expression of concern, correction, and reinstatement are distinct publication-record events;
+- no global study-quality score.
+
+Update current-state, predecessor plan cross-references, README/privacy/data-source/release documentation as each reviewed phase affects them. Action/MCP inventory documents change only when public inventories actually change.
 
 ## Cross-project follow-on: only after AskRigor proves the pattern
 
@@ -331,15 +704,16 @@ InnerSignal already has a deterministic controller/autopilot philosophy. Reuse o
 1. Start every session from current `main`; read `AGENTS.md`, complete canonical protocols, `project/PROJECT_INSTRUCTIONS.md`, relevant modules, `project/CODEX-CURRENT-STATE.md`, the predecessor orchestrator plan, and this roadmap.
 2. Run `npm run lessons:status` using the maintainer's local GitHub authentication and report its exact available/unavailable result.
 3. Re-audit the code touched by the next phase before designing changes. If the phase has already landed since this roadmap was written, update the roadmap instead of duplicating it.
-4. Work on exactly one roadmap phase at a time in an isolated worktree/task branch. A complex phase gets its own implementation plan under `docs/superpowers/plans/` if needed.
-5. Use existing source adapters, receipt types, controller/coverage logic, and continuation stores before inventing new abstractions.
+4. Work on exactly one roadmap phase/subphase at a time in an isolated worktree/task branch. A complex phase gets its own implementation plan under `docs/superpowers/plans/` if needed.
+5. Use existing source adapters, receipt types, controller/coverage logic, continuation stores, full-text/method-audit code, and Crossref behavior before inventing new abstractions.
 6. Add tests that prove the enforcement property, not merely that instruction text contains a sentence.
-7. Run focused tests during development, then the complete applicable deterministic gate before PR completion.
-8. Inspect the final diff and update current-state/release/privacy docs when affected.
-9. Open/review/merge through PR according to repository policy. After merge, start the next phase from fresh `main` rather than carrying an old worktree forward.
-10. Update this roadmap's checkboxes/status after each completed phase so a fresh worker can recover without chat history.
-11. Continue autonomously through nonconsequential implementation phases. Stop for owner judgment only when the roadmap or canonical project rules identify a genuine boundary, including protocol/policy changes, new paid providers, new durable retention, production write capability, material privacy expansion, or a security tradeoff requiring acceptance.
-12. Never claim the overall roadmap complete until real product acceptance and deployment gates relevant to the chosen surface have passed.
+7. Keep hermetic CI separate from live/provider smoke tests.
+8. Run focused tests during development, then the complete applicable deterministic gate before PR completion.
+9. Inspect the final diff and update current-state/release/privacy/data-source/licensing docs when affected.
+10. Open/review/merge through PR according to repository policy. After merge, start the next phase from fresh `main` rather than carrying an old worktree forward.
+11. Update this roadmap's checkboxes/status after each completed phase/subphase so a fresh worker can recover without chat history.
+12. Continue autonomously through nonconsequential implementation phases. Stop for owner judgment only when the roadmap or canonical project rules identify a genuine boundary, including protocol/policy changes, new paid providers, credential/account commitments, new durable retention, production write capability, material privacy expansion, or a security/licensing tradeoff requiring acceptance.
+13. Never claim the overall roadmap complete until real product acceptance and deployment gates relevant to the chosen surface have passed.
 
 ## Overall acceptance criteria
 
@@ -350,28 +724,45 @@ The execution-control program is complete only when all of these are true:
 3. Real operation results/receipts, not caller completion claims, advance state.
 4. Retryable executable work cannot be relabeled terminal by a worker.
 5. Protocol drift is detected before authoritative finalization.
-6. Candidate discovery, transcripts, community depth, formal search, full text, method audit, bidirectional iteration, treatment-space coverage, and final audit are controller-connected where required.
-7. A valid terminal boundary can produce only its permitted bounded output.
-8. A complete fixture can reach a server-issued integrity-bound finalization permit/report.
-9. Tamper, replay, cross-session, and privacy tests pass for the chosen permit/state design.
-10. Hermes cannot bypass controller denial.
-11. n8n cannot mark a workflow complete without AskRigor authorization.
-12. External orchestration does not become a second copy of research policy.
-13. Public MCP/Action changes occur only in reviewed phases with exact inventory tests.
-14. Fresh real-product acceptance passes for any Custom GPT projection claimed current.
-15. Deployment, plugin, server, protocol, and product artifacts are synchronized to one reviewed release.
+6. Candidate discovery, transcripts, community depth, formal search, full text, method audit, post-publication/integrity/replication evidence, bidirectional iteration, treatment-space coverage, and final audit are controller-connected where required.
+7. Decision-important studies have provider-scoped publication-integrity/replication coverage and linked decision-changing sources are audited or claim-locally bounded.
+8. No universal study-quality score or provider-count shortcut can unlock completion.
+9. A valid terminal boundary can produce only its permitted bounded output.
+10. A complete fixture can reach a server-issued integrity-bound finalization permit/report.
+11. Tamper, replay, cross-session, cross-study, cross-protocol, provider-state, and privacy tests pass for the chosen receipt/permit/state design.
+12. Hermes cannot bypass controller denial.
+13. n8n cannot mark a workflow complete without AskRigor authorization.
+14. External orchestration does not become a second copy of research/provider policy.
+15. Public MCP/Action changes occur only in reviewed phases with exact inventory tests.
+16. Fresh real-product acceptance passes for any Custom GPT projection claimed current.
+17. Deployment, plugin, server, protocol, provider configuration, and product artifacts are synchronized to one reviewed release.
 
 ## Explicit non-goals
 
 - Do not add another giant system prompt as the primary enforcement mechanism.
 - Do not duplicate the existing treatment-landscape assessor in n8n/Hermes.
+- Do not expose separate provider tools merely to make the model remember a checklist.
+- Do not create a universal study-quality/reliability number.
 - Do not treat a signed receipt as semantic truth merely because its structure and provenance validate.
-- Do not expose private health/research content to orchestrators unnecessarily.
+- Do not treat provider no-match as proof of absence, comment count as severity, or provider-coded replication/citation labels as verified conclusions.
+- Do not expose private health/research/provider content to orchestrators unnecessarily.
 - Do not give external agents protocol-change, production-secret, direct-main, or completion authority.
+- Do not activate new durable artifact/snapshot storage outside Phase G privacy/owner review.
 - Do not generalize to other projects until AskRigor proves the architecture end to end.
+
+## Owner/provider gates and recommended defaults
+
+These gates do not block the open Crossref + FORRT + internal receipt/controller work.
+
+- Public provider-tool exposure: default **no** for the first release; controller calls providers internally. At most one composite technical-audit operation may be considered later.
+- Retraction Watch local snapshot: recommended **yes**, but production durable storage/cron activation remains reconciled with Phase G unless separately approved.
+- PubPeer: implement adapter/fixtures but keep disabled until authorized API access/current terms are known.
+- Epistemonikos: keep disabled until token/current contract/live smoke are verified.
+- Scite/Ripeta: defer paid/commercial integration until open-core evidence shows a material remaining need and appropriate credentials/licensing exist.
+- Health-first activation with a field-neutral external-evidence schema is the default architectural direction unless a later owner correction changes it.
 
 ## Recovery and relationship to predecessor plan
 
-The predecessor plan remains authoritative for the owner-approved scientific corrections, study/review audit requirements, accessible/inaccessible source policy, candidate-quality principles, and product-acceptance philosophy. This roadmap is a continuation/reconciliation after PR #58/#59/#61 and should be read together with it.
+The predecessor plan remains authoritative for the owner-approved scientific corrections, study/review audit requirements, accessible/inaccessible source policy, candidate-quality principles, and product-acceptance philosophy. This roadmap is a continuation/reconciliation after PR #58/#59/#61/#62 and now includes the external-study-evidence workstream as a required part of the Phase D -> E -> F controller path.
 
 If this roadmap conflicts with a later explicit owner correction or the complete current canonical protocol bytes, the higher authority wins and this document must be amended through review. Chat summaries never supersede repository state.
