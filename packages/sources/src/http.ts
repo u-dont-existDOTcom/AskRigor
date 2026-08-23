@@ -5,6 +5,8 @@ export const ALLOWED_UPSTREAM_HOSTS = new Set([
   "clinicaltrials.gov",
   "api.crossref.org",
   "www.googleapis.com",
+  "generativelanguage.googleapis.com",
+  "api.unpaywall.org",
 ]);
 
 const DEFAULT_TIMEOUT_MS = 20_000;

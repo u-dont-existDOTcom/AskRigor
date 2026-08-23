@@ -1,6 +1,6 @@
 # Executable research orchestrator and study-audit plan
 
-**Status:** Owner-approved architecture; implementation not yet started.
+**Status:** Owner-approved architecture; feasibility implementation in progress.
 
 **Goal:** Replace prompt-only research compliance with a server-owned,
 evidence-bound workflow that automatically uses the configured high-recall
@@ -188,11 +188,14 @@ adds no material hypothesis or a genuine access boundary is reached.
 
 ### 4. Accessible full-text acquisition
 
-Add lawful source acquisition for freely accessible study text. Candidate
-routes may include public repository HTML/XML, open-access publisher pages,
-author or institutional repositories, and other lawful machine-readable
-sources. Provider selection is an implementation decision to be justified by
-current terms, stability, and testability.
+Add lawful source acquisition for freely accessible study text. Start with
+direct reusable full-text repository records such as Europe PMC, then use
+Unpaywall DOI resolution to discover additional lawful publisher, author, and
+institutional-repository copies. Unpaywall location metadata is a discovery
+lead: the linked object must still be fetched, identity-checked, classified by
+version, and checked for completeness before it becomes audited full text.
+Other lawful machine-readable sources may be added when current terms,
+stability, security, and testability justify them.
 
 Every acquired document must carry:
 
@@ -348,13 +351,13 @@ discovery client.
 
 ### Phase 0 — Preserve the incident and baseline
 
-- [ ] Save the owner-approved plan and full-text correction in this document.
+- [x] Save the owner-approved plan and full-text correction in this document.
 - [ ] Record the failed output as a sanitized regression fixture without user
       identity, medical details, credentials, or private provider content.
-- [ ] Inventory the exact current operations and distinguish real producers,
+- [x] Inventory the exact current operations and distinguish real producers,
       validators, retrieval adapters, consistency checkers, and synthetic
       acceptance surfaces.
-- [ ] Update the recovery checkpoint with the branch, baseline, plan, and next
+- [x] Update the recovery checkpoint with the branch, baseline, plan, and next
       safe action.
 
 **Gate:** No protocol, runtime, deployment, Spark, plugin, or Custom GPT change
@@ -362,13 +365,13 @@ before the failure contract and rollback baseline are durable.
 
 ### Phase 1 — Feasibility spikes
 
-- [ ] Investigate current supported automation for Gemini Spark or an official
+- [x] Investigate current supported automation for Gemini Spark or an official
       Gemini capability with materially equivalent candidate discovery.
-- [ ] Implement the smallest isolated scout prototype without committing user
+- [x] Implement the smallest isolated scout prototype without committing user
       credentials or assuming browser automation is production-suitable.
 - [ ] Benchmark it against saved successful Spark frontiers and unrelated
       held-out treatment questions.
-- [ ] Investigate lawful machine-readable full-text providers and implement a
+- [x] Investigate lawful machine-readable full-text providers and implement a
       read-only acquisition prototype that preserves identity, completeness,
       provenance, and hashes.
 - [ ] Prototype a server-owned research session with one bounded continuation

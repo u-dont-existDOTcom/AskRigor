@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<article article-type="research-article">
+  <front>
+    <article-meta>
+      <article-id pub-id-type="pmcid">PMC1234567</article-id>
+      <article-id pub-id-type="pmid">40123456</article-id>
+      <article-id pub-id-type="doi">10.1234/recorded.example</article-id>
+      <title-group>
+        <article-title>Recorded <italic>full-text</italic> study</article-title>
+      </title-group>
+      <permissions>
+        <license license-type="open-access">
+          <license-p>Creative Commons Attribution 4.0</license-p>
+        </license>
+      </permissions>
+    </article-meta>
+  </front>
+  <body>
+    <sec>
+      <title>Methods</title>
+      <p>The exact intervention and comparator were recorded.</p>
+    </sec>
+  </body>
+</article>
