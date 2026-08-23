@@ -1,8 +1,8 @@
 # Custom GPT Action live acceptance
 
-## 2026-08-23 open-full-text audit candidate
+## 2026-08-23 open-full-text audit deployment and direct acceptance
 
-The current unmerged candidate automatically tries Europe PMC and then
+The deployed runtime automatically tries Europe PMC and then
 Unpaywall for every decision-important DOI. It exposes resumable full-text
 segments plus source-linked individual-study and review/guideline method-audit
 Actions. It does not equate randomization, peer review, or publication status
@@ -17,12 +17,24 @@ the synchronization ledger SHA-256 is
 `2c896b263ad47a37637f823bc6f3807b9f05a1fb8724ff5af3bcb7576afad1bc`.
 Repository verification passed 1,121 tests with six declared skips, all
 typechecks, the production build, four public-site pages, 28 deployment tests,
-and a zero-vulnerability production dependency audit. A bounded live smoke
-acquired, securely fetched, extracted, identity-checked, and indexed the open
-PDF for DOI `10.1038/nature12373` through Unpaywall.
-Deployment, exact editor import, visible operation inspection, and fresh
-product-interface replay remain pending and must not be inferred from repository
-tests.
+and a zero-vulnerability production dependency audit. A bounded provider-
+diverse live Unpaywall smoke securely fetched, extracted, exact-DOI-checked,
+and indexed open copies from independent hosts; the final smoke accepts the
+first complete verified copy among Frontiers, Scientific Reports, and an
+institutional repository. The old single Nature fixture is now an explicit
+inaccessible lead rather than a reason to weaken retrieval or identity checks.
+
+PR #58 merged the full-text release, and PR #59 merged the malformed-identifier
+boundary repair as `e7409dfc0567c07e5fba3f2641b735028d132e1f`. That exact
+merge is deployed as image ID
+`sha256:1968fa4cfeb4ad2b6c47b3b85e685d94d020f529b565b0023ab73596572b3409`
+in healthy container `3f333fadee14`. The live compact OpenAPI SHA-256 is
+`87711a1bcac4939137bd4166803c85f153a6a345036a400dc078b542c8f0041a`.
+Direct public acceptance passed 25 Actions, 21 MCP tools, exact protocol
+integrity, lesson isolation at `401`, malformed full-text input at `422`, and a
+complete open study whose method-audit lock remains closed until all source
+segments are read. Caddy was not recreated. Exact editor import, visible
+operation inspection, and fresh product-interface replay remain pending.
 
 ## 2026-08-22 Custom GPT editor-schema compatibility repair candidate
 

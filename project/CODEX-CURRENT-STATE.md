@@ -1,8 +1,8 @@
 # AskRigor Codex Current State
 
-## 2026-08-23 executable Unpaywall acquisition and method-audit candidate
+## 2026-08-23 deployed Unpaywall acquisition and method-audit release
 
-The task branch now goes beyond Unpaywall metadata discovery. It automatically
+The merged runtime goes beyond Unpaywall metadata discovery. It automatically
 tries Europe PMC and then Unpaywall for a decision-important DOI; safely fetches
 direct open PDF candidates; rejects private-network destinations, oversized
 or mixed DNS answers, pins TLS to a vetted public address, rejects oversized
@@ -23,10 +23,25 @@ and the synchronization ledger SHA-256 is
 The complete deterministic gate passed 1,121 tests with six declared skips,
 typechecking, and the production build. Public-site and deployment validation
 passed, the production dependency audit found zero vulnerabilities, and a
-bounded live Unpaywall smoke completed secure PDF acquisition, extraction,
-identity verification, and indexing for DOI `10.1038/nature12373`.
-No merge, deployment, plugin reinstall, Custom GPT installation, or fresh
-product acceptance is claimed yet.
+bounded provider-diverse live Unpaywall smoke completed secure PDF acquisition,
+extraction, and exact DOI verification from independent open hosts. The smoke
+accepts the first complete verified copy among Frontiers, Scientific Reports,
+and an institutional repository instead of depending on one brittle URL. The
+former single Nature smoke fixture is now correctly classified as a possibly
+useful lead after its open locations failed retrieval or identity verification.
+
+PR #58 merged the release; PR #59 merged the public identifier-boundary repair.
+Exact merge `e7409dfc0567c07e5fba3f2641b735028d132e1f` is deployed as image ID
+`sha256:1968fa4cfeb4ad2b6c47b3b85e685d94d020f529b565b0023ab73596572b3409`
+in healthy container `3f333fadee14`. Active Compose SHA-256 is
+`90d5bae8970975fa49eb14c0571e772b454f70e2a8ffbf5195c6448ecaff1f0b`;
+the pre-PR-58 rollback image/config remain verified. Direct public acceptance
+passed 25 Actions, 21 MCP tools, exact protocol integrity, lesson isolation at
+`401`, malformed full-text input at `422`, and an open study with its method-
+audit synthesis lock correctly closed. The compact live OpenAPI SHA-256 is
+`87711a1bcac4939137bd4166803c85f153a6a345036a400dc078b542c8f0041a`.
+The personal plugin is current at `0.1.0+codex.20260823023619`. Custom GPT
+editor installation and fresh product acceptance remain pending.
 
 ## 2026-08-23 executable research-orchestrator and study-audit plan
 
@@ -110,7 +125,7 @@ The signed-in editor re-import, exact operation-list inspection, and fresh
 product-interface acceptance remain required before the installation is current.
 
 
-Updated: 2026-08-22
+Updated: 2026-08-23
 
 ## Goal
 
