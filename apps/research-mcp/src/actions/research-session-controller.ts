@@ -1,8 +1,23 @@
 import { createHash } from "node:crypto";
 
 import type { ProtocolManifest } from "@askrigor/protocol";
+import type {
+  GeminiYoutubeCandidatePacket,
+  GeminiYoutubeCandidateValidationReceipt
+} from "@askrigor/sources";
 import { z } from "zod";
 
+import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
+import {
+  assertCandidateScreeningComplete,
+  candidateDiscoveryDiagnosticsSchema,
+  candidateDiscoveryReadyForScreening,
+  deriveCandidateDiscoveryDiagnostics,
+  ingestNativeYoutubeSurvey,
+  ingestValidatedGeminiFrontier,
+  initialResearchCandidateDiscoveryState,
+  researchCandidateDiscoveryStateSchema
+} from "./research-candidate-frontier.js";
 import type { TreatmentLandscapeCoverageOutput } from "./treatment-landscape-coverage-route.js";
 
 export const RESEARCH_MODULE_IDS = [
@@ -16,6 +31,7 @@ export const RESEARCH_MODULE_IDS = [
 
 export const RESEARCH_OPERATION_IDS = [
   "automated_video_scout",
+  "native_video_discovery",
   "candidate_screening",
   "transcript_acquisition",
   "community_discussion_audit",
@@ -151,6 +167,7 @@ const moduleStatesSchema = z.object({
 
 const operationStatesSchema = z.object({
   automated_video_scout: operationStateSchema,
+  native_video_discovery: operationStateSchema,
   candidate_screening: operationStateSchema,
   transcript_acquisition: operationStateSchema,
   community_discussion_audit: operationStateSchema,
@@ -184,7 +201,8 @@ export const researchSessionStateSchema = z.object({
   }).strict(),
   modules: moduleStatesSchema,
   operations: operationStatesSchema,
-  scout: scoutStateSchema
+  scout: scoutStateSchema,
+  candidate_discovery: researchCandidateDiscoveryStateSchema
 }).strict().superRefine((state, context) => {
   if (
     state.protocol_binding.currency === "DRIFTED" &&
@@ -264,6 +282,36 @@ export const researchSessionStateSchema = z.object({
       message: "Scout candidate count cannot be smaller than projected identities"
     });
   }
+  if (
+    state.scout.status === "COMPLETE" &&
+    state.candidate_discovery.external_scout.status !== "COMPLETE"
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Scout completion requires a reconciled external candidate frontier"
+    });
+  }
+  if (
+    state.operations.native_video_discovery.status === "COMPLETE" &&
+    state.candidate_discovery.native_youtube.status !== "COMPLETE"
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Native discovery completion requires its server-derived frontier"
+    });
+  }
+  if (state.operations.candidate_screening.status === "COMPLETE") {
+    try {
+      assertCandidateScreeningComplete(state.candidate_discovery);
+    } catch (error) {
+      context.addIssue({
+        code: "custom",
+        message: error instanceof Error
+          ? error.message
+          : "Candidate screening completion is invalid"
+      });
+    }
+  }
 });
 
 export type ResearchSessionState = z.output<typeof researchSessionStateSchema>;
@@ -273,6 +321,8 @@ export type ResearchOperationId = typeof RESEARCH_OPERATION_IDS[number];
 export const researchNextCapabilitySchema = z.enum([
   "route_module_applicability",
   "automated_video_scout",
+  "native_video_discovery",
+  "resolve_candidate_identities",
   "candidate_screening",
   "transcript_acquisition",
   "community_discussion_audit",
@@ -335,6 +385,7 @@ export const researchSessionViewSchema = z.object({
     unresolved_candidate_count: z.number().int().nonnegative(),
     access_boundary: operationBoundarySchema.optional()
   }).strict(),
+  candidate_discovery: candidateDiscoveryDiagnosticsSchema,
   required_next_capabilities: z.array(researchNextCapabilitySchema),
   finalization_permit: z.null()
 }).strict();
@@ -360,11 +411,8 @@ export interface ResearchSessionStartInput {
 
 export interface AutomatedScoutCompletion {
   providerResponseId: string;
-  sourcePacketVersion: string;
-  validationStatus: "accepted" | "partial" | "rejected" | "blocked";
-  sourceCandidateIds: readonly string[];
-  validatedCandidateIds: readonly string[];
-  unresolvedCandidateIds: readonly string[];
+  packet: GeminiYoutubeCandidatePacket;
+  receipt: GeminiYoutubeCandidateValidationReceipt;
 }
 
 export function protocolBindingsFromManifests(
@@ -416,6 +464,7 @@ export function createInitialResearchSessionState(
     },
     operations: {
       automated_video_scout: notStarted(),
+      native_video_discovery: notStarted(),
       candidate_screening: notStarted(),
       transcript_acquisition: notStarted(),
       community_discussion_audit: notStarted(),
@@ -431,7 +480,8 @@ export function createInitialResearchSessionState(
       candidate_count: 0,
       validated_candidate_ids: [],
       unresolved_candidate_ids: []
-    }
+    },
+    candidate_discovery: initialResearchCandidateDiscoveryState()
   });
 }
 
@@ -488,34 +538,103 @@ export function applyProtocolRecheck(
 
 export function recordAutomatedScoutCompletion(
   rawState: ResearchSessionState,
-  rawCompletion: AutomatedScoutCompletion
+  completion: AutomatedScoutCompletion
 ): ResearchSessionState {
   const state = requireCurrentProtocols(rawState);
-  const completion = automatedScoutCompletionSchema.parse(rawCompletion);
-  const sourceIds = unique(completion.sourceCandidateIds);
-  const validatedIds = unique(completion.validatedCandidateIds);
-  const unresolvedIds = unique(completion.unresolvedCandidateIds);
-  assertSubset(validatedIds, sourceIds, "validated scout candidate");
-  assertSubset(unresolvedIds, sourceIds, "unresolved scout candidate");
-  if (validatedIds.some((videoId) => unresolvedIds.includes(videoId))) {
-    throw new Error("Validated and unresolved scout candidates cannot overlap");
+  if (completion.providerResponseId.trim().length === 0) {
+    throw new Error("Automated scout provider response identity is required");
   }
+  const discovery = ingestValidatedGeminiFrontier(
+    state.candidate_discovery,
+    completion.packet,
+    completion.receipt,
+    completion.providerResponseId
+  );
+  const externalStatus = discovery.external_scout.status;
+  const boundary = externalStatus === "BLOCKED_RETRYABLE"
+    ? {
+      classification: "RETRYABLE" as const,
+      code: "AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED",
+      summary: "Some externally scouted video identities remain unresolved and must be retried."
+    }
+    : externalStatus === "BLOCKED_TERMINAL"
+      ? {
+        classification: "TERMINAL_NONRETRYABLE" as const,
+        code: "AUTOMATED_SCOUT_IDENTITIES_TERMINAL",
+        summary: "Some externally scouted video identities reached a terminal validation boundary."
+      }
+      : undefined;
+  const operationStatus = externalStatus === "COMPLETE"
+    ? "COMPLETE" as const
+    : externalStatus === "BLOCKED_RETRYABLE"
+      ? "BLOCKED_RETRYABLE" as const
+      : "BLOCKED_TERMINAL" as const;
+  const frontier = completion.receipt.candidate_frontier;
 
   return researchSessionStateSchema.parse({
     ...state,
     operations: {
       ...state.operations,
-      automated_video_scout: { status: "COMPLETE" }
+      automated_video_scout: {
+        status: operationStatus,
+        ...(boundary === undefined ? {} : { boundary })
+      }
     },
     scout: {
-      status: "COMPLETE",
+      status: externalStatus === "COMPLETE" ? "COMPLETE" : "BLOCKED",
       provider_response_id: completion.providerResponseId,
-      source_packet_version: completion.sourcePacketVersion,
-      validation_status: completion.validationStatus,
-      candidate_count: sourceIds.length,
-      validated_candidate_ids: validatedIds,
-      unresolved_candidate_ids: unresolvedIds
+      source_packet_version: completion.receipt.source_packet_version,
+      validation_status: completion.receipt.status,
+      candidate_count: frontier.source_candidate_video_ids.length,
+      validated_candidate_ids: frontier.validated_candidate_video_ids,
+      unresolved_candidate_ids: frontier.unresolved_candidate_video_ids,
+      ...(boundary === undefined ? {} : { access_boundary: boundary })
+    },
+    candidate_discovery: discovery
+  });
+}
+
+export function recordNativeYoutubeDiscovery(
+  rawState: ResearchSessionState,
+  survey: YoutubeCommunitySurveyOutput
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (state.operations.automated_video_scout.status !== "COMPLETE") {
+    throw new Error("Native discovery cannot replace incomplete external scouting");
+  }
+  if (survey.research_question !== state.research_target) {
+    throw new Error("Native discovery research target does not match the execution");
+  }
+  const discovery = ingestNativeYoutubeSurvey(state.candidate_discovery, survey);
+  const nativeStatus = discovery.native_youtube.status;
+  const boundary = nativeStatus === "BLOCKED_RETRYABLE"
+    ? {
+      classification: "RETRYABLE" as const,
+      code: "NATIVE_DISCOVERY_RETRYABLE_BOUNDARY",
+      summary: "Native video discovery has retryable search or identity work remaining."
     }
+    : nativeStatus === "BLOCKED_TERMINAL"
+      ? {
+        classification: "TERMINAL_NONRETRYABLE" as const,
+        code: "NATIVE_DISCOVERY_TERMINAL_BOUNDARY",
+        summary: "Native video discovery reached a terminal search or identity boundary."
+      }
+      : undefined;
+  const operationStatus = nativeStatus === "COMPLETE"
+    ? "COMPLETE" as const
+    : nativeStatus === "BLOCKED_RETRYABLE"
+      ? "BLOCKED_RETRYABLE" as const
+      : "BLOCKED_TERMINAL" as const;
+  return researchSessionStateSchema.parse({
+    ...state,
+    operations: {
+      ...state.operations,
+      native_video_discovery: {
+        status: operationStatus,
+        ...(boundary === undefined ? {} : { boundary })
+      }
+    },
+    candidate_discovery: discovery
   });
 }
 
@@ -563,7 +682,18 @@ export function deriveRequiredNextCapabilities(
   if (isExecutable(scout)) capabilities.push("automated_video_scout");
   if (scout.status !== "COMPLETE") return unique(capabilities);
 
-  if (isExecutable(state.operations.candidate_screening)) {
+  const nativeDiscovery = state.operations.native_video_discovery;
+  if (isExecutable(nativeDiscovery)) capabilities.push("native_video_discovery");
+  const candidateDiagnostics = deriveCandidateDiscoveryDiagnostics(
+    state.candidate_discovery
+  );
+  if (candidateDiagnostics.unresolved_identity_video_ids.length > 0) {
+    capabilities.push("resolve_candidate_identities");
+  }
+  if (
+    candidateDiscoveryReadyForScreening(state.candidate_discovery) &&
+    isExecutable(state.operations.candidate_screening)
+  ) {
     capabilities.push("candidate_screening");
   }
   if (isExecutable(state.operations.formal_evidence_search)) {
@@ -663,6 +793,9 @@ export function projectResearchSessionView(
         ? {}
         : { access_boundary: state.scout.access_boundary })
     },
+    candidate_discovery: deriveCandidateDiscoveryDiagnostics(
+      state.candidate_discovery
+    ),
     required_next_capabilities: deriveRequiredNextCapabilities(state),
     finalization_permit: null
   });
@@ -764,6 +897,27 @@ export function assertResearchSessionTransition(
   ) {
     throw new Error("Completed scout evidence is immutable");
   }
+  if (
+    previous.operations.automated_video_scout.status === "COMPLETE" &&
+    JSON.stringify(previous.candidate_discovery.external_scout) !==
+      JSON.stringify(next.candidate_discovery.external_scout)
+  ) {
+    throw new Error("Completed external candidate frontier is immutable");
+  }
+  if (
+    previous.operations.native_video_discovery.status === "COMPLETE" &&
+    JSON.stringify(previous.candidate_discovery.native_youtube) !==
+      JSON.stringify(next.candidate_discovery.native_youtube)
+  ) {
+    throw new Error("Completed native candidate frontier is immutable");
+  }
+  if (
+    previous.operations.candidate_screening.status === "COMPLETE" &&
+    JSON.stringify(previous.candidate_discovery.candidates) !==
+      JSON.stringify(next.candidate_discovery.candidates)
+  ) {
+    throw new Error("Completed candidate screening records are immutable");
+  }
 }
 
 function protocolIdentity(
@@ -828,19 +982,3 @@ function hasTerminalBoundary(state: ResearchSessionState): boolean {
 function unique<T>(values: readonly T[]): T[] {
   return [...new Set(values)];
 }
-
-function assertSubset(values: readonly string[], source: readonly string[], label: string): void {
-  const sourceSet = new Set(source);
-  if (values.some((value) => !sourceSet.has(value))) {
-    throw new Error(`Every ${label} must belong to the source frontier`);
-  }
-}
-
-const automatedScoutCompletionSchema = z.object({
-  providerResponseId: z.string().min(1).max(500),
-  sourcePacketVersion: z.string().min(1).max(20),
-  validationStatus: z.enum(["accepted", "partial", "rejected", "blocked"]),
-  sourceCandidateIds: z.array(z.string().regex(/^[A-Za-z0-9_-]{11}$/u)).max(16),
-  validatedCandidateIds: z.array(z.string().regex(/^[A-Za-z0-9_-]{11}$/u)).max(16),
-  unresolvedCandidateIds: z.array(z.string().regex(/^[A-Za-z0-9_-]{11}$/u)).max(16)
-}).strict();

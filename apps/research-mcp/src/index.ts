@@ -55,6 +55,7 @@ export {
   protocolBindingsFromManifests,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
+  recordNativeYoutubeDiscovery,
   researchNextCapabilitySchema,
   researchOutputBoundarySchema,
   researchSessionStateDigest,
@@ -70,6 +71,21 @@ export {
   type ResearchSessionStartInput,
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
+export {
+  assertCandidateScreeningComplete,
+  candidateDiscoveryDiagnosticsSchema,
+  candidateDiscoveryReadyForScreening,
+  deriveCandidateDiscoveryDiagnostics,
+  ingestNativeYoutubeSurvey,
+  ingestValidatedGeminiFrontier,
+  initialResearchCandidateDiscoveryState,
+  nativeSurveyInputFromCandidateDiscovery,
+  nativeSurveyInputFromGeminiPacket,
+  researchCandidateDiscoveryStateSchema,
+  type CandidateDiscoveryDiagnostics,
+  type ResearchCandidateDiscoveryState,
+  type ResearchCandidateRecord
+} from "./actions/research-candidate-frontier.js";
 export {
   STUDY_METHOD_AUDIT_DOMAINS,
   studyMethodAuditReceiptSchema,
@@ -125,6 +141,7 @@ export {
 } from "./actions/treatment-landscape-coverage-route.js";
 export type {
   DiscussionCoverageReceipt,
+  ProgramSignatureFields,
   TreatmentLandscapeCoverageInput,
   TreatmentLandscapeCoverageOutput,
   TranscriptCoverageReceipt

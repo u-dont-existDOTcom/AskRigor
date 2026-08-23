@@ -5,15 +5,17 @@ import {
   type ActionRoute
 } from "../apps/research-mcp/src/index.js";
 import type {
-  GeminiYoutubeCandidatePacket,
-  GeminiYoutubeCandidateValidationReceipt,
   scoutGeminiYoutubeCandidates,
   validateGeminiYoutubeCandidateHandoff
 } from "../packages/sources/src/index.js";
+import {
+  nativeSurvey,
+  researchPacket,
+  researchReceipt
+} from "./helpers/research-session-fixtures.js";
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
-const VIDEO_IDS = ["XpZHKGGCK-o", "0sZEvvPWq88", "qfPjRBqADKk"] as const;
 
 function context(body: unknown) {
   return { request: {} as never, clientIp: "192.0.2.1", body };
@@ -34,103 +36,6 @@ function protocolManifest(protocol: "universal" | "hrp") {
   };
 }
 
-function packet(): GeminiYoutubeCandidatePacket {
-  return {
-    packet_name: "gemini_youtube_candidate_handoff",
-    packet_version: "2.0",
-    research_target: "de-identified treatment comparison",
-    diagnosis_status: "diagnosis_not_specified",
-    discovery_queries: [
-      { purpose: "firsthand_outcome", query: "condition what worked program" },
-      { purpose: "radical_outcome", query: "condition reversed avoided procedure" },
-      { purpose: "overlooked_intervention", query: "condition named program one" },
-      { purpose: "overlooked_intervention", query: "condition named program two" },
-      { purpose: "conventional_benefit", query: "condition standard benefit" },
-      { purpose: "conventional_negative", query: "condition standard failed" },
-      { purpose: "firsthand_outcome", query: "condition long term outcome" },
-      { purpose: "conventional_negative", query: "condition harm discontinued" }
-    ],
-    candidates: VIDEO_IDS.map((videoId, index) => ({
-      video_id: videoId,
-      canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
-      title: `Candidate ${index + 1}`,
-      channel: `Channel ${index + 1}`,
-      target_distance: "exact",
-      provisional_intervention_family: "local_mechanical",
-      creator_claim_summary: "The creator describes a claimed outcome.",
-      provisional_specific_program: `Program ${index + 1}`,
-      provisional_population_or_stage: "Population described provisionally.",
-      provisional_outcome_and_horizon: "Outcome and horizon described provisionally.",
-      summary_basis: "spark_public_video_context_not_transcript_verified_by_askrigor",
-      why_surfaced: "Adds a nonredundant program hypothesis."
-    })),
-    suggested_seed_video_ids: [VIDEO_IDS[0]],
-    search_gaps: [],
-    disclosures: [
-      "comments_not_retrieved",
-      "provider_metadata_not_validated_by_gemini",
-      "creator_claims_not_validated",
-      "not_medical_advice"
-    ]
-  };
-}
-
-function receipt(): GeminiYoutubeCandidateValidationReceipt {
-  return {
-    packet_name: "askrigor_gemini_youtube_candidate_validation",
-    packet_version: "2.0",
-    source_contract: "youtube-candidate-handoff-v2",
-    source_packet_version: "2.0",
-    status: "accepted",
-    research_target: "de-identified treatment comparison",
-    candidate_frontier: {
-      frontier_digest: "c".repeat(64),
-      source_candidate_video_ids: [...VIDEO_IDS],
-      validated_candidate_video_ids: [...VIDEO_IDS],
-      terminally_rejected_video_ids: [],
-      unresolved_candidate_video_ids: []
-    },
-    validated_candidates: VIDEO_IDS.map((videoId, index) => ({
-      video_id: videoId,
-      canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
-      metadata_access_status: "api_visible_complete",
-      provider_metadata: {
-        retrieved_at: "2026-08-23T00:00:00.000Z",
-        title: `Candidate ${index + 1}`,
-        channel_id: `UC${"0".repeat(21)}${index}`,
-        channel_title: `Channel ${index + 1}`,
-        privacy_status: "public",
-        statistics: { comment_count: "10" }
-      },
-      gemini_provisional_annotations: {
-        target_distance: "exact",
-        intervention_family: "local_mechanical",
-        creator_claim_summary: "The creator describes a claimed outcome.",
-        specific_program: `Program ${index + 1}`,
-        population_or_stage: "Population described provisionally.",
-        outcome_and_horizon: "Outcome and horizon described provisionally.",
-        summary_basis: "spark_public_video_context_not_transcript_verified_by_askrigor",
-        why_surfaced: "Adds a nonredundant program hypothesis."
-      },
-      limitations: []
-    })),
-    rejected_candidates: [],
-    unresolved_candidates: [],
-    suggested_seed_receipts: [{
-      video_id: VIDEO_IDS[0],
-      disposition: "eligible",
-      reasons: []
-    }],
-    eligible_seed_video_ids: [VIDEO_IDS[0]],
-    access_boundaries: [
-      "Gemini scout summaries remain provisional and were not transcript-verified by AskRigor; they may guide candidate discovery only.",
-      "Provider comment_count is metadata, not proof of corpus accessibility, completeness, materiality, efficacy, safety, or causality.",
-      "Comment-audit eligibility is mechanical; AskRigor must still perform protocol-governed semantic selection and any required audit.",
-      "No YouTube comments or transcripts were retrieved by this validation."
-    ]
-  };
-}
-
 describe("server-owned research session feasibility routes", () => {
   it("owns the protocol-bound state, executes one automated scout step, and refuses premature finalization", async () => {
     const scout = vi.fn<typeof scoutGeminiYoutubeCandidates>(async () => ({
@@ -146,14 +51,18 @@ describe("server-owned research session feasibility routes", () => {
         response_id: "interaction-1",
         model: "fixture-model",
         google_search_grounded: true,
-        packet: packet()
+        packet: researchPacket()
       }
     }));
-    const validate = vi.fn<typeof validateGeminiYoutubeCandidateHandoff>(async () => receipt());
+    const validate = vi.fn<typeof validateGeminiYoutubeCandidateHandoff>(
+      async () => researchReceipt()
+    );
+    const survey = vi.fn(async () => nativeSurvey());
     const routes = createResearchSessionPrototypeRoutes({
       getProtocolManifest: async (protocol) => protocolManifest(protocol),
       scout,
       validateCandidates: validate,
+      surveyNativeCandidates: survey,
       loadScoutInstructions: async () => "Exact repository scout instructions",
       geminiConfig: { apiKey: "server-held-gemini-key", model: "fixture-model" },
       youtubeApiKey: "server-held-youtube-key"
@@ -208,11 +117,12 @@ describe("server-owned research session feasibility routes", () => {
           unresolved_candidate_count: 0
         },
         operations: {
-          automated_video_scout: { status: "COMPLETE" }
+          automated_video_scout: { status: "COMPLETE" },
+          native_video_discovery: { status: "NOT_STARTED" }
         },
         required_next_capabilities: [
           "route_module_applicability",
-          "candidate_screening",
+          "native_video_discovery",
           "formal_evidence_search"
         ],
         last_transition: {
@@ -233,6 +143,44 @@ describe("server-owned research session feasibility routes", () => {
       expect.stringContaining('"packet_version":"2.0"'),
       { apiKey: "server-held-youtube-key" }
     );
+
+    const discovered = await route(routes, "continue_research_session").handle(context({
+      session_id: sessionId
+    }));
+    expect(discovered).toMatchObject({
+      status: 200,
+      body: {
+        operations: {
+          automated_video_scout: { status: "COMPLETE" },
+          native_video_discovery: { status: "COMPLETE" }
+        },
+        candidate_discovery: {
+          external_source_candidates: 3,
+          native_source_candidates: 2,
+          reconciled_candidates: 4,
+          multiple_source_candidates: 1,
+          unresolved_identity_video_ids: [],
+          semantic_screening_pending: 4
+        },
+        required_next_capabilities: [
+          "route_module_applicability",
+          "candidate_screening",
+          "formal_evidence_search"
+        ],
+        last_transition: {
+          capability: "native_video_discovery",
+          result: "complete"
+        }
+      }
+    });
+    expect(survey).toHaveBeenCalledWith({
+      research_question: "de-identified treatment comparison",
+      searches: expect.arrayContaining([
+        { direction: "general", query: "condition what worked program" },
+        { direction: "benefit", query: "condition standard benefit" }
+      ]),
+      results_per_search: 10
+    }, { apiKey: "server-held-youtube-key" });
 
     const finalized = await route(routes, "finalize_research_report").handle(context({
       session_id: sessionId
@@ -291,7 +239,10 @@ describe("server-owned research session feasibility routes", () => {
       session_id: sessionId,
       complete: true,
       completed_operations: ["automated_video_scout"],
-      completed_operation_count: 1
+      completed_operation_count: 1,
+      candidate_count: 50,
+      candidate_video_ids: ["XpZHKGGCK-o"],
+      candidates: [{ video_id: "XpZHKGGCK-o", materiality: "MATERIAL" }]
     }));
     expect(forgedContinuation).toEqual(result);
     const forgedFinalization = await route(

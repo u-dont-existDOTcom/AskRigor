@@ -10,6 +10,8 @@ import { getProtocolManifest } from "@askrigor/protocol";
 import { z } from "zod";
 
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
+import { surveyYoutubeCommunity } from "../youtube-community-survey.js";
+import { nativeSurveyInputFromCandidateDiscovery } from "./research-candidate-frontier.js";
 import {
   applyProtocolRecheck,
   createInitialResearchSessionState,
@@ -19,6 +21,7 @@ import {
   protocolBindingsFromManifests,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
+  recordNativeYoutubeDiscovery,
   researchSessionViewSchema,
   type ResearchSessionState
 } from "./research-session-controller.js";
@@ -38,7 +41,11 @@ const sessionInputSchema = z.object({
 }).strict();
 const continuationOutputSchema = researchSessionViewSchema.extend({
   last_transition: z.object({
-    capability: z.enum(["protocol_currency_recheck", "automated_video_scout"]),
+    capability: z.enum([
+      "protocol_currency_recheck",
+      "automated_video_scout",
+      "native_video_discovery"
+    ]),
     result: z.enum([
       "protocol_current",
       "protocol_drift",
@@ -58,12 +65,14 @@ const actionErrorSchema = z.object({
 
 type ScoutFunction = typeof scoutGeminiYoutubeCandidates;
 type ValidateFunction = typeof validateGeminiYoutubeCandidateHandoff;
+type NativeSurveyFunction = typeof surveyYoutubeCommunity;
 
 export interface CreateResearchSessionPrototypeRoutesOptions {
   store?: ResearchSessionStore;
   getProtocolManifest?: typeof getProtocolManifest;
   scout?: ScoutFunction;
   validateCandidates?: ValidateFunction;
+  surveyNativeCandidates?: NativeSurveyFunction;
   loadScoutInstructions?: () => Promise<string>;
   geminiConfig?: GeminiYoutubeScoutConfig;
   youtubeApiKey?: string;
@@ -80,6 +89,7 @@ export function createResearchSessionPrototypeRoutes(
   const manifests = options.getProtocolManifest ?? getProtocolManifest;
   const scout = options.scout ?? scoutGeminiYoutubeCandidates;
   const validate = options.validateCandidates ?? validateGeminiYoutubeCandidateHandoff;
+  const surveyNativeCandidates = options.surveyNativeCandidates ?? surveyYoutubeCommunity;
   const loadScoutInstructions = options.loadScoutInstructions ?? defaultScoutInstructions;
 
   return Object.freeze([
@@ -128,24 +138,54 @@ export function createResearchSessionPrototypeRoutes(
             };
           }
 
-          if (checked.scout.status === "COMPLETE") {
-            store.replace(sessionId, checked);
+          if (checked.scout.status !== "COMPLETE") {
+            if (checked.operations.automated_video_scout.status === "BLOCKED_TERMINAL") {
+              store.replace(sessionId, checked);
+              return {
+                ...projectResearchSessionView(sessionId, checked),
+                last_transition: {
+                  capability: "automated_video_scout" as const,
+                  result: "blocked_terminal" as const
+                }
+              };
+            }
+            const next = await runScout(checked);
+            store.replace(sessionId, next);
+            const operationStatus = next.operations.automated_video_scout.status;
             return {
-              ...projectResearchSessionView(sessionId, checked),
+              ...projectResearchSessionView(sessionId, next),
               last_transition: {
                 capability: "automated_video_scout" as const,
-                result: "already_complete" as const
+                result: operationStatus === "COMPLETE"
+                  ? "complete" as const
+                  : operationStatus === "BLOCKED_TERMINAL"
+                    ? "blocked_terminal" as const
+                    : "blocked_retryable" as const
               }
             };
           }
 
-          const next = await runScout(checked);
+          const nativeStatus = checked.operations.native_video_discovery.status;
+          if (nativeStatus === "COMPLETE" || nativeStatus === "BLOCKED_TERMINAL") {
+            store.replace(sessionId, checked);
+            return {
+              ...projectResearchSessionView(sessionId, checked),
+              last_transition: {
+                capability: "native_video_discovery" as const,
+                result: nativeStatus === "COMPLETE"
+                  ? "already_complete" as const
+                  : "blocked_terminal" as const
+              }
+            };
+          }
+
+          const next = await runNativeDiscovery(checked);
           store.replace(sessionId, next);
-          const operationStatus = next.operations.automated_video_scout.status;
+          const operationStatus = next.operations.native_video_discovery.status;
           return {
             ...projectResearchSessionView(sessionId, next),
             last_transition: {
-              capability: "automated_video_scout" as const,
+              capability: "native_video_discovery" as const,
               result: operationStatus === "COMPLETE"
                 ? "complete" as const
                 : operationStatus === "BLOCKED_TERMINAL"
@@ -231,12 +271,24 @@ export function createResearchSessionPrototypeRoutes(
     );
     return recordAutomatedScoutCompletion(state, {
       providerResponseId: frontier.data.response_id,
-      sourcePacketVersion: receipt.source_packet_version,
-      validationStatus: receipt.status,
-      sourceCandidateIds: receipt.candidate_frontier.source_candidate_video_ids,
-      validatedCandidateIds: receipt.validated_candidates.map(({ video_id }) => video_id),
-      unresolvedCandidateIds: receipt.unresolved_candidates.map(({ video_id }) => video_id)
+      packet: frontier.data.packet,
+      receipt
     });
+  }
+
+  async function runNativeDiscovery(
+    state: ResearchSessionState
+  ): Promise<ResearchSessionState> {
+    const youtubeApiKey = options.youtubeApiKey;
+    if (youtubeApiKey === undefined || youtubeApiKey.trim().length === 0) {
+      throw new Error("Native discovery requires the configured YouTube identity provider");
+    }
+    const input = nativeSurveyInputFromCandidateDiscovery(
+      state.candidate_discovery,
+      state.research_target
+    );
+    const survey = await surveyNativeCandidates(input, { apiKey: youtubeApiKey });
+    return recordNativeYoutubeDiscovery(state, survey);
   }
 }
 

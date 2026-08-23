@@ -1,5 +1,52 @@
 # AskRigor Codex Current State
 
+## 2026-08-23 execution-control Phase B candidate
+
+Branch `agent/execution-control-phase-b-20260823` starts from exact Phase A
+merge `1dd18f91fa94da391c3b5e30c604850e3813f4de` and implements Phase B of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+The controller now owns two independent discovery frontiers instead of asking
+a client to reconstruct a candidate list.
+
+The existing automated Gemini/Spark path enters authoritative state only with
+its exact packet, server-held provider response identity, independently
+produced YouTube validation receipt, and verified frontier digest. Rejected or
+unresolved public identities do not become decision-relevant candidate
+records. A separate native YouTube survey is the next mandatory transition and
+is derived from the recorded scout queries; the external scout alone cannot
+open candidate screening.
+
+Candidates are reconciled by stable YouTube video identity and preserve exact
+frontier/query origins, provider access status, target and stage distance,
+provisional treatment/program fields, normalized program signature, and
+pending materiality/redundancy state. Every native search and candidate origin
+has a reciprocal link. Missing program fields remain the literal
+`program not described`; they are not inferred from titles or model memory.
+Raw counts and signature groups are projected as diagnostics only and cannot
+advance state.
+
+Hostile tests reject packet/receipt mismatch, unresolved identities, skipped
+external or native discovery, missing reciprocal links, caller-authored counts
+or candidate lists, duplicate video inflation, stale retry origins, and renamed
+candidates that attempt to count one normalized described program more than
+once. Focused controller/frontier/prototype and inventory tests pass 27/27.
+The complete `npm run verify` gate passes typechecking, 1,152 tests with six
+declared skips, and the production build;
+the sandbox-only run recorded the known local loopback/IPC `EPERM` boundary.
+
+The non-production prototype remains unregistered. Public inventory stays at
+21 MCP tools and 26 Actions; generated Custom GPT Instructions, public Action
+OpenAPI, plugin bytes, protocol bytes, provider footprint, privacy retention,
+deployment configuration, and production runtime are unchanged. Phase C is
+next after reviewed merge. The Phase B opening lesson checkpoint at
+`2026-08-23T22:28:25.668Z` was available with 1 open candidate, 1 needing
+review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+deletion eligible. No unreviewed lesson expanded this phase.
+The pre-PR lesson checkpoint at `2026-08-23T22:58:32.675Z` returned the same
+counts. Lesson disposition is project-specific/no-new-lesson: Phase B applies
+the already approved server-owned-frontier architecture and did not expose a
+new transferable failure beyond the existing execution-control lessons.
+
 ## 2026-08-23 execution-control Phase A candidate
 
 Branch `agent/execution-control-phase-a-20260823` starts from exact current

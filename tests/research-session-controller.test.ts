@@ -15,15 +15,22 @@ import {
   protocolBindingsFromManifests,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
+  recordNativeYoutubeDiscovery,
   researchSessionStateSchema,
   type ResearchSessionState
 } from "../apps/research-mcp/src/index.js";
+import { deriveGeminiYoutubeCandidateFrontier } from "../packages/sources/src/index.js";
+import {
+  RESEARCH_FIXTURE_VIDEO_IDS,
+  nativeSurvey,
+  researchPacket,
+  researchReceipt
+} from "./helpers/research-session-fixtures.js";
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
 const HASH_C = "c".repeat(64);
 const SESSION_ID = `ars1_${"A".repeat(32)}`;
-const VIDEO_IDS = ["XpZHKGGCK-o", "0sZEvvPWq88", "qfPjRBqADKk"] as const;
 
 function manifest(protocol: "universal" | "hrp", hash?: string) {
   return {
@@ -44,16 +51,28 @@ function initialState(): ResearchSessionState {
 function scoutComplete(state = initialState()): ResearchSessionState {
   return recordAutomatedScoutCompletion(state, {
     providerResponseId: "interaction-1",
-    sourcePacketVersion: "2.0",
-    validationStatus: "accepted",
-    sourceCandidateIds: VIDEO_IDS,
-    validatedCandidateIds: VIDEO_IDS,
-    unresolvedCandidateIds: []
+    packet: researchPacket(),
+    receipt: researchReceipt()
   });
 }
 
 function phaseACompletionFixture(): ResearchSessionState {
-  const state = scoutComplete();
+  const discovered = recordNativeYoutubeDiscovery(scoutComplete(), nativeSurvey());
+  const candidateDiscovery = structuredClone(discovered.candidate_discovery);
+  candidateDiscovery.candidates = candidateDiscovery.candidates.map((candidate) => ({
+    ...candidate,
+    materiality: "MATERIAL" as const,
+    redundancy: "DISTINCT" as const,
+    screening_status: "SCREENED" as const
+  }));
+  const state = researchSessionStateSchema.parse({
+    ...discovered,
+    candidate_discovery: candidateDiscovery,
+    operations: {
+      ...discovered.operations,
+      candidate_screening: { status: "COMPLETE" }
+    }
+  });
   const modules = structuredClone(state.modules);
   for (const moduleId of RESEARCH_MODULE_IDS) {
     modules[moduleId] = {
@@ -90,7 +109,7 @@ describe("research session controller core", () => {
 
     expect(deriveRequiredNextCapabilities(scoutComplete(state))).toEqual([
       "route_module_applicability",
-      "candidate_screening",
+      "native_video_discovery",
       "formal_evidence_search"
     ]);
   });
@@ -149,6 +168,41 @@ describe("research session controller core", () => {
       protocolBindingsFromManifests(manifest("universal"), manifest("hrp"))
     );
     expect(stillDrifted.protocol_binding.currency).toBe("DRIFTED");
+  });
+
+  it("keeps unresolved scout identities executable and blocks downstream screening", () => {
+    const packet = researchPacket();
+    const receipt = researchReceipt();
+    const unresolvedId = RESEARCH_FIXTURE_VIDEO_IDS[2];
+    const partial = recordAutomatedScoutCompletion(initialState(), {
+      providerResponseId: "interaction-partial",
+      packet,
+      receipt: {
+        ...receipt,
+        status: "partial",
+        candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
+          RESEARCH_FIXTURE_VIDEO_IDS,
+          RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
+          [],
+          [unresolvedId]
+        ),
+        validated_candidates: receipt.validated_candidates.slice(0, 2),
+        unresolved_candidates: [{
+          video_id: unresolvedId,
+          metadata_access_status: "rate_limited",
+          retryable: true,
+          provider_error_code: "youtube_rate_limited",
+          limitations: ["Retryable fixture boundary."]
+        }]
+      }
+    });
+
+    expect(partial.operations.automated_video_scout.status).toBe("BLOCKED_RETRYABLE");
+    expect(deriveRequiredNextCapabilities(partial)).toEqual([
+      "route_module_applicability",
+      "automated_video_scout"
+    ]);
+    expect(partial.candidate_discovery.candidates).toHaveLength(2);
   });
 
   it("maps treatment boundaries without treating a component lock as global synthesis", () => {
@@ -253,6 +307,8 @@ describe("research session controller core", () => {
     const modules = structuredClone(finished.modules);
     const operations = structuredClone(finished.operations);
     operations.automated_video_scout = { status: "NOT_STARTED" };
+    operations.native_video_discovery = { status: "NOT_STARTED" };
+    operations.candidate_screening = { status: "NOT_STARTED" };
     const mutatedScout = researchSessionStateSchema.parse({
       ...scoutMissing,
       modules,

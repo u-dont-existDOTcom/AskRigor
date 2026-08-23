@@ -1,8 +1,9 @@
 # AskRigor execution-control productionization roadmap
 
-**Status:** Active. Phase A is implemented and deterministically verified on
-`agent/execution-control-phase-a-20260823`; Phase B is next after reviewed
-merge. This document does not replace the complete canonical protocols or the
+**Status:** Active. Phase A is merged as
+`1dd18f91fa94da391c3b5e30c604850e3813f4de`; Phase B is implemented and
+deterministically verified on `agent/execution-control-phase-b-20260823` and is
+the current reviewed delivery candidate. This document does not replace the complete canonical protocols or the
 owner-approved scientific corrections in
 `2026-08-23-executable-research-orchestrator-and-study-audit.md`.
 
@@ -340,16 +341,27 @@ production build. The public inventory remains 21 MCP tools and 26 Actions.
 
 Tasks:
 
-- [ ] Integrate automated Gemini scout output and native candidate discovery into session-owned frontier records.
-- [ ] Independently validate all external-scout public identities before they enter decision-relevant state.
-- [ ] Represent every candidate with stable source identity, discovery origin/query, target/stage distance, provisional program fields, materiality/redundancy state, and access status.
-- [ ] Reuse normalized program-signature logic from treatment-landscape coverage.
-- [ ] Preserve `program not described` instead of worker invention.
-- [ ] Reconcile native and external scout frontiers rather than treating either as globally sufficient.
-- [ ] Derive next capabilities for additional discovery, screening, or source acquisition.
-- [ ] Keep raw quota counts as undercoverage diagnostics, not success criteria.
+- [x] Integrate automated Gemini scout output and native candidate discovery into session-owned frontier records.
+- [x] Independently validate all external-scout public identities before they enter decision-relevant state.
+- [x] Represent every candidate with stable source identity, discovery origin/query, target/stage distance, provisional program fields, materiality/redundancy state, and access status.
+- [x] Reuse normalized program-signature logic from treatment-landscape coverage.
+- [x] Preserve `program not described` instead of worker invention.
+- [x] Reconcile native and external scout frontiers rather than treating either as globally sufficient.
+- [x] Derive next capabilities for additional discovery, screening, or source acquisition.
+- [x] Keep raw quota counts as undercoverage diagnostics, not success criteria.
 
 **Exit gate:** forged candidate counts, duplicate renamed programs, missing reciprocal frontier links, unresolved validated scout identities, or skipped required scout work cannot advance the session.
+
+Phase B verification: exact Gemini packets enter the session only alongside the
+existing independently produced YouTube validation receipt and verified
+frontier digest. A second native YouTube discovery transition is mandatory;
+the two frontiers are reconciled by stable video identity with exact reciprocal
+query/origin links. Hostile tests reject count/list injection, one-way links,
+skipped discovery, unresolved identities, and multiple “distinct” candidates
+with the same normalized described program. Counts are projected diagnostics
+only. The focused controller/frontier/prototype and public-inventory suite
+passes 27/27; `npm run verify` passes typechecking, 1,152 tests with six
+declared skips, and the production build.
 
 ### Phase C — Make transcript and community-depth work controller-owned
 
