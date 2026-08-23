@@ -13188,6 +13188,2949 @@
         }
       }
     },
+    "/actions/research/acquire_open_full_text": {
+      "post": {
+        "operationId": "acquire_open_full_text",
+        "summary": "AskRigor acquire open full text",
+        "description": "Automatically try Europe PMC and then Unpaywall for a lawful complete study text. Identity-check and index the exact version, or return a plain access boundary without treating unseen contents as evidence.",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "HTTP 200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "const": "full_text_available"
+                        },
+                        "requested_doi": {
+                          "type": "string"
+                        },
+                        "requested_pmcid": {
+                          "type": "string"
+                        },
+                        "discovery_attempts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "route": {
+                                "type": "string",
+                                "enum": [
+                                  "europe_pmc",
+                                  "unpaywall"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "indexed",
+                                  "not_found",
+                                  "inaccessible",
+                                  "error"
+                                ]
+                              },
+                              "identifier": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "route",
+                              "result"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "source": {
+                          "type": "object",
+                          "properties": {
+                            "provider": {
+                              "type": "string",
+                              "enum": [
+                                "europe_pmc",
+                                "unpaywall_open_location"
+                              ]
+                            },
+                            "primary_identifier": {
+                              "type": "string"
+                            },
+                            "canonical_url": {
+                              "type": "string",
+                              "format": "uri"
+                            },
+                            "pmcid": {
+                              "type": "string"
+                            },
+                            "pmid": {
+                              "type": "string"
+                            },
+                            "doi": {
+                              "type": "string"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "string"
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "jats_xml",
+                                "pdf_text"
+                              ]
+                            },
+                            "content_sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "document_completeness": {
+                              "type": "string",
+                              "const": "full_text_with_body"
+                            },
+                            "identity_verification": {
+                              "type": "string",
+                              "enum": [
+                                "pmcid_exact",
+                                "doi_exact",
+                                "title_match"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "provider",
+                            "primary_identifier",
+                            "canonical_url",
+                            "format",
+                            "content_sha256",
+                            "document_completeness",
+                            "identity_verification"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "blocks": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "block_id": {
+                                "type": "string",
+                                "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                              },
+                              "segment_number": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "segment_count": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "kind": {
+                                "type": "string"
+                              },
+                              "section_path": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              },
+                              "page_number": {
+                                "type": "integer",
+                                "exclusiveMinimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "text": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 10000
+                              },
+                              "source_block_text_sha256": {
+                                "type": "string",
+                                "pattern": "^[a-f0-9]{64}$"
+                              }
+                            },
+                            "required": [
+                              "block_id",
+                              "segment_number",
+                              "segment_count",
+                              "kind",
+                              "section_path",
+                              "text",
+                              "source_block_text_sha256"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "coverage_receipt": {
+                          "type": "object",
+                          "properties": {
+                            "document_handle": {
+                              "type": "string",
+                              "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                            },
+                            "source_content_sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "source_block_count": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "source_segment_count": {
+                              "type": "integer",
+                              "exclusiveMinimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "source_segments_retrieved_cumulative": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "exhausted": {
+                              "type": "boolean"
+                            },
+                            "method_audit_required": {
+                              "type": "boolean",
+                              "const": true
+                            },
+                            "synthesis_lock": {
+                              "type": "string",
+                              "enum": [
+                                "pass",
+                                "fail"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "document_handle",
+                            "source_content_sha256",
+                            "source_block_count",
+                            "source_segment_count",
+                            "source_segments_retrieved_cumulative",
+                            "exhausted",
+                            "method_audit_required",
+                            "synthesis_lock"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "requested_doi",
+                        "discovery_attempts",
+                        "source",
+                        "blocks",
+                        "coverage_receipt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "const": "possibly_useful_lead"
+                        },
+                        "requested_doi": {
+                          "type": "string"
+                        },
+                        "requested_pmcid": {
+                          "type": "string"
+                        },
+                        "discovery_attempts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "route": {
+                                "type": "string",
+                                "enum": [
+                                  "europe_pmc",
+                                  "unpaywall"
+                                ]
+                              },
+                              "result": {
+                                "type": "string",
+                                "enum": [
+                                  "indexed",
+                                  "not_found",
+                                  "inaccessible",
+                                  "error"
+                                ]
+                              },
+                              "identifier": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "route",
+                              "result"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "access_boundary": {
+                          "type": "string"
+                        },
+                        "unseen_content_used_as_evidence": {
+                          "type": "boolean",
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "status",
+                        "requested_doi",
+                        "discovery_attempts",
+                        "access_boundary",
+                        "unseen_content_used_as_evidence"
+                      ],
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_invalid_json",
+                            "action_request_read_failed"
+                          ]
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "HTTP 413 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_body_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HTTP 422 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_input_invalid",
+                            "open_full_text_handle_invalid_or_expired",
+                            "open_full_text_not_fully_read"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_rate_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_internal_error"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "HTTP 502 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_response_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "HTTP 503 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_concurrency_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "doi": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  },
+                  "pmcid": {
+                    "type": "string",
+                    "maxLength": 32
+                  }
+                },
+                "required": [
+                  "doi"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/actions/research/continue_open_full_text": {
+      "post": {
+        "operationId": "continue_open_full_text",
+        "summary": "AskRigor continue open full text",
+        "description": "Continue the exact open full-text document from its server-owned cursor. Calls cannot skip or mix document blocks.",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "HTTP 200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "full_text_available"
+                    },
+                    "requested_doi": {
+                      "type": "string"
+                    },
+                    "requested_pmcid": {
+                      "type": "string"
+                    },
+                    "discovery_attempts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "route": {
+                            "type": "string",
+                            "enum": [
+                              "europe_pmc",
+                              "unpaywall"
+                            ]
+                          },
+                          "result": {
+                            "type": "string",
+                            "enum": [
+                              "indexed",
+                              "not_found",
+                              "inaccessible",
+                              "error"
+                            ]
+                          },
+                          "identifier": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "route",
+                          "result"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "source": {
+                      "type": "object",
+                      "properties": {
+                        "provider": {
+                          "type": "string",
+                          "enum": [
+                            "europe_pmc",
+                            "unpaywall_open_location"
+                          ]
+                        },
+                        "primary_identifier": {
+                          "type": "string"
+                        },
+                        "canonical_url": {
+                          "type": "string",
+                          "format": "uri"
+                        },
+                        "pmcid": {
+                          "type": "string"
+                        },
+                        "pmid": {
+                          "type": "string"
+                        },
+                        "doi": {
+                          "type": "string"
+                        },
+                        "title": {
+                          "type": "string"
+                        },
+                        "version": {
+                          "type": "string"
+                        },
+                        "format": {
+                          "type": "string",
+                          "enum": [
+                            "jats_xml",
+                            "pdf_text"
+                          ]
+                        },
+                        "content_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "document_completeness": {
+                          "type": "string",
+                          "const": "full_text_with_body"
+                        },
+                        "identity_verification": {
+                          "type": "string",
+                          "enum": [
+                            "pmcid_exact",
+                            "doi_exact",
+                            "title_match"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "provider",
+                        "primary_identifier",
+                        "canonical_url",
+                        "format",
+                        "content_sha256",
+                        "document_completeness",
+                        "identity_verification"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "blocks": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "block_id": {
+                            "type": "string",
+                            "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                          },
+                          "segment_number": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "segment_count": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "section_path": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "page_number": {
+                            "type": "integer",
+                            "exclusiveMinimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "text": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 10000
+                          },
+                          "source_block_text_sha256": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          }
+                        },
+                        "required": [
+                          "block_id",
+                          "segment_number",
+                          "segment_count",
+                          "kind",
+                          "section_path",
+                          "text",
+                          "source_block_text_sha256"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "coverage_receipt": {
+                      "type": "object",
+                      "properties": {
+                        "document_handle": {
+                          "type": "string",
+                          "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                        },
+                        "source_content_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "source_block_count": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "source_segment_count": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "source_segments_retrieved_cumulative": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "exhausted": {
+                          "type": "boolean"
+                        },
+                        "method_audit_required": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "synthesis_lock": {
+                          "type": "string",
+                          "enum": [
+                            "pass",
+                            "fail"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "document_handle",
+                        "source_content_sha256",
+                        "source_block_count",
+                        "source_segment_count",
+                        "source_segments_retrieved_cumulative",
+                        "exhausted",
+                        "method_audit_required",
+                        "synthesis_lock"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "requested_doi",
+                    "discovery_attempts",
+                    "source",
+                    "blocks",
+                    "coverage_receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_invalid_json",
+                            "action_request_read_failed"
+                          ]
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "HTTP 413 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_body_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HTTP 422 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_input_invalid",
+                            "open_full_text_handle_invalid_or_expired",
+                            "open_full_text_not_fully_read"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_rate_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_internal_error"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "HTTP 502 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_response_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "HTTP 503 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_concurrency_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "document_handle": {
+                    "type": "string",
+                    "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                  }
+                },
+                "required": [
+                  "document_handle"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/actions/research/validate_study_method_audit": {
+      "post": {
+        "operationId": "validate_study_method_audit",
+        "summary": "AskRigor validate study method audit",
+        "description": "Validate a source-linked study-method audit only after the exact full text was read to exhaustion. Randomization or publication labels are not reliability verdicts.",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "HTTP 200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "source_linked_study_audit_validated"
+                    },
+                    "audit_receipt": {
+                      "type": "object",
+                      "properties": {
+                        "source_primary_identifier": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        "source_content_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "design_label": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        "design_capability_statement": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2000
+                        },
+                        "population_and_stage": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "intervention_program": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "components": {
+                              "minItems": 1,
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "dose_or_intensity": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "frequency": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "duration": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "supervision": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "adherence": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "co_interventions": {
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "care_stage": {
+                              "type": "string",
+                              "enum": [
+                                "preoperative",
+                                "postoperative",
+                                "nonsurgical",
+                                "preventive",
+                                "other",
+                                "not_described"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "components",
+                            "dose_or_intensity",
+                            "frequency",
+                            "duration",
+                            "supervision",
+                            "adherence",
+                            "co_interventions",
+                            "care_stage"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "comparator_program": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "components": {
+                              "minItems": 1,
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "dose_or_intensity": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "frequency": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "duration": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "supervision": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "adherence": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "co_interventions": {
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "care_stage": {
+                              "type": "string",
+                              "enum": [
+                                "preoperative",
+                                "postoperative",
+                                "nonsurgical",
+                                "preventive",
+                                "other",
+                                "not_described"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "components",
+                            "dose_or_intensity",
+                            "frequency",
+                            "duration",
+                            "supervision",
+                            "adherence",
+                            "co_interventions",
+                            "care_stage"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "outcome_and_horizon": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 1000
+                        },
+                        "domain_findings": {
+                          "minItems": 13,
+                          "maxItems": 13,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "domain": {
+                                "type": "string",
+                                "enum": [
+                                  "source_identity_and_version",
+                                  "registration_protocol_and_analysis_plan",
+                                  "population_selection_and_transport",
+                                  "intervention_program_and_fidelity",
+                                  "comparator_program_and_competence",
+                                  "allocation_blinding_and_deviations",
+                                  "denominators_crossover_attrition_and_missing_data",
+                                  "outcomes_measurement_and_selective_reporting",
+                                  "results_uncertainty_and_analysis_flexibility",
+                                  "harms_capture_and_follow_up",
+                                  "funding_conflicts_and_analytic_control",
+                                  "data_code_and_reproducibility",
+                                  "replication_contradiction_and_evidence_ancestry"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "adequate",
+                                  "limitation_identified",
+                                  "unclear",
+                                  "not_applicable"
+                                ]
+                              },
+                              "plain_language_finding": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "evidence_block_ids": {
+                                "maxItems": 100,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                                }
+                              },
+                              "unresolved_fields": {
+                                "maxItems": 30,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500
+                                }
+                              }
+                            },
+                            "required": [
+                              "domain",
+                              "status",
+                              "plain_language_finding",
+                              "evidence_block_ids",
+                              "unresolved_fields"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "claim_capabilities": {
+                          "minItems": 2,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "claim": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "capability": {
+                                "type": "string",
+                                "enum": [
+                                  "can_support",
+                                  "cannot_support",
+                                  "uncertain"
+                                ]
+                              },
+                              "reason": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "evidence_block_ids": {
+                                "maxItems": 100,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                                }
+                              }
+                            },
+                            "required": [
+                              "claim",
+                              "capability",
+                              "reason",
+                              "evidence_block_ids"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "receipt_name": {
+                          "type": "string",
+                          "const": "askrigor_study_method_audit"
+                        },
+                        "receipt_version": {
+                          "type": "string",
+                          "const": "1.0"
+                        },
+                        "audit_status": {
+                          "type": "string",
+                          "enum": [
+                            "complete_with_unresolved_fields",
+                            "complete_no_unresolved_fields"
+                          ]
+                        },
+                        "source_block_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cited_source_block_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "audit_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "design_label_is_not_reliability_verdict": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "limitations": {
+                          "minItems": 3,
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "This receipt proves source linkage and checklist coverage, not that every interpretation is semantically correct.",
+                              "Randomization, peer review, journal prestige, indexing, guideline inclusion, and institutional authority were not accepted as reliability verdicts.",
+                              "The study can support only the exact program, population, comparator, outcomes, and horizon recorded here."
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "source_primary_identifier",
+                        "source_content_sha256",
+                        "design_label",
+                        "design_capability_statement",
+                        "population_and_stage",
+                        "intervention_program",
+                        "comparator_program",
+                        "outcome_and_horizon",
+                        "domain_findings",
+                        "claim_capabilities",
+                        "receipt_name",
+                        "receipt_version",
+                        "audit_status",
+                        "source_block_count",
+                        "cited_source_block_count",
+                        "audit_sha256",
+                        "design_label_is_not_reliability_verdict",
+                        "limitations"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "coverage_receipt": {
+                      "type": "object",
+                      "properties": {
+                        "document_handle": {
+                          "type": "string",
+                          "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                        },
+                        "full_text_read_to_exhaustion": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "source_content_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "audit_validated": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "synthesis_use": {
+                          "type": "string",
+                          "const": "bounded_by_validated_claim_capabilities"
+                        }
+                      },
+                      "required": [
+                        "document_handle",
+                        "full_text_read_to_exhaustion",
+                        "source_content_sha256",
+                        "audit_validated",
+                        "synthesis_use"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "audit_receipt",
+                    "coverage_receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_invalid_json",
+                            "action_request_read_failed"
+                          ]
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "HTTP 413 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_body_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HTTP 422 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_input_invalid",
+                            "open_full_text_handle_invalid_or_expired",
+                            "open_full_text_not_fully_read"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_rate_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_internal_error"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "HTTP 502 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_response_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "HTTP 503 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_concurrency_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "document_handle": {
+                    "type": "string",
+                    "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                  },
+                  "audit": {
+                    "type": "object",
+                    "properties": {
+                      "source_primary_identifier": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      "source_content_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "design_label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "design_capability_statement": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      "population_and_stage": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      },
+                      "intervention_program": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "components": {
+                            "minItems": 1,
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          },
+                          "dose_or_intensity": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "frequency": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "duration": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "supervision": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "adherence": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "co_interventions": {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          },
+                          "care_stage": {
+                            "type": "string",
+                            "enum": [
+                              "preoperative",
+                              "postoperative",
+                              "nonsurgical",
+                              "preventive",
+                              "other",
+                              "not_described"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "components",
+                          "dose_or_intensity",
+                          "frequency",
+                          "duration",
+                          "supervision",
+                          "adherence",
+                          "co_interventions",
+                          "care_stage"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "comparator_program": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "components": {
+                            "minItems": 1,
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          },
+                          "dose_or_intensity": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "frequency": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "duration": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "supervision": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "adherence": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          },
+                          "co_interventions": {
+                            "maxItems": 30,
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          },
+                          "care_stage": {
+                            "type": "string",
+                            "enum": [
+                              "preoperative",
+                              "postoperative",
+                              "nonsurgical",
+                              "preventive",
+                              "other",
+                              "not_described"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "components",
+                          "dose_or_intensity",
+                          "frequency",
+                          "duration",
+                          "supervision",
+                          "adherence",
+                          "co_interventions",
+                          "care_stage"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "outcome_and_horizon": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      },
+                      "domain_findings": {
+                        "minItems": 13,
+                        "maxItems": 13,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "domain": {
+                              "type": "string",
+                              "enum": [
+                                "source_identity_and_version",
+                                "registration_protocol_and_analysis_plan",
+                                "population_selection_and_transport",
+                                "intervention_program_and_fidelity",
+                                "comparator_program_and_competence",
+                                "allocation_blinding_and_deviations",
+                                "denominators_crossover_attrition_and_missing_data",
+                                "outcomes_measurement_and_selective_reporting",
+                                "results_uncertainty_and_analysis_flexibility",
+                                "harms_capture_and_follow_up",
+                                "funding_conflicts_and_analytic_control",
+                                "data_code_and_reproducibility",
+                                "replication_contradiction_and_evidence_ancestry"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "adequate",
+                                "limitation_identified",
+                                "unclear",
+                                "not_applicable"
+                              ]
+                            },
+                            "plain_language_finding": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "evidence_block_ids": {
+                              "maxItems": 100,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                              }
+                            },
+                            "unresolved_fields": {
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            }
+                          },
+                          "required": [
+                            "domain",
+                            "status",
+                            "plain_language_finding",
+                            "evidence_block_ids",
+                            "unresolved_fields"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "claim_capabilities": {
+                        "minItems": 2,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "claim": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "capability": {
+                              "type": "string",
+                              "enum": [
+                                "can_support",
+                                "cannot_support",
+                                "uncertain"
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "evidence_block_ids": {
+                              "maxItems": 100,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                              }
+                            }
+                          },
+                          "required": [
+                            "claim",
+                            "capability",
+                            "reason",
+                            "evidence_block_ids"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "source_primary_identifier",
+                      "source_content_sha256",
+                      "design_label",
+                      "design_capability_statement",
+                      "population_and_stage",
+                      "intervention_program",
+                      "comparator_program",
+                      "outcome_and_horizon",
+                      "domain_findings",
+                      "claim_capabilities"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "document_handle",
+                  "audit"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/actions/research/validate_review_method_audit": {
+      "post": {
+        "operationId": "validate_review_method_audit",
+        "summary": "AskRigor validate review method audit",
+        "description": "Validate a source-linked systematic-review, meta-analysis, or guideline-method audit only after the exact full text was read to exhaustion. Review labels and pooled estimates are not authority verdicts.",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "HTTP 200 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "source_linked_review_audit_validated"
+                    },
+                    "audit_receipt": {
+                      "type": "object",
+                      "properties": {
+                        "source_primary_identifier": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 2048
+                        },
+                        "source_content_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "review_type": {
+                          "type": "string",
+                          "enum": [
+                            "systematic_review",
+                            "meta_analysis",
+                            "guideline",
+                            "other_review"
+                          ]
+                        },
+                        "search_end_date": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                            },
+                            {
+                              "type": "string",
+                              "const": "not described"
+                            }
+                          ]
+                        },
+                        "included_source_families": {
+                          "minItems": 1,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 500
+                          }
+                        },
+                        "program_fingerprints": {
+                          "minItems": 1,
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "components": {
+                                "minItems": 1,
+                                "maxItems": 30,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500
+                                }
+                              },
+                              "dose_or_intensity": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "frequency": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "duration": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "supervision": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "co_interventions": {
+                                "maxItems": 30,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500
+                                }
+                              },
+                              "population_or_stage": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              },
+                              "outcome_and_horizon": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "required": [
+                              "label",
+                              "components",
+                              "dose_or_intensity",
+                              "frequency",
+                              "duration",
+                              "supervision",
+                              "co_interventions",
+                              "population_or_stage",
+                              "outcome_and_horizon"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "domain_findings": {
+                          "minItems": 12,
+                          "maxItems": 12,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "domain": {
+                                "type": "string",
+                                "enum": [
+                                  "source_identity_protocol_and_registration",
+                                  "search_sources_dates_and_reproducibility",
+                                  "historical_grey_and_nonindexed_coverage",
+                                  "eligibility_selection_and_exclusion_logic",
+                                  "duplicate_cohorts_publication_families_and_ancestry",
+                                  "intervention_program_and_comparator_heterogeneity",
+                                  "population_outcome_and_horizon_compatibility",
+                                  "included_study_method_limitations",
+                                  "pooling_models_prediction_and_sensitivity",
+                                  "missing_results_small_study_and_publication_bias",
+                                  "funding_panel_conflicts_and_analytic_control",
+                                  "currency_citation_entailment_and_recommendation_scope"
+                                ]
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "adequate",
+                                  "limitation_identified",
+                                  "unclear",
+                                  "not_applicable"
+                                ]
+                              },
+                              "plain_language_finding": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "evidence_block_ids": {
+                                "maxItems": 100,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                                }
+                              },
+                              "unresolved_fields": {
+                                "maxItems": 30,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 500
+                                }
+                              }
+                            },
+                            "required": [
+                              "domain",
+                              "status",
+                              "plain_language_finding",
+                              "evidence_block_ids",
+                              "unresolved_fields"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "claim_capabilities": {
+                          "minItems": 2,
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "claim": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "capability": {
+                                "type": "string",
+                                "enum": [
+                                  "can_support",
+                                  "cannot_support",
+                                  "uncertain"
+                                ]
+                              },
+                              "reason": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 2000
+                              },
+                              "evidence_block_ids": {
+                                "maxItems": 100,
+                                "type": "array",
+                                "items": {
+                                  "type": "string",
+                                  "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                                }
+                              }
+                            },
+                            "required": [
+                              "claim",
+                              "capability",
+                              "reason",
+                              "evidence_block_ids"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "receipt_name": {
+                          "type": "string",
+                          "const": "askrigor_review_method_audit"
+                        },
+                        "receipt_version": {
+                          "type": "string",
+                          "const": "1.0"
+                        },
+                        "audit_status": {
+                          "type": "string",
+                          "enum": [
+                            "complete_with_unresolved_fields",
+                            "complete_no_unresolved_fields"
+                          ]
+                        },
+                        "source_block_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "cited_source_block_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "audit_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "review_label_is_not_authority_verdict": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "limitations": {
+                          "minItems": 3,
+                          "maxItems": 3,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "This receipt proves source linkage and checklist coverage, not that every review interpretation is semantically correct.",
+                              "Publication, indexing, guideline status, panel authority, and pooled estimates were not accepted as reliability verdicts.",
+                              "The review can support only claims compatible with its actual searches, included programs, populations, comparators, outcomes, horizons, and methods."
+                            ]
+                          }
+                        }
+                      },
+                      "required": [
+                        "source_primary_identifier",
+                        "source_content_sha256",
+                        "review_type",
+                        "search_end_date",
+                        "included_source_families",
+                        "program_fingerprints",
+                        "domain_findings",
+                        "claim_capabilities",
+                        "receipt_name",
+                        "receipt_version",
+                        "audit_status",
+                        "source_block_count",
+                        "cited_source_block_count",
+                        "audit_sha256",
+                        "review_label_is_not_authority_verdict",
+                        "limitations"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "coverage_receipt": {
+                      "type": "object",
+                      "properties": {
+                        "document_handle": {
+                          "type": "string",
+                          "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                        },
+                        "full_text_read_to_exhaustion": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "source_content_sha256": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        "audit_validated": {
+                          "type": "boolean",
+                          "const": true
+                        },
+                        "synthesis_use": {
+                          "type": "string",
+                          "const": "bounded_by_validated_claim_capabilities"
+                        }
+                      },
+                      "required": [
+                        "document_handle",
+                        "full_text_read_to_exhaustion",
+                        "source_content_sha256",
+                        "audit_validated",
+                        "synthesis_use"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "audit_receipt",
+                    "coverage_receipt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "HTTP 400 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_invalid_json",
+                            "action_request_read_failed"
+                          ]
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "HTTP 413 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_body_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "HTTP 422 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$schema": "http://json-schema.org/draft-07/schema#",
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "action_input_invalid",
+                            "open_full_text_handle_invalid_or_expired",
+                            "open_full_text_not_fully_read"
+                          ]
+                        },
+                        "retryable": {
+                          "type": "boolean",
+                          "const": false
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "HTTP 429 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_rate_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "HTTP 500 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_internal_error"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "HTTP 502 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_response_too_large"
+                        },
+                        "retryable": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "HTTP 503 response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "code",
+                        "retryable"
+                      ],
+                      "properties": {
+                        "code": {
+                          "const": "action_concurrency_limit_exceeded"
+                        },
+                        "retryable": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                  "document_handle": {
+                    "type": "string",
+                    "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                  },
+                  "audit": {
+                    "type": "object",
+                    "properties": {
+                      "source_primary_identifier": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2048
+                      },
+                      "source_content_sha256": {
+                        "type": "string",
+                        "pattern": "^[a-f0-9]{64}$"
+                      },
+                      "review_type": {
+                        "type": "string",
+                        "enum": [
+                          "systematic_review",
+                          "meta_analysis",
+                          "guideline",
+                          "other_review"
+                        ]
+                      },
+                      "search_end_date": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                          },
+                          {
+                            "type": "string",
+                            "const": "not described"
+                          }
+                        ]
+                      },
+                      "included_source_families": {
+                        "minItems": 1,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 500
+                        }
+                      },
+                      "program_fingerprints": {
+                        "minItems": 1,
+                        "maxItems": 100,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "label": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "components": {
+                              "minItems": 1,
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "dose_or_intensity": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "frequency": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "duration": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "supervision": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "co_interventions": {
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            },
+                            "population_or_stage": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            },
+                            "outcome_and_horizon": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 500
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "components",
+                            "dose_or_intensity",
+                            "frequency",
+                            "duration",
+                            "supervision",
+                            "co_interventions",
+                            "population_or_stage",
+                            "outcome_and_horizon"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "domain_findings": {
+                        "minItems": 12,
+                        "maxItems": 12,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "domain": {
+                              "type": "string",
+                              "enum": [
+                                "source_identity_protocol_and_registration",
+                                "search_sources_dates_and_reproducibility",
+                                "historical_grey_and_nonindexed_coverage",
+                                "eligibility_selection_and_exclusion_logic",
+                                "duplicate_cohorts_publication_families_and_ancestry",
+                                "intervention_program_and_comparator_heterogeneity",
+                                "population_outcome_and_horizon_compatibility",
+                                "included_study_method_limitations",
+                                "pooling_models_prediction_and_sensitivity",
+                                "missing_results_small_study_and_publication_bias",
+                                "funding_panel_conflicts_and_analytic_control",
+                                "currency_citation_entailment_and_recommendation_scope"
+                              ]
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "adequate",
+                                "limitation_identified",
+                                "unclear",
+                                "not_applicable"
+                              ]
+                            },
+                            "plain_language_finding": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "evidence_block_ids": {
+                              "maxItems": 100,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                              }
+                            },
+                            "unresolved_fields": {
+                              "maxItems": 30,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 500
+                              }
+                            }
+                          },
+                          "required": [
+                            "domain",
+                            "status",
+                            "plain_language_finding",
+                            "evidence_block_ids",
+                            "unresolved_fields"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "claim_capabilities": {
+                        "minItems": 2,
+                        "maxItems": 50,
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "claim": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "capability": {
+                              "type": "string",
+                              "enum": [
+                                "can_support",
+                                "cannot_support",
+                                "uncertain"
+                              ]
+                            },
+                            "reason": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 2000
+                            },
+                            "evidence_block_ids": {
+                              "maxItems": 100,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$"
+                              }
+                            }
+                          },
+                          "required": [
+                            "claim",
+                            "capability",
+                            "reason",
+                            "evidence_block_ids"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "source_primary_identifier",
+                      "source_content_sha256",
+                      "review_type",
+                      "search_end_date",
+                      "included_source_families",
+                      "program_fingerprints",
+                      "domain_findings",
+                      "claim_capabilities"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "document_handle",
+                  "audit"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
     "/actions/lessons": {
       "post": {
         "operationId": "submit_lesson_candidate",

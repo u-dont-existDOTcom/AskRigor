@@ -22,6 +22,42 @@ export {
   type SearchEuropePmcInput
 } from "./europe-pmc.js";
 export {
+  fetchEuropePmcFullText,
+  type EuropePmcFullTextArticle
+} from "./europe-pmc-full-text.js";
+export {
+  resolveUnpaywallOpenAccess,
+  type UnpaywallConfig,
+  type UnpaywallOpenAccessData,
+  type UnpaywallOpenLocation
+} from "./unpaywall.js";
+export {
+  acquireUnpaywallFullText,
+  extractAuditablePdf,
+  type AcquireUnpaywallFullTextRuntime,
+  type UnpaywallFullTextData
+} from "./unpaywall-full-text.js";
+export {
+  acquireOpenFullText,
+  type AcquireOpenFullTextInput,
+  type AcquireOpenFullTextRuntime,
+  type OpenFullTextAcquisitionData
+} from "./open-full-text.js";
+export {
+  indexJatsStudyDocument,
+  jatsStudyBlockSchema,
+  jatsStudyIndexSchema,
+  type JatsStudyBlock,
+  type JatsStudyIndex
+} from "./jats-study-index.js";
+export {
+  auditableDocumentBlockSchema,
+  auditableDocumentIndexSchema,
+  toAuditableDocumentIndex,
+  type AuditableDocumentBlock,
+  type AuditableDocumentIndex
+} from "./auditable-document-index.js";
+export {
   fetchClinicalTrial,
   searchClinicalTrials,
   type ClinicalTrial,
@@ -93,6 +129,7 @@ export {
   MAX_GEMINI_YOUTUBE_CANDIDATE_RESPONSE_BYTES,
   GeminiYoutubeCandidateHandoffError,
   geminiYoutubeCandidatePacketSchema,
+  geminiYoutubeCandidateV2PacketSchema,
   geminiYoutubeCandidateFrontierSchema,
   geminiYoutubeCandidateValidationReceiptSchema,
   geminiYoutubeDiscoveryPurposeSchema,
@@ -107,6 +144,12 @@ export {
   type GeminiYoutubeCandidateValidationDependencies,
   type GeminiYoutubeCandidateValidationReceipt
 } from "./gemini-youtube-candidate-handoff.js";
+export {
+  scoutGeminiYoutubeCandidates,
+  type GeminiYoutubeScoutConfig,
+  type GeminiYoutubeScoutData,
+  type GeminiYoutubeScoutInput
+} from "./gemini-youtube-scout.js";
 export {
   createYoutubeTranscriptProvider,
   getYoutubeTranscript,

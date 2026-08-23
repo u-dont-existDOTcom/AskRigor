@@ -99,6 +99,11 @@ complete XML protocol.
 ## Plans
 
 - `superpowers/plans/`: implementation plans
+- `superpowers/plans/2026-08-23-executable-research-orchestrator-and-study-audit.md`:
+  owner-approved plan to replace prompt-only compliance with server-owned
+  research state, automated high-recall scouting, accessible full-text study
+  audits, claim-local inaccessible-source boundaries, and real Custom GPT
+  product acceptance
 - `superpowers/plans/2026-08-16-calibrated-discovery-phase-1-implementation.md`:
   TDD plan for the private deterministic calibrated-discovery benchmark; live
   providers and public v0.2 remain outside Phase 1

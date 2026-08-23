@@ -19,6 +19,60 @@ export {
   geminiCandidateActionInputSchema
 } from "./actions/gemini-candidate-route.js";
 export {
+  createResearchSessionPrototypeRoutes,
+  type CreateResearchSessionPrototypeRoutesOptions
+} from "./actions/research-session-prototype-route.js";
+export {
+  createResearchSessionStore,
+  isResearchSessionId,
+  researchSessionStateSchema,
+  ResearchSessionUnavailableError,
+  type ResearchSessionState,
+  type ResearchSessionStore,
+  type ResearchSessionStoreOptions
+} from "./actions/research-session-store.js";
+export {
+  STUDY_METHOD_AUDIT_DOMAINS,
+  studyMethodAuditReceiptSchema,
+  studyMethodAuditSubmissionSchema,
+  validateStudyMethodAudit,
+  type StudyMethodAuditReceipt,
+  type StudyMethodAuditSubmission
+} from "./actions/study-method-audit.js";
+export {
+  REVIEW_METHOD_AUDIT_DOMAINS,
+  reviewMethodAuditReceiptSchema,
+  reviewMethodAuditSubmissionSchema,
+  validateReviewMethodAudit,
+  type ReviewMethodAuditReceipt,
+  type ReviewMethodAuditSubmission
+} from "./actions/review-method-audit.js";
+export {
+  acquireOpenFullTextActionInputSchema,
+  availableOpenFullTextActionOutputSchema,
+  continueOpenFullTextActionInputSchema,
+  createOpenFullTextActionRoutes,
+  openFullTextActionOutputSchema,
+  openFullTextActionErrorSchema,
+  openFullTextLeadActionOutputSchema,
+  openFullTextMcpOutputSchema,
+  reviewMethodAuditActionInputSchema,
+  reviewMethodAuditActionOutputSchema,
+  studyMethodAuditActionInputSchema,
+  studyMethodAuditActionOutputSchema,
+  type CreateOpenFullTextActionRoutesOptions
+} from "./actions/open-full-text-route.js";
+export {
+  createOpenFullTextHandleStore,
+  isOpenFullTextHandle,
+  OpenFullTextHandleError,
+  openFullTextCursorSchema,
+  openFullTextHandleStateSchema,
+  type OpenFullTextHandleState,
+  type OpenFullTextHandleStore,
+  type OpenFullTextHandleStoreOptions
+} from "./actions/open-full-text-handle-store.js";
+export {
   assessTreatmentLandscapeCoverage,
   createTreatmentLandscapeCoverageActionRoute,
   deriveProgramSignature,

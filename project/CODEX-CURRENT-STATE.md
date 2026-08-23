@@ -1,5 +1,81 @@
 # AskRigor Codex Current State
 
+## 2026-08-23 executable Unpaywall acquisition and method-audit candidate
+
+The task branch now goes beyond Unpaywall metadata discovery. It automatically
+tries Europe PMC and then Unpaywall for a decision-important DOI; safely fetches
+direct open PDF candidates; rejects private-network destinations, oversized
+or mixed DNS answers, pins TLS to a vetted public address, rejects oversized
+documents, non-PDF responses, and identity mismatches; preserves manuscript
+version and content SHA-256; and exposes bounded, contiguous document segments.
+An individual-study or review/guideline audit cannot validate until that exact
+document chain is exhausted. Inaccessible or unverified copies remain possibly
+useful leads whose unseen contents are not evidence.
+
+The four operations are available through both MCP and the public read-only
+Action schema. The generated Instructions are 7,957 characters (7,987 UTF-8
+bytes), SHA-256
+`667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`;
+the Action OpenAPI SHA-256 is
+`9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6`;
+and the synchronization ledger SHA-256 is
+`fe8b6e925eff3ad40d844c6cfb67113e93f7012deac139e942ab7562bd189680`.
+The complete deterministic gate passed 1,119 tests with six declared skips,
+typechecking, and the production build. Public-site and deployment validation
+passed, the production dependency audit found zero vulnerabilities, and a
+bounded live Unpaywall smoke completed secure PDF acquisition, extraction,
+identity verification, and indexing for DOI `10.1038/nature12373`.
+No merge, deployment, plugin reinstall, Custom GPT installation, or fresh
+product acceptance is claimed yet.
+
+## 2026-08-23 executable research-orchestrator and study-audit plan
+
+The owner approved replacing prompt-only research compliance with a
+server-owned, resumable workflow. The durable implementation contract is
+`docs/superpowers/plans/2026-08-23-executable-research-orchestrator-and-study-audit.md`
+on branch `agent/executable-research-orchestrator-20260823`, based on
+`origin/main` commit `93814af9b8a2c77bf5dedb254a38394dc6f5e3a0`.
+
+The plan records the observed architectural failures: the current Spark Action
+only validates a manually supplied packet; no installed public research Action
+acquires and deeply audits full studies; the treatment assessor checks
+caller-assembled state and can be skipped; and current product acceptance can
+pass a constructed JSON fixture without replaying the real Custom GPT.
+
+The owner's scientific correction is authoritative: randomization, peer review,
+and journal prestige are not reliability certificates; exact study methods,
+program identity, comparator quality, outcome integrity, harms, reproducibility,
+and applicability require audit. Freely and lawfully accessible full texts
+should be audited. Inaccessible studies remain clearly labeled, possibly useful
+research leads requiring further investigation; their unseen contents are not
+evidence, but their inaccessibility does not freeze unrelated executable work or
+prevent a bounded synthesis from inspected sources.
+
+The isolated feasibility implementation is recorded in commits `6d9a142` and
+`3aed717` plus current Phase 3 work on the same task branch. Europe PMC full-text XML acquisition
+preserves exact bytes, identity, completeness, and SHA-256; a bounded live
+repository fetch passed. Unpaywall DOI resolution now discovers additional
+lawful open publisher/repository locations while preserving them as unfetched
+versioned leads; a bounded live provider lookup passed. The official Gemini
+Interactions adapter requests Google-grounded structured output, validates the
+strict candidate packet, and retains no raw failed provider response. It is not
+activated because this environment has no approved Gemini API key/model
+configuration and paid-provider activation still requires owner judgment.
+
+A non-production session prototype now binds exact protocol hashes in
+server-owned ephemeral state, performs one bounded automated-scout step through
+injected provider dependencies, rejects caller-authored completion claims, and
+refuses finalization while candidate screening, source acquisition, full-text
+audit, bidirectional research, and landscape finalization remain. It is
+deliberately absent from the production Action inventory until broader
+orchestration, privacy, provider, regression, and real-product acceptance gates
+pass. No protocol, deployment, plugin, Spark, or Custom GPT installation has
+yet changed for this plan. The next safe action is Phase 2 session integration
+and method-audit receipts while the live Gemini quality benchmark remains an
+explicit provider-configuration boundary. Session-start lesson status was
+available: 1 open candidate, 1 needing review, 0 accepted but not incorporated,
+3 incorporated or closed, and 0 deletion eligible.
+
 ## 2026-08-22 Custom GPT editor-schema compatibility repair candidate
 
 PR #55 merged the executable acceptance repair as
@@ -79,8 +155,8 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Current canonical source candidate HRP: `20.5.21` / 2026-08-22 /
-  `2def834840caa45944234bb884ea3710e8dcaf2e0d21fae9e5d78116bd67ded7`.
+- Current canonical source candidate HRP: `20.5.22` / 2026-08-23 /
+  `9389f0f364280f32e5d0c8e9d6b26f93473a205f3134f1f4ab9ef819ca4e3fcf`.
   The deployed baseline remains HRP `20.5.20` / 2026-08-22 /
   `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`
   until this candidate passes review and deployment. Universal remains

@@ -2,11 +2,11 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "884aa2758fbec92e384a1bd5534e3d85f86e6ab60ff1629587f9082b98b3f2fb"
+      "sha256": "9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08"
+      "sha256": "667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1"
     }
   ],
   "consequential_operation_ids": [
@@ -19,17 +19,19 @@
     "privacy_url": "https://askrigor.com/privacy",
     "schema_url": "https://mcp.askrigor.com/actions/openapi.json"
   },
-  "generated_at": "2026-08-22",
+  "generated_at": "2026-08-23",
   "installation_bundle": {
-    "action_schema_sha256": "884aa2758fbec92e384a1bd5534e3d85f86e6ab60ff1629587f9082b98b3f2fb",
-    "bundle_sha256": "ac40a100a8fd0cabd8a4f01b5b091547e330a44353cb0fddb2d90c304e565c02",
-    "instructions_sha256": "1de222a6ab29fe97bff4385be29348912142510f21519f8e10e530c6197ded08",
+    "action_schema_sha256": "9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6",
+    "bundle_sha256": "9e9f8c00118c09114802310e1651b467949af72f7f7a646510f0514f8e1c4e92",
+    "instructions_sha256": "667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1",
     "spark_skill_sha256": "bde36dd81a862cc14696e3ea28ac7cff52acad498ada793b36a80d717fd51e08"
   },
   "mcp_research_operation_ids": [
+    "acquire_open_full_text",
     "audit_youtube_community",
     "audit_youtube_video_community",
     "check_retraction_status",
+    "continue_open_full_text",
     "fetch_clinical_trial",
     "fetch_pubmed_record",
     "get_protocol_manifest",
@@ -43,13 +45,17 @@
     "search_youtube",
     "search_youtube_comments",
     "survey_youtube_community",
+    "validate_review_method_audit",
+    "validate_study_method_audit",
     "verify_protocol_integrity"
   ],
   "research_operation_ids": [
+    "acquire_open_full_text",
     "assess_treatment_landscape_coverage",
     "audit_youtube_community",
     "audit_youtube_video_community",
     "check_retraction_status",
+    "continue_open_full_text",
     "fetch_clinical_trial",
     "fetch_pubmed_record",
     "get_protocol_manifest",
@@ -65,17 +71,19 @@
     "search_youtube_comments",
     "survey_youtube_community",
     "validate_gemini_youtube_candidate_handoff",
+    "validate_review_method_audit",
+    "validate_study_method_audit",
     "verify_protocol_integrity"
   ],
   "schema_version": 2,
   "sources": [
     {
       "path": "skills/askrigor/SKILL.md",
-      "sha256": "92318182cee19bac5ffa803613be63be9fa720cd5736d7805235254ff047652c"
+      "sha256": "97700c7930d4c28c9047a11d1f4131d715414d62847d78d01602a28a2b434658"
     },
     {
       "path": "project/CUSTOM_GPT_ACTION_MODULE.md",
-      "sha256": "4c0e69caf26659380cbc1b7747634b7f1f4f9482a83910004fd8e5652b3e5af1"
+      "sha256": "948a124fe40681768583887e1f809f5cd8c88c38946f7734b623a44d1b5c43fc"
     },
     {
       "path": "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",

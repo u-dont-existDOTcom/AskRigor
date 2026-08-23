@@ -14,6 +14,7 @@ export interface ResearchOperation {
   readonly inputSchema: unknown;
   readonly outputSchema: unknown;
   readonly annotations: ToolAnnotations;
+  readonly actionEnabled?: boolean;
   readonly execute: ResearchOperationHandler;
   readonly mcpConfig: unknown;
 }

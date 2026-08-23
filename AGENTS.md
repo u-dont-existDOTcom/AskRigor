@@ -42,7 +42,7 @@ surfaces are technically accessible and no genuine consequential boundary
 intervenes.
 
 At every backend or Custom GPT release, also verify the installed AskRigor
-plugin against the release: exact 17-tool MCP catalog, live HRP/Universal
+plugin against the release: exact 21-tool MCP catalog, live HRP/Universal
 manifests, one read-only connector probe, and an exact installed-package
 receipt covering `.codex-plugin/plugin.json`, `skills/askrigor/SKILL.md`, and
 the packaged asset/inventory set. An unchanged catalog can become current

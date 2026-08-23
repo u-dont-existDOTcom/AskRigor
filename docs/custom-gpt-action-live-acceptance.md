@@ -1,5 +1,29 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-23 open-full-text audit candidate
+
+The current unmerged candidate automatically tries Europe PMC and then
+Unpaywall for every decision-important DOI. It exposes resumable full-text
+segments plus source-linked individual-study and review/guideline method-audit
+Actions. It does not equate randomization, peer review, or publication status
+with reliability. Inaccessible or identity-unverified copies remain leads whose
+unseen contents are not evidence.
+
+The generated Instructions are 7,957 characters (7,987 UTF-8 bytes), SHA-256
+`667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`;
+the Action OpenAPI SHA-256 is
+`9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6`;
+the synchronization ledger SHA-256 is
+`fe8b6e925eff3ad40d844c6cfb67113e93f7012deac139e942ab7562bd189680`.
+Repository verification passed 1,119 tests with six declared skips, all
+typechecks, the production build, four public-site pages, 28 deployment tests,
+and a zero-vulnerability production dependency audit. A bounded live smoke
+acquired, securely fetched, extracted, identity-checked, and indexed the open
+PDF for DOI `10.1038/nature12373` through Unpaywall.
+Deployment, exact editor import, visible operation inspection, and fresh
+product-interface replay remain pending and must not be inferred from repository
+tests.
+
 ## 2026-08-22 Custom GPT editor-schema compatibility repair candidate
 
 PR #55 merged the executable acceptance repair as

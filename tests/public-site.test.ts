@@ -99,7 +99,7 @@ describe("AskRigor public site", () => {
     for (const fragment of [
       "public YouTube author/channel IDs", "display names", "comment and reply text",
       "public caption text", "automatically generated", "unofficial YouTube interface",
-      "NCBI/PubMed", "Europe PMC", "ClinicalTrials.gov", "Crossref", "YouTube Data API v3",
+      "NCBI/PubMed", "Europe PMC", "Unpaywall", "ClinicalTrials.gov", "Crossref", "YouTube Data API v3",
       "active request", "does not persist", "connected client", "operational metadata",
       "Infrastructure providers may retain",
       "access, correction, or deletion",
@@ -127,7 +127,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 21, 2026",
+      "Effective August 23, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",

@@ -1,5 +1,26 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-23 open-full-text audit candidate
+
+The current unmerged bundle adds four public read-only full-text Actions and the
+matching MCP tools: acquire through Europe PMC then Unpaywall, continue the
+server-owned document chain, validate an individual-study method audit, and
+validate a review/guideline method audit. The generated Instructions are 7,957
+characters (7,987 UTF-8 bytes), SHA-256
+`667623ebfd7ca9cf4417d8b58ec756c9a7e0967492f2ac95e84fba66826f86d1`;
+the synchronization ledger SHA-256 is
+`fe8b6e925eff3ad40d844c6cfb67113e93f7012deac139e942ab7562bd189680`;
+and the Action OpenAPI SHA-256 is
+`9294c2227a5a767669dff505cf359a5e680587e21670797a4ba9abae6c8d87f6`.
+The complete deterministic gate passed 1,119 tests with six declared skips,
+typechecking, and the production build. Four public-site pages and all 28
+deployment tests passed; the production dependency audit found zero
+vulnerabilities. A bounded live Unpaywall smoke completed secure PDF
+acquisition, extraction, identity verification, and indexing for DOI
+`10.1038/nature12373`.
+Repository checks do not satisfy deployment, editor installation, or fresh
+product-interface acceptance.
+
 ## 2026-08-22 executable acceptance-gate repair candidate
 
 The latest fresh GPT result proved that the prior release checks were insufficient:
