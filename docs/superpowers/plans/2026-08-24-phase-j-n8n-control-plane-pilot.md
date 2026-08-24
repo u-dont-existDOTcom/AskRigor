@@ -1,6 +1,6 @@
 # Phase J n8n control-plane pilot
 
-**Status:** In progress
+**Status:** Local implementation and exit gates complete; PR pending
 
 **Roadmap authority:**
 `docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`
@@ -83,6 +83,29 @@ Official implementation baseline checked on 2026-08-24:
     backup/version documentation; run repository gates and lesson closeout;
     open, review, and merge the Phase J PR.
 
+## Local closeout receipts
+
+- Reconciled with current `main` through merge commit `266b0ba`; the only
+  conflict was additive recovery-document ordering and both sections were
+  preserved.
+- Focused typechecking and 40 hostile controller, adapter, workflow, Hermes,
+  and epistemic tests pass.
+- Workflow validation passes for 14 exact built-in nodes at SHA-256
+  `3ac005edf7182b389cb83ad426e654ca14ff41d28313b615ce5930c365870ca5`.
+  Its complete executable projection is separately pinned, and hostile tests
+  reject endpoint exfiltration, unrelated environment-secret access,
+  unreviewed node parameters, and expanded success responses.
+- The pinned n8n `2.35.7` disposable import/export/publish/runtime smoke passes
+  every success and hostile path and leaves no container or database running.
+- The final complete `npm run verify` passes typechecking, 1,344 tests with six
+  declared skips, and the production build. Earlier load-sensitive attempts
+  had only unrelated fixed-timeout failures; those tests passed unchanged in
+  isolation and the final ordinary-concurrency gate is clean.
+- The required lesson checkpoint at `2026-08-24T23:04:20.032Z` was available:
+  1 open candidate, 1 needing review, 0 accepted but not incorporated, 3
+  incorporated or closed, and 0 deletion eligible. Neither open item expands
+  Phase J; disposition is project-specific/no-new-lesson.
+
 ## Exit evidence
 
 - A worker killed before submission leaves AskRigor unchanged and n8n retrying
@@ -108,4 +131,3 @@ Official implementation baseline checked on 2026-08-24:
 - No n8n protocol logic, treatment quotas, provider checklists, or completion
   thresholds.
 - No Custom GPT/plugin projection; that is Phase K after this phase merges.
-

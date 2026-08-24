@@ -78,6 +78,10 @@ Respond to Webhook, and Stop And Error nodes. The validator rejects extra
 nodes, code/command/file nodes, embedded credentials, pinned data, unbounded
 retries, caller completion fields, private research fields, treatment/evidence
 quota logic, permit-guard bypass, or rewiring an incomplete branch to success.
+It also binds the complete executable workflow projection to a reviewed
+SHA-256, while tolerating only n8n-added top-level export metadata. Endpoint,
+environment-variable, header, node-parameter, retry, response, connection, and
+workflow-setting mutations therefore fail validation.
 
 The tracked export is inactive. Import and publication are separate operator
 actions. The real smoke imports the tracked bytes into a fresh temporary n8n

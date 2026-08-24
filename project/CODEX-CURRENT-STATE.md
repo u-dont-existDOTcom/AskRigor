@@ -32,12 +32,32 @@ The exact official n8n `2.35.7` image is pinned at
 It passes a disposable import/export/publish/runtime smoke covering comparative
 permit, bounded permit, retry-then-permit, blocked, forged-completion, and
 still-incomplete paths. Execution saving is disabled and the temporary n8n
-database is deleted. Focused typechecking and 32 controller/adapter/workflow/
-Hermes tests pass. Full repository gates, lesson closeout, final diff review,
-PR, hosted checks, and merge remain pending. Phase J changes no public MCP or
-Action inventory, canonical protocol, generated Custom GPT Instructions,
-plugin, production deployment, provider account, paid service, credential, or
-retention. Phase K is next after reviewed merge.
+database is deleted. The branch was reconciled with current `main` at merge
+commit `266b0ba`; the only merge conflict was the additive recovery document,
+and both candidate sections were preserved.
+
+Focused typechecking and 40 controller/adapter/workflow/Hermes/epistemic tests
+pass. The workflow validator passes with 14 exact built-in nodes and SHA-256
+`3ac005edf7182b389cb83ad426e654ca14ff41d28313b615ce5930c365870ca5`.
+The validator also pins the complete executable workflow projection; hostile
+tests reject endpoint exfiltration, unrelated environment-secret access,
+unreviewed node parameters, and expanded success responses.
+The final complete `npm run verify` passed typechecking, 1,344 tests with six
+declared skips, and the production build at ordinary concurrency. Earlier
+load-sensitive attempts had only unrelated fixed-timeout process/loopback
+failures; each passed unchanged in isolation. Hosted CI remains the final merge
+gate.
+
+The pre-PR lesson checkpoint at `2026-08-24T23:04:20.032Z` was available: 1
+open candidate, 1 needing review, 0 accepted but not incorporated, 3
+incorporated or closed, and 0 deletion eligible. Neither queued item expands
+Phase J. Lesson disposition is project-specific/no-new-lesson: this phase
+implements the already approved server-authority and external-orchestrator
+boundaries; its n8n bypass prevention is retained as executable project tests.
+Final diff review, PR, hosted checks, and merge remain pending. Phase J changes
+no public MCP or Action inventory, canonical protocol, generated Custom GPT
+Instructions, plugin, production deployment, provider account, paid service,
+credential, or retention. Phase K is next after reviewed merge.
 ## 2026-08-24 epistemic phase router candidate
 
 Current `main` was fetched and fast-forwarded to `b9a9b4b`. That baseline had

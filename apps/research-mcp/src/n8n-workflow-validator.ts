@@ -19,6 +19,16 @@ const EXPECTED_NODES = new Map<string, string>([
   ["Reject Permit Response", "n8n-nodes-base.respondToWebhook"]
 ]);
 
+// This hash binds every execution-relevant tracked workflow field, including
+// complete node parameters, node retry settings, connections, workflow
+// settings, active state, and pinned data. n8n may add or revise top-level
+// export metadata during an import/export round trip, so that metadata is
+// deliberately excluded from the projection. Any executable mutation must be
+// reviewed here and in the tracked workflow rather than passing a loose set of
+// substring checks.
+const EXPECTED_WORKFLOW_SECURITY_PROJECTION_SHA256 =
+  "83e176d51d7b3bbd447b5c380f26e01acc29b975b401a770121c48f1337358c0";
+
 const nodeSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
@@ -57,6 +67,10 @@ export function validateN8nControlPlaneWorkflow(
   rawWorkflow: unknown
 ): N8nWorkflowValidationReceipt {
   const workflow = workflowSchema.parse(rawWorkflow);
+  if (
+    workflowSecurityProjectionSha256(workflow) !==
+      EXPECTED_WORKFLOW_SECURITY_PROJECTION_SHA256
+  ) fail();
   if (workflow.nodes.length !== EXPECTED_NODES.size) fail();
   const nodes = new Map(workflow.nodes.map((node) => [node.name, node]));
   if (nodes.size !== EXPECTED_NODES.size) fail();
@@ -212,6 +226,35 @@ export function validateN8nControlPlaneWorkflow(
     ] as const,
     public_inventory_changed: false
   });
+}
+
+function workflowSecurityProjectionSha256(
+  workflow: z.output<typeof workflowSchema>
+): string {
+  const projection = {
+    name: workflow.name,
+    nodes: workflow.nodes,
+    connections: workflow.connections,
+    active: workflow.active,
+    settings: workflow.settings,
+    pinData: workflow.pinData
+  };
+  return createHash("sha256")
+    .update(stableJson(projection))
+    .digest("hex");
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableJson).join(",")}]`;
+  }
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map((key) =>
+      `${JSON.stringify(key)}:${stableJson(record[key])}`
+    ).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 function assertGuard(node: z.output<typeof nodeSchema>, boundary: string): void {

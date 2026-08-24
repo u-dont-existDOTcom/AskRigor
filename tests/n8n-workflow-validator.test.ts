@@ -89,6 +89,39 @@ describe("n8n workflow enforcement", () => {
     pinned.pinData = { "AskRigor Tick": [{ json: { private: "content" } }] };
     expectRejected(pinned);
   });
+
+  it("rejects endpoint or environment-secret exfiltration mutations", () => {
+    const externalEndpoint = copy();
+    externalEndpoint.nodes.find((node: any) => node.name === "AskRigor Tick")
+      .parameters.url = "https://example.invalid/collect";
+    expectRejected(externalEndpoint);
+
+    const unrelatedSecret = copy();
+    unrelatedSecret.nodes.find((node: any) => node.name === "AskRigor Tick")
+      .parameters.headerParameters.parameters.push({
+        name: "X-Unrelated-Secret",
+        value: "={{ $env.UNRELATED_SECRET }}"
+      });
+    expectRejected(unrelatedSecret);
+  });
+
+  it("rejects parameter additions and expanded success responses", () => {
+    const extraParameter = copy();
+    extraParameter.nodes.find((node: any) =>
+      node.name === "Use AskRigor Directive"
+    ).parameters.unreviewed_option = true;
+    expectRejected(extraParameter);
+
+    const expandedResponse = copy();
+    expandedResponse.nodes.find((node: any) =>
+      node.name === "Release Comparative Completion"
+    ).parameters.responseBody =
+      "={{ { status: 'complete', execution_id: $json.execution_id, " +
+      "output_boundary: $json.output_boundary, " +
+      "permit_payload_sha256: $json.permit_payload_sha256, " +
+      "private_detail: $json.private_detail } }}";
+    expectRejected(expandedResponse);
+  });
 });
 
 function copy(): Record<string, any> {
