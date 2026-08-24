@@ -47,7 +47,10 @@ export {
   createInitialResearchSessionState,
   deriveRequiredNextCapabilities,
   deriveResearchOutputBoundary,
+  deriveResearchFinalizationReadiness,
   evaluateResearchFinalization,
+  executeResearchSessionBidirectionalReturnSearch,
+  executeResearchSessionFinalCompletionAudit,
   executeResearchSessionFormalSearch,
   executeResearchSessionSourceExternalEvidence,
   executeResearchSessionSourceFullTextChain,
@@ -63,6 +66,9 @@ export {
   recordDiscussionDepthResult,
   recordNativeYoutubeDiscovery,
   recordResearchSessionFormalScreening,
+  recordResearchSessionBidirectionalIteration,
+  recordResearchSessionBidirectionalReturnAssessment,
+  recordResearchSessionTreatmentLandscape,
   executeResearchSessionMethodAudit,
   recalculateResearchSessionSourceClaimCapability,
   recordTranscriptDepthResult,
@@ -83,8 +89,27 @@ export {
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
 export {
+  createTreatmentLandscapeWorkPackage,
+  currentTreatmentLandscapeAssessment,
+  deriveTreatmentFinalizationDiagnostics,
+  deriveTreatmentFinalizationStatus,
+  ingestTreatmentLandscapeSubmission,
+  initialResearchTreatmentFinalizationState,
+  researchTreatmentFinalizationStateSchema,
+  treatmentEvidenceBasisDigest,
+  treatmentFinalizationDiagnosticsSchema,
+  treatmentLandscapeSubmissionSchema,
+  treatmentLandscapeWorkPackageSchema,
+  type ResearchTreatmentFinalizationState,
+  type TreatmentFinalizationEvidence,
+  type TreatmentLandscapeSubmission,
+  type TreatmentLandscapeWorkPackage
+} from "./actions/research-treatment-finalization.js";
+export {
   FORMAL_EVIDENCE_PROVIDERS,
   FORMAL_SOURCE_KINDS,
+  appendResearchFormalHypotheses,
+  communityFormalHypothesisInputSchema,
   createFormalClaimRecalculationWorkPackages,
   createFormalExternalEvidenceWorkPackages,
   createFormalEvidenceScreeningWorkPackage,
@@ -116,9 +141,33 @@ export {
   type FormalEvidenceDiagnostics,
   type FormalEvidenceScreeningSubmission,
   type FormalSearchExecutors,
+  type CommunityFormalHypothesisInput,
   type ResearchFormalEvidenceState,
   type ResearchFormalSource
 } from "./actions/research-formal-evidence.js";
+export {
+  bidirectionalIterationDiagnosticsSchema,
+  bidirectionalIterationSubmissionSchema,
+  bidirectionalIterationWorkPackageSchema,
+  bidirectionalReturnAssessmentSubmissionSchema,
+  bidirectionalReturnAssessmentWorkPackageSchema,
+  bidirectionalEvidenceBasisDigest,
+  createBidirectionalIterationWorkPackage,
+  createBidirectionalReturnAssessmentWorkPackages,
+  deriveBidirectionalIterationDiagnostics,
+  deriveBidirectionalIterationStatus,
+  executeBidirectionalReturnSearch,
+  ingestBidirectionalIterationSubmission,
+  ingestBidirectionalReturnAssessment,
+  initialResearchBidirectionalIterationState,
+  researchBidirectionalIterationStateSchema,
+  type BidirectionalCommentSearchExecutor,
+  type BidirectionalEvidenceState,
+  type BidirectionalIterationSubmission,
+  type BidirectionalIterationWorkPackage,
+  type BidirectionalReturnAssessmentSubmission,
+  type ResearchBidirectionalIterationState
+} from "./actions/research-bidirectional-iteration.js";
 export {
   assertCandidateScreeningComplete,
   candidateDiscoveryScreeningDigest,

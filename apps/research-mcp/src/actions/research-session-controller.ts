@@ -9,6 +9,25 @@ import { z } from "zod";
 
 import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
 import {
+  bidirectionalIterationDiagnosticsSchema,
+  bidirectionalIterationWorkPackageSchema,
+  bidirectionalReturnAssessmentWorkPackageSchema,
+  bidirectionalEvidenceBasisDigest,
+  createBidirectionalIterationWorkPackage,
+  createBidirectionalReturnAssessmentWorkPackages,
+  deriveBidirectionalIterationDiagnostics,
+  deriveBidirectionalIterationStatus,
+  executeBidirectionalReturnSearch,
+  ingestBidirectionalIterationSubmission,
+  ingestBidirectionalReturnAssessment,
+  initialResearchBidirectionalIterationState,
+  researchBidirectionalIterationStateSchema,
+  type BidirectionalCommentSearchExecutor,
+  type BidirectionalIterationSubmission,
+  type BidirectionalReturnAssessmentSubmission,
+  type ResearchBidirectionalIterationState
+} from "./research-bidirectional-iteration.js";
+import {
   assertCandidateScreeningComplete,
   candidateScreeningResultDigest,
   candidateScreeningWorkPackageSchema,
@@ -74,6 +93,20 @@ import type { OpenFullTextExecutor } from "./open-full-text-route.js";
 import type {
   StudyExternalEvidenceCoordinator
 } from "./study-external-evidence.js";
+import {
+  createTreatmentLandscapeWorkPackage,
+  currentTreatmentLandscapeAssessment,
+  deriveTreatmentFinalizationDiagnostics,
+  deriveTreatmentFinalizationStatus,
+  ingestTreatmentLandscapeSubmission,
+  initialResearchTreatmentFinalizationState,
+  researchTreatmentFinalizationStateSchema,
+  treatmentEvidenceBasisDigest,
+  treatmentFinalizationDiagnosticsSchema,
+  treatmentLandscapeWorkPackageSchema,
+  type ResearchTreatmentFinalizationState,
+  type TreatmentLandscapeSubmission
+} from "./research-treatment-finalization.js";
 
 export const RESEARCH_MODULE_IDS = [
   "HRP",
@@ -251,8 +284,19 @@ const scoutStateSchema = z.object({
   access_boundary: operationBoundarySchema.optional()
 }).strict();
 
+const finalCompletionAuditStateSchema = z.object({
+  audit_version: z.literal("askrigor_final_completion_audit_v1"),
+  basis_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+  status: z.enum(["PASS", "FAIL"]),
+  checks: z.array(z.object({
+    check_id: z.string().regex(/^[A-Z][A-Z0-9_]{2,79}$/u),
+    status: z.enum(["PASS", "FAIL"]),
+    summary: z.string().min(1).max(1_000)
+  }).strict()).min(1).max(100)
+}).strict().optional();
+
 export const researchSessionStateSchema = z.object({
-  state_version: z.literal("3.0"),
+  state_version: z.literal("4.0"),
   research_target: z.string().min(1).max(1_000),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
   protocol_binding: z.object({
@@ -265,7 +309,10 @@ export const researchSessionStateSchema = z.object({
   scout: scoutStateSchema,
   candidate_discovery: researchCandidateDiscoveryStateSchema,
   video_depth: researchVideoDepthStateSchema,
-  formal_evidence: researchFormalEvidenceStateSchema
+  formal_evidence: researchFormalEvidenceStateSchema,
+  bidirectional_iteration: researchBidirectionalIterationStateSchema,
+  treatment_finalization: researchTreatmentFinalizationStateSchema,
+  final_completion_audit: finalCompletionAuditStateSchema
 }).strict().superRefine((state, context) => {
   if (
     state.protocol_binding.currency === "DRIFTED" &&
@@ -445,6 +492,80 @@ export const researchSessionStateSchema = z.object({
       message: "Formal evidence cannot precede completed candidate screening"
     });
   }
+
+  const bidirectionalOperation = bidirectionalOperationProjection(state);
+  if (
+    JSON.stringify(state.operations.bidirectional_evidence_return) !==
+    JSON.stringify(bidirectionalOperation)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "bidirectional_evidence_return operation must be derived exactly from source-bound iteration state"
+    });
+  }
+  for (const round of state.bidirectional_iteration.rounds) {
+    for (const transfer of round.community_to_formal_transfers) {
+      const hypothesis = state.formal_evidence.hypotheses.find(({ hypothesis_id }) =>
+        hypothesis_id === transfer.formal_hypothesis_id
+      );
+      if (
+        hypothesis === undefined ||
+        hypothesis.program_signature !== transfer.program_signature
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Community-to-formal transfer lacks its exact server-owned formal hypothesis"
+        });
+      }
+    }
+  }
+  const treatmentOperation = treatmentFinalizationOperationProjection(state);
+  if (
+    JSON.stringify(state.operations.treatment_landscape_finalization) !==
+    JSON.stringify(treatmentOperation)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "treatment_landscape_finalization operation must be derived exactly from the current session-owned coverage assessment"
+    });
+  }
+  const finalAuditOperation = finalCompletionAuditOperationProjection(state);
+  if (
+    JSON.stringify(state.operations.final_completion_audit) !==
+    JSON.stringify(finalAuditOperation)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "final_completion_audit operation must be derived exactly from its current controller audit"
+    });
+  }
+  if (state.final_completion_audit !== undefined) {
+    const expectedChecks = deriveFinalCompletionChecks(state);
+    const expectedStatus = expectedChecks.every(({ status }) => status === "PASS")
+      ? "PASS"
+      : "FAIL";
+    if (
+      state.final_completion_audit.basis_digest !== finalCompletionAuditBasisDigest(state) ||
+      state.final_completion_audit.status !== expectedStatus ||
+      JSON.stringify(state.final_completion_audit.checks) !== JSON.stringify(expectedChecks)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Final completion audit must match the current server-derived checks exactly"
+      });
+    }
+  }
+  const finalModuleShouldBeComplete = finalAuditOperation.status === "COMPLETE";
+  if (
+    state.modules.FINAL_COMPLETION_AUDIT.applicability === "REQUIRED" &&
+    (state.modules.FINAL_COMPLETION_AUDIT.execution_status === "COMPLETE") !==
+      finalModuleShouldBeComplete
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "FINAL_COMPLETION_AUDIT module status must match the current server audit"
+    });
+  }
 });
 
 export type ResearchSessionState = z.output<typeof researchSessionStateSchema>;
@@ -507,6 +628,7 @@ export const researchSessionViewSchema = z.object({
     "PROTOCOL_DRIFT"
   ]),
   output_boundary: researchOutputBoundarySchema,
+  finalization_readiness: researchOutputBoundarySchema,
   protocol_binding: z.object({
     expected: protocolTupleSchema,
     currency: z.enum(["CURRENT", "DRIFTED"]),
@@ -533,6 +655,18 @@ export const researchSessionViewSchema = z.object({
     z.array(formalExternalEvidenceWorkPackageSchema),
   formal_claim_recalculation_work_packages:
     z.array(formalClaimRecalculationWorkPackageSchema),
+  bidirectional_iteration: bidirectionalIterationDiagnosticsSchema,
+  bidirectional_iteration_work_package:
+    bidirectionalIterationWorkPackageSchema.nullable(),
+  bidirectional_return_assessment_work_packages:
+    z.array(bidirectionalReturnAssessmentWorkPackageSchema),
+  treatment_finalization: treatmentFinalizationDiagnosticsSchema,
+  treatment_landscape_work_package: treatmentLandscapeWorkPackageSchema.nullable(),
+  final_completion_audit: z.object({
+    status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETE"]),
+    basis_digest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+    blockers: z.array(z.string().min(1).max(1_000))
+  }).strict(),
   required_next_capabilities: z.array(researchNextCapabilitySchema),
   finalization_permit: z.null()
 }).strict();
@@ -586,7 +720,7 @@ export function createInitialResearchSessionState(
   });
 
   return researchSessionStateSchema.parse({
-    state_version: "3.0",
+    state_version: "4.0",
     research_target: input.research_target,
     diagnosis_status: input.diagnosis_status,
     protocol_binding: {
@@ -633,7 +767,9 @@ export function createInitialResearchSessionState(
     },
     candidate_discovery: initialResearchCandidateDiscoveryState(),
     video_depth: initialResearchVideoDepthState(),
-    formal_evidence: initialResearchFormalEvidenceState()
+    formal_evidence: initialResearchFormalEvidenceState(),
+    bidirectional_iteration: initialResearchBidirectionalIterationState(),
+    treatment_finalization: initialResearchTreatmentFinalizationState()
   });
 }
 
@@ -1075,6 +1211,102 @@ export async function recalculateResearchSessionSourceClaimCapability(
   return withFormalEvidence(state, formalEvidence);
 }
 
+export function recordResearchSessionBidirectionalIteration(
+  rawState: ResearchSessionState,
+  submission: BidirectionalIterationSubmission
+): ResearchSessionState {
+  const state = requireBidirectionalReady(rawState);
+  const result = ingestBidirectionalIterationSubmission(
+    state.bidirectional_iteration,
+    bidirectionalEvidenceState(state),
+    submission
+  );
+  return withBidirectionalIteration(
+    withFormalEvidence(state, result.formalEvidence),
+    result.bidirectional
+  );
+}
+
+export async function executeResearchSessionBidirectionalReturnSearch(
+  rawState: ResearchSessionState,
+  transferId: string,
+  execute: BidirectionalCommentSearchExecutor,
+  maximumPagesPerVideo = 1
+): Promise<ResearchSessionState> {
+  const state = requireBidirectionalReady(rawState, false);
+  const bidirectional = await executeBidirectionalReturnSearch(
+    state.bidirectional_iteration,
+    transferId,
+    execute,
+    maximumPagesPerVideo
+  );
+  return withBidirectionalIteration(state, bidirectional);
+}
+
+export function recordResearchSessionBidirectionalReturnAssessment(
+  rawState: ResearchSessionState,
+  submission: BidirectionalReturnAssessmentSubmission
+): ResearchSessionState {
+  const state = requireBidirectionalReady(rawState, false);
+  const result = ingestBidirectionalReturnAssessment(
+    state.bidirectional_iteration,
+    state.formal_evidence,
+    submission
+  );
+  return withBidirectionalIteration(
+    withFormalEvidence(state, result.formalEvidence),
+    result.bidirectional
+  );
+}
+
+export function recordResearchSessionTreatmentLandscape(
+  rawState: ResearchSessionState,
+  submission: TreatmentLandscapeSubmission
+): ResearchSessionState {
+  const state = requireTreatmentFinalizationReady(rawState);
+  const treatment = ingestTreatmentLandscapeSubmission(
+    state.treatment_finalization,
+    treatmentFinalizationEvidence(state),
+    submission
+  );
+  return withTreatmentFinalization(state, treatment);
+}
+
+export function executeResearchSessionFinalCompletionAudit(
+  rawState: ResearchSessionState
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  const checks = deriveFinalCompletionChecks(state);
+  const status = checks.every((check) => check.status === "PASS")
+    ? "PASS" as const
+    : "FAIL" as const;
+  const audit = {
+    audit_version: "askrigor_final_completion_audit_v1" as const,
+    basis_digest: finalCompletionAuditBasisDigest(state),
+    status,
+    checks
+  };
+  const operation = status === "PASS"
+    ? { status: "COMPLETE" as const }
+    : { status: "IN_PROGRESS" as const };
+  const modules = {
+    ...state.modules,
+    FINAL_COMPLETION_AUDIT: {
+      ...state.modules.FINAL_COMPLETION_AUDIT,
+      execution_status: status === "PASS"
+        ? "COMPLETE" as const
+        : "IN_PROGRESS" as const,
+      authority: "SERVER_EVIDENCE" as const
+    }
+  };
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules,
+    operations: { ...state.operations, final_completion_audit: operation },
+    final_completion_audit: audit
+  });
+}
+
 export function recordAutomatedScoutBoundary(
   rawState: ResearchSessionState,
   boundary: z.output<typeof operationBoundarySchema>
@@ -1177,7 +1409,7 @@ export function deriveRequiredNextCapabilities(
   if (
     operationCompleteOrTerminal(state.operations.transcript_acquisition) &&
     operationCompleteOrTerminal(state.operations.community_discussion_audit) &&
-    operationCompleteOrTerminal(state.operations.claim_capability_recalculation) &&
+    formalPipelineTerminal(state) &&
     isExecutable(state.operations.bidirectional_evidence_return)
   ) {
     capabilities.push("bidirectional_evidence_return");
@@ -1201,9 +1433,24 @@ export function deriveResearchOutputBoundary(
   rawState: ResearchSessionState
 ): Exclude<ResearchOutputBoundary, "FINALIZATION_ALLOWED"> {
   const state = researchSessionStateSchema.parse(rawState);
+  if (boundedNonrankingReady(state)) return "BOUNDED_NONRANKING_ONLY";
   if (hasExecutableOrIncompleteWork(state)) return "CONTINUE_RESEARCH";
   if (hasTerminalBoundary(state)) return "BOUNDED_NONRANKING_ONLY";
   // Phase A deliberately leaves successful finalization unreachable.
+  return "CONTINUE_RESEARCH";
+}
+
+export function deriveResearchFinalizationReadiness(
+  rawState: ResearchSessionState
+): ResearchOutputBoundary {
+  const state = researchSessionStateSchema.parse(rawState);
+  if (state.protocol_binding.currency === "DRIFTED") return "CONTINUE_RESEARCH";
+  if (
+    state.final_completion_audit?.status === "PASS" &&
+    state.final_completion_audit.basis_digest === finalCompletionAuditBasisDigest(state) &&
+    state.operations.final_completion_audit.status === "COMPLETE"
+  ) return "FINALIZATION_ALLOWED";
+  if (boundedNonrankingReady(state)) return "BOUNDED_NONRANKING_ONLY";
   return "CONTINUE_RESEARCH";
 }
 
@@ -1236,6 +1483,7 @@ export function projectResearchSessionView(
           ? "BLOCKED_RETRYABLE"
           : "IN_PROGRESS",
     output_boundary: outputBoundary,
+    finalization_readiness: deriveResearchFinalizationReadiness(state),
     protocol_binding: state.protocol_binding,
     modules: state.modules,
     operations: state.operations,
@@ -1278,6 +1526,29 @@ export function projectResearchSessionView(
       state.protocol_binding.currency === "CURRENT"
         ? createFormalClaimRecalculationWorkPackages(state.formal_evidence)
         : [],
+    bidirectional_iteration: deriveBidirectionalIterationDiagnostics(
+      state.bidirectional_iteration,
+      bidirectionalEvidenceState(state)
+    ),
+    bidirectional_iteration_work_package:
+      state.protocol_binding.currency === "CURRENT"
+        ? bidirectionalWorkPackageOrNull(state)
+        : null,
+    bidirectional_return_assessment_work_packages:
+      state.protocol_binding.currency === "CURRENT"
+        ? createBidirectionalReturnAssessmentWorkPackages(
+          state.bidirectional_iteration
+        )
+        : [],
+    treatment_finalization: deriveTreatmentFinalizationDiagnostics(
+      state.treatment_finalization,
+      treatmentFinalizationEvidence(state)
+    ),
+    treatment_landscape_work_package:
+      state.protocol_binding.currency === "CURRENT"
+        ? treatmentWorkPackageOrNull(state)
+        : null,
+    final_completion_audit: projectFinalCompletionAuditView(state),
     required_next_capabilities: deriveRequiredNextCapabilities(state),
     finalization_permit: null
   });
@@ -1369,7 +1640,9 @@ export function assertResearchSessionTransition(
     if (
       before === "COMPLETE" &&
       after !== "COMPLETE" &&
-      !formalEvidenceExpansionJustifiesReopen(previous, next, operationId)
+      !formalEvidenceExpansionJustifiesReopen(previous, next, operationId) &&
+      !bidirectionalEvidenceExpansionJustifiesReopen(previous, next, operationId) &&
+      !lateEvidenceExpansionJustifiesReopen(previous, next, operationId)
     ) {
       throw new Error(`Completed operation ${operationId} cannot regress`);
     }
@@ -1406,6 +1679,15 @@ export function assertResearchSessionTransition(
   }
   assertVideoDepthTransition(previous.video_depth, next.video_depth);
   assertFormalEvidenceTransition(previous, next);
+  assertBidirectionalIterationTransition(
+    previous.bidirectional_iteration,
+    next.bidirectional_iteration
+  );
+  assertTreatmentFinalizationTransition(
+    previous.treatment_finalization,
+    next.treatment_finalization
+  );
+  assertFinalCompletionAuditTransition(previous, next);
 }
 
 function formalEvidenceExpansionJustifiesReopen(
@@ -1413,6 +1695,14 @@ function formalEvidenceExpansionJustifiesReopen(
   next: ResearchSessionState,
   operationId: ResearchOperationId
 ): boolean {
+  if (operationId === "formal_evidence_search") {
+    const priorIds = new Set(previous.formal_evidence.hypotheses.map(({ hypothesis_id }) =>
+      hypothesis_id
+    ));
+    return next.formal_evidence.hypotheses.some(({ hypothesis_id }) =>
+      !priorIds.has(hypothesis_id)
+    );
+  }
   if (![
     "accessible_full_text_acquisition",
     "study_method_audit",
@@ -1428,6 +1718,32 @@ function formalEvidenceExpansionJustifiesReopen(
     .filter(({ decision_importance }) => decision_importance === "DECISION_IMPORTANT")
     .map(({ source_id }) => source_id));
   return [...after].some((sourceId) => !before.has(sourceId));
+}
+
+function bidirectionalEvidenceExpansionJustifiesReopen(
+  previous: ResearchSessionState,
+  next: ResearchSessionState,
+  operationId: ResearchOperationId
+): boolean {
+  if (operationId !== "bidirectional_evidence_return") return false;
+  return bidirectionalEvidenceBasisDigestForSession(previous) !==
+    bidirectionalEvidenceBasisDigestForSession(next);
+}
+
+function lateEvidenceExpansionJustifiesReopen(
+  previous: ResearchSessionState,
+  next: ResearchSessionState,
+  operationId: ResearchOperationId
+): boolean {
+  if (operationId === "treatment_landscape_finalization") {
+    return treatmentEvidenceBasisDigest(treatmentFinalizationEvidence(previous)) !==
+      treatmentEvidenceBasisDigest(treatmentFinalizationEvidence(next));
+  }
+  if (operationId === "final_completion_audit") {
+    return finalCompletionAuditBasisDigest(previous) !==
+      finalCompletionAuditBasisDigest(next);
+  }
+  return false;
 }
 
 function protocolIdentity(
@@ -1466,6 +1782,39 @@ function requireFormalReady(rawState: ResearchSessionState): ResearchSessionStat
   return state;
 }
 
+function requireBidirectionalReady(
+  rawState: ResearchSessionState,
+  requireUpstreamTerminal = true
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (state.modules.BIDIRECTIONAL_ITERATION.applicability !== "REQUIRED") {
+    throw new Error("Bidirectional iteration is not required by current server routing");
+  }
+  if (
+    !operationCompleteOrTerminal(state.operations.transcript_acquisition) ||
+    !operationCompleteOrTerminal(state.operations.community_discussion_audit)
+  ) {
+    throw new Error("Bidirectional iteration requires terminal selected-video receipt chains");
+  }
+  if (
+    requireUpstreamTerminal &&
+    !formalPipelineTerminal(state)
+  ) {
+    throw new Error("Bidirectional iteration requires terminal formal claim-capability work");
+  }
+  return state;
+}
+
+function requireTreatmentFinalizationReady(
+  rawState: ResearchSessionState
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (!operationCompleteOrTerminal(state.operations.bidirectional_evidence_return)) {
+    throw new Error("Treatment finalization requires resolved bidirectional evidence return");
+  }
+  return state;
+}
+
 function withFormalEvidence(
   state: ResearchSessionState,
   rawFormalEvidence: ResearchFormalEvidenceState
@@ -1485,11 +1834,212 @@ function withFormalEvidence(
       capability
     );
   }
-  return researchSessionStateSchema.parse({
+  const draft = {
     ...state,
     operations,
     formal_evidence: formalEvidence
+  } as ResearchSessionState;
+  operations.bidirectional_evidence_return = bidirectionalOperationProjection(draft);
+  const lateDraft = { ...draft, operations } as ResearchSessionState;
+  operations.treatment_landscape_finalization =
+    treatmentFinalizationOperationProjection(lateDraft);
+  operations.final_completion_audit = finalCompletionAuditOperationProjection({
+    ...lateDraft,
+    operations
+  } as ResearchSessionState);
+  const modules = projectFinalAuditModule(
+    projectBidirectionalModule(
+      state.modules,
+      operations.bidirectional_evidence_return
+    ),
+    operations.final_completion_audit
+  );
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules,
+    operations,
+    formal_evidence: formalEvidence
   });
+}
+
+function withBidirectionalIteration(
+  state: ResearchSessionState,
+  rawBidirectional: ResearchBidirectionalIterationState
+): ResearchSessionState {
+  const bidirectional = researchBidirectionalIterationStateSchema.parse(rawBidirectional);
+  const draft = { ...state, bidirectional_iteration: bidirectional } as ResearchSessionState;
+  const operation = bidirectionalOperationProjection(draft);
+  const operations = {
+    ...state.operations,
+    bidirectional_evidence_return: operation
+  };
+  const lateDraft = { ...draft, operations } as ResearchSessionState;
+  operations.treatment_landscape_finalization =
+    treatmentFinalizationOperationProjection(lateDraft);
+  operations.final_completion_audit = finalCompletionAuditOperationProjection({
+    ...lateDraft,
+    operations
+  } as ResearchSessionState);
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules: projectFinalAuditModule(
+      projectBidirectionalModule(state.modules, operation),
+      operations.final_completion_audit
+    ),
+    operations,
+    bidirectional_iteration: bidirectional
+  });
+}
+
+function withTreatmentFinalization(
+  state: ResearchSessionState,
+  rawTreatment: ResearchTreatmentFinalizationState
+): ResearchSessionState {
+  const treatment = researchTreatmentFinalizationStateSchema.parse(rawTreatment);
+  const draft = { ...state, treatment_finalization: treatment } as ResearchSessionState;
+  const treatmentOperation = treatmentFinalizationOperationProjection(draft);
+  const operations = {
+    ...state.operations,
+    treatment_landscape_finalization: treatmentOperation
+  };
+  operations.final_completion_audit = finalCompletionAuditOperationProjection({
+    ...draft,
+    operations
+  } as ResearchSessionState);
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules: projectFinalAuditModule(
+      state.modules,
+      operations.final_completion_audit
+    ),
+    operations,
+    treatment_finalization: treatment
+  });
+}
+
+function bidirectionalEvidenceState(state: ResearchSessionState) {
+  return {
+    candidates: state.candidate_discovery,
+    videoDepth: state.video_depth,
+    formalEvidence: state.formal_evidence
+  };
+}
+
+function bidirectionalOperationProjection(
+  state: Pick<ResearchSessionState,
+    "candidate_discovery" | "video_depth" | "formal_evidence" |
+    "bidirectional_iteration">
+): ResearchSessionState["operations"]["bidirectional_evidence_return"] {
+  const status = deriveBidirectionalIterationStatus(
+    state.bidirectional_iteration,
+    bidirectionalEvidenceState(state as ResearchSessionState)
+  );
+  if (status === "BLOCKED_RETRYABLE") {
+    return {
+      status,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "BIDIRECTIONAL_RETURN_RETRYABLE",
+        summary: "At least one exact cross-layer return search has retryable work remaining."
+      }
+    };
+  }
+  if (status === "BLOCKED_TERMINAL") {
+    return {
+      status,
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "BIDIRECTIONAL_RETURN_TERMINAL_BOUNDARY",
+        summary: "Cross-layer iteration reached a source-specific nonretryable boundary."
+      }
+    };
+  }
+  return { status };
+}
+
+function projectBidirectionalModule(
+  modules: ResearchSessionState["modules"],
+  operation: ResearchSessionState["operations"]["bidirectional_evidence_return"]
+): ResearchSessionState["modules"] {
+  if (modules.BIDIRECTIONAL_ITERATION.applicability !== "REQUIRED") return modules;
+  const executionStatus = operation.status === "COMPLETE"
+    ? "COMPLETE" as const
+    : operation.status === "BLOCKED_RETRYABLE" ||
+        operation.status === "BLOCKED_TERMINAL"
+      ? "BLOCKED" as const
+      : operation.status === "IN_PROGRESS"
+        ? "IN_PROGRESS" as const
+        : "NOT_STARTED" as const;
+  return {
+    ...modules,
+    BIDIRECTIONAL_ITERATION: {
+      ...modules.BIDIRECTIONAL_ITERATION,
+      execution_status: executionStatus,
+      authority: "SERVER_EVIDENCE"
+    }
+  };
+}
+
+function treatmentFinalizationEvidence(state: ResearchSessionState) {
+  return {
+    researchTarget: state.research_target,
+    candidates: state.candidate_discovery,
+    videoDepth: state.video_depth,
+    formalEvidence: state.formal_evidence,
+    bidirectional: state.bidirectional_iteration
+  };
+}
+
+function treatmentFinalizationOperationProjection(
+  state: Pick<ResearchSessionState,
+    "research_target" | "candidate_discovery" | "video_depth" |
+    "formal_evidence" | "bidirectional_iteration" | "treatment_finalization">
+): ResearchSessionState["operations"]["treatment_landscape_finalization"] {
+  const status = deriveTreatmentFinalizationStatus(
+    state.treatment_finalization,
+    treatmentFinalizationEvidence(state as ResearchSessionState)
+  );
+  if (status === "BLOCKED_TERMINAL") {
+    return {
+      status,
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "TREATMENT_LANDSCAPE_BOUNDED_NONRANKING",
+        summary: "The current treatment landscape permits only bounded nonranking output."
+      }
+    };
+  }
+  return { status };
+}
+
+function finalCompletionAuditOperationProjection(
+  state: ResearchSessionState
+): ResearchSessionState["operations"]["final_completion_audit"] {
+  if (state.final_completion_audit === undefined) return { status: "NOT_STARTED" };
+  if (
+    state.final_completion_audit.basis_digest !== finalCompletionAuditBasisDigest(state) ||
+    state.final_completion_audit.status !== "PASS"
+  ) return { status: "IN_PROGRESS" };
+  return { status: "COMPLETE" };
+}
+
+function projectFinalAuditModule(
+  modules: ResearchSessionState["modules"],
+  operation: ResearchSessionState["operations"]["final_completion_audit"]
+): ResearchSessionState["modules"] {
+  if (modules.FINAL_COMPLETION_AUDIT.applicability !== "REQUIRED") return modules;
+  return {
+    ...modules,
+    FINAL_COMPLETION_AUDIT: {
+      ...modules.FINAL_COMPLETION_AUDIT,
+      execution_status: operation.status === "COMPLETE"
+        ? "COMPLETE"
+        : operation.status === "IN_PROGRESS"
+          ? "IN_PROGRESS"
+          : "NOT_STARTED",
+      authority: "SERVER_EVIDENCE"
+    }
+  };
 }
 
 function formalEvidenceOperationProjection(
@@ -1617,10 +2167,9 @@ function assertFormalEvidenceTransition(
   if (before.hypothesis_frontier_digest !== undefined) {
     if (
       before.candidate_screening_digest !== after.candidate_screening_digest ||
-      before.hypothesis_frontier_digest !== after.hypothesis_frontier_digest ||
-      before.hypotheses.length !== after.hypotheses.length
+      after.hypotheses.length < before.hypotheses.length
     ) {
-      throw new Error("Formal hypothesis frontier is immutable");
+      throw new Error("Formal hypothesis frontier is append-only");
     }
     for (const priorHypothesis of before.hypotheses) {
       const laterHypothesis = after.hypotheses.find(({ hypothesis_id }) =>
@@ -1653,6 +2202,48 @@ function assertFormalEvidenceTransition(
         ) {
           throw new Error("Formal provider receipt chains must advance monotonically");
         }
+      }
+    }
+    const priorHypothesisIds = new Set(before.hypotheses.map(({ hypothesis_id }) =>
+      hypothesis_id
+    ));
+    const communityReferenceVideos = communityEvidenceReferenceVideos(next);
+    const transfers = next.bidirectional_iteration.rounds.flatMap((round) =>
+      round.community_to_formal_transfers
+    );
+    for (const hypothesis of after.hypotheses) {
+      if (priorHypothesisIds.has(hypothesis.hypothesis_id)) continue;
+      const transfer = transfers.find((candidate) =>
+        candidate.formal_hypothesis_id === hypothesis.hypothesis_id &&
+        candidate.status === "FORMAL_HYPOTHESIS_APPENDED"
+      );
+      if (transfer === undefined) {
+        throw new Error("New formal hypotheses require an exact community-to-formal transfer receipt");
+      }
+      const sourceVideoIds = [...new Set(transfer.source_evidence_ref_ids.map((refId) =>
+        communityReferenceVideos.get(refId)
+      ))].sort();
+      if (sourceVideoIds.some((videoId) => videoId === undefined)) {
+        throw new Error("Community-to-formal transfer cites an unresolved source receipt");
+      }
+      const transferCore = {
+        source_video_ids: sourceVideoIds,
+        program_signature: transfer.program_signature,
+        treatment_class: transfer.treatment_class,
+        claim_summary: transfer.claim_summary,
+        program: transfer.program,
+        formal_query: transfer.formal_query
+      };
+      const hypothesisCore = {
+        source_video_ids: hypothesis.source_video_ids,
+        program_signature: hypothesis.program_signature,
+        treatment_class: hypothesis.treatment_class,
+        claim_summary: hypothesis.claim_summary,
+        program: hypothesis.program,
+        formal_query: hypothesis.formal_query
+      };
+      if (JSON.stringify(transferCore) !== JSON.stringify(hypothesisCore)) {
+        throw new Error("New formal hypothesis must match its exact community transfer");
       }
     }
   }
@@ -1721,6 +2312,149 @@ function assertFormalEvidenceTransition(
   }
 }
 
+function communityEvidenceReferenceVideos(
+  state: ResearchSessionState
+): Map<string, string> {
+  const videos = new Map<string, string>();
+  const transcripts = new Map(state.video_depth.transcripts.map((record) => [
+    record.source.video_id,
+    record
+  ]));
+  const discussions = new Map(state.video_depth.discussions.map((record) => [
+    record.source.video_id,
+    record
+  ]));
+  for (const videoId of state.video_depth.selected_video_ids) {
+    const transcript = transcripts.get(videoId);
+    const discussion = discussions.get(videoId);
+    if (transcript?.receipt !== undefined && discussion?.receipt !== undefined) {
+      const transcriptHash = sha256(JSON.stringify(transcript.receipt));
+      const discussionHash = sha256(JSON.stringify(discussion.receipt));
+      videos.set(
+        sha256(`community-evidence-ref:${videoId}:${transcriptHash}:${discussionHash}`),
+        videoId
+      );
+    }
+    videos.set(sha256(`community-evidence-ref:${videoId}:return:return`), videoId);
+  }
+  return videos;
+}
+
+function sha256(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function assertBidirectionalIterationTransition(
+  previous: ResearchBidirectionalIterationState,
+  next: ResearchBidirectionalIterationState
+): void {
+  if (
+    next.rounds.length < previous.rounds.length ||
+    next.rounds.length > previous.rounds.length + 1
+  ) {
+    throw new Error("Bidirectional rounds must advance monotonically one at a time");
+  }
+  for (let roundIndex = 0; roundIndex < previous.rounds.length; roundIndex += 1) {
+    const before = previous.rounds[roundIndex]!;
+    const after = next.rounds[roundIndex];
+    if (after === undefined || before.round_id !== after.round_id) {
+      throw new Error("Bidirectional round identities cannot be removed or renamed");
+    }
+    const priorCore = {
+      ...before,
+      formal_to_community_transfers: before.formal_to_community_transfers.map(
+        (transfer) => ({ ...transfer, searches: undefined })
+      )
+    };
+    const laterCore = {
+      ...after,
+      formal_to_community_transfers: after.formal_to_community_transfers.map(
+        (transfer) => ({ ...transfer, searches: undefined })
+      )
+    };
+    if (JSON.stringify(priorCore) !== JSON.stringify(laterCore)) {
+      throw new Error("Bidirectional semantic findings and transfer identities are immutable");
+    }
+    for (const priorTransfer of before.formal_to_community_transfers) {
+      const laterTransfer = after.formal_to_community_transfers.find(({ transfer_id }) =>
+        transfer_id === priorTransfer.transfer_id
+      );
+      if (laterTransfer === undefined) {
+        throw new Error("Formal-to-community transfer cannot disappear");
+      }
+      for (const priorSearch of priorTransfer.searches) {
+        const laterSearch = laterTransfer.searches.find(({ video_id }) =>
+          video_id === priorSearch.video_id
+        );
+        if (laterSearch === undefined) {
+          throw new Error("Bidirectional return-search identity cannot disappear");
+        }
+        if (
+          ["COMPLETE_NO_RESULTS", "COMPLETE_ASSESSED", "BOUNDED_TERMINAL"]
+            .includes(priorSearch.status) &&
+          JSON.stringify(priorSearch) !== JSON.stringify(laterSearch)
+        ) {
+          throw new Error("Completed or terminal bidirectional return evidence is immutable");
+        }
+        if (
+          laterSearch.pages_retrieved < priorSearch.pages_retrieved ||
+          laterSearch.records_returned_cumulative <
+            priorSearch.records_returned_cumulative ||
+          laterSearch.page_receipt_hashes.slice(0, priorSearch.page_receipt_hashes.length)
+            .some((hash, index) => hash !== priorSearch.page_receipt_hashes[index])
+        ) {
+          throw new Error("Bidirectional return receipt chains must advance monotonically");
+        }
+      }
+    }
+  }
+}
+
+function assertTreatmentFinalizationTransition(
+  previous: ResearchTreatmentFinalizationState,
+  next: ResearchTreatmentFinalizationState
+): void {
+  if (
+    next.attempts.length < previous.attempts.length ||
+    next.attempts.length > previous.attempts.length + 1
+  ) {
+    throw new Error("Treatment-landscape attempts must advance monotonically one at a time");
+  }
+  for (let index = 0; index < previous.attempts.length; index += 1) {
+    if (JSON.stringify(previous.attempts[index]) !== JSON.stringify(next.attempts[index])) {
+      throw new Error("Completed treatment-landscape assessor receipts are immutable");
+    }
+  }
+}
+
+function assertFinalCompletionAuditTransition(
+  previous: ResearchSessionState,
+  next: ResearchSessionState
+): void {
+  if (previous.final_completion_audit === undefined) return;
+  if (
+    previous.final_completion_audit.status === "PASS" &&
+    previous.final_completion_audit.basis_digest === finalCompletionAuditBasisDigest(previous) &&
+    finalCompletionAuditBasisDigest(previous) === finalCompletionAuditBasisDigest(next) &&
+    JSON.stringify(previous.final_completion_audit) !==
+      JSON.stringify(next.final_completion_audit)
+  ) {
+    throw new Error("A current passing final completion audit is immutable");
+  }
+}
+
+function bidirectionalEvidenceBasisDigestForSession(state: ResearchSessionState): string {
+  try {
+    return bidirectionalEvidenceBasisDigest(bidirectionalEvidenceState(state));
+  } catch {
+    return createHash("sha256").update(JSON.stringify({
+      candidates: state.candidate_discovery,
+      video_depth: state.video_depth,
+      formal_evidence: state.formal_evidence
+    }), "utf8").digest("hex");
+  }
+}
+
 function formalScreeningWorkPackageOrNull(
   formalEvidence: ResearchFormalEvidenceState
 ): z.output<typeof formalEvidenceScreeningWorkPackageSchema> | null {
@@ -1732,6 +2466,197 @@ function formalScreeningWorkPackageOrNull(
   } catch {
     return null;
   }
+}
+
+function bidirectionalWorkPackageOrNull(
+  state: ResearchSessionState
+): z.output<typeof bidirectionalIterationWorkPackageSchema> | null {
+  if (
+    state.modules.BIDIRECTIONAL_ITERATION.applicability !== "REQUIRED" ||
+    !operationCompleteOrTerminal(state.operations.transcript_acquisition) ||
+    !operationCompleteOrTerminal(state.operations.community_discussion_audit) ||
+    !formalPipelineTerminal(state)
+  ) return null;
+  try {
+    return createBidirectionalIterationWorkPackage(
+      state.bidirectional_iteration,
+      bidirectionalEvidenceState(state)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function treatmentWorkPackageOrNull(
+  state: ResearchSessionState
+): z.output<typeof treatmentLandscapeWorkPackageSchema> | null {
+  if (!operationCompleteOrTerminal(state.operations.bidirectional_evidence_return)) {
+    return null;
+  }
+  try {
+    return createTreatmentLandscapeWorkPackage(
+      state.treatment_finalization,
+      treatmentFinalizationEvidence(state)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function projectFinalCompletionAuditView(state: ResearchSessionState) {
+  const operation = finalCompletionAuditOperationProjection(state);
+  return {
+    status: operation.status === "COMPLETE"
+      ? "COMPLETE" as const
+      : operation.status === "IN_PROGRESS"
+        ? "IN_PROGRESS" as const
+        : "NOT_STARTED" as const,
+    ...(state.final_completion_audit === undefined
+      ? {}
+      : { basis_digest: state.final_completion_audit.basis_digest }),
+    blockers: state.final_completion_audit?.checks
+      .filter(({ status }) => status === "FAIL")
+      .map(({ summary }) => summary) ?? []
+  };
+}
+
+function deriveFinalCompletionChecks(state: ResearchSessionState) {
+  const checks: Array<{
+    check_id: string;
+    status: "PASS" | "FAIL";
+    summary: string;
+  }> = [];
+  const add = (checkId: string, pass: boolean, summary: string) => checks.push({
+    check_id: checkId,
+    status: pass ? "PASS" : "FAIL",
+    summary
+  });
+  add(
+    "PROTOCOL_IDENTITIES_CURRENT",
+    state.protocol_binding.currency === "CURRENT",
+    "The execution remains bound to the current exact protocol identities."
+  );
+  add(
+    "MODULE_APPLICABILITY_RESOLVED",
+    Object.values(state.modules).every(({ applicability }) =>
+      applicability !== "UNRESOLVED"
+    ),
+    "Every module has server-resolved applicability."
+  );
+  add(
+    "REQUIRED_MODULES_COMPLETE",
+    Object.entries(state.modules).every(([moduleId, module]) =>
+      moduleId === "FINAL_COMPLETION_AUDIT" ||
+      module.applicability !== "REQUIRED" || module.execution_status === "COMPLETE"
+    ),
+    "Every required module before the final audit is complete."
+  );
+  add(
+    "UPSTREAM_OPERATIONS_COMPLETE",
+    Object.entries(state.operations).every(([operationId, operation]) =>
+      operationId === "final_completion_audit" || operation.status === "COMPLETE"
+    ),
+    "Every required upstream operation is complete without retryable or terminal substitution."
+  );
+  const treatment = currentTreatmentLandscapeAssessment(
+    state.treatment_finalization,
+    treatmentFinalizationEvidence(state)
+  );
+  add(
+    "TREATMENT_LOCKS_PASS",
+    treatment?.selection_coverage_lock === "pass" &&
+      treatment.per_video_depth_lock === "pass" &&
+      treatment.synthesis_lock === "pass" &&
+      treatment.answer_boundary === "ledger_consistent_for_synthesis",
+    "The current server-derived treatment selection, depth, and synthesis locks all pass."
+  );
+  add(
+    "BIDIRECTIONAL_CURRENT",
+    deriveBidirectionalIterationStatus(
+      state.bidirectional_iteration,
+      bidirectionalEvidenceState(state)
+    ) === "COMPLETE",
+    "Both transfer directions are complete for the current evidence basis."
+  );
+  const unresolvedLinked = state.formal_evidence.sources.flatMap((source) =>
+    source.external_evidence.linked_work.filter((item) =>
+      item.possible_decision_impact !== "detail_only" && item.status !== "COMPLETE"
+    )
+  );
+  add(
+    "DECISION_CHANGING_LINKED_WORK_AUDITED",
+    unresolvedLinked.length === 0,
+    "Every potentially decision-changing linked replication, reproduction, review, notice, or post-publication source is audited."
+  );
+  return checks;
+}
+
+function finalCompletionAuditBasisDigest(state: ResearchSessionState): string {
+  return createHash("sha256").update(JSON.stringify({
+    state_version: state.state_version,
+    research_target: state.research_target,
+    diagnosis_status: state.diagnosis_status,
+    protocol_binding: state.protocol_binding,
+    modules: {
+      ...state.modules,
+      FINAL_COMPLETION_AUDIT: {
+        ...state.modules.FINAL_COMPLETION_AUDIT,
+        execution_status: "NOT_STARTED",
+        authority: "SERVER_RESEARCH_SESSION"
+      }
+    },
+    operations: {
+      ...state.operations,
+      final_completion_audit: { status: "NOT_STARTED" }
+    },
+    scout: state.scout,
+    candidate_discovery: state.candidate_discovery,
+    video_depth: state.video_depth,
+    formal_evidence: state.formal_evidence,
+    bidirectional_iteration: state.bidirectional_iteration,
+    treatment_finalization: state.treatment_finalization
+  }), "utf8").digest("hex");
+}
+
+function boundedNonrankingReady(state: ResearchSessionState): boolean {
+  if (
+    state.protocol_binding.currency !== "CURRENT" ||
+    Object.values(state.modules).some(({ applicability }) =>
+      applicability === "UNRESOLVED"
+    )
+  ) return false;
+  const treatment = currentTreatmentLandscapeAssessment(
+    state.treatment_finalization,
+    treatmentFinalizationEvidence(state)
+  );
+  if (treatment?.answer_boundary !== "bounded_nonranking_only") return false;
+  const upstreamOperations = Object.entries(state.operations).filter(([operationId]) =>
+    operationId !== "final_completion_audit"
+  ).map(([, operation]) => operation);
+  if (!upstreamOperations.every(({ status }) =>
+    status === "COMPLETE" || status === "BLOCKED_TERMINAL"
+  )) return false;
+  if (!upstreamOperations.some(({ status }) => status === "BLOCKED_TERMINAL")) {
+    return false;
+  }
+  return Object.entries(state.modules).every(([moduleId, module]) =>
+    moduleId === "FINAL_COMPLETION_AUDIT" ||
+    module.applicability !== "REQUIRED" ||
+    module.execution_status === "COMPLETE" || module.execution_status === "BLOCKED"
+  );
+}
+
+function formalPipelineTerminal(state: ResearchSessionState): boolean {
+  return ([
+    "formal_evidence_search",
+    "accessible_full_text_acquisition",
+    "study_method_audit",
+    "external_study_evidence_audit",
+    "linked_replication_and_review_audit",
+    "claim_capability_recalculation"
+  ] as const).every((capability) =>
+    operationCompleteOrTerminal(state.operations[capability])
+  );
 }
 
 function requireCurrentProtocols(rawState: ResearchSessionState): ResearchSessionState {

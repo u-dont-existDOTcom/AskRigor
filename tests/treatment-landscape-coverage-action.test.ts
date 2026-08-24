@@ -160,6 +160,46 @@ describe("treatment-landscape coverage Action", () => {
     });
   });
 
+  it("does not let a screened nonmaterial unspecified program invalidate material coverage", () => {
+    const input = completeInput();
+    const batch = input.discovery_batches[0]!;
+    const classId = "screened-irrelevant";
+    const fingerprintId = "fp-screened-irrelevant";
+    const videoId = "v-screened-irrelevant";
+    input.treatment_classes.push({
+      ...treatmentClass(classId, "Screened irrelevant mention"),
+      materiality: "not_material",
+      formal_follow_up: "support_not_located",
+      omission_impact: "not_decision_relevant",
+      omission_rationale: "Semantic screening found no decision-relevant treatment program."
+    });
+    input.program_fingerprints.push({
+      ...fingerprint(fingerprintId, classId, PROGRAM_NOT_DESCRIBED),
+      materiality: "not_material",
+      formal_follow_up: "support_not_located",
+      omission_impact: "not_decision_relevant",
+      omission_rationale: "The source was screened and did not describe a material program."
+    });
+    input.candidate_videos.push(candidateVideo({
+      videoId,
+      classId,
+      fingerprintId,
+      batchId: batch.batch_id,
+      channelId: "UC-screened-irrelevant",
+      selected: false,
+      materiality: "not_material"
+    }));
+    batch.treatment_class_ids.push(classId);
+    batch.candidate_video_ids.push(videoId);
+    batch.new_program_fingerprint_ids.push(fingerprintId);
+
+    const result = assessTreatmentLandscapeCoverage(input);
+
+    expect(result.selection_coverage_lock).toBe("pass");
+    expect(result.synthesis_lock).toBe("pass");
+    expect(result.invalid_record_ids.program_fingerprints).not.toContain(fingerprintId);
+  });
+
   it("blocks a broad substantial audit when the required Spark frontier is absent", () => {
     const input = completeInput();
     input.external_scout_frontiers = [];
@@ -997,6 +1037,7 @@ function candidateVideo(input: {
   batchId: string;
   channelId: string;
   selected: boolean;
+  materiality?: "material" | "not_material";
 }) {
   return {
     video_id: input.videoId,
@@ -1007,7 +1048,7 @@ function candidateVideo(input: {
     treatment_class_id: input.classId,
     fingerprint_id: input.fingerprintId,
     discovery_batch_ids: [input.batchId],
-    materiality: "material" as const,
+    materiality: input.materiality ?? "material" as const,
     selection_status: input.selected ? "selected" as const : "screened_not_selected" as const,
     omission_impact: input.selected ? "uncertain" as const : "not_decision_relevant" as const,
     omission_rationale: input.selected

@@ -133,6 +133,10 @@ complete XML protocol.
   identifier indexes, atomic activation/verified rollback, stale coverage,
   existing-coordinator composition, hostile tests, and deferred production
   retention/scheduling
+- `superpowers/plans/2026-08-24-phase-e-bidirectional-treatment-finalization.md`:
+  server-owned two-direction evidence transfer, formal/community reopening,
+  session-derived treatment-landscape locking, bounded source gaps, and the
+  final-completion audit without premature permit issuance
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

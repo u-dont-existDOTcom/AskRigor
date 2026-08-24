@@ -1,5 +1,66 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase E candidate
+
+Branch `agent/execution-control-phase-e-20260824` starts from exact Phase D5
+merge `16bc4bd9a312d2c6a34c0629bd2467bbf3158341` and implements Phase E of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+Phase D6 remains deliberately provider/owner-gated; Phase E adds no Scite,
+Ripeta, provider account, credential, or transport.
+
+The existing non-production research-session controller now owns explicit
+community-to-formal and formal-to-community iteration. Work packages enumerate
+every exact selected-video receipt and formal hypothesis/source reference in
+both directions. Strict semantic submissions must assess every source once;
+invented, omitted, stale, unsupported-terminal, or caller-completed records are
+rejected. Material community findings append cryptographically identified
+formal hypotheses and reopen the existing PubMed/Europe PMC, lawful full-text,
+method, external-evidence, linked-work, and claim-capability path. Formal
+discriminators create bounded searches only inside already audited discussion
+pools, with receipt hashes/counts and separate result assessment; raw comments
+do not enter session state.
+
+The controller derives treatment classes, program fingerprints, discovery
+batches, source identities, depth receipts, formal follow-up, and external
+scout reconciliation from authoritative session records. Workers can annotate
+specific-program search meaning, directional batches, selected-video value,
+and whether expansion remains useful, but cannot submit counts, access states,
+locks, assessor output, or completion. The existing deterministic treatment
+assessor remains the sole selection/depth/synthesis lock. Broad comparisons
+with omitted directions stay executable even when a worker says to stop.
+Screened nonmaterial unspecified mentions do not invalidate real coverage, and
+nonretryable formal gaps are structured as bounded nonranking limitations
+rather than silently counted as completed formal follow-up.
+
+The new server-derived final completion audit is bound to the current complete
+session basis and checks protocol currency, module applicability/completion,
+all upstream operations, treatment locks, bidirectional currency, and every
+potentially decision-changing linked item. Its exact checks/status/digest are
+revalidated by the session schema. Passing state derives
+`FINALIZATION_ALLOWED` readiness, while Phase F permit issuance remains
+disabled and `evaluateResearchFinalization` still denies authorization. A
+terminally bounded treatment state can expose only
+`BOUNDED_NONRANKING_ONLY`.
+
+Focused Phase E tests pass 68/68. The first complete sandbox run was invalid
+only for the known loopback/IPC `EPERM` boundary; 1,202 other tests passed
+there. Two unrelated, load-sensitive timeout checks each passed when isolated,
+and the complete host-boundary `npm run verify` gate subsequently passed
+typechecking, 1,279 tests with six declared skips, and the production build.
+The pre-PR lesson checkpoint at
+`2026-08-24T10:53:24.285Z` was available with 1 open candidate, 1 needing
+review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+deletion eligible. No unreviewed lesson expanded this phase. Lesson disposition
+is project-specific/no-new-lesson: Phase E implements the already approved
+server-authority and breadth-before-depth architecture without exposing a new
+cross-project lesson. PR, hosted CI, and merge receipts remain pending.
+
+The prototype stays outside production inventory. Public inventory remains 21
+MCP tools and 26 Actions; canonical protocol bytes, generated Custom GPT
+Instructions, plugin bytes, production runtime, provider footprint,
+credentials, and durable retention are unchanged. Phase F is next after the
+reviewed merge.
+
 ## 2026-08-24 execution-control Phase D5 candidate
 
 Branch `agent/execution-control-phase-d5-20260824` starts from exact merged
