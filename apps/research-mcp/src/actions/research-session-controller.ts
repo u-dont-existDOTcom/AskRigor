@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import type { ProtocolManifest } from "@askrigor/protocol";
 import type {
@@ -596,16 +596,61 @@ export type ResearchNextCapability = z.output<
   typeof researchNextCapabilitySchema
 >;
 
+export const researchFinalizationLimitationSchema = z.object({
+  limitation_id: z.string().regex(/^[a-f0-9]{64}$/u),
+  scope: z.enum([
+    "provider_coverage",
+    "publication_integrity",
+    "linked_source",
+    "claim_capability",
+    "treatment_landscape",
+    "source_access"
+  ]),
+  source_id: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  provider: z.enum([
+    "crossref",
+    "forrt",
+    "retraction_watch",
+    "pubpeer",
+    "epistemonikos",
+    "scite"
+  ]).optional(),
+  plain_language: z.string().trim().min(1).max(4_000)
+}).strict();
+
+export type ResearchFinalizationLimitation = z.output<
+  typeof researchFinalizationLimitationSchema
+>;
+
 export const finalizationPermitSchema = z.object({
   permit_version: z.literal("askrigor_finalization_permit_v1"),
+  artifact_kind: z.enum([
+    "COMPARATIVE_FINALIZATION_PERMIT",
+    "BOUNDED_NONRANKING_REPORT_PERMIT"
+  ]),
   execution_id: z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u),
-  output_boundary: z.literal("FINALIZATION_ALLOWED"),
+  output_boundary: z.enum(["FINALIZATION_ALLOWED", "BOUNDED_NONRANKING_ONLY"]),
   protocol_identities: protocolTupleSchema,
   state_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+  authorization_basis_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+  limitations_digest: z.string().regex(/^[a-f0-9]{64}$/u),
   issued_at: z.string().datetime({ offset: true }),
   expires_at: z.string().datetime({ offset: true }),
-  domain: z.literal("askrigor.research.finalization")
-}).strict();
+  key_id: z.string().regex(/^[A-Za-z0-9._-]{1,100}$/u),
+  domain: z.literal("askrigor.research.finalization"),
+  permit_payload_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  signature: z.string().regex(/^[A-Za-z0-9_-]{43}$/u)
+}).strict().superRefine((permit, context) => {
+  const expectedKind = permit.output_boundary === "FINALIZATION_ALLOWED"
+    ? "COMPARATIVE_FINALIZATION_PERMIT"
+    : "BOUNDED_NONRANKING_REPORT_PERMIT";
+  if (permit.artifact_kind !== expectedKind) {
+    context.addIssue({
+      code: "custom",
+      message: "Finalization artifact kind must match its exact output boundary"
+    });
+  }
+});
 
 export type FinalizationPermit = z.output<typeof finalizationPermitSchema>;
 
@@ -616,7 +661,7 @@ const finalizationDenialReasonSchema = z.enum([
   "REQUIRED_OPERATION_INCOMPLETE",
   "RETRYABLE_WORK_REMAINS",
   "TERMINAL_BOUNDARY_LIMITS_OUTPUT",
-  "PHASE_A_FINALIZATION_NOT_ENABLED"
+  "FINALIZATION_SIGNING_NOT_CONFIGURED"
 ]);
 
 export const researchSessionViewSchema = z.object({
@@ -625,6 +670,7 @@ export const researchSessionViewSchema = z.object({
     "IN_PROGRESS",
     "BLOCKED_RETRYABLE",
     "BOUNDED",
+    "READY_TO_FINALIZE",
     "PROTOCOL_DRIFT"
   ]),
   output_boundary: researchOutputBoundarySchema,
@@ -671,19 +717,109 @@ export const researchSessionViewSchema = z.object({
   finalization_permit: z.null()
 }).strict();
 
-export const finalizationDecisionSchema = z.object({
+const finalizationDeniedDecisionSchema = z.object({
   session_id: z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u),
   authorization: z.literal("DENIED"),
-  output_boundary: z.enum(["CONTINUE_RESEARCH", "BOUNDED_NONRANKING_ONLY"]),
+  output_boundary: researchOutputBoundarySchema,
   finalization_permit: z.null(),
   denial_reasons: z.array(finalizationDenialReasonSchema).min(1),
   required_next_capabilities: z.array(researchNextCapabilitySchema),
   state_digest: z.string().regex(/^[a-f0-9]{64}$/u)
 }).strict();
 
+const authorizedReaderFacingSchema = z.object({
+  permitted_scope: z.enum([
+    "comparative_synthesis",
+    "bounded_nonranking_report"
+  ]),
+  limitations: z.array(researchFinalizationLimitationSchema).max(4_000)
+}).strict();
+
+const finalizationAuthorizedDecisionSchema = z.object({
+  session_id: z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u),
+  authorization: z.literal("AUTHORIZED"),
+  output_boundary: z.literal("FINALIZATION_ALLOWED"),
+  finalization_permit: finalizationPermitSchema,
+  reader_facing: authorizedReaderFacingSchema.extend({
+    permitted_scope: z.literal("comparative_synthesis")
+  }).strict(),
+  required_next_capabilities: z.tuple([]),
+  state_digest: z.string().regex(/^[a-f0-9]{64}$/u)
+}).strict();
+
+const finalizationBoundedDecisionSchema = z.object({
+  session_id: z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u),
+  authorization: z.literal("BOUNDED"),
+  output_boundary: z.literal("BOUNDED_NONRANKING_ONLY"),
+  finalization_permit: finalizationPermitSchema,
+  reader_facing: authorizedReaderFacingSchema.extend({
+    permitted_scope: z.literal("bounded_nonranking_report")
+  }).strict(),
+  required_next_capabilities: z.tuple([]),
+  state_digest: z.string().regex(/^[a-f0-9]{64}$/u)
+}).strict();
+
+export const finalizationDecisionSchema = z.discriminatedUnion("authorization", [
+  finalizationDeniedDecisionSchema,
+  finalizationAuthorizedDecisionSchema,
+  finalizationBoundedDecisionSchema
+]).superRefine((decision, context) => {
+  if (decision.authorization === "DENIED") return;
+  if (
+    decision.authorization === "AUTHORIZED" &&
+    decision.finalization_permit.output_boundary !== "FINALIZATION_ALLOWED"
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Authorized synthesis requires an exact comparative finalization permit"
+    });
+  }
+  if (
+    decision.authorization === "BOUNDED" &&
+    decision.finalization_permit.output_boundary !== "BOUNDED_NONRANKING_ONLY"
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Bounded output requires an exact bounded-nonranking permit"
+    });
+  }
+  if (
+    decision.finalization_permit.execution_id !== decision.session_id ||
+    decision.finalization_permit.output_boundary !== decision.output_boundary ||
+    decision.finalization_permit.state_digest !== decision.state_digest
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Finalization decision and permit must bind the same execution, state, and boundary"
+    });
+  }
+  if (
+    decision.finalization_permit.limitations_digest !==
+      finalizationLimitationsDigest(decision.reader_facing.limitations)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Reader-facing limitations must match the exact permit-bound limitation set"
+    });
+  }
+});
+
 export type ResearchFinalizationDecision = z.output<
   typeof finalizationDecisionSchema
 >;
+
+export interface ResearchFinalizationPermitOptions {
+  signingSecret?: string;
+  keyId?: string;
+  now?: () => Date;
+  ttlMs?: number;
+}
+
+export interface ResearchFinalizationPermitVerification {
+  signingSecret: string;
+  keyId: string;
+  now?: () => Date;
+}
 
 export interface ResearchSessionStartInput {
   research_target: string;
@@ -820,7 +956,20 @@ export function applyProtocolRecheck(
       expected: state.protocol_binding.expected,
       currency: "DRIFTED",
       observed_current: observedCurrent
-    }
+    },
+    modules: {
+      ...state.modules,
+      FINAL_COMPLETION_AUDIT: {
+        ...state.modules.FINAL_COMPLETION_AUDIT,
+        execution_status: "NOT_STARTED",
+        authority: "SERVER_EVIDENCE"
+      }
+    },
+    operations: {
+      ...state.operations,
+      final_completion_audit: { status: "NOT_STARTED" }
+    },
+    final_completion_audit: undefined
   });
 }
 
@@ -1431,12 +1580,14 @@ export function deriveRequiredNextCapabilities(
 
 export function deriveResearchOutputBoundary(
   rawState: ResearchSessionState
-): Exclude<ResearchOutputBoundary, "FINALIZATION_ALLOWED"> {
+): ResearchOutputBoundary {
   const state = researchSessionStateSchema.parse(rawState);
+  if (deriveResearchFinalizationReadiness(state) === "FINALIZATION_ALLOWED") {
+    return "FINALIZATION_ALLOWED";
+  }
   if (boundedNonrankingReady(state)) return "BOUNDED_NONRANKING_ONLY";
   if (hasExecutableOrIncompleteWork(state)) return "CONTINUE_RESEARCH";
   if (hasTerminalBoundary(state)) return "BOUNDED_NONRANKING_ONLY";
-  // Phase A deliberately leaves successful finalization unreachable.
   return "CONTINUE_RESEARCH";
 }
 
@@ -1477,6 +1628,8 @@ export function projectResearchSessionView(
     session_id: sessionId,
     execution_status: state.protocol_binding.currency === "DRIFTED"
       ? "PROTOCOL_DRIFT"
+      : outputBoundary === "FINALIZATION_ALLOWED"
+        ? "READY_TO_FINALIZE"
       : outputBoundary === "BOUNDED_NONRANKING_ONLY"
         ? "BOUNDED"
         : hasRetryable
@@ -1556,9 +1709,12 @@ export function projectResearchSessionView(
 
 export function evaluateResearchFinalization(
   sessionId: string,
-  rawState: ResearchSessionState
+  rawState: ResearchSessionState,
+  options: ResearchFinalizationPermitOptions = {}
 ): ResearchFinalizationDecision {
   const state = researchSessionStateSchema.parse(rawState);
+  const outputBoundary = deriveResearchOutputBoundary(state);
+  const stateDigest = researchSessionStateDigest(state);
   const reasons: z.output<typeof finalizationDenialReasonSchema>[] = [];
   if (state.protocol_binding.currency === "DRIFTED") {
     reasons.push("PROTOCOL_DRIFT");
@@ -1586,17 +1742,399 @@ export function evaluateResearchFinalization(
   if (hasTerminalBoundary(state)) {
     reasons.push("TERMINAL_BOUNDARY_LIMITS_OUTPUT");
   }
-  reasons.push("PHASE_A_FINALIZATION_NOT_ENABLED");
+  const authorizable = outputBoundary === "FINALIZATION_ALLOWED" ||
+    outputBoundary === "BOUNDED_NONRANKING_ONLY" && boundedNonrankingReady(state);
+  const secret = options.signingSecret;
+  const keyId = options.keyId;
+  if (
+    authorizable &&
+    (
+      secret === undefined || keyId === undefined ||
+      secret.trim().length === 0 || keyId.trim().length === 0
+    )
+  ) {
+    reasons.push("FINALIZATION_SIGNING_NOT_CONFIGURED");
+  }
+  if (
+    !authorizable || secret === undefined || keyId === undefined ||
+    secret.trim().length === 0 || keyId.trim().length === 0
+  ) {
+    return finalizationDecisionSchema.parse({
+      session_id: sessionId,
+      authorization: "DENIED",
+      output_boundary: outputBoundary,
+      finalization_permit: null,
+      denial_reasons: unique(reasons),
+      required_next_capabilities: deriveRequiredNextCapabilities(state),
+      state_digest: stateDigest
+    });
+  }
 
+  const limitations = deriveResearchFinalizationLimitations(state);
+  const permit = issueResearchFinalizationPermit(sessionId, state, limitations, {
+    signingSecret: secret,
+    keyId,
+    ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.ttlMs === undefined ? {} : { ttlMs: options.ttlMs })
+  });
   return finalizationDecisionSchema.parse({
     session_id: sessionId,
-    authorization: "DENIED",
-    output_boundary: deriveResearchOutputBoundary(state),
-    finalization_permit: null,
-    denial_reasons: unique(reasons),
-    required_next_capabilities: deriveRequiredNextCapabilities(state),
-    state_digest: researchSessionStateDigest(state)
+    authorization: outputBoundary === "FINALIZATION_ALLOWED"
+      ? "AUTHORIZED"
+      : "BOUNDED",
+    output_boundary: outputBoundary,
+    finalization_permit: permit,
+    reader_facing: {
+      permitted_scope: outputBoundary === "FINALIZATION_ALLOWED"
+        ? "comparative_synthesis"
+        : "bounded_nonranking_report",
+      limitations
+    },
+    required_next_capabilities: [],
+    state_digest: stateDigest
   });
+}
+
+const FINALIZATION_PERMIT_KEY_DOMAIN = "askrigor:research-finalization-permit:v1";
+const FINALIZATION_PERMIT_DEFAULT_TTL_MS = 15 * 60 * 1_000;
+const FINALIZATION_PERMIT_MAX_TTL_MS = 60 * 60 * 1_000;
+const FINALIZATION_PERMIT_MIN_SECRET_BYTES = 32;
+
+export class ResearchFinalizationPermitError extends Error {
+  constructor() {
+    super("Research finalization permit is invalid, stale, expired, or bound to another execution");
+    this.name = "ResearchFinalizationPermitError";
+  }
+}
+
+export function deriveResearchFinalizationLimitations(
+  rawState: ResearchSessionState
+): ResearchFinalizationLimitation[] {
+  const state = researchSessionStateSchema.parse(rawState);
+  const limitations: ResearchFinalizationLimitation[] = [];
+  const add = (input: Omit<ResearchFinalizationLimitation, "limitation_id">) => {
+    const core = researchFinalizationLimitationSchema.omit({ limitation_id: true })
+      .parse(input);
+    limitations.push(researchFinalizationLimitationSchema.parse({
+      ...core,
+      limitation_id: sha256(`finalization-limitation:${canonicalJson(core)}`)
+    }));
+  };
+
+  for (const source of state.formal_evidence.sources.filter(({ decision_importance }) =>
+    decision_importance === "DECISION_IMPORTANT"
+  )) {
+    for (const coverage of source.external_evidence.provider_coverage) {
+      const label = providerPlainLabel(coverage.provider);
+      const plainLanguage = providerCoverageLimitation(
+        label,
+        coverage.provider_outcome
+      );
+      if (plainLanguage === undefined) continue;
+      add({
+        scope: "provider_coverage",
+        source_id: source.source_id,
+        provider: coverage.provider,
+        plain_language: plainLanguage
+      });
+    }
+
+    const publication = source.external_evidence.publication_integrity;
+    if (publication !== undefined && publication.record_state !== "no_update_marker_found") {
+      add({
+        scope: "publication_integrity",
+        source_id: source.source_id,
+        plain_language: publicationIntegrityLimitation(publication.record_state)
+      });
+    }
+    for (const limitation of source.external_evidence.claim_local_limitations) {
+      if (limitation.claim_id.startsWith("provider_coverage:")) continue;
+      add({
+        scope: "claim_capability",
+        source_id: source.source_id,
+        plain_language: limitation.limitation
+      });
+    }
+    for (const linked of source.external_evidence.linked_work.filter(({ status }) =>
+      status === "BOUNDED"
+    )) {
+      add({
+        scope: "linked_source",
+        source_id: source.source_id,
+        plain_language: linked.limitation
+      });
+    }
+    if (
+      source.full_text.status === "LEAD_BOUNDARY" ||
+      source.claim_capability.status === "UNAVAILABLE_UNSEEN_SOURCE"
+    ) {
+      add({
+        scope: "source_access",
+        source_id: source.source_id,
+        plain_language: "The full study could not be inspected, so it remains a potentially useful lead rather than evidence for the affected claim."
+      });
+    }
+    if (
+      source.external_evidence.effect_claims_excluded ||
+      source.claim_capability.status === "EFFECT_CLAIMS_EXCLUDED"
+    ) {
+      add({
+        scope: "claim_capability",
+        source_id: source.source_id,
+        plain_language: "This study is excluded from ordinary treatment-effect claims because its current publication record restricts that use."
+      });
+    }
+  }
+
+  const treatment = currentTreatmentLandscapeAssessment(
+    state.treatment_finalization,
+    treatmentFinalizationEvidence(state)
+  );
+  if (treatment?.answer_boundary === "bounded_nonranking_only") {
+    add({
+      scope: "treatment_landscape",
+      plain_language: "At least one material comparison is limited by a source that could not be completed. The permitted report may describe inspected evidence and gaps, but it may not rank treatments or give the blocked comparative verdict."
+    });
+  }
+
+  return [...new Map(limitations.map((limitation) => [
+    limitation.limitation_id,
+    limitation
+  ])).values()].sort((left, right) =>
+    left.limitation_id.localeCompare(right.limitation_id)
+  );
+}
+
+export function verifyResearchFinalizationPermit(
+  rawPermit: FinalizationPermit,
+  executionId: string,
+  rawState: ResearchSessionState,
+  options: ResearchFinalizationPermitVerification
+): FinalizationPermit {
+  try {
+    validateFinalizationSigningSecret(options.signingSecret);
+    const state = researchSessionStateSchema.parse(rawState);
+    const permit = finalizationPermitSchema.parse(rawPermit);
+    const boundary = deriveResearchOutputBoundary(state);
+    if (
+      boundary === "CONTINUE_RESEARCH" ||
+      permit.execution_id !== executionId ||
+      permit.key_id !== options.keyId ||
+      permit.output_boundary !== boundary ||
+      boundary === "BOUNDED_NONRANKING_ONLY" && !boundedNonrankingReady(state)
+    ) throw new ResearchFinalizationPermitError();
+
+    const limitations = deriveResearchFinalizationLimitations(state);
+    const expected = {
+      execution_id: executionId,
+      protocol_identities: state.protocol_binding.expected,
+      state_digest: researchSessionStateDigest(state),
+      authorization_basis_digest: finalizationAuthorizationBasisDigest(state, boundary),
+      limitations_digest: finalizationLimitationsDigest(limitations)
+    };
+    if (canonicalJson({
+      execution_id: permit.execution_id,
+      protocol_identities: permit.protocol_identities,
+      state_digest: permit.state_digest,
+      authorization_basis_digest: permit.authorization_basis_digest,
+      limitations_digest: permit.limitations_digest
+    }) !== canonicalJson(expected)) {
+      throw new ResearchFinalizationPermitError();
+    }
+
+    const issuedAt = Date.parse(permit.issued_at);
+    const expiresAt = Date.parse(permit.expires_at);
+    const now = readFinalizationClock(options.now ?? (() => new Date())).getTime();
+    if (
+      !Number.isFinite(issuedAt) || !Number.isFinite(expiresAt) ||
+      expiresAt <= issuedAt ||
+      expiresAt - issuedAt > FINALIZATION_PERMIT_MAX_TTL_MS ||
+      issuedAt > now || now >= expiresAt
+    ) throw new ResearchFinalizationPermitError();
+
+    const unsigned = unsignedFinalizationPermit(permit);
+    const payload = canonicalJson(unsigned);
+    if (permit.permit_payload_sha256 !== sha256(payload)) {
+      throw new ResearchFinalizationPermitError();
+    }
+    const expectedSignature = createHmac(
+      "sha256",
+      finalizationPermitSigningKey(options.signingSecret)
+    ).update(payload).digest();
+    const suppliedSignature = Buffer.from(permit.signature, "base64url");
+    if (
+      suppliedSignature.toString("base64url") !== permit.signature ||
+      suppliedSignature.length !== expectedSignature.length ||
+      !timingSafeEqual(suppliedSignature, expectedSignature)
+    ) throw new ResearchFinalizationPermitError();
+    return permit;
+  } catch (error) {
+    if (error instanceof ResearchFinalizationPermitError) throw error;
+    throw new ResearchFinalizationPermitError();
+  }
+}
+
+function issueResearchFinalizationPermit(
+  executionId: string,
+  state: ResearchSessionState,
+  limitations: ResearchFinalizationLimitation[],
+  options: Required<Pick<ResearchFinalizationPermitOptions, "signingSecret" | "keyId">> &
+    Pick<ResearchFinalizationPermitOptions, "now" | "ttlMs">
+): FinalizationPermit {
+  validateFinalizationSigningSecret(options.signingSecret);
+  const boundary = deriveResearchOutputBoundary(state);
+  if (
+    boundary === "CONTINUE_RESEARCH" ||
+    boundary === "BOUNDED_NONRANKING_ONLY" && !boundedNonrankingReady(state)
+  ) throw new ResearchFinalizationPermitError();
+  const issued = readFinalizationClock(options.now ?? (() => new Date()));
+  const ttlMs = options.ttlMs ?? FINALIZATION_PERMIT_DEFAULT_TTL_MS;
+  if (
+    !Number.isSafeInteger(ttlMs) || ttlMs < 1 ||
+    ttlMs > FINALIZATION_PERMIT_MAX_TTL_MS
+  ) throw new Error("Research finalization permit TTL is invalid");
+  const unsigned = {
+    permit_version: "askrigor_finalization_permit_v1" as const,
+    artifact_kind: boundary === "FINALIZATION_ALLOWED"
+      ? "COMPARATIVE_FINALIZATION_PERMIT" as const
+      : "BOUNDED_NONRANKING_REPORT_PERMIT" as const,
+    execution_id: executionId,
+    output_boundary: boundary,
+    protocol_identities: state.protocol_binding.expected,
+    state_digest: researchSessionStateDigest(state),
+    authorization_basis_digest: finalizationAuthorizationBasisDigest(state, boundary),
+    limitations_digest: finalizationLimitationsDigest(limitations),
+    issued_at: issued.toISOString(),
+    expires_at: new Date(issued.getTime() + ttlMs).toISOString(),
+    key_id: options.keyId,
+    domain: "askrigor.research.finalization" as const
+  };
+  const payload = canonicalJson(unsigned);
+  return finalizationPermitSchema.parse({
+    ...unsigned,
+    permit_payload_sha256: sha256(payload),
+    signature: createHmac(
+      "sha256",
+      finalizationPermitSigningKey(options.signingSecret)
+    ).update(payload).digest("base64url")
+  });
+}
+
+function finalizationAuthorizationBasisDigest(
+  state: ResearchSessionState,
+  boundary: Exclude<ResearchOutputBoundary, "CONTINUE_RESEARCH">
+): string {
+  if (boundary === "FINALIZATION_ALLOWED") {
+    if (
+      state.final_completion_audit?.status !== "PASS" ||
+      state.final_completion_audit.basis_digest !== finalCompletionAuditBasisDigest(state)
+    ) throw new ResearchFinalizationPermitError();
+    return state.final_completion_audit.basis_digest;
+  }
+  const treatment = currentTreatmentLandscapeAssessment(
+    state.treatment_finalization,
+    treatmentFinalizationEvidence(state)
+  );
+  if (treatment?.answer_boundary !== "bounded_nonranking_only") {
+    throw new ResearchFinalizationPermitError();
+  }
+  return sha256(canonicalJson({
+    output_boundary: boundary,
+    treatment_assessment: treatment,
+    terminal_operations: Object.entries(state.operations).flatMap(
+      ([operationId, operation]) => operation.status === "BLOCKED_TERMINAL"
+        ? [{ operation_id: operationId, boundary: operation.boundary }]
+        : []
+    )
+  }));
+}
+
+function finalizationLimitationsDigest(
+  limitations: readonly ResearchFinalizationLimitation[]
+): string {
+  return sha256(canonicalJson(limitations));
+}
+
+function unsignedFinalizationPermit(permit: FinalizationPermit) {
+  const {
+    permit_payload_sha256: _payloadHash,
+    signature: _signature,
+    ...unsigned
+  } = permit;
+  return unsigned;
+}
+
+function finalizationPermitSigningKey(secret: string): Buffer {
+  return createHmac("sha256", secret).update(FINALIZATION_PERMIT_KEY_DOMAIN).digest();
+}
+
+function validateFinalizationSigningSecret(secret: string): void {
+  if (Buffer.byteLength(secret, "utf8") < FINALIZATION_PERMIT_MIN_SECRET_BYTES) {
+    throw new Error("Research finalization signing secret must contain at least 32 UTF-8 bytes");
+  }
+}
+
+function readFinalizationClock(now: () => Date): Date {
+  const value = now();
+  if (!(value instanceof Date) || !Number.isFinite(value.getTime())) {
+    throw new Error("Research finalization clock is invalid");
+  }
+  return value;
+}
+
+function providerPlainLabel(provider: ResearchFinalizationLimitation["provider"]): string {
+  const labels = {
+    crossref: "Crossref publication records",
+    forrt: "the FORRT replication registry",
+    retraction_watch: "Retraction Watch records",
+    pubpeer: "PubPeer discussions",
+    epistemonikos: "Epistemonikos review links",
+    scite: "Scite citation context"
+  } as const;
+  return labels[provider!];
+}
+
+function providerCoverageLimitation(
+  label: string,
+  outcome: ResearchFormalEvidenceState["sources"][number]["external_evidence"]["provider_coverage"][number]["provider_outcome"]
+): string | undefined {
+  if (outcome === "records_available") return undefined;
+  if (outcome === "no_match_in_provider") {
+    return `${label} reported no match for this exact study. That result applies only to this provider and cannot rule out relevant issues or related work elsewhere.`;
+  }
+  if (outcome === "not_configured") {
+    return `${label} was not available in this run, so no favorable or unfavorable conclusion was drawn from that source.`;
+  }
+  if (outcome === "partial") {
+    return `${label} returned only partial coverage for this exact study.`;
+  }
+  if (outcome === "rate_limited") {
+    return `${label} could not be completed because the provider temporarily limited access.`;
+  }
+  return `${label} could not be completed for this exact study; the missing coverage remains an explicit limitation.`;
+}
+
+function publicationIntegrityLimitation(
+  state: NonNullable<ResearchFormalEvidenceState["sources"][number]["external_evidence"]["publication_integrity"]>["record_state"]
+): string {
+  const values = {
+    active_retraction_or_withdrawal:
+      "This study has an active retraction or withdrawal record and is excluded from ordinary treatment-effect claims.",
+    expression_of_concern_recorded:
+      "This study has an expression of concern and cannot serve as the sole or decisive support for a conclusion.",
+    correction_recorded:
+      "This study has a correction record; conclusions must use the audited corrected version and preserve that history.",
+    update_recorded:
+      "This study has an update record; conclusions must use the audited current version and preserve that history.",
+    reinstatement_recorded:
+      "This study has a reinstatement history; the reinstatement does not erase the earlier publication record.",
+    other_update_recorded:
+      "This study has another publication update that remains part of its evidential history.",
+    state_uncertain:
+      "The study's current publication status is uncertain, so its claims remain limited accordingly.",
+    no_update_marker_found: "No publication-update limitation was generated."
+  } as const;
+  return values[state];
 }
 
 export function researchSessionStateDigest(rawState: ResearchSessionState): string {
@@ -2342,6 +2880,15 @@ function communityEvidenceReferenceVideos(
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record).sort().map((key) =>
+    `${JSON.stringify(key)}:${canonicalJson(record[key])}`
+  ).join(",")}}`;
 }
 
 function assertBidirectionalIterationTransition(

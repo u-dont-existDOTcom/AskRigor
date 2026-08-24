@@ -137,6 +137,10 @@ complete XML protocol.
   server-owned two-direction evidence transfer, formal/community reopening,
   session-derived treatment-landscape locking, bounded source gaps, and the
   final-completion audit without premature permit issuance
+- `superpowers/plans/2026-08-24-phase-f-finalization-permit.md`:
+  server-authorized comparative and bounded finalization, compact signed
+  permit binding, state-derived reader limitations, privacy boundary, and
+  hostile replay/tamper/protocol-drift tests
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

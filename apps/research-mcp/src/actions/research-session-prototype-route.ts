@@ -76,6 +76,10 @@ export interface CreateResearchSessionPrototypeRoutesOptions {
   loadScoutInstructions?: () => Promise<string>;
   geminiConfig?: GeminiYoutubeScoutConfig;
   youtubeApiKey?: string;
+  finalizationSigningSecret?: string;
+  finalizationKeyId?: string;
+  finalizationNow?: () => Date;
+  finalizationPermitTtlMs?: number;
 }
 
 /**
@@ -216,7 +220,7 @@ export function createResearchSessionPrototypeRoutes(
   function finalizeRoute(): ActionRoute {
     return route({
       operationId: "finalize_research_report",
-      description: "Evaluate the one server-owned output boundary after rechecking protocol identity. Phase A cannot issue a successful permit.",
+      description: "Evaluate the one server-owned output boundary after rechecking protocol identity and issue only the exact integrity-bound scope that state permits.",
       inputSchema: sessionInputSchema,
       outputSchema: finalizationDecisionSchema,
       async handle({ session_id: sessionId }) {
@@ -227,7 +231,20 @@ export function createResearchSessionPrototypeRoutes(
             await currentProtocolBindings(manifests)
           );
           store.replace(sessionId, checked);
-          return evaluateResearchFinalization(sessionId, checked);
+          return evaluateResearchFinalization(sessionId, checked, {
+            ...(options.finalizationSigningSecret === undefined
+              ? {}
+              : { signingSecret: options.finalizationSigningSecret }),
+            ...(options.finalizationKeyId === undefined
+              ? {}
+              : { keyId: options.finalizationKeyId }),
+            ...(options.finalizationNow === undefined
+              ? {}
+              : { now: options.finalizationNow }),
+            ...(options.finalizationPermitTtlMs === undefined
+              ? {}
+              : { ttlMs: options.finalizationPermitTtlMs })
+          });
         } catch (error) {
           store.rollback(sessionId);
           throw error;
@@ -292,7 +309,7 @@ export function createResearchSessionPrototypeRoutes(
   }
 }
 
-interface RouteDefinition<T extends z.ZodObject, O extends z.ZodObject> {
+interface RouteDefinition<T extends z.ZodType, O extends z.ZodType> {
   operationId: string;
   description: string;
   inputSchema: T;
@@ -300,7 +317,7 @@ interface RouteDefinition<T extends z.ZodObject, O extends z.ZodObject> {
   handle(input: z.output<T>): Promise<z.output<O>>;
 }
 
-function route<T extends z.ZodObject, O extends z.ZodObject>(
+function route<T extends z.ZodType, O extends z.ZodType>(
   definition: RouteDefinition<T, O>
 ): ActionRoute {
   return Object.freeze({

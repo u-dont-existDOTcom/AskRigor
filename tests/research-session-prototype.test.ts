@@ -201,8 +201,7 @@ describe("server-owned research session feasibility routes", () => {
         denial_reasons: expect.arrayContaining([
           "MODULE_APPLICABILITY_UNRESOLVED",
           "REQUIRED_MODULE_INCOMPLETE",
-          "REQUIRED_OPERATION_INCOMPLETE",
-          "PHASE_A_FINALIZATION_NOT_ENABLED"
+          "REQUIRED_OPERATION_INCOMPLETE"
         ]),
         required_next_capabilities: expect.arrayContaining([
           "candidate_screening"

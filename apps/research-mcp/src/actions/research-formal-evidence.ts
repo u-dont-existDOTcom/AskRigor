@@ -241,6 +241,62 @@ const linkedWorkSchema = z.object({
   limitation: bounded(2_000)
 }).strict();
 
+const externalProviderSchema = z.enum([
+  "crossref",
+  "forrt",
+  "retraction_watch",
+  "pubpeer",
+  "epistemonikos",
+  "scite"
+]);
+
+const providerCoverageStateSchema = z.object({
+  provider: externalProviderSchema,
+  provider_outcome: z.enum([
+    "records_available",
+    "no_match_in_provider",
+    "partial",
+    "rate_limited",
+    "inaccessible",
+    "not_found",
+    "error",
+    "not_configured"
+  ]),
+  access_status: bounded(80),
+  attempt_sha256: digest
+}).strict();
+
+const publicationIntegritySummarySchema = z.object({
+  record_state: z.enum([
+    "active_retraction_or_withdrawal",
+    "expression_of_concern_recorded",
+    "correction_recorded",
+    "update_recorded",
+    "reinstatement_recorded",
+    "other_update_recorded",
+    "no_update_marker_found",
+    "state_uncertain"
+  ]),
+  events: z.array(z.object({
+    event_kind: z.enum([
+      "retraction",
+      "withdrawal",
+      "expression_of_concern",
+      "correction",
+      "update",
+      "reinstatement",
+      "other"
+    ]),
+    event_hash: digest
+  }).strict()).max(2_000)
+}).strict();
+
+const claimLocalLimitationStateSchema = z.object({
+  claim_id: bounded(500),
+  limitation: bounded(4_000),
+  source_item_hashes: z.array(digest).max(100)
+}).strict();
+
 const externalEvidenceStateSchema = z.object({
   status: z.enum([
     "NOT_STARTED",
@@ -255,12 +311,15 @@ const externalEvidenceStateSchema = z.object({
   receipt_payload_sha256: digest.optional(),
   bundle_hash: digest.optional(),
   provider_attempt_hashes: z.array(digest).max(32),
+  provider_coverage: z.array(providerCoverageStateSchema).max(32),
+  publication_integrity: publicationIntegritySummarySchema.optional(),
   controller_directives: z.array(z.object({
     directive: bounded(100),
     source_item_hash: digest
   }).strict()).max(2_000),
   unresolved_item_hashes: z.array(digest).max(2_000),
   claim_local_limitation_hashes: z.array(digest).max(2_000),
+  claim_local_limitations: z.array(claimLocalLimitationStateSchema).max(2_000),
   linked_work: z.array(linkedWorkSchema).max(2_000),
   possible_decision_impact: z.enum([
     "detail_only",
@@ -270,7 +329,49 @@ const externalEvidenceStateSchema = z.object({
     "unknown"
   ]),
   effect_claims_excluded: z.boolean()
-}).strict();
+}).strict().superRefine((record, context) => {
+  const coverageProviders = record.provider_coverage.map(({ provider }) => provider);
+  const coverageHashes = record.provider_coverage.map(({ attempt_sha256 }) =>
+    attempt_sha256
+  );
+  if (new Set(coverageProviders).size !== coverageProviders.length) {
+    context.addIssue({ code: "custom", message: "External provider coverage identities must be unique" });
+  }
+  if (
+    coverageHashes.length !== record.provider_attempt_hashes.length ||
+    coverageHashes.some((hash) => !record.provider_attempt_hashes.includes(hash))
+  ) {
+    context.addIssue({ code: "custom", message: "External provider coverage must match exact attempt hashes" });
+  }
+  const limitationHashes = record.claim_local_limitations.map((limitation) =>
+    sha256(JSON.stringify(limitation))
+  );
+  if (
+    limitationHashes.length !== record.claim_local_limitation_hashes.length ||
+    limitationHashes.some((hash) => !record.claim_local_limitation_hashes.includes(hash))
+  ) {
+    context.addIssue({ code: "custom", message: "Claim-local limitation text must match its exact bounded hashes" });
+  }
+  if (
+    record.receipt_payload_sha256 !== undefined &&
+    (record.provider_coverage.length === 0 || record.publication_integrity === undefined)
+  ) {
+    context.addIssue({ code: "custom", message: "Verified external evidence must preserve provider and publication summaries" });
+  }
+  if (
+    record.publication_integrity !== undefined &&
+    new Set(record.publication_integrity.events.map(({ event_hash }) => event_hash)).size !==
+      record.publication_integrity.events.length
+  ) {
+    context.addIssue({ code: "custom", message: "Publication-integrity event identities must be unique" });
+  }
+  if (
+    record.publication_integrity?.record_state === "active_retraction_or_withdrawal" &&
+    !record.effect_claims_excluded
+  ) {
+    context.addIssue({ code: "custom", message: "Active retraction or withdrawal must exclude ordinary effect claims" });
+  }
+});
 
 const claimCapabilityStateSchema = z.object({
   status: z.enum([
@@ -1063,21 +1164,40 @@ export function recordResearchSourceExternalEvidenceBoundary(
   ) {
     throw new Error("External evidence boundary cannot replace non-executable study state");
   }
-  const limitationHash = sha256(JSON.stringify({
-    source_id: sourceId,
-    doi: source.identity.doi,
-    retryable,
-    reason: bounded(2_000).parse(reason)
-  }));
+  const boundedReason = bounded(2_000).parse(reason);
+  const limitation = claimLocalLimitationStateSchema.parse({
+    claim_id: `external-evidence-boundary:${sourceId}`,
+    limitation: boundedReason,
+    source_item_hashes: [sha256(JSON.stringify({
+      source_id: sourceId,
+      doi: source.identity.doi,
+      retryable,
+      reason: boundedReason
+    }))]
+  });
+  const limitationHash = sha256(JSON.stringify(limitation));
+  const replacedLimitationHashes = new Set(
+    source.external_evidence.claim_local_limitations
+      .filter(({ claim_id }) => claim_id === limitation.claim_id)
+      .map((item) => sha256(JSON.stringify(item)))
+  );
   return replaceSource(state, sourceId, {
     ...source,
     external_evidence: externalEvidenceStateSchema.parse({
       ...source.external_evidence,
       status: retryable ? "BLOCKED_RETRYABLE" : "BOUNDED_NONRETRYABLE",
       claim_local_limitation_hashes: unique([
-        ...source.external_evidence.claim_local_limitation_hashes,
+        ...source.external_evidence.claim_local_limitation_hashes.filter((hash) =>
+          !replacedLimitationHashes.has(hash)
+        ),
         limitationHash
       ]),
+      claim_local_limitations: [
+        ...source.external_evidence.claim_local_limitations.filter(({ claim_id }) =>
+          claim_id !== limitation.claim_id
+        ),
+        limitation
+      ],
       possible_decision_impact: "unknown"
     }),
     claim_capability: claimCapabilityStateSchema.parse({
@@ -1155,6 +1275,19 @@ export function ingestResearchSourceExternalEvidence(
       receipt_payload_sha256: output.receipt.receipt_payload_sha256,
       bundle_hash: output.bundle.bundle_hash,
       provider_attempt_hashes: providerAttemptHashes,
+      provider_coverage: output.bundle.provider_attempts.map((attempt) => ({
+        provider: attempt.provider,
+        provider_outcome: attempt.provider_outcome,
+        access_status: attempt.access_status,
+        attempt_sha256: sha256(canonicalJson(attempt))
+      })),
+      publication_integrity: {
+        record_state: output.bundle.publication_integrity.record_state,
+        events: output.bundle.publication_integrity.events.map(({ event_kind, event_hash }) => ({
+          event_kind,
+          event_hash
+        }))
+      },
       controller_directives: output.bundle.controller_directives.map(({ directive, source_item_hash }) => ({
         directive,
         source_item_hash
@@ -1165,6 +1298,7 @@ export function ingestResearchSourceExternalEvidence(
       claim_local_limitation_hashes: output.bundle.claim_local_limitations.map((item) =>
         sha256(JSON.stringify(item))
       ),
+      claim_local_limitations: output.bundle.claim_local_limitations,
       linked_work: linkedWork,
       possible_decision_impact: maximumImpact(output.bundle.unresolved_items.map((item) =>
         item.possible_decision_impact
@@ -1936,9 +2070,11 @@ function initialExternalEvidence(kind: z.output<typeof formalSourceSchema>["sour
   return {
     status: kind === "SCIENTIFIC_STUDY" ? "NOT_STARTED" : "NOT_APPLICABLE",
     provider_attempt_hashes: [],
+    provider_coverage: [],
     controller_directives: [],
     unresolved_item_hashes: [],
     claim_local_limitation_hashes: [],
+    claim_local_limitations: [],
     linked_work: [],
     possible_decision_impact: "detail_only",
     effect_claims_excluded: false

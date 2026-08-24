@@ -1,6 +1,7 @@
 # Phase F — Server-authorized finalization and integrity permit
 
-Status: implementation plan for `agent/execution-control-phase-f-20260824`
+Status: implemented and locally verified on
+`agent/execution-control-phase-f-20260824`; PR and hosted review pending
 
 Authority: current owner requirements, complete current
 `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`, then the
@@ -125,3 +126,32 @@ Phase F changes no protocol bytes, Custom GPT instructions, plugin package,
 provider configuration, public endpoint/tool inventory, deployment, durable
 storage, retention, or production write capability. Phase G remains the owner
 gate for persistence.
+
+## Implementation result
+
+The transport-independent controller now has one real successful finalization
+path and one strictly bounded report path. Both require current server-owned
+state and a server-only signing secret. The signed permit binds the exact
+execution, protocol tuple, state, authorization basis, limitation set, output
+boundary, key identity, and short validity window. Reader-facing permitted
+scope and plain-language limitations are returned separately but their exact
+set is digest-bound to the permit.
+
+External-evidence state now retains only the bounded provider outcome,
+publication-record summary, and claim-local limitation facts needed for final
+rendering. The schema requires those projections to match their exact receipt
+hashes and prevents an active retraction/withdrawal from retaining ordinary
+effect-claim permission. A provider no-match remains provider-scoped; an
+unconfigured provider remains an explicit gap.
+
+Hostile tests cover pre-completion denial, valid complete-state authorization,
+bounded-only authorization, caller construction, decision/permit mismatch,
+payload/signature/state/limitation/protocol/key/secret tampering, expiry,
+cross-session replay, publication-history changes, provider-scoped no-match,
+and prohibited raw/private fields. Typechecking and the focused four-file
+controller/formal-evidence suite pass 46/46. The focused inventory suite passes
+121/121. The complete `npm run verify` gate passes typechecking, 1,281 tests
+with six declared skips, and the production build. A pre-existing archive
+checksum test that passed alone but exceeded its default five-second timeout
+twice under full-suite load now uses the same 15-second limit as the adjacent
+archive/evidence test; its security assertions are unchanged.
