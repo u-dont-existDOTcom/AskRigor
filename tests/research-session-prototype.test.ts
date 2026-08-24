@@ -162,6 +162,15 @@ describe("server-owned research session feasibility routes", () => {
           unresolved_identity_video_ids: [],
           semantic_screening_pending: 4
         },
+        candidate_screening_work_package: {
+          package_version: "askrigor_candidate_screening_v1",
+          discovery_digest: expect.stringMatching(/^[a-f0-9]{64}$/u),
+          candidates: expect.arrayContaining([
+            expect.objectContaining({ video_id: "XpZHKGGCK-o" })
+          ])
+        },
+        video_depth: { selected_video_ids: [] },
+        next_video_work_packages: [],
         required_next_capabilities: [
           "route_module_applicability",
           "candidate_screening",
@@ -242,7 +251,12 @@ describe("server-owned research session feasibility routes", () => {
       completed_operation_count: 1,
       candidate_count: 50,
       candidate_video_ids: ["XpZHKGGCK-o"],
-      candidates: [{ video_id: "XpZHKGGCK-o", materiality: "MATERIAL" }]
+      candidates: [{ video_id: "XpZHKGGCK-o", materiality: "MATERIAL" }],
+      transcript_cursor: `art1_${"T".repeat(32)}`,
+      discussion_cursor: `arh1_${"D".repeat(32)}`,
+      transcript_exhausted: true,
+      comments_retrieved: 999,
+      video_depth: { complete: true }
     }));
     expect(forgedContinuation).toEqual(result);
     const forgedFinalization = await route(
@@ -334,6 +348,8 @@ describe("server-owned research session feasibility routes", () => {
         execution_status: "PROTOCOL_DRIFT",
         output_boundary: "CONTINUE_RESEARCH",
         protocol_binding: { currency: "DRIFTED" },
+        candidate_screening_work_package: null,
+        next_video_work_packages: [],
         required_next_capabilities: ["restart_under_current_protocols"],
         last_transition: {
           capability: "protocol_currency_recheck",

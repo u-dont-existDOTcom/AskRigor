@@ -10,14 +10,37 @@ import { z } from "zod";
 import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
 import {
   assertCandidateScreeningComplete,
+  candidateScreeningWorkPackageSchema,
   candidateDiscoveryDiagnosticsSchema,
   candidateDiscoveryReadyForScreening,
+  createCandidateScreeningWorkPackage,
   deriveCandidateDiscoveryDiagnostics,
+  ingestCandidateScreeningSubmission,
   ingestNativeYoutubeSurvey,
   ingestValidatedGeminiFrontier,
   initialResearchCandidateDiscoveryState,
-  researchCandidateDiscoveryStateSchema
+  researchCandidateDiscoveryStateSchema,
+  type CandidateScreeningSubmission
 } from "./research-candidate-frontier.js";
+import {
+  assertVideoDepthMatchesSelection,
+  deriveResearchVideoDepthDiagnostics,
+  deriveResearchVideoDepthWorkPackages,
+  deriveVideoDepthOperationStatus,
+  executeDiscussionDepthChain,
+  executeTranscriptDepthChain,
+  ingestDiscussionActionOutput,
+  ingestTranscriptActionOutput,
+  initialResearchVideoDepthState,
+  initializeResearchVideoDepth,
+  researchVideoDepthDiagnosticsSchema,
+  researchVideoDepthStateSchema,
+  researchVideoDepthWorkPackageSchema,
+  restartResearchVideoDepthChain,
+  type ResearchVideoDepthExecutors,
+  type YoutubeDiscussionActionOutput,
+  type YoutubeTranscriptActionOutput
+} from "./research-video-depth-controller.js";
 import type { TreatmentLandscapeCoverageOutput } from "./treatment-landscape-coverage-route.js";
 
 export const RESEARCH_MODULE_IDS = [
@@ -202,7 +225,8 @@ export const researchSessionStateSchema = z.object({
   modules: moduleStatesSchema,
   operations: operationStatesSchema,
   scout: scoutStateSchema,
-  candidate_discovery: researchCandidateDiscoveryStateSchema
+  candidate_discovery: researchCandidateDiscoveryStateSchema,
+  video_depth: researchVideoDepthStateSchema
 }).strict().superRefine((state, context) => {
   if (
     state.protocol_binding.currency === "DRIFTED" &&
@@ -303,6 +327,7 @@ export const researchSessionStateSchema = z.object({
   if (state.operations.candidate_screening.status === "COMPLETE") {
     try {
       assertCandidateScreeningComplete(state.candidate_discovery);
+      assertVideoDepthMatchesSelection(state.video_depth, state.candidate_discovery);
     } catch (error) {
       context.addIssue({
         code: "custom",
@@ -311,6 +336,34 @@ export const researchSessionStateSchema = z.object({
           : "Candidate screening completion is invalid"
       });
     }
+    for (const capability of [
+      "transcript_acquisition",
+      "community_discussion_audit"
+    ] as const) {
+      const expectedOperation = videoDepthOperationProjection(
+        state.video_depth,
+        capability
+      );
+      if (
+        JSON.stringify(state.operations[capability]) !==
+        JSON.stringify(expectedOperation)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: `${capability} operation must be derived exactly from per-video receipt state`
+        });
+      }
+    }
+  } else if (
+    state.video_depth.selected_video_ids.length > 0 ||
+    state.video_depth.selection_digest !== undefined ||
+    state.video_depth.transcripts.length > 0 ||
+    state.video_depth.discussions.length > 0
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Video depth work cannot precede completed candidate screening"
+    });
   }
 });
 
@@ -386,6 +439,9 @@ export const researchSessionViewSchema = z.object({
     access_boundary: operationBoundarySchema.optional()
   }).strict(),
   candidate_discovery: candidateDiscoveryDiagnosticsSchema,
+  candidate_screening_work_package: candidateScreeningWorkPackageSchema.nullable(),
+  video_depth: researchVideoDepthDiagnosticsSchema,
+  next_video_work_packages: z.array(researchVideoDepthWorkPackageSchema),
   required_next_capabilities: z.array(researchNextCapabilitySchema),
   finalization_permit: z.null()
 }).strict();
@@ -481,7 +537,8 @@ export function createInitialResearchSessionState(
       validated_candidate_ids: [],
       unresolved_candidate_ids: []
     },
-    candidate_discovery: initialResearchCandidateDiscoveryState()
+    candidate_discovery: initialResearchCandidateDiscoveryState(),
+    video_depth: initialResearchVideoDepthState()
   });
 }
 
@@ -635,6 +692,144 @@ export function recordNativeYoutubeDiscovery(
       }
     },
     candidate_discovery: discovery
+  });
+}
+
+export function recordCandidateScreeningCompletion(
+  rawState: ResearchSessionState,
+  submission: CandidateScreeningSubmission
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (
+    state.operations.automated_video_scout.status !== "COMPLETE" ||
+    state.operations.native_video_discovery.status !== "COMPLETE"
+  ) {
+    throw new Error("Candidate screening requires both completed discovery frontiers");
+  }
+  if (state.operations.candidate_screening.status === "COMPLETE") {
+    throw new Error("Completed candidate screening is immutable");
+  }
+  const candidateDiscovery = ingestCandidateScreeningSubmission(
+    state.candidate_discovery,
+    submission
+  );
+  const videoDepth = initializeResearchVideoDepth(candidateDiscovery);
+  return researchSessionStateSchema.parse({
+    ...state,
+    operations: {
+      ...state.operations,
+      candidate_screening: { status: "COMPLETE" },
+      transcript_acquisition: videoDepthOperationProjection(
+        videoDepth,
+        "transcript_acquisition"
+      ),
+      community_discussion_audit: videoDepthOperationProjection(
+        videoDepth,
+        "community_discussion_audit"
+      )
+    },
+    candidate_discovery: candidateDiscovery,
+    video_depth: videoDepth
+  });
+}
+
+export function recordTranscriptDepthResult(
+  rawState: ResearchSessionState,
+  videoId: string,
+  output: YoutubeTranscriptActionOutput
+): ResearchSessionState {
+  const state = requireDepthReady(rawState);
+  const videoDepth = ingestTranscriptActionOutput(state.video_depth, videoId, output);
+  return researchSessionStateSchema.parse({
+    ...state,
+    operations: {
+      ...state.operations,
+      transcript_acquisition: videoDepthOperationProjection(
+        videoDepth,
+        "transcript_acquisition"
+      )
+    },
+    video_depth: videoDepth
+  });
+}
+
+export function recordDiscussionDepthResult(
+  rawState: ResearchSessionState,
+  videoId: string,
+  requestedHandle: string | undefined,
+  output: YoutubeDiscussionActionOutput
+): ResearchSessionState {
+  const state = requireDepthReady(rawState);
+  const videoDepth = ingestDiscussionActionOutput(
+    state.video_depth,
+    videoId,
+    requestedHandle,
+    output
+  );
+  return researchSessionStateSchema.parse({
+    ...state,
+    operations: {
+      ...state.operations,
+      community_discussion_audit: videoDepthOperationProjection(
+        videoDepth,
+        "community_discussion_audit"
+      )
+    },
+    video_depth: videoDepth
+  });
+}
+
+export function recordVideoDepthRestart(
+  rawState: ResearchSessionState,
+  capability: "transcript_acquisition" | "community_discussion_audit",
+  videoId: string,
+  code: string
+): ResearchSessionState {
+  const state = requireDepthReady(rawState);
+  const videoDepth = restartResearchVideoDepthChain(
+    state.video_depth,
+    capability,
+    videoId,
+    code
+  );
+  return researchSessionStateSchema.parse({
+    ...state,
+    operations: {
+      ...state.operations,
+      [capability]: videoDepthOperationProjection(videoDepth, capability)
+    },
+    video_depth: videoDepth
+  });
+}
+
+export async function executeResearchSessionVideoDepthChain(
+  rawState: ResearchSessionState,
+  capability: "transcript_acquisition" | "community_discussion_audit",
+  videoId: string,
+  executors: ResearchVideoDepthExecutors,
+  maximumCalls = 1_000
+): Promise<ResearchSessionState> {
+  const state = requireDepthReady(rawState);
+  const videoDepth = capability === "transcript_acquisition"
+    ? await executeTranscriptDepthChain(
+      state.video_depth,
+      videoId,
+      executors.getTranscript,
+      maximumCalls
+    )
+    : await executeDiscussionDepthChain(
+      state.video_depth,
+      videoId,
+      executors.auditDiscussion,
+      maximumCalls
+    );
+  return researchSessionStateSchema.parse({
+    ...state,
+    operations: {
+      ...state.operations,
+      [capability]: videoDepthOperationProjection(videoDepth, capability)
+    },
+    video_depth: videoDepth
   });
 }
 
@@ -796,6 +991,16 @@ export function projectResearchSessionView(
     candidate_discovery: deriveCandidateDiscoveryDiagnostics(
       state.candidate_discovery
     ),
+    candidate_screening_work_package:
+      state.protocol_binding.currency === "CURRENT" &&
+      state.operations.candidate_screening.status !== "COMPLETE" &&
+      candidateDiscoveryReadyForScreening(state.candidate_discovery)
+        ? createCandidateScreeningWorkPackage(state.candidate_discovery)
+        : null,
+    video_depth: deriveResearchVideoDepthDiagnostics(state.video_depth),
+    next_video_work_packages: state.protocol_binding.currency === "CURRENT"
+      ? deriveResearchVideoDepthWorkPackages(state.video_depth)
+      : [],
     required_next_capabilities: deriveRequiredNextCapabilities(state),
     finalization_permit: null
   });
@@ -918,6 +1123,7 @@ export function assertResearchSessionTransition(
   ) {
     throw new Error("Completed candidate screening records are immutable");
   }
+  assertVideoDepthTransition(previous.video_depth, next.video_depth);
 }
 
 function protocolIdentity(
@@ -931,6 +1137,97 @@ function protocolIdentity(
     revision_date: manifest.revisionDate,
     sha256: manifest.sha256
   };
+}
+
+function requireDepthReady(rawState: ResearchSessionState): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (state.operations.candidate_screening.status !== "COMPLETE") {
+    throw new Error("Selected-video depth work requires completed candidate screening");
+  }
+  assertVideoDepthMatchesSelection(state.video_depth, state.candidate_discovery);
+  return state;
+}
+
+function videoDepthOperationProjection(
+  videoDepth: ResearchSessionState["video_depth"],
+  capability: "transcript_acquisition" | "community_discussion_audit"
+): ResearchSessionState["operations"][typeof capability] {
+  const status = deriveVideoDepthOperationStatus(videoDepth, capability);
+  if (status === "BLOCKED_RETRYABLE") {
+    return {
+      status,
+      boundary: {
+        classification: "RETRYABLE",
+        code: capability === "transcript_acquisition"
+          ? "TRANSCRIPT_DEPTH_RETRYABLE"
+          : "DISCUSSION_DEPTH_RETRYABLE",
+        summary: capability === "transcript_acquisition"
+          ? "At least one selected transcript has retryable or restart-required work."
+          : "At least one selected discussion has retryable or restart-required work."
+      }
+    };
+  }
+  if (status === "BLOCKED_TERMINAL") {
+    return {
+      status,
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: capability === "transcript_acquisition"
+          ? "TRANSCRIPT_DEPTH_TERMINAL_BOUNDARY"
+          : "DISCUSSION_DEPTH_TERMINAL_BOUNDARY",
+        summary: capability === "transcript_acquisition"
+          ? "Every selected transcript is complete or has a recognized terminal boundary."
+          : "Every selected discussion is complete or has a recognized terminal boundary."
+      }
+    };
+  }
+  return { status };
+}
+
+function assertVideoDepthTransition(
+  previous: ResearchSessionState["video_depth"],
+  next: ResearchSessionState["video_depth"]
+): void {
+  if (previous.selection_digest !== undefined) {
+    if (
+      previous.selection_digest !== next.selection_digest ||
+      JSON.stringify(previous.selected_video_ids) !==
+        JSON.stringify(next.selected_video_ids)
+    ) {
+      throw new Error("Selected video depth frontier is immutable");
+    }
+  }
+  for (const key of ["transcripts", "discussions"] as const) {
+    const beforeById = new Map(previous[key].map((record) => [
+      record.source.video_id,
+      record
+    ]));
+    for (const after of next[key]) {
+      const before = beforeById.get(after.source.video_id);
+      if (before === undefined) continue;
+      if (JSON.stringify(before.source) !== JSON.stringify(after.source)) {
+        throw new Error("Selected video source identity is immutable");
+      }
+      if (
+        (before.status === "COMPLETE" || before.status === "BLOCKED_TERMINAL") &&
+        JSON.stringify(before) !== JSON.stringify(after)
+      ) {
+        throw new Error("Completed or terminal per-video depth evidence is immutable");
+      }
+      if (after.attempt < before.attempt || after.attempt > before.attempt + 1) {
+        throw new Error("Per-video depth attempts must advance monotonically one at a time");
+      }
+      if (
+        after.attempt === before.attempt + 1 &&
+        after.status !== "RESTART_REQUIRED"
+      ) {
+        throw new Error("A new per-video attempt must begin with an explicit restart state");
+      }
+    }
+    if (previous[key].length > 0 && previous[key].length !== next[key].length) {
+      throw new Error("Selected video depth records cannot be added or removed");
+    }
+  }
 }
 
 function requireCurrentProtocols(rawState: ResearchSessionState): ResearchSessionState {

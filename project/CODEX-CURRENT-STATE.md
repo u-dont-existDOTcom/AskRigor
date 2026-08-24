@@ -1,5 +1,61 @@
 # AskRigor Codex Current State
 
+## 2026-08-23 execution-control Phase C candidate
+
+Branch `agent/execution-control-phase-c-20260823` starts from exact Phase B
+merge `f4800e45e810a34e03657334949b6e8fef883b50` and implements Phase C of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+The existing transport-independent controller now owns selected-video
+transcript and discussion depth instead of trusting a client to report that it
+followed pagination or inspected every selected video.
+
+Candidate screening is packaged under one server-derived discovery digest and
+must decide every reconciled public identity exactly once. The server validates
+identity, described-program signature, materiality, redundancy, duplicate
+target, and selection relationships before selected videos initialize depth
+state. This validation binds bounded worker judgment to exact evidence; it is
+not itself proof that the semantic judgment is true.
+
+Each selected public video has one transcript record and one community-
+discussion record. The controller derives first-page calls from the selected
+identity and continuation calls only from the prior server-issued short handle.
+Internal chain runners continue successful pages automatically. Restarting one
+expired/invalid chain discards its old receipt, count/hash, and handle and
+increments only that video's attempt. Retryable work remains executable;
+recognized terminal boundaries remain bounded and never become completion.
+
+Transcript completion requires the existing server receipt to prove one
+reconciled first-page chain, API-visible exhaustion, fixed caption-track
+identity, and timestamp provenance. Discussion completion requires its server
+receipt, cumulative/segment monotonicity, reconciled source identity, and a
+passing synthesis lock. One completed video cannot complete a multi-video
+operation. Session state retains only bounded public source fields, semantic
+screening rationale, attempt/status, opaque Action handles, rolling hashes,
+counts, and coverage receipts; it stores no transcript segments, comment text,
+author identities, raw corpora, provider cursors, or credentials.
+
+Hostile tests reject wrong-digest/omitted/renamed screening submissions,
+wrong-video receipts, caller cursors/counts/exhaustion claims, replayed or
+decreasing continuations, mixed chains, stale evidence after restart,
+one-of-many completion, transcript-free creator completion, and discussion
+depth without `synthesis_lock: pass`. The focused controller/frontier/prototype
+suite passes 27/27. The complete host-boundary deterministic suite passes 1,161
+tests with six declared skips; a sandbox-only run recorded only the known
+loopback/IPC `EPERM` boundary.
+
+The non-production prototype remains unregistered. Public inventory stays at
+21 MCP tools and 26 Actions; canonical protocol bytes, generated Custom GPT
+Instructions, public Action OpenAPI, plugin bytes, provider footprint,
+deployment configuration, and production runtime are unchanged. Phase D1 is
+next after reviewed merge. The opening lesson checkpoint at
+`2026-08-23T23:13:41.851Z` was available with 1 open candidate, 1 needing
+review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+deletion eligible. The pre-PR checkpoint at `2026-08-23T23:48:56.958Z`
+returned the same counts. No unreviewed lesson expanded this phase. Lesson
+disposition is project-specific/no-new-lesson: this phase executes the already
+approved server-owned depth architecture and exposes no new transferable
+failure beyond the existing execution-control lessons.
+
 ## 2026-08-23 execution-control Phase B candidate
 
 Branch `agent/execution-control-phase-b-20260823` starts from exact Phase A
