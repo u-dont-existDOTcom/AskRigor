@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -5,18 +7,22 @@ import {
   RESEARCH_OPERATION_IDS,
   applyProtocolRecheck,
   applyServerModuleApplicability,
+  assertResearchSessionTransition,
   createBidirectionalIterationWorkPackage,
   createCandidateScreeningWorkPackage,
   createInitialResearchSessionState,
   createResearchSessionStore,
   createTreatmentLandscapeWorkPackage,
+  deriveResearchFinalizationLimitations,
   deriveResearchFinalizationReadiness,
   deriveRequiredNextCapabilities,
   deriveResearchOutputBoundary,
   evaluateResearchFinalization,
   executeResearchSessionFinalCompletionAudit,
+  finalizationDecisionSchema,
   finalizationPermitSchema,
   mapTreatmentLandscapeBoundary,
+  projectResearchSessionView,
   protocolBindingsFromManifests,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
@@ -27,6 +33,9 @@ import {
   recordResearchSessionTreatmentLandscape,
   recordTranscriptDepthResult,
   researchSessionStateSchema,
+  verifyResearchFinalizationPermit,
+  ResearchFinalizationPermitError,
+  type FinalizationPermit,
   type ResearchSessionState
 } from "../apps/research-mcp/src/index.js";
 import { deriveGeminiYoutubeCandidateFrontier } from "../packages/sources/src/index.js";
@@ -46,6 +55,10 @@ const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
 const HASH_C = "c".repeat(64);
 const SESSION_ID = `ars1_${"A".repeat(32)}`;
+const OTHER_SESSION_ID = `ars1_${"B".repeat(32)}`;
+const FINALIZATION_SECRET = "phase-f-finalization-secret-that-is-at-least-thirty-two-bytes";
+const FINALIZATION_KEY_ID = "phase-f-test-key";
+const FINALIZATION_NOW = new Date("2026-08-24T12:00:00.000Z");
 
 function manifest(protocol: "universal" | "hrp", hash?: string) {
   return {
@@ -71,7 +84,133 @@ function scoutComplete(state = initialState()): ResearchSessionState {
   });
 }
 
-function phaseACompletionFixture(): ResearchSessionState {
+function completedDecisionStudy(
+  hypothesisId: string
+): ResearchSessionState["formal_evidence"]["sources"][number] {
+  const sourceId = "1".repeat(64);
+  const contentHash = "2".repeat(64);
+  const methodHash = "3".repeat(64);
+  const capabilityHash = "4".repeat(64);
+  const externalReceiptHash = "5".repeat(64);
+  const forrtAttemptHash = "6".repeat(64);
+  const pubpeerAttemptHash = "7".repeat(64);
+  const claimLocalLimitations = [{
+    claim_id: "provider_coverage:pubpeer",
+    limitation: "PubPeer was not configured for this exact study.",
+    source_item_hashes: [pubpeerAttemptHash]
+  }, {
+    claim_id: "forrt_relationship_coverage",
+    limitation: "The replication-registry result is provider-scoped and does not rule out related work elsewhere.",
+    source_item_hashes: [forrtAttemptHash]
+  }];
+  return {
+    source_id: sourceId,
+    hypothesis_ids: [hypothesisId],
+    origins: [{
+      provider: "pubmed",
+      provider_record_id: "12345678",
+      canonical_url: "https://pubmed.ncbi.nlm.nih.gov/12345678/",
+      hypothesis_ids: [hypothesisId],
+      provider_access_status: "metadata_only",
+      source_record_hash: "8".repeat(64)
+    }],
+    identity: {
+      doi: "10.1234/phase-f-fixture",
+      pmid: "12345678",
+      title: "Exact decision study fixture",
+      first_author: "Fixture",
+      year: 2026,
+      version: "published",
+      identity_status: "EXTERNAL_VERIFIED",
+      identity_hash: "9".repeat(64)
+    },
+    source_kind: "SCIENTIFIC_STUDY",
+    abstract_visibility: "ABSTRACT_PRESENT",
+    screening_status: "SCREENED",
+    decision_importance: "DECISION_IMPORTANT",
+    possible_decision_impact: "ranking_changing",
+    screening_rationale: "Exact comparative study used by the completion fixture.",
+    full_text: {
+      status: "EXHAUSTED",
+      document_handle: `aft1_${"T".repeat(32)}`,
+      requested_doi: "10.1234/phase-f-fixture",
+      discovery_attempts: [{
+        route: "europe_pmc",
+        result: "indexed",
+        identifier: "PMC12345678"
+      }],
+      source_primary_identifier: "PMC12345678",
+      source_canonical_url: "https://europepmc.org/articles/PMC12345678",
+      source_version: "published",
+      source_content_sha256: contentHash,
+      source_block_count: 1,
+      source_segment_count: 1,
+      source_segments_retrieved_cumulative: 1,
+      synthesis_lock: "pass",
+      unseen_content_used_as_evidence: false
+    },
+    method_audit: {
+      status: "COMPLETE",
+      audit_kind: "STUDY",
+      audit_sha256: methodHash,
+      source_content_sha256: contentHash,
+      source_primary_identifier: "PMC12345678",
+      claim_capability_digest: capabilityHash,
+      external_receipt_payload_sha256: externalReceiptHash,
+      external_bound_audit_sha256: "a".repeat(64)
+    },
+    external_evidence: {
+      status: "COMPLETE",
+      study_identity_hash: "9".repeat(64),
+      receipt_payload_sha256: externalReceiptHash,
+      bundle_hash: "b".repeat(64),
+      provider_attempt_hashes: ["c".repeat(64), forrtAttemptHash, pubpeerAttemptHash],
+      provider_coverage: [{
+        provider: "crossref",
+        provider_outcome: "records_available",
+        access_status: "metadata_only",
+        attempt_sha256: "c".repeat(64)
+      }, {
+        provider: "forrt",
+        provider_outcome: "no_match_in_provider",
+        access_status: "complete",
+        attempt_sha256: forrtAttemptHash
+      }, {
+        provider: "pubpeer",
+        provider_outcome: "not_configured",
+        access_status: "inaccessible",
+        attempt_sha256: pubpeerAttemptHash
+      }],
+      publication_integrity: {
+        record_state: "no_update_marker_found",
+        events: []
+      },
+      controller_directives: [{
+        directive: "disclose_provider_coverage_gap",
+        source_item_hash: pubpeerAttemptHash
+      }],
+      unresolved_item_hashes: [],
+      claim_local_limitation_hashes: claimLocalLimitations.map(testJsonHash),
+      claim_local_limitations: claimLocalLimitations,
+      linked_work: [],
+      possible_decision_impact: "detail_only",
+      effect_claims_excluded: false
+    },
+    claim_capability: {
+      status: "CURRENT",
+      capability_digest: capabilityHash,
+      method_audit_sha256: methodHash,
+      external_receipt_payload_sha256: externalReceiptHash,
+      unrestricted_decision_use: true
+    }
+  };
+}
+
+function testJsonHash(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
+}
+
+function completionFixture(): ResearchSessionState {
   const packet = structuredClone(researchPacket());
   const receipt = structuredClone(researchReceipt());
   packet.candidates[0]!.provisional_specific_program = "named program one";
@@ -145,6 +284,9 @@ function phaseACompletionFixture(): ResearchSessionState {
       search.access_statuses = ["complete"];
     }
   }
+  formalEvidence.sources.push(completedDecisionStudy(
+    formalEvidence.hypotheses[0]!.hypothesis_id
+  ));
   let ready = researchSessionStateSchema.parse({
     ...state,
     modules,
@@ -222,6 +364,27 @@ function phaseACompletionFixture(): ResearchSessionState {
     further_expansion_likely_to_improve_answer: "no"
   });
   return executeResearchSessionFinalCompletionAudit(ready);
+}
+
+function stateAfterFormalEvidenceChange(
+  rawState: ResearchSessionState
+): ResearchSessionState {
+  return researchSessionStateSchema.parse({
+    ...rawState,
+    modules: {
+      ...rawState.modules,
+      FINAL_COMPLETION_AUDIT: {
+        ...rawState.modules.FINAL_COMPLETION_AUDIT,
+        execution_status: "NOT_STARTED"
+      }
+    },
+    operations: {
+      ...rawState.operations,
+      treatment_landscape_finalization: { status: "IN_PROGRESS" },
+      final_completion_audit: { status: "NOT_STARTED" }
+    },
+    final_completion_audit: undefined
+  });
 }
 
 describe("research session controller core", () => {
@@ -368,7 +531,7 @@ describe("research session controller core", () => {
       ])
     });
 
-    const otherwiseFinished = phaseACompletionFixture();
+    const otherwiseFinished = completionFixture();
     const terminalOperation = {
       status: "BLOCKED_TERMINAL" as const,
       boundary: {
@@ -386,29 +549,221 @@ describe("research session controller core", () => {
     })).toThrow(/derived exactly from per-source formal evidence state/u);
   });
 
-  it("defines the future permit contract without enabling issuance", () => {
-    const finished = phaseACompletionFixture();
-    expect(evaluateResearchFinalization(SESSION_ID, finished)).toMatchObject({
+  it("issues a signed permit only for a controller-complete execution", () => {
+    expect(evaluateResearchFinalization(SESSION_ID, initialState(), {
+      signingSecret: FINALIZATION_SECRET,
+      keyId: FINALIZATION_KEY_ID,
+      now: () => FINALIZATION_NOW
+    })).toMatchObject({
       authorization: "DENIED",
       output_boundary: "CONTINUE_RESEARCH",
+      finalization_permit: null
+    });
+    const finished = completionFixture();
+    expect(evaluateResearchFinalization(SESSION_ID, finished)).toMatchObject({
+      authorization: "DENIED",
+      output_boundary: "FINALIZATION_ALLOWED",
       finalization_permit: null,
-      denial_reasons: ["PHASE_A_FINALIZATION_NOT_ENABLED"]
+      denial_reasons: ["FINALIZATION_SIGNING_NOT_CONFIGURED"]
     });
     expect(deriveResearchFinalizationReadiness(finished)).toBe("FINALIZATION_ALLOWED");
+    expect(deriveResearchOutputBoundary(finished)).toBe("FINALIZATION_ALLOWED");
+    expect(projectResearchSessionView(SESSION_ID, finished)).toMatchObject({
+      execution_status: "READY_TO_FINALIZE",
+      output_boundary: "FINALIZATION_ALLOWED",
+      finalization_permit: null
+    });
+
+    const decision = evaluateResearchFinalization(SESSION_ID, finished, {
+      signingSecret: FINALIZATION_SECRET,
+      keyId: FINALIZATION_KEY_ID,
+      now: () => FINALIZATION_NOW
+    });
+    expect(decision).toMatchObject({
+      authorization: "AUTHORIZED",
+      output_boundary: "FINALIZATION_ALLOWED",
+      reader_facing: { permitted_scope: "comparative_synthesis" },
+      required_next_capabilities: []
+    });
+    if (decision.finalization_permit === null) throw new Error("Missing permit");
+    expect(finalizationPermitSchema.parse(decision.finalization_permit)).toMatchObject({
+      artifact_kind: "COMPARATIVE_FINALIZATION_PERMIT",
+      execution_id: SESSION_ID,
+      key_id: FINALIZATION_KEY_ID
+    });
+    expect(verifyResearchFinalizationPermit(
+      decision.finalization_permit,
+      SESSION_ID,
+      finished,
+      {
+        signingSecret: FINALIZATION_SECRET,
+        keyId: FINALIZATION_KEY_ID,
+        now: () => new Date("2026-08-24T12:05:00.000Z")
+      }
+    )).toEqual(decision.finalization_permit);
+    expect(JSON.stringify(decision.finalization_permit)).not.toMatch(
+      /de-identified treatment|diagnosis|transcript|comment|provider_body|credential/iu
+    );
+    expect(JSON.stringify(decision)).not.toMatch(
+      /de-identified treatment comparison|diagnosis_not_specified|transcript text|comment text|provider body|credential/iu
+    );
+  });
+
+  it("rejects caller construction, tampering, expiry, and cross-context replay", () => {
+    const finished = completionFixture();
+    const decision = evaluateResearchFinalization(SESSION_ID, finished, {
+      signingSecret: FINALIZATION_SECRET,
+      keyId: FINALIZATION_KEY_ID,
+      now: () => FINALIZATION_NOW
+    });
+    if (decision.finalization_permit === null) throw new Error("Missing permit");
+    const permit = decision.finalization_permit;
+    const verify = (candidate: FinalizationPermit, state = finished, sessionId = SESSION_ID) =>
+      verifyResearchFinalizationPermit(candidate, sessionId, state, {
+        signingSecret: FINALIZATION_SECRET,
+        keyId: FINALIZATION_KEY_ID,
+        now: () => new Date("2026-08-24T12:05:00.000Z")
+      });
+
     expect(finalizationPermitSchema.safeParse({
       permit_version: "askrigor_finalization_permit_v1",
+      artifact_kind: "COMPARATIVE_FINALIZATION_PERMIT",
       execution_id: SESSION_ID,
       output_boundary: "FINALIZATION_ALLOWED",
       protocol_identities: finished.protocol_binding.expected,
-      state_digest: "d".repeat(64),
-      issued_at: "2026-08-23T00:00:00.000Z",
-      expires_at: "2026-08-23T01:00:00.000Z",
-      domain: "askrigor.research.finalization"
-    }).success).toBe(true);
+      state_digest: permit.state_digest,
+      authorization_basis_digest: permit.authorization_basis_digest,
+      limitations_digest: permit.limitations_digest,
+      issued_at: permit.issued_at,
+      expires_at: permit.expires_at,
+      key_id: permit.key_id,
+      domain: permit.domain
+    }).success).toBe(false);
+    expect(finalizationDecisionSchema.safeParse({
+      ...decision,
+      state_digest: "d".repeat(64)
+    }).success).toBe(false);
+
+    for (const candidate of [{
+      ...permit,
+      state_digest: "f".repeat(64)
+    }, {
+      ...permit,
+      limitations_digest: "e".repeat(64)
+    }, {
+      ...permit,
+      signature: `${permit.signature.slice(0, -1)}A`
+    }] as FinalizationPermit[]) {
+      expect(() => verify(candidate)).toThrow(ResearchFinalizationPermitError);
+    }
+    expect(() => verify(permit, finished, OTHER_SESSION_ID))
+      .toThrow(ResearchFinalizationPermitError);
+    expect(() => verifyResearchFinalizationPermit(
+      permit,
+      SESSION_ID,
+      finished,
+      {
+        signingSecret: "different-finalization-secret-that-is-also-at-least-thirty-two-bytes",
+        keyId: FINALIZATION_KEY_ID,
+        now: () => new Date("2026-08-24T12:05:00.000Z")
+      }
+    )).toThrow(ResearchFinalizationPermitError);
+    expect(() => verifyResearchFinalizationPermit(
+      permit,
+      SESSION_ID,
+      finished,
+      {
+        signingSecret: FINALIZATION_SECRET,
+        keyId: FINALIZATION_KEY_ID,
+        now: () => new Date("2026-08-24T12:16:00.000Z")
+      }
+    )).toThrow(ResearchFinalizationPermitError);
+
+    const drifted = applyProtocolRecheck(
+      finished,
+      protocolBindingsFromManifests(manifest("universal", HASH_C), manifest("hrp"))
+    );
+    expect(() => verify(permit, drifted)).toThrow(ResearchFinalizationPermitError);
+
+    const changedReceipt = structuredClone(finished);
+    changedReceipt.formal_evidence.sources[0]!.external_evidence
+      .receipt_payload_sha256 = "0".repeat(64);
+    expect(() => verify(permit, changedReceipt)).toThrow(ResearchFinalizationPermitError);
+  });
+
+  it("preserves publication history and provider-scoped limitations", () => {
+    const finished = completionFixture();
+    const baseLimitations = deriveResearchFinalizationLimitations(finished);
+    expect(baseLimitations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        scope: "provider_coverage",
+        provider: "forrt",
+        plain_language: expect.stringContaining("applies only to this provider")
+      }),
+      expect.objectContaining({
+        scope: "provider_coverage",
+        provider: "pubpeer",
+        plain_language: expect.stringContaining("was not available")
+      })
+    ]));
+    expect(baseLimitations.map(({ plain_language }) => plain_language).join(" "))
+      .not.toMatch(/no concerns? (?:were )?found/iu);
+
+    const decision = evaluateResearchFinalization(SESSION_ID, finished, {
+      signingSecret: FINALIZATION_SECRET,
+      keyId: FINALIZATION_KEY_ID,
+      now: () => FINALIZATION_NOW
+    });
+    if (decision.finalization_permit === null) throw new Error("Missing permit");
+
+    for (const [recordState, eventKind, expected] of [[
+      "active_retraction_or_withdrawal",
+      "retraction",
+      "active retraction"
+    ], [
+      "expression_of_concern_recorded",
+      "expression_of_concern",
+      "expression of concern"
+    ], [
+      "correction_recorded",
+      "correction",
+      "correction record"
+    ]] as const) {
+      const changed = structuredClone(finished);
+      const source = changed.formal_evidence.sources[0]!;
+      source.external_evidence.publication_integrity = {
+        record_state: recordState,
+        events: [{ event_kind: eventKind, event_hash: "f".repeat(64) }]
+      };
+      if (recordState === "active_retraction_or_withdrawal") {
+        source.external_evidence.effect_claims_excluded = true;
+      }
+      const reparsed = stateAfterFormalEvidenceChange(changed);
+      expect(deriveResearchFinalizationLimitations(reparsed)).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            scope: "publication_integrity",
+            plain_language: expect.stringContaining(expected)
+          })
+        ])
+      );
+      expect(() => verifyResearchFinalizationPermit(
+        decision.finalization_permit,
+        SESSION_ID,
+        reparsed,
+        {
+          signingSecret: FINALIZATION_SECRET,
+          keyId: FINALIZATION_KEY_ID,
+          now: () => new Date("2026-08-24T12:05:00.000Z")
+        }
+      )).toThrow(ResearchFinalizationPermitError);
+      expect(() => assertResearchSessionTransition(finished, reparsed))
+        .toThrow(/external-study evidence is immutable/u);
+    }
   });
 
   it("rejects forged final-audit checks and keeps undercovered work nonfinal", () => {
-    const finished = phaseACompletionFixture();
+    const finished = completionFixture();
     const forged = structuredClone(finished);
     forged.final_completion_audit!.checks[0]!.summary =
       "Caller-authored replacement for a server-owned completion check.";
@@ -442,7 +797,7 @@ describe("research session controller core", () => {
   });
 
   it("maps an otherwise resolved terminal treatment boundary only to bounded nonranking output", () => {
-    const finished = phaseACompletionFixture();
+    const finished = completionFixture();
     const treatment = structuredClone(finished.treatment_finalization);
     const latest = treatment.attempts.at(-1)!;
     latest.assessment = {
@@ -490,13 +845,33 @@ describe("research session controller core", () => {
       finalization_permit: null,
       denial_reasons: expect.arrayContaining([
         "TERMINAL_BOUNDARY_LIMITS_OUTPUT",
-        "PHASE_A_FINALIZATION_NOT_ENABLED"
+        "FINALIZATION_SIGNING_NOT_CONFIGURED"
       ])
+    });
+
+    const decision = evaluateResearchFinalization(SESSION_ID, bounded, {
+      signingSecret: FINALIZATION_SECRET,
+      keyId: FINALIZATION_KEY_ID,
+      now: () => FINALIZATION_NOW
+    });
+    expect(decision).toMatchObject({
+      authorization: "BOUNDED",
+      output_boundary: "BOUNDED_NONRANKING_ONLY",
+      finalization_permit: {
+        artifact_kind: "BOUNDED_NONRANKING_REPORT_PERMIT",
+        output_boundary: "BOUNDED_NONRANKING_ONLY"
+      },
+      reader_facing: {
+        permitted_scope: "bounded_nonranking_report",
+        limitations: expect.arrayContaining([
+          expect.objectContaining({ scope: "treatment_landscape" })
+        ])
+      }
     });
   });
 
   it("mutation-checks every required module and operation completion condition", () => {
-    const finished = phaseACompletionFixture();
+    const finished = completionFixture();
     const withoutFinalAudit = {
       ...finished,
       final_completion_audit: undefined,

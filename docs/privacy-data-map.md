@@ -64,6 +64,18 @@ AskRigor has three deliberately separate processing paths:
   state until that exact search completes; it is never exported as evidence or
   written durably. The prototype is absent
   from the public MCP and Action inventories and is not deployed.
+  Phase F can issue a compact, short-lived HMAC-SHA256 finalization permit only
+  from authoritative controller state. The permit contains an opaque execution
+  ID, exact protocol identities, state/authorization/limitation digests,
+  boundary/artifact type, issue/expiry time, key ID, payload hash, and
+  signature. It contains no research target, diagnosis, health details,
+  transcript/comment text, publication text, raw provider response, credential,
+  or signing secret. The finalization response carries separately derived
+  plain-language permitted scope and limitations; their exact set is bound by
+  the permit digest. Same-session replay is accepted only for the unchanged
+  state before expiry. Cross-session, changed-state, changed-protocol, expired,
+  malformed, or tampered permits fail. Neither permits nor finalization
+  responses are durably stored in Phase F.
 - **Non-production external-study evidence path:** an internal coordinator
   accepts only an opaque research-session ID and one public DOI, verifies exact
   Crossref identity, then invokes Crossref and FORRT itself. It normalizes
@@ -80,6 +92,13 @@ AskRigor has three deliberately separate processing paths:
   artifact bodies, signing secrets, raw chat, or health details. Provider labels
   are leads, no-match is provider-scoped, and a signed structural receipt is not
   a study-quality or scientific-validity determination.
+  Phase F additionally projects bounded provider outcome/access status plus the
+  exact provider-attempt hash, publication-integrity state plus event-kind/hash,
+  and server-derived claim-local limitation text/hash into the ephemeral
+  research session. These projections support honest final limitations without
+  retaining raw provider bodies. Provider no-match remains explicitly limited
+  to that provider; an unconfigured provider remains an explicit gap; an active
+  retraction/withdrawal excludes ordinary effect claims.
 - **Disabled optional-provider adapter boundary:** Phase D5 adds strict
   server-side normalization for authorized PubPeer post-publication records and
   Epistemonikos review ancestry. No live transport, key/token, endpoint,

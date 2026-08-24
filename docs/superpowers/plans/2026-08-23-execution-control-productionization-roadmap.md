@@ -1,10 +1,9 @@
 # AskRigor execution-control productionization roadmap
 
-**Status:** Active. Phase A is merged as
-`1dd18f91fa94da391c3b5e30c604850e3813f4de`; Phase B is merged as
-`f4800e45e810a34e03657334949b6e8fef883b50`; Phase C is implemented and
-deterministically verified on `agent/execution-control-phase-c-20260823` and is
-the current reviewed delivery candidate. This document does not replace the complete canonical protocols or the
+**Status:** Active. Phases A through E are merged; Phase E is merge
+`191f0ee6894fed5d51c074e0d6fdd9be5d671839`. Phase F is implemented and
+locally verified on `agent/execution-control-phase-f-20260824`; reviewed
+merge remains pending. This document does not replace the complete canonical protocols or the
 owner-approved scientific corrections in
 `2026-08-23-executable-research-orchestrator-and-study-audit.md`.
 
@@ -605,25 +604,46 @@ this phase.
 
 Tasks:
 
-- [ ] Implement successful finalization only from controller-owned state.
-- [ ] Issue an integrity-bound compact finalization permit/report package with no raw private content.
-- [ ] Bind it to exact protocol identities and a deterministic digest of completion-relevant state/receipts, including study-external-evidence receipts where required.
-- [ ] Make replay/cross-session/tamper behavior explicit and tested.
-- [ ] Generate claim-local limitations automatically for valid bounded output, including unconfigured provider coverage gaps and unresolved linked external items.
-- [ ] Keep technical execution evidence separable from ordinary reader-facing rendering.
+- [x] Implement successful finalization only from controller-owned state.
+- [x] Issue an integrity-bound compact finalization permit/report package with no raw private content.
+- [x] Bind it to exact protocol identities and a deterministic digest of completion-relevant state/receipts, including study-external-evidence receipts where required.
+- [x] Make replay/cross-session/tamper behavior explicit and tested.
+- [x] Generate claim-local limitations automatically for valid bounded output, including unconfigured provider coverage gaps and unresolved linked external items.
+- [x] Keep technical execution evidence separable from ordinary reader-facing rendering.
 
 Required hostile tests:
 
-- [ ] tampered permit rejected;
-- [ ] cross-session receipt/permit replay rejected where session binding applies;
-- [ ] changed protocol hashes invalidate finalization currency;
-- [ ] caller cannot construct a valid permit from public fields;
-- [ ] all required valid receipts allow finalization in a complete fixture;
-- [ ] a terminal boundary yields only its allowed bounded scope;
-- [ ] retraction/correction/expression-of-concern state cannot be dropped from finalization-relevant state;
-- [ ] provider no-match cannot become a no-concern claim;
-- [ ] unaudited replication labels/citation classifications cannot become verified conclusions;
-- [ ] finalization output contains none of the prohibited raw/private fields.
+- [x] tampered permit rejected;
+- [x] cross-session receipt/permit replay rejected where session binding applies;
+- [x] changed protocol hashes invalidate finalization currency;
+- [x] caller cannot construct a valid permit from public fields;
+- [x] all required valid receipts allow finalization in a complete fixture;
+- [x] a terminal boundary yields only its allowed bounded scope;
+- [x] retraction/correction/expression-of-concern state cannot be dropped from finalization-relevant state;
+- [x] provider no-match cannot become a no-concern claim;
+- [x] unaudited replication labels/citation classifications cannot become verified conclusions;
+- [x] finalization output contains none of the prohibited raw/private fields.
+
+Phase F on `agent/execution-control-phase-f-20260824` enables the first real
+server-authorized success path without registering or deploying the prototype.
+The controller issues a short-lived HMAC-SHA256 permit only from a current
+passing final audit or the separately recognized bounded-nonranking terminal
+state. It binds the execution ID, exact protocol tuple, complete state digest,
+authorization basis, limitation set, output boundary, issue/expiry time, and
+key identity. Cross-session, changed-state, changed-protocol, expired,
+malformed, or tampered permits fail verification. Reader-facing scope and
+plain-language limitations stay separate from the compact technical permit.
+
+The external-evidence projection now retains bounded provider outcomes,
+publication-integrity event identities, and server-derived claim-local
+limitations so final rendering cannot drop an optional-provider gap, a
+provider-scoped no-match boundary, a correction, an expression of concern, or
+an active retraction/withdrawal. These projections are receipt-hash checked;
+no raw provider body is added. Focused Phase F verification passes 46/46 tests.
+The public inventory remains 21 MCP tools and 26 Actions, and the prototype
+remains non-production. The complete local `npm run verify` gate passes
+typechecking, 1,281 tests with six declared skips, and the production build.
+Hosted verification remains the Phase F merge gate.
 
 **Exit gate:** end-to-end deterministic fixture demonstrates denial -> required work -> valid receipts -> successful server finalization without a caller-authored completion assertion.
 

@@ -173,5 +173,5 @@ describe("live-suite output secret scan", () => {
     } finally {
       await rm(temporaryDirectory, { force: true, recursive: true });
     }
-  });
+  }, 15_000);
 });

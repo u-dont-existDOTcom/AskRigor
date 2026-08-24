@@ -1,5 +1,57 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase F candidate
+
+Branch `agent/execution-control-phase-f-20260824` starts from exact merged
+Phase E commit `191f0ee6894fed5d51c074e0d6fdd9be5d671839` and implements
+Phase F of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+It changes only the unregistered, non-production research-session controller
+and its bounded ephemeral evidence projection.
+
+The controller now reaches `READY_TO_FINALIZE` only after its current
+server-derived final completion audit passes. The separate finalization
+operation can issue a comparative permit for that exact state, or a distinct
+bounded-nonranking permit only for a recognized terminal treatment boundary.
+The HMAC-SHA256 permit binds execution, exact protocol tuple, complete state,
+authorization basis, limitation set, output boundary, key identity, and a
+15-minute default validity window (one-hour hard maximum). Same-session replay
+of unchanged state is valid before expiry; cross-session, cross-state,
+cross-protocol, expired, malformed, wrong-key/secret, or tampered permits fail.
+The permit has no raw/private research content.
+
+Technical permit evidence and ordinary reader rendering are separate. The
+response includes a plain permitted scope and server-derived limitations, with
+the exact limitation set digest-bound to the permit. External-evidence state
+now preserves bounded provider outcome/access status and attempt hashes,
+publication-integrity state and event hashes, and exact server-derived
+claim-local limitation text/hashes. Provider no-match language is limited to
+that provider, unavailable optional providers stay explicit, and active
+retraction/withdrawal state cannot retain ordinary effect-claim permission.
+
+Typechecking and the focused controller/prototype/formal/external-evidence
+suite pass 46/46; the focused public-inventory suite passes 121/121. The
+complete `npm run verify` gate passes typechecking, 1,281 tests with six
+declared skips, and the production build. The first two full-suite attempts
+exposed one pre-existing archive checksum test whose default five-second
+timeout failed only under suite load while the test passed alone in 3.6
+seconds. It now has the same 15-second limit as the adjacent archive/evidence
+test, without changing its assertions. Lesson closeout, PR, hosted CI/security
+review, and merge remain pending.
+
+The pre-PR lesson checkpoint at `2026-08-24T12:16:39.909Z` was available:
+1 open candidate, 1 needing review, 0 accepted but not incorporated, 3
+incorporated or closed, and 0 deletion eligible. Neither open item expands
+Phase F. Lesson disposition is project-specific/no-new-lesson: this phase
+implements the already owner-approved server-authority, bounded-output, and
+integrity-permit architecture without exposing a new transferable failure.
+
+The public inventory remains 21 MCP tools and 26 Actions. Canonical protocol
+bytes, generated Custom GPT instructions, plugin bytes, production runtime,
+provider configuration, credentials, deployment, durable storage, and
+retention remain unchanged. Phase G next requires a privacy/resumability owner
+decision before any durable store or production write capability is activated.
+
 ## 2026-08-24 execution-control Phase E candidate
 
 Branch `agent/execution-control-phase-e-20260824` starts from exact Phase D5
