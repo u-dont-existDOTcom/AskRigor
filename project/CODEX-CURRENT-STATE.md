@@ -1,5 +1,63 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase I candidate
+
+Phase H merged through PR #80 at exact commit
+`8c292a4d1d22d482d1752016f24c17314f9c8c21`. All hosted checks passed and
+local `main` was fast-forwarded to that commit. Phase I runs on branch
+`agent/execution-control-phase-i-20260824` from that exact base and follows
+`docs/superpowers/plans/2026-08-24-phase-i-hermes-worker-pilot-implementation.md`.
+
+The current candidate adapts the official `NousResearch/hermes-agent` Python
+library at reviewed release `v2026.8.19`, package version `0.20.5`, and exact
+commit `fcbd1076a93841fa88855acce810e342a5b78101`. AskRigor does not create a
+parallel agent runtime. A TypeScript parent drives the existing authenticated
+private controller, requests deterministic work only through `/resume`, sends
+one exact semantic package to a fresh Hermes process, and submits the strict
+result through `/submit`.
+
+The research-worker profile enables no Hermes tools, repository access,
+context files, memory, trajectories, checkpoints, or background review. It
+uses a clean exact-commit checkout, a Python environment outside that checkout,
+a bounded child environment, and a fresh temporary directory deleted after the
+turn. The child never receives the private orchestration credential or any
+production research-provider secret. A separate read-only/no-tools development
+context loader reads exact `AGENTS.md`, project instructions, and complete
+canonical protocol bytes with hashes; it grants no write to `main`.
+
+The fail-closed outer result contract rejects extra completion/count/provider
+fields, stale or cross-session digests, mismatched work types, and cross-
+frontier candidate output. The response guard releases prose only from an
+authenticated server `AUTHORIZED` or `BOUNDED` decision with a matching permit.
+Hermes token/cost fields remain diagnostics and cannot affect controller state.
+
+Focused typechecking and the Phase I worker/private-controller suite pass 17/17
+tests, including a real private-controller integration that completes
+module routing, server-owned Gemini/native discovery, and public-candidate
+screening, then stops at the unchanged server denial rather than inventing
+later completion. The exact official Hermes runtime also passes two repeated
+one-shot invocations against a loopback-only model fixture with zero worker
+tools. The held-out controller benchmark includes authorized, bounded, and
+rejected outcomes and keeps cost non-authoritative.
+
+Before the final per-turn checkout/Python-path hardening, the complete
+`npm run test:run` gate passed 1,321 tests with six declared skips and
+`npm run verify` passed typechecking, that suite, and the production build.
+After that hardening, focused tests, typechecking, the exact official-runtime
+smoke, and build pass. The complete single-worker run passed 1,320/1,321 tests;
+only the pre-existing package-entrypoint test exceeded its fixed 10-second
+limit by 0.56 seconds while host load was near 16 and swap was exhausted. That
+exact test immediately passed alone in 9.03 seconds without modifying its
+timeout. Hosted standard-concurrency CI is therefore retained as the merge
+gate. The public MCP and Action inventories, protocols, generated Custom GPT
+instructions, plugin bytes, deployment, provider accounts, credentials, and
+retention remain unchanged. The pre-PR lesson checkpoint at
+`2026-08-24T18:13:20.491Z` was available: 1 open candidate, 1 needing review,
+0 accepted but not incorporated, 3 incorporated or closed, and 0 deletion
+eligible. Neither open item expands Phase I. Final diff review, PR, hosted
+checks, and merge remain pending. A credentialed live model-quality evaluation
+is optional release evidence rather than a controller-enforcement gate.
+
 ## 2026-08-24 execution-control Phase H candidate
 
 Phase G merged through PR #79 at exact commit

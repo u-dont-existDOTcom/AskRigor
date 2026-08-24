@@ -7,6 +7,13 @@ import {
   createPrivateResearchOrchestrationHandler
 } from "../apps/research-mcp/src/private-research-orchestration.js";
 import {
+  HERMES_AGENT_PIN,
+  createHttpPrivateResearchOrchestrationClient,
+  releaseHermesFinalResponse,
+  runHermesResearchTask,
+  type HermesSemanticExecutor
+} from "../apps/research-mcp/src/hermes-worker-pilot.js";
+import {
   createAskRigorHttpServer
 } from "../apps/research-mcp/src/server.js";
 import {
@@ -272,6 +279,74 @@ describe("private research orchestration HTTP boundary", () => {
     });
   });
 
+  it("lets the Hermes pilot complete bounded work units but cannot bypass the controller denial", async () => {
+    await withServer({
+      privateOrchestrationEnabled: true,
+      privateOrchestrationApiKey: API_KEY,
+      privateOrchestrationHandler: fixtureHandler()
+    }, async (baseUrl) => {
+      const client = createHttpPrivateResearchOrchestrationClient({
+        baseUrl,
+        apiKey: API_KEY
+      });
+      const worker: HermesSemanticExecutor = {
+        execute: vi.fn(async ({ session_id, state_digest, semantic_work }) => ({
+          model_output: semantic_work.kind === "module_applicability"
+            ? {
+              contract_version: "askrigor_hermes_semantic_result_v1",
+              session_id,
+              state_digest,
+              work_type: "module_applicability",
+              submission: {
+                package_version: "askrigor_module_applicability_v1",
+                decisions: semantic_work.package.unresolved_module_ids.map((module_id) => ({
+                  module_id,
+                  applicability: "REQUIRED",
+                  rationale: "The de-identified broad comparison requires this module."
+                }))
+              }
+            }
+            : {
+              contract_version: "askrigor_hermes_semantic_result_v1",
+              session_id,
+              state_digest,
+              work_type: "candidate_screening",
+              submission: candidateSubmission(semantic_work.package)
+            },
+          diagnostics: {
+            worker: "hermes_agent",
+            upstream_commit: HERMES_AGENT_PIN.commit,
+            provider: "held-out-fixture",
+            model: "held-out-fixture",
+            usage: { api_calls: 1, estimated_cost_nano_usd: 1 }
+          }
+        }))
+      };
+      const run = await runHermesResearchTask({
+        research_target: "de-identified treatment comparison",
+        maximum_no_progress_transitions: 1,
+        maximum_transitions: 12
+      }, client, worker);
+
+      expect(run).toMatchObject({
+        status: "NO_PROGRESS",
+        output_boundary: "CONTINUE_RESEARCH",
+        decision: {
+          authorization: "DENIED",
+          finalization_permit: null
+        },
+        metrics: {
+          semantic_work_requests: 2,
+          deterministic_resume_requests: 3,
+          skipped_gate_attempts: 0
+        }
+      });
+      expect(worker.execute).toHaveBeenCalledTimes(2);
+      expect(() => releaseHermesFinalResponse(run, "Worker claims completion"))
+        .toThrow("AskRigor did not authorize");
+    });
+  });
+
   it("rejects unauthenticated, duplicate-auth, browser, malformed, non-JSON, and oversized requests before progress", async () => {
     await withServer({
       privateOrchestrationEnabled: true,
@@ -457,6 +532,34 @@ interface PrivateView {
       discovery_digest?: string;
       candidates?: Array<{ video_id: string; program_signature: string }>;
     };
+  };
+}
+
+function candidateSubmission(work: {
+  discovery_digest: string;
+  candidates: Array<{ video_id: string; program_signature: string }>;
+}) {
+  const firstByProgram = new Map<string, string>();
+  for (const candidate of work.candidates) {
+    if (!firstByProgram.has(candidate.program_signature)) {
+      firstByProgram.set(candidate.program_signature, candidate.video_id);
+    }
+  }
+  return {
+    package_version: "askrigor_candidate_screening_v1" as const,
+    discovery_digest: work.discovery_digest,
+    decisions: work.candidates.map(({ video_id, program_signature }) => {
+      const distinctVideoId = firstByProgram.get(program_signature)!;
+      const distinct = distinctVideoId === video_id;
+      return {
+        video_id,
+        materiality: "MATERIAL" as const,
+        redundancy: distinct ? "DISTINCT" as const : "DUPLICATE" as const,
+        ...(distinct ? {} : { duplicate_of_video_id: distinctVideoId }),
+        selection_status: distinct ? "SELECTED" as const : "NOT_SELECTED" as const,
+        rationale: "Exact public-source candidate screened for nonredundant value."
+      };
+    })
   };
 }
 

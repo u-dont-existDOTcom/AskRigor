@@ -20,6 +20,8 @@
     "generate:custom-gpt": "tsx scripts/generate-custom-gpt-packet.mts",
     "sync:retraction-watch": "tsx scripts/sync-retraction-watch.mts",
     "sync:retraction-watch:runtime": "node apps/research-mcp/dist/retraction-watch-sync-cli.js",
+    "pilot:hermes": "tsx scripts/run-hermes-worker-pilot.mts",
+    "test:hermes-pilot": "tsx scripts/smoke-hermes-semantic-worker.mts",
     "plugin:receipt": "node scripts/plugin-package-receipt.mjs",
     "lessons:status": "tsx scripts/lessons-status.mts",
     "review:public-live": "tsx scripts/run-public-review-eval.mts",

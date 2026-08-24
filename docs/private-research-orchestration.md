@@ -1,7 +1,7 @@
 # Private research orchestration interface
 
-Status: Phase H implementation; disabled by default and not part of the public
-MCP or Custom GPT Action inventories.
+Status: Phase H implementation with a disabled Phase I Hermes client pilot;
+not part of the public MCP or Custom GPT Action inventories.
 
 ## Boundary
 
@@ -71,6 +71,26 @@ contract.
 Deterministic provider operations remain server-internal. The interface has no
 provider-by-provider completion controls.
 
+## Phase I Hermes client
+
+`apps/research-mcp/src/hermes-worker-pilot.ts` drives this interface without
+acquiring policy authority. It calls `/resume` for deterministic work, sends
+only an exact current semantic package to a no-tools/no-memory one-shot Hermes
+process, and submits the structured result through `/submit`. Cross-session,
+stale-state, wrong-kind, wrong-frontier, extra completion, and malformed
+results are rejected before server submission or by the server itself.
+
+The runner cannot release final prose from a denial. Its separate response
+guard requires an `AUTHORIZED` or `BOUNDED` server decision containing a permit
+bound to the same session, state digest, and output boundary. Worker claims and
+reported token/cost diagnostics never influence this decision.
+
+The child receives no private-orchestration credential. When module routing is
+part of a new run, it transiently receives the same screened de-identified
+target sent to `/start`; memory, trajectories, and checkpoints remain disabled.
+See `hermes-worker-pilot.md` for the exact reviewed upstream pin, process
+isolation, configuration, and current pilot limits.
+
 ## Checkpoint behavior
 
 When all three Phase G checkpoint settings are present, the private handler
@@ -87,9 +107,10 @@ a matching completed method audit. It never treats the remembered receipt
 hashes alone as the lost raw validation material and never advances
 finalization.
 
-## Phase H non-activation
+## Phase H/I non-activation
 
 This phase adds code and hermetic integration coverage only. It does not add a
 public endpoint, production credential, provider account, external workflow,
 new retention store, Custom GPT instruction, plugin change, deployment, or
-browser access. Activation belongs to the later reviewed release transaction.
+browser access. Phase I adds no provider credential or live worker. Activation
+belongs to the later reviewed release transaction.
