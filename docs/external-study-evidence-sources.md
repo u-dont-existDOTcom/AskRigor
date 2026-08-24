@@ -1,8 +1,10 @@
 # External study-evidence source boundaries
 
-Status at 2026-08-24: internal Phase D3 session integration over the Phase D2
-source and coordination primitives. It is not registered as a public MCP tool
-or Custom GPT Action and cannot authorize final synthesis or finalization.
+Status at 2026-08-24: internal Phase D4 source candidate over the merged Phase
+D3 session integration. It is not registered as a public MCP tool or Custom
+GPT Action and cannot authorize final synthesis or finalization. The verified
+Retraction Watch local-snapshot path is implemented but not activated,
+scheduled, retained, or deployed; those production decisions remain Phase G.
 
 ## Crossref publication-integrity metadata
 
@@ -84,18 +86,43 @@ limitations, hashes, or receipt fields.
 The coordinator canonicalizes the DOI and requires an exact successful
 Crossref identity before invoking FORRT. Crossref identity failure stops before
 FORRT and creates no signed audit. After verified identity, the server runs
-both mandatory open providers, records explicit `not_configured` coverage for
-the optional Retraction Watch snapshot, PubPeer, Epistemonikos, and Scite
-integrations, and derives a deterministic normalized bundle. Retryable,
-partial, inaccessible, nonretryable, no-match, and successful provider states
-remain distinct.
+both mandatory open providers. It records explicit `not_configured` coverage
+for Retraction Watch, PubPeer, Epistemonikos, and Scite when they are absent.
+When a verified Retraction Watch reader is server-injected, the coordinator
+must execute it, binds its exact snapshot ID and normalized artifact, and no
+longer emits the Retraction Watch configuration gap. Retryable, partial/stale,
+inaccessible, nonretryable, no-match, and successful provider states remain
+distinct.
 
 The normalized bundle derives notice-audit, prior-audit invalidation, active-
 retraction exclusion, linked-repetition acquisition, and provider-gap
-directives. Every FORRT relationship remains a provider-reported lead with
-implementation and linked-source audit still pending. Historical retraction
-followed by reinstatement retains the history and notice work without being
-misrepresented as a currently active retraction.
+directives. Independent Crossref and Retraction Watch assertions are merged
+into one ordered history without destroying provider provenance. Every FORRT
+relationship remains a provider-reported lead with implementation and linked-
+source audit still pending. Historical retraction followed by reinstatement
+retains the history and notice work without being misrepresented as a
+currently active retraction.
+
+## Retraction Watch verified local snapshot
+
+The Phase D4 implementation uses only Crossref's fixed public GitLab project
+and pins every CSV download to the exact commit returned for
+`retraction_watch.csv`. The sync is an operator command, never a user-request
+fetch, and does not add GitLab to the ordinary source HTTP allowlist.
+
+Pinned `csv-parse` streaming handles quoted commas, CRLF, doubled quotes, and
+embedded newlines. The accepted schema records the 20 documented fields plus
+the live file's terminal empty compatibility column. Missing, reordered,
+duplicated, extra, or non-terminal blank headers fail closed. The builder
+records exact source commit/file SHA-256/header hash/row count/sync time and
+creates bounded normalized records plus role-aware DOI and PMID indexes.
+
+Runtime loading verifies the atomic activation pointer, exact manifest,
+generated-file hashes/sizes/counts, every record offset, and complete index
+reconstruction before lookup. Stale snapshots are partial coverage; no-match
+is provider-scoped. The explicit rollback path verifies the prior immutable
+snapshot before atomically swapping the pointer. See
+`docs/retraction-watch-snapshot.md` for the format and activation boundary.
 
 The server-issued HMAC-SHA256 receipt is bound to the exact session, canonical
 study identity hash, Universal/HRP identities and hashes, complete provider
@@ -153,12 +180,14 @@ or coverage gap before claim capability becomes current.
 
 ## Storage, activation, and verification
 
-Phases D2-D3 add no database, durable artifact store, public operation,
-provider credential, provider host, deployment setting, or production provider
-call. Phase D3's only session connection is the bounded, in-memory,
-unregistered prototype. The environment file contains placeholder-only
-receipt-secret and key-ID names; no runtime route reads or returns them.
-Hermetic tests cover strict input, identity failure, normalized provider
-states, directives, deterministic hashes, artifact bounds, signed-receipt
-tampering/cross-context rejection, and typed method-audit references. Public
-inventories remain 21 MCP tools and 26 Actions.
+Phases D2-D4 add no database, durable production artifact store, public
+operation, provider credential, deployment setting, or production provider
+call. D4 adds a controlled operator sync command and local snapshot format but
+does not run it against the real dataset or select a production directory,
+retention policy, pruning policy, schedule, or configuration binding. Phase
+D3's only session connection remains the bounded, in-memory, unregistered
+prototype. Hermetic tests cover strict input, exact-source/header validation,
+atomic activation/rollback/staleness, snapshot/index tampering, identity
+failure, normalized provider states, directives, deterministic hashes,
+artifact bounds, signed-receipt tampering/cross-context rejection, and typed
+method-audit references. Public inventories remain 21 MCP tools and 26 Actions.

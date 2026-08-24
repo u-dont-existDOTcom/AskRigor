@@ -101,6 +101,10 @@ complete XML protocol.
 ## Privacy
 
 - `privacy-data-map.md`: data classes, flows, exclusions, and handling
+- `retraction-watch-snapshot.md`: fixed official source, strict CSV/header
+  handling, verified local snapshot/index format, atomic activation/rollback,
+  staleness semantics, coordinator boundary, and deferred Phase G production
+  storage/retention decision
 
 ## Plans
 
@@ -121,6 +125,11 @@ complete XML protocol.
   controller-owned formal hypotheses/search, exact open-full-text depth,
   source-linked study/review/notice audit, signed external-evidence scheduling,
   linked-source execution, and claim-capability recalculation
+- `superpowers/plans/2026-08-24-execution-control-phase-d4-implementation.md`:
+  fixed-source Retraction Watch synchronization, exact manifest and compact
+  identifier indexes, atomic activation/verified rollback, stale coverage,
+  existing-coordinator composition, hostile tests, and deferred production
+  retention/scheduling
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

@@ -1,5 +1,74 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase D4 candidate
+
+Branch `agent/execution-control-phase-d4-20260824` starts from exact merged
+Phase D3 commit `4bb6203951d9bf0f5ef701c7bdca7645ab8134d7` and implements
+Phase D4 of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+It extends the existing signed external-study evidence coordinator and source
+package; it creates no second controller, completion authority, or public
+operation.
+
+The controlled operator sync resolves only Crossref's official Retraction
+Watch GitLab project, main ref, and `retraction_watch.csv`, then downloads the
+file from the exact returned 40-hex commit. It records source commit/time,
+file SHA-256/bytes, exact accepted header/hash, row and index counts, and sync
+time. The user-request HTTP allowlist is unchanged and research requests cannot
+trigger this dataset download.
+
+Pinned `csv-parse` streaming accepts the live 20 documented fields plus the
+provider's trailing empty compatibility column and its documented 1756 AM
+timestamp outlier. It handles quoted commas, doubled quotes, CRLF, and embedded
+newlines while rejecting missing/reordered/duplicate/extra headers,
+malformed/oversized rows, duplicate IDs, impossible dates/times, changed source
+identity, and unsafe paths. Bounded normalized records retain role-aware
+original/notice identifiers; notice-only DOI matches are disclosed but are not
+misapplied to the notice itself.
+
+Each immutable snapshot has a source-derived ID, exact manifest,
+`records.ndjson`, and DOI/PMID offset indexes. Runtime re-verifies all file
+hashes/sizes/counts, reconstructs both indexes from normalized records, checks
+every reference/role/offset, and rejects symlinks or tampering. Staging occurs
+inside the verified root for same-filesystem rename; `active.json` changes only
+after verification and directory fsync. Current and previous snapshots each
+retain their own source-check time. Rollback completely verifies the prior
+snapshot and restores its own freshness time before atomically swapping; a
+corrupt prior snapshot leaves the active pointer unchanged.
+
+The external-evidence coordinator accepts a Retraction Watch executor only as
+a server dependency. When absent it preserves the existing explicit
+`not_configured` provider attempt. When present it executes the exact DOI,
+stores the normalized envelope through the existing bounded artifact store,
+and binds snapshot ID, provider attempt, artifact hash, provider assertions,
+limitations, directives, combined publication state, and bundle hash into the
+existing signed receipt. Stale coverage is partial, retryable failure remains
+blocked, nonretryable failure remains bounded, no-match remains provider-
+scoped, and retraction/correction/expression-of-concern/reinstatement events
+cannot silently disappear from the downstream claim-recalculation path.
+
+Focused snapshot/coordinator verification passes 29 tests. The complete
+deterministic suite passes 1,233 tests with six declared skips, and
+`npm run verify` passes typechecking, that suite, and the production build. The
+pinned MIT `csv-parse` 7.0.2 production dependency audit reports zero known
+vulnerabilities. Public inventory remains 21 MCP tools and 26 Actions.
+Canonical protocol bytes, generated Custom GPT Instructions, plugin bytes,
+credentials, provider configuration, production runtime, and deployment are
+unchanged.
+
+No real Retraction Watch dataset was downloaded or committed. D4 deliberately
+does not choose a production directory, durable retention/pruning policy,
+backup, schedule, configuration binding, or deployment. Production activation
+remains the Phase G privacy/owner gate. The pre-PR lesson checkpoint at
+`2026-08-24T07:47:00.998Z` was available with 1 open candidate, 1 needing
+review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+deletion eligible. No unreviewed lesson expanded this phase. Lesson disposition
+is project-specific/no-new-lesson: D4 implements the already approved verified
+local-snapshot architecture and exposes no new transferable failure beyond the
+existing source-identity, atomic-update, and server-authority lessons. PR,
+hosted CI, and merge receipts remain pending at this candidate checkpoint.
+Phase D5 is next only after reviewed merge.
+
 ## 2026-08-24 execution-control Phase D3 candidate
 
 Branch `agent/execution-control-phase-d3-20260824` starts from exact Phase D2
@@ -62,10 +131,10 @@ review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
 deletion eligible. No unreviewed lesson expanded this phase. Lesson disposition
 is project-specific/no-new-lesson: Phase D3 implements the already approved
 execution-control architecture and exposes no new transferable failure beyond
-the existing server-authority and source-depth lessons. PR, hosted CI, and
-merge receipts remain pending at this checkpoint. Phase D4 is next only after
-reviewed merge; its durable-snapshot/cron activation remains an explicit
-owner/privacy gate.
+the existing server-authority and source-depth lessons. Hosted CI passed on PR
+#74 and the reviewed branch merged as exact commit
+`4bb6203951d9bf0f5ef701c7bdca7645ab8134d7`. Phase D4 follows that merge; its
+durable-snapshot/cron activation remains an explicit owner/privacy gate.
 
 ## 2026-08-24 execution-control Phase D2 candidate
 

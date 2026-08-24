@@ -480,18 +480,35 @@ Clean provider results still require an external-receipt-bound method audit;
 partial provider coverage cannot become unrestricted use. Focused verification
 passes 112 tests. The complete host-boundary deterministic suite passes 1,215
 tests with six declared skips, and `npm run verify` passes typechecking, that
-same suite, and the production build. Hosted CI, PR, and merge identity are
-recorded in the current-state checkpoint after reviewed delivery. Public
+same suite, and the production build. Hosted CI passed on PR #74, merged as
+exact commit `4bb6203951d9bf0f5ef701c7bdca7645ab8134d7`. Public
 MCP/Action inventory, canonical protocol bytes, deployment, provider
 configuration, and durable retention remain unchanged.
 
 #### Phase D4 — Retraction Watch verified local snapshot
 
-- [ ] Implement only after the open-core lookup/coordinator is stable.
-- [ ] Add a controlled sync command using the official source, recording exact source commit/file hash/header schema/row count/sync time.
-- [ ] Parse with standards-compliant CSV handling; reject malformed/duplicate headers; build compact DOI/PMID indexes; atomic replace; verified rollback/stale-snapshot behavior.
-- [ ] Runtime consumes only verified local snapshot + manifest.
-- [ ] Do not dynamically fetch the dataset inside a user request and do not widen ordinary upstream allowlists for the snapshot source.
+- [x] Implement only after the open-core lookup/coordinator is stable.
+- [x] Add a controlled sync command using the official source, recording exact source commit/file hash/header schema/row count/sync time.
+- [x] Parse with standards-compliant CSV handling; reject malformed/duplicate headers; build compact DOI/PMID indexes; atomic replace; verified rollback/stale-snapshot behavior.
+- [x] Runtime consumes only verified local snapshot + manifest.
+- [x] Do not dynamically fetch the dataset inside a user request and do not widen ordinary upstream allowlists for the snapshot source.
+
+Phase D4 candidate verification on
+`agent/execution-control-phase-d4-20260824` adds a fixed Crossref-GitLab sync,
+exact-commit/source/header manifest, streaming standards-compliant parser,
+immutable normalized records plus role-aware DOI/PMID indexes, complete runtime
+reverification, same-filesystem atomic activation, source-check-time-bound
+verified rollback, and explicit stale/no-match limits. The existing signed
+external-evidence coordinator may consume a server-injected verified reader;
+when absent, the prior `not_configured` gap remains unchanged. Configured
+snapshot events and artifacts are bound into the receipt and existing
+publication-history/claim-restriction path. Focused verification passes 29
+tests and the complete deterministic suite passes 1,233 tests with six
+declared skips. `npm run verify` passes typechecking, the same suite, and the
+production build. The real dataset was not downloaded or committed, and no
+production directory, schedule, retention, pruning, config binding, endpoint,
+allowlist change, protocol, Custom GPT, plugin, or deployment change was made.
+The Phase G production storage/scheduling owner gate remains open.
 
 **Owner/privacy gate:** production activation of durable snapshot storage/cron must be reconciled with Phase G. The recommendation is to deploy a verified daily snapshot, but this roadmap does not silently waive retention/storage review.
 
