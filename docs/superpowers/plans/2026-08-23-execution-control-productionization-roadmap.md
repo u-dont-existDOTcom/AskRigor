@@ -424,16 +424,28 @@ artifacts are unchanged. Reviewed merge remains required before Phase D2.
 
 #### Phase D2 — Composite coordinator + receipt + typed audit references
 
-- [ ] Add internal `external_study_evidence_audit` coordinator; it calls providers itself and accepts no caller completion booleans/counts.
-- [ ] Add deterministic normalized bundle hashing, controller directives, unresolved/claim-local limitations, and server-issued study-external-evidence receipt.
-- [ ] Bind receipt to session, exact study identity, exact protocol hashes, provider attempts/response hashes, bundle hash, issue time, and key ID.
-- [ ] Add typed external evidence references to the existing replication/evidence-ancestry method-audit domain without fake document block IDs.
-- [ ] Preserve all existing document-block validation for other domains.
-- [ ] Define `EvidenceArtifactStore` abstraction + in-memory tests, but do not activate durable production persistence.
-- [ ] Add placeholder receipt-secret/key-ID configuration only; never expose secret material.
-- [ ] No public Action/MCP change.
+- [x] Add internal `external_study_evidence_audit` coordinator; it calls providers itself and accepts no caller completion booleans/counts.
+- [x] Add deterministic normalized bundle hashing, controller directives, unresolved/claim-local limitations, and server-issued study-external-evidence receipt.
+- [x] Bind receipt to session, exact study identity, exact protocol hashes, provider attempts/response hashes, bundle hash, issue time, and key ID.
+- [x] Add typed external evidence references to the existing replication/evidence-ancestry method-audit domain without fake document block IDs.
+- [x] Preserve all existing document-block validation for other domains.
+- [x] Define `EvidenceArtifactStore` abstraction + in-memory tests, but do not activate durable production persistence.
+- [x] Add placeholder receipt-secret/key-ID configuration only; never expose secret material.
+- [x] No public Action/MCP change.
 
 **D2 gate:** tampered/cross-study/cross-session/cross-protocol receipts fail, and structural receipt validation is not mislabeled semantic truth.
+
+Phase D2 candidate verification on `agent/execution-control-phase-d2-20260824`
+passed the 81-test focused artifact/coordinator/provider/method-audit suite and
+the 104-test public-schema/inventory regression suite. The complete host-
+boundary deterministic suite passed 1,205 tests with six declared skips;
+`npm run verify` passed typechecking, the same complete suite, and the
+production build. The internal HMAC receipt is bound to exact session, study,
+protocol, provider attempts/artifacts, bundle, issue time, and key ID; hostile
+tests reject tampering and mixed contexts. The public method-audit schema,
+21-tool MCP catalog, and 26-Action document remain unchanged. No session
+integration, durable store, new host, public operation, production setting, or
+deployment was added. Reviewed merge remains required before Phase D3.
 
 #### Phase D3 — Session enforcement + formal/full-text integration
 

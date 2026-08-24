@@ -1,5 +1,70 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase D2 candidate
+
+Branch `agent/execution-control-phase-d2-20260824` starts from exact Phase D1
+merge `bf716e40e04fc025e5fe0ceebd9ce199e51df3b5` and implements Phase D2 of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+It composes the Phase D1 Crossref/FORRT primitives into one internal server-
+owned external-study evidence operation without creating a public endpoint or
+advancing research-session state.
+
+The coordinator accepts only an opaque authoritative session ID and one DOI.
+Server dependencies supply exact Universal/HRP identities, Crossref
+configuration, fixed provider executors, a bounded artifact store, clock,
+server-held receipt secret, and nonsecret key ID. Exact Crossref identity is a
+prerequisite for FORRT; identity failure stops before the second provider and
+creates no signed receipt. Caller completion flags, providers, counts,
+identities, directives, hashes, artifacts, and receipt fields are rejected.
+
+The server normalizes mandatory Crossref/FORRT attempts plus explicit
+unconfigured optional-provider gaps, derives deterministic publication-
+notice/active-retraction/correction/reinstatement/linked-repetition work and
+claim-local restrictions, and hashes the complete canonical evidence bundle.
+No-match, partial, inaccessible, retryable, nonretryable, and malformed states
+remain distinct. Provider-reported repetition outcomes remain unaudited leads;
+the receipt contains no quality score or replication-verification shortcut.
+
+The HMAC-SHA256 receipt binds the exact session, canonical study identity,
+Universal/HRP identities and hashes, provider attempts, content-addressed
+provider artifact IDs/hashes, bundle hash, issue time, and key ID. Verification
+rejects tampered, cross-session, cross-study, cross-protocol, cross-bundle,
+cross-artifact, and wrong-secret receipts. Its literal boundary proves
+structural execution/provenance, not that provider assertions or AskRigor
+interpretations are scientifically true.
+
+The new `EvidenceArtifactStore` abstraction has only a bounded in-memory
+implementation: 128 entries, 10 MiB per artifact, and 32 MiB total by default,
+with clone-on-write/read, exact deduplication, explicit revocation, and no
+timer, disk, database, object store, or production singleton. Portable receipts
+carry only artifact references/hashes, not bodies or signing secrets. Durable
+storage remains the later Phase G privacy/owner decision.
+
+The existing public study-method audit remains unchanged. A separate internal
+external-evidence-bound schema allows typed provider/item references only in
+the replication/evidence-ancestry domain and validates them against the signed
+current bundle. Other domains still require real acquired-document blocks;
+invented or unknown `jats_*`/`pdf_*` blocks and changed external bindings fail.
+
+Focused artifact/coordinator/provider/method-audit tests pass 81/81. Public
+schema/inventory regressions pass 104/104 at the host boundary. The complete
+deterministic suite passes 1,205 tests with six declared skips, and a clean
+`npm run verify` passes typechecking, the same complete suite, and production
+build. One earlier combined verification attempt hit only the existing
+10-second package-entrypoint test ceiling under suite load; that test passed in
+3.6 seconds alone and the complete clean rerun passed.
+
+Public inventories remain 21 MCP tools and 26 Actions. Canonical protocol
+bytes, public schemas, generated Custom GPT Instructions, plugin bytes,
+provider hosts, deployment configuration, credentials, and production runtime
+are unchanged. Phase D3 is next after reviewed merge. The Phase D2 lesson
+checkpoint at `2026-08-24T01:27:59.389Z` was available with 1 open candidate,
+1 needing review, 0 accepted but not incorporated, 3 incorporated or closed,
+and 0 deletion eligible. No unreviewed lesson expanded this phase. Lesson
+disposition is project-specific/no-new-lesson: D2 faithfully implements the
+already owner-approved external-evidence architecture and exposes no new
+transferable product failure beyond the existing execution-control lessons.
+
 ## 2026-08-24 execution-control Phase D1 candidate
 
 Branch `agent/execution-control-phase-d1-20260824` starts from exact Phase C

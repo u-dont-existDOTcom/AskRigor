@@ -1,9 +1,9 @@
 # External study-evidence source boundaries
 
-Status at 2026-08-24: internal Phase D1 source primitives only. They are not
-registered as public MCP tools or Custom GPT Actions, are not connected to the
-non-production research-session controller yet, and cannot authorize synthesis
-or finalization.
+Status at 2026-08-24: internal Phase D2 source and coordination primitives.
+They are not registered as public MCP tools or Custom GPT Actions, are not
+connected to the non-production research-session controller yet, and cannot
+authorize synthesis or finalization.
 
 ## Crossref publication-integrity metadata
 
@@ -24,7 +24,7 @@ an uncertain state. Retrieval failure, denial, rate limiting, and missing
 records remain distinct from a successful no-marker result.
 
 The existing public backward-compatible retraction lookup retains its prior
-payload shape. The richer event history is internal in Phase D1.
+payload shape. The richer event history is internal.
 
 ## FORRT FLoRA replication relationships
 
@@ -69,15 +69,69 @@ limitations.
 The contract deliberately has no global scientific, validity, reliability,
 quality, or replication-verification score. Publication status, methods,
 replication implementation match, result-specific bias, applicability, and
-source access remain separate questions. Phase D2 will add the composite
-coordinator and integrity receipt; Phase D3 will connect that evidence to
-server-owned execution state.
+source access remain separate questions. Phase D3 will connect this evidence
+to server-owned execution state.
+
+## Internal composite coordinator and receipt
+
+The Phase D2 coordinator accepts only an authoritative internal research-
+session ID and one DOI. Server construction supplies the exact current
+Universal/HRP manifests, fixed Crossref configuration, provider executors,
+clock, artifact store, signing secret, and nonsecret key ID. A caller cannot
+submit provider lists, completion flags, counts, identities, directives,
+limitations, hashes, or receipt fields.
+
+The coordinator canonicalizes the DOI and requires an exact successful
+Crossref identity before invoking FORRT. Crossref identity failure stops before
+FORRT and creates no signed audit. After verified identity, the server runs
+both mandatory open providers, records explicit `not_configured` coverage for
+the optional Retraction Watch snapshot, PubPeer, Epistemonikos, and Scite
+integrations, and derives a deterministic normalized bundle. Retryable,
+partial, inaccessible, nonretryable, no-match, and successful provider states
+remain distinct.
+
+The normalized bundle derives notice-audit, prior-audit invalidation, active-
+retraction exclusion, linked-repetition acquisition, and provider-gap
+directives. Every FORRT relationship remains a provider-reported lead with
+implementation and linked-source audit still pending. Historical retraction
+followed by reinstatement retains the history and notice work without being
+misrepresented as a currently active retraction.
+
+The server-issued HMAC-SHA256 receipt is bound to the exact session, canonical
+study identity hash, Universal/HRP identities and hashes, complete provider
+attempts, provider artifact IDs/content hashes, normalized bundle hash, issue
+time, and key ID. Verification rejects changed studies, sessions, protocols,
+bundles, artifacts, payloads, signatures, and secrets. This proves structural
+execution/provenance and tamper resistance; it does not prove that provider
+assertions or AskRigor interpretations are scientifically true.
+
+## Evidence artifacts and method-audit binding
+
+`EvidenceArtifactStore` is a content-addressed abstraction. Its Phase D2
+implementation is bounded process memory only: at most 128 entries, 10 MiB per
+artifact, and 32 MiB total by default. It clones bytes on write/read,
+deduplicates exact artifacts, supports explicit revocation, and writes no disk,
+database, object store, log, or portable token. The coordinator currently
+stores only strict normalized Crossref and FORRT envelopes. Portable receipts
+contain artifact IDs, hashes, provider identities, kinds, and byte counts—not
+the artifact bodies or signing secret.
+
+The existing public method-audit submission and receipt remain unchanged. A
+separate internal schema permits typed external references only in the
+`replication_contradiction_and_evidence_ancestry` domain. Each reference is
+bound to the signed external receipt, exact study identity, provider, item kind,
+and item hash. All other domains retain real acquired-document block
+requirements, and invented `jats_*` or `pdf_*` blocks still fail. Provider-
+reported relationships remain source-linked leads until the linked work's
+implementation, methods, and result are separately audited.
 
 ## Storage, activation, and verification
 
-Phase D1 adds no database, durable artifact store, session retention, public
-operation, provider credential, deployment setting, or production provider
-call. Hermetic fixtures cover all normalized event and relationship classes,
-duplicates, reverse links, malformed data, no match, access failure, rate
-limiting, upstream failure, and transport failure. Public inventories remain
-21 MCP tools and 26 Actions.
+Phase D2 adds no database, durable artifact store, session integration, public
+operation, provider credential, provider host, deployment setting, or
+production provider call. The environment file contains placeholder-only
+receipt-secret and key-ID names; no runtime route reads or returns them.
+Hermetic tests cover strict input, identity failure, normalized provider
+states, directives, deterministic hashes, artifact bounds, signed-receipt
+tampering/cross-context rejection, and typed method-audit references. Public
+inventories remain 21 MCP tools and 26 Actions.

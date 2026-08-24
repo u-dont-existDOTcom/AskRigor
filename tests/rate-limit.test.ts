@@ -3,6 +3,8 @@ import type { AddressInfo } from "node:net";
 import { describe, expect, it } from "vitest";
 
 import {
+  externalEvidenceReceiptKeyIdFromEnv,
+  externalEvidenceReceiptSecretFromEnv,
   mcpHandshakeDiagnosticsAreEnabled,
   parseTrustedClientIpHeader,
   PUBLIC_MCP_CONCURRENCY_LIMIT,
@@ -168,6 +170,16 @@ describe("trusted client IP resolution", () => {
     expect(mcpHandshakeDiagnosticsAreEnabled("true")).toBe(true);
     expect(mcpHandshakeDiagnosticsAreEnabled("TRUE")).toBe(false);
     expect(mcpHandshakeDiagnosticsAreEnabled(undefined)).toBe(false);
+  });
+
+  it("reads internal external-evidence receipt placeholders without exposing or normalizing the secret", () => {
+    const secret = "  exact server-held secret bytes must stay exact  ";
+    expect(externalEvidenceReceiptSecretFromEnv(secret)).toBe(secret);
+    expect(externalEvidenceReceiptSecretFromEnv(undefined)).toBeUndefined();
+    expect(externalEvidenceReceiptKeyIdFromEnv(" external-evidence-v1 "))
+      .toBe("external-evidence-v1");
+    expect(externalEvidenceReceiptKeyIdFromEnv("   ")).toBeUndefined();
+    expect(externalEvidenceReceiptKeyIdFromEnv(undefined)).toBeUndefined();
   });
 });
 

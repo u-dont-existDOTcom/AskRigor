@@ -129,12 +129,48 @@ export {
 } from "./actions/research-video-depth-controller.js";
 export {
   STUDY_METHOD_AUDIT_DOMAINS,
+  studyMethodAuditExternalBindingSchema,
+  studyMethodAuditExternalReceiptSchema,
+  studyMethodAuditExternalSubmissionSchema,
+  studyMethodExternalEvidenceReferenceSchema,
   studyMethodAuditReceiptSchema,
   studyMethodAuditSubmissionSchema,
   validateStudyMethodAudit,
+  validateStudyMethodAuditWithExternalEvidence,
+  type StudyMethodAuditExternalReceipt,
+  type StudyMethodAuditExternalSubmission,
   type StudyMethodAuditReceipt,
   type StudyMethodAuditSubmission
 } from "./actions/study-method-audit.js";
+export {
+  computeStudyExternalEvidenceBundleHash,
+  createStudyExternalEvidenceCoordinator,
+  studyExternalEvidenceArtifactReferenceSchema,
+  studyExternalEvidenceAuditInputSchema,
+  studyExternalEvidenceAuditOutputSchema,
+  studyExternalEvidenceProtocolTupleSchema,
+  studyExternalEvidenceReceiptSchema,
+  StudyExternalEvidenceIdentityError,
+  StudyExternalEvidenceReceiptError,
+  verifyStudyExternalEvidenceReceipt,
+  type StudyExternalEvidenceAuditInput,
+  type StudyExternalEvidenceAuditOutput,
+  type StudyExternalEvidenceCoordinator,
+  type StudyExternalEvidenceCoordinatorOptions,
+  type StudyExternalEvidenceProtocolTuple,
+  type StudyExternalEvidenceReceipt
+} from "./actions/study-external-evidence.js";
+export {
+  createInMemoryEvidenceArtifactStore,
+  evidenceArtifactDescriptorSchema,
+  evidenceArtifactKindSchema,
+  type EvidenceArtifactDescriptor,
+  type EvidenceArtifactInput,
+  type EvidenceArtifactKind,
+  type EvidenceArtifactRecord,
+  type EvidenceArtifactStore,
+  type InMemoryEvidenceArtifactStoreOptions
+} from "./actions/evidence-artifact-store.js";
 export {
   REVIEW_METHOD_AUDIT_DOMAINS,
   reviewMethodAuditReceiptSchema,

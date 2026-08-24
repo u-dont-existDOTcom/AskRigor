@@ -70,6 +70,7 @@ export {
   checkCrossrefPublicationIntegrity,
   checkRetractionStatus,
   resolveDoi,
+  type CrossrefConfig,
   type CrossrefPublicationIntegrityData,
   type CrossrefCandidate,
   type ResolveDoiData,
@@ -77,6 +78,7 @@ export {
   type RetractionStatus,
   type RetractionStatusData
 } from "./crossref.js";
+export { normalizeDoiIdentifier } from "./doi.js";
 export {
   lookupForrtReplicationRelationships,
   type ForrtReplicationLookupData,
