@@ -878,6 +878,15 @@ export function reconcileFormalEvidenceAfterEphemeralLoss(
     if (!lostPartialChain && !exhaustedNeedsReacquisition) continue;
     const preserveCompletedAudit =
       !lostPartialChain && source.method_audit.status === "COMPLETE";
+    const reopenExternalEvidence =
+      preserveCompletedAudit &&
+      source.source_kind === "SCIENTIFIC_STUDY" &&
+      source.identity.doi !== undefined &&
+      source.external_evidence.status === "COMPLETE" &&
+      (
+        source.claim_capability.status === "LINKED_WORK_REQUIRED" ||
+        source.claim_capability.status === "RECALCULATION_REQUIRED"
+      );
     state = replaceSource(state, source.source_id, {
       ...source,
       full_text: fullTextStateSchema.parse({
@@ -892,10 +901,25 @@ export function reconcileFormalEvidenceAfterEphemeralLoss(
       method_audit: preserveCompletedAudit
         ? source.method_audit
         : initialMethodAudit(source.source_kind),
-      external_evidence: preserveCompletedAudit
+      external_evidence: reopenExternalEvidence
+        ? initialExternalEvidence(source.source_kind)
+        : preserveCompletedAudit
         ? source.external_evidence
         : initialExternalEvidence(source.source_kind),
-      claim_capability: preserveCompletedAudit
+      claim_capability: reopenExternalEvidence
+        ? claimCapabilityStateSchema.parse({
+          status: "EXTERNAL_AUDIT_PENDING",
+          ...(source.method_audit.claim_capability_digest === undefined
+            ? {}
+            : {
+              capability_digest: source.method_audit.claim_capability_digest,
+            }),
+          ...(source.method_audit.audit_sha256 === undefined
+            ? {}
+            : { method_audit_sha256: source.method_audit.audit_sha256 }),
+          unrestricted_decision_use: false,
+        })
+        : preserveCompletedAudit
         ? source.claim_capability
         : initialClaimCapability(source.source_kind),
     });

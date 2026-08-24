@@ -336,6 +336,31 @@ describe("controller-owned formal evidence frontier", () => {
         source_id
       )).toContain(source.source_id);
       if (source.source_id === formal.sources[0]!.source_id) {
+        let restoredAfterExternal = reconcileFormalEvidenceAfterEphemeralLoss(formal);
+        expect(restoredAfterExternal.sources.find(({ source_id }) =>
+          source_id === source.source_id
+        )).toMatchObject({
+          full_text: { status: "BLOCKED_RETRYABLE" },
+          method_audit: {
+            status: "COMPLETE",
+            audit_sha256: pending.method_audit.audit_sha256
+          },
+          external_evidence: { status: "NOT_STARTED" },
+          claim_capability: {
+            status: "EXTERNAL_AUDIT_PENDING",
+            unrestricted_decision_use: false
+          }
+        });
+        restoredAfterExternal = await executeResearchSourceFullTextChain(
+          restoredAfterExternal,
+          source.source_id,
+          openTextExecutor()
+        );
+        expect(createFormalExternalEvidenceWorkPackages(restoredAfterExternal)
+          .map(({ source_id }) => source_id)).toContain(source.source_id);
+        expect(createFormalClaimRecalculationWorkPackages(restoredAfterExternal)
+          .map(({ source_id }) => source_id)).not.toContain(source.source_id);
+
         const omittedCoverage = externalStudyAudit(pending, output);
         const ancestry = omittedCoverage.domain_findings.find(({ domain }) =>
           domain === "replication_contradiction_and_evidence_ancestry"
@@ -636,6 +661,19 @@ describe("controller-owned formal evidence frontier", () => {
     );
     parent = formal.sources.find(({ source_id }) => source_id === selected.source_id)!;
     expect(parent.claim_capability.status).toBe("LINKED_WORK_REQUIRED");
+    const restoredWithLinkedWorkPending =
+      reconcileFormalEvidenceAfterEphemeralLoss(formal);
+    expect(restoredWithLinkedWorkPending.sources.find(({ source_id }) =>
+      source_id === selected.source_id
+    )).toMatchObject({
+      full_text: { status: "BLOCKED_RETRYABLE" },
+      method_audit: { status: "COMPLETE" },
+      external_evidence: { status: "NOT_STARTED", linked_work: [] },
+      claim_capability: {
+        status: "EXTERNAL_AUDIT_PENDING",
+        unrestricted_decision_use: false
+      }
+    });
     const linkedSourceId = parent.external_evidence.linked_work[0]!.linked_source_id!;
     expect(deriveFormalEvidenceOperationStatus(formal, "accessible_full_text_acquisition"))
       .toBe("IN_PROGRESS");

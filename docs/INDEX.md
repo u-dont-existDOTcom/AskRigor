@@ -110,6 +110,9 @@ complete XML protocol.
 - `research-session-resumability-deployment.md`: fixed VPS paths, secret-safe
   configuration, staged private-interface activation, restart acceptance,
   failure recovery, and rollback procedure
+- `private-research-orchestration.md`: disabled-by-default authenticated
+  controller transport, minimal machine projection, strict limits, no-browser
+  boundary, checkpoint composition, and Phase H non-activation scope
 - `retraction-watch-snapshot.md`: fixed official source, strict CSV/header
   handling, verified local snapshot/index format, atomic activation/rollback,
   active/previous pruning, staleness semantics, coordinator boundary, and
@@ -151,6 +154,9 @@ complete XML protocol.
   owner-delegated encrypted local checkpoint, ephemeral raw-evidence boundary,
   restart reconciliation, public Retraction Watch scheduling, threat model,
   retention, deletion, and rollback plan
+- `superpowers/plans/2026-08-24-phase-h-private-orchestration-interface.md`:
+  private controller transport, semantic package binding, hostile interface
+  tests, public-inventory freeze, and restart-safety prerequisite
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

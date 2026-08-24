@@ -18,6 +18,10 @@ import {
   MAX_MCP_REQUEST_BYTES,
   mcpHandshakeDiagnosticsAreEnabled,
   parseTrustedClientIpHeader,
+  PRIVATE_ORCHESTRATION_CONCURRENCY_LIMIT,
+  PRIVATE_ORCHESTRATION_RATE_LIMIT,
+  privateResearchOrchestrationApiKeyFromEnv,
+  privateResearchOrchestrationIsEnabled,
   PUBLIC_MCP_BROWSER_ORIGINS,
   PUBLIC_MCP_CONCURRENCY_LIMIT,
   PUBLIC_RATE_LIMIT,
@@ -25,7 +29,8 @@ import {
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
   SERVICE_NAME,
-  SERVICE_VERSION
+  SERVICE_VERSION,
+  validatePrivateResearchOrchestrationApiKey
 } from "./config.js";
 import { createActionOpenApiDocument } from "./actions/openapi.js";
 import { hasValidActionAuthorization } from "./actions/auth.js";
@@ -57,6 +62,10 @@ import {
 } from "./rate-limit.js";
 import { registerTools } from "./register-tools.js";
 import { installGeminiCompatibleToolCatalog } from "./gemini-tool-catalog.js";
+import {
+  createPrivateResearchOrchestrationHandler,
+  type PrivateResearchOrchestrationHandler
+} from "./private-research-orchestration.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -92,6 +101,11 @@ export interface AskRigorHttpServerOptions {
   mcpHandshakeDiagnosticLogger?: (
     record: McpHandshakeDiagnosticRecord
   ) => void;
+  privateOrchestrationEnabled?: boolean;
+  privateOrchestrationApiKey?: string;
+  privateOrchestrationHandler?: PrivateResearchOrchestrationHandler;
+  privateOrchestrationRateLimiter?: TokenBucketLimiter;
+  privateOrchestrationConcurrencyLimiter?: ConcurrencyLimiter;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -182,6 +196,24 @@ export function createAskRigorHttpServer(
     mcpHandshakeDiagnosticsAreEnabled();
   const mcpHandshakeDiagnosticLogger = options.mcpHandshakeDiagnosticLogger ??
     writeMcpHandshakeDiagnostic;
+  const privateOrchestrationEnabled = options.privateOrchestrationEnabled ??
+    privateResearchOrchestrationIsEnabled();
+  const privateOrchestrationApiKey = privateOrchestrationEnabled
+    ? validatePrivateResearchOrchestrationApiKey(
+      options.privateOrchestrationApiKey ??
+      privateResearchOrchestrationApiKeyFromEnv()
+    )
+    : undefined;
+  const privateOrchestrationHandler = options.privateOrchestrationHandler ??
+    (privateOrchestrationEnabled
+      ? createPrivateResearchOrchestrationHandler()
+      : undefined);
+  const privateOrchestrationRateLimiter =
+    options.privateOrchestrationRateLimiter ??
+    createTokenBucketLimiter(PRIVATE_ORCHESTRATION_RATE_LIMIT);
+  const privateOrchestrationConcurrencyLimiter =
+    options.privateOrchestrationConcurrencyLimiter ??
+    createConcurrencyLimiter(PRIVATE_ORCHESTRATION_CONCURRENCY_LIMIT);
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -202,6 +234,21 @@ export function createAskRigorHttpServer(
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(HEALTH_PAYLOAD));
+      return;
+    }
+
+    if (
+      privateOrchestrationEnabled &&
+      privateOrchestrationApiKey !== undefined &&
+      privateOrchestrationHandler !== undefined &&
+      await privateOrchestrationHandler.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+        apiKey: privateOrchestrationApiKey,
+        rateLimiter: privateOrchestrationRateLimiter,
+        concurrencyLimiter: privateOrchestrationConcurrencyLimiter
+      })
+    ) {
       return;
     }
 

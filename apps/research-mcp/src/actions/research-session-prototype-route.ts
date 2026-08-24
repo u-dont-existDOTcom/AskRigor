@@ -113,7 +113,12 @@ export function createResearchSessionPrototypeRoutes(
         const protocols = await currentProtocolBindings(manifests);
         const state = createInitialResearchSessionState(input, protocols);
         const sessionId = store.issue(state);
-        return projectResearchSessionView(sessionId, state);
+        try {
+          return projectResearchSessionView(sessionId, state);
+        } catch (error) {
+          store.delete(sessionId);
+          throw error;
+        }
       }
     });
   }
@@ -132,31 +137,32 @@ export function createResearchSessionPrototypeRoutes(
             await currentProtocolBindings(manifests)
           );
           if (checked.protocol_binding.currency === "DRIFTED") {
-            store.replace(sessionId, checked);
-            return {
+            const projected = {
               ...projectResearchSessionView(sessionId, checked),
               last_transition: {
                 capability: "protocol_currency_recheck" as const,
                 result: "protocol_drift" as const
               }
             };
+            store.replace(sessionId, checked);
+            return projected;
           }
 
           if (checked.scout.status !== "COMPLETE") {
             if (checked.operations.automated_video_scout.status === "BLOCKED_TERMINAL") {
-              store.replace(sessionId, checked);
-              return {
+              const projected = {
                 ...projectResearchSessionView(sessionId, checked),
                 last_transition: {
                   capability: "automated_video_scout" as const,
                   result: "blocked_terminal" as const
                 }
               };
+              store.replace(sessionId, checked);
+              return projected;
             }
             const next = await runScout(checked);
-            store.replace(sessionId, next);
             const operationStatus = next.operations.automated_video_scout.status;
-            return {
+            const projected = {
               ...projectResearchSessionView(sessionId, next),
               last_transition: {
                 capability: "automated_video_scout" as const,
@@ -167,12 +173,13 @@ export function createResearchSessionPrototypeRoutes(
                     : "blocked_retryable" as const
               }
             };
+            store.replace(sessionId, next);
+            return projected;
           }
 
           const nativeStatus = checked.operations.native_video_discovery.status;
           if (nativeStatus === "COMPLETE" || nativeStatus === "BLOCKED_TERMINAL") {
-            store.replace(sessionId, checked);
-            return {
+            const projected = {
               ...projectResearchSessionView(sessionId, checked),
               last_transition: {
                 capability: "native_video_discovery" as const,
@@ -181,12 +188,13 @@ export function createResearchSessionPrototypeRoutes(
                   : "blocked_terminal" as const
               }
             };
+            store.replace(sessionId, checked);
+            return projected;
           }
 
           const next = await runNativeDiscovery(checked);
-          store.replace(sessionId, next);
           const operationStatus = next.operations.native_video_discovery.status;
-          return {
+          const projected = {
             ...projectResearchSessionView(sessionId, next),
             last_transition: {
               capability: "native_video_discovery" as const,
@@ -197,6 +205,8 @@ export function createResearchSessionPrototypeRoutes(
                   : "blocked_retryable" as const
             }
           };
+          store.replace(sessionId, next);
+          return projected;
         } catch (error) {
           store.rollback(sessionId);
           throw error;
@@ -230,8 +240,7 @@ export function createResearchSessionPrototypeRoutes(
             claimed,
             await currentProtocolBindings(manifests)
           );
-          store.replace(sessionId, checked);
-          return evaluateResearchFinalization(sessionId, checked, {
+          const decision = evaluateResearchFinalization(sessionId, checked, {
             ...(options.finalizationSigningSecret === undefined
               ? {}
               : { signingSecret: options.finalizationSigningSecret }),
@@ -245,6 +254,8 @@ export function createResearchSessionPrototypeRoutes(
               ? {}
               : { ttlMs: options.finalizationPermitTtlMs })
           });
+          store.replace(sessionId, checked);
+          return decision;
         } catch (error) {
           store.rollback(sessionId);
           throw error;
