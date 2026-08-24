@@ -24,6 +24,7 @@ import {
 import type {
   CrossrefPublicationIntegrityData,
   ForrtReplicationLookupData,
+  RetractionWatchPublicationIntegrityData,
 } from "../packages/sources/src/index.js";
 
 const DOI = "10.5555/coordinator.study";
@@ -166,6 +167,76 @@ function forrtEnvelope(input: {
       relationships,
       rejected_relationship_rows: 0,
       coverage_statement: "Provider-scoped FORRT coverage only.",
+    },
+  });
+}
+
+function retractionWatchEvent(
+  kind: "retraction" | "expression_of_concern" | "correction" | "reinstatement",
+  date: string,
+) {
+  const assertionCore = {
+    provider: "retraction_watch" as const,
+    assertion_source: "retraction_watch" as const,
+    raw_source: "Retraction Watch database via Crossref",
+    relation_direction: "inbound" as const,
+    provider_record_id: "rw-100",
+    raw_relation_type: "RetractionNature",
+    raw_type: kind,
+    raw_label: kind,
+    asserted_at: `${date}T00:00:00.000Z`,
+  };
+  const core = {
+    sequence: 0,
+    event_kind: kind,
+    event_date: date,
+    original_doi: DOI,
+    notice_doi: "10.5555/rw.notice",
+    reasons: ["Provider-curated reason"],
+    assertions: [{
+      ...assertionCore,
+      assertion_hash: hash(JSON.stringify(assertionCore)),
+    }],
+  };
+  return publicationIntegrityEventSchema.parse({
+    ...core,
+    event_hash: hash(JSON.stringify(core)),
+  });
+}
+
+function retractionWatchEnvelope(input: {
+  event?: ReturnType<typeof retractionWatchEvent>;
+  accessStatus?: "metadata_only" | "partial";
+} = {}): ProvenanceEnvelope<RetractionWatchPublicationIntegrityData> {
+  const events = input.event === undefined ? [] : [input.event];
+  return okEnvelope({
+    provider: "retraction_watch",
+    recordType: "publication_integrity",
+    primaryIdentifier: DOI,
+    retrievedAt: "2026-08-24T01:22:00.000Z",
+    sourceIdentity: { canonical_url: `https://doi.org/${DOI}` },
+    accessStatus: input.accessStatus ?? "metadata_only",
+    pagination: { exhausted: true },
+    returned: events.length,
+    limitations: input.accessStatus === "partial"
+      ? ["The verified local snapshot is stale."]
+      : ["Provider-curated publication-integrity metadata only."],
+    data: {
+      doi: DOI,
+      lookup_status: events.length === 0 ? "no_match_in_provider" : "records_available",
+      record_state: events.length === 0
+        ? "no_update_marker_found"
+        : input.event!.event_kind === "retraction"
+          ? "active_retraction_or_withdrawal"
+          : "correction_recorded",
+      events,
+      snapshot_id: `rws1_${"a".repeat(64)}`,
+      source_commit: "b".repeat(40),
+      source_file_sha256: "c".repeat(64),
+      source_checked_at: "2026-08-24T01:22:00.000Z",
+      freshness_status: input.accessStatus === "partial" ? "stale" : "current",
+      matched_record_ids: events.length === 0 ? [] : ["100"],
+      notice_only_record_ids: [],
     },
   });
 }
@@ -322,6 +393,92 @@ describe("server-owned external study-evidence coordinator", () => {
     } as never)).rejects.toThrow();
     expect(crossref).not.toHaveBeenCalled();
     expect(forrt).not.toHaveBeenCalled();
+  });
+
+  it("executes a configured verified Retraction Watch snapshot and binds its events, snapshot, and artifact into the signed bundle", async () => {
+    const retractionWatch = vi.fn(async () => retractionWatchEnvelope({
+      event: retractionWatchEvent("retraction", "2025-03-04"),
+    }));
+    const output = await createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope({
+          state: "correction_recorded",
+          events: [event("correction", 0, "2024-02-03")],
+        })),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        retractionWatch,
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI });
+
+    expect(retractionWatch).toHaveBeenCalledExactlyOnceWith(DOI);
+    expect(output.status).toBe("complete");
+    expect(output.provider_artifacts).toHaveLength(3);
+    expect(output.bundle.provider_attempts).toHaveLength(6);
+    expect(output.bundle.provider_attempts.find(({ provider }) => provider === "retraction_watch"))
+      .toMatchObject({
+        provider_outcome: "records_available",
+        access_status: "metadata_only",
+        snapshot_id: `rws1_${"a".repeat(64)}`,
+      });
+    expect(output.bundle.provider_attempts.filter(({ provider_outcome }) =>
+      provider_outcome === "not_configured"
+    ).map(({ provider }) => provider).sort()).toEqual([
+      "epistemonikos", "pubpeer", "scite",
+    ]);
+    expect(output.bundle.publication_integrity.record_state)
+      .toBe("active_retraction_or_withdrawal");
+    expect(output.bundle.publication_integrity.events.map(({ event_kind }) => event_kind))
+      .toEqual(["correction", "retraction"]);
+    expect(output.bundle.publication_integrity.events.flatMap(({ assertions }) => assertions)
+      .map(({ provider }) => provider)).toEqual(["crossref", "retraction_watch"]);
+    expect(output.bundle.controller_directives.map(({ directive }) => directive))
+      .toContain("exclude_source_from_effect_claims");
+    expect(() => verifyStudyExternalEvidenceReceipt(
+      output.receipt,
+      expectedReceiptContext(output),
+      SECRET,
+    )).not.toThrow();
+  });
+
+  it("keeps configured stale and retryable Retraction Watch coverage from becoming complete", async () => {
+    const stale = await createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        retractionWatch: vi.fn(async () => retractionWatchEnvelope({
+          accessStatus: "partial",
+        })),
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI });
+    expect(stale.status).toBe("partial");
+    expect(stale.bundle.provider_attempts.find(({ provider }) => provider === "retraction_watch"))
+      .toMatchObject({ provider_outcome: "partial", access_status: "partial" });
+
+    const retryable = errorEnvelope<RetractionWatchPublicationIntegrityData>({
+      provider: "retraction_watch",
+      recordType: "publication_integrity",
+      primaryIdentifier: DOI,
+      retrievedAt: "2026-08-24T01:22:00.000Z",
+      accessStatus: "error",
+      limitations: ["Snapshot read failed."],
+      code: "retraction_watch_snapshot_read_failed",
+      message: "Snapshot read failed",
+      retryable: true,
+      data: {
+        ...retractionWatchEnvelope().data,
+        record_state: "state_uncertain",
+      },
+    }) as ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>;
+    const blocked = await createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        retractionWatch: vi.fn(async () => retryable),
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI });
+    expect(blocked.status).toBe("blocked_retryable");
+    expect(blocked.bundle.provider_attempts.find(({ provider }) => provider === "retraction_watch"))
+      .toMatchObject({ provider_outcome: "error", error: { retryable: true } });
   });
 
   it("stops before FORRT and issues no output when Crossref cannot verify identity", async () => {

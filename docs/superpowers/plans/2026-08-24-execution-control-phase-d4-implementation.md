@@ -1,6 +1,6 @@
 # Execution-control Phase D4 implementation plan
 
-**Status:** implementation candidate
+**Status:** fully verified merge-ready candidate; production activation deferred to Phase G
 
 **Branch:** `agent/execution-control-phase-d4-20260824`
 

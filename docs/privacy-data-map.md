@@ -71,6 +71,16 @@ AskRigor has three deliberately separate processing paths:
   artifact bodies, signing secrets, raw chat, or health details. Provider labels
   are leads, no-match is provider-scoped, and a signed structural receipt is not
   a study-quality or scientific-validity determination.
+- **Non-production Retraction Watch snapshot path:** Phase D4 source can fetch
+  the public Crossref Retraction Watch CSV only through an explicit operator
+  command, outside user requests, and transform it into an immutable local
+  manifest, normalized public integrity records, and DOI/PMID indexes. No user
+  prompt, health detail, research query, credential, provider body, article
+  text, or session identifier enters those files. The source candidate has no
+  configured production directory, schedule, pruning, or retention policy and
+  is not deployed. If Phase G activates it, the privacy/threat/retention map
+  must first specify the exact active/previous snapshot files, permissions,
+  deletion, rollback, stale-sync behavior, and deployment topology.
 
 The lesson path is deployed from exact code revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` and passed its bounded synthetic
@@ -295,7 +305,7 @@ retention and provider-side deletion remain governed by the provider.
 ## Research data not persistently stored in v0
 
 - User accounts, profiles, authentication sessions, or user-entered research history.
-- Search queries, research questions, directional labels, citations, protocol text, scholarly records, Crossref publication events, FORRT relationship records, trial records, YouTube videos, retrieved public caption segments, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, transcript cursors, continuation tokens beyond the bounded in-memory Custom GPT handle exception, or completion receipts. The unregistered Phase D2 artifact store is a development-only process-memory exception for normalized public provider envelopes, not persistent storage.
+- Search queries, research questions, directional labels, citations, protocol text, scholarly records, Crossref publication events, FORRT relationship records, trial records, YouTube videos, retrieved public caption segments, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, transcript cursors, continuation tokens beyond the bounded in-memory Custom GPT handle exception, or completion receipts. The unregistered Phase D2 artifact store is a development-only process-memory exception for normalized public provider envelopes, not persistent storage. The Phase D4 Retraction Watch files are likewise source-only and not activated in production; if approved later, they contain only the public provider dataset's minimized integrity fields and verification metadata, never user/session content.
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, server-side transcript copies, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 

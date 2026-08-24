@@ -24,11 +24,13 @@ import {
 import type { ProtocolManifest } from "@askrigor/protocol";
 import {
   checkCrossrefPublicationIntegrity,
+  derivePublicationRecordState,
   lookupForrtReplicationRelationships,
   normalizeDoiIdentifier,
   type CrossrefConfig,
   type CrossrefPublicationIntegrityData,
   type ForrtReplicationLookupData,
+  type RetractionWatchPublicationIntegrityData,
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -174,6 +176,9 @@ interface ProviderExecutors {
     config: CrossrefConfig,
   ): Promise<ProvenanceEnvelope<CrossrefPublicationIntegrityData>>;
   forrt(doi: string): Promise<ProvenanceEnvelope<ForrtReplicationLookupData>>;
+  retractionWatch?(
+    doi: string,
+  ): Promise<ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>>;
 }
 
 export interface StudyExternalEvidenceCoordinatorOptions {
@@ -221,6 +226,9 @@ export function createStudyExternalEvidenceCoordinator(
   const providers: ProviderExecutors = {
     crossref: options.providers?.crossref ?? checkCrossrefPublicationIntegrity,
     forrt: options.providers?.forrt ?? lookupForrtReplicationRelationships,
+    ...(options.providers?.retractionWatch === undefined
+      ? {}
+      : { retractionWatch: options.providers.retractionWatch }),
   };
 
   return Object.freeze({
@@ -232,6 +240,9 @@ export function createStudyExternalEvidenceCoordinator(
       const crossref = await providers.crossref(doi, options.crossrefConfig);
       const identity = verifiedIdentity(crossref, doi);
       const forrt = await providers.forrt(doi);
+      const retractionWatch = providers.retractionWatch === undefined
+        ? undefined
+        : await providers.retractionWatch(doi);
       const issuedAt = validDate(now).toISOString();
       const crossrefArtifact = storeProviderEnvelope(
         artifactStore,
@@ -245,26 +256,63 @@ export function createStudyExternalEvidenceCoordinator(
         doi,
         forrt,
       );
-      const providerArtifacts = [crossrefArtifact, forrtArtifact]
+      const retractionWatchArtifact = retractionWatch === undefined
+        ? undefined
+        : storeProviderEnvelope(
+          artifactStore,
+          "retraction_watch",
+          doi,
+          retractionWatch,
+        );
+      const providerArtifacts = [crossrefArtifact, forrtArtifact, retractionWatchArtifact]
+        .filter((artifact): artifact is EvidenceArtifactDescriptor => artifact !== undefined)
         .map(artifactReference)
         .sort(compareArtifactReferences);
       const providerAttempts = [
         crossrefAttempt(crossref, doi, crossrefArtifact.content_sha256),
         forrtAttempt(forrt, doi, forrtArtifact.content_sha256),
-        ...unconfiguredProviderAttempts(doi, issuedAt),
+        ...(retractionWatch === undefined || retractionWatchArtifact === undefined
+          ? []
+          : [retractionWatchAttempt(
+            retractionWatch,
+            doi,
+            retractionWatchArtifact.content_sha256,
+          )]),
+        ...unconfiguredProviderAttempts(
+          doi,
+          issuedAt,
+          retractionWatch !== undefined,
+        ),
       ].sort(compareProviderAttempts);
-      const status = deriveAuditStatus(forrt);
+      const publicationEvents = retractionWatch === undefined
+        ? crossref.data.events
+        : mergePublicationIntegrityEvents([
+          ...crossref.data.events,
+          ...retractionWatch.data.events,
+        ]);
+      const publicationRecordState = retractionWatch === undefined
+        ? crossref.data.record_state
+        : derivePublicationRecordState(publicationEvents, doi);
+      const status = deriveAuditStatus(forrt, retractionWatch);
       const derived = deriveExternalEvidenceState(
-        crossref,
-        forrt,
-        providerAttempts,
+        {
+          publicationEvents,
+          publicationRecordState,
+          crossref,
+          forrt,
+          retractionWatch,
+          providerAttempts,
+        },
       );
       const bundle = createStudyExternalEvidenceBundle({
         studyIdentity: identity,
         providerAttempts,
-        publicationRecordState: crossref.data.record_state,
-        publicationEvents: crossref.data.events,
-        publicationLimitations: crossref.limitations,
+        publicationRecordState,
+        publicationEvents,
+        publicationLimitations: [
+          ...crossref.limitations,
+          ...(retractionWatch?.limitations ?? []),
+        ],
         relationships: forrt.data.relationships,
         directives: derived.directives,
         unresolvedItems: derived.unresolvedItems,
@@ -432,11 +480,14 @@ function createStudyExternalEvidenceBundle(input: {
   });
 }
 
-function deriveExternalEvidenceState(
-  crossref: ProvenanceEnvelope<CrossrefPublicationIntegrityData>,
-  forrt: ProvenanceEnvelope<ForrtReplicationLookupData>,
-  providerAttempts: ExternalProviderAttempt[],
-): {
+function deriveExternalEvidenceState(input: {
+  publicationEvents: PublicationIntegrityEvent[];
+  publicationRecordState: StudyExternalEvidenceBundle["publication_integrity"]["record_state"];
+  crossref: ProvenanceEnvelope<CrossrefPublicationIntegrityData>;
+  forrt: ProvenanceEnvelope<ForrtReplicationLookupData>;
+  retractionWatch?: ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>;
+  providerAttempts: ExternalProviderAttempt[];
+}): {
   directives: ExternalEvidenceDirective[];
   unresolvedItems: UnresolvedExternalEvidenceItem[];
   claimLocalLimitations: ClaimLocalExternalEvidenceLimitation[];
@@ -445,7 +496,7 @@ function deriveExternalEvidenceState(
   const unresolvedItems: UnresolvedExternalEvidenceItem[] = [];
   const claimLocalLimitations: ClaimLocalExternalEvidenceLimitation[] = [];
 
-  for (const event of crossref.data.events) {
+  for (const event of input.publicationEvents) {
     const impact = eventImpact(event.event_kind);
     unresolvedItems.push({
       item_id: `publication_event:${event.event_hash}`,
@@ -460,7 +511,7 @@ function deriveExternalEvidenceState(
       `Inspect the ${event.event_kind.replaceAll("_", " ")} notice and affected source version before ordinary evidential use.`,
     ));
     if (
-      crossref.data.record_state === "active_retraction_or_withdrawal" &&
+      input.publicationRecordState === "active_retraction_or_withdrawal" &&
       (event.event_kind === "retraction" || event.event_kind === "withdrawal")
     ) {
       directives.push(directive(
@@ -502,7 +553,7 @@ function deriveExternalEvidenceState(
     }
   }
 
-  for (const relationship of forrt.data.relationships) {
+  for (const relationship of input.forrt.data.relationships) {
     directives.push(directive(
       "require_linked_replication_acquisition",
       relationship.relationship_hash,
@@ -522,7 +573,7 @@ function deriveExternalEvidenceState(
     });
   }
 
-  for (const attempt of providerAttempts.filter(
+  for (const attempt of input.providerAttempts.filter(
     ({ provider_outcome }) => provider_outcome === "not_configured",
   )) {
     const attemptHash = sha256(canonicalJson(attempt));
@@ -539,8 +590,15 @@ function deriveExternalEvidenceState(
   }
 
   for (const [claimId, limitations, sourceHashes] of [
-    ["crossref_publication_integrity", crossref.limitations, crossref.data.events.map(({ event_hash }) => event_hash)],
-    ["forrt_relationship_coverage", [...forrt.limitations, forrt.data.coverage_statement], forrt.data.relationships.map(({ relationship_hash }) => relationship_hash)],
+    ["crossref_publication_integrity", input.crossref.limitations, input.crossref.data.events.map(({ event_hash }) => event_hash)],
+    ["forrt_relationship_coverage", [...input.forrt.limitations, input.forrt.data.coverage_statement], input.forrt.data.relationships.map(({ relationship_hash }) => relationship_hash)],
+    ...(input.retractionWatch === undefined
+      ? []
+      : [[
+        "retraction_watch_publication_integrity",
+        input.retractionWatch.limitations,
+        input.retractionWatch.data.events.map(({ event_hash }) => event_hash),
+      ] as const]),
   ] as const) {
     if (limitations.length === 0) continue;
     claimLocalLimitations.push({
@@ -580,6 +638,67 @@ function eventImpact(
   }
   if (kind === "correction" || kind === "update") return "confidence_changing";
   return "unknown";
+}
+
+function mergePublicationIntegrityEvents(
+  events: PublicationIntegrityEvent[],
+): PublicationIntegrityEvent[] {
+  const groups = new Map<string, {
+    event_kind: PublicationIntegrityEvent["event_kind"];
+    event_date: string | null;
+    original_doi: string;
+    notice_doi: string | null;
+    reasons: string[];
+    assertions: PublicationIntegrityEvent["assertions"];
+  }>();
+  for (const event of events) {
+    const core = {
+      event_kind: event.event_kind,
+      event_date: event.event_date,
+      original_doi: event.original_doi,
+      notice_doi: event.notice_doi,
+      reasons: [...event.reasons].sort(),
+    };
+    const key = canonicalJson(core);
+    const existing = groups.get(key);
+    if (existing === undefined) {
+      groups.set(key, { ...core, assertions: [...event.assertions] });
+      continue;
+    }
+    for (const assertion of event.assertions) {
+      if (!existing.assertions.some(
+        ({ assertion_hash }) => assertion_hash === assertion.assertion_hash,
+      )) {
+        existing.assertions.push(assertion);
+      }
+    }
+  }
+  return [...groups.values()]
+    .sort((left, right) =>
+      compareNullableDates(left.event_date, right.event_date) ||
+      left.event_kind.localeCompare(right.event_kind) ||
+      left.original_doi.localeCompare(right.original_doi) ||
+      (left.notice_doi ?? "").localeCompare(right.notice_doi ?? "")
+    )
+    .map((event, sequence) => {
+      const core = {
+        sequence,
+        ...event,
+        assertions: event.assertions.sort((left, right) =>
+          left.assertion_hash.localeCompare(right.assertion_hash)
+        ),
+      };
+      return {
+        ...core,
+        event_hash: sha256(canonicalJson(core)),
+      };
+    });
+}
+
+function compareNullableDates(left: string | null, right: string | null): number {
+  if (left === null && right !== null) return 1;
+  if (left !== null && right === null) return -1;
+  return (left ?? "").localeCompare(right ?? "");
 }
 
 function crossrefAttempt(
@@ -623,12 +742,37 @@ function forrtAttempt(
   });
 }
 
+function retractionWatchAttempt(
+  envelope: ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>,
+  doi: string,
+  responseHash: string,
+): ExternalProviderAttempt {
+  const outcome = envelope.error !== undefined
+    ? providerOutcome(envelope)
+    : envelope.access_status === "partial"
+      ? "partial"
+      : envelope.data.lookup_status;
+  return externalProviderAttemptSchema.parse({
+    provider: "retraction_watch",
+    checked_at: envelope.retrieved_at,
+    access_status: envelope.access_status,
+    provider_outcome: outcome,
+    query_identifier: doi,
+    provider_response_hash: responseHash,
+    snapshot_id: envelope.data.snapshot_id,
+    coverage_statement: "The exact DOI was checked against one verified local Retraction Watch snapshot; snapshot absence is provider-scoped and is not proof that no integrity notice exists elsewhere.",
+    limitations: envelope.limitations,
+    ...(envelope.error === undefined ? {} : { error: normalizedError(envelope.error) }),
+  });
+}
+
 function unconfiguredProviderAttempts(
   doi: string,
   checkedAt: string,
+  retractionWatchConfigured: boolean,
 ): ExternalProviderAttempt[] {
   return ([
-    "retraction_watch",
+    ...(retractionWatchConfigured ? [] : ["retraction_watch" as const]),
     "pubpeer",
     "epistemonikos",
     "scite",
@@ -664,16 +808,19 @@ function normalizedError(error: NonNullable<ProvenanceEnvelope<unknown>["error"]
 
 function deriveAuditStatus(
   forrt: ProvenanceEnvelope<ForrtReplicationLookupData>,
+  retractionWatch?: ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>,
 ): StudyExternalEvidenceReceipt["audit_status"] {
+  if (retractionWatch?.error?.retryable === true) return "blocked_retryable";
   if (forrt.error?.retryable === true) return "blocked_retryable";
+  if (retractionWatch?.error !== undefined) return "bounded_nonretryable";
   if (forrt.error !== undefined) return "bounded_nonretryable";
-  if (forrt.access_status === "partial") return "partial";
+  if (forrt.access_status === "partial" || retractionWatch?.access_status === "partial") return "partial";
   return "complete";
 }
 
 function storeProviderEnvelope(
   store: EvidenceArtifactStore,
-  provider: "crossref" | "forrt",
+  provider: "crossref" | "forrt" | "retraction_watch",
   doi: string,
   envelope: ProvenanceEnvelope<unknown>,
 ): EvidenceArtifactDescriptor {

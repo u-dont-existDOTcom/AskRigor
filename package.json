@@ -18,6 +18,7 @@
     "validate:custom-gpt-product": "tsx scripts/custom-gpt-product-acceptance.mts",
     "generate:action-openapi": "tsx scripts/generate-action-openapi.mts",
     "generate:custom-gpt": "tsx scripts/generate-custom-gpt-packet.mts",
+    "sync:retraction-watch": "tsx scripts/sync-retraction-watch.mts",
     "plugin:receipt": "node scripts/plugin-package-receipt.mjs",
     "lessons:status": "tsx scripts/lessons-status.mts",
     "review:public-live": "tsx scripts/run-public-review-eval.mts",
