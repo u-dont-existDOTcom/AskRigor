@@ -732,13 +732,41 @@ Hermes must be treated as a worker that receives a bounded current work package 
 
 Tasks:
 
-- [ ] Give Hermes only the minimum AskRigor orchestration capability plus explicitly required research/repo tools.
-- [ ] Load repository `AGENTS.md`/project context for development tasks, but do not let Hermes memory supersede canonical protocols.
-- [ ] For deterministic server-executable work, including configured external-study provider coordination, Hermes requests continuation rather than reproducing the logic.
-- [ ] For semantic work such as candidate judgment, study interpretation, replication implementation comparison, or material PubPeer concern analysis, give Hermes a bounded source-linked work package; validate its submission before state advancement.
-- [ ] Prevent direct writes to `main`, autonomous protocol changes, production-secret access, and direct finalization authority.
-- [ ] Add a final-response hook/guard so a Hermes AskRigor task cannot be marked successful without a server-authorized boundary/permit.
-- [ ] Benchmark against held-out research tasks for completion rate, unnecessary work, skipped gates, and cost.
+- [x] Give Hermes only the minimum AskRigor orchestration capability plus explicitly required research/repo tools.
+- [x] Load repository `AGENTS.md`/project context for development tasks, but do not let Hermes memory supersede canonical protocols.
+- [x] For deterministic server-executable work, including configured external-study provider coordination, Hermes requests continuation rather than reproducing the logic.
+- [x] For semantic work such as candidate judgment, study interpretation, replication implementation comparison, or material PubPeer concern analysis, give Hermes a bounded source-linked work package; validate its submission before state advancement.
+- [x] Prevent direct writes to `main`, autonomous protocol changes, production-secret access, and direct finalization authority.
+- [x] Add a final-response hook/guard so a Hermes AskRigor task cannot be marked successful without a server-authorized boundary/permit.
+- [x] Benchmark against held-out research tasks for completion rate, unnecessary work, skipped gates, and cost.
+
+Local Phase I exit evidence: AskRigor launches the reviewed official Hermes
+release `v2026.8.19` at exact commit
+`fcbd1076a93841fa88855acce810e342a5b78101` as a fresh no-tools/no-memory
+process. The parent alone drives the authenticated private controller and
+validates exact session/state/work/frontier-bound routing and candidate
+submissions. Deterministic capabilities use `/resume`; the child receives no
+orchestration/research-provider secret, repository tool, persistent memory, or
+finalization authority. Hostile tests reject forged completion/count fields,
+stale/cross-session/cross-frontier work, deterministic substitution, secret
+inheritance, no-progress loops, and response release without a matching server
+permit. The held-out control benchmark records authorized, bounded, and
+rejected outcomes while keeping cost diagnostic only. The exact official
+runtime passes two repeat loopback-only no-tools invocations. Focused Phase I
+tests pass 17/17. Before the final per-turn checkout hardening,
+`npm run test:run` and `npm run verify` passed all 1,321 tests with six declared
+skips, typechecking, and the production build. After that hardening, focused
+tests, exact official-runtime smoke, typechecking, and build pass; the complete
+single-worker run passed 1,320/1,321 tests, with only the pre-existing package-
+entrypoint test exceeding its fixed 10-second limit by 0.56 seconds under host
+load near 16 and exhausted swap. That exact test then passed alone in 9.03
+seconds without timeout changes. Hosted standard-concurrency CI remains the
+merge gate.
+The current real private-controller integration advances through routing,
+server-owned Gemini/native scouting, and candidate screening, then preserves
+the server denial because later work is not yet externally projected. Public
+MCP/Action inventories, protocols, generated Instructions, plugin,
+deployment, credentials, and retention remain unchanged.
 
 **Exit gate:** Hermes can repeatedly complete a controlled research workflow without being able to bypass an AskRigor denial.
 

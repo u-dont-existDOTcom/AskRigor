@@ -51,6 +51,9 @@ complete XML protocol.
 - `audits/2026-08-22-treatment-landscape-lesson-closeout.md`: immutable
   AskRigor source receipt plus exact Universal promotion, closeout, and
   post-merge verification receipts
+- `audits/2026-08-24-hermes-worker-pilot.md`: pinned official Hermes runtime,
+  held-out controller benchmark, repeated no-tools smoke receipt, fail-closed
+  final-response guard, secret boundary, and explicit non-production limits
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
@@ -113,6 +116,9 @@ complete XML protocol.
 - `private-research-orchestration.md`: disabled-by-default authenticated
   controller transport, minimal machine projection, strict limits, no-browser
   boundary, checkpoint composition, and Phase H non-activation scope
+- `hermes-worker-pilot.md`: pinned official Hermes one-shot semantic worker,
+  no-tools/no-memory isolation, server-only completion authority, configuration,
+  fail-closed response guard, privacy boundary, and Phase I non-activation
 - `retraction-watch-snapshot.md`: fixed official source, strict CSV/header
   handling, verified local snapshot/index format, atomic activation/rollback,
   active/previous pruning, staleness semantics, coordinator boundary, and
@@ -157,6 +163,9 @@ complete XML protocol.
 - `superpowers/plans/2026-08-24-phase-h-private-orchestration-interface.md`:
   private controller transport, semantic package binding, hostile interface
   tests, public-inventory freeze, and restart-safety prerequisite
+- `superpowers/plans/2026-08-24-phase-i-hermes-worker-pilot-implementation.md`:
+  reviewed-upstream reuse decision, bounded worker loop, exact-package
+  validation, response guard, benchmark, and Phase I verification plan
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate
