@@ -1,3 +1,4 @@
+# Temporary bootstrap workflow; self-deletes after successful canonical migration.
 name: One-shot epistemic safeguards migration
 
 on:
