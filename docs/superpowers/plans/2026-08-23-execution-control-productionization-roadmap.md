@@ -807,8 +807,26 @@ deployment, credentials, paid services, and retention remain unchanged.
 
 **Purpose:** use the hardened controller to simplify the Custom GPT contract, without assuming the GPT is technically incapable of bypassing Actions.
 
+Phase K readiness re-audit after Phase J found two missing prerequisites: the
+private controller transport stops after candidate screening, and successful
+finalization returns authorization without the source-linked reader evidence
+needed to render a scientific answer. The owner-directed implementation and
+acceptance sequence is now specified in
+`docs/superpowers/plans/2026-08-24-phase-k-controlled-research-and-report-projection.md`.
+Do not project the compact Action contract until its K0 advancement and K1
+report gates pass. This is a controller implementation repair, not a new
+orchestration architecture or another model-instruction exception.
+
 Tasks:
 
+- [ ] Execute every later controller capability through one shared
+  transport-independent advancement engine; fail closed on unsupported or
+  no-progress states.
+- [ ] Preserve only bounded source-linked semantic findings and produce a
+  server-validated reader packet; keep raw source/provider/private content out
+  of the checkpoint.
+- [ ] Require a current report packet for final completion and bind its digest
+  into the signed finalization permit.
 - [ ] Decide the minimum public Action projection after Hermes/n8n pilots prove the controller.
 - [ ] Keep the external provider coordinator internal during the first accepted server-owned release; do not expose separate Crossref/FORRT/PubPeer/etc. model-callable checkboxes.
 - [ ] If a later technical-audit operation is exposed, expose at most one composite read-only operation and never let caller-submitted output unlock session completion.
@@ -819,6 +837,14 @@ Tasks:
 - [ ] Run repeated fresh chats on the known failure shape and unrelated held-out treatment questions; record actual operation IDs and finalization result rather than a manually authored acceptance fixture.
 - [ ] Include product cases where a study is retracted/corrected, FORRT has a linked repetition, and optional providers are unconfigured; output must remain plain-language and provider-scoped.
 - [ ] If the Custom GPT repeatedly bypasses even the compact server-directed contract, stop treating it as the authoritative synthesis surface. Keep AskRigor server/application finalization authoritative.
+
+The minimum reviewed projection is four controlled research operations
+(`start`, `continue`, technical `status`, and `finalize`) plus the existing
+consented lesson write. Low-level provider/source operations remain internal to
+the controlled execution path and the 21-tool MCP catalog remains unchanged.
+Real product acceptance requires a reversible exact-candidate deployment before
+the editor/Preview replay; that deployment is Phase K test setup, while Phase L
+retains final release and synchronization closeout.
 
 **Exit gate:** every planned fresh-product replay passes. Repository tests alone are not acceptance.
 
