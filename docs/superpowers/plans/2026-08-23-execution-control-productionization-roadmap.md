@@ -405,14 +405,22 @@ Phase D is intentionally split into reviewed sub-PRs so the open-core provider w
 
 #### Phase D1 — External evidence contracts + open providers
 
-- [ ] Create/export the strict external-study-evidence contracts described above.
-- [ ] Extend the existing Crossref adapter to preserve complete ordered publication-integrity events while keeping existing callers/backward-compatible retraction checks working.
-- [ ] Add the FORRT FReD/FLoRA DOI adapter with bounded fixtures/tests and the exact approved host allowlist addition.
-- [ ] Preserve provider no-match/partial/rate-limit/error semantics and provider-reported replication labels.
-- [ ] Add deterministic fixtures for retraction, withdrawal, correction, expression of concern, reinstatement, duplicate assertions, reverse replication links, reproductions, malformed data, provider failure/rate limiting, and no match.
-- [ ] No public Action/MCP change; no canonical protocol change.
+- [x] Create/export the strict external-study-evidence contracts described above.
+- [x] Extend the existing Crossref adapter to preserve complete ordered publication-integrity events while keeping existing callers/backward-compatible retraction checks working.
+- [x] Add the FORRT FReD/FLoRA DOI adapter with bounded fixtures/tests and the exact approved host allowlist addition.
+- [x] Preserve provider no-match/partial/rate-limit/error semantics and provider-reported replication labels.
+- [x] Add deterministic fixtures for retraction, withdrawal, correction, expression of concern, reinstatement, duplicate assertions, reverse replication links, reproductions, malformed data, provider failure/rate limiting, and no match.
+- [x] No public Action/MCP change; no canonical protocol change.
 
 **D1 gate:** richer Crossref integrity events and FORRT relationships are normalized, hermetically tested, and cannot be mistaken for global truth/quality/replication verdicts.
+
+Phase D1 candidate verification on `agent/execution-control-phase-d1-20260824`
+passed the 74-test focused contracts/Crossref/FORRT/HTTP suite, the complete
+1,186-test deterministic suite with six declared skips, and `npm run verify`
+(typecheck, the same complete suite, and production build). The exact FORRT
+production hostname is the only provider allowlist addition. Public inventories
+remain 21 MCP tools and 26 Actions; protocol bytes and generated product
+artifacts are unchanged. Reviewed merge remains required before Phase D2.
 
 #### Phase D2 — Composite coordinator + receipt + typed audit references
 

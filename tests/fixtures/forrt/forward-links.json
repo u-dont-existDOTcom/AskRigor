@@ -1,0 +1,42 @@
+{
+  "results": {
+    "10.5555/original.study": {
+      "doi": "10.5555/original.study",
+      "title": "Original study",
+      "authors": [{"given": "Alex", "family": "Original", "sequence": "first"}],
+      "year": 2018,
+      "record": {
+        "stats": {"n_replications_total": 2},
+        "replications": [
+          {
+            "doi": "10.5555/replication.study",
+            "doi_hash": "rep-1",
+            "title": "A direct replication",
+            "authors": [{"given": "Rae", "family": "Replicator", "sequence": "first"}],
+            "year": 2022,
+            "outcome": "failed"
+          },
+          {
+            "doi": "10.5555/replication.study",
+            "doi_hash": "rep-1",
+            "title": "A direct replication",
+            "authors": [{"given": "Rae", "family": "Replicator", "sequence": "first"}],
+            "year": 2022,
+            "outcome": "failed"
+          }
+        ],
+        "reproductions": [
+          {
+            "doi": null,
+            "doi_hash": "repro-1",
+            "title": "A reproduction without a DOI",
+            "authors": "Reproduction Consortium",
+            "year": 2024,
+            "outcome": "mixed"
+          }
+        ],
+        "originals": []
+      }
+    }
+  }
+}

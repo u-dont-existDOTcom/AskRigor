@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ALLOWED_UPSTREAM_HOSTS,
   decodeCursor,
   encodeCursor,
   fetchJson,
@@ -15,6 +16,14 @@ afterEach(() => {
 });
 
 describe("bounded upstream HTTP", () => {
+  it("allowlists only the exact FORRT production API host", async () => {
+    expect(ALLOWED_UPSTREAM_HOSTS.has("rep-api.forrt.org")).toBe(true);
+    expect(ALLOWED_UPSTREAM_HOSTS.has("forrt.org")).toBe(false);
+    await expect(fetchJson("https://forrt.org/v1/original-lookup")).rejects.toThrow(
+      "Upstream host is not allowlisted",
+    );
+  });
+
   it("rejects an HTTPS URL whose host is not allowlisted", async () => {
     await expect(fetchJson("https://evil.example/data")).rejects.toThrow(
       "Upstream host is not allowlisted",

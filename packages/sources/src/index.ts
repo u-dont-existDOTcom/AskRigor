@@ -67,14 +67,20 @@ export {
   type SearchClinicalTrialsInput
 } from "./clinical-trials.js";
 export {
+  checkCrossrefPublicationIntegrity,
   checkRetractionStatus,
   resolveDoi,
+  type CrossrefPublicationIntegrityData,
   type CrossrefCandidate,
   type ResolveDoiData,
   type RetractionEvidence,
   type RetractionStatus,
   type RetractionStatusData
 } from "./crossref.js";
+export {
+  lookupForrtReplicationRelationships,
+  type ForrtReplicationLookupData,
+} from "./forrt-replication.js";
 export {
   getYoutubeComments,
   getYoutubeVideo,

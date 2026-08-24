@@ -1,5 +1,55 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase D1 candidate
+
+Branch `agent/execution-control-phase-d1-20260824` starts from exact Phase C
+merge `1d22fa0bd13682d79fc5a5c6a53629de492856e2` and implements Phase D1 of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+It adds provider-scoped external-study evidence primitives for later
+controller phases without adding completion authority or a public endpoint.
+
+The strict bounded contract distinguishes canonical study identity, provider
+attempts, ordered publication-integrity assertions, replication/reproduction
+relationships, post-publication threads, citation contexts, review ancestry,
+result-specific imported risk-of-bias judgments, directives, unresolved
+items, and claim-local limitations. It rejects global study-quality shortcuts,
+caller completion claims, invalid identifiers, unknown fields, and oversized
+collections.
+
+The existing Crossref adapter now preserves complete ordered retraction,
+withdrawal, expression-of-concern, correction, update, reinstatement, and other
+events with original/notice DOI roles, direction, raw type/label, source,
+reasons, record ID, and deterministic hashes. Conflicting current assertions
+remain uncertain, and successful absence of a marker is only
+`no_update_marker_found`. The existing public retraction lookup keeps its
+backward-compatible payload and conservative precedence.
+
+The new internal FORRT FLoRA DOI adapter accepts one canonical public DOI,
+calls only the fixed `rep-api.forrt.org` endpoint, preserves forward
+replications/reproductions and reverse original links, and keeps raw plus
+strictly normalized provider-reported outcomes. Every relationship remains
+explicitly not yet implementation-matched or source-audited. Successful null,
+partial, malformed, inaccessible, rate-limited, not-found, upstream-failed, and
+transport-failed states remain distinct. FLoRA CC BY 4.0 attribution is carried
+in normalized metadata; raw provider error bodies are not exposed.
+
+Focused contracts/Crossref/FORRT/HTTP tests pass 74/74. The complete
+host-boundary deterministic suite passes 1,186 tests with six declared skips;
+`npm run verify` passes typechecking, that same suite, and the production
+build. Public inventory remains 21 MCP tools and 26 Actions. Canonical protocol
+bytes, public schemas, generated Custom GPT Instructions, plugin bytes,
+deployment, credentials, and production runtime are unchanged. No database,
+durable provider-content store, new session retention, public operation, or
+finalization path was added. Phase D2 is next after reviewed merge.
+
+The opening lesson checkpoint at `2026-08-24T00:07:05.049Z` was available with
+1 open candidate, 1 needing review, 0 accepted but not incorporated, 3
+incorporated or closed, and 0 deletion eligible. No unreviewed lesson expanded
+this phase. The pre-PR checkpoint at `2026-08-24T00:41:10.940Z` returned the
+same counts. Lesson disposition is project-specific/no-new-lesson: D1
+faithfully implements the already owner-approved external-evidence architecture
+and does not expose a new transferable product failure.
+
 ## 2026-08-23 execution-control Phase C candidate
 
 Branch `agent/execution-control-phase-c-20260823` starts from exact Phase B

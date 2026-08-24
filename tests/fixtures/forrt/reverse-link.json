@@ -1,0 +1,24 @@
+{
+  "results": {
+    "10.5555/replication.study": {
+      "doi": "10.5555/replication.study",
+      "title": "A direct replication",
+      "authors": [{"given": "Rae", "family": "Replicator", "sequence": "first"}],
+      "year": 2022,
+      "record": {
+        "stats": {"n_originals_total": 1},
+        "replications": [],
+        "reproductions": [],
+        "originals": [
+          {
+            "doi": "10.5555/original.study",
+            "doi_hash": "orig-1",
+            "title": "Original study",
+            "authors": [{"given": "Alex", "family": "Original", "sequence": "first"}],
+            "year": 2018
+          }
+        ]
+      }
+    }
+  }
+}

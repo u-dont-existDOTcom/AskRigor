@@ -51,6 +51,14 @@ access states, pagination/reply reconciliation, and data-derived protocol
 manifests. MCP transport tests do bind a temporary localhost loopback server;
 that local socket is not external provider access.
 
+Phase D1 also contains internal, hermetically tested source primitives for rich
+Crossref publication-update histories and FORRT FLoRA
+replication/reproduction relationships. They are not public MCP tools or
+Custom GPT Actions, are not yet connected to research-session completion, and
+cannot establish study quality or a verified replication result. Provider,
+license, privacy, and no-match boundaries are documented in
+`docs/external-study-evidence-sources.md`.
+
 ## Opt-in live provider smoke tests
 
 Live smoke tests are separate from the default suite:

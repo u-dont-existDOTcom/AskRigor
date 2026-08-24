@@ -9,6 +9,7 @@ export const ALLOWED_UPSTREAM_HOSTS = new Set([
   "europepmc.org",
   "clinicaltrials.gov",
   "api.crossref.org",
+  "rep-api.forrt.org",
   "www.googleapis.com",
   "generativelanguage.googleapis.com",
   "api.unpaywall.org",

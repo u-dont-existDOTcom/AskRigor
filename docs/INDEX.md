@@ -54,6 +54,9 @@ complete XML protocol.
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
+- `external-study-evidence-sources.md`: internal Crossref publication-event and
+  FORRT FLoRA relationship contracts, provider/attribution boundaries, and the
+  explicit non-verdict/non-production Phase D1 scope
 - `gemini-spark-setup.md`: automated server-side Gemini Google-Search scout,
   protected paid-provider configuration, privacy/cost bounds, strict query-
   reconciled candidate packet, independent YouTube identity validation,

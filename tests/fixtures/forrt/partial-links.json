@@ -1,0 +1,28 @@
+{
+  "results": {
+    "10.5555/partial.study": {
+      "doi": "10.5555/partial.study",
+      "title": "Study with one malformed relationship",
+      "authors": [{"family": "Partial"}],
+      "year": 2020,
+      "record": {
+        "replications": [
+          {
+            "doi": "10.5555/valid.replication",
+            "title": "Valid replication",
+            "authors": [{"family": "Valid"}],
+            "year": 2023,
+            "outcome": "unexpected provider phrase"
+          },
+          {
+            "doi": "not-a-doi",
+            "title": "Malformed DOI",
+            "outcome": "successful"
+          }
+        ],
+        "reproductions": [],
+        "originals": []
+      }
+    }
+  }
+}
