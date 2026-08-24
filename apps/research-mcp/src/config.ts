@@ -68,6 +68,21 @@ export function actionApiKeyFromEnv(
   return value;
 }
 
+export function externalEvidenceReceiptSecretFromEnv(
+  value = process.env.ASKRIGOR_EXTERNAL_EVIDENCE_RECEIPT_SECRET
+): string | undefined {
+  return value;
+}
+
+export function externalEvidenceReceiptKeyIdFromEnv(
+  value = process.env.ASKRIGOR_EXTERNAL_EVIDENCE_RECEIPT_KEY_ID
+): string | undefined {
+  const normalized = value?.trim();
+  return normalized === undefined || normalized.length === 0
+    ? undefined
+    : normalized;
+}
+
 export function parseTrustedClientIpHeader(
   value = process.env.ASKRIGOR_TRUSTED_CLIENT_IP_HEADER
 ): "cf-connecting-ip" | undefined {

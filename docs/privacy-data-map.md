@@ -51,16 +51,21 @@ AskRigor has three deliberately separate processing paths:
   commenter identities, raw provider output, provider cursors, credentials, or
   protocol text. The prototype is absent from the public MCP and Action
   inventories and is not deployed.
-- **Non-production external-study evidence primitives:** an internal Crossref
-  operation can normalize ordered public publication-update assertions, and an
-  internal FORRT operation can look up replication/reproduction relationships
-  for one exact public DOI. These primitives are not yet connected to the
-  research-session controller, public MCP, Custom GPT Actions, or deployment.
-  FORRT receives only the public DOI plus fixed request headers and requires no
-  credential. Returned relationship/outcome labels remain provider-reported
-  leads; no-match is provider-scoped; neither provider result is a study-quality
-  or scientific-validity determination. No adapter response is persistently
-  stored.
+- **Non-production external-study evidence path:** an internal coordinator
+  accepts only an opaque research-session ID and one public DOI, verifies exact
+  Crossref identity, then invokes Crossref and FORRT itself. It normalizes
+  ordered public publication-update assertions and provider-reported
+  replication/reproduction relationships, derives bounded controller work, and
+  issues a signed structural receipt. Optional unconfigured providers remain
+  explicit coverage gaps. The path is not connected to the research-session
+  controller, public MCP, Custom GPT Actions, or deployment. Its bounded
+  content-addressed in-memory artifact store can hold strict normalized
+  provider envelopes for the lifetime of that non-production store object; it
+  writes no durable storage. Portable output contains public study/provider
+  metadata, hashes, directives, limitations, and artifact references—not
+  artifact bodies, signing secrets, raw chat, or health details. Provider labels
+  are leads, no-match is provider-scoped, and a signed structural receipt is not
+  a study-quality or scientific-validity determination.
 
 The lesson path is deployed from exact code revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` and passed its bounded synthetic
@@ -174,6 +179,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini call reserves at most $1 before provider execution. |
 | Optional local legacy Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the historical input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
 | Non-production research-session prototype | Research target and diagnosis-status enum; exact protocol identities; module/operation state; public candidate/video/channel metadata and provisional program fields; bounded candidate-screening decisions/rationales; selected-video attempt/status; short opaque Action handles; transcript track/timestamp/access/pagination receipts; discussion access/count/hash/completion receipts | Process memory only, one hour from issue or last successful replacement, at most 1,024 entries and 16 MiB total. Capacity eviction, expiry, or process restart removes the state. It stores no transcript/comment text, comment-author identity, raw provider output, provider cursor, credential, or private source. It is an unregistered development prototype, not a production data flow; durable storage remains an explicit later owner/privacy gate. |
+| Non-production external-evidence artifact store | Strict normalized Crossref/FORRT envelopes for one public DOI; content-derived artifact ID; provider/source identity; media type; byte count; content and descriptor hashes | Unregistered process-memory abstraction only, with default bounds of 128 entries, 10 MiB per artifact, and 32 MiB total. Bytes are cloned, exact artifacts deduplicated, and entries explicitly revocable; process loss discards them. No timer, disk, database, object store, backup, production singleton, or public route is activated. Durable persistence remains a Phase G owner/privacy decision. |
 
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
@@ -284,7 +290,7 @@ retention and provider-side deletion remain governed by the provider.
 ## Research data not persistently stored in v0
 
 - User accounts, profiles, authentication sessions, or user-entered research history.
-- Search queries, research questions, directional labels, citations, protocol text, scholarly records, Crossref publication events, FORRT relationship records, trial records, YouTube videos, retrieved public caption segments, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, transcript cursors, continuation tokens beyond the bounded in-memory Custom GPT handle exception, or completion receipts.
+- Search queries, research questions, directional labels, citations, protocol text, scholarly records, Crossref publication events, FORRT relationship records, trial records, YouTube videos, retrieved public caption segments, public YouTube author/channel IDs, display names, comments, replies, reply manifests, deterministic samples, corpus digests, transcript cursors, continuation tokens beyond the bounded in-memory Custom GPT handle exception, or completion receipts. The unregistered Phase D2 artifact store is a development-only process-memory exception for normalized public provider envelopes, not persistent storage.
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, server-side transcript copies, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 
@@ -297,6 +303,11 @@ history, transcript store, user profile, or automatic-learning database.
 
 - Every MCP tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; the Action-only transcript, treatment-landscape, automated Gemini-candidate, and legacy validation routes are likewise public, read-only, and non-consequential. The automated scout consumes bounded provider quota but changes no provider, user, or server content.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
+- Internal external-evidence receipts use a server-held secret of at least 32
+  UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,
+  protocol, provider artifacts/attempts, bundle, issue time, and key ID. Only
+  placeholder environment names are checked in, and neither artifact bytes nor
+  secret material enters the receipt.
 - Adaptive YouTube continuations are HMAC-authenticated, expire one hour after the chain starts, and disclose neither the server secret nor comment/author content inside the token.
 - Direct MCP clients carry that token. The Custom GPT Action returns a short
   handle backed only by the bounded, one-hour process-memory map described
