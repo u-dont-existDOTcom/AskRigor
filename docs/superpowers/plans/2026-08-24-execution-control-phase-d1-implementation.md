@@ -1,6 +1,6 @@
 # Phase D1 external evidence contracts and open providers
 
-**Status:** implementation plan for roadmap Phase D1 only  
+**Status:** implementation and deterministic verification complete; reviewed PR/merge pending
 **Branch:** `agent/execution-control-phase-d1-20260824`  
 **Base:** `1d22fa0bd13682d79fc5a5c6a53629de492856e2`
 
@@ -124,6 +124,12 @@ Run focused tests throughout, then `npm run test:run` and `npm run verify`.
 Inspect the complete diff, run lesson status, open a PR, review CI/security
 results and the actual diff, merge only if all requirements pass, and start D2
 from fresh `main`.
+
+Candidate verification completed on 2026-08-24: focused contracts/Crossref/
+FORRT/HTTP tests passed 74/74; the complete deterministic suite passed 1,186
+tests with six declared skips; `npm run verify` passed typecheck, that same
+suite, and the production build. Inventory checks remain exactly 21 MCP tools
+and 26 Actions.
 
 ## Explicit non-goals
 

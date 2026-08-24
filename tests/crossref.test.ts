@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  checkCrossrefPublicationIntegrity,
   checkRetractionStatus,
   resolveDoi
 } from "../packages/sources/src/index.js";
@@ -16,6 +17,59 @@ afterEach(() => {
 });
 
 describe("Crossref DOI and retraction retrieval", () => {
+  it("preserves an ordered update history and merges duplicate assertions without losing source provenance", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(
+      await fixture("work-integrity-history.json"),
+      { status: 200 }
+    )));
+
+    const result = await checkCrossrefPublicationIntegrity(
+      "10.5555/integrity.history",
+      crossrefConfig
+    );
+
+    expect(result).toMatchObject({
+      provider: "crossref",
+      record_type: "publication_integrity",
+      access_status: "metadata_only",
+      data: {
+        doi: "10.5555/integrity.history",
+        record_state: "reinstatement_recorded",
+        sources_checked: ["crossref"]
+      }
+    });
+    expect(result.data.events.map((event) => event.event_kind)).toEqual([
+      "other",
+      "correction",
+      "expression_of_concern",
+      "retraction",
+      "withdrawal",
+      "reinstatement"
+    ]);
+    expect(result.data.events.map((event) => event.sequence)).toEqual([0, 1, 2, 3, 4, 5]);
+    const retraction = result.data.events.find((event) => event.event_kind === "retraction")!;
+    expect(retraction).toMatchObject({
+      event_date: "2023-04-05",
+      original_doi: "10.5555/integrity.history",
+      notice_doi: "10.5555/integrity.retraction"
+    });
+    expect(retraction.assertions).toHaveLength(2);
+    expect(new Set(retraction.assertions.map((assertion) => assertion.assertion_source))).toEqual(
+      new Set(["publisher", "retraction_watch"])
+    );
+    expect(retraction.assertions.find((assertion) => assertion.assertion_source === "publisher"))
+      .toMatchObject({ provider_record_id: "publisher-17", relation_direction: "inbound" });
+    expect(retraction.assertions.find((assertion) => assertion.assertion_source === "retraction_watch"))
+      .toMatchObject({ provider_record_id: "941", relation_direction: "inbound" });
+    expect(retraction.event_hash).toMatch(/^[a-f0-9]{64}$/u);
+    expect(new Set(result.data.events.map((event) => event.event_hash)).size).toBe(6);
+
+    const legacy = await checkRetractionStatus("10.5555/integrity.history", crossrefConfig);
+    expect(legacy.data.status).toBe("retracted");
+    expect(legacy.data).not.toHaveProperty("events");
+    expect(legacy.data).not.toHaveProperty("record_state");
+  });
+
   it("normalizes DOI URLs and preserves a retraction marker as traceable evidence", async () => {
     const body = await fixture("work-retracted.json");
     const requests: URL[] = [];
@@ -279,6 +333,77 @@ describe("Crossref DOI and retraction retrieval", () => {
         doi: "10.1021/am300292v",
         raw_label: "update-to | outbound | Retraction"
       }]
+    });
+  });
+
+  it("preserves outbound notice roles in the rich publication history", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(await fixture("work-notice-outbound.json"), { status: 200 })));
+    const result = await checkCrossrefPublicationIntegrity("10.1021/acsami.9b11759", crossrefConfig);
+    expect(result.data).toMatchObject({
+      record_state: "no_update_marker_found",
+      events: [{
+        event_kind: "retraction",
+        original_doi: "10.1021/am300292v",
+        notice_doi: "10.1021/acsami.9b11759",
+        assertions: [{ relation_direction: "outbound" }]
+      }]
+    });
+  });
+
+  it("keeps Crossref rate limiting retryable and distinct from a provider no-marker result", async () => {
+    const upstream = vi.fn(async () => new Response("rate-limited-secret", { status: 429 }));
+    vi.stubGlobal("fetch", upstream);
+    const result = await checkCrossrefPublicationIntegrity("10.5555/rate.limit", crossrefConfig);
+    expect(upstream).toHaveBeenCalledTimes(5);
+    expect(result).toMatchObject({
+      access_status: "rate_limited",
+      data: { record_state: "state_uncertain", events: [] },
+      error: { code: "crossref_rate_limited", retryable: true, http_status: 429 }
+    });
+    expect(JSON.stringify(result)).not.toContain("rate-limited-secret");
+  });
+
+  it("preserves a missing Crossref work as not_found rather than no_update_marker_found", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("missing", { status: 404 })));
+    const result = await checkCrossrefPublicationIntegrity("10.5555/not.found", crossrefConfig);
+    expect(result).toMatchObject({
+      access_status: "not_found",
+      data: { record_state: "state_uncertain", events: [] },
+      error: { code: "crossref_record_not_found", retryable: false, http_status: 404 }
+    });
+  });
+
+  it("keeps the current publication state uncertain when same-date inbound assertions conflict", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      status: "ok",
+      "message-type": "work",
+      message: {
+        DOI: "10.5555/conflicting.state",
+        "updated-by": [
+          {
+            DOI: "10.5555/conflicting.retraction",
+            type: "retraction",
+            updated: { "date-parts": [[2025, 4, 3]] },
+            source: "publisher",
+          },
+          {
+            DOI: "10.5555/conflicting.reinstatement",
+            type: "reinstatement",
+            updated: { "date-parts": [[2025, 4, 3]] },
+            source: "publisher",
+          },
+        ],
+      },
+    }), { status: 200 })));
+
+    const result = await checkCrossrefPublicationIntegrity("10.5555/conflicting.state", crossrefConfig);
+
+    expect(result.data).toMatchObject({
+      record_state: "state_uncertain",
+      events: [
+        { event_kind: "reinstatement", event_date: "2025-04-03" },
+        { event_kind: "retraction", event_date: "2025-04-03" },
+      ],
     });
   });
 

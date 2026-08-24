@@ -1,0 +1,76 @@
+{
+  "status": "ok",
+  "message-type": "work",
+  "message": {
+    "DOI": "10.5555/integrity.history",
+    "title": ["Recorded work with a complete update history"],
+    "author": [{"family": "Example", "given": "Alex"}],
+    "published-print": {"date-parts": [[2019, 1, 2]]},
+    "updated-by": [
+      {
+        "DOI": "10.5555/integrity.note",
+        "type": "editorial-note",
+        "updated": {"date-parts": [[2020, 1, 2]]},
+        "source": "publisher",
+        "label": "Editorial note"
+      },
+      {
+        "DOI": "10.5555/integrity.correction",
+        "type": "correction",
+        "updated": {"date-parts": [[2021, 2, 3]]},
+        "source": "publisher",
+        "label": "Correction",
+        "reason": "A table was replaced"
+      },
+      {
+        "DOI": "10.5555/integrity.concern",
+        "type": "expression-of-concern",
+        "updated": {"date-parts": [[2022, 3, 4]]},
+        "source": "publisher",
+        "label": "Expression of concern"
+      },
+      {
+        "DOI": "10.5555/integrity.retraction",
+        "type": "retraction",
+        "updated": {"date-parts": [[2023, 4, 5]]},
+        "source": "publisher",
+        "label": "Retraction",
+        "record_id": "publisher-17"
+      },
+      {
+        "DOI": "10.5555/integrity.withdrawal",
+        "type": "withdrawal",
+        "updated": {"date-parts": [[2023, 6, 7]]},
+        "source": "publisher",
+        "label": "Withdrawal"
+      },
+      {
+        "DOI": "10.5555/integrity.reinstatement",
+        "type": "reinstatement",
+        "updated": {"date-parts": [[2024, 7, 8]]},
+        "source": "publisher",
+        "label": "Reinstatement"
+      }
+    ],
+    "relation": {
+      "is-retracted-by": [
+        {
+          "id": "10.5555/integrity.retraction",
+          "type": "retraction",
+          "updated": {"date-parts": [[2023, 4, 5]]},
+          "source": "retraction-watch",
+          "label": "Retraction",
+          "ID": 941
+        },
+        {
+          "id": "10.5555/integrity.retraction",
+          "type": "retraction",
+          "updated": {"date-parts": [[2023, 4, 5]]},
+          "source": "retraction-watch",
+          "label": "Retraction",
+          "ID": 941
+        }
+      ]
+    }
+  }
+}
