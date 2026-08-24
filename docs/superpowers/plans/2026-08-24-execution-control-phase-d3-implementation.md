@@ -1,6 +1,6 @@
 # Phase D3 formal-evidence session enforcement
 
-**Status:** implementation plan for roadmap Phase D3 only
+**Status:** implemented candidate; verification and reviewed delivery pending
 **Branch:** `agent/execution-control-phase-d3-20260824`
 **Base:** `d75d316952baaf179857cdc48930b07aa23c4cac`
 

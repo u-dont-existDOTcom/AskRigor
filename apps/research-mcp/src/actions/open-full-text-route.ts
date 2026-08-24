@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import {
   acquireOpenFullText,
   type AcquireOpenFullTextInput,
@@ -15,10 +17,20 @@ import {
   validateReviewMethodAudit
 } from "./review-method-audit.js";
 import {
+  studyMethodAuditExternalReceiptSchema,
+  studyMethodAuditExternalSubmissionSchema,
   studyMethodAuditReceiptSchema,
   studyMethodAuditSubmissionSchema,
-  validateStudyMethodAudit
+  validateStudyMethodAudit,
+  validateStudyMethodAuditWithExternalEvidence,
+  type StudyMethodAuditExternalSubmission
 } from "./study-method-audit.js";
+import {
+  studyExternalEvidenceAuditOutputSchema,
+  studyExternalEvidenceProtocolTupleSchema,
+  type StudyExternalEvidenceAuditOutput,
+  type StudyExternalEvidenceProtocolTuple
+} from "./study-external-evidence.js";
 import {
   createOpenFullTextHandleStore,
   OpenFullTextHandleError,
@@ -118,6 +130,49 @@ const auditCoverageSchema = z.object({
   audit_validated: z.literal(true),
   synthesis_use: z.literal("bounded_by_validated_claim_capabilities")
 }).strict();
+export const noticeMethodAuditSubmissionSchema = z.object({
+  source_primary_identifier: z.string().trim().min(1).max(2_048),
+  source_content_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  notice_type: z.enum([
+    "retraction",
+    "withdrawal",
+    "expression_of_concern",
+    "correction",
+    "update",
+    "reinstatement",
+    "other"
+  ]),
+  affected_source_identity: z.string().trim().min(1).max(2_048),
+  plain_language_finding: z.string().trim().min(1).max(2_000),
+  evidence_block_ids: z.array(z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u)).min(1).max(100),
+  possible_decision_impact: z.enum([
+    "detail_only",
+    "confidence_changing",
+    "ranking_changing",
+    "potentially_conclusion_changing",
+    "unknown"
+  ]),
+  unresolved_fields: z.array(z.string().trim().min(1).max(500)).max(30)
+}).strict();
+export const noticeMethodAuditReceiptSchema = noticeMethodAuditSubmissionSchema.extend({
+  receipt_name: z.literal("askrigor_publication_notice_audit"),
+  receipt_version: z.literal("1.0"),
+  source_block_count: z.number().int().positive(),
+  cited_source_block_count: z.number().int().positive(),
+  audit_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  source_linkage_validated: z.literal(true),
+  semantic_truth_not_certified: z.literal(true)
+}).strict();
+export const noticeMethodAuditOutputSchema = z.object({
+  status: z.literal("source_linked_publication_notice_audit_validated"),
+  audit_receipt: noticeMethodAuditReceiptSchema,
+  coverage_receipt: auditCoverageSchema
+}).strict();
+export const studyMethodExternalAuditOutputSchema = z.object({
+  status: z.literal("source_and_external_linked_study_audit_validated"),
+  audit_receipt: studyMethodAuditExternalReceiptSchema,
+  coverage_receipt: auditCoverageSchema
+}).strict();
 export const studyMethodAuditActionInputSchema = z.object({
   document_handle: handleSchema,
   audit: studyMethodAuditSubmissionSchema
@@ -156,14 +211,186 @@ export interface CreateOpenFullTextActionRoutesOptions {
   unpaywallConfig?: UnpaywallConfig;
 }
 
+export interface OpenFullTextExecutor {
+  acquire(
+    input: z.output<typeof acquireOpenFullTextActionInputSchema>
+  ): Promise<z.output<typeof openFullTextActionOutputSchema>>;
+  continue(
+    input: z.output<typeof continueOpenFullTextActionInputSchema>
+  ): Promise<z.output<typeof availableOpenFullTextActionOutputSchema>>;
+  validateStudyAudit(
+    input: z.output<typeof studyMethodAuditActionInputSchema>
+  ): Promise<z.output<typeof studyMethodAuditActionOutputSchema>>;
+  validateReviewAudit(
+    input: z.output<typeof reviewMethodAuditActionInputSchema>
+  ): Promise<z.output<typeof reviewMethodAuditActionOutputSchema>>;
+  validateNoticeAudit(input: {
+    document_handle: string;
+    audit: z.input<typeof noticeMethodAuditSubmissionSchema>;
+  }): Promise<z.output<typeof noticeMethodAuditOutputSchema>>;
+  validateExternalStudyAudit(input: {
+    document_handle: string;
+    audit: StudyMethodAuditExternalSubmission;
+    external_audit: StudyExternalEvidenceAuditOutput;
+    expected: {
+      session_id: string;
+      protocol_identities: StudyExternalEvidenceProtocolTuple;
+    };
+    receipt_secret: string;
+  }): Promise<z.output<typeof studyMethodExternalAuditOutputSchema>>;
+}
+
 const DEFAULT_OPEN_FULL_TEXT_HANDLE_STORE = createOpenFullTextHandleStore();
+
+/**
+ * Transport-independent implementation shared by the installed Action routes
+ * and the server-owned research-session controller. Keeping one executor
+ * prevents the controller from inventing a second pagination or audit path.
+ */
+export function createOpenFullTextExecutor(
+  options: CreateOpenFullTextActionRoutesOptions = {}
+): OpenFullTextExecutor {
+  const store = options.store ?? DEFAULT_OPEN_FULL_TEXT_HANDLE_STORE;
+  const acquire = options.acquire ?? acquireOpenFullText;
+  const unpaywallConfig = options.unpaywallConfig ?? defaultUnpaywallConfig();
+
+  const executor: OpenFullTextExecutor = {
+    async acquire(input) {
+      const parsed = acquireOpenFullTextActionInputSchema.parse(input);
+      const result = await acquire(parsed, unpaywallConfig);
+      const data = result.data as OpenFullTextAcquisitionData;
+      if (result.access_status !== "complete" || data.document_index === undefined) {
+        return openFullTextLeadActionOutputSchema.parse({
+          status: "possibly_useful_lead",
+          requested_doi: data.requested_doi,
+          ...(data.requested_pmcid === undefined
+            ? {}
+            : { requested_pmcid: data.requested_pmcid }),
+          discovery_attempts: data.discovery_attempts,
+          access_boundary: data.access_boundary ??
+            "No complete identity-verified open full text was available.",
+          unseen_content_used_as_evidence: false
+        });
+      }
+      const page = pageFrom(data.document_index, initialCursor());
+      const handle = store.issue(data.document_index, page.cursor);
+      return availableOutput(data, data.document_index, handle, page);
+    },
+    async continue({ document_handle: handle }) {
+      const parsedHandle = continueOpenFullTextActionInputSchema.parse({
+        document_handle: handle
+      }).document_handle;
+      const state = store.claim(parsedHandle);
+      try {
+        if (state.cursor.exhausted) {
+          store.rollback(parsedHandle);
+          throw new OpenFullTextAlreadyExhaustedError();
+        }
+        const page = pageFrom(state.index, state.cursor);
+        store.replace(parsedHandle, { index: state.index, cursor: page.cursor });
+        return availableOutput({
+          requested_doi: state.index.source.doi ?? state.index.source.primary_identifier,
+          ...(state.index.source.pmcid === undefined
+            ? {}
+            : { requested_pmcid: state.index.source.pmcid }),
+          discovery_attempts: []
+        }, state.index, parsedHandle, page);
+      } catch (error) {
+        store.rollback(parsedHandle);
+        throw error;
+      }
+    },
+    async validateStudyAudit({ document_handle: handle, audit }) {
+      const parsed = studyMethodAuditActionInputSchema.parse({
+        document_handle: handle,
+        audit
+      });
+      const state = store.read(parsed.document_handle);
+      if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
+      const receipt = validateStudyMethodAudit(state.index, parsed.audit);
+      return studyMethodAuditActionOutputSchema.parse({
+        status: "source_linked_study_audit_validated",
+        audit_receipt: receipt,
+        coverage_receipt: auditCoverage(parsed.document_handle, state.index)
+      });
+    },
+    async validateReviewAudit({ document_handle: handle, audit }) {
+      const parsed = reviewMethodAuditActionInputSchema.parse({
+        document_handle: handle,
+        audit
+      });
+      const state = store.read(parsed.document_handle);
+      if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
+      const receipt = validateReviewMethodAudit(state.index, parsed.audit);
+      return reviewMethodAuditActionOutputSchema.parse({
+        status: "source_linked_review_audit_validated",
+        audit_receipt: receipt,
+        coverage_receipt: auditCoverage(parsed.document_handle, state.index)
+      });
+    },
+    async validateNoticeAudit({ document_handle: documentHandle, audit }) {
+      const parsedHandle = handleSchema.parse(documentHandle);
+      const submission = noticeMethodAuditSubmissionSchema.parse(audit);
+      const state = store.read(parsedHandle);
+      if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
+      if (
+        submission.source_primary_identifier !== state.index.source.primary_identifier ||
+        submission.source_content_sha256 !== state.index.source.content_sha256
+      ) {
+        throw new Error("Publication notice audit source identity or completeness mismatch");
+      }
+      const knownBlocks = new Set(state.index.blocks.map(({ block_id }) => block_id));
+      if (submission.evidence_block_ids.some((block) => !knownBlocks.has(block))) {
+        throw new Error("Publication notice audit cited an unknown source block");
+      }
+      return noticeMethodAuditOutputSchema.parse({
+        status: "source_linked_publication_notice_audit_validated",
+        audit_receipt: {
+          ...submission,
+          receipt_name: "askrigor_publication_notice_audit",
+          receipt_version: "1.0",
+          source_block_count: state.index.blocks.length,
+          cited_source_block_count: new Set(submission.evidence_block_ids).size,
+          audit_sha256: createAuditHash(submission),
+          source_linkage_validated: true,
+          semantic_truth_not_certified: true
+        },
+        coverage_receipt: auditCoverage(parsedHandle, state.index)
+      });
+    },
+    async validateExternalStudyAudit(input) {
+      const parsedHandle = handleSchema.parse(input.document_handle);
+      const submission = studyMethodAuditExternalSubmissionSchema.parse(input.audit);
+      const externalAudit = studyExternalEvidenceAuditOutputSchema.parse(input.external_audit);
+      const protocols = studyExternalEvidenceProtocolTupleSchema.parse(
+        input.expected.protocol_identities
+      );
+      const state = store.read(parsedHandle);
+      if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
+      const receipt = validateStudyMethodAuditWithExternalEvidence(
+        state.index,
+        submission,
+        externalAudit,
+        {
+          sessionId: input.expected.session_id,
+          protocolIdentities: protocols
+        },
+        input.receipt_secret
+      );
+      return studyMethodExternalAuditOutputSchema.parse({
+        status: "source_and_external_linked_study_audit_validated",
+        audit_receipt: receipt,
+        coverage_receipt: auditCoverage(parsedHandle, state.index)
+      });
+    }
+  };
+  return Object.freeze(executor);
+}
 
 export function createOpenFullTextActionRoutes(
   options: CreateOpenFullTextActionRoutesOptions = {}
 ): readonly ActionRoute[] {
-  const store = options.store ?? DEFAULT_OPEN_FULL_TEXT_HANDLE_STORE;
-  const acquire = options.acquire ?? acquireOpenFullText;
-  const unpaywallConfig = options.unpaywallConfig ?? defaultUnpaywallConfig();
+  const executor = createOpenFullTextExecutor(options);
   return Object.freeze([
     acquireRoute(),
     continueRoute(),
@@ -178,24 +405,7 @@ export function createOpenFullTextActionRoutes(
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextActionOutputSchema,
       async handle(input) {
-        const result = await acquire(input, unpaywallConfig);
-        const data = result.data as OpenFullTextAcquisitionData;
-        if (result.access_status !== "complete" || data.document_index === undefined) {
-          return {
-            status: "possibly_useful_lead" as const,
-            requested_doi: data.requested_doi,
-            ...(data.requested_pmcid === undefined
-              ? {}
-              : { requested_pmcid: data.requested_pmcid }),
-            discovery_attempts: data.discovery_attempts,
-            access_boundary: data.access_boundary ??
-              "No complete identity-verified open full text was available.",
-            unseen_content_used_as_evidence: false as const
-          };
-        }
-        const page = pageFrom(data.document_index, initialCursor());
-        const handle = store.issue(data.document_index, page.cursor);
-        return availableOutput(data, data.document_index, handle, page);
+        return executor.acquire(input);
       }
     });
   }
@@ -206,26 +416,8 @@ export function createOpenFullTextActionRoutes(
       description: "Continue the exact open full-text document from its server-owned cursor. Calls cannot skip or mix document blocks.",
       inputSchema: continueOpenFullTextActionInputSchema,
       outputSchema: availableOpenFullTextActionOutputSchema,
-      async handle({ document_handle: handle }) {
-        const state = store.claim(handle);
-        try {
-          if (state.cursor.exhausted) {
-            store.rollback(handle);
-            throw new OpenFullTextAlreadyExhaustedError();
-          }
-          const page = pageFrom(state.index, state.cursor);
-          store.replace(handle, { index: state.index, cursor: page.cursor });
-          return availableOutput({
-            requested_doi: state.index.source.doi ?? state.index.source.primary_identifier,
-            ...(state.index.source.pmcid === undefined
-              ? {}
-              : { requested_pmcid: state.index.source.pmcid }),
-            discovery_attempts: []
-          }, state.index, handle, page);
-        } catch (error) {
-          store.rollback(handle);
-          throw error;
-        }
+      async handle(input) {
+        return executor.continue(input);
       }
     });
   }
@@ -236,15 +428,8 @@ export function createOpenFullTextActionRoutes(
       description: "Validate a source-linked study-method audit only after the exact full text was read to exhaustion. Randomization or publication labels are not reliability verdicts.",
       inputSchema: studyMethodAuditActionInputSchema,
       outputSchema: studyMethodAuditActionOutputSchema,
-      async handle({ document_handle: handle, audit }) {
-        const state = store.read(handle);
-        if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
-        const receipt = validateStudyMethodAudit(state.index, audit);
-        return {
-          status: "source_linked_study_audit_validated" as const,
-          audit_receipt: receipt,
-          coverage_receipt: auditCoverage(handle, state.index)
-        };
+      async handle(input) {
+        return executor.validateStudyAudit(input);
       }
     });
   }
@@ -255,15 +440,8 @@ export function createOpenFullTextActionRoutes(
       description: "Validate a source-linked systematic-review, meta-analysis, or guideline-method audit only after the exact full text was read to exhaustion. Review labels and pooled estimates are not authority verdicts.",
       inputSchema: reviewMethodAuditActionInputSchema,
       outputSchema: reviewMethodAuditActionOutputSchema,
-      async handle({ document_handle: handle, audit }) {
-        const state = store.read(handle);
-        if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
-        const receipt = validateReviewMethodAudit(state.index, audit);
-        return {
-          status: "source_linked_review_audit_validated" as const,
-          audit_receipt: receipt,
-          coverage_receipt: auditCoverage(handle, state.index)
-        };
+      async handle(input) {
+        return executor.validateReviewAudit(input);
       }
     });
   }
@@ -441,6 +619,10 @@ function defaultUnpaywallConfig(): UnpaywallConfig {
   return {
     email: process.env.ASKRIGOR_UNPAYWALL_EMAIL?.trim() || "support@askrigor.com"
   };
+}
+
+function createAuditHash(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
 }
 
 class OpenFullTextNotReadError extends Error {}

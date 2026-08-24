@@ -449,16 +449,41 @@ deployment was added. Reviewed merge remains required before Phase D3.
 
 #### Phase D3 — Session enforcement + formal/full-text integration
 
-- [ ] Generate formal-search records for every material program/outcome hypothesis requiring follow-up.
-- [ ] Track exact DOI/source/version identity and access attempts.
-- [ ] Invoke/exhaust existing open-full-text acquisition for decision-important accessible DOIs; keep inaccessible/unverified sources as claim-local leads.
-- [ ] Bind existing study/review audit submissions to exact content identity/hash.
-- [ ] Add per-study external-evidence state/work capabilities and automatic scheduling after method audit.
-- [ ] Queue decision-changing linked replications/reviews/notices/comments and require executable linked-source audit before unrestricted use.
-- [ ] Recalculate claim capability/non-capability after external evidence changes.
-- [ ] Add mutation tests proving skipped external work, forged provider completion, hidden retraction/provider failure, mixed receipts, or unaudited replication labels cannot unlock finalization.
+- [x] Generate formal-search records for every material program/outcome hypothesis requiring follow-up.
+- [x] Track exact DOI/source/version identity and access attempts.
+- [x] Invoke/exhaust existing open-full-text acquisition for decision-important accessible DOIs; keep inaccessible/unverified sources as claim-local leads.
+- [x] Bind existing study/review audit submissions to exact content identity/hash.
+- [x] Add per-study external-evidence state/work capabilities and automatic scheduling after method audit.
+- [x] Queue decision-changing linked replications/reviews/notices/comments and require executable linked-source audit before unrestricted use.
+- [x] Recalculate claim capability/non-capability after external evidence changes.
+- [x] Add mutation tests proving skipped external work, forged provider completion, hidden retraction/provider failure, mixed receipts, or unaudited replication labels cannot unlock finalization.
 
 **D3 gate:** an abstract-only trial, unexhausted full text, unknown source block, identity mismatch, missing required audit domain, unseen inaccessible paper, missing mandatory provider attempt, or unresolved decision-changing linked source cannot authorize unrestricted decision-important use.
+
+Phase D3 candidate verification on
+`agent/execution-control-phase-d3-20260824` connects the existing internal
+research session to exact program-derived PubMed/Europe PMC searches, lawful
+open-full-text continuation, study/review/notice method audits, the signed
+Crossref/FORRT coordinator, linked-source execution, and externally bound
+claim-capability recalculation. The session retains compact source identities,
+hashes, handles, attempts, statuses, and work packages rather than article
+text or provider bodies. Terminal provider/search/source boundaries remain
+visible and claim-local while unrelated executable work continues.
+
+Hostile tests reject omitted formal hypotheses and provider identities,
+unexhausted or mixed full-text chains, forged source blocks, cross-protocol or
+tampered external receipts, omitted mandatory provider attempts, hidden
+provider boundaries, skipped external coverage, unaudited provider-reported
+replication labels, and stale claim recalculation. New linked evidence may
+reopen completed downstream gates only through server-derived source state.
+Clean provider results still require an external-receipt-bound method audit;
+partial provider coverage cannot become unrestricted use. Focused verification
+passes 112 tests. The complete host-boundary deterministic suite passes 1,215
+tests with six declared skips, and `npm run verify` passes typechecking, that
+same suite, and the production build. Hosted CI, PR, and merge identity are
+recorded in the current-state checkpoint after reviewed delivery. Public
+MCP/Action inventory, canonical protocol bytes, deployment, provider
+configuration, and durable retention remain unchanged.
 
 #### Phase D4 — Retraction Watch verified local snapshot
 

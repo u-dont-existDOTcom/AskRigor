@@ -55,9 +55,10 @@ complete XML protocol.
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
 - `external-study-evidence-sources.md`: internal Crossref publication-event and
-  FORRT FLoRA relationships, the Phase D2 composite coordinator, bounded
-  content-addressed artifacts, signed structural receipts, typed method-audit
-  references, provider/attribution boundaries, and non-production scope
+  FORRT FLoRA relationships, the Phase D2 composite coordinator, Phase D3
+  formal/full-text/session enforcement, bounded content-addressed artifacts,
+  signed structural receipts, typed method-audit references,
+  provider/attribution boundaries, and non-production scope
 - `gemini-spark-setup.md`: automated server-side Gemini Google-Search scout,
   protected paid-provider configuration, privacy/cost bounds, strict query-
   reconciled candidate packet, independent YouTube identity validation,
@@ -116,6 +117,10 @@ complete XML protocol.
   internal external-study evidence coordinator, deterministic bundle and
   signed receipt, bounded artifact-store abstraction, typed method-audit
   references, public-inventory freeze, and hostile-test plan
+- `superpowers/plans/2026-08-24-execution-control-phase-d3-implementation.md`:
+  controller-owned formal hypotheses/search, exact open-full-text depth,
+  source-linked study/review/notice audit, signed external-evidence scheduling,
+  linked-source execution, and claim-capability recalculation
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

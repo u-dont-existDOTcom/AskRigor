@@ -91,7 +91,22 @@ function phaseACompletionFixture(): ResearchSessionState {
   for (const operationId of RESEARCH_OPERATION_IDS) {
     operations[operationId] = { status: "COMPLETE" };
   }
-  return researchSessionStateSchema.parse({ ...state, modules, operations });
+  const formalEvidence = structuredClone(state.formal_evidence);
+  for (const hypothesis of formalEvidence.hypotheses) {
+    for (const search of hypothesis.provider_searches) {
+      search.status = "COMPLETE";
+      search.pages_retrieved = 1;
+      search.records_returned_cumulative = 0;
+      search.page_receipt_hashes = ["d".repeat(64)];
+      search.access_statuses = ["complete"];
+    }
+  }
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules,
+    operations,
+    formal_evidence: formalEvidence
+  });
 }
 
 describe("research session controller core", () => {
@@ -115,8 +130,7 @@ describe("research session controller core", () => {
 
     expect(deriveRequiredNextCapabilities(scoutComplete(state))).toEqual([
       "route_module_applicability",
-      "native_video_discovery",
-      "formal_evidence_search"
+      "native_video_discovery"
     ]);
   });
 
@@ -248,21 +262,13 @@ describe("research session controller core", () => {
         summary: "One exact source remained inaccessible after lawful acquisition."
       }
     };
-    const terminalOnly = researchSessionStateSchema.parse({
+    expect(() => researchSessionStateSchema.parse({
       ...otherwiseFinished,
       operations: {
         ...otherwiseFinished.operations,
         accessible_full_text_acquisition: terminalOperation
       }
-    });
-    expect(deriveResearchOutputBoundary(terminalOnly)).toBe(
-      "BOUNDED_NONRANKING_ONLY"
-    );
-    expect(evaluateResearchFinalization(SESSION_ID, terminalOnly)).toMatchObject({
-      authorization: "DENIED",
-      output_boundary: "BOUNDED_NONRANKING_ONLY",
-      finalization_permit: null
-    });
+    })).toThrow(/derived exactly from per-source formal evidence state/u);
   });
 
   it("defines the future permit contract without enabling issuance", () => {
@@ -305,10 +311,16 @@ describe("research session controller core", () => {
       if (
         operationId === "candidate_screening" ||
         operationId === "transcript_acquisition" ||
-        operationId === "community_discussion_audit"
+        operationId === "community_discussion_audit" ||
+        operationId === "formal_evidence_search" ||
+        operationId === "accessible_full_text_acquisition" ||
+        operationId === "study_method_audit" ||
+        operationId === "external_study_evidence_audit" ||
+        operationId === "linked_replication_and_review_audit" ||
+        operationId === "claim_capability_recalculation"
       ) {
         expect(() => researchSessionStateSchema.parse({ ...finished, operations }))
-          .toThrow(/depth|derived.*per-video receipt state/u);
+          .toThrow(/depth|derived.*(?:per-video|per-source).*state/u);
         continue;
       }
       const mutated = researchSessionStateSchema.parse({ ...finished, operations });
