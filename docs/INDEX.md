@@ -119,6 +119,9 @@ complete XML protocol.
 - `hermes-worker-pilot.md`: pinned official Hermes one-shot semantic worker,
   no-tools/no-memory isolation, server-only completion authority, configuration,
   fail-closed response guard, privacy boundary, and Phase I non-activation
+- `n8n-control-plane-pilot.md`: pinned disposable n8n runtime, server-only
+  directives, opaque execution data boundary, strict workflow/mutation guard,
+  real permit/denial smoke, and Phase J non-activation
 - `retraction-watch-snapshot.md`: fixed official source, strict CSV/header
   handling, verified local snapshot/index format, atomic activation/rollback,
   active/previous pruning, staleness semantics, coordinator boundary, and

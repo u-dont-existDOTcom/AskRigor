@@ -8,17 +8,20 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import {
-  candidateScreeningSubmissionSchema
-} from "./actions/research-candidate-frontier.js";
-import {
   finalizationDecisionSchema,
-  RESEARCH_MODULE_IDS,
   type ResearchFinalizationDecision
 } from "./actions/research-session-controller.js";
 import {
-  PRIVATE_RESEARCH_ORCHESTRATION_PREFIX,
-  privateResearchOrchestrationViewSchema
-} from "./private-research-orchestration.js";
+  createHttpPrivateResearchOrchestrationClient,
+  PrivateOrchestrationClientError,
+  type PrivateResearchOrchestrationClient,
+  type PrivateResearchView
+} from "./private-research-orchestration-client.js";
+import {
+  assertResearchSemanticBinding,
+  researchSemanticModelOutputSchema,
+  type ResearchSemanticExecutor
+} from "./research-semantic-worker.js";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const sessionId = z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u);
@@ -43,37 +46,7 @@ export const HERMES_RESEARCH_WORKER_POLICY = Object.freeze({
   finalization_authority: "ASKRIGOR_SERVER_ONLY"
 } as const);
 
-const moduleDecisionSchema = z.object({
-  module_id: z.enum(RESEARCH_MODULE_IDS),
-  applicability: z.enum(["REQUIRED", "NOT_REQUIRED"]),
-  rationale: bounded(1_000)
-}).strict();
-
-const moduleSubmissionSchema = z.object({
-  package_version: z.literal("askrigor_module_applicability_v1"),
-  decisions: z.array(moduleDecisionSchema).min(1).max(RESEARCH_MODULE_IDS.length)
-}).strict();
-
-const hermesModuleOutputSchema = z.object({
-  contract_version: z.literal("askrigor_hermes_semantic_result_v1"),
-  session_id: sessionId,
-  state_digest: digest,
-  work_type: z.literal("module_applicability"),
-  submission: moduleSubmissionSchema
-}).strict();
-
-const hermesCandidateOutputSchema = z.object({
-  contract_version: z.literal("askrigor_hermes_semantic_result_v1"),
-  session_id: sessionId,
-  state_digest: digest,
-  work_type: z.literal("candidate_screening"),
-  submission: candidateScreeningSubmissionSchema
-}).strict();
-
-export const hermesSemanticModelOutputSchema = z.discriminatedUnion(
-  "work_type",
-  [hermesModuleOutputSchema, hermesCandidateOutputSchema]
-);
+export const hermesSemanticModelOutputSchema = researchSemanticModelOutputSchema;
 
 const workerUsageSchema = z.object({
   api_calls: z.number().int().nonnegative().max(1_000),
@@ -97,34 +70,15 @@ export const hermesSemanticExecutionSchema = z.object({
 export type HermesSemanticExecution = z.output<
   typeof hermesSemanticExecutionSchema
 >;
-export type PrivateResearchView = z.output<
-  typeof privateResearchOrchestrationViewSchema
->;
-
-export interface HermesSemanticExecutor {
-  execute(input: {
-    session_id: string;
-    state_digest: string;
-    research_context?: string;
-    semantic_work: NonNullable<PrivateResearchView["semantic_work"]>;
-  }): Promise<unknown>;
-}
-
-export interface PrivateResearchOrchestrationClient {
-  start(input: {
-    research_target: string;
-    diagnosis_status: "diagnosis_not_specified" | "user_supplied_diagnosis";
-  }): Promise<PrivateResearchView>;
-  status(sessionId: string): Promise<PrivateResearchView>;
-  resume(sessionId: string): Promise<PrivateResearchView>;
-  submit(input: {
-    session_id: string;
-    state_digest: string;
-    work_type: "module_applicability" | "candidate_screening";
-    submission: unknown;
-  }): Promise<PrivateResearchView>;
-  finalize(sessionId: string): Promise<ResearchFinalizationDecision>;
-}
+export type HermesSemanticExecutor = ResearchSemanticExecutor;
+export {
+  createHttpPrivateResearchOrchestrationClient,
+  PrivateOrchestrationClientError
+};
+export type {
+  PrivateResearchOrchestrationClient,
+  PrivateResearchView
+};
 
 const runMetricsSchema = z.object({
   controller_transitions: z.number().int().nonnegative(),
@@ -244,7 +198,14 @@ export async function runHermesResearchTask(
             : { research_context: input.research_context }),
           semantic_work: view.semantic_work
         }));
-        assertWorkerBinding(view, parsedExecution.model_output);
+        assertResearchSemanticBinding({
+          session_id: view.session_id,
+          state_digest: view.state_digest,
+          work_type: view.semantic_work.kind,
+          ...(view.semantic_work.kind === "candidate_screening"
+            ? { discovery_digest: view.semantic_work.package.discovery_digest }
+            : {})
+        }, parsedExecution.model_output);
         // Re-assign only after the strict worker and exact package binding pass.
         execution = parsedExecution;
       } catch {
@@ -315,66 +276,6 @@ export function releaseHermesFinalResponse(
       parsed.decision.finalization_permit.permit_payload_sha256,
     response
   });
-}
-
-export function createHttpPrivateResearchOrchestrationClient(input: {
-  baseUrl: URL;
-  apiKey: string;
-  fetch?: typeof fetch;
-}): PrivateResearchOrchestrationClient {
-  const baseUrl = new URL(input.baseUrl);
-  const apiKey = input.apiKey.trim();
-  const fetcher = input.fetch ?? fetch;
-  if (!/^https?:$/u.test(baseUrl.protocol) || apiKey.length < 32) {
-    throw new Error("Invalid private orchestration client configuration");
-  }
-  const post = async (suffix: string, body: unknown): Promise<unknown> => {
-    const response = await fetcher(
-      new URL(`${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}${suffix}`, baseUrl),
-      {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${apiKey}`,
-          "content-type": "application/json"
-        },
-        body: JSON.stringify(body)
-      }
-    );
-    const payload: unknown = await response.json();
-    if (!response.ok) throw new PrivateOrchestrationClientError(response.status);
-    return payload;
-  };
-  const client: PrivateResearchOrchestrationClient = {
-    async start(body) {
-      return privateResearchOrchestrationViewSchema.parse(await post("/start", body));
-    },
-    async status(id) {
-      return privateResearchOrchestrationViewSchema.parse(
-        await post("/status", { session_id: sessionId.parse(id) })
-      );
-    },
-    async resume(id) {
-      return privateResearchOrchestrationViewSchema.parse(
-        await post("/resume", { session_id: sessionId.parse(id) })
-      );
-    },
-    async submit(body) {
-      return privateResearchOrchestrationViewSchema.parse(await post("/submit", body));
-    },
-    async finalize(id) {
-      return finalizationDecisionSchema.parse(
-        await post("/finalize", { session_id: sessionId.parse(id) })
-      );
-    }
-  };
-  return Object.freeze(client);
-}
-
-export class PrivateOrchestrationClientError extends Error {
-  constructor(public readonly status: number) {
-    super("Private AskRigor orchestration request failed");
-    this.name = "PrivateOrchestrationClientError";
-  }
 }
 
 export interface HermesProcessExecutorConfig {
@@ -540,23 +441,6 @@ function normalizeRunInput(input: RunHermesResearchTaskInput) {
     maximum_transitions: maximumTransitions,
     maximum_no_progress_transitions: maximumNoProgressTransitions
   };
-}
-
-function assertWorkerBinding(
-  view: PrivateResearchView,
-  output: z.output<typeof hermesSemanticModelOutputSchema>
-): void {
-  if (
-    output.session_id !== view.session_id ||
-    output.state_digest !== view.state_digest ||
-    output.work_type !== view.semantic_work?.kind
-  ) throw new Error("Hermes semantic result is bound to another work package");
-  if (
-    output.work_type === "candidate_screening" &&
-    view.semantic_work?.kind === "candidate_screening" &&
-    output.submission.discovery_digest !==
-      view.semantic_work.package.discovery_digest
-  ) throw new Error("Hermes candidate result is bound to another frontier");
 }
 
 function terminalResultOrNull(

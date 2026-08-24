@@ -146,6 +146,7 @@ describe("Hermes bounded worker pilot", () => {
       start: vi.fn(async () => view),
       status: vi.fn(async () => view),
       resume: vi.fn(async () => view),
+      advance: vi.fn(async () => view),
       submit: vi.fn(async () => { throw new Error("unexpected semantic work"); }),
       finalize: vi.fn(async () => decision)
     };
@@ -465,6 +466,7 @@ function sequencedClient(
       index += 1;
       return current();
     }),
+    advance: vi.fn(async () => current()),
     submit: vi.fn(async () => {
       index += 1;
       return current();
@@ -481,6 +483,7 @@ function fixedDeniedClient(viewValue: PrivateResearchView): PrivateResearchOrche
     start: vi.fn(async () => viewValue),
     status: vi.fn(async () => viewValue),
     resume: vi.fn(async () => viewValue),
+    advance: vi.fn(async () => viewValue),
     submit: vi.fn(async () => viewValue),
     finalize: vi.fn(async () => deniedDecision(viewValue.state_digest))
   };

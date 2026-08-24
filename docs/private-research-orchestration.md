@@ -1,18 +1,19 @@
 # Private research orchestration interface
 
-Status: Phase H implementation with a disabled Phase I Hermes client pilot;
+Status: Phase H implementation with disabled Phase I Hermes and Phase J n8n pilots;
 not part of the public MCP or Custom GPT Action inventories.
 
 ## Boundary
 
 The interface exposes the existing server-owned research-session controller at
-five private POST routes:
+six private POST routes:
 
 - `/internal/research/v1/start`
 - `/internal/research/v1/resume`
 - `/internal/research/v1/status`
 - `/internal/research/v1/submit`
 - `/internal/research/v1/finalize`
+- `/internal/research/v1/advance`
 
 It is a transport adapter, not a second controller. The same store,
 protocol-drift checks, monotonic module state, operation receipts, treatment
@@ -71,6 +72,14 @@ contract.
 Deterministic provider operations remain server-internal. The interface has no
 provider-by-provider completion controls.
 
+`/advance` is additionally bound to the caller's exact current state digest.
+The server, not the caller, derives whether the next step is deterministic or
+one exact semantic package. A worker result is schema-, state-, kind-, and
+frontier-bound before commit. Worker death is retryable; malformed or unbound
+output is rejected; stale state cannot commit. Authorized permits returned by
+the private finalization route are reverified against current server state,
+protocol identity, expiry, signing key, payload hash, and signature.
+
 ## Phase I Hermes client
 
 `apps/research-mcp/src/hermes-worker-pilot.ts` drives this interface without
@@ -107,10 +116,25 @@ a matching completed method audit. It never treats the remembered receipt
 hashes alone as the lost raw validation material and never advances
 finalization.
 
-## Phase H/I non-activation
+## Phase J n8n adapter
+
+The separate `/internal/n8n/v1/` adapter exposes start, tick, and status for an
+ephemeral n8n control-plane execution. It uses its own Bearer key and gives n8n
+only an opaque control-plane execution ID plus a minimized directive. It never
+gives n8n the private research session ID, inner private-orchestration key,
+research target, semantic package, evidence content, worker/model key, or final
+report. The server-owned `/advance` route performs the actual directed work.
+
+See `n8n-control-plane-pilot.md` for the exact pinned runtime, workflow export,
+mutation validator, disabled execution persistence, real-runtime smoke, and
+non-activation boundary.
+
+## Phase H/I/J non-activation
 
 This phase adds code and hermetic integration coverage only. It does not add a
 public endpoint, production credential, provider account, external workflow,
 new retention store, Custom GPT instruction, plugin change, deployment, or
-browser access. Phase I adds no provider credential or live worker. Activation
+browser access. Phase I adds no provider credential or live worker. Phase J
+adds no durable n8n database, paid account, external notification recipient,
+public webhook, or production service. Activation
 belongs to the later reviewed release transaction.
