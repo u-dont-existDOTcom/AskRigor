@@ -1,4 +1,4 @@
-name: One-shot epistemic phase router patch
+name: One-shot epistemic safeguards migration
 
 on:
   push:
@@ -19,178 +19,27 @@ jobs:
           ref: codex/epistemic-phase-router-20260824
           fetch-depth: 0
 
-      - name: Patch canonical protocols and routing docs
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Apply canonical epistemic safeguards
+        run: python scripts/protocol/apply_epistemic_phase_attractor_2026_08_24.py
+
+      - name: Validate migration and targeted regression
+        run: |
+          python -m py_compile scripts/protocol/apply_epistemic_phase_attractor_2026_08_24.py
+          npm ci
+          npx vitest run tests/epistemic-phase-routing-structure.test.ts tests/protocol.test.ts
+          git diff --check
+
+      - name: Commit canonical patch and remove one-shot workflow
         shell: bash
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import hashlib
-          import xml.etree.ElementTree as ET
-
-          root = Path.cwd()
-          universal_path = root / "protocols" / "Universal_Instructions.xml"
-          hrp_path = root / "protocols" / "HRP_Full.xml"
-          agents_path = root / "AGENTS.md"
-          router_path = root / "project" / "PROJECT_INSTRUCTIONS.md"
-
-          universal = universal_path.read_text(encoding="utf-8")
-          assert 'version="20.5.14" revisionDate="2026-08-18"' in universal
-          assert '<epistemic_phase_routing_gate priority="Critical">' not in universal
-          universal = universal.replace(
-              'version="20.5.14" revisionDate="2026-08-18"',
-              'version="20.5.15" revisionDate="2026-08-24"',
-              1,
-          )
-          universal = universal.replace(
-              'Truth-Priority, and Whole-Argument-Reconstruction Gates',
-              'Truth-Priority, Epistemic-Phase Routing, and Whole-Argument-Reconstruction Gates',
-              1,
-          )
-          universal_revision = '''<revision version="20.5.15" priority="Critical">
-Added a domain-general Epistemic Phase Routing Gate to prevent validation safeguards from being applied to hypothesis discovery. Before freeze, holdout, preregistration, anti-overfitting, model-selection, or post-hoc rules are applied, every material dataset or partition must be classified by use as DEVELOPMENT or VALIDATION.
-
-DEVELOPMENT data may influence hypotheses and models and therefore should be optimized aggressively: feature search, symbolic regression, target refinement, ablation, repeated cross-validation, post-hoc hypothesis generation, and failure inspection are allowed and encouraged. Those same data cannot provide independent confirmation or establish generalization. VALIDATION data may support or refute a frozen claim, but their outcomes may not influence model choice, formula selection, thresholds, preprocessing, target definition, or analysis rules.
-
-The revision adds the two-question checksum “May these data influence the hypothesis/model?” and “May these data support a claim of generalization?”, makes cross-validation inside development explicitly a search/model-selection tool rather than confirmation, states that an inspected or iteratively used holdout becomes development data, and gives phase routing precedence over generic anti-overfitting heuristics. Core invariant: freeze before VALIDATION, not before DISCOVERY; do not optimize VALIDATION cases; optimize DEVELOPMENT cases aggressively.
-</revision>
-'''
-          universal = universal.replace(
-              '<revision_history>\n',
-              '<revision_history>\n' + universal_revision,
-              1,
-          )
-          universal_gate = '''<epistemic_phase_routing_gate priority="Critical">
-<purpose>
-Prevent the assistant from applying a methodologically correct validation safeguard to the wrong epistemic phase and thereby suppressing legitimate hypothesis discovery.
-</purpose>
-
-<classification priority="Critical">
-Before applying any freeze, holdout, preregistration, anti-overfitting, post-hoc, leakage, model-selection, or confirmation rule, classify each material dataset or partition by its current use:
-- DEVELOPMENT: its outcomes may influence hypotheses, representations, features, formulas, target definitions, preprocessing, thresholds, hyperparameters, or analysis choices.
-- VALIDATION: it is reserved to test a hypothesis/model/analysis package frozen before its outcomes are inspected.
-A project may contain both phases in separate datasets or partitions. Phase is a property of use, not a moral quality of the data.
-</classification>
-
-<two_question_checksum priority="Critical">
-Ask, in this order:
-1. May these data influence the hypothesis or model?
-2. May these data support the claim that the resulting hypothesis or model generalizes beyond those data?
-DEVELOPMENT normally answers YES / NO. VALIDATION normally answers NO / YES. If both answers are YES because validation outcomes were inspected and then used to change the model, reclassify those data as DEVELOPMENT and obtain new independent validation for confirmatory claims.
-</two_question_checksum>
-
-<rules priority="Critical">
-1. DEVELOPMENT is for learning. Optimize it aggressively when useful. Post-hoc hypotheses, broad feature search, symbolic regression, representation search, target refinement, ablations, interaction search, repeated cross-validation, bootstrap/stability analysis, error inspection, and iterative model revision are allowed and encouraged.
-2. Performance on DEVELOPMENT data, including internal cross-validation repeatedly consulted during model development, is model-selection or search evidence. It may rank candidates and estimate stability, but it is not independent confirmation and must not be presented as proof of generalization.
-3. VALIDATION is for testing. Freeze the hypothesis, model/formula, target, preprocessing, exclusions, thresholds, controls, metrics, and material analysis rules before validation outcomes are inspected. Do not retune on those outcomes and still call the same data untouched validation.
-4. Validation safeguards MUST NOT restrict exploration on data explicitly designated DEVELOPMENT merely because those safeguards would be mandatory in VALIDATION. Generic instructions such as avoid overfitting, freeze predictions, preserve holdouts, or do not optimize evaluation cases apply according to phase, not indiscriminately.
-5. An internal holdout remains VALIDATION only while its outcomes are genuinely uninspected and do not influence any choice. Once its results are inspected and used iteratively, it becomes DEVELOPMENT for subsequent claims.
-6. When the user is exploring existing data to generate a testable hypothesis and a genuinely independent future dataset can test it, default the current exploratory data to DEVELOPMENT unless the user explicitly reserves them for validation.
-7. Do not preserve part of a development dataset as ceremonially untouched if doing so materially weakens discovery and genuinely independent external validation is available or planned. Preserve an internal validation partition only when there is a concrete reason to spend scarce validation data there.
-8. When phase materially affects interpretation, begin the experiment, analysis plan, or report with exactly `PHASE: DEVELOPMENT` or `PHASE: VALIDATION`, and state the permitted and forbidden epistemic uses of that phase.
-9. Discovery may produce candidate laws, formulas, mechanisms, mappings, and hypotheses. Label them as development-selected. The confirmatory test is whether the frozen candidate succeeds on later independent validation data.
-10. When a broad anti-bias heuristic conflicts with this gate, route by phase first. Core memory aid: “Freeze before VALIDATION, not before DISCOVERY. Do not optimize VALIDATION cases. Optimize DEVELOPMENT cases aggressively.”
-</rules>
-</epistemic_phase_routing_gate>
-
-'''
-          universal = universal.replace(
-              '<canonical_protocol_execution_gate>',
-              universal_gate + '<canonical_protocol_execution_gate>',
-              1,
-          )
-          universal_check = '''Epistemic-phase check: Before applying freeze, holdout, preregistration, anti-overfitting, post-hoc, leakage, or model-selection restrictions, did I classify each material dataset/partition by use as DEVELOPMENT or VALIDATION and run the two-question checksum? If DEVELOPMENT, am I allowing aggressive hypothesis/model search while withholding confirmatory claims? If VALIDATION, was the complete analysis package frozen before outcomes were inspected? If a holdout was inspected and then used to retune, did I reclassify it as DEVELOPMENT rather than preserve a false validation label?\n\n'''
-          universal = universal.replace(
-              '<point_of_generation_checks>\n',
-              '<point_of_generation_checks>\n' + universal_check,
-              1,
-          )
-          universal_path.write_text(universal, encoding="utf-8")
-
-          hrp = hrp_path.read_text(encoding="utf-8")
-          assert 'version="20.5.22" revisionDate="2026-08-23"' in hrp
-          assert '<EpistemicPhaseRoutingGate priority="Critical">' not in hrp
-          hrp = hrp.replace(
-              'version="20.5.22" revisionDate="2026-08-23"',
-              'version="20.5.23" revisionDate="2026-08-24"',
-              1,
-          )
-          hrp = hrp.replace(
-              'Project-Release Packaging Controls, Premise-Integrity, and Truth-Priority Controls',
-              'Project-Release Packaging Controls, Epistemic-Phase Routing, Premise-Integrity, and Truth-Priority Controls',
-              1,
-          )
-          hrp_revision = '''  <Revision version="20.5.23" priority="Critical">
-   Added an Epistemic Phase Routing Gate. Research data must be classified by use as DEVELOPMENT or VALIDATION before freeze, holdout, preregistration, anti-overfitting, post-hoc, leakage, or model-selection restrictions are applied. DEVELOPMENT may influence hypotheses and models and should be searched and optimized aggressively; it cannot independently confirm generalization. VALIDATION may support or refute a frozen claim but may not influence the model or analysis package. An inspected holdout used for revision becomes DEVELOPMENT. Cross-validation repeatedly consulted during development is a selection tool, not independent confirmation. Core invariant: freeze before VALIDATION, not before DISCOVERY.
-  </Revision>
-
-'''
-          hrp = hrp.replace('<RevisionHistory>\n', '<RevisionHistory>\n' + hrp_revision, 1)
-          hrp_gate = ''' <EpistemicPhaseRoutingGate priority="Critical">
-  <Purpose>Prevent validation discipline from being misapplied to hypothesis discovery while preserving a hard firewall for genuine confirmation.</Purpose>
-  <Rule name="ClassifyPhaseBeforeSafeguards" priority="Critical">Before applying freeze, holdout, preregistration, anti-overfitting, post-hoc, leakage, model-selection, or confirmatory rules, classify each material dataset or partition by current use as DEVELOPMENT or VALIDATION.</Rule>
-  <Rule name="TwoQuestionChecksum" priority="Critical">Ask: (1) May these data influence the hypothesis or model? (2) May these data support a claim that the resulting hypothesis or model generalizes? DEVELOPMENT is normally YES/NO. VALIDATION is normally NO/YES. If validation outcomes are inspected and then used to change the model or analysis, those data become DEVELOPMENT for subsequent claims and new independent validation is required.</Rule>
-  <Rule name="DevelopmentIsForLearning" priority="Critical">On DEVELOPMENT data, post-hoc hypothesis generation, feature and representation search, symbolic regression, target refinement, ablation, interaction search, repeated cross-validation, stability analysis, error inspection, and iterative model revision are allowed and encouraged. Optimize DEVELOPMENT cases aggressively when doing so improves hypothesis discovery.</Rule>
-  <Rule name="DevelopmentCannotConfirm" priority="Critical">Performance on DEVELOPMENT data, including cross-validation repeatedly consulted during model construction, may rank candidates and estimate stability but may not be presented as independent confirmation, prospective evidence, or proof of generalization.</Rule>
-  <Rule name="ValidationIsForTesting" priority="Critical">On VALIDATION data, freeze the hypothesis/model/formula, target, preprocessing, exclusions, thresholds, controls, metrics, and material analysis rules before outcomes are inspected. Do not retune using validation outcomes and preserve the label untouched validation.</Rule>
-  <Rule name="PhasePrecedesGenericAntiOverfitHeuristics" priority="Critical">Validation safeguards MUST NOT restrict exploration on explicitly DEVELOPMENT data merely because they would be mandatory during VALIDATION. Apply avoid-overfitting, preserve-holdout, preregister, freeze-predictions, and do-not-optimize-evaluation rules according to phase rather than as universal bans on learning.</Rule>
-  <Rule name="ExternalValidationDefault" priority="High">When existing data are being explored to generate hypotheses and a genuinely independent future dataset can test them, default the current exploratory data to DEVELOPMENT unless they were explicitly reserved for validation. Do not spend development information merely to create ceremonial internal untouchedness when external validation is available or planned.</Rule>
-  <Rule name="VisiblePhaseLabel" priority="High">When phase materially affects interpretation, begin the experiment, research plan, or report with exactly `PHASE: DEVELOPMENT` or `PHASE: VALIDATION` and state what that phase may and may not establish.</Rule>
-  <Rule name="CoreInvariant" priority="Critical">Freeze before VALIDATION, not before DISCOVERY. Do not optimize VALIDATION cases. Optimize DEVELOPMENT cases aggressively.</Rule>
- </EpistemicPhaseRoutingGate>
-
-'''
-          closing = '</RevisionHistory>'
-          pos = hrp.find(closing)
-          assert pos >= 0
-          pos += len(closing)
-          hrp = hrp[:pos] + '\n\n' + hrp_gate + hrp[pos:]
-          final_checks = ''' <Check id="FS191">Before applying freeze, holdout, preregistration, anti-overfitting, post-hoc, leakage, or model-selection restrictions, did I classify each material dataset or partition as DEVELOPMENT or VALIDATION by current use?</Check>
- <Check id="FS192">For DEVELOPMENT data, did I allow useful aggressive hypothesis/model search while withholding independent-confirmation claims?</Check>
- <Check id="FS193">For VALIDATION data, was the material hypothesis/model/analysis package frozen before outcomes were inspected, with no outcome-driven retuning mislabeled as untouched validation?</Check>
- <Check id="FS194">If an internal holdout was inspected and then influenced revision, did I reclassify it as DEVELOPMENT and require new independent validation for confirmation?</Check>
-'''
-          assert '</FinalSelfCheck>' in hrp
-          hrp = hrp.replace('</FinalSelfCheck>', final_checks + '</FinalSelfCheck>', 1)
-          hrp_path.write_text(hrp, encoding="utf-8")
-
-          agents = agents_path.read_text(encoding="utf-8")
-          assert '## Epistemic phase routing' not in agents
-          agents_section = '''## Epistemic phase routing\n\nBefore applying any freeze, holdout, preregistration, anti-overfitting, post-hoc, leakage, or model-selection rule, classify each material dataset/partition by use as `DEVELOPMENT` or `VALIDATION`. Run the two-question checksum: may these data influence the hypothesis/model, and may they support a claim of generalization? Development is normally YES/NO; validation is normally NO/YES.\n\nOn `DEVELOPMENT`, optimize aggressively: post-hoc hypothesis generation, feature/formula search, symbolic regression, ablation, target refinement, repeated cross-validation, stability analysis, and failure inspection are allowed and encouraged. They are selection tools, not independent confirmation. On `VALIDATION`, freeze the material model and analysis package before outcomes are inspected; if those outcomes are then used to revise the model, reclassify that set as development and obtain new independent validation.\n\nValidation safeguards must not suppress legitimate discovery merely because they are highly salient elsewhere in the repository. Current explicit owner corrections take precedence over a generic anti-overfitting heuristic. Core invariant: **freeze before VALIDATION, not before DISCOVERY; do not optimize VALIDATION cases; optimize DEVELOPMENT cases aggressively.**\n\n'''
-          agents = agents.replace('## Validation\n', agents_section + '## Validation\n', 1)
-          agents_path.write_text(agents, encoding="utf-8")
-
-          router = router_path.read_text(encoding="utf-8")
-          assert '## 0. Epistemic phase routing' not in router
-          router_section = '''## 0. Epistemic phase routing\n\nBefore any research freeze, holdout, preregistration, anti-overfitting, post-hoc, leakage, or model-selection restriction, label each material dataset/partition `DEVELOPMENT` or `VALIDATION`. Development may influence hypotheses/models but cannot independently establish generalization. Validation may test a frozen claim but may not influence its selection. An inspected holdout that affects revision becomes development. Repeated cross-validation inside development is a search/model-selection tool, not confirmation.\n\nWhen existing data are being explored to generate a hypothesis and genuinely independent future data can test it, default the current exploratory data to `DEVELOPMENT` unless explicitly reserved otherwise. Validation rules MUST NOT constrain development search merely by analogy. Use the checksum: “May these data influence the model?” / “May these data support generalization?” = DEVELOPMENT `YES/NO`, VALIDATION `NO/YES`.\n\nFor phase-sensitive research artifacts, begin with exactly `PHASE: DEVELOPMENT` or `PHASE: VALIDATION`. Core invariant: **freeze before VALIDATION, not before DISCOVERY; optimize DEVELOPMENT aggressively; never optimize VALIDATION and still call it untouched.**\n\n'''
-          router = router.replace('## 1. Run before HRP/research\n', router_section + '## 1. Run before HRP/research\n', 1)
-          router_path.write_text(router, encoding="utf-8")
-
-          test_path = root / 'tests' / 'epistemic-phase-routing-structure.test.ts'
-          test_path.write_text('''import { readFile } from "node:fs/promises";\nimport { describe, expect, it } from "vitest";\n\ndescribe("epistemic phase routing structural integration", () => {\n  it("routes discovery and validation explicitly in Universal, HRP, and project instructions", async () => {\n    const universal = await readFile(new URL("../protocols/Universal_Instructions.xml", import.meta.url), "utf8");\n    const hrp = await readFile(new URL("../protocols/HRP_Full.xml", import.meta.url), "utf8");\n    const agents = await readFile(new URL("../AGENTS.md", import.meta.url), "utf8");\n    const router = await readFile(new URL("../project/PROJECT_INSTRUCTIONS.md", import.meta.url), "utf8");\n\n    expect(universal).toContain('version="20.5.15" revisionDate="2026-08-24"');\n    expect(universal).toContain('<epistemic_phase_routing_gate priority="Critical">');\n    expect(universal).toContain("Freeze before VALIDATION, not before DISCOVERY");\n    expect(universal).toContain("DEVELOPMENT normally answers YES / NO");\n    expect(universal).toContain("VALIDATION normally answers NO / YES");\n\n    expect(hrp).toContain('version="20.5.23" revisionDate="2026-08-24"');\n    expect(hrp).toContain('<EpistemicPhaseRoutingGate priority="Critical">');\n    expect(hrp).toContain('name="DevelopmentIsForLearning"');\n    expect(hrp).toContain('name="ValidationIsForTesting"');\n    expect(hrp).toContain('id="FS194"');\n\n    expect(agents).toContain("## Epistemic phase routing");\n    expect(router).toContain("## 0. Epistemic phase routing");\n    expect(router).toContain("PHASE: DEVELOPMENT");\n    expect(router).toContain("PHASE: VALIDATION");\n  });\n});\n''', encoding='utf-8')
-
-          plan = root / 'docs' / 'superpowers' / 'plans' / '2026-08-24-epistemic-phase-router.md'
-          plan.write_text('''# Epistemic phase router patch\n\nOwner correction: validation safeguards were repeatedly being overgeneralized into discovery, suppressing legitimate post-hoc hypothesis search even when independent future validation was available.\n\nInvariant: classify data by use before applying anti-overfitting safeguards. DEVELOPMENT may influence the model and cannot confirm generalization. VALIDATION may test a frozen model and may not influence it.\n\nPatched surfaces: canonical Universal instructions, canonical HRP, AskRigor agent map, AskRigor project router, and a structural regression test.\n''', encoding='utf-8')
-
-          # Canonical XML must remain well-formed after surgical insertion.
-          ET.parse(universal_path)
-          ET.parse(hrp_path)
-          assert '<epistemic_phase_routing_gate priority="Critical">' in universal_path.read_text(encoding='utf-8')
-          assert '<EpistemicPhaseRoutingGate priority="Critical">' in hrp_path.read_text(encoding='utf-8')
-
-          receipts = root / 'docs' / 'superpowers' / 'plans'
-          (receipts / '2026-08-24-universal-20-5-15-sha256.txt').write_text(
-              hashlib.sha256(universal_path.read_bytes()).hexdigest() + '  protocols/Universal_Instructions.xml\n', encoding='utf-8'
-          )
-          (receipts / '2026-08-24-hrp-20-5-23-sha256.txt').write_text(
-              hashlib.sha256(hrp_path.read_bytes()).hexdigest() + '  protocols/HRP_Full.xml\n', encoding='utf-8'
-          )
-          PY
-
           rm .github/workflows/epistemic-phase-router-one-shot.yml
-
-          git diff --check
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit -m "Add epistemic phase routing safeguards"
+          git commit -m "Add epistemic attractor and phase routing safeguards"
           git push origin HEAD:codex/epistemic-phase-router-20260824
