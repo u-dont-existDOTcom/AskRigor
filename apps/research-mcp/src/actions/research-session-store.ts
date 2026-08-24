@@ -26,6 +26,7 @@ export interface ResearchSessionStore {
   claim(sessionId: string): ResearchSessionState;
   replace(sessionId: string, state: ResearchSessionState): void;
   rollback(sessionId: string): void;
+  delete(sessionId: string): void;
 }
 
 export interface ResearchSessionStoreOptions {
@@ -129,6 +130,14 @@ export function createResearchSessionStore(
       entry.claimed = false;
       entries.delete(sessionId);
       entries.set(sessionId, entry);
+    },
+
+    delete(sessionId: string): void {
+      if (!isResearchSessionId(sessionId)) throw new ResearchSessionUnavailableError();
+      const entry = entries.get(sessionId);
+      if (entry === undefined) throw new ResearchSessionUnavailableError();
+      entries.delete(sessionId);
+      totalBytes -= entry.bytes;
     }
   });
 

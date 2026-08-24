@@ -55,6 +55,7 @@ import {
   initializeResearchFormalEvidence,
   protocolBindingsFromManifests,
   recalculateResearchSourceClaimCapability,
+  reconcileFormalEvidenceAfterEphemeralLoss,
   reconcileFormalEvidenceLinkedWork,
   recordFormalMethodAudit,
   recordAutomatedScoutCompletion,
@@ -241,6 +242,18 @@ describe("controller-owned formal evidence frontier", () => {
         source_segment_count: 5,
         synthesis_lock: "pass"
       });
+    const restored = reconcileFormalEvidenceAfterEphemeralLoss(formal);
+    expect(restored.sources.find(({ source_id }) => source_id === sourceId))
+      .toMatchObject({
+        full_text: {
+          status: "BLOCKED_RETRYABLE",
+          source_segments_retrieved_cumulative: 0,
+          synthesis_lock: "fail"
+        },
+        method_audit: { status: "NOT_STARTED" },
+        external_evidence: { status: "NOT_STARTED" },
+        claim_capability: { status: "METHOD_AUDIT_PENDING" }
+      });
     expect(() => restartResearchSourceFullTextChain(formal, sourceId, "forged restart"))
       .toThrow(/Only an incomplete/u);
   });
@@ -272,6 +285,33 @@ describe("controller-owned formal evidence frontier", () => {
     expect(formal.sources.every(({ claim_capability }) =>
       claim_capability.status === "EXTERNAL_AUDIT_PENDING"
     )).toBe(true);
+
+    let restoredBeforeExternal = reconcileFormalEvidenceAfterEphemeralLoss(formal);
+    expect(restoredBeforeExternal.sources.every((source) =>
+      source.full_text.status === "BLOCKED_RETRYABLE" &&
+      source.method_audit.status === "COMPLETE" &&
+      source.external_evidence.status === "NOT_STARTED" &&
+      source.claim_capability.status === "EXTERNAL_AUDIT_PENDING"
+    )).toBe(true);
+    const reacquisitionExecutor = openTextExecutor();
+    for (const source of [...restoredBeforeExternal.sources]) {
+      restoredBeforeExternal = await executeResearchSourceFullTextChain(
+        restoredBeforeExternal,
+        source.source_id,
+        reacquisitionExecutor,
+      );
+    }
+    expect(restoredBeforeExternal.sources.map((source) => ({
+      full_text: source.full_text.status,
+      method_audit: source.method_audit.status,
+      external_evidence: source.external_evidence.status,
+      claim_capability: source.claim_capability.status,
+    }))).toEqual(formal.sources.map((source) => ({
+      full_text: source.full_text.status,
+      method_audit: source.method_audit.status,
+      external_evidence: source.external_evidence.status,
+      claim_capability: source.claim_capability.status,
+    })));
     expect(createFormalExternalEvidenceWorkPackages(formal)).toHaveLength(3);
 
     for (const source of [...formal.sources]) {
@@ -329,6 +369,7 @@ describe("controller-owned formal evidence frontier", () => {
     expect(formal.sources.every(({ claim_capability }) =>
       claim_capability.unrestricted_decision_use
     )).toBe(true);
+    expect(reconcileFormalEvidenceAfterEphemeralLoss(formal)).toEqual(formal);
   });
 
   it("rejects cross-protocol external receipts and turns retractions/replication labels into linked work rather than conclusions", async () => {

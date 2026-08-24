@@ -17,6 +17,7 @@ import {
   initialResearchCandidateDiscoveryState,
   initializeResearchFormalEvidence,
   initializeResearchVideoDepth,
+  reconcileBidirectionalIterationAfterEphemeralLoss,
   type BidirectionalEvidenceState
 } from "../apps/research-mcp/src/index.js";
 import {
@@ -336,6 +337,17 @@ describe("server-owned bidirectional evidence iteration", () => {
       ...evidence,
       formalEvidence: ingested.formalEvidence
     })).toBe("IN_PROGRESS");
+
+    const restored = reconcileBidirectionalIterationAfterEphemeralLoss(searched);
+    expect(restored.rounds[0]!.formal_to_community_transfers[0]!.searches[0])
+      .toEqual({
+        video_id: evidence.videoDepth.selected_video_ids[0],
+        status: "NOT_STARTED",
+        pages_retrieved: 0,
+        records_returned_cumulative: 0,
+        page_receipt_hashes: [],
+        access_statuses: []
+      });
 
     const assessed = ingestBidirectionalReturnAssessment(
       searched,

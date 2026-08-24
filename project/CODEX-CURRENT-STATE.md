@@ -1,5 +1,68 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase G candidate
+
+Phase F merged through PR #78 at exact commit
+`5714ae44aa93b661a7b98b53b8b1f1dafef207da`; its former candidate section
+below predates that merge. Phase G now runs on branch
+`agent/execution-control-phase-g-20260824` from that exact commit.
+
+The repository recovery/storage audit is recorded in
+`docs/superpowers/plans/2026-08-24-phase-g-resumability-privacy-implementation.md`.
+The recommendation is a bounded encrypted local-VPS controller checkpoint,
+with raw comments/transcripts/article text/provider artifacts remaining
+ephemeral, plus a separate host-managed public Retraction Watch mirror mounted
+read-only into the application. No external database or new paid service is
+recommended.
+
+The owner delegated the proportionate implementation decision on 2026-08-24.
+After weighing the recorded benefits and costs, Codex approved (A) 72-hour-
+idle/seven-day-maximum encrypted private research-session retention without
+backup and (C) a daily public Retraction Watch mirror retaining active plus
+previous snapshots without backup. This does not authorize any external
+database, paid service, horizontal shared store, general backup inclusion, or
+broader retention. The implementation is locally verified; no production path
+has been activated from this branch.
+
+The optional encrypted file adapter persists only the controller state needed
+to derive the next authoritative capability. AES-256-GCM authenticates state
+and lifecycle metadata. The adapter enforces 72-hour idle and seven-day
+absolute expiry, bounded counts/bytes, strict file modes, atomic writes,
+explicit deletion, and five-minute fenced claims. Raw source/provider content
+stays in memory. Restore reconciliation reopens lost transcript/discussion,
+full-text, and bidirectional-search work without advancing state; exact-source
+full-text reacquisition retains a completed method/external audit only when the
+source identity and content hash still match.
+
+The raw D2 evidence-artifact store remains ephemeral. The public Retraction
+Watch mirror now prunes to active plus previous only after atomic activation,
+and a compiled bounded sync CLI plus hardened systemd service/timer templates
+are ready for the later reviewed deployment transaction. The application will
+receive only a read-only mirror mount; the sync job receives no AskRigor runtime
+secrets. Threat model, privacy map, backup exclusion, activation, recovery, and
+rollback are documented.
+
+Focused Phase G verification passes 85/85 tests. The complete host-boundary
+suite passes 1,303 tests with six declared skips. `npm run verify` passes
+typechecking, that same suite, and the production build; `systemd-analyze
+verify` passes the tracked service/timer. The public inventory remains 21 MCP
+tools and 26 Actions. Protocols, generated Custom GPT instructions, plugin
+bytes, external providers/accounts, credentials, current deployment, and
+production retention remain unchanged. Lesson closeout, PR, hosted checks, and
+merge remain pending; Phase H is next after the reviewed merge.
+
+The Phase G start lesson checkpoint at `2026-08-24T12:24:56.858Z` was
+available: 1 open candidate, 1 needing review, 0 accepted but not incorporated,
+3 incorporated or closed, and 0 deletion eligible. Neither open item expands
+Phase G.
+
+The pre-PR lesson checkpoint at `2026-08-24T15:36:56.397Z` was also
+available with the same counts. Lesson disposition is project-specific/no-new-
+lesson: Phase G applies the existing universal context/checkpoint recovery
+pattern and the already approved server-authority architecture. Its encrypted
+session schema, ephemeral-handle reconciliation, and Retraction Watch mirror
+are AskRigor-specific enforcement rather than a new general workflow rule.
+
 ## 2026-08-24 execution-control Phase F candidate
 
 Branch `agent/execution-control-phase-f-20260824` starts from exact merged

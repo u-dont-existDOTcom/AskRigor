@@ -655,15 +655,43 @@ The current one-hour in-memory store is deliberately bounded. Persistence change
 
 Tasks before any persistence change:
 
-- [ ] Define minimum data required to resume an execution.
-- [ ] Separate opaque execution metadata/receipt/artifact digests from sensitive research payloads.
-- [ ] Decide whether/how the D2 `EvidenceArtifactStore` becomes durable in production; test retention/deletion/encryption/backup/rollback/crash recovery.
-- [ ] Decide whether/how the D4 Retraction Watch snapshot/cron is stored/deployed and how stale/failed sync behaves.
-- [ ] Update the privacy data map and threat model.
-- [ ] Compare safe options: bounded server-side persistence, sealed compact checkpoints, content-addressed artifact storage, or restart-from-source behavior.
-- [ ] Preserve current read-only/no-new-privileges posture as far as possible.
+- [x] Define minimum data required to resume an execution.
+- [x] Separate opaque execution metadata/receipt/artifact digests from sensitive research payloads.
+- [x] Decide whether/how the D2 `EvidenceArtifactStore` becomes durable in production; test retention/deletion/encryption/backup/rollback/crash recovery.
+- [x] Decide whether/how the D4 Retraction Watch snapshot/cron is stored/deployed and how stale/failed sync behaves.
+- [x] Update the privacy data map and threat model.
+- [x] Compare safe options: bounded server-side persistence, sealed compact checkpoints, content-addressed artifact storage, or restart-from-source behavior.
+- [x] Preserve current read-only/no-new-privileges posture as far as possible.
 
 **Owner gate:** any new durable store, external service, paid account, changed retention, or production write capability requires owner approval before activation.
+
+Phase G on `agent/execution-control-phase-g-20260824` records the owner-
+delegated privacy decision and implements an optional single-host encrypted
+controller checkpoint adapter. AES-256-GCM authenticates the sensitive state
+and clear lifecycle metadata; strict filesystem modes, bounded bytes/counts,
+72-hour idle/seven-day absolute expiry, explicit deletion, atomic writes, and
+five-minute fenced claims prevent stale or caller-authored advancement. Raw
+transcripts, comments, publication text, Gemini exchanges, and provider bodies
+remain ephemeral. Restore reconciliation can only reopen work whose temporary
+handle was lost. An exact-source full-text reacquisition preserves a completed
+method/external receipt only when its source identity and content hash still
+match; otherwise the dependent audit is invalidated.
+
+The D2 raw evidence-artifact store remains in memory. The D4 public Retraction
+Watch mirror gains active-plus-previous pruning, a compiled bounded sync CLI,
+and reviewed hardened systemd service/timer templates. The later Phase H/L
+deployment transaction may give the sync container the mirror's only write
+mount and the application a separate read-only mount; no current public
+service is changed by this phase. Threat model, privacy map, deployment,
+recovery, backup exclusion, secret handling, and rollback are explicit.
+
+Focused Phase G verification passes 85/85 tests. The complete host-boundary
+deterministic suite passes 1,303 tests with six declared skips, and
+`npm run verify` passes typechecking, that same suite, and the production
+build. `systemd-analyze verify` passes the tracked service/timer. Public
+inventories remain 21 MCP tools and 26 Actions. No protocol, public endpoint,
+Custom GPT, plugin, provider account, external service, credential, production
+mount, timer, or retention path is activated here.
 
 **Exit gate:** restart/deployment behavior and external-evidence artifact/snapshot retention are explicit, privacy-reviewed, tested, and cannot silently lose state while claiming completion.
 

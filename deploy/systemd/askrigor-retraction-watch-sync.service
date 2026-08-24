@@ -1,0 +1,23 @@
+[Unit]
+Description=Refresh AskRigor's verified Retraction Watch snapshot
+Documentation=https://github.com/u-dont-existDOTcom/AskRigor/blob/main/docs/retraction-watch-snapshot.md
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStartPre=-/usr/bin/docker rm -f askrigor-retraction-watch-sync
+ExecStart=/usr/bin/docker run --rm --name askrigor-retraction-watch-sync --network bridge --read-only --tmpfs /tmp:rw,nosuid,nodev,noexec,size=268435456 --cap-drop=ALL --security-opt=no-new-privileges --user 1000:1000 --mount type=bind,src=/opt/askrigor/state/retraction-watch,dst=/var/lib/askrigor-retraction-watch,rw askrigor-research:0.1.0 node apps/research-mcp/dist/retraction-watch-sync-cli.js --root /var/lib/askrigor-retraction-watch
+TimeoutStartSec=45min
+TimeoutStopSec=2min
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

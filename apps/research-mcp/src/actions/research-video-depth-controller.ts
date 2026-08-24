@@ -570,6 +570,36 @@ export function restartResearchVideoDepthChain(
   return researchVideoDepthStateSchema.parse({ ...state, discussions });
 }
 
+/**
+ * Continuation handles are process-local. On durable-session restore, discard
+ * only active handle-bound chains and preserve completed or genuinely terminal
+ * receipts.
+ */
+export function reconcileVideoDepthAfterEphemeralLoss(
+  rawState: ResearchVideoDepthState,
+): ResearchVideoDepthState {
+  let state = researchVideoDepthStateSchema.parse(rawState);
+  for (const record of [...state.transcripts]) {
+    if (record.continuation_handle === undefined) continue;
+    state = restartResearchVideoDepthChain(
+      state,
+      "transcript_acquisition",
+      record.source.video_id,
+      "TRANSCRIPT_HANDLE_LOST_ON_RESTORE",
+    );
+  }
+  for (const record of [...state.discussions]) {
+    if (record.continuation_handle === undefined) continue;
+    state = restartResearchVideoDepthChain(
+      state,
+      "community_discussion_audit",
+      record.source.video_id,
+      "DISCUSSION_HANDLE_LOST_ON_RESTORE",
+    );
+  }
+  return researchVideoDepthStateSchema.parse(state);
+}
+
 export function deriveVideoDepthOperationStatus(
   rawState: ResearchVideoDepthState,
   capability: "transcript_acquisition" | "community_discussion_audit"

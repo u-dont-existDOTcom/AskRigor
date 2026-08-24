@@ -1,7 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createResearchSessionPrototypeRoutes,
+  createFileResearchSessionStore,
   type ActionRoute
 } from "../apps/research-mcp/src/index.js";
 import type {
@@ -16,6 +21,13 @@ import {
 
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
+const roots: string[] = [];
+
+afterEach(() => {
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 function context(body: unknown) {
   return { request: {} as never, clientIp: "192.0.2.1", body };
@@ -37,6 +49,63 @@ function protocolManifest(protocol: "universal" | "hrp") {
 }
 
 describe("server-owned research session feasibility routes", () => {
+  it("resumes from an encrypted checkpoint and still fails finalization on protocol drift", async () => {
+    const root = mkdtempSync(join(tmpdir(), "askrigor-prototype-resume-"));
+    roots.push(root);
+    const key = Buffer.alloc(32, 0x42);
+    const firstRoutes = createResearchSessionPrototypeRoutes({
+      store: createFileResearchSessionStore({
+        rootDirectory: root,
+        encryptionKey: key,
+        keyId: "phase-g-route-key"
+      }),
+      getProtocolManifest: async (protocol) => protocolManifest(protocol)
+    });
+    const started = await route(firstRoutes, "start_research_session").handle(context({
+      research_target: "private de-identified restart fixture",
+      diagnosis_status: "diagnosis_not_specified"
+    }));
+    const sessionId = (started.body as { session_id: string }).session_id;
+    expect(readFileSync(join(root, `${sessionId}.json`), "utf8"))
+      .not.toContain("private de-identified restart fixture");
+
+    const restartedRoutes = createResearchSessionPrototypeRoutes({
+      store: createFileResearchSessionStore({
+        rootDirectory: root,
+        encryptionKey: key,
+        keyId: "phase-g-route-key"
+      }),
+      getProtocolManifest: async (protocol) => ({
+        ...protocolManifest(protocol),
+        sha256: protocol === "hrp" ? "c".repeat(64) : HASH_A
+      })
+    });
+    const resumed = await route(
+      restartedRoutes,
+      "continue_research_session"
+    ).handle(context({ session_id: sessionId }));
+    expect(resumed).toMatchObject({
+      status: 200,
+      body: {
+        execution_status: "PROTOCOL_DRIFT",
+        output_boundary: "CONTINUE_RESEARCH",
+        required_next_capabilities: ["restart_under_current_protocols"]
+      }
+    });
+    const finalization = await route(
+      restartedRoutes,
+      "finalize_research_report"
+    ).handle(context({ session_id: sessionId }));
+    expect(finalization).toMatchObject({
+      status: 200,
+      body: {
+        authorization: "DENIED",
+        finalization_permit: null,
+        denial_reasons: expect.arrayContaining(["PROTOCOL_DRIFT"])
+      }
+    });
+  });
+
   it("owns the protocol-bound state, executes one automated scout step, and refuses premature finalization", async () => {
     const scout = vi.fn<typeof scoutGeminiYoutubeCandidates>(async () => ({
       provider: "gemini_api",

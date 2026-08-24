@@ -25,6 +25,7 @@ import {
   recordNativeYoutubeDiscovery,
   recordTranscriptDepthResult,
   recordVideoDepthRestart,
+  reconcileVideoDepthAfterEphemeralLoss,
   researchSessionStateSchema,
   researchVideoDepthStateSchema
 } from "../apps/research-mcp/src/index.js";
@@ -92,6 +93,52 @@ function initialSession() {
 }
 
 describe("server-owned selected-video depth", () => {
+  it("reopens only process-local transcript and discussion chains after restore", () => {
+    let depth = initializeResearchVideoDepth(screenedCandidates());
+    depth = ingestTranscriptActionOutput(
+      depth,
+      VIDEO_ONE,
+      transcriptOutput(VIDEO_ONE, {
+        complete: false,
+        nextHandle: TRANSCRIPT_HANDLE
+      })
+    );
+    depth = ingestDiscussionActionOutput(
+      depth,
+      VIDEO_ONE,
+      undefined,
+      discussionOutput(VIDEO_ONE, {
+        complete: false,
+        continuationHandle: DISCUSSION_HANDLE
+      })
+    );
+    depth = ingestTranscriptActionOutput(depth, VIDEO_TWO, transcriptOutput(VIDEO_TWO));
+    depth = ingestDiscussionActionOutput(
+      depth,
+      VIDEO_TWO,
+      undefined,
+      discussionOutput(VIDEO_TWO)
+    );
+
+    const restored = reconcileVideoDepthAfterEphemeralLoss(depth);
+    expect(restored.transcripts[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: { code: "TRANSCRIPT_HANDLE_LOST_ON_RESTORE" }
+    });
+    expect(restored.transcripts[0]!.continuation_handle).toBeUndefined();
+    expect(restored.transcripts[0]!.receipt).toBeUndefined();
+    expect(restored.discussions[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: { code: "DISCUSSION_HANDLE_LOST_ON_RESTORE" }
+    });
+    expect(restored.discussions[0]!.continuation_handle).toBeUndefined();
+    expect(restored.discussions[0]!.receipt).toBeUndefined();
+    expect(restored.transcripts[1]!.status).toBe("COMPLETE");
+    expect(restored.discussions[1]!.status).toBe("COMPLETE");
+  });
+
   it("binds semantic screening to the exact discovered frontier and every identity", () => {
     const discovered = discoveredCandidates();
     const work = createCandidateScreeningWorkPackage(discovered);

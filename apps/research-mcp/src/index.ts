@@ -39,6 +39,10 @@ export {
   type ResearchSessionStoreOptions
 } from "./actions/research-session-store.js";
 export {
+  createFileResearchSessionStore,
+  type FileResearchSessionStoreOptions
+} from "./actions/file-research-session-store.js";
+export {
   RESEARCH_MODULE_IDS,
   RESEARCH_OPERATION_IDS,
   applyProtocolRecheck,
@@ -62,6 +66,7 @@ export {
   mapTreatmentLandscapeBoundary,
   projectResearchSessionView,
   protocolBindingsFromManifests,
+  reconcileRestoredResearchSessionState,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
   recordCandidateScreeningCompletion,
@@ -140,6 +145,7 @@ export {
   initialResearchFormalEvidenceState,
   initializeResearchFormalEvidence,
   recalculateResearchSourceClaimCapability,
+  reconcileFormalEvidenceAfterEphemeralLoss,
   reconcileFormalEvidenceLinkedWork,
   recordFormalMethodAudit,
   recordResearchSourceExternalEvidenceBoundary,
@@ -167,6 +173,7 @@ export {
   ingestBidirectionalIterationSubmission,
   ingestBidirectionalReturnAssessment,
   initialResearchBidirectionalIterationState,
+  reconcileBidirectionalIterationAfterEphemeralLoss,
   researchBidirectionalIterationStateSchema,
   type BidirectionalCommentSearchExecutor,
   type BidirectionalEvidenceState,
@@ -212,6 +219,7 @@ export {
   ingestTranscriptActionOutput,
   initialResearchVideoDepthState,
   initializeResearchVideoDepth,
+  reconcileVideoDepthAfterEphemeralLoss,
   researchVideoDepthDiagnosticsSchema,
   researchVideoDepthRecordStatusSchema,
   researchVideoDepthStateSchema,

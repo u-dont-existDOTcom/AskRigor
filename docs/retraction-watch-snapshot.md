@@ -1,9 +1,11 @@
 # Retraction Watch verified snapshot
 
-Status at 2026-08-24: Phase D4 source candidate. The format, parser, verifier,
-reader, coordinator composition, and controlled operator command exist only in
-source. No production snapshot directory, schedule, retention policy, or
-deployment is activated. That remains the Phase G owner/privacy decision.
+Status at 2026-08-24: Phase G approved implementation. The format, parser,
+verifier, reader, coordinator composition, compiled runtime command,
+active/previous pruning, and hardened daily systemd templates are implemented.
+The final live directory/mount/timer activation receipt remains part of the
+later private-interface and release phases; no public MCP or Action operation
+is added here.
 
 ## Official source
 
@@ -81,8 +83,17 @@ directory, and atomically replaces the small `active.json` pointer only after
 successful verification. The pointer keeps the exact current and previous
 snapshot/manifest hashes plus the source-check time bound to each snapshot and
 the activation time. A failed
-download, parse, build, verification, or activation attempt leaves the prior
-active pointer unchanged.
+download, parse, build, verification, or pointer-replacement attempt leaves the
+prior active pointer unchanged.
+
+After the pointer changes atomically, installation retains exactly the active
+and previous generations and removes older exact snapshot directories. This
+ordering never deletes the prior rollback generation before the new pointer is
+authoritative. A cleanup failure is a visible post-activation maintenance
+failure and may temporarily leave an extra immutable generation for the next
+run to remove; it does not make the verified active pointer incomplete.
+Pruning never follows symlinks or accepts a non-snapshot name. There is no
+snapshot backup; the fixed public upstream is the recovery source.
 
 Rollback is explicit:
 
@@ -100,6 +111,10 @@ partial coverage even when a key is found, and stale no-match is never
 converted into favorable evidence. Rechecking unchanged exact source bytes can
 refresh the checked time only after the existing immutable snapshot verifies.
 
+The reviewed production freshness window is 72 hours. A failed daily refresh
+therefore preserves a still-verifiable prior snapshot but cannot make it look
+current indefinitely.
+
 ## Coordinator boundary
 
 The existing server-owned external-study evidence coordinator may receive a
@@ -116,24 +131,42 @@ and reinstatement assertions enter the same notice-audit and claim-capability
 pipeline as independent Crossref assertions. A signed structural receipt still
 does not prove that either provider assertion is scientifically true.
 
-## Production and privacy gate
+## Approved production boundary
 
-D4 intentionally does not:
+The host path is `/opt/askrigor/state/retraction-watch`, owned by container UID
+and GID 1000 with mode `0700`. The daily one-shot container mounts it read-write
+at `/var/lib/askrigor-retraction-watch`; the long-running application receives
+the same host directory only as a separate read-only mount. Neither mount is
+shared with private research-session checkpoints or the Action budget ledger.
 
-- run the command against the real full dataset;
-- choose a production filesystem, object store, volume, or retention period;
-- prune snapshots;
-- install a cron or other scheduler;
-- add an environment/configuration binding;
-- deploy the code;
-- expose a new public MCP or Action operation; or
-- change protocols, Custom GPT Instructions, or plugin bytes.
+The compiled runtime command is:
 
-Phase G must choose and review minimum retained files, active/previous
-retention, deletion/pruning, backup/rollback, permissions, stale/failed-sync
-operations, threat model, and deployment topology before production
-activation. The roadmap recommends a daily verified snapshot but does not make
-that storage decision automatically.
+```text
+npm run sync:retraction-watch:runtime -- --root /var/lib/askrigor-retraction-watch
+```
+
+The tracked templates are:
+
+- `deploy/systemd/askrigor-retraction-watch-sync.service`
+- `deploy/systemd/askrigor-retraction-watch-sync.timer`
+
+The fixed one-shot container runs non-root with a read-only root filesystem,
+bounded no-exec temporary space, all capabilities dropped, no-new-privileges,
+and only the public snapshot write mount. It receives no
+`/opt/askrigor/runtime.env` and no AskRigor provider or application
+credentials. The timer is persistent, runs daily with randomized delay, and
+leaves failures visible to systemd while preserving the last active verified
+pointer.
+
+Operator activation and rollback are documented in the Phase G implementation
+plan and threat model. Live activation must verify the exact image, unit bytes,
+directory ownership/mode, timer state, snapshot freshness, read-only
+application mount, and unchanged public inventory. Stopping/disabling the
+timer and removing the application mount restores the pre-Phase-G deployment
+shape.
+
+This boundary does not change protocols, Custom GPT Instructions, plugin bytes,
+or public operations.
 
 ## Provider provenance
 
