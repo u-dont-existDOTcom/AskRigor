@@ -6,6 +6,8 @@ export const MAX_MCP_REQUEST_BYTES = 1_048_576;
 export const GEMINI_COMPATIBLE_MCP_PATH = "/mcp/gemini";
 export const ACTION_REQUEST_MAX_BYTES = 8_192;
 export const RESEARCH_ACTION_RESPONSE_MAX_BYTES = 60_000;
+export const PRIVATE_ORCHESTRATION_REQUEST_MAX_BYTES = 256 * 1_024;
+export const PRIVATE_ORCHESTRATION_RESPONSE_MAX_BYTES = 512 * 1_024;
 export const PROTOCOL_ACTION_TEXT_MAX_BYTES = 48_000;
 export const PUBLIC_MCP_CONCURRENCY_LIMIT = 16;
 export const PUBLIC_MCP_BROWSER_ORIGINS = [
@@ -27,6 +29,15 @@ export const PUBLIC_RATE_LIMIT = {
   maxKeys: 10_000,
   idleTtlMs: 5 * 60_000
 } as const;
+
+export const PRIVATE_ORCHESTRATION_RATE_LIMIT = {
+  capacity: 30,
+  refillTokensPerMinute: 30,
+  maxKeys: 1_000,
+  idleTtlMs: 5 * 60_000
+} as const;
+
+export const PRIVATE_ORCHESTRATION_CONCURRENCY_LIMIT = 4;
 
 export const PUBLIC_TOOL_LIMITS = {
   pubmedPageSize: 100,
@@ -63,6 +74,30 @@ export function researchActionsAreEnabled(
   value = process.env.ASKRIGOR_RESEARCH_ACTIONS_ENABLED
 ): boolean {
   return value === "true";
+}
+
+export function privateResearchOrchestrationIsEnabled(
+  value = process.env.ASKRIGOR_PRIVATE_ORCHESTRATION_ENABLED
+): boolean {
+  return value === "true";
+}
+
+export function privateResearchOrchestrationApiKeyFromEnv(
+  value = process.env.ASKRIGOR_PRIVATE_ORCHESTRATION_API_KEY
+): string | undefined {
+  return value;
+}
+
+export function validatePrivateResearchOrchestrationApiKey(
+  value: string | undefined
+): string {
+  if (
+    value === undefined || value.trim() !== value ||
+    /[\r\n]/u.test(value) || Buffer.byteLength(value, "utf8") < 32
+  ) {
+    throw new Error("Private research orchestration authentication unavailable");
+  }
+  return value;
 }
 
 export function mcpHandshakeDiagnosticsAreEnabled(

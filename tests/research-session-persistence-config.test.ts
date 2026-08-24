@@ -4,8 +4,11 @@ import {
   RESEARCH_SESSION_ABSOLUTE_TTL_MS,
   RESEARCH_SESSION_IDLE_TTL_MS,
   RETRACTION_WATCH_MAX_AGE_MS,
+  privateResearchOrchestrationApiKeyFromEnv,
+  privateResearchOrchestrationIsEnabled,
   researchSessionCheckpointConfigFromEnv,
   retractionWatchSnapshotRootFromEnv,
+  validatePrivateResearchOrchestrationApiKey,
 } from "../apps/research-mcp/src/config.js";
 
 describe("Phase G persistence configuration", () => {
@@ -50,5 +53,21 @@ describe("Phase G persistence configuration", () => {
       .toThrow("Retraction Watch snapshot configuration unavailable");
     expect(() => retractionWatchSnapshotRootFromEnv("/"))
       .toThrow("Retraction Watch snapshot configuration unavailable");
+  });
+
+  it("keeps the private interface opt-in and rejects missing, short, or padded secrets", () => {
+    expect(privateResearchOrchestrationIsEnabled(undefined)).toBe(false);
+    expect(privateResearchOrchestrationIsEnabled("false")).toBe(false);
+    expect(privateResearchOrchestrationIsEnabled("true")).toBe(true);
+    expect(privateResearchOrchestrationApiKeyFromEnv("private-secret"))
+      .toBe("private-secret");
+    expect(() => validatePrivateResearchOrchestrationApiKey(undefined))
+      .toThrow("Private research orchestration authentication unavailable");
+    expect(() => validatePrivateResearchOrchestrationApiKey("short"))
+      .toThrow("Private research orchestration authentication unavailable");
+    expect(() => validatePrivateResearchOrchestrationApiKey(` ${"x".repeat(32)}`))
+      .toThrow("Private research orchestration authentication unavailable");
+    expect(validatePrivateResearchOrchestrationApiKey("x".repeat(32)))
+      .toBe("x".repeat(32));
   });
 });

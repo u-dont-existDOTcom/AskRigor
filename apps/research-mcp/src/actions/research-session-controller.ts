@@ -1710,10 +1710,7 @@ export function projectResearchSessionView(
       state.protocol_binding.currency === "CURRENT"
         ? createFormalClaimRecalculationWorkPackages(state.formal_evidence)
         : [],
-    bidirectional_iteration: deriveBidirectionalIterationDiagnostics(
-      state.bidirectional_iteration,
-      bidirectionalEvidenceState(state)
-    ),
+    bidirectional_iteration: projectBidirectionalIterationDiagnostics(state),
     bidirectional_iteration_work_package:
       state.protocol_binding.currency === "CURRENT"
         ? bidirectionalWorkPackageOrNull(state)
@@ -3099,6 +3096,50 @@ function bidirectionalWorkPackageOrNull(
   } catch {
     return null;
   }
+}
+
+function projectBidirectionalIterationDiagnostics(
+  state: ResearchSessionState
+): ReturnType<typeof deriveBidirectionalIterationDiagnostics> {
+  if (
+    !operationCompleteOrTerminal(state.operations.transcript_acquisition) ||
+    !operationCompleteOrTerminal(state.operations.community_discussion_audit) ||
+    !formalPipelineTerminal(state)
+  ) {
+    const rounds = state.bidirectional_iteration.rounds;
+    const searches = rounds.flatMap((round) =>
+      round.formal_to_community_transfers.flatMap((transfer) => transfer.searches)
+    );
+    return {
+      rounds: rounds.length,
+      current_evidence_basis_reviewed: false,
+      community_to_formal_passes: rounds.length,
+      formal_to_community_passes: rounds.length,
+      community_to_formal_transfers: rounds.reduce((count, round) =>
+        count + round.community_to_formal_transfers.length, 0),
+      formal_to_community_transfers: rounds.reduce((count, round) =>
+        count + round.formal_to_community_transfers.length, 0),
+      return_searches_pending: searches.filter(({ status }) =>
+        status === "NOT_STARTED" || status === "IN_PROGRESS"
+      ).length,
+      return_assessments_pending: searches.filter(({ status }) =>
+        status === "RESULT_ASSESSMENT_REQUIRED"
+      ).length,
+      retryable_searches: searches.filter(({ status }) =>
+        status === "BLOCKED_RETRYABLE"
+      ).length,
+      terminal_search_boundaries: searches.filter(({ status }) =>
+        status === "BOUNDED_TERMINAL"
+      ).length,
+      open_discordances: rounds.reduce((count, round) =>
+        count + round.discordances.filter(({ status }) => status === "OPEN").length,
+      0)
+    };
+  }
+  return deriveBidirectionalIterationDiagnostics(
+    state.bidirectional_iteration,
+    bidirectionalEvidenceState(state)
+  );
 }
 
 function treatmentWorkPackageOrNull(

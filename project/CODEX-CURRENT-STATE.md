@@ -1,5 +1,58 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase H candidate
+
+Phase G merged through PR #79 at exact commit
+`86c9455c63f94f832d3d933eb1a174d784e0a132`. Phase H runs on branch
+`agent/execution-control-phase-h-20260824` from that exact commit and follows
+`docs/superpowers/plans/2026-08-24-phase-h-private-orchestration-interface.md`.
+
+The implementation adds a disabled-by-default private HTTP adapter at
+`/internal/research/v1/*` for start, resume, minimized status/next work, exact
+semantic submission, and finalize. It reuses the existing prototype routes,
+research-session controller, and in-memory or Phase G encrypted checkpoint
+store. It is not registered as an Action or MCP tool. Enabling it requires an
+independent at-least-32-byte Bearer secret. Browser Origin requests are refused;
+JSON bodies are limited to 256 KiB, responses to 512 KiB, the token bucket to
+30 requests/minute/client, and process concurrency to four. Responses are
+non-cacheable and omit the raw research target, diagnosis narrative, raw
+provider/source bodies, transcript/comment/publication text, and credentials.
+
+Phase H semantic submission accepts only the exact unresolved module-routing
+set or the exact discovery-bound candidate-screening package, additionally
+bound to the complete current controller-state digest. Strict schemas reject
+extra completion flags, caller counts/lists, provider toggles, stale state,
+duplicate decisions, and attempted demotion of already-required modules.
+Deterministic provider coordination remains server-owned.
+
+The integration work found and fixed three controller safety issues rather
+than hiding them in transport prose: pre-terminal bidirectional status no
+longer tries to derive a future evidence digest; transitions validate their
+projected response before commit; and a restart after external-study evidence
+but before linked-source completion or claim recalculation reopens the lost
+exact external-evidence work after source reacquisition while retaining a
+matching method audit. None of these repairs advances or weakens a completion
+gate.
+
+Focused Phase H typechecking and 40 HTTP/controller/formal/persistence tests
+pass. The focused public-inventory/private-boundary suite passes 68/68 and
+confirms exactly 21 MCP tools and 26 public Actions. The complete host-boundary
+`npm run test:run` passes 1,309 tests with six declared skips; `npm run verify`
+passes typechecking, that same suite, and the production build. Final diff
+review, PR, hosted checks, and merge remain pending. Canonical protocols, generated
+Custom GPT instructions, plugin bytes, provider accounts, credentials,
+deployment, and production activation remain unchanged. Phase I is next after
+the reviewed Phase H merge.
+
+The pre-PR lesson checkpoint at `2026-08-24T17:01:38.077Z` was available:
+1 open candidate, 1 needing review, 0 accepted but not incorporated, 3
+incorporated or closed, and 0 deletion eligible. No unreviewed item expands
+Phase H. Lesson disposition is project-specific/no-new-lesson: the phase
+exercises the already promoted server-authority and durable-state patterns;
+the projection-before-commit repair is preserved as executable AskRigor
+transaction-order regression coverage rather than generalized from one
+project instance.
+
 ## 2026-08-24 execution-control Phase G candidate
 
 Phase F merged through PR #78 at exact commit

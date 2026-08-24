@@ -1,9 +1,9 @@
 # AskRigor execution-control productionization roadmap
 
-**Status:** Active. Phases A through E are merged; Phase E is merge
-`191f0ee6894fed5d51c074e0d6fdd9be5d671839`. Phase F is implemented and
-locally verified on `agent/execution-control-phase-f-20260824`; reviewed
-merge remains pending. This document does not replace the complete canonical protocols or the
+**Status:** Active. Phases A through G are merged; Phase G is merge
+`86c9455c63f94f832d3d933eb1a174d784e0a132`. Phase H is implemented and
+locally verified on `agent/execution-control-phase-h-20260824`; its
+reviewed merge remains pending. This document does not replace the complete canonical protocols or the
 owner-approved scientific corrections in
 `2026-08-23-executable-research-orchestrator-and-study-audit.md`.
 
@@ -701,13 +701,26 @@ mount, timer, or retention path is activated here.
 
 Tasks:
 
-- [ ] Expose the same controller core through a small authenticated orchestration boundary separate from the public Custom GPT Action document and ordinary MCP catalog unless review shows an existing transport is safer.
-- [ ] Keep operations minimal: start/resume, status/next work, bounded semantic-work submission where needed, and finalize.
-- [ ] Keep deterministic provider coordination (`external_study_evidence_audit`) internal to the server; do not expose provider-by-provider completion toggles to Hermes/n8n.
-- [ ] Apply strict request/response schemas, authentication, rate/concurrency limits, body limits, no browser CORS by default, and bounded logs.
-- [ ] Expose only the minimum machine state needed by an orchestrator: opaque session ID, authoritative status/boundary, next capabilities, retry/boundary classification, and safe diagnostics.
-- [ ] Do not send raw private research/provider content to an external workflow system merely because it is convenient.
-- [ ] Prove the 21-tool MCP catalog and current public Action inventory remain unchanged in this phase.
+- [x] Expose the same controller core through a small authenticated orchestration boundary separate from the public Custom GPT Action document and ordinary MCP catalog unless review shows an existing transport is safer.
+- [x] Keep operations minimal: start/resume, status/next work, bounded semantic-work submission where needed, and finalize.
+- [x] Keep deterministic provider coordination (`external_study_evidence_audit`) internal to the server; do not expose provider-by-provider completion toggles to Hermes/n8n.
+- [x] Apply strict request/response schemas, authentication, rate/concurrency limits, body limits, no browser CORS by default, and bounded logs.
+- [x] Expose only the minimum machine state needed by an orchestrator: opaque session ID, authoritative status/boundary, next capabilities, retry/boundary classification, and safe diagnostics.
+- [x] Do not send raw private research/provider content to an external workflow system merely because it is convenient.
+- [x] Prove the 21-tool MCP catalog and current public Action inventory remain unchanged in this phase.
+
+Local Phase H exit evidence: the authenticated integration suite drives the
+same controller through module routing, automated Gemini/native discovery,
+candidate screening, status, and denied premature finalization. Hostile tests
+reject missing/duplicate credentials, browser origins, non-JSON/malformed/
+oversized bodies, caller completion/count/list/provider toggles, required-
+module demotion, stale state, unknown sessions, protocol drift, excess output,
+and exhausted rate/concurrency capacity. Focused Phase H tests pass 40/40; the
+public-inventory/private-boundary suite passes 68/68 with exactly 21 MCP tools
+and 26 Actions. `npm run test:run` passes 1,309 tests with six declared skips,
+and `npm run verify` passes typechecking, the same suite, and the production
+build. No public route, protocol, Custom GPT, plugin, provider, credential,
+deployment, or production-retention change is made.
 
 **Exit gate:** an authenticated local/integration test can drive the same controller while public OpenAPI/MCP inventories remain byte/semantic stable.
 
