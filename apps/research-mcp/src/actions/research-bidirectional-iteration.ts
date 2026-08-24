@@ -280,6 +280,44 @@ export type BidirectionalReturnAssessmentSubmission = z.output<
   typeof bidirectionalReturnAssessmentSubmissionSchema
 >;
 
+/**
+ * Return-search cursors and result bodies are deliberately not durable. Reset
+ * unfinished searches to their exact query/video origin after process loss;
+ * completed assessed or terminal outcomes remain intact.
+ */
+export function reconcileBidirectionalIterationAfterEphemeralLoss(
+  rawState: ResearchBidirectionalIterationState,
+): ResearchBidirectionalIterationState {
+  const state = researchBidirectionalIterationStateSchema.parse(rawState);
+  return researchBidirectionalIterationStateSchema.parse({
+    ...state,
+    rounds: state.rounds.map((round) => ({
+      ...round,
+      formal_to_community_transfers: round.formal_to_community_transfers.map(
+        (transfer) => ({
+          ...transfer,
+          searches: transfer.searches.map((search) =>
+            [
+              "IN_PROGRESS",
+              "RESULT_ASSESSMENT_REQUIRED",
+              "BLOCKED_RETRYABLE",
+            ].includes(search.status)
+              ? {
+                video_id: search.video_id,
+                status: "NOT_STARTED" as const,
+                pages_retrieved: 0,
+                records_returned_cumulative: 0,
+                page_receipt_hashes: [],
+                access_statuses: [],
+              }
+              : search
+          ),
+        }),
+      ),
+    })),
+  });
+}
+
 export const bidirectionalIterationDiagnosticsSchema = z.object({
   rounds: z.number().int().nonnegative(),
   current_evidence_basis_reviewed: z.boolean(),

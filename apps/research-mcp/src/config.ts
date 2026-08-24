@@ -11,6 +11,15 @@ export const PUBLIC_MCP_CONCURRENCY_LIMIT = 16;
 export const PUBLIC_MCP_BROWSER_ORIGINS = [
   "https://gemini.google.com"
 ] as const;
+export const RESEARCH_SESSION_IDLE_TTL_MS = 72 * 60 * 60 * 1_000;
+export const RESEARCH_SESSION_ABSOLUTE_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
+export const RETRACTION_WATCH_MAX_AGE_MS = 72 * 60 * 60 * 1_000;
+
+export interface ResearchSessionCheckpointConfig {
+  rootDirectory: string;
+  encryptionKey: Uint8Array;
+  keyId: string;
+}
 
 export const PUBLIC_RATE_LIMIT = {
   capacity: 60,
@@ -81,6 +90,47 @@ export function externalEvidenceReceiptKeyIdFromEnv(
   return normalized === undefined || normalized.length === 0
     ? undefined
     : normalized;
+}
+
+export function researchSessionCheckpointConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): ResearchSessionCheckpointConfig | undefined {
+  const rootDirectory = env.ASKRIGOR_RESEARCH_SESSION_DIRECTORY?.trim();
+  const encodedKey = env.ASKRIGOR_RESEARCH_SESSION_ENCRYPTION_KEY_BASE64URL?.trim();
+  const keyId = env.ASKRIGOR_RESEARCH_SESSION_ENCRYPTION_KEY_ID?.trim();
+  if (rootDirectory === undefined && encodedKey === undefined && keyId === undefined) {
+    return undefined;
+  }
+  if (
+    rootDirectory === undefined || !rootDirectory.startsWith("/") || rootDirectory === "/" ||
+    encodedKey === undefined || keyId === undefined ||
+    !/^[A-Za-z0-9._-]{1,100}$/u.test(keyId)
+  ) {
+    throw new Error("Research session checkpoint configuration unavailable");
+  }
+  const encryptionKey = Buffer.from(encodedKey, "base64url");
+  if (
+    encryptionKey.byteLength !== 32 ||
+    encryptionKey.toString("base64url") !== encodedKey
+  ) {
+    throw new Error("Research session checkpoint configuration unavailable");
+  }
+  return {
+    rootDirectory,
+    encryptionKey: Uint8Array.from(encryptionKey),
+    keyId,
+  };
+}
+
+export function retractionWatchSnapshotRootFromEnv(
+  value = process.env.ASKRIGOR_RETRACTION_WATCH_DIRECTORY,
+): string | undefined {
+  const normalized = value?.trim();
+  if (normalized === undefined || normalized.length === 0) return undefined;
+  if (!normalized.startsWith("/") || normalized === "/") {
+    throw new Error("Retraction Watch snapshot configuration unavailable");
+  }
+  return normalized;
 }
 
 export function parseTrustedClientIpHeader(

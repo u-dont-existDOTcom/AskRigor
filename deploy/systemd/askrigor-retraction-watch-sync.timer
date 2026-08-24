@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily AskRigor Retraction Watch snapshot refresh
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 UTC
+RandomizedDelaySec=1h
+Persistent=true
+Unit=askrigor-retraction-watch-sync.service
+
+[Install]
+WantedBy=timers.target

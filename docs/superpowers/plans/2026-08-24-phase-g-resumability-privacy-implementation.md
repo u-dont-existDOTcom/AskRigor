@@ -1,6 +1,7 @@
 # Phase G resumability and privacy implementation plan
 
-Status: owner decision pending before storage or scheduling activation
+Status: owner delegated the proportionate implementation decision on
+2026-08-24; decisions A and C are approved and locally verified
 
 Branch: `agent/execution-control-phase-g-20260824`
 
@@ -195,7 +196,7 @@ only the active and previous verified snapshots; remove abandoned staging data
 and older generations after successful activation. Do not back up the mirror,
 because it is reproducible from the public upstream source.
 
-A failed refresh preserves the last verified active snapshot. After 72 hours
+A pre-activation refresh failure preserves the last verified active snapshot. After 72 hours
 without a successful source check, the provider is reported stale/partial and
 cannot close an integrity check. A missing or corrupt active snapshot fails
 closed; the previous verified snapshot may be restored only through the
@@ -252,13 +253,16 @@ unreadable to the application and are securely deleted according to the
 documented operator procedure. Restarted research begins from source and cannot
 inherit completion.
 
-## Owner gate
+## Owner gate disposition
 
-No persistent adapter, production directory, mount, key, timer, pruning job, or
-retention change will be activated until the owner explicitly approves:
+The owner directed Codex to make simple proportionate implementation decisions
+without returning them for ceremonial approval. After weighing the documented
+benefits and costs, Codex selected and the owner delegation authorizes:
 
 1. the private encrypted checkpoint policy in A; and
 2. the separate public Retraction Watch mirror/schedule policy in C.
 
-Approval of Gemini processing or an existing Gemini API key does not itself
-authorize either retention decision.
+This approval does not authorize an external database, paid service,
+horizontal shared store, general backup inclusion, broader retention, or a new
+provider. Any such expansion remains owner-gated. Approval of Gemini processing
+and the existing Gemini API key remains a separate provider decision.

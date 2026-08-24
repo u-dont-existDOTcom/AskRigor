@@ -853,6 +853,56 @@ export function restartResearchSourceFullTextChain(
   });
 }
 
+/**
+ * The open-full-text document index is intentionally ephemeral. A restored
+ * session may retain exact public identity and receipt hashes, but if later
+ * work still needs the index it must reacquire and re-audit the exact source.
+ */
+export function reconcileFormalEvidenceAfterEphemeralLoss(
+  rawState: ResearchFormalEvidenceState,
+): ResearchFormalEvidenceState {
+  let state = researchFormalEvidenceStateSchema.parse(rawState);
+  for (const source of [...state.sources]) {
+    const lostPartialChain = source.full_text.status === "IN_PROGRESS";
+    const exhaustedNeedsReacquisition =
+      source.full_text.status === "EXHAUSTED" &&
+      (
+        source.method_audit.status !== "COMPLETE" ||
+        (
+          source.source_kind === "SCIENTIFIC_STUDY" &&
+          !["CURRENT", "EFFECT_CLAIMS_EXCLUDED", "BOUNDED_ONLY"].includes(
+            source.claim_capability.status,
+          )
+        )
+      );
+    if (!lostPartialChain && !exhaustedNeedsReacquisition) continue;
+    const preserveCompletedAudit =
+      !lostPartialChain && source.method_audit.status === "COMPLETE";
+    state = replaceSource(state, source.source_id, {
+      ...source,
+      full_text: fullTextStateSchema.parse({
+        status: "BLOCKED_RETRYABLE",
+        requested_doi: source.identity.doi,
+        discovery_attempts: [],
+        source_segments_retrieved_cumulative: 0,
+        synthesis_lock: "fail",
+        access_boundary: "The process-local full-text document handle was lost during restart. The exact source must be reacquired before method or claim-capability work continues.",
+        unseen_content_used_as_evidence: false,
+      }),
+      method_audit: preserveCompletedAudit
+        ? source.method_audit
+        : initialMethodAudit(source.source_kind),
+      external_evidence: preserveCompletedAudit
+        ? source.external_evidence
+        : initialExternalEvidence(source.source_kind),
+      claim_capability: preserveCompletedAudit
+        ? source.claim_capability
+        : initialClaimCapability(source.source_kind),
+    });
+  }
+  return reconcileFormalEvidenceLinkedWork(state);
+}
+
 export function ingestOpenFullTextOutput(
   rawState: ResearchFormalEvidenceState,
   sourceId: string,
@@ -912,6 +962,12 @@ export function ingestOpenFullTextOutput(
     throw new Error("Full-text exhaustion and synthesis lock must agree");
   }
   const nextIdentity = contentVerifiedIdentity(source.identity, page.source);
+  const preserveCompletedAudit =
+    exhausted &&
+    before.status === "BLOCKED_RETRYABLE" &&
+    source.method_audit.status === "COMPLETE" &&
+    source.method_audit.source_content_sha256 === receipt.source_content_sha256 &&
+    source.method_audit.source_primary_identifier === page.source.primary_identifier;
   return replaceSource(state, sourceId, {
     ...source,
     identity: nextIdentity,
@@ -932,9 +988,16 @@ export function ingestOpenFullTextOutput(
       synthesis_lock: receipt.synthesis_lock,
       unseen_content_used_as_evidence: false
     }),
-    method_audit: exhausted ? initialMethodAudit(source.source_kind) : source.method_audit,
+    method_audit: exhausted && !preserveCompletedAudit
+      ? initialMethodAudit(source.source_kind)
+      : source.method_audit,
+    external_evidence: exhausted && !preserveCompletedAudit
+      ? initialExternalEvidence(source.source_kind)
+      : source.external_evidence,
     claim_capability: exhausted
-      ? { status: "METHOD_AUDIT_PENDING", unrestricted_decision_use: false }
+      ? preserveCompletedAudit
+        ? source.claim_capability
+        : { status: "METHOD_AUDIT_PENDING", unrestricted_decision_use: false }
       : source.claim_capability
   });
 }

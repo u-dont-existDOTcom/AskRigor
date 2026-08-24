@@ -10,6 +10,7 @@ import {
   mkdir,
   mkdtemp,
   open,
+  readdir,
   readFile,
   realpath,
   rename,
@@ -549,6 +550,10 @@ export async function installRetractionWatchSnapshot(
     activated_at: activatedAt,
   });
   await writePointerAtomically(root, pointer);
+  await pruneSnapshotDirectories(snapshots, new Set([
+    pointer.current_snapshot_id,
+    ...(pointer.previous_snapshot_id === null ? [] : [pointer.previous_snapshot_id]),
+  ]));
   return pointer;
 }
 
@@ -1492,6 +1497,26 @@ async function syncDirectory(path: string): Promise<void> {
   } finally {
     await handle.close();
   }
+}
+
+async function pruneSnapshotDirectories(
+  snapshotsRoot: string,
+  retainedSnapshotIds: ReadonlySet<string>,
+): Promise<void> {
+  const entries = await readdir(snapshotsRoot, { withFileTypes: true });
+  let removed = false;
+  for (const entry of entries) {
+    if (!snapshotIdSchema.safeParse(entry.name).success) continue;
+    if (retainedSnapshotIds.has(entry.name)) continue;
+    const path = snapshotPath(snapshotsRoot, entry.name);
+    const metadata = await lstat(path);
+    if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
+      throw snapshotFormatError("Retraction Watch snapshot generation is not a real directory");
+    }
+    await rm(path, { recursive: true, force: false });
+    removed = true;
+  }
+  if (removed) await syncDirectory(snapshotsRoot);
 }
 
 async function writeExclusive(path: string, bytes: Buffer): Promise<void> {

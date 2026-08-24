@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   mkdtemp,
+  readdir,
   readFile,
   rm,
   symlink,
@@ -188,6 +189,37 @@ describe("verified Retraction Watch local snapshot", () => {
       previous_source_checked_at: null,
       source_checked_at: NOW.toISOString(),
     });
+  });
+
+  it("retains only the active and previous verified generations", async () => {
+    const root = await temporaryRoot();
+    const runtime = join(root, "runtime");
+    const fixtures = await Promise.all([
+      buildFixture(root, "1".repeat(40), [{ id: "211" }], "prune-one"),
+      buildFixture(root, "2".repeat(40), [{ id: "212" }], "prune-two"),
+      buildFixture(root, "3".repeat(40), [{ id: "213" }], "prune-three"),
+    ]);
+    for (let index = 0; index < fixtures.length; index += 1) {
+      await installRetractionWatchSnapshot({
+        rootDirectory: runtime,
+        builtSnapshotDirectory: fixtures[index]!.snapshotDirectory,
+        sourceCheckedAt: new Date(NOW.getTime() + index * 1_000).toISOString(),
+        now: () => new Date(NOW.getTime() + index * 1_000),
+      });
+    }
+
+    const generations = (await readdir(join(runtime, "snapshots")))
+      .filter((name) => name.startsWith("rws1_"))
+      .sort();
+    expect(generations).toEqual([
+      fixtures[1]!.manifest.snapshot_id,
+      fixtures[2]!.manifest.snapshot_id,
+    ].sort());
+    const rolledBack = await rollbackRetractionWatchSnapshot({
+      rootDirectory: runtime,
+      now: () => new Date(NOW.getTime() + 4_000),
+    });
+    expect(rolledBack.current_snapshot_id).toBe(fixtures[1]!.manifest.snapshot_id);
   });
 
   it.each([

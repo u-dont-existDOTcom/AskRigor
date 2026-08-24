@@ -104,10 +104,16 @@ complete XML protocol.
 ## Privacy
 
 - `privacy-data-map.md`: data classes, flows, exclusions, and handling
+- `research-session-resumability-threat-model.md`: encrypted bounded
+  checkpoint assets, trust boundaries, hostile recovery cases, retention,
+  deletion, backup, key-loss, and rollback rules
+- `research-session-resumability-deployment.md`: fixed VPS paths, secret-safe
+  configuration, staged private-interface activation, restart acceptance,
+  failure recovery, and rollback procedure
 - `retraction-watch-snapshot.md`: fixed official source, strict CSV/header
   handling, verified local snapshot/index format, atomic activation/rollback,
-  staleness semantics, coordinator boundary, and deferred Phase G production
-  storage/retention decision
+  active/previous pruning, staleness semantics, coordinator boundary, and
+  approved Phase G host-scheduled deployment boundary
 
 ## Plans
 
@@ -141,6 +147,10 @@ complete XML protocol.
   server-authorized comparative and bounded finalization, compact signed
   permit binding, state-derived reader limitations, privacy boundary, and
   hostile replay/tamper/protocol-drift tests
+- `superpowers/plans/2026-08-24-phase-g-resumability-privacy-implementation.md`:
+  owner-delegated encrypted local checkpoint, ephemeral raw-evidence boundary,
+  restart reconciliation, public Retraction Watch scheduling, threat model,
+  retention, deletion, and rollback plan
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

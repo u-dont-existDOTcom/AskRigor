@@ -21,6 +21,7 @@ import {
   ingestBidirectionalIterationSubmission,
   ingestBidirectionalReturnAssessment,
   initialResearchBidirectionalIterationState,
+  reconcileBidirectionalIterationAfterEphemeralLoss,
   researchBidirectionalIterationStateSchema,
   type BidirectionalCommentSearchExecutor,
   type BidirectionalIterationSubmission,
@@ -53,6 +54,7 @@ import {
   ingestTranscriptActionOutput,
   initialResearchVideoDepthState,
   initializeResearchVideoDepth,
+  reconcileVideoDepthAfterEphemeralLoss,
   researchVideoDepthDiagnosticsSchema,
   researchVideoDepthStateSchema,
   researchVideoDepthWorkPackageSchema,
@@ -81,6 +83,7 @@ import {
   ingestFormalEvidenceScreeningSubmission,
   initialResearchFormalEvidenceState,
   initializeResearchFormalEvidence,
+  reconcileFormalEvidenceAfterEphemeralLoss,
   recalculateResearchSourceClaimCapability,
   reconcileFormalEvidenceLinkedWork,
   recordFormalMethodAudit,
@@ -1186,6 +1189,34 @@ export function recordDiscussionDepthResult(
     },
     video_depth: videoDepth
   });
+}
+
+/**
+ * Reconcile a decrypted durable checkpoint with the intentionally ephemeral
+ * source-handle stores. This function can only reopen work; it cannot advance
+ * evidence or authorize output.
+ */
+export function reconcileRestoredResearchSessionState(
+  rawState: ResearchSessionState,
+): ResearchSessionState {
+  let state = researchSessionStateSchema.parse(rawState);
+  const videoDepth = reconcileVideoDepthAfterEphemeralLoss(state.video_depth);
+  if (JSON.stringify(videoDepth) !== JSON.stringify(state.video_depth)) {
+    state = withVideoDepth(state, videoDepth);
+  }
+  const formalEvidence = reconcileFormalEvidenceAfterEphemeralLoss(
+    state.formal_evidence,
+  );
+  if (JSON.stringify(formalEvidence) !== JSON.stringify(state.formal_evidence)) {
+    state = withFormalEvidence(state, formalEvidence);
+  }
+  const bidirectional = reconcileBidirectionalIterationAfterEphemeralLoss(
+    state.bidirectional_iteration,
+  );
+  if (JSON.stringify(bidirectional) !== JSON.stringify(state.bidirectional_iteration)) {
+    state = withBidirectionalIteration(state, bidirectional);
+  }
+  return researchSessionStateSchema.parse(state);
 }
 
 export function recordVideoDepthRestart(
@@ -2397,6 +2428,42 @@ function withFormalEvidence(
     modules,
     operations,
     formal_evidence: formalEvidence
+  });
+}
+
+function withVideoDepth(
+  state: ResearchSessionState,
+  rawVideoDepth: ResearchSessionState["video_depth"],
+): ResearchSessionState {
+  const videoDepth = researchVideoDepthStateSchema.parse(rawVideoDepth);
+  const operations = {
+    ...state.operations,
+    transcript_acquisition: videoDepthOperationProjection(
+      videoDepth,
+      "transcript_acquisition",
+    ),
+    community_discussion_audit: videoDepthOperationProjection(
+      videoDepth,
+      "community_discussion_audit",
+    ),
+  };
+  const draft = { ...state, operations, video_depth: videoDepth } as ResearchSessionState;
+  operations.bidirectional_evidence_return = bidirectionalOperationProjection(draft);
+  const lateDraft = { ...draft, operations } as ResearchSessionState;
+  operations.treatment_landscape_finalization =
+    treatmentFinalizationOperationProjection(lateDraft);
+  operations.final_completion_audit = finalCompletionAuditOperationProjection({
+    ...lateDraft,
+    operations,
+  } as ResearchSessionState);
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules: projectFinalAuditModule(
+      projectBidirectionalModule(state.modules, operations.bidirectional_evidence_return),
+      operations.final_completion_audit,
+    ),
+    operations,
+    video_depth: videoDepth,
   });
 }
 
