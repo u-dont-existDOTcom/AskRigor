@@ -6,12 +6,16 @@ on:
       - codex/epistemic-phase-router-20260824
     paths:
       - .github/workflows/epistemic-phase-router-one-shot.yml
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.head_ref == 'codex/epistemic-phase-router-20260824' || github.ref_name == 'codex/epistemic-phase-router-20260824'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
