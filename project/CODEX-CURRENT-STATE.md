@@ -1,5 +1,31 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase G owner-decision checkpoint
+
+Phase F merged through PR #78 at exact commit
+`5714ae44aa93b661a7b98b53b8b1f1dafef207da`; its former candidate section
+below predates that merge. Phase G now runs on branch
+`agent/execution-control-phase-g-20260824` from that exact commit.
+
+The repository recovery/storage audit is recorded in
+`docs/superpowers/plans/2026-08-24-phase-g-resumability-privacy-implementation.md`.
+The recommendation is a bounded encrypted local-VPS controller checkpoint,
+with raw comments/transcripts/article text/provider artifacts remaining
+ephemeral, plus a separate host-managed public Retraction Watch mirror mounted
+read-only into the application. No external database or new paid service is
+recommended.
+
+The exact owner gate is pending for (A) 72-hour-idle/seven-day-maximum encrypted
+private research-session retention without backup and (C) a daily public
+Retraction Watch mirror retaining active plus previous snapshots without
+backup. No persistent store, production write path, key, timer, mount, or
+retention change has been activated on this branch.
+
+The Phase G start lesson checkpoint at `2026-08-24T12:24:56.858Z` was
+available: 1 open candidate, 1 needing review, 0 accepted but not incorporated,
+3 incorporated or closed, and 0 deletion eligible. Neither open item expands
+Phase G.
+
 ## 2026-08-24 execution-control Phase F candidate
 
 Branch `agent/execution-control-phase-f-20260824` starts from exact merged
