@@ -1,0 +1,368 @@
+{
+  "id": "askrigor-control-plane-v1",
+  "name": "AskRigor Server-Controlled Research Pilot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "askrigor-control-plane-v1",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72001",
+      "name": "Receive Opaque Execution ID",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "872213f7-f9f3-4fd3-b60f-e0ecb7c51001"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ASKRIGOR_N8N_ADAPTER_URL + '/internal/n8n/v1/tick' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.ASKRIGOR_N8N_ADAPTER_BEARER }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ execution_id: $json.body.execution_id }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72002",
+      "name": "AskRigor Tick",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [240, 0],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "CONTINUE_NOW", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "continue_now"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "RETRY_AFTER", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "retry_after"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "OWNER_GATE", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "owner_gate"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "STUCK", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "stuck"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "BLOCKED", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "blocked"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "COMPLETE", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "complete"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "BOUNDED_COMPLETE", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "bounded_complete"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra" }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72003",
+      "name": "Use AskRigor Directive",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [480, 0]
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72004",
+      "name": "Bounded Retry Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [720, -160],
+      "webhookId": "872213f7-f9f3-4fd3-b60f-e0ecb7c51002"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.ASKRIGOR_N8N_ADAPTER_URL + '/internal/n8n/v1/tick' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.ASKRIGOR_N8N_ADAPTER_BEARER }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ execution_id: $('Receive Opaque Execution ID').item.json.body.execution_id }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72005",
+      "name": "AskRigor Retry Tick",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [960, -160],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1000
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "COMPLETE", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "complete"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+                "conditions": [{ "leftValue": "={{ $json.directive }}", "rightValue": "BOUNDED_COMPLETE", "operator": { "type": "string", "operation": "equals" } }],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "bounded_complete"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra" }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72006",
+      "name": "Use Retry Directive",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [1200, -160]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "leftValue": "={{ $json.permit_verified }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } },
+            { "leftValue": "={{ $json.output_boundary }}", "rightValue": "FINALIZATION_ALLOWED", "operator": { "type": "string", "operation": "equals" } },
+            { "leftValue": "={{ $json.permit_payload_sha256 }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72007",
+      "name": "Require Comparative Permit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1480, 40]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "conditions": [
+            { "leftValue": "={{ $json.permit_verified }}", "rightValue": true, "operator": { "type": "boolean", "operation": "true", "singleValue": true } },
+            { "leftValue": "={{ $json.output_boundary }}", "rightValue": "BOUNDED_NONRANKING_ONLY", "operator": { "type": "string", "operation": "equals" } },
+            { "leftValue": "={{ $json.permit_payload_sha256 }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty", "singleValue": true } }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72008",
+      "name": "Require Bounded Permit",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1480, 240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'complete', execution_id: $json.execution_id, output_boundary: $json.output_boundary, permit_payload_sha256: $json.permit_payload_sha256 } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72009",
+      "name": "Release Comparative Completion",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1740, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'bounded_complete', execution_id: $json.execution_id, output_boundary: $json.output_boundary, permit_payload_sha256: $json.permit_payload_sha256 } }}",
+        "options": { "responseCode": 200 }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72010",
+      "name": "Release Bounded Completion",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1740, 200]
+    },
+    {
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "AskRigor has not authorized research completion."
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72011",
+      "name": "Stop Without Permit",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1740, 400]
+    },
+    {
+      "parameters": {
+        "errorType": "errorMessage",
+        "errorMessage": "AskRigor research remains incomplete, blocked, stuck, or owner-gated."
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72012",
+      "name": "Stop Incomplete Research",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [1480, -240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'not_authorized', execution_id: $json.execution_id, directive: $json.directive } }}",
+        "options": { "responseCode": 409 }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72013",
+      "name": "Reject Incomplete Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1480, -420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'permit_rejected', execution_id: $json.execution_id } }}",
+        "options": { "responseCode": 409 }
+      },
+      "id": "1c6cde05-bf6f-40c1-a5fd-4d8031f72014",
+      "name": "Reject Permit Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [1740, 320]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Receive Opaque Execution ID": { "main": [[{ "node": "AskRigor Tick", "type": "main", "index": 0 }]] },
+    "AskRigor Tick": { "main": [[{ "node": "Use AskRigor Directive", "type": "main", "index": 0 }]] },
+    "Use AskRigor Directive": {
+      "main": [
+        [{ "node": "Bounded Retry Wait", "type": "main", "index": 0 }],
+        [{ "node": "Bounded Retry Wait", "type": "main", "index": 0 }],
+        [{ "node": "Reject Incomplete Response", "type": "main", "index": 0 }],
+        [{ "node": "Reject Incomplete Response", "type": "main", "index": 0 }],
+        [{ "node": "Reject Incomplete Response", "type": "main", "index": 0 }],
+        [{ "node": "Require Comparative Permit", "type": "main", "index": 0 }],
+        [{ "node": "Require Bounded Permit", "type": "main", "index": 0 }],
+        [{ "node": "Reject Permit Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Bounded Retry Wait": { "main": [[{ "node": "AskRigor Retry Tick", "type": "main", "index": 0 }]] },
+    "AskRigor Retry Tick": { "main": [[{ "node": "Use Retry Directive", "type": "main", "index": 0 }]] },
+    "Use Retry Directive": {
+      "main": [
+        [{ "node": "Require Comparative Permit", "type": "main", "index": 0 }],
+        [{ "node": "Require Bounded Permit", "type": "main", "index": 0 }],
+        [{ "node": "Reject Incomplete Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Require Comparative Permit": {
+      "main": [
+        [{ "node": "Release Comparative Completion", "type": "main", "index": 0 }],
+        [{ "node": "Reject Permit Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Require Bounded Permit": {
+      "main": [
+        [{ "node": "Release Bounded Completion", "type": "main", "index": 0 }],
+        [{ "node": "Reject Permit Response", "type": "main", "index": 0 }]
+      ]
+    },
+    "Reject Incomplete Response": { "main": [[{ "node": "Stop Incomplete Research", "type": "main", "index": 0 }]] },
+    "Reject Permit Response": { "main": [[{ "node": "Stop Without Permit", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "versionId": "a0edb76c-4db3-4e67-944d-c3bdc8bf5445",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

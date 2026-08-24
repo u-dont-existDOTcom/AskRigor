@@ -66,6 +66,7 @@ import {
   createPrivateResearchOrchestrationHandler,
   type PrivateResearchOrchestrationHandler
 } from "./private-research-orchestration.js";
+import type { N8nControlPlaneHandler } from "./n8n-control-plane-route.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -106,6 +107,11 @@ export interface AskRigorHttpServerOptions {
   privateOrchestrationHandler?: PrivateResearchOrchestrationHandler;
   privateOrchestrationRateLimiter?: TokenBucketLimiter;
   privateOrchestrationConcurrencyLimiter?: ConcurrencyLimiter;
+  n8nControlPlaneEnabled?: boolean;
+  n8nControlPlaneApiKey?: string;
+  n8nControlPlaneHandler?: N8nControlPlaneHandler;
+  n8nControlPlaneRateLimiter?: TokenBucketLimiter;
+  n8nControlPlaneConcurrencyLimiter?: ConcurrencyLimiter;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -214,6 +220,19 @@ export function createAskRigorHttpServer(
   const privateOrchestrationConcurrencyLimiter =
     options.privateOrchestrationConcurrencyLimiter ??
     createConcurrencyLimiter(PRIVATE_ORCHESTRATION_CONCURRENCY_LIMIT);
+  const n8nControlPlaneEnabled = options.n8nControlPlaneEnabled ?? false;
+  const n8nControlPlaneApiKey = n8nControlPlaneEnabled
+    ? validatePrivateResearchOrchestrationApiKey(options.n8nControlPlaneApiKey)
+    : undefined;
+  const n8nControlPlaneHandler = options.n8nControlPlaneHandler;
+  if (n8nControlPlaneEnabled && n8nControlPlaneHandler === undefined) {
+    throw new Error("n8n control-plane handler unavailable");
+  }
+  const n8nControlPlaneRateLimiter = options.n8nControlPlaneRateLimiter ??
+    createTokenBucketLimiter(PRIVATE_ORCHESTRATION_RATE_LIMIT);
+  const n8nControlPlaneConcurrencyLimiter =
+    options.n8nControlPlaneConcurrencyLimiter ??
+    createConcurrencyLimiter(PRIVATE_ORCHESTRATION_CONCURRENCY_LIMIT);
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -247,6 +266,21 @@ export function createAskRigorHttpServer(
         apiKey: privateOrchestrationApiKey,
         rateLimiter: privateOrchestrationRateLimiter,
         concurrencyLimiter: privateOrchestrationConcurrencyLimiter
+      })
+    ) {
+      return;
+    }
+
+    if (
+      n8nControlPlaneEnabled &&
+      n8nControlPlaneApiKey !== undefined &&
+      n8nControlPlaneHandler !== undefined &&
+      await n8nControlPlaneHandler.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+        apiKey: n8nControlPlaneApiKey,
+        rateLimiter: n8nControlPlaneRateLimiter,
+        concurrencyLimiter: n8nControlPlaneConcurrencyLimiter
       })
     ) {
       return;

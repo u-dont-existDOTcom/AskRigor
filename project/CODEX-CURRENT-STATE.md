@@ -1,5 +1,63 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase J candidate
+
+Phase I merged through PR #82 at exact commit
+`cc78d495fc26b2a48d599c0b644fc5453e36c0cb`; all hosted checks passed and
+local `main` was fast-forwarded to that commit. Phase J runs on branch
+`agent/execution-control-phase-j-20260824` from that exact base and follows
+`docs/superpowers/plans/2026-08-24-phase-j-n8n-control-plane-pilot.md`.
+
+The candidate adds one state-digest-bound private `/advance` operation. The
+AskRigor server alone derives whether the current step is deterministic
+continuation or one exact Hermes semantic package, validates the exact result,
+and commits through the existing session store. Callers cannot select work,
+providers, counts, operations, or completion. Killed workers remain retryable;
+malformed/unbound output and stale state do not advance. Final permits returned
+through the private interface are reverified against current controller state,
+protocol identity, expiry, signing key, payload hash, and signature.
+
+The separate disabled n8n adapter accepts only opaque IDs. Its ephemeral store
+retains a digest, safe directive, bounded retry/no-progress counters,
+timestamps/reason codes, and only after authorization the output boundary and
+permit payload hash. n8n receives no inner session ID, research target,
+semantic/source content, report, or provider/controller credential. The
+tracked workflow contains only built-in Webhook, HTTP, Switch, Wait, If,
+Respond, and Stop/Error nodes. Continue/retry are bounded; owner-gate, stuck,
+blocked, forged-completion, and incomplete paths cannot become a successful
+research execution.
+
+The exact official n8n `2.35.7` image is pinned at
+`sha256:166d7e3ca384afdffe75394bf00046c299d84a4bf17b19b35d6cf7773af0a147`.
+It passes a disposable import/export/publish/runtime smoke covering comparative
+permit, bounded permit, retry-then-permit, blocked, forged-completion, and
+still-incomplete paths. Execution saving is disabled and the temporary n8n
+database is deleted. The branch was reconciled with current `main` at merge
+commit `266b0ba`; the only merge conflict was the additive recovery document,
+and both candidate sections were preserved.
+
+Focused typechecking and 40 controller/adapter/workflow/Hermes/epistemic tests
+pass. The workflow validator passes with 14 exact built-in nodes and SHA-256
+`3ac005edf7182b389cb83ad426e654ca14ff41d28313b615ce5930c365870ca5`.
+The validator also pins the complete executable workflow projection; hostile
+tests reject endpoint exfiltration, unrelated environment-secret access,
+unreviewed node parameters, and expanded success responses.
+The final complete `npm run verify` passed typechecking, 1,344 tests with six
+declared skips, and the production build at ordinary concurrency. Earlier
+load-sensitive attempts had only unrelated fixed-timeout process/loopback
+failures; each passed unchanged in isolation. Hosted CI remains the final merge
+gate.
+
+The pre-PR lesson checkpoint at `2026-08-24T23:04:20.032Z` was available: 1
+open candidate, 1 needing review, 0 accepted but not incorporated, 3
+incorporated or closed, and 0 deletion eligible. Neither queued item expands
+Phase J. Lesson disposition is project-specific/no-new-lesson: this phase
+implements the already approved server-authority and external-orchestrator
+boundaries; its n8n bypass prevention is retained as executable project tests.
+Final diff review, PR, hosted checks, and merge remain pending. Phase J changes
+no public MCP or Action inventory, canonical protocol, generated Custom GPT
+Instructions, plugin, production deployment, provider account, paid service,
+credential, or retention. Phase K is next after reviewed merge.
 ## 2026-08-24 epistemic phase router candidate
 
 Current `main` was fetched and fast-forwarded to `b9a9b4b`. That baseline had

@@ -45,7 +45,10 @@ function protocolManifest(protocol: "universal" | "hrp") {
   };
 }
 
-function fixtureHandler(maximumResponseBytes?: number) {
+function fixtureHandler(
+  maximumResponseBytes?: number,
+  semanticExecutor?: HermesSemanticExecutor
+) {
   const scout = vi.fn<typeof scoutGeminiYoutubeCandidates>(async () => ({
     provider: "gemini_api",
     record_type: "gemini_youtube_candidate_frontier",
@@ -73,6 +76,7 @@ function fixtureHandler(maximumResponseBytes?: number) {
     loadScoutInstructions: async () => "Exact repository scout instructions",
     geminiConfig: { apiKey: "server-held-gemini-key", model: "fixture-model" },
     youtubeApiKey: "server-held-youtube-key",
+    ...(semanticExecutor === undefined ? {} : { semanticExecutor }),
     ...(maximumResponseBytes === undefined ? {} : { maximumResponseBytes })
   });
 }
@@ -347,6 +351,149 @@ describe("private research orchestration HTTP boundary", () => {
     });
   });
 
+  it("lets only the server choose and apply the next semantic or deterministic step", async () => {
+    const worker: HermesSemanticExecutor = {
+      execute: vi.fn(async ({ session_id, state_digest, research_context, semantic_work }) => {
+        expect(research_context).toBe("de-identified server-owned advance fixture");
+        expect(semantic_work.kind).toBe("module_applicability");
+        if (semantic_work.kind !== "module_applicability") throw new Error("wrong fixture work");
+        return {
+          model_output: {
+            contract_version: "askrigor_hermes_semantic_result_v1",
+            session_id,
+            state_digest,
+            work_type: "module_applicability",
+            submission: {
+              package_version: "askrigor_module_applicability_v1",
+              decisions: semantic_work.package.unresolved_module_ids.map((module_id) => ({
+                module_id,
+                applicability: "REQUIRED",
+                rationale: "The server-issued package requires this fixture module."
+              }))
+            }
+          }
+        };
+      })
+    };
+    await withServer({
+      privateOrchestrationEnabled: true,
+      privateOrchestrationApiKey: API_KEY,
+      privateOrchestrationHandler: fixtureHandler(undefined, worker)
+    }, async (baseUrl) => {
+      const started = await privatePost(baseUrl, "/start", {
+        research_target: "de-identified server-owned advance fixture",
+        diagnosis_status: "diagnosis_not_specified"
+      });
+      const start = await started.json() as PrivateView;
+
+      const injected = await privatePost(baseUrl, "/advance", {
+        session_id: start.session_id,
+        state_digest: start.state_digest,
+        work_type: "candidate_screening",
+        complete: true,
+        completed_operation_count: 999
+      });
+      expect(injected.status).toBe(422);
+
+      const advanced = await privatePost(baseUrl, "/advance", {
+        session_id: start.session_id,
+        state_digest: start.state_digest
+      });
+      expect(advanced.status).toBe(200);
+      const routed = await advanced.json() as PrivateView;
+      expect(routed.state_digest).not.toBe(start.state_digest);
+      expect(routed.last_transition).toEqual({
+        capability: "module_applicability",
+        result: "semantic_work_recorded"
+      });
+      expect(worker.execute).toHaveBeenCalledTimes(1);
+
+      const deterministic = await privatePost(baseUrl, "/advance", {
+        session_id: routed.session_id,
+        state_digest: routed.state_digest
+      });
+      expect(deterministic.status).toBe(200);
+      const deterministicView = await deterministic.json() as PrivateView;
+      expect(deterministicView.state_digest).not.toBe(routed.state_digest);
+      expect(worker.execute).toHaveBeenCalledTimes(1);
+
+      const stale = await privatePost(baseUrl, "/advance", {
+        session_id: routed.session_id,
+        state_digest: routed.state_digest
+      });
+      expect(stale.status).toBe(409);
+      expect(await stale.json()).toEqual({
+        error: {
+          code: "private_orchestration_state_stale",
+          retryable: true
+        }
+      });
+    });
+  });
+
+  it("does not advance state when the server-owned worker dies or returns an unbound result", async () => {
+    const cases: Array<{
+      worker: HermesSemanticExecutor;
+      expectedStatus: number;
+      expectedCode: string;
+      retryable: boolean;
+    }> = [
+      {
+        worker: { execute: vi.fn(async () => { throw new Error("worker killed"); }) },
+        expectedStatus: 503,
+        expectedCode: "private_orchestration_worker_failed",
+        retryable: true
+      },
+      {
+        worker: {
+          execute: vi.fn(async ({ session_id, semantic_work }) => ({
+            model_output: {
+              contract_version: "askrigor_hermes_semantic_result_v1",
+              session_id,
+              state_digest: "f".repeat(64),
+              work_type: semantic_work.kind,
+              submission: { complete: true }
+            },
+            complete: true
+          }))
+        },
+        expectedStatus: 422,
+        expectedCode: "private_orchestration_worker_output_rejected",
+        retryable: false
+      }
+    ];
+
+    for (const testCase of cases) {
+      await withServer({
+        privateOrchestrationEnabled: true,
+        privateOrchestrationApiKey: API_KEY,
+        privateOrchestrationHandler: fixtureHandler(undefined, testCase.worker)
+      }, async (baseUrl) => {
+        const started = await privatePost(baseUrl, "/start", {
+          research_target: "de-identified worker failure fixture",
+          diagnosis_status: "diagnosis_not_specified"
+        });
+        const start = await started.json() as PrivateView;
+        const response = await privatePost(baseUrl, "/advance", {
+          session_id: start.session_id,
+          state_digest: start.state_digest
+        });
+        expect(response.status).toBe(testCase.expectedStatus);
+        expect(await response.json()).toEqual({
+          error: {
+            code: testCase.expectedCode,
+            retryable: testCase.retryable
+          }
+        });
+        const unchanged = await privatePost(baseUrl, "/status", {
+          session_id: start.session_id
+        });
+        expect((await unchanged.json() as PrivateView).state_digest)
+          .toBe(start.state_digest);
+      });
+    }
+  });
+
   it("rejects unauthenticated, duplicate-auth, browser, malformed, non-JSON, and oversized requests before progress", async () => {
     await withServer({
       privateOrchestrationEnabled: true,
@@ -532,6 +679,10 @@ interface PrivateView {
       discovery_digest?: string;
       candidates?: Array<{ video_id: string; program_signature: string }>;
     };
+  };
+  last_transition?: {
+    capability: string;
+    result: string;
   };
 }
 

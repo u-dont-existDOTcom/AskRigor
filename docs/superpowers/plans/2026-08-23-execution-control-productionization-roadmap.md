@@ -776,14 +776,30 @@ deployment, credentials, and retention remain unchanged.
 
 Tasks:
 
-- [ ] n8n stores only opaque execution IDs and safe orchestration metadata by default.
-- [ ] n8n reads AskRigor authoritative status and branches only on documented machine fields; it never reimplements HRP/treatment/provider completion rules in IF nodes.
-- [ ] Route executable worker tasks to Hermes or deterministic services as directed by AskRigor.
-- [ ] Add bounded retry/error workflows for retryable infrastructure/provider failures.
-- [ ] Stop at true owner gates and notify the owner; do not request ceremonial approval for routine read-only continuation.
-- [ ] Add monitoring for stuck worker/no-progress conditions without treating elapsed time as evidence saturation.
-- [ ] Require a valid AskRigor finalization boundary/permit before the n8n workflow can enter its `complete` state.
-- [ ] Document export/backup of the n8n workflow and pin any custom node/version assumptions.
+- [x] n8n stores only opaque execution IDs and safe orchestration metadata by default.
+- [x] n8n reads AskRigor authoritative status and branches only on documented machine fields; it never reimplements HRP/treatment/provider completion rules in IF nodes.
+- [x] Route executable worker tasks to Hermes or deterministic services as directed by AskRigor.
+- [x] Add bounded retry/error workflows for retryable infrastructure/provider failures.
+- [x] Stop at true owner gates and notify the owner; do not request ceremonial approval for routine read-only continuation.
+- [x] Add monitoring for stuck worker/no-progress conditions without treating elapsed time as evidence saturation.
+- [x] Require a valid AskRigor finalization boundary/permit before the n8n workflow can enter its `complete` state.
+- [x] Document export/backup of the n8n workflow and pin any custom node/version assumptions.
+
+Local Phase J exit evidence: the private server now owns a single digest-bound
+`advance` transition that chooses deterministic continuation or the exact
+Hermes semantic package. The n8n adapter receives only an opaque execution ID
+and safe directive. Its in-memory state uses fixed retry/no-progress bounds;
+elapsed time cannot authorize output. The tracked 14-node built-in-only
+workflow has strict mutation tests against quotas, credentials, private fields,
+risky nodes, permit bypass, and incomplete-to-success rewiring. The exact
+official n8n `2.35.7` image at digest
+`sha256:166d7e3ca384afdffe75394bf00046c299d84a4bf17b19b35d6cf7773af0a147`
+imports, exports, publishes, and executes the workflow in a disposable runtime.
+Comparative, bounded, and retry-then-permit paths succeed; blocked, forged-
+completion, and still-incomplete paths return non-success and terminate with an
+error. Execution saving is disabled and no private research content enters
+n8n. Public MCP/Action inventories, protocols, generated Instructions, plugin,
+deployment, credentials, paid services, and retention remain unchanged.
 
 **Exit gate:** killing/restarting a worker or causing a retryable provider failure cannot make n8n report research complete; it resumes, blocks, or escalates according to AskRigor state.
 

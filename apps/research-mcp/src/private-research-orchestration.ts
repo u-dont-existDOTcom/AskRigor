@@ -17,8 +17,7 @@ import {
 } from "./actions/body.js";
 import {
   candidateDiscoveryReadyForScreening,
-  candidateScreeningSubmissionSchema,
-  candidateScreeningWorkPackageSchema
+  candidateScreeningSubmissionSchema
 } from "./actions/research-candidate-frontier.js";
 import {
   applyServerModuleApplicability,
@@ -30,6 +29,7 @@ import {
   researchOutputBoundarySchema,
   researchSessionStateDigest,
   researchSessionViewSchema,
+  verifyResearchFinalizationPermit,
   type ResearchModuleId,
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
@@ -49,6 +49,13 @@ import type {
   ConcurrencyLimiter,
   TokenBucketLimiter
 } from "./rate-limit.js";
+import {
+  assertResearchSemanticBinding,
+  researchSemanticExecutionEnvelopeSchema,
+  researchSemanticWorkSchema,
+  type ResearchSemanticExecutor,
+  type ResearchSemanticWork
+} from "./research-semantic-worker.js";
 
 export const PRIVATE_RESEARCH_ORCHESTRATION_PREFIX =
   "/internal/research/v1" as const;
@@ -93,24 +100,7 @@ const boundarySchema = z.object({
   code: z.string().regex(/^[A-Z][A-Z0-9_]{2,79}$/u)
 }).strict();
 
-const moduleWorkPackageSchema = z.object({
-  kind: z.literal("module_applicability"),
-  package: z.object({
-    package_version: z.literal("askrigor_module_applicability_v1"),
-    state_digest: digestSchema,
-    unresolved_module_ids: z.array(z.enum(RESEARCH_MODULE_IDS)).min(1)
-  }).strict()
-}).strict();
-const candidateWorkPackageSchema = z.object({
-  kind: z.literal("candidate_screening"),
-  package: candidateScreeningWorkPackageSchema.extend({
-    state_digest: digestSchema
-  }).strict()
-}).strict();
-const semanticWorkPackageSchema = z.union([
-  moduleWorkPackageSchema,
-  candidateWorkPackageSchema
-]).nullable();
+const semanticWorkPackageSchema = researchSemanticWorkSchema.nullable();
 
 export const privateResearchOrchestrationViewSchema = z.object({
   session_id: sessionIdSchema,
@@ -156,6 +146,9 @@ const privateErrorSchema = z.object({
       "private_orchestration_rate_limited",
       "private_orchestration_concurrency_limited",
       "private_orchestration_response_too_large",
+      "private_orchestration_worker_unavailable",
+      "private_orchestration_worker_failed",
+      "private_orchestration_worker_output_rejected",
       "private_orchestration_internal_error"
     ]),
     retryable: z.boolean()
@@ -168,6 +161,7 @@ export interface PrivateResearchOrchestrationHandlerOptions
   extends Omit<CreateResearchSessionPrototypeRoutesOptions, "store"> {
   store?: ResearchSessionStore;
   maximumResponseBytes?: number;
+  semanticExecutor?: ResearchSemanticExecutor;
 }
 
 export interface PrivateResearchOrchestrationDispatchOptions {
@@ -206,6 +200,7 @@ export function createPrivateResearchOrchestrationHandler(
   }
   const {
     maximumResponseBytes: _maximumResponseBytes,
+    semanticExecutor: _semanticExecutor,
     store: _configuredStore,
     ...prototypeOptions
   } = options;
@@ -292,6 +287,17 @@ export function createPrivateResearchOrchestrationHandler(
           writeError(response, 409, "private_orchestration_work_mismatch", false);
         } else if (error instanceof PrivateInputInvalidError) {
           writeError(response, 422, "private_orchestration_input_invalid", false);
+        } else if (error instanceof PrivateWorkerUnavailableError) {
+          writeError(response, 503, "private_orchestration_worker_unavailable", true);
+        } else if (error instanceof PrivateWorkerFailedError) {
+          writeError(response, 503, "private_orchestration_worker_failed", true);
+        } else if (error instanceof PrivateWorkerOutputRejectedError) {
+          writeError(
+            response,
+            422,
+            "private_orchestration_worker_output_rejected",
+            false
+          );
         } else {
           writeError(response, 500, "private_orchestration_internal_error", false);
         }
@@ -331,13 +337,35 @@ export function createPrivateResearchOrchestrationHandler(
     if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/finalize`) {
       const result = await invokeRoute(routes, "finalize_research_report", body);
       if (result.status !== 200) return normalizeActionFailure(result);
+      const decision = finalizationDecisionSchema.parse(result.body);
+      if (decision.authorization !== "DENIED") {
+        if (
+          options.finalizationSigningSecret === undefined ||
+          options.finalizationKeyId === undefined
+        ) throw new Error("Finalization verification configuration unavailable");
+        verifyResearchFinalizationPermit(
+          decision.finalization_permit,
+          decision.session_id,
+          store.read(decision.session_id),
+          {
+            signingSecret: options.finalizationSigningSecret,
+            keyId: options.finalizationKeyId,
+            ...(options.finalizationNow === undefined
+              ? {}
+              : { now: options.finalizationNow })
+          }
+        );
+      }
       return {
         status: 200,
-        body: finalizationDecisionSchema.parse(result.body)
+        body: decision
       };
     }
     if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/submit`) {
       return submitSemanticWork(body);
+    }
+    if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/advance`) {
+      return advanceServerDirectedWork(body);
     }
     return {
       status: 404,
@@ -376,6 +404,82 @@ export function createPrivateResearchOrchestrationHandler(
       store.rollback(sessionId);
       throw error;
     }
+  }
+
+  async function advanceServerDirectedWork(
+    body: unknown
+  ): Promise<{ status: number; body: PrivateView }> {
+    const parsed = stateBoundSessionInputSchema.safeParse(body);
+    if (!parsed.success) throw new PrivateInputInvalidError();
+    const current = store.read(parsed.data.session_id);
+    const currentDigest = researchSessionStateDigest(current);
+    if (currentDigest !== parsed.data.state_digest) {
+      throw new PrivateStateStaleError();
+    }
+    const semanticWork = semanticWorkForState(
+      parsed.data.session_id,
+      current,
+      currentDigest
+    );
+    if (semanticWork !== null) {
+      if (options.semanticExecutor === undefined) {
+        throw new PrivateWorkerUnavailableError();
+      }
+      let rawExecution: unknown;
+      try {
+        rawExecution = await options.semanticExecutor.execute({
+          session_id: parsed.data.session_id,
+          state_digest: currentDigest,
+          research_context: current.research_target,
+          semantic_work: semanticWork
+        });
+      } catch {
+        throw new PrivateWorkerFailedError();
+      }
+      const execution = researchSemanticExecutionEnvelopeSchema.safeParse(
+        rawExecution
+      );
+      if (!execution.success) throw new PrivateWorkerOutputRejectedError();
+      try {
+        assertResearchSemanticBinding({
+          session_id: parsed.data.session_id,
+          state_digest: currentDigest,
+          work_type: semanticWork.kind,
+          ...(semanticWork.kind === "candidate_screening"
+            ? { discovery_digest: semanticWork.package.discovery_digest }
+            : {})
+        }, execution.data.model_output);
+      } catch {
+        throw new PrivateWorkerOutputRejectedError();
+      }
+      const claimed = store.claim(parsed.data.session_id);
+      try {
+        if (researchSessionStateDigest(claimed) !== currentDigest) {
+          throw new PrivateStateStaleError();
+        }
+        const next = execution.data.model_output.work_type === "module_applicability"
+          ? applyModuleSubmission(claimed, execution.data.model_output.submission)
+          : applyCandidateSubmission(claimed, execution.data.model_output.submission);
+        const projected = projectPrivateView(parsed.data.session_id, next, {
+          capability: execution.data.model_output.work_type,
+          result: "semantic_work_recorded"
+        });
+        store.replace(parsed.data.session_id, next);
+        return { status: 200, body: projected };
+      } catch (error) {
+        store.rollback(parsed.data.session_id);
+        throw error;
+      }
+    }
+    const privateView = projectPrivateView(parsed.data.session_id, current);
+    if (privateView.required_next_capabilities.length === 0) {
+      return { status: 200, body: privateView };
+    }
+    return projectActionResult(await invokeRoute(
+      routes,
+      "continue_research_session",
+      { session_id: parsed.data.session_id }
+    ));
   }
 
   function applyModuleSubmission(
@@ -449,27 +553,7 @@ function projectPrivateView(
 ): PrivateView {
   const view = projectResearchSessionView(sessionId, state);
   const stateDigest = researchSessionStateDigest(state);
-  const unresolvedModuleIds = RESEARCH_MODULE_IDS.filter((moduleId) =>
-    state.modules[moduleId].applicability === "UNRESOLVED"
-  );
-  const semanticWork = unresolvedModuleIds.length > 0
-    ? {
-      kind: "module_applicability" as const,
-      package: {
-        package_version: "askrigor_module_applicability_v1" as const,
-        state_digest: stateDigest,
-        unresolved_module_ids: unresolvedModuleIds
-      }
-    }
-    : view.candidate_screening_work_package === null
-      ? null
-      : {
-        kind: "candidate_screening" as const,
-        package: {
-          ...view.candidate_screening_work_package,
-          state_digest: stateDigest
-        }
-      };
+  const semanticWork = semanticWorkForState(sessionId, state, stateDigest);
   const boundaries = Object.entries(state.operations).flatMap(
     ([capability, operation]) => operation.boundary === undefined
       ? []
@@ -493,6 +577,35 @@ function projectPrivateView(
       unresolved_scout_candidate_count: state.scout.unresolved_candidate_ids.length
     },
     ...(lastTransition === undefined ? {} : { last_transition: lastTransition })
+  });
+}
+
+function semanticWorkForState(
+  sessionId: string,
+  state: ResearchSessionState,
+  stateDigest: string
+): ResearchSemanticWork | null {
+  const unresolvedModuleIds = RESEARCH_MODULE_IDS.filter((moduleId) =>
+    state.modules[moduleId].applicability === "UNRESOLVED"
+  );
+  if (unresolvedModuleIds.length > 0) {
+    return researchSemanticWorkSchema.parse({
+      kind: "module_applicability",
+      package: {
+        package_version: "askrigor_module_applicability_v1",
+        state_digest: stateDigest,
+        unresolved_module_ids: unresolvedModuleIds
+      }
+    });
+  }
+  const view = projectResearchSessionView(sessionId, state);
+  if (view.candidate_screening_work_package === null) return null;
+  return researchSemanticWorkSchema.parse({
+    kind: "candidate_screening",
+    package: {
+      ...view.candidate_screening_work_package,
+      state_digest: stateDigest
+    }
   });
 }
 
@@ -548,3 +661,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 class PrivateStateStaleError extends Error {}
 class PrivateWorkMismatchError extends Error {}
 class PrivateInputInvalidError extends Error {}
+class PrivateWorkerUnavailableError extends Error {}
+class PrivateWorkerFailedError extends Error {}
+class PrivateWorkerOutputRejectedError extends Error {}

@@ -22,6 +22,8 @@
     "sync:retraction-watch:runtime": "node apps/research-mcp/dist/retraction-watch-sync-cli.js",
     "pilot:hermes": "tsx scripts/run-hermes-worker-pilot.mts",
     "test:hermes-pilot": "tsx scripts/smoke-hermes-semantic-worker.mts",
+    "validate:n8n-pilot": "tsx scripts/validate-n8n-control-plane-workflow.mts",
+    "test:n8n-pilot": "tsx scripts/smoke-n8n-control-plane.mts",
     "plugin:receipt": "node scripts/plugin-package-receipt.mjs",
     "lessons:status": "tsx scripts/lessons-status.mts",
     "review:public-live": "tsx scripts/run-public-review-eval.mts",
