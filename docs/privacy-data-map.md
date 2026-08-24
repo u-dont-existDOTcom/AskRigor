@@ -44,21 +44,26 @@ AskRigor has three deliberately separate processing paths:
 - **Non-production research-session prototype:** an unregistered internal
   controller binds one research target to exact protocol identities, public
   candidate metadata, bounded semantic screening decisions, and per-video
-  transcript/discussion coverage receipts. Selected-video state may retain
+  transcript/discussion coverage receipts. Phase D3 also binds material
+  program-derived formal-search receipts, public source identities and access
+  attempts, opaque open-full-text handles and content hashes, method-audit
+  receipt projections, compact external-evidence hashes/directives, linked
+  public source identities, and claim-capability state. Selected-video state may retain
   short opaque Action handles, attempts, public video/channel identity,
   access/completion status, caption-track/timestamp facts, cumulative counts,
   and corpus hashes. It never stores transcript segments, comment text,
-  commenter identities, raw provider output, provider cursors, credentials, or
-  protocol text. The prototype is absent from the public MCP and Action
-  inventories and is not deployed.
+  commenter identities, publication blocks/full text, raw provider bodies,
+  provider cursors, credentials, or protocol text. The prototype is absent
+  from the public MCP and Action inventories and is not deployed.
 - **Non-production external-study evidence path:** an internal coordinator
   accepts only an opaque research-session ID and one public DOI, verifies exact
   Crossref identity, then invokes Crossref and FORRT itself. It normalizes
   ordered public publication-update assertions and provider-reported
   replication/reproduction relationships, derives bounded controller work, and
   issues a signed structural receipt. Optional unconfigured providers remain
-  explicit coverage gaps. The path is not connected to the research-session
-  controller, public MCP, Custom GPT Actions, or deployment. Its bounded
+  explicit coverage gaps. Phase D3 connects its signed result to the
+  unregistered research-session prototype only; it remains absent from the
+  public MCP, Custom GPT Actions, and deployment. Its bounded
   content-addressed in-memory artifact store can hold strict normalized
   provider envelopes for the lifetime of that non-production store object; it
   writes no durable storage. Portable output contains public study/provider
@@ -178,7 +183,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall; the screened population-level target plus public scout instructions sent to Gemini; and, only after a malformed scout packet, one bounded correction containing Gemini's own public candidate output, exact executed public queries, and safe validation issues. If the internal Phase D1 adapters are invoked by later controller work, Crossref receives the public DOI and configured service contact, while FORRT receives only the public DOI and fixed headers. | Europe PMC, Unpaywall, public copy hosts, Crossref, FORRT, Google Gemini, Google Search, and YouTube process requests under their own policies. Both possible Gemini interactions use the paid fixed model with `store:false`; only the first can use Google Search. Provider keys and contacts remain server-only. AskRigor does not claim to control provider processing or retain a provider-side copy. Phase D1 itself does not expose or deploy the new internal adapters. |
 | Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini call reserves at most $1 before provider execution. |
 | Optional local legacy Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the historical input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
-| Non-production research-session prototype | Research target and diagnosis-status enum; exact protocol identities; module/operation state; public candidate/video/channel metadata and provisional program fields; bounded candidate-screening decisions/rationales; selected-video attempt/status; short opaque Action handles; transcript track/timestamp/access/pagination receipts; discussion access/count/hash/completion receipts | Process memory only, one hour from issue or last successful replacement, at most 1,024 entries and 16 MiB total. Capacity eviction, expiry, or process restart removes the state. It stores no transcript/comment text, comment-author identity, raw provider output, provider cursor, credential, or private source. It is an unregistered development prototype, not a production data flow; durable storage remains an explicit later owner/privacy gate. |
+| Non-production research-session prototype | Research target and diagnosis-status enum; exact protocol identities; module/operation state; public candidate/video/channel metadata and provisional program fields; bounded candidate-screening decisions/rationales; selected-video attempt/status; short opaque Action handles; transcript/discussion coverage receipts; material program-derived formal queries; bounded PubMed/Europe PMC page receipts and public DOI/PMID/PMCID/source/version identity; full-text access attempts, opaque handles, content hashes and coverage counts; method/external receipt hashes; provider directives and linked public source IDs; claim-capability state and bounded work packages | Process memory only, one hour from issue or last successful replacement, at most 1,024 entries and 16 MiB total. Capacity eviction, expiry, or process restart removes the state. It stores no transcript/comment text, comment-author identity, publication blocks/full text, raw provider bodies, provider cursor, credential, signing secret, or private source. It is an unregistered development prototype, not a production data flow; durable storage remains an explicit later owner/privacy gate. |
 | Non-production external-evidence artifact store | Strict normalized Crossref/FORRT envelopes for one public DOI; content-derived artifact ID; provider/source identity; media type; byte count; content and descriptor hashes | Unregistered process-memory abstraction only, with default bounds of 128 entries, 10 MiB per artifact, and 32 MiB total. Bytes are cloned, exact artifacts deduplicated, and entries explicitly revocable; process loss discards them. No timer, disk, database, object store, backup, production singleton, or public route is activated. Durable persistence remains a Phase G owner/privacy decision. |
 
 Full application request bodies and response bodies are not logged or written

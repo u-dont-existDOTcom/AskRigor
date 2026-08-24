@@ -122,8 +122,7 @@ describe("server-owned research session feasibility routes", () => {
         },
         required_next_capabilities: [
           "route_module_applicability",
-          "native_video_discovery",
-          "formal_evidence_search"
+          "native_video_discovery"
         ],
         last_transition: {
           capability: "automated_video_scout",
@@ -173,8 +172,7 @@ describe("server-owned research session feasibility routes", () => {
         next_video_work_packages: [],
         required_next_capabilities: [
           "route_module_applicability",
-          "candidate_screening",
-          "formal_evidence_search"
+          "candidate_screening"
         ],
         last_transition: {
           capability: "native_video_discovery",
@@ -207,8 +205,7 @@ describe("server-owned research session feasibility routes", () => {
           "PHASE_A_FINALIZATION_NOT_ENABLED"
         ]),
         required_next_capabilities: expect.arrayContaining([
-          "candidate_screening",
-          "formal_evidence_search"
+          "candidate_screening"
         ])
       }
     });

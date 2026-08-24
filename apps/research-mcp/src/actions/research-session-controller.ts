@@ -10,6 +10,7 @@ import { z } from "zod";
 import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
 import {
   assertCandidateScreeningComplete,
+  candidateScreeningResultDigest,
   candidateScreeningWorkPackageSchema,
   candidateDiscoveryDiagnosticsSchema,
   candidateDiscoveryReadyForScreening,
@@ -42,6 +43,37 @@ import {
   type YoutubeTranscriptActionOutput
 } from "./research-video-depth-controller.js";
 import type { TreatmentLandscapeCoverageOutput } from "./treatment-landscape-coverage-route.js";
+import {
+  createFormalEvidenceScreeningWorkPackage,
+  createFormalClaimRecalculationWorkPackages,
+  createFormalExternalEvidenceWorkPackages,
+  createFormalMethodAuditWorkPackages,
+  deriveFormalEvidenceDiagnostics,
+  deriveFormalEvidenceOperationStatus,
+  executeResearchFormalSearch,
+  executeResearchSourceExternalEvidence,
+  executeResearchSourceFullTextChain,
+  formalEvidenceDiagnosticsSchema,
+  formalClaimRecalculationWorkPackageSchema,
+  formalExternalEvidenceWorkPackageSchema,
+  formalEvidenceScreeningComplete,
+  formalEvidenceScreeningWorkPackageSchema,
+  formalMethodAuditWorkPackageSchema,
+  ingestFormalEvidenceScreeningSubmission,
+  initialResearchFormalEvidenceState,
+  initializeResearchFormalEvidence,
+  recalculateResearchSourceClaimCapability,
+  reconcileFormalEvidenceLinkedWork,
+  recordFormalMethodAudit,
+  researchFormalEvidenceStateSchema,
+  type FormalEvidenceScreeningSubmission,
+  type FormalSearchExecutors,
+  type ResearchFormalEvidenceState
+} from "./research-formal-evidence.js";
+import type { OpenFullTextExecutor } from "./open-full-text-route.js";
+import type {
+  StudyExternalEvidenceCoordinator
+} from "./study-external-evidence.js";
 
 export const RESEARCH_MODULE_IDS = [
   "HRP",
@@ -61,6 +93,9 @@ export const RESEARCH_OPERATION_IDS = [
   "formal_evidence_search",
   "accessible_full_text_acquisition",
   "study_method_audit",
+  "external_study_evidence_audit",
+  "linked_replication_and_review_audit",
+  "claim_capability_recalculation",
   "bidirectional_evidence_return",
   "treatment_landscape_finalization",
   "final_completion_audit"
@@ -197,6 +232,9 @@ const operationStatesSchema = z.object({
   formal_evidence_search: operationStateSchema,
   accessible_full_text_acquisition: operationStateSchema,
   study_method_audit: operationStateSchema,
+  external_study_evidence_audit: operationStateSchema,
+  linked_replication_and_review_audit: operationStateSchema,
+  claim_capability_recalculation: operationStateSchema,
   bidirectional_evidence_return: operationStateSchema,
   treatment_landscape_finalization: operationStateSchema,
   final_completion_audit: operationStateSchema
@@ -214,7 +252,7 @@ const scoutStateSchema = z.object({
 }).strict();
 
 export const researchSessionStateSchema = z.object({
-  state_version: z.literal("2.0"),
+  state_version: z.literal("3.0"),
   research_target: z.string().min(1).max(1_000),
   diagnosis_status: z.enum(["diagnosis_not_specified", "user_supplied_diagnosis"]),
   protocol_binding: z.object({
@@ -226,7 +264,8 @@ export const researchSessionStateSchema = z.object({
   operations: operationStatesSchema,
   scout: scoutStateSchema,
   candidate_discovery: researchCandidateDiscoveryStateSchema,
-  video_depth: researchVideoDepthStateSchema
+  video_depth: researchVideoDepthStateSchema,
+  formal_evidence: researchFormalEvidenceStateSchema
 }).strict().superRefine((state, context) => {
   if (
     state.protocol_binding.currency === "DRIFTED" &&
@@ -365,6 +404,47 @@ export const researchSessionStateSchema = z.object({
       message: "Video depth work cannot precede completed candidate screening"
     });
   }
+
+  if (state.operations.candidate_screening.status === "COMPLETE") {
+    if (
+      state.formal_evidence.candidate_screening_digest === undefined ||
+      state.formal_evidence.candidate_screening_digest !==
+        candidateScreeningResultDigest(state.candidate_discovery)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Formal evidence must be derived from the exact completed candidate screening frontier"
+      });
+    }
+    for (const capability of [
+      "formal_evidence_search",
+      "accessible_full_text_acquisition",
+      "study_method_audit",
+      "external_study_evidence_audit",
+      "linked_replication_and_review_audit",
+      "claim_capability_recalculation"
+    ] as const) {
+      const expected = formalEvidenceOperationProjection(
+        state.formal_evidence,
+        capability
+      );
+      if (JSON.stringify(state.operations[capability]) !== JSON.stringify(expected)) {
+        context.addIssue({
+          code: "custom",
+          message: `${capability} operation must be derived exactly from per-source formal evidence state`
+        });
+      }
+    }
+  } else if (
+    state.formal_evidence.hypotheses.length > 0 ||
+    state.formal_evidence.sources.length > 0 ||
+    state.formal_evidence.candidate_screening_digest !== undefined
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Formal evidence cannot precede completed candidate screening"
+    });
+  }
 });
 
 export type ResearchSessionState = z.output<typeof researchSessionStateSchema>;
@@ -382,6 +462,9 @@ export const researchNextCapabilitySchema = z.enum([
   "formal_evidence_search",
   "accessible_full_text_acquisition",
   "study_method_audit",
+  "external_study_evidence_audit",
+  "linked_replication_and_review_audit",
+  "claim_capability_recalculation",
   "bidirectional_evidence_return",
   "treatment_landscape_finalization",
   "final_completion_audit",
@@ -442,6 +525,14 @@ export const researchSessionViewSchema = z.object({
   candidate_screening_work_package: candidateScreeningWorkPackageSchema.nullable(),
   video_depth: researchVideoDepthDiagnosticsSchema,
   next_video_work_packages: z.array(researchVideoDepthWorkPackageSchema),
+  formal_evidence: formalEvidenceDiagnosticsSchema,
+  formal_source_screening_work_package:
+    formalEvidenceScreeningWorkPackageSchema.nullable(),
+  formal_method_audit_work_packages: z.array(formalMethodAuditWorkPackageSchema),
+  formal_external_evidence_work_packages:
+    z.array(formalExternalEvidenceWorkPackageSchema),
+  formal_claim_recalculation_work_packages:
+    z.array(formalClaimRecalculationWorkPackageSchema),
   required_next_capabilities: z.array(researchNextCapabilitySchema),
   finalization_permit: z.null()
 }).strict();
@@ -495,7 +586,7 @@ export function createInitialResearchSessionState(
   });
 
   return researchSessionStateSchema.parse({
-    state_version: "2.0",
+    state_version: "3.0",
     research_target: input.research_target,
     diagnosis_status: input.diagnosis_status,
     protocol_binding: {
@@ -527,6 +618,9 @@ export function createInitialResearchSessionState(
       formal_evidence_search: notStarted(),
       accessible_full_text_acquisition: notStarted(),
       study_method_audit: notStarted(),
+      external_study_evidence_audit: notStarted(),
+      linked_replication_and_review_audit: notStarted(),
+      claim_capability_recalculation: notStarted(),
       bidirectional_evidence_return: notStarted(),
       treatment_landscape_finalization: notStarted(),
       final_completion_audit: notStarted()
@@ -538,7 +632,8 @@ export function createInitialResearchSessionState(
       unresolved_candidate_ids: []
     },
     candidate_discovery: initialResearchCandidateDiscoveryState(),
-    video_depth: initialResearchVideoDepthState()
+    video_depth: initialResearchVideoDepthState(),
+    formal_evidence: initialResearchFormalEvidenceState()
   });
 }
 
@@ -714,6 +809,10 @@ export function recordCandidateScreeningCompletion(
     submission
   );
   const videoDepth = initializeResearchVideoDepth(candidateDiscovery);
+  const formalEvidence = initializeResearchFormalEvidence(
+    candidateDiscovery,
+    state.research_target
+  );
   return researchSessionStateSchema.parse({
     ...state,
     operations: {
@@ -726,10 +825,35 @@ export function recordCandidateScreeningCompletion(
       community_discussion_audit: videoDepthOperationProjection(
         videoDepth,
         "community_discussion_audit"
+      ),
+      formal_evidence_search: formalEvidenceOperationProjection(
+        formalEvidence,
+        "formal_evidence_search"
+      ),
+      accessible_full_text_acquisition: formalEvidenceOperationProjection(
+        formalEvidence,
+        "accessible_full_text_acquisition"
+      ),
+      study_method_audit: formalEvidenceOperationProjection(
+        formalEvidence,
+        "study_method_audit"
+      ),
+      external_study_evidence_audit: formalEvidenceOperationProjection(
+        formalEvidence,
+        "external_study_evidence_audit"
+      ),
+      linked_replication_and_review_audit: formalEvidenceOperationProjection(
+        formalEvidence,
+        "linked_replication_and_review_audit"
+      ),
+      claim_capability_recalculation: formalEvidenceOperationProjection(
+        formalEvidence,
+        "claim_capability_recalculation"
       )
     },
     candidate_discovery: candidateDiscovery,
-    video_depth: videoDepth
+    video_depth: videoDepth,
+    formal_evidence: formalEvidence
   });
 }
 
@@ -833,6 +957,124 @@ export async function executeResearchSessionVideoDepthChain(
   });
 }
 
+export async function executeResearchSessionFormalSearch(
+  rawState: ResearchSessionState,
+  hypothesisId: string,
+  executors: FormalSearchExecutors,
+  maximumPagesPerProvider = 1
+): Promise<ResearchSessionState> {
+  const state = requireFormalReady(rawState);
+  const formalEvidence = await executeResearchFormalSearch(
+    state.formal_evidence,
+    hypothesisId,
+    executors,
+    maximumPagesPerProvider
+  );
+  return withFormalEvidence(state, formalEvidence);
+}
+
+export function recordResearchSessionFormalScreening(
+  rawState: ResearchSessionState,
+  submission: FormalEvidenceScreeningSubmission
+): ResearchSessionState {
+  const state = requireFormalReady(rawState);
+  if (formalEvidenceScreeningComplete(state.formal_evidence)) {
+    throw new Error("Completed formal source screening is immutable");
+  }
+  const formalEvidence = ingestFormalEvidenceScreeningSubmission(
+    state.formal_evidence,
+    submission
+  );
+  return withFormalEvidence(state, formalEvidence);
+}
+
+export async function executeResearchSessionSourceFullTextChain(
+  rawState: ResearchSessionState,
+  sourceId: string,
+  executor: OpenFullTextExecutor,
+  maximumCalls = 1_000
+): Promise<ResearchSessionState> {
+  const state = requireFormalReady(rawState);
+  if (!operationCompleteOrTerminal(state.operations.formal_evidence_search)) {
+    throw new Error("Full-text acquisition requires completed formal source screening");
+  }
+  const formalEvidence = await executeResearchSourceFullTextChain(
+    state.formal_evidence,
+    sourceId,
+    executor,
+    maximumCalls
+  );
+  return withFormalEvidence(state, formalEvidence);
+}
+
+export async function executeResearchSessionMethodAudit(
+  rawState: ResearchSessionState,
+  sourceId: string,
+  submission:
+    | Parameters<OpenFullTextExecutor["validateStudyAudit"]>[0]["audit"]
+    | Parameters<OpenFullTextExecutor["validateReviewAudit"]>[0]["audit"]
+    | Parameters<OpenFullTextExecutor["validateNoticeAudit"]>[0]["audit"],
+  executor: OpenFullTextExecutor
+): Promise<ResearchSessionState> {
+  const state = requireFormalReady(rawState);
+  const work = createFormalMethodAuditWorkPackages(state.formal_evidence)
+    .find(({ source_id }) => source_id === sourceId);
+  if (work === undefined) {
+    throw new Error("The exact formal source has no executable method-audit work package");
+  }
+  const output = work.audit_kind === "STUDY"
+    ? await executor.validateStudyAudit({
+      document_handle: work.document_handle,
+      audit: submission as Parameters<OpenFullTextExecutor["validateStudyAudit"]>[0]["audit"]
+    })
+    : work.audit_kind === "REVIEW"
+      ? await executor.validateReviewAudit({
+        document_handle: work.document_handle,
+        audit: submission as Parameters<OpenFullTextExecutor["validateReviewAudit"]>[0]["audit"]
+      })
+      : await executor.validateNoticeAudit({
+        document_handle: work.document_handle,
+        audit: submission as Parameters<OpenFullTextExecutor["validateNoticeAudit"]>[0]["audit"]
+      });
+  const formalEvidence = recordFormalMethodAudit(
+    state.formal_evidence,
+    sourceId,
+    output
+  );
+  return withFormalEvidence(state, formalEvidence);
+}
+
+export async function executeResearchSessionSourceExternalEvidence(
+  rawState: ResearchSessionState,
+  sessionId: string,
+  sourceId: string,
+  coordinator: StudyExternalEvidenceCoordinator,
+  receiptSecret: string
+): Promise<ResearchSessionState> {
+  const state = requireFormalReady(rawState);
+  const formalEvidence = await executeResearchSourceExternalEvidence(
+    state.formal_evidence,
+    sessionId,
+    sourceId,
+    coordinator,
+    receiptSecret,
+    state.protocol_binding.expected
+  );
+  return withFormalEvidence(state, formalEvidence);
+}
+
+export async function recalculateResearchSessionSourceClaimCapability(
+  rawState: ResearchSessionState,
+  input: Parameters<typeof recalculateResearchSourceClaimCapability>[1]
+): Promise<ResearchSessionState> {
+  const state = requireFormalReady(rawState);
+  const formalEvidence = await recalculateResearchSourceClaimCapability(
+    state.formal_evidence,
+    input
+  );
+  return withFormalEvidence(state, formalEvidence);
+}
+
 export function recordAutomatedScoutBoundary(
   rawState: ResearchSessionState,
   boundary: z.output<typeof operationBoundarySchema>
@@ -891,10 +1133,10 @@ export function deriveRequiredNextCapabilities(
   ) {
     capabilities.push("candidate_screening");
   }
-  if (isExecutable(state.operations.formal_evidence_search)) {
-    capabilities.push("formal_evidence_search");
-  }
   if (state.operations.candidate_screening.status === "COMPLETE") {
+    if (isExecutable(state.operations.formal_evidence_search)) {
+      capabilities.push("formal_evidence_search");
+    }
     if (isExecutable(state.operations.transcript_acquisition)) {
       capabilities.push("transcript_acquisition");
     }
@@ -903,7 +1145,7 @@ export function deriveRequiredNextCapabilities(
     }
   }
   if (
-    state.operations.formal_evidence_search.status === "COMPLETE" &&
+    operationCompleteOrTerminal(state.operations.formal_evidence_search) &&
     isExecutable(state.operations.accessible_full_text_acquisition)
   ) {
     capabilities.push("accessible_full_text_acquisition");
@@ -915,9 +1157,27 @@ export function deriveRequiredNextCapabilities(
     capabilities.push("study_method_audit");
   }
   if (
+    state.operations.study_method_audit.status === "COMPLETE" &&
+    isExecutable(state.operations.external_study_evidence_audit)
+  ) {
+    capabilities.push("external_study_evidence_audit");
+  }
+  if (
+    operationCompleteOrTerminal(state.operations.external_study_evidence_audit) &&
+    isExecutable(state.operations.linked_replication_and_review_audit)
+  ) {
+    capabilities.push("linked_replication_and_review_audit");
+  }
+  if (
+    operationCompleteOrTerminal(state.operations.linked_replication_and_review_audit) &&
+    isExecutable(state.operations.claim_capability_recalculation)
+  ) {
+    capabilities.push("claim_capability_recalculation");
+  }
+  if (
     operationCompleteOrTerminal(state.operations.transcript_acquisition) &&
     operationCompleteOrTerminal(state.operations.community_discussion_audit) &&
-    operationCompleteOrTerminal(state.operations.study_method_audit) &&
+    operationCompleteOrTerminal(state.operations.claim_capability_recalculation) &&
     isExecutable(state.operations.bidirectional_evidence_return)
   ) {
     capabilities.push("bidirectional_evidence_return");
@@ -1001,6 +1261,23 @@ export function projectResearchSessionView(
     next_video_work_packages: state.protocol_binding.currency === "CURRENT"
       ? deriveResearchVideoDepthWorkPackages(state.video_depth)
       : [],
+    formal_evidence: deriveFormalEvidenceDiagnostics(state.formal_evidence),
+    formal_source_screening_work_package:
+      state.protocol_binding.currency === "CURRENT"
+        ? formalScreeningWorkPackageOrNull(state.formal_evidence)
+        : null,
+    formal_method_audit_work_packages:
+      state.protocol_binding.currency === "CURRENT"
+        ? createFormalMethodAuditWorkPackages(state.formal_evidence)
+        : [],
+    formal_external_evidence_work_packages:
+      state.protocol_binding.currency === "CURRENT"
+        ? createFormalExternalEvidenceWorkPackages(state.formal_evidence)
+        : [],
+    formal_claim_recalculation_work_packages:
+      state.protocol_binding.currency === "CURRENT"
+        ? createFormalClaimRecalculationWorkPackages(state.formal_evidence)
+        : [],
     required_next_capabilities: deriveRequiredNextCapabilities(state),
     finalization_permit: null
   });
@@ -1089,7 +1366,11 @@ export function assertResearchSessionTransition(
   for (const operationId of RESEARCH_OPERATION_IDS) {
     const before = previous.operations[operationId].status;
     const after = next.operations[operationId].status;
-    if (before === "COMPLETE" && after !== "COMPLETE") {
+    if (
+      before === "COMPLETE" &&
+      after !== "COMPLETE" &&
+      !formalEvidenceExpansionJustifiesReopen(previous, next, operationId)
+    ) {
       throw new Error(`Completed operation ${operationId} cannot regress`);
     }
     if (before === "BLOCKED_TERMINAL" && after !== "BLOCKED_TERMINAL") {
@@ -1124,6 +1405,29 @@ export function assertResearchSessionTransition(
     throw new Error("Completed candidate screening records are immutable");
   }
   assertVideoDepthTransition(previous.video_depth, next.video_depth);
+  assertFormalEvidenceTransition(previous, next);
+}
+
+function formalEvidenceExpansionJustifiesReopen(
+  previous: ResearchSessionState,
+  next: ResearchSessionState,
+  operationId: ResearchOperationId
+): boolean {
+  if (![
+    "accessible_full_text_acquisition",
+    "study_method_audit",
+    "external_study_evidence_audit",
+    "linked_replication_and_review_audit",
+    "claim_capability_recalculation"
+  ].includes(operationId)) return false;
+
+  const before = new Set(previous.formal_evidence.sources
+    .filter(({ decision_importance }) => decision_importance === "DECISION_IMPORTANT")
+    .map(({ source_id }) => source_id));
+  const after = new Set(next.formal_evidence.sources
+    .filter(({ decision_importance }) => decision_importance === "DECISION_IMPORTANT")
+    .map(({ source_id }) => source_id));
+  return [...after].some((sourceId) => !before.has(sourceId));
 }
 
 function protocolIdentity(
@@ -1146,6 +1450,80 @@ function requireDepthReady(rawState: ResearchSessionState): ResearchSessionState
   }
   assertVideoDepthMatchesSelection(state.video_depth, state.candidate_discovery);
   return state;
+}
+
+function requireFormalReady(rawState: ResearchSessionState): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (state.operations.candidate_screening.status !== "COMPLETE") {
+    throw new Error("Formal evidence work requires completed candidate screening");
+  }
+  if (
+    state.formal_evidence.candidate_screening_digest !==
+      candidateScreeningResultDigest(state.candidate_discovery)
+  ) {
+    throw new Error("Formal evidence frontier is stale or bound to different candidates");
+  }
+  return state;
+}
+
+function withFormalEvidence(
+  state: ResearchSessionState,
+  rawFormalEvidence: ResearchFormalEvidenceState
+): ResearchSessionState {
+  const formalEvidence = reconcileFormalEvidenceLinkedWork(rawFormalEvidence);
+  const operations = { ...state.operations };
+  for (const capability of [
+    "formal_evidence_search",
+    "accessible_full_text_acquisition",
+    "study_method_audit",
+    "external_study_evidence_audit",
+    "linked_replication_and_review_audit",
+    "claim_capability_recalculation"
+  ] as const) {
+    operations[capability] = formalEvidenceOperationProjection(
+      formalEvidence,
+      capability
+    );
+  }
+  return researchSessionStateSchema.parse({
+    ...state,
+    operations,
+    formal_evidence: formalEvidence
+  });
+}
+
+function formalEvidenceOperationProjection(
+  formalEvidence: ResearchFormalEvidenceState,
+  capability:
+    | "formal_evidence_search"
+    | "accessible_full_text_acquisition"
+    | "study_method_audit"
+    | "external_study_evidence_audit"
+    | "linked_replication_and_review_audit"
+    | "claim_capability_recalculation"
+): ResearchSessionState["operations"][typeof capability] {
+  const status = deriveFormalEvidenceOperationStatus(formalEvidence, capability);
+  if (status === "BLOCKED_RETRYABLE") {
+    return {
+      status,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "FORMAL_EVIDENCE_RETRYABLE",
+        summary: "At least one exact formal-evidence source or provider has retryable work remaining."
+      }
+    };
+  }
+  if (status === "BLOCKED_TERMINAL") {
+    return {
+      status,
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "FORMAL_EVIDENCE_CLAIM_LOCAL_BOUNDARY",
+        summary: "At least one decision-important source remains unseen, invalidated, or claim-locally bounded and cannot authorize unrestricted use."
+      }
+    };
+  }
+  return { status };
 }
 
 function videoDepthOperationProjection(
@@ -1227,6 +1605,132 @@ function assertVideoDepthTransition(
     if (previous[key].length > 0 && previous[key].length !== next[key].length) {
       throw new Error("Selected video depth records cannot be added or removed");
     }
+  }
+}
+
+function assertFormalEvidenceTransition(
+  previous: ResearchSessionState,
+  next: ResearchSessionState
+): void {
+  const before = previous.formal_evidence;
+  const after = next.formal_evidence;
+  if (before.hypothesis_frontier_digest !== undefined) {
+    if (
+      before.candidate_screening_digest !== after.candidate_screening_digest ||
+      before.hypothesis_frontier_digest !== after.hypothesis_frontier_digest ||
+      before.hypotheses.length !== after.hypotheses.length
+    ) {
+      throw new Error("Formal hypothesis frontier is immutable");
+    }
+    for (const priorHypothesis of before.hypotheses) {
+      const laterHypothesis = after.hypotheses.find(({ hypothesis_id }) =>
+        hypothesis_id === priorHypothesis.hypothesis_id
+      );
+      if (laterHypothesis === undefined) {
+        throw new Error("Formal hypothesis records cannot be removed or renamed");
+      }
+      const priorCore = { ...priorHypothesis, provider_searches: undefined };
+      const laterCore = { ...laterHypothesis, provider_searches: undefined };
+      if (JSON.stringify(priorCore) !== JSON.stringify(laterCore)) {
+        throw new Error("Formal program/outcome hypothesis identity is immutable");
+      }
+      for (const priorSearch of priorHypothesis.provider_searches) {
+        const laterSearch = laterHypothesis.provider_searches.find(({ provider }) =>
+          provider === priorSearch.provider
+        );
+        if (laterSearch === undefined) throw new Error("Formal provider search cannot disappear");
+        if (
+          (priorSearch.status === "COMPLETE" || priorSearch.status === "BLOCKED_TERMINAL") &&
+          JSON.stringify(priorSearch) !== JSON.stringify(laterSearch)
+        ) {
+          throw new Error("Completed or terminal formal provider evidence is immutable");
+        }
+        if (
+          laterSearch.pages_retrieved < priorSearch.pages_retrieved ||
+          laterSearch.records_returned_cumulative < priorSearch.records_returned_cumulative ||
+          laterSearch.page_receipt_hashes.slice(0, priorSearch.page_receipt_hashes.length)
+            .some((hash, index) => hash !== priorSearch.page_receipt_hashes[index])
+        ) {
+          throw new Error("Formal provider receipt chains must advance monotonically");
+        }
+      }
+    }
+  }
+  const laterById = new Map(after.sources.map((source) => [source.source_id, source]));
+  for (const prior of before.sources) {
+    const later = laterById.get(prior.source_id);
+    if (later === undefined) throw new Error("Formal sources cannot be removed or renamed");
+    for (const key of ["doi", "pmid", "pmcid"] as const) {
+      if (prior.identity[key] !== undefined && prior.identity[key] !== later.identity[key]) {
+        throw new Error("Formal source stable identifiers are immutable");
+      }
+    }
+    if (prior.screening_status === "SCREENED") {
+      const priorScreening = {
+        source_kind: prior.source_kind,
+        decision_importance: prior.decision_importance,
+        possible_decision_impact: prior.possible_decision_impact,
+        screening_rationale: prior.screening_rationale
+      };
+      const laterScreening = {
+        source_kind: later.source_kind,
+        decision_importance: later.decision_importance,
+        possible_decision_impact: later.possible_decision_impact,
+        screening_rationale: later.screening_rationale
+      };
+      const evidenceUpgrade =
+        prior.decision_importance === "NOT_DECISION_IMPORTANT" &&
+        later.decision_importance === "DECISION_IMPORTANT" &&
+        later.origins.some(({ provider }) => provider === "external_evidence");
+      if (
+        JSON.stringify(priorScreening) !== JSON.stringify(laterScreening) &&
+        !evidenceUpgrade
+      ) {
+        throw new Error("Completed formal source screening is immutable");
+      }
+    }
+    if (
+      (prior.full_text.status === "EXHAUSTED" || prior.full_text.status === "LEAD_BOUNDARY") &&
+      JSON.stringify(prior.full_text) !== JSON.stringify(later.full_text)
+    ) {
+      throw new Error("Exhausted or terminal full-text evidence is immutable");
+    }
+    if (
+      prior.method_audit.status === "COMPLETE" &&
+      JSON.stringify({
+        ...prior.method_audit,
+        external_receipt_payload_sha256: undefined,
+        external_bound_audit_sha256: undefined
+      }) !== JSON.stringify({
+        ...later.method_audit,
+        external_receipt_payload_sha256: undefined,
+        external_bound_audit_sha256: undefined
+      })
+    ) {
+      throw new Error("Completed source-linked method audit is immutable");
+    }
+    if (
+      ["COMPLETE", "BOUNDED_NONRETRYABLE", "NOT_APPLICABLE"].includes(
+        prior.external_evidence.status
+      ) &&
+      JSON.stringify({ ...prior.external_evidence, linked_work: undefined }) !==
+        JSON.stringify({ ...later.external_evidence, linked_work: undefined })
+    ) {
+      throw new Error("Completed or terminal external-study evidence is immutable");
+    }
+  }
+}
+
+function formalScreeningWorkPackageOrNull(
+  formalEvidence: ResearchFormalEvidenceState
+): z.output<typeof formalEvidenceScreeningWorkPackageSchema> | null {
+  if (formalEvidence.sources.length === 0 || formalEvidenceScreeningComplete(formalEvidence)) {
+    return null;
+  }
+  try {
+    return createFormalEvidenceScreeningWorkPackage(formalEvidence);
+  } catch {
+    return null;
   }
 }
 

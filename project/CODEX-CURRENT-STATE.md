@@ -1,5 +1,72 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase D3 candidate
+
+Branch `agent/execution-control-phase-d3-20260824` starts from exact Phase D2
+merge `d75d316952baaf179857cdc48930b07aa23c4cac` and implements Phase D3 of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+It extends the existing non-production server-owned research session rather
+than creating another controller or completion authority.
+
+Completed candidate screening now deterministically creates one formal
+hypothesis for each materially distinct program/outcome fingerprint. The
+controller calls PubMed and Europe PMC itself, stores exact query/page/access
+receipts and deduplicated DOI/PMID/PMCID identities, and requires a
+frontier-bound semantic decision for every returned identity. A terminal
+provider failure remains visible and bounded while other exact source work
+continues; it cannot be rewritten as a zero-result search.
+
+Every decision-important exact DOI enters the existing lawful Europe PMC then
+Unpaywall acquisition engine. Session state records only access attempts,
+opaque handle, source/version identity, content hash, block/segment totals,
+and exhaustion receipt. It never stores article blocks. An expired partial
+chain discards its counts and dependent work before exact-source restart.
+Unseen or inaccessible sources remain possibly useful claim-local leads and
+cannot supply unrestricted claims.
+
+Method audit now executes through the same transport-independent validator as
+the existing Action rather than accepting caller-authored completion output.
+Study, review, and publication-notice receipts must match the exact exhausted
+handle, source identifier, content hash, audit kind, domains, and real block
+IDs. Each audited DOI study then schedules the Phase D2 signed Crossref/FORRT
+operation. The controller preserves compact provider-attempt, bundle,
+directive, linked-work, and limitation hashes; missing mandatory attempts,
+mixed/cross-protocol receipts, and provider failures cannot advance ordinary
+claim use.
+
+Publication notices, replications/reproductions, and linked reviews with exact
+DOIs become decision-important sources in the same full-text/method/external
+pipeline. Provider-reported outcome labels stay leads. Verified new linked
+sources may reopen completed downstream gates, but the state schema and
+transition guard reject caller-authored operation projection or regression.
+After all linked work, every study still requires a new method audit bound to
+the exact signed external bundle. Its submission must reference every
+controller-required external item/coverage gap. Partial external coverage can
+never be recalculated into unrestricted use; active retraction keeps effect
+claims excluded.
+
+The bounded session view now exposes exact formal-source screening,
+method-audit, external-evidence, and claim-recalculation work packages plus
+aggregate diagnostics. Successful finalization remains deliberately disabled
+until Phase F. The prototype remains unregistered and ephemeral: public
+inventory stays 21 MCP tools and 26 Actions; canonical protocol bytes,
+generated Custom GPT Instructions, plugin bytes, provider configuration,
+deployment, credentials, and durable retention are unchanged.
+
+Focused formal/full-text/method/external/controller/inventory verification
+passes 112 tests. The complete host-boundary deterministic suite passes 1,215
+tests with six declared skips, and `npm run verify` passes typechecking, that
+same complete suite, and the production build. The pre-PR lesson checkpoint at
+`2026-08-24T06:49:59.512Z` was available with 1 open candidate, 1 needing
+review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+deletion eligible. No unreviewed lesson expanded this phase. Lesson disposition
+is project-specific/no-new-lesson: Phase D3 implements the already approved
+execution-control architecture and exposes no new transferable failure beyond
+the existing server-authority and source-depth lessons. PR, hosted CI, and
+merge receipts remain pending at this checkpoint. Phase D4 is next only after
+reviewed merge; its durable-snapshot/cron activation remains an explicit
+owner/privacy gate.
+
 ## 2026-08-24 execution-control Phase D2 candidate
 
 Branch `agent/execution-control-phase-d2-20260824` starts from exact Phase D1

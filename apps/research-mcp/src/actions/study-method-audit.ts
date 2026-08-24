@@ -101,6 +101,7 @@ export const studyMethodExternalEvidenceReferenceSchema = z.object({
   study_identity_hash: externalEvidenceSha256Schema,
   provider: externalEvidenceProviderSchema,
   item_kind: z.enum([
+    "provider_attempt",
     "publication_integrity_event",
     "replication_relationship",
     "postpublication_message",
@@ -425,6 +426,15 @@ function externalEvidenceItemKeys(
   bundle: StudyExternalEvidenceAuditOutput["bundle"]
 ): Set<string> {
   const keys = new Set<string>();
+  for (const attempt of bundle.provider_attempts) {
+    keys.add(externalEvidenceItemKey({
+      provider: attempt.provider,
+      item_kind: "provider_attempt",
+      item_hash: createHash("sha256")
+        .update(canonicalJson(attempt), "utf8")
+        .digest("hex")
+    }));
+  }
   for (const event of bundle.publication_integrity.events) {
     for (const provider of new Set(event.assertions.map(({ provider }) => provider))) {
       keys.add(externalEvidenceItemKey({
@@ -480,6 +490,17 @@ function externalEvidenceItemKey(input: {
   item_hash: string;
 }): string {
   return `${input.provider}:${input.item_kind}:${input.item_hash}`;
+}
+
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  const record = value as Record<string, unknown>;
+  return `{${Object.keys(record)
+    .filter((key) => record[key] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
+    .join(",")}}`;
 }
 
 function normalizeDocumentIndex(

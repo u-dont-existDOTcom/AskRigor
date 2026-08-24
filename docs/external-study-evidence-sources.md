@@ -1,9 +1,8 @@
 # External study-evidence source boundaries
 
-Status at 2026-08-24: internal Phase D2 source and coordination primitives.
-They are not registered as public MCP tools or Custom GPT Actions, are not
-connected to the non-production research-session controller yet, and cannot
-authorize synthesis or finalization.
+Status at 2026-08-24: internal Phase D3 session integration over the Phase D2
+source and coordination primitives. It is not registered as a public MCP tool
+or Custom GPT Action and cannot authorize final synthesis or finalization.
 
 ## Crossref publication-integrity metadata
 
@@ -69,8 +68,9 @@ limitations.
 The contract deliberately has no global scientific, validity, reliability,
 quality, or replication-verification score. Publication status, methods,
 replication implementation match, result-specific bias, applicability, and
-source access remain separate questions. Phase D3 will connect this evidence
-to server-owned execution state.
+source access remain separate questions. Phase D3 connects these records to
+the existing unregistered server-owned execution state without turning a
+provider label into a scientific conclusion.
 
 ## Internal composite coordinator and receipt
 
@@ -125,11 +125,38 @@ requirements, and invented `jats_*` or `pdf_*` blocks still fail. Provider-
 reported relationships remain source-linked leads until the linked work's
 implementation, methods, and result are separately audited.
 
+## Phase D3 controller enforcement
+
+Completed candidate screening creates exact program/outcome formal hypotheses,
+and the server executes PubMed and Europe PMC searches for each. Returned
+public identities are screened under one exact frontier receipt. Every selected
+DOI then reuses the existing open-full-text continuation and method-audit
+validators; the session records hashes, counts, source/version identity, and
+opaque handles rather than publication text.
+
+After an exact study method audit, the server-owned coordinator schedules
+Crossref and FORRT automatically for that DOI. The session accepts only the
+signed current-session/current-protocol result and projects compact attempt,
+bundle, directive, limitation, and linked-source hashes. Retryable provider
+failure remains executable; nonretryable or partial coverage stays claim-local
+and can never be recalculated into unrestricted use.
+
+Exact linked replications, reproductions, reviews, and publication notices
+become decision-important sources in the same acquisition/audit pipeline. A
+new linked source may reopen a previously completed downstream operation,
+because evidence can create required work; a caller-authored operation change
+without the corresponding source state is rejected. An active retraction
+excludes ordinary effect use. Other completed external checks, including a
+provider-scoped no-match result, require a new study-method receipt bound to
+the exact signed external bundle and every controller-required external item
+or coverage gap before claim capability becomes current.
+
 ## Storage, activation, and verification
 
-Phase D2 adds no database, durable artifact store, session integration, public
-operation, provider credential, provider host, deployment setting, or
-production provider call. The environment file contains placeholder-only
+Phases D2-D3 add no database, durable artifact store, public operation,
+provider credential, provider host, deployment setting, or production provider
+call. Phase D3's only session connection is the bounded, in-memory,
+unregistered prototype. The environment file contains placeholder-only
 receipt-secret and key-ID names; no runtime route reads or returns them.
 Hermetic tests cover strict input, identity failure, normalized provider
 states, directives, deterministic hashes, artifact bounds, signed-receipt
