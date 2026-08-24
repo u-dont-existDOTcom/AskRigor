@@ -788,9 +788,31 @@ function depthDiagnosticFields(
 }
 
 function normalizeBoundaryCode(value: string, fallback: string): string {
-  const normalized = value.toUpperCase().replace(/[^A-Z0-9]+/gu, "_")
-    .replace(/^_+|_+$/gu, "").slice(0, 80);
-  return /^[A-Z][A-Z0-9_]{2,79}$/u.test(normalized) ? normalized : fallback;
+  let normalized = "";
+  let separatorPending = false;
+  let inspectedCharacters = 0;
+  for (const sourceCharacter of value) {
+    inspectedCharacters += 1;
+    if (inspectedCharacters > 1_000) break;
+    const character = sourceCharacter.toUpperCase();
+    const allowed =
+      character.length === 1 &&
+      (
+        (character >= "A" && character <= "Z") ||
+        (character >= "0" && character <= "9")
+      );
+    if (!allowed) {
+      separatorPending = normalized.length > 0;
+      continue;
+    }
+    if (separatorPending && normalized.length < 80) normalized += "_";
+    if (normalized.length < 80) normalized += character;
+    separatorPending = false;
+    if (normalized.length >= 80) break;
+  }
+  return normalized.length >= 3 && normalized[0]! >= "A" && normalized[0]! <= "Z"
+    ? normalized
+    : fallback;
 }
 
 function boundedCallLimit(value: number): number {

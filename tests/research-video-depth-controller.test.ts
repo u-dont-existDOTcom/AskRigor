@@ -329,7 +329,10 @@ describe("server-owned selected-video depth", () => {
     );
     expect(restarted.video_depth.transcripts[0]).toMatchObject({
       status: "RESTART_REQUIRED",
-      attempt: 1
+      attempt: 1,
+      boundary: {
+        code: "YOUTUBE_TRANSCRIPT_ACTION_CONTINUATION_INVALID_OR_EXPIRED"
+      }
     });
     expect(restarted.video_depth.transcripts[0]).not.toHaveProperty("receipt");
     expect(restarted.video_depth.transcripts[0]).not.toHaveProperty(
