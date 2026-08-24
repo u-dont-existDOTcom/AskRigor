@@ -18,12 +18,12 @@ jobs:
     if: github.head_ref == 'codex/epistemic-phase-router-20260824' || github.ref_name == 'codex/epistemic-phase-router-20260824'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: codex/epistemic-phase-router-20260824
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version-file: .nvmrc
           cache: npm
