@@ -2070,25 +2070,32 @@ function deriveLinkedWork(
   }
   for (const thread of output.bundle.postpublication_threads) {
     for (const message of thread.messages.filter(({ materiality }) => materiality !== "detail_only")) {
+      const unavailable = message.revision_state === "deleted_or_unavailable";
       work.push(linkedWorkSchema.parse({
         linked_item_id: sha256(`message:${thread.thread_hash}:${message.content_hash}`),
         item_kind: "POSTPUBLICATION_MESSAGE",
         source_item_hash: message.content_hash,
         possible_decision_impact: message.materiality,
-        status: "NOT_STARTED",
-        limitation: "The exact post-publication message and any referenced artifact require source-linked audit before decision use."
+        status: unavailable ? "BOUNDED" : "NOT_STARTED",
+        limitation: unavailable
+          ? "The provider reports this post-publication message as deleted or unavailable; absent content cannot support a claim."
+          : "The exact post-publication message and any referenced artifact require source-linked audit before decision use."
       }));
     }
   }
   for (const link of output.bundle.review_ancestry) {
+    const exactCurrentReview = link.relation_state === "current" &&
+      link.review_identity.doi !== undefined;
     work.push(linkedWorkSchema.parse({
       linked_item_id: sha256(`review:${link.link_hash}`),
       item_kind: "REVIEW",
       source_item_hash: link.link_hash,
       linked_identity_hash: link.review_identity.identity_hash,
       possible_decision_impact: "confidence_changing",
-      status: link.review_identity.doi === undefined ? "BOUNDED" : "NOT_STARTED",
-      limitation: "Review inclusion is not approval; the exact review source and methods require separate audit."
+      status: exactCurrentReview ? "NOT_STARTED" : "BOUNDED",
+      limitation: exactCurrentReview
+        ? "Review inclusion is not approval; the exact review source and methods require separate audit."
+        : "The removed, unresolved, or bibliographic-only review relation remains a bounded lead and cannot support a claim."
     }));
   }
   return [...new Map(work.map((item) => [item.linked_item_id, item])).values()]

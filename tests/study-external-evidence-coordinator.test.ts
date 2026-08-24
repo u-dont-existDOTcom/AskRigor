@@ -23,8 +23,14 @@ import {
 } from "../apps/research-mcp/src/index.js";
 import type {
   CrossrefPublicationIntegrityData,
+  EpistemonikosReviewAncestryLookupData,
   ForrtReplicationLookupData,
+  PubpeerPostPublicationLookupData,
   RetractionWatchPublicationIntegrityData,
+} from "../packages/sources/src/index.js";
+import {
+  adaptEpistemonikosAuthorizedRecord,
+  adaptPubpeerAuthorizedRecord,
 } from "../packages/sources/src/index.js";
 
 const DOI = "10.5555/coordinator.study";
@@ -241,6 +247,108 @@ function retractionWatchEnvelope(input: {
   });
 }
 
+function pubpeerEnvelope(input: {
+  exhausted?: boolean;
+  deleted?: boolean;
+} = {}): ProvenanceEnvelope<PubpeerPostPublicationLookupData> {
+  const messages = [{
+    message_id: "pubpeer-message-1",
+    role: "comment" as const,
+    posted_at: "2026-08-24T01:23:00.000Z",
+    updated_at: null,
+    provider_revision_id: null,
+    revision_state: "current_visible" as const,
+    text: "A provider-reported methodological concern that requires audit.",
+    links: ["https://example.test/provider-cited-evidence"],
+    classification: { raw_label: "methodological", source: "provider" as const },
+  }, ...(input.deleted === true ? [{
+    message_id: "pubpeer-message-2",
+    role: "comment" as const,
+    posted_at: null,
+    updated_at: null,
+    provider_revision_id: null,
+    revision_state: "deleted_or_unavailable" as const,
+    text: null,
+    links: [],
+    classification: { raw_label: null, source: "unavailable" as const },
+  }] : [])];
+  return adaptPubpeerAuthorizedRecord(DOI, {
+    record_kind: "response",
+    contract_version: "askrigor.pubpeer-authorized-response.v1",
+    retrieved_at: "2026-08-24T01:23:00.000Z",
+    doi: DOI,
+    thread: {
+      thread_id: "pubpeer-thread-1",
+      provider_record_id: "pubpeer-publication-1",
+      canonical_url: "https://pubpeer.com/publications/COORDINATOR",
+      provider_reported_message_count: input.exhausted === false
+        ? messages.length + 1
+        : messages.length,
+      messages,
+    },
+    pagination: {
+      returned: messages.length,
+      provider_reported_total: input.exhausted === false
+        ? messages.length + 1
+        : messages.length,
+      page_size: 100,
+      next_cursor: input.exhausted === false ? "pubpeer-next" : null,
+      exhausted: input.exhausted ?? true,
+    },
+  });
+}
+
+function epistemonikosEnvelope(input: {
+  exhausted?: boolean;
+  includeRemoved?: boolean;
+} = {}): ProvenanceEnvelope<EpistemonikosReviewAncestryLookupData> {
+  const ancestry = [{
+    provider_record_id: "epistemonikos-relation-1",
+    relationship: "review_includes_study" as const,
+    raw_relationship: "included",
+    relation_state: "current" as const,
+    classification: { raw_label: "systematic review", source: "provider" as const },
+    review: {
+      doi: "10.5555/coordinator.review",
+      pmid: "123456",
+      title: "Coordinator review",
+      first_author: "Reviewer",
+      year: 2025,
+    },
+  }, ...(input.includeRemoved === true ? [{
+    provider_record_id: "epistemonikos-relation-2",
+    relationship: "review_excludes_study" as const,
+    raw_relationship: "excluded after update",
+    relation_state: "removed" as const,
+    classification: { raw_label: "removed", source: "curator" as const },
+    review: {
+      doi: null,
+      pmid: null,
+      title: "Removed bibliographic review lead",
+      first_author: "Curator",
+      year: 2024,
+    },
+  }] : [])];
+  return adaptEpistemonikosAuthorizedRecord(DOI, {
+    record_kind: "response",
+    contract_version: "askrigor.epistemonikos-authorized-response.v1",
+    retrieved_at: "2026-08-24T01:24:00.000Z",
+    doi: DOI,
+    source_document_id: "epistemonikos-source-1",
+    source_title: "Coordinator study",
+    ancestry,
+    pagination: {
+      returned: ancestry.length,
+      provider_reported_total: input.exhausted === false
+        ? ancestry.length + 1
+        : ancestry.length,
+      page_size: 100,
+      next_cursor: input.exhausted === false ? "epistemonikos-next" : null,
+      exhausted: input.exhausted ?? true,
+    },
+  });
+}
+
 function options(
   overrides: Partial<StudyExternalEvidenceCoordinatorOptions> = {},
 ): StudyExternalEvidenceCoordinatorOptions {
@@ -438,6 +546,164 @@ describe("server-owned external study-evidence coordinator", () => {
       expectedReceiptContext(output),
       SECRET,
     )).not.toThrow();
+  });
+
+  it("executes every configured PubPeer and Epistemonikos provider and binds leads, gaps, artifacts, and required follow-up", async () => {
+    const pubpeer = vi.fn(async () => pubpeerEnvelope({ deleted: true }));
+    const epistemonikos = vi.fn(async () => epistemonikosEnvelope({ includeRemoved: true }));
+    const output = await createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        retractionWatch: vi.fn(async () => retractionWatchEnvelope()),
+        pubpeer,
+        epistemonikos,
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI });
+
+    expect(pubpeer).toHaveBeenCalledExactlyOnceWith(DOI);
+    expect(epistemonikos).toHaveBeenCalledExactlyOnceWith(DOI);
+    expect(output.status).toBe("complete");
+    expect(output.provider_artifacts).toHaveLength(5);
+    expect(output.bundle.provider_attempts).toHaveLength(6);
+    expect(output.bundle.provider_attempts.filter(({ provider_outcome }) =>
+      provider_outcome === "not_configured"
+    ).map(({ provider }) => provider)).toEqual(["scite"]);
+    expect(output.bundle.provider_attempts.find(({ provider }) => provider === "pubpeer"))
+      .toMatchObject({
+        provider_outcome: "records_available",
+        access_status: "api_visible_complete",
+      });
+    expect(output.bundle.provider_attempts.find(({ provider }) =>
+      provider === "epistemonikos"
+    )).toMatchObject({
+      provider_outcome: "records_available",
+      access_status: "metadata_only",
+    });
+    expect(output.bundle.postpublication_threads).toHaveLength(1);
+    expect(output.bundle.postpublication_threads[0]).toMatchObject({
+      provider: "pubpeer",
+      visible_message_count: 1,
+      deleted_or_unavailable_message_count: 1,
+      pagination_complete: true,
+    });
+    expect(output.bundle.review_ancestry).toHaveLength(2);
+    expect(output.bundle.review_ancestry.map(({ audit_status }) => audit_status).sort())
+      .toEqual(["bounded", "not_started"]);
+    const directives = output.bundle.controller_directives.map(({ directive }) => directive);
+    expect(directives).toContain("require_postpublication_message_audit");
+    expect(directives).toContain("require_review_acquisition");
+    expect(output.bundle.unresolved_items.map(({ item_id }) => item_id))
+      .toEqual(expect.arrayContaining([
+        expect.stringMatching(/^postpublication_message:/u),
+        expect.stringMatching(/^review_ancestry:/u),
+      ]));
+    expect(JSON.stringify(output)).not.toContain("scientific_verdict");
+    expect(JSON.stringify(output)).not.toContain("quality_score");
+    expect(() => verifyStudyExternalEvidenceReceipt(
+      output.receipt,
+      expectedReceiptContext(output),
+      SECRET,
+    )).not.toThrow();
+  });
+
+  it("prevents configured partial or retryable optional providers from becoming complete", async () => {
+    const partial = await createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        pubpeer: vi.fn(async () => pubpeerEnvelope({ exhausted: false })),
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI });
+    expect(partial.status).toBe("partial");
+    expect(partial.bundle.provider_attempts.find(({ provider }) => provider === "pubpeer"))
+      .toMatchObject({ provider_outcome: "partial", access_status: "partial" });
+
+    const retryable = errorEnvelope<EpistemonikosReviewAncestryLookupData>({
+      provider: "epistemonikos",
+      recordType: "review_ancestry",
+      primaryIdentifier: DOI,
+      retrievedAt: "2026-08-24T01:24:00.000Z",
+      accessStatus: "rate_limited",
+      limitations: ["Authorized review-ancestry coverage remains unresolved."],
+      code: "epistemonikos_rate_limited",
+      message: "Epistemonikos rate limit reached",
+      httpStatus: 429,
+      retryable: true,
+      data: {
+        doi: DOI,
+        lookup_status: "unknown",
+        review_ancestry: [],
+        provider_reported_total: null,
+        rejected_or_duplicate_rows: 0,
+        coverage_statement: "Provider-scoped Epistemonikos coverage only.",
+        adapter_contract_version: "askrigor.epistemonikos-authorized-failure.v1",
+      },
+    }) as ProvenanceEnvelope<EpistemonikosReviewAncestryLookupData>;
+    const blocked = await createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        epistemonikos: vi.fn(async () => retryable),
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI });
+    expect(blocked.status).toBe("blocked_retryable");
+    expect(blocked.bundle.provider_attempts.find(({ provider }) =>
+      provider === "epistemonikos"
+    )).toMatchObject({
+      provider_outcome: "rate_limited",
+      access_status: "rate_limited",
+      error: { retryable: true, http_status: 429 },
+    });
+  });
+
+  it("cannot silently skip a configured optional-provider executor that throws", async () => {
+    const pubpeer = vi.fn(async (): Promise<ProvenanceEnvelope<PubpeerPostPublicationLookupData>> => {
+      throw new Error("configured PubPeer transport failed before normalization");
+    });
+    const coordinator = createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        pubpeer,
+      },
+    }));
+
+    await expect(coordinator.audit({ session_id: SESSION_ID, doi: DOI }))
+      .rejects.toThrow(/configured PubPeer transport failed/u);
+    expect(pubpeer).toHaveBeenCalledExactlyOnceWith(DOI);
+  });
+
+  it("rejects configured optional-provider identity or provenance mismatch before signing", async () => {
+    const wrongProvider = {
+      ...pubpeerEnvelope(),
+      provider: "epistemonikos",
+    } as ProvenanceEnvelope<PubpeerPostPublicationLookupData>;
+    await expect(createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        pubpeer: vi.fn(async () => wrongProvider),
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI })).rejects.toMatchObject({
+      name: "StudyExternalEvidenceIdentityError",
+      retryable: false,
+    });
+
+    const wrongDoi = {
+      ...epistemonikosEnvelope(),
+      primary_identifier: "10.5555/different",
+    } as ProvenanceEnvelope<EpistemonikosReviewAncestryLookupData>;
+    await expect(createStudyExternalEvidenceCoordinator(options({
+      providers: {
+        crossref: vi.fn(async () => crossrefEnvelope()),
+        forrt: vi.fn(async () => forrtEnvelope()),
+        epistemonikos: vi.fn(async () => wrongDoi),
+      },
+    })).audit({ session_id: SESSION_ID, doi: DOI })).rejects.toMatchObject({
+      name: "StudyExternalEvidenceIdentityError",
+      retryable: false,
+    });
   });
 
   it("keeps configured stale and retryable Retraction Watch coverage from becoming complete", async () => {

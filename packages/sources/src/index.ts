@@ -84,6 +84,20 @@ export {
   type ForrtReplicationLookupData,
 } from "./forrt-replication.js";
 export {
+  adaptPubpeerAuthorizedRecord,
+  pubpeerAuthorizedFailureSchema,
+  pubpeerAuthorizedRecordSchema,
+  pubpeerAuthorizedResponseSchema,
+  type PubpeerPostPublicationLookupData,
+} from "./pubpeer-postpublication.js";
+export {
+  adaptEpistemonikosAuthorizedRecord,
+  epistemonikosAuthorizedFailureSchema,
+  epistemonikosAuthorizedRecordSchema,
+  epistemonikosAuthorizedResponseSchema,
+  type EpistemonikosReviewAncestryLookupData,
+} from "./epistemonikos-ancestry.js";
+export {
   RETRACTION_WATCH_GITLAB_PROJECT_ID,
   RETRACTION_WATCH_HEADERS,
   RETRACTION_WATCH_SOURCE_PATH,

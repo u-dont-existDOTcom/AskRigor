@@ -1,6 +1,6 @@
 # Execution-control Phase D5 implementation plan
 
-**Status:** implementation candidate
+**Status:** verified merge candidate
 
 **Branch:** `agent/execution-control-phase-d5-20260824`
 

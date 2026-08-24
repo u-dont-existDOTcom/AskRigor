@@ -1,5 +1,61 @@
 # AskRigor Codex Current State
 
+## 2026-08-24 execution-control Phase D5 candidate
+
+Branch `agent/execution-control-phase-d5-20260824` starts from exact merged
+Phase D4 commit `1fd17c89a514a04f1f8a2b35d032964c231e33ad` and implements
+Phase D5 of
+`docs/superpowers/plans/2026-08-23-execution-control-productionization-roadmap.md`.
+It extends the existing external-study evidence source and coordinator path; it
+does not create another controller, authority, public operation, or model-
+selectable provider.
+
+Strict versioned authorized-provider record adapters now normalize PubPeer
+post-publication threads and Epistemonikos review ancestry. Both require the
+exact queried DOI and reject unknown fields, oversized content/collections,
+duplicate identities, count mismatches, malformed pagination, and identifier
+mismatch. PubPeer preserves visible/edited/deleted-or-unavailable state,
+identified-author replies, posted/updated/revision identity, raw
+classification source/label, bounded excerpts/links, provider counts, cursor,
+and exhaustion. Epistemonikos preserves include/exclude/cite/update relation,
+current/removed/unknown state, provider record/raw relation/classification,
+bounded review identity, cursor, and exhaustion. Provider labels remain
+metadata rather than evidence quality or scientific truth.
+
+The existing server-owned coordinator accepts either executor only at
+construction. Every configured provider executes after exact Crossref identity
+verification, is stored in the existing bounded in-memory artifact store, and
+has its attempt/artifact/status bound into the signed receipt. Partial or
+retryable configured coverage cannot become complete; an executor that throws
+produces no signed success. Unconfigured providers remain explicit coverage
+gaps. Visible PubPeer messages and exact current review links create source-
+linked audit work. Deleted/unavailable messages and removed, unresolved, or
+bibliographic-only review links remain bounded limitations and cannot support
+claims. Method-audit references use the actual ancestry provider.
+
+Focused adapter/coordinator/formal verification passes 53 tests. Public
+inventory checks pass the unchanged 21 MCP tools and 26 Actions. The complete
+host-bound deterministic suite passes 1,263 tests with six declared skips, and
+`npm run verify` passes typechecking, that suite, and the production build.
+The production dependency audit reports zero known vulnerabilities. The first
+sandboxed full-suite attempt was invalid because loopback listeners were
+denied with `EPERM`; the unchanged suite passed through the required host
+boundary.
+
+PubPeer and Epistemonikos live access remain disabled because current official
+authorized contracts/terms and credentials were not available for this phase.
+No PubPeer/Epistemonikos key, token, account, endpoint, hostname, allowlist,
+live request, durable store, protocol, deployment, plugin, Custom GPT, or
+production configuration change is included. The required pre-PR lesson checkpoint at
+`2026-08-24T09:08:53.516Z` was available with 1 open candidate, 1 needing
+review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+deletion eligible. No unreviewed lesson expanded this phase. Lesson disposition
+is project-specific/no-new-lesson: D5 faithfully implements the approved
+configured-provider and source-provenance architecture without exposing a new
+cross-project failure pattern. PR, hosted CI, and merge receipts remain
+pending. Phase D6 stays provider-gated; after merge, reconcile that deliberate
+deferral and continue to the first non-gated Phase E requirement.
+
 ## 2026-08-24 execution-control Phase D4 candidate
 
 Branch `agent/execution-control-phase-d4-20260824` starts from exact merged
@@ -65,9 +121,8 @@ review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
 deletion eligible. No unreviewed lesson expanded this phase. Lesson disposition
 is project-specific/no-new-lesson: D4 implements the already approved verified
 local-snapshot architecture and exposes no new transferable failure beyond the
-existing source-identity, atomic-update, and server-authority lessons. PR,
-hosted CI, and merge receipts remain pending at this candidate checkpoint.
-Phase D5 is next only after reviewed merge.
+existing source-identity, atomic-update, and server-authority lessons. PR #75
+merged at `1fd17c89a514a04f1f8a2b35d032964c231e33ad`; all hosted checks passed.
 
 ## 2026-08-24 execution-control Phase D3 candidate
 

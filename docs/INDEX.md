@@ -55,10 +55,13 @@ complete XML protocol.
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
 - `external-study-evidence-sources.md`: internal Crossref publication-event and
-  FORRT FLoRA relationships, the Phase D2 composite coordinator, Phase D3
-  formal/full-text/session enforcement, bounded content-addressed artifacts,
-  signed structural receipts, typed method-audit references,
-  provider/attribution boundaries, and non-production scope
+  FORRT FLoRA relationships, Retraction Watch snapshots, the Phase D2-D5
+  composite coordinator and formal/full-text/session enforcement, bounded
+  content-addressed artifacts, signed structural receipts, typed method-audit
+  references, provider/attribution boundaries, and non-production scope
+- `optional-external-study-evidence-adapters.md`: disabled-live PubPeer and
+  Epistemonikos authorized-provider contracts, bounded content/status rules,
+  controller enforcement, activation prerequisites, and privacy boundary
 - `gemini-spark-setup.md`: automated server-side Gemini Google-Search scout,
   protected paid-provider configuration, privacy/cost bounds, strict query-
   reconciled candidate packet, independent YouTube identity validation,

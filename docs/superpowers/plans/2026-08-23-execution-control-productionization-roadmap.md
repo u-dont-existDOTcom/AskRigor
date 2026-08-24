@@ -514,11 +514,29 @@ The Phase G production storage/scheduling owner gate remains open.
 
 #### Phase D5 — PubPeer + Epistemonikos optional adapters
 
-- [ ] Implement strict adapter contracts/fixtures as separate work.
-- [ ] Keep PubPeer live access disabled until official authorized API contract/terms are known.
-- [ ] Keep Epistemonikos disabled until token/current live contract/terms are verified.
-- [ ] Once configured, skipping a provider designated mandatory-by-configuration becomes an execution failure; unconfigured providers remain disclosed coverage gaps.
-- [ ] Preserve bounded provider content, edits/deletions, pagination/completeness, classification provenance, and linked-source audit requirements.
+- [x] Implement strict adapter contracts/fixtures as separate work.
+- [x] Keep PubPeer live access disabled until official authorized API contract/terms are known.
+- [x] Keep Epistemonikos disabled until token/current live contract/terms are verified.
+- [x] Once configured, skipping a provider designated mandatory-by-configuration becomes an execution failure; unconfigured providers remain disclosed coverage gaps.
+- [x] Preserve bounded provider content, edits/deletions, pagination/completeness, classification provenance, and linked-source audit requirements.
+
+Phase D5 candidate verification on
+`agent/execution-control-phase-d5-20260824` adds strict versioned
+authorized-provider record adapters for PubPeer and Epistemonikos without live
+HTTP transports. Exact DOI binding, bounded records, edit/delete/relation
+state, raw classification provenance, count/cursor/exhaustion reconciliation,
+and provider failures are preserved. Every optional executor supplied at
+server construction runs and is bound as an artifact/attempt in the signed
+external-evidence receipt; partial/retryable/failing configured work cannot
+become complete, while absent providers remain explicit gaps. Visible messages
+and exact current reviews create source-linked work; unavailable or
+bibliographic-only records remain bounded. Focused verification passes 53
+adapter/coordinator/formal tests, the complete deterministic suite passes 1,263
+tests with six declared skips, and `npm run verify` passes typechecking, the
+same suite, and the production build. Public inventories remain 21 MCP tools
+and 26 Actions. No provider key, token, account, hostname, allowlist, live
+request, durable store, protocol, deployment, plugin, or Custom GPT change is
+included.
 
 **D5 gate:** credentialed providers can be enabled without changing the completion-authority model or leaking provider content/secrets.
 
