@@ -605,7 +605,10 @@ export function assessTreatmentLandscapeCoverage(
     if (!classById.has(fingerprint.treatment_class_id)) {
       invalidate(invalid.program_fingerprints, fingerprint.fingerprint_id, selectionBlockers,
         `Program fingerprint ${fingerprint.fingerprint_id} has no valid treatment class.`);
-    } else if (isProgramNotDescribed(fingerprint.components)) {
+    } else if (
+      fingerprint.materiality !== "not_material" &&
+      isProgramNotDescribed(fingerprint.components)
+    ) {
       invalidate(invalid.program_fingerprints, fingerprint.fingerprint_id, selectionBlockers,
         `Program fingerprint ${fingerprint.fingerprint_id} has no described components and cannot establish distinct treatment coverage.`);
     }
@@ -1218,7 +1221,7 @@ export function assessTreatmentLandscapeCoverage(
       const signature = signatureByFingerprintId.get(value.fingerprint_id);
       const selected = signature !== undefined && selectedSignatureCounts.has(signature);
       const formalResolved = [
-        "complete", "support_not_located", "outcome_mismatch"
+        "complete", "support_not_located", "outcome_mismatch", "inaccessible"
       ].includes(value.formal_follow_up);
       return !selected || !formalResolved;
     }

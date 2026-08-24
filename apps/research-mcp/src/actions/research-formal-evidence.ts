@@ -120,6 +120,19 @@ const formalHypothesisSchema = z.object({
   ])
 }).strict();
 
+export const communityFormalHypothesisInputSchema = z.object({
+  source_video_ids: z.array(z.string().regex(/^[A-Za-z0-9_-]{11}$/u)).min(1).max(76),
+  program_signature: digest,
+  treatment_class: bounded(160),
+  claim_summary: bounded(600),
+  program: programSchema,
+  formal_query: bounded(5_000)
+}).strict();
+
+export type CommunityFormalHypothesisInput = z.output<
+  typeof communityFormalHypothesisInputSchema
+>;
+
 const sourceIdentitySchema = z.object({
   doi: doi.optional(),
   pmid: pmid.optional(),
@@ -335,6 +348,32 @@ export const researchFormalEvidenceStateSchema = z.object({
   if (hypothesisIds.size !== state.hypotheses.length) {
     context.addIssue({ code: "custom", message: "Formal hypothesis identities must be unique" });
   }
+  for (const hypothesis of state.hypotheses) {
+    const core = formalHypothesisCore(hypothesis);
+    const expectedDigest = sha256(JSON.stringify(core));
+    if (
+      hypothesis.hypothesis_digest !== expectedDigest ||
+      hypothesis.hypothesis_id !== sha256(`formal-hypothesis:${expectedDigest}`)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Formal hypothesis identity must match its exact program/outcome/query core"
+      });
+    }
+  }
+  if (
+    state.hypothesis_frontier_digest !== undefined &&
+    state.candidate_screening_digest !== undefined &&
+    state.hypothesis_frontier_digest !== formalHypothesisFrontierDigest(
+      state.candidate_screening_digest,
+      state.hypotheses
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Formal hypothesis frontier digest must match its exact immutable hypothesis cores"
+    });
+  }
   const sourceIds = new Set(state.sources.map(({ source_id }) => source_id));
   if (sourceIds.size !== state.sources.length) {
     context.addIssue({ code: "custom", message: "Formal source identities must be unique" });
@@ -456,13 +495,66 @@ export function initializeResearchFormalEvidence(
     throw new Error("Formal evidence requires at least one material program/outcome hypothesis");
   }
   const hypotheses = groups.map((group) => formalHypothesis(group, researchTarget));
-  const frontierDigest = sha256(JSON.stringify({ screeningDigest, hypotheses }));
+  const frontierDigest = formalHypothesisFrontierDigest(screeningDigest, hypotheses);
   return researchFormalEvidenceStateSchema.parse({
     frontier_version: "askrigor_formal_evidence_v1",
     candidate_screening_digest: screeningDigest,
     hypothesis_frontier_digest: frontierDigest,
     hypotheses,
     sources: []
+  });
+}
+
+export function appendResearchFormalHypotheses(
+  rawState: ResearchFormalEvidenceState,
+  rawInputs: readonly CommunityFormalHypothesisInput[]
+): ResearchFormalEvidenceState {
+  const state = researchFormalEvidenceStateSchema.parse(rawState);
+  if (state.candidate_screening_digest === undefined) {
+    throw new Error("Formal evidence must be initialized before bidirectional expansion");
+  }
+  const inputs = rawInputs.map((input) => communityFormalHypothesisInputSchema.parse(input));
+  const existingDigests = new Set(state.hypotheses.map(({ hypothesis_digest }) =>
+    hypothesis_digest
+  ));
+  const additions: z.output<typeof formalHypothesisSchema>[] = [];
+  for (const input of inputs) {
+    const core = {
+      source_video_ids: [...new Set(input.source_video_ids)].sort(),
+      program_signature: input.program_signature,
+      treatment_class: input.treatment_class,
+      claim_summary: input.claim_summary,
+      program: input.program,
+      formal_query: input.formal_query
+    };
+    const hypothesisDigest = sha256(JSON.stringify(core));
+    if (existingDigests.has(hypothesisDigest)) continue;
+    existingDigests.add(hypothesisDigest);
+    additions.push(formalHypothesisSchema.parse({
+      ...core,
+      hypothesis_id: sha256(`formal-hypothesis:${hypothesisDigest}`),
+      hypothesis_digest: hypothesisDigest,
+      provider_searches: FORMAL_EVIDENCE_PROVIDERS.map((provider) => ({
+        provider,
+        query: core.formal_query,
+        status: "NOT_STARTED",
+        pages_retrieved: 0,
+        records_returned_cumulative: 0,
+        page_receipt_hashes: [],
+        access_statuses: [],
+        limitations: []
+      }))
+    }));
+  }
+  if (additions.length === 0) return state;
+  const hypotheses = [...state.hypotheses, ...additions];
+  return researchFormalEvidenceStateSchema.parse({
+    ...state,
+    hypotheses,
+    hypothesis_frontier_digest: formalHypothesisFrontierDigest(
+      state.candidate_screening_digest,
+      hypotheses
+    )
   });
 }
 
@@ -1393,6 +1485,33 @@ function formalHypothesis(
       limitations: []
     }))
   });
+}
+
+function formalHypothesisFrontierDigest(
+  candidateScreeningDigest: string,
+  hypotheses: readonly z.output<typeof formalHypothesisSchema>[]
+): string {
+  return sha256(JSON.stringify({
+    screeningDigest: candidateScreeningDigest,
+    hypotheses: hypotheses.map((hypothesis) => ({
+      ...formalHypothesisCore(hypothesis),
+      hypothesis_id: hypothesis.hypothesis_id,
+      hypothesis_digest: hypothesis.hypothesis_digest
+    }))
+  }));
+}
+
+function formalHypothesisCore(
+  hypothesis: z.output<typeof formalHypothesisSchema>
+): Omit<z.output<typeof formalHypothesisSchema>, "hypothesis_id" | "hypothesis_digest" | "provider_searches"> {
+  return {
+    source_video_ids: hypothesis.source_video_ids,
+    program_signature: hypothesis.program_signature,
+    treatment_class: hypothesis.treatment_class,
+    claim_summary: hypothesis.claim_summary,
+    program: hypothesis.program,
+    formal_query: hypothesis.formal_query
+  };
 }
 
 function formalQuery(researchTarget: string, candidate: ResearchCandidateRecord): string {

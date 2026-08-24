@@ -554,14 +554,48 @@ included.
 
 Tasks:
 
-- [ ] Reopen formal search for material programs, failure modes, harms, durability, adherence, progression, implementation hypotheses, integrity events, replications/reproductions, or review ancestry surfaced by community/video/external evidence.
-- [ ] Reopen community search for material discriminators surfaced by formal/external evidence.
-- [ ] Represent both transfer directions explicitly and keep `incomplete` executable until resolved/bounded.
-- [ ] Audit decision-changing linked replication/reproduction/review/post-publication sources before converting provider labels into evidential conclusions.
-- [ ] Build the treatment-landscape assessor input from session-owned records as much as possible instead of accepting a caller-authored complete ledger.
-- [ ] Reuse existing selection/depth/synthesis lock logic rather than reimplementing it.
-- [ ] Derive `CONTINUE_RESEARCH`, `BOUNDED_NONRANKING_ONLY`, or `FINALIZATION_ALLOWED` from the complete session state, including per-study external evidence requirements.
-- [ ] Require `FINAL_COMPLETION_AUDIT` before success where canonical protocol requires it.
+- [x] Reopen formal search for material programs, failure modes, harms, durability, adherence, progression, implementation hypotheses, integrity events, replications/reproductions, or review ancestry surfaced by community/video/external evidence.
+- [x] Reopen community search for material discriminators surfaced by formal/external evidence.
+- [x] Represent both transfer directions explicitly and keep `incomplete` executable until resolved/bounded.
+- [x] Audit decision-changing linked replication/reproduction/review/post-publication sources before converting provider labels into evidential conclusions.
+- [x] Build the treatment-landscape assessor input from session-owned records as much as possible instead of accepting a caller-authored complete ledger.
+- [x] Reuse existing selection/depth/synthesis lock logic rather than reimplementing it.
+- [x] Derive `CONTINUE_RESEARCH`, `BOUNDED_NONRANKING_ONLY`, or `FINALIZATION_ALLOWED` from the complete session state, including per-study external evidence requirements.
+- [x] Require `FINAL_COMPLETION_AUDIT` before success where canonical protocol requires it.
+
+Phase E on `agent/execution-control-phase-e-20260824` adds an exact, append-only
+bidirectional evidence state. Every selected community receipt and every formal
+hypothesis/source reference must receive an assessment in both directions.
+Material community findings append source-bound formal hypotheses and reopen
+the existing formal pipeline; formal discriminators create receipt-bound,
+query-limited searches only inside already audited discussion pools. Retryable
+work stays executable, terminal source gaps stay bounded, open discordances and
+new evidence invalidate convergence, and no comment/result body enters session
+state.
+
+The session now derives the existing treatment-landscape assessor input from
+its own discovery frontiers, candidate/program screening, selected-video depth
+receipts, formal follow-up, and bidirectional state. Workers may submit only
+frontier-bound semantic annotations; they cannot submit counts, receipts,
+locks, assessor output, or completion. The unchanged selection/depth/synthesis
+controller blocks broad comparisons that omit materially distinct programs or
+benefit/failure/harm/discontinuation/eventual-treatment directions. Formal
+access boundaries are no longer counted as completed follow-up: they produce
+structured bounded-nonranking state.
+
+A server-derived final completion audit checks exact protocol currency,
+resolved/complete required modules and operations, current treatment locks,
+current bidirectional convergence, and completion of every potentially
+decision-changing linked item. Its checks and basis digest are schema-verified;
+a caller cannot replace them. A genuine all-gates-complete fixture derives
+`FINALIZATION_ALLOWED` readiness, but Phase F permit issuance remains disabled
+and the canonical finalization endpoint still denies success. Focused Phase E
+verification passes 68 enforcement tests; the complete host-boundary
+`npm run verify` gate passes typechecking, 1,279 tests with six declared skips,
+and the production build. Public inventories remain 21 MCP tools and 26
+Actions. No protocol, provider, credential, durable-store,
+deployment, plugin, generated Custom GPT, or public endpoint change is part of
+this phase.
 
 **Exit gate:** known broad-treatment premature-synthesis fixture plus unrelated held-out cases cannot reach finalization with unresolved material hypotheses, incomplete bidirectional fields, unmet treatment locks, retryable work, omitted required modules, missing configured provider attempts, or unaudited potentially decision-changing linked external sources.
 

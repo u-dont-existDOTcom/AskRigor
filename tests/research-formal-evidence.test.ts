@@ -61,6 +61,7 @@ import {
   recordCandidateScreeningCompletion,
   recordNativeYoutubeDiscovery,
   recordResearchSessionFormalScreening,
+  researchFormalEvidenceStateSchema,
   restartResearchSourceFullTextChain,
   type FormalSearchExecutors,
   type ResearchFormalEvidenceState,
@@ -94,6 +95,22 @@ const PROTOCOLS = {
 };
 
 describe("controller-owned formal evidence frontier", () => {
+  it("rejects a changed hypothesis core or frontier digest", () => {
+    const formal = initializeResearchFormalEvidence(
+      screenedCandidates(),
+      "de-identified treatment comparison"
+    );
+    const changedCore = structuredClone(formal);
+    changedCore.hypotheses[0]!.claim_summary = "Caller-authored replacement claim.";
+    expect(() => researchFormalEvidenceStateSchema.parse(changedCore))
+      .toThrow(/hypothesis identity|frontier digest/u);
+
+    expect(() => researchFormalEvidenceStateSchema.parse({
+      ...formal,
+      hypothesis_frontier_digest: "f".repeat(64)
+    })).toThrow(/frontier digest/u);
+  });
+
   it("derives every material program/outcome hypothesis and calls both formal providers itself", async () => {
     const candidateState = screenedCandidates();
     let formal = initializeResearchFormalEvidence(
