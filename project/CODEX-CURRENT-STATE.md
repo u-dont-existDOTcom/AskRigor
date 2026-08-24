@@ -38,6 +38,45 @@ PR, hosted checks, and merge remain pending. Phase J changes no public MCP or
 Action inventory, canonical protocol, generated Custom GPT Instructions,
 plugin, production deployment, provider account, paid service, credential, or
 retention. Phase K is next after reviewed merge.
+## 2026-08-24 epistemic phase router candidate
+
+Current `main` was fetched and fast-forwarded to `b9a9b4b`. That baseline had
+temporary one-shot workflow/script machinery for an epistemic repair but had
+not changed the canonical protocol bytes. The current isolated task branch
+reimplements the repair directly from that latest baseline and removes the
+self-modifying one-shot machinery.
+
+The candidate advances Universal to `20.5.15` and HRP to `20.5.23`, both dated
+2026-08-24. It adds a controlling DEVELOPMENT / DISCOVERY versus VALIDATION /
+CONFIRMATION router before phase-sensitive anti-overfitting safeguards, permits
+aggressive development search while withholding independent-confirmation
+claims, and freezes the selected model before genuinely independent
+validation. It also adds a bounded heuristic-attractor check: a correct rule
+applied in the wrong phase is an error, and recurrence after user correction
+requires diagnosis of the higher-level attractor rather than another local
+exception.
+
+The repair is present in both canonical XML files, HRP architecture and final
+checks, the project router, and the worker-facing agent map. The generated
+Custom GPT architecture remains intentionally dynamic: its compact editor
+instructions load complete protocol bytes through runtime Actions and do not
+embed a competing version-pinned protocol excerpt. Dedicated structural and
+behavioral-scenario regressions cover post-hoc Dataset A formula discovery with
+independent Dataset B confirmation and revealed development cases that must not
+be blocked by a blind-validation freeze. Both XML files parse, the dedicated
+phase-router regressions pass, and the complete `npm run verify` gate passes:
+typechecking, 98 passing test files with one declared skip, 1,327 passing tests
+with six declared skips, and the production build. An isolated package-entrypoint
+smoke initially crossed its fixed ten-second timeout under host load and passed
+unchanged on immediate isolated rerun in 5.68 seconds. The complete staged diff
+was reviewed and contains only the authorized repair, manifest/test updates,
+recovery evidence, and removal of the obsolete one-shot machinery. The required
+pre-commit lesson checkpoint at
+`2026-08-24T21:03:55.162Z` was available: 1 open candidate, 1 needing review,
+0 accepted but not incorporated, 3 incorporated or closed, and 0 deletion
+eligible. Neither queued item expands or blocks this owner-directed canonical
+repair. Lesson disposition is no separate lesson artifact: the durable repair
+is already the canonical Universal/HRP rule and its executable regressions.
 
 ## 2026-08-24 execution-control Phase I candidate
 
@@ -1109,13 +1148,13 @@ Make AskRigor's Codex/GitHub workflow reproducible, reviewable, secure, and resu
   `9c2c78e86391457c4b1bcd81a862456661db216e`
 - Pre-integration recovery branch: `recovery/askrigor-compliance-pre-main-9d9dc78`
 - Protocol authority: current explicit owner correction, then the exact complete bytes of `protocols/HRP_Full.xml` and `protocols/Universal_Instructions.xml`
-- Current canonical source candidate HRP: `20.5.22` / 2026-08-23 /
-  `9389f0f364280f32e5d0c8e9d6b26f93473a205f3134f1f4ab9ef819ca4e3fcf`.
+- Current canonical source candidate HRP: `20.5.23` / 2026-08-24 /
+  `bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`.
   The deployed baseline remains HRP `20.5.20` / 2026-08-22 /
   `803060fb07fb0ed9198c066db9c3dbbc7579395833485b35d59730cfcc5b5f23`
-  until this candidate passes review and deployment. Universal remains
-  `20.5.14` / 2026-08-18 /
-  `8f929aa70bc71d8528da3527a22704b0cf85ffec08e9b7b13a186ead71505221`.
+  until this candidate passes review and deployment. Universal candidate is
+  `20.5.15` / 2026-08-24 /
+  `69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`.
   Production reconstructed and verified the deployed baseline bytes.
 - Runtime: Node `24.18.0`; bootstrap `npm ci`; complete deterministic gate `npm run verify`
 - Universal policy: `u-dont-existDOTcom/universal-dev-architecture/patterns/codex-github-operating-system.md`

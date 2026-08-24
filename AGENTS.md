@@ -16,6 +16,25 @@ Never reconstruct a missing current protocol from chat memory. A manifest, hash,
 router, module, status file, release record, generated excerpt, or lesson summary
 cannot replace, truncate, or amend either complete canonical XML file.
 
+## Pre-reasoning epistemic routing
+
+For complex tasks, apply the canonical Universal heuristic-attractor check
+before substantive reasoning. A familiar rule is not applicable merely because
+it is generally sound or prominent. Test its intended problem, current phase,
+evidence of applicability, useful work it would suppress, and any more-specific
+instruction or first-principles objective. A correct heuristic applied to the
+wrong phase is an error. If a user-corrected failure recurs, diagnose the
+higher-level attractor rather than add another local exception.
+
+Before using preregistration, freezing, untouched-holdout, leakage, retuning,
+multiple-testing, anti-overfitting, post-hoc, or confirmation restrictions,
+classify relevant data/work by use. `DEVELOPMENT / DISCOVERY` may influence the
+model but cannot independently confirm generalization; optimize it aggressively
+and treat internal cross-validation as search/model selection. `VALIDATION /
+CONFIRMATION` may test a frozen model but may not influence it. Freeze before
+VALIDATION, not before DISCOVERY. Complete canonical Universal and HRP wording
+controls over this worker-facing summary.
+
 ## Validation
 
 - Runtime: Node 24.18.0 (`.nvmrc`)
