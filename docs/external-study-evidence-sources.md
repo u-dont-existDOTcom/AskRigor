@@ -1,10 +1,12 @@
 # External study-evidence source boundaries
 
-Status at 2026-08-24: internal Phase D4 source candidate over the merged Phase
-D3 session integration. It is not registered as a public MCP tool or Custom
+Status at 2026-08-24: internal Phase D5 source candidate over the merged Phase
+D4 implementation. It is not registered as a public MCP tool or Custom
 GPT Action and cannot authorize final synthesis or finalization. The verified
 Retraction Watch local-snapshot path is implemented but not activated,
 scheduled, retained, or deployed; those production decisions remain Phase G.
+PubPeer and Epistemonikos have strict authorized-provider adapters but no live
+transport, credential, hostname, or deployment activation.
 
 ## Crossref publication-integrity metadata
 
@@ -76,7 +78,7 @@ provider label into a scientific conclusion.
 
 ## Internal composite coordinator and receipt
 
-The Phase D2 coordinator accepts only an authoritative internal research-
+The Phase D2-D5 coordinator accepts only an authoritative internal research-
 session ID and one DOI. Server construction supplies the exact current
 Universal/HRP manifests, fixed Crossref configuration, provider executors,
 clock, artifact store, signing secret, and nonsecret key ID. A caller cannot
@@ -94,6 +96,14 @@ longer emits the Retraction Watch configuration gap. Retryable, partial/stale,
 inaccessible, nonretryable, no-match, and successful provider states remain
 distinct.
 
+Phase D5 applies the same server-owned rule to optional PubPeer and
+Epistemonikos executors. If configured, each provider must run and its attempt
+and normalized artifact are signed into the receipt. Partial or retryable
+coverage cannot become complete. If absent, the provider remains an explicit
+`not_configured` gap. Callers still cannot choose providers or submit provider
+output. Live access remains disabled; see
+`docs/optional-external-study-evidence-adapters.md`.
+
 The normalized bundle derives notice-audit, prior-audit invalidation, active-
 retraction exclusion, linked-repetition acquisition, and provider-gap
 directives. Independent Crossref and Retraction Watch assertions are merged
@@ -102,6 +112,14 @@ relationship remains a provider-reported lead with implementation and linked-
 source audit still pending. Historical retraction followed by reinstatement
 retains the history and notice work without being misrepresented as a
 currently active retraction.
+
+Visible PubPeer messages have unknown materiality until source-linked semantic
+audit; edited state and identified-author replies remain provider provenance,
+not truth. Deleted or unavailable messages remain bounded and their text is
+not reconstructed. Exact current Epistemonikos review links create review
+acquisition and method-audit work. Removed, unresolved, or bibliographic-only
+links remain bounded leads. Provider inclusion/exclusion labels never become a
+study-quality or review-approval judgment.
 
 ## Retraction Watch verified local snapshot
 
@@ -138,8 +156,10 @@ assertions or AskRigor interpretations are scientifically true.
 implementation is bounded process memory only: at most 128 entries, 10 MiB per
 artifact, and 32 MiB total by default. It clones bytes on write/read,
 deduplicates exact artifacts, supports explicit revocation, and writes no disk,
-database, object store, log, or portable token. The coordinator currently
-stores only strict normalized Crossref and FORRT envelopes. Portable receipts
+database, object store, log, or portable token. The coordinator stores only
+strict normalized envelopes for configured providers: Crossref and FORRT, plus
+Retraction Watch, PubPeer, or Epistemonikos when their server executors are
+supplied. Portable receipts
 contain artifact IDs, hashes, provider identities, kinds, and byte counts—not
 the artifact bodies or signing secret.
 
@@ -180,14 +200,17 @@ or coverage gap before claim capability becomes current.
 
 ## Storage, activation, and verification
 
-Phases D2-D4 add no database, durable production artifact store, public
+Phases D2-D5 add no database, durable production artifact store, public
 operation, provider credential, deployment setting, or production provider
 call. D4 adds a controlled operator sync command and local snapshot format but
 does not run it against the real dataset or select a production directory,
 retention policy, pruning policy, schedule, or configuration binding. Phase
-D3's only session connection remains the bounded, in-memory, unregistered
+D3-D5's only session connection remains the bounded, in-memory, unregistered
 prototype. Hermetic tests cover strict input, exact-source/header validation,
 atomic activation/rollback/staleness, snapshot/index tampering, identity
 failure, normalized provider states, directives, deterministic hashes,
 artifact bounds, signed-receipt tampering/cross-context rejection, and typed
-method-audit references. Public inventories remain 21 MCP tools and 26 Actions.
+method-audit references. Phase D5 fixtures exercise provider edits/deletions,
+pagination, classifications, review ancestry, and configured-provider failure
+states without live access. Public inventories remain 21 MCP tools and 26
+Actions.

@@ -20,6 +20,21 @@ const boundedUrlSchema = z.url().max(MAX_TEXT);
 const limitationSchema = z.string().trim().min(1).max(MAX_TEXT);
 const limitationsSchema = z.array(limitationSchema).max(MAX_LIMITATIONS);
 
+export const providerClassificationProvenanceSchema = z
+  .object({
+    basis: z.enum(["provider_reported", "adapter_derived", "unavailable"]),
+    raw_label: boundedNullableTextSchema,
+    reported_by: z.enum([
+      "provider",
+      "moderator",
+      "commenter",
+      "curator",
+      "automated",
+      "unavailable",
+    ]),
+  })
+  .strict();
+
 export const externalEvidenceProviderSchema = z.enum([
   "crossref",
   "forrt",
@@ -204,6 +219,15 @@ export const postPublicationMessageSchema = z
     message_id: boundedTextSchema,
     role: z.enum(["comment", "identified_author_reply"]),
     posted_at: externalEvidenceTimestampSchema.nullable(),
+    updated_at: externalEvidenceTimestampSchema.nullable(),
+    provider_revision_id: boundedNullableTextSchema,
+    revision_state: z.enum([
+      "current_visible",
+      "edited_visible",
+      "deleted_or_unavailable",
+      "unknown",
+    ]),
+    classification_provenance: providerClassificationProvenanceSchema,
     content_hash: externalEvidenceSha256Schema,
     bounded_excerpt: z.string().max(MAX_EXCERPT).nullable(),
     audit_status: z.enum(["not_started", "in_progress", "complete", "bounded", "blocked"]),
@@ -217,12 +241,33 @@ export const postPublicationThreadSchema = z
   .object({
     provider: externalEvidenceProviderSchema,
     thread_id: boundedTextSchema,
+    provider_record_id: boundedNullableTextSchema,
     canonical_url: boundedUrlSchema,
+    provider_reported_message_count: z.number().int().nonnegative().nullable(),
+    visible_message_count: z.number().int().nonnegative().max(MAX_EXTERNAL_ITEMS),
+    deleted_or_unavailable_message_count: z.number().int().nonnegative().max(MAX_EXTERNAL_ITEMS),
+    pagination_complete: z.boolean(),
     messages: z.array(postPublicationMessageSchema).max(MAX_EXTERNAL_ITEMS),
     thread_hash: externalEvidenceSha256Schema,
     limitations: limitationsSchema,
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    const visible = value.messages.filter(({ revision_state }) =>
+      revision_state !== "deleted_or_unavailable"
+    ).length;
+    const unavailable = value.messages.length - visible;
+    if (
+      visible !== value.visible_message_count ||
+      unavailable !== value.deleted_or_unavailable_message_count
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["messages"],
+        message: "post-publication message-state counts do not reconcile",
+      });
+    }
+  });
 
 export const citationContextAggregateSchema = z
   .object({
@@ -239,9 +284,14 @@ export const citationContextAggregateSchema = z
 
 export const reviewAncestryLinkSchema = z
   .object({
+    provider: externalEvidenceProviderSchema,
+    provider_record_id: boundedNullableTextSchema,
     review_identity: canonicalStudyIdentitySchema,
     linked_study_identity: canonicalStudyIdentitySchema,
     relationship: z.enum(["review_includes_study", "review_excludes_study", "review_cites_study", "study_updates_review"]),
+    raw_provider_relationship: boundedNullableTextSchema,
+    relation_state: z.enum(["current", "removed", "unknown"]),
+    classification_provenance: providerClassificationProvenanceSchema,
     audit_status: z.enum(["not_started", "in_progress", "complete", "bounded", "blocked"]),
     link_hash: externalEvidenceSha256Schema,
     limitations: limitationsSchema,
@@ -337,6 +387,7 @@ export type ExternalProviderAttempt = z.infer<typeof externalProviderAttemptSche
 export type PublicationIntegrityAssertion = z.infer<typeof publicationIntegrityAssertionSchema>;
 export type PublicationIntegrityEvent = z.infer<typeof publicationIntegrityEventSchema>;
 export type PublicationRecordState = z.infer<typeof publicationRecordStateSchema>;
+export type ProviderClassificationProvenance = z.infer<typeof providerClassificationProvenanceSchema>;
 export type ProviderReportedReplicationOutcome = z.infer<typeof providerReportedReplicationOutcomeSchema>;
 export type ExternalStudyRelationship = z.infer<typeof externalStudyRelationshipSchema>;
 export type PostPublicationMessage = z.infer<typeof postPublicationMessageSchema>;

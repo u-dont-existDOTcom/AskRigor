@@ -469,7 +469,7 @@ function externalEvidenceItemKeys(
   }
   for (const link of bundle.review_ancestry) {
     keys.add(externalEvidenceItemKey({
-      provider: "review_risk_of_bias",
+      provider: link.provider,
       item_kind: "review_ancestry",
       item_hash: link.link_hash
     }));

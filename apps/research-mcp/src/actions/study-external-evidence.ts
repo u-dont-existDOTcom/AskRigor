@@ -16,8 +16,10 @@ import {
   type ExternalEvidenceProvider,
   type ExternalProviderAttempt,
   type ExternalStudyRelationship,
+  type PostPublicationThread,
   type ProvenanceEnvelope,
   type PublicationIntegrityEvent,
+  type ReviewAncestryLink,
   type StudyExternalEvidenceBundle,
   type UnresolvedExternalEvidenceItem,
 } from "@askrigor/contracts";
@@ -29,7 +31,9 @@ import {
   normalizeDoiIdentifier,
   type CrossrefConfig,
   type CrossrefPublicationIntegrityData,
+  type EpistemonikosReviewAncestryLookupData,
   type ForrtReplicationLookupData,
+  type PubpeerPostPublicationLookupData,
   type RetractionWatchPublicationIntegrityData,
 } from "@askrigor/sources";
 import { z } from "zod";
@@ -179,6 +183,12 @@ interface ProviderExecutors {
   retractionWatch?(
     doi: string,
   ): Promise<ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>>;
+  pubpeer?(
+    doi: string,
+  ): Promise<ProvenanceEnvelope<PubpeerPostPublicationLookupData>>;
+  epistemonikos?(
+    doi: string,
+  ): Promise<ProvenanceEnvelope<EpistemonikosReviewAncestryLookupData>>;
 }
 
 export interface StudyExternalEvidenceCoordinatorOptions {
@@ -229,6 +239,12 @@ export function createStudyExternalEvidenceCoordinator(
     ...(options.providers?.retractionWatch === undefined
       ? {}
       : { retractionWatch: options.providers.retractionWatch }),
+    ...(options.providers?.pubpeer === undefined
+      ? {}
+      : { pubpeer: options.providers.pubpeer }),
+    ...(options.providers?.epistemonikos === undefined
+      ? {}
+      : { epistemonikos: options.providers.epistemonikos }),
   };
 
   return Object.freeze({
@@ -243,6 +259,28 @@ export function createStudyExternalEvidenceCoordinator(
       const retractionWatch = providers.retractionWatch === undefined
         ? undefined
         : await providers.retractionWatch(doi);
+      const pubpeer = providers.pubpeer === undefined
+        ? undefined
+        : await providers.pubpeer(doi);
+      const epistemonikos = providers.epistemonikos === undefined
+        ? undefined
+        : await providers.epistemonikos(doi);
+      if (pubpeer !== undefined) {
+        assertOptionalProviderEnvelope(
+          "pubpeer",
+          "postpublication_threads",
+          pubpeer,
+          doi,
+        );
+      }
+      if (epistemonikos !== undefined) {
+        assertOptionalProviderEnvelope(
+          "epistemonikos",
+          "review_ancestry",
+          epistemonikos,
+          doi,
+        );
+      }
       const issuedAt = validDate(now).toISOString();
       const crossrefArtifact = storeProviderEnvelope(
         artifactStore,
@@ -264,7 +302,19 @@ export function createStudyExternalEvidenceCoordinator(
           doi,
           retractionWatch,
         );
-      const providerArtifacts = [crossrefArtifact, forrtArtifact, retractionWatchArtifact]
+      const pubpeerArtifact = pubpeer === undefined
+        ? undefined
+        : storeProviderEnvelope(artifactStore, "pubpeer", doi, pubpeer);
+      const epistemonikosArtifact = epistemonikos === undefined
+        ? undefined
+        : storeProviderEnvelope(artifactStore, "epistemonikos", doi, epistemonikos);
+      const providerArtifacts = [
+        crossrefArtifact,
+        forrtArtifact,
+        retractionWatchArtifact,
+        pubpeerArtifact,
+        epistemonikosArtifact,
+      ]
         .filter((artifact): artifact is EvidenceArtifactDescriptor => artifact !== undefined)
         .map(artifactReference)
         .sort(compareArtifactReferences);
@@ -278,10 +328,30 @@ export function createStudyExternalEvidenceCoordinator(
             doi,
             retractionWatchArtifact.content_sha256,
           )]),
+        ...(pubpeer === undefined || pubpeerArtifact === undefined
+          ? []
+          : [lookupProviderAttempt(
+            "pubpeer",
+            pubpeer,
+            doi,
+            pubpeerArtifact.content_sha256,
+          )]),
+        ...(epistemonikos === undefined || epistemonikosArtifact === undefined
+          ? []
+          : [lookupProviderAttempt(
+            "epistemonikos",
+            epistemonikos,
+            doi,
+            epistemonikosArtifact.content_sha256,
+          )]),
         ...unconfiguredProviderAttempts(
           doi,
           issuedAt,
-          retractionWatch !== undefined,
+          new Set([
+            ...(retractionWatch === undefined ? [] : ["retraction_watch" as const]),
+            ...(pubpeer === undefined ? [] : ["pubpeer" as const]),
+            ...(epistemonikos === undefined ? [] : ["epistemonikos" as const]),
+          ]),
         ),
       ].sort(compareProviderAttempts);
       const publicationEvents = retractionWatch === undefined
@@ -293,7 +363,12 @@ export function createStudyExternalEvidenceCoordinator(
       const publicationRecordState = retractionWatch === undefined
         ? crossref.data.record_state
         : derivePublicationRecordState(publicationEvents, doi);
-      const status = deriveAuditStatus(forrt, retractionWatch);
+      const status = deriveAuditStatus([
+        forrt,
+        ...(retractionWatch === undefined ? [] : [retractionWatch]),
+        ...(pubpeer === undefined ? [] : [pubpeer]),
+        ...(epistemonikos === undefined ? [] : [epistemonikos]),
+      ]);
       const derived = deriveExternalEvidenceState(
         {
           publicationEvents,
@@ -301,6 +376,8 @@ export function createStudyExternalEvidenceCoordinator(
           crossref,
           forrt,
           retractionWatch,
+          pubpeer,
+          epistemonikos,
           providerAttempts,
         },
       );
@@ -314,6 +391,8 @@ export function createStudyExternalEvidenceCoordinator(
           ...(retractionWatch?.limitations ?? []),
         ],
         relationships: forrt.data.relationships,
+        postpublicationThreads: pubpeer?.data.threads ?? [],
+        reviewAncestry: epistemonikos?.data.review_ancestry ?? [],
         directives: derived.directives,
         unresolvedItems: derived.unresolvedItems,
         claimLocalLimitations: derived.claimLocalLimitations,
@@ -444,6 +523,27 @@ function verifiedIdentity(
   });
 }
 
+function assertOptionalProviderEnvelope(
+  provider: "pubpeer" | "epistemonikos",
+  recordType: "postpublication_threads" | "review_ancestry",
+  envelope: ProvenanceEnvelope<{ doi: string | null }>,
+  doi: string,
+): void {
+  if (
+    envelope.provider !== provider ||
+    envelope.record_type !== recordType ||
+    envelope.primary_identifier !== doi ||
+    envelope.data.doi !== doi ||
+    (envelope.error === undefined &&
+      envelope.source_identity.canonical_url !== `https://doi.org/${doi}`)
+  ) {
+    throw new StudyExternalEvidenceIdentityError(
+      envelope.error?.retryable === true,
+      `${provider} did not return the exact configured-provider envelope for the verified study DOI`,
+    );
+  }
+}
+
 function createStudyExternalEvidenceBundle(input: {
   studyIdentity: CanonicalStudyIdentity;
   providerAttempts: ExternalProviderAttempt[];
@@ -451,6 +551,8 @@ function createStudyExternalEvidenceBundle(input: {
   publicationEvents: PublicationIntegrityEvent[];
   publicationLimitations: string[];
   relationships: ExternalStudyRelationship[];
+  postpublicationThreads: PostPublicationThread[];
+  reviewAncestry: ReviewAncestryLink[];
   directives: ExternalEvidenceDirective[];
   unresolvedItems: UnresolvedExternalEvidenceItem[];
   claimLocalLimitations: ClaimLocalExternalEvidenceLimitation[];
@@ -466,9 +568,9 @@ function createStudyExternalEvidenceBundle(input: {
       limitations: input.publicationLimitations,
     },
     replication_relationships: input.relationships,
-    postpublication_threads: [],
+    postpublication_threads: input.postpublicationThreads,
     citation_contexts: [],
-    review_ancestry: [],
+    review_ancestry: input.reviewAncestry,
     imported_risk_of_bias: [],
     controller_directives: input.directives,
     unresolved_items: input.unresolvedItems,
@@ -486,6 +588,8 @@ function deriveExternalEvidenceState(input: {
   crossref: ProvenanceEnvelope<CrossrefPublicationIntegrityData>;
   forrt: ProvenanceEnvelope<ForrtReplicationLookupData>;
   retractionWatch?: ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>;
+  pubpeer?: ProvenanceEnvelope<PubpeerPostPublicationLookupData>;
+  epistemonikos?: ProvenanceEnvelope<EpistemonikosReviewAncestryLookupData>;
   providerAttempts: ExternalProviderAttempt[];
 }): {
   directives: ExternalEvidenceDirective[];
@@ -573,6 +677,69 @@ function deriveExternalEvidenceState(input: {
     });
   }
 
+  for (const thread of input.pubpeer?.data.threads ?? []) {
+    for (const message of thread.messages) {
+      if (message.revision_state === "deleted_or_unavailable") {
+        unresolvedItems.push({
+          item_id: `postpublication_message:${message.content_hash}`,
+          source_item_hash: message.content_hash,
+          possible_decision_impact: "unknown",
+          reason: "The provider reports this post-publication message as deleted or unavailable; absent content was not reconstructed.",
+          retryable: false,
+        });
+        claimLocalLimitations.push({
+          claim_id: `postpublication_message:${message.content_hash}`,
+          limitation: "The provider reports this post-publication message as deleted or unavailable; absent content was not inspected and cannot support a favorable or unfavorable claim.",
+          source_item_hashes: [message.content_hash],
+        });
+        continue;
+      }
+      directives.push(directive(
+        "require_postpublication_message_audit",
+        message.content_hash,
+        "Audit the exact visible post-publication message and its linked evidence before using it to change study credibility or a research conclusion.",
+      ));
+      unresolvedItems.push({
+        item_id: `postpublication_message:${message.content_hash}`,
+        source_item_hash: message.content_hash,
+        possible_decision_impact: "unknown",
+        reason: "The visible post-publication claim, revision state, and linked evidence have not been source-audited.",
+        retryable: true,
+      });
+      claimLocalLimitations.push({
+        claim_id: `postpublication_message:${message.content_hash}`,
+        limitation: "This post-publication message is an unaudited lead; its provider label and presence do not establish error, misconduct, invalidity, or scientific truth.",
+        source_item_hashes: [message.content_hash],
+      });
+    }
+  }
+
+  for (const link of input.epistemonikos?.data.review_ancestry ?? []) {
+    const exactCurrentReview = link.relation_state === "current" &&
+      link.review_identity.doi !== undefined;
+    if (exactCurrentReview) {
+      directives.push(directive(
+        "require_review_acquisition",
+        link.link_hash,
+        "Acquire and method-audit the exact linked review before using its provider-reported relationship or classification.",
+      ));
+      unresolvedItems.push({
+        item_id: `review_ancestry:${link.link_hash}`,
+        source_item_hash: link.link_hash,
+        possible_decision_impact: "confidence_changing",
+        reason: "The linked review's eligibility, methods, study treatment, and conclusions have not been independently audited.",
+        retryable: true,
+      });
+    }
+    claimLocalLimitations.push({
+      claim_id: `review_ancestry:${link.link_hash}`,
+      limitation: exactCurrentReview
+        ? "Review inclusion, citation, or provider classification is metadata rather than approval; the exact review remains unaudited."
+        : "This removed, unresolved, or bibliographic-only review relationship cannot support a claim until its current relation and exact source identity are independently resolved.",
+      source_item_hashes: [link.link_hash],
+    });
+  }
+
   for (const attempt of input.providerAttempts.filter(
     ({ provider_outcome }) => provider_outcome === "not_configured",
   )) {
@@ -598,6 +765,22 @@ function deriveExternalEvidenceState(input: {
         "retraction_watch_publication_integrity",
         input.retractionWatch.limitations,
         input.retractionWatch.data.events.map(({ event_hash }) => event_hash),
+      ] as const]),
+    ...(input.pubpeer === undefined
+      ? []
+      : [[
+        "pubpeer_postpublication_coverage",
+        [...input.pubpeer.limitations, input.pubpeer.data.coverage_statement],
+        input.pubpeer.data.threads.flatMap(({ messages }) =>
+          messages.map(({ content_hash }) => content_hash)
+        ),
+      ] as const]),
+    ...(input.epistemonikos === undefined
+      ? []
+      : [[
+        "epistemonikos_review_ancestry_coverage",
+        [...input.epistemonikos.limitations, input.epistemonikos.data.coverage_statement],
+        input.epistemonikos.data.review_ancestry.map(({ link_hash }) => link_hash),
       ] as const]),
   ] as const) {
     if (limitations.length === 0) continue;
@@ -766,17 +949,43 @@ function retractionWatchAttempt(
   });
 }
 
+function lookupProviderAttempt(
+  provider: "pubpeer" | "epistemonikos",
+  envelope:
+    | ProvenanceEnvelope<PubpeerPostPublicationLookupData>
+    | ProvenanceEnvelope<EpistemonikosReviewAncestryLookupData>,
+  doi: string,
+  responseHash: string,
+): ExternalProviderAttempt {
+  const outcome = envelope.error !== undefined
+    ? providerOutcome(envelope)
+    : envelope.access_status === "partial"
+      ? "partial"
+      : envelope.data.lookup_status;
+  return externalProviderAttemptSchema.parse({
+    provider,
+    checked_at: envelope.retrieved_at,
+    access_status: envelope.access_status,
+    provider_outcome: outcome,
+    query_identifier: doi,
+    provider_response_hash: responseHash,
+    coverage_statement: envelope.data.coverage_statement,
+    limitations: envelope.limitations,
+    ...(envelope.error === undefined ? {} : { error: normalizedError(envelope.error) }),
+  });
+}
+
 function unconfiguredProviderAttempts(
   doi: string,
   checkedAt: string,
-  retractionWatchConfigured: boolean,
+  configuredProviders: ReadonlySet<ExternalEvidenceProvider>,
 ): ExternalProviderAttempt[] {
   return ([
-    ...(retractionWatchConfigured ? [] : ["retraction_watch" as const]),
+    "retraction_watch",
     "pubpeer",
     "epistemonikos",
     "scite",
-  ] as const).map((provider) => externalProviderAttemptSchema.parse({
+  ] as const).filter((provider) => !configuredProviders.has(provider)).map((provider) => externalProviderAttemptSchema.parse({
     provider,
     checked_at: checkedAt,
     access_status: "inaccessible",
@@ -807,20 +1016,17 @@ function normalizedError(error: NonNullable<ProvenanceEnvelope<unknown>["error"]
 }
 
 function deriveAuditStatus(
-  forrt: ProvenanceEnvelope<ForrtReplicationLookupData>,
-  retractionWatch?: ProvenanceEnvelope<RetractionWatchPublicationIntegrityData>,
+  envelopes: ProvenanceEnvelope<unknown>[],
 ): StudyExternalEvidenceReceipt["audit_status"] {
-  if (retractionWatch?.error?.retryable === true) return "blocked_retryable";
-  if (forrt.error?.retryable === true) return "blocked_retryable";
-  if (retractionWatch?.error !== undefined) return "bounded_nonretryable";
-  if (forrt.error !== undefined) return "bounded_nonretryable";
-  if (forrt.access_status === "partial" || retractionWatch?.access_status === "partial") return "partial";
+  if (envelopes.some(({ error }) => error?.retryable === true)) return "blocked_retryable";
+  if (envelopes.some(({ error }) => error !== undefined)) return "bounded_nonretryable";
+  if (envelopes.some(({ access_status }) => access_status === "partial")) return "partial";
   return "complete";
 }
 
 function storeProviderEnvelope(
   store: EvidenceArtifactStore,
-  provider: "crossref" | "forrt" | "retraction_watch",
+  provider: "crossref" | "forrt" | "retraction_watch" | "pubpeer" | "epistemonikos",
   doi: string,
   envelope: ProvenanceEnvelope<unknown>,
 ): EvidenceArtifactDescriptor {

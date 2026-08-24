@@ -12,9 +12,15 @@ import {
 import type {
   AuditableDocumentIndex,
   CrossrefPublicationIntegrityData,
+  EpistemonikosReviewAncestryLookupData,
   ForrtReplicationLookupData,
   OpenFullTextAcquisitionData,
+  PubpeerPostPublicationLookupData,
   PubmedRecord
+} from "@askrigor/sources";
+import {
+  adaptEpistemonikosAuthorizedRecord,
+  adaptPubpeerAuthorizedRecord
 } from "@askrigor/sources";
 import { describe, expect, it, vi } from "vitest";
 
@@ -456,6 +462,57 @@ describe("controller-owned formal evidence frontier", () => {
         external_evidence: { status: "BOUNDED_NONRETRYABLE" },
         claim_capability: { status: "BOUNDED_ONLY", unrestricted_decision_use: false }
       });
+  });
+
+  it("turns configured post-publication messages and review ancestry into source-bound linked work rather than conclusions", async () => {
+    let formal = selectAllStudies(await searchedFormal());
+    const executor = openTextExecutor();
+    const selected = formal.sources[0]!;
+    formal = await executeResearchSourceFullTextChain(formal, selected.source_id, executor);
+    let parent = formal.sources.find(({ source_id }) => source_id === selected.source_id)!;
+    formal = recordFormalMethodAudit(formal, selected.source_id, await executor.validateStudyAudit({
+      document_handle: parent.full_text.document_handle!,
+      audit: studyAudit(documentIndex(parent.identity.doi!))
+    }));
+
+    const output = await externalCoordinator({ withOptionalEvidence: true }).audit({
+      session_id: SESSION_ID,
+      doi: parent.identity.doi!
+    });
+    formal = ingestResearchSourceExternalEvidence(
+      formal,
+      SESSION_ID,
+      selected.source_id,
+      output,
+      SECRET,
+      protocolTuple()
+    );
+    parent = formal.sources.find(({ source_id }) => source_id === selected.source_id)!;
+
+    expect(parent.claim_capability).toMatchObject({
+      status: "LINKED_WORK_REQUIRED",
+      unrestricted_decision_use: false
+    });
+    expect(parent.external_evidence.linked_work.map(({ item_kind, status }) => ({
+      item_kind,
+      status
+    }))).toEqual(expect.arrayContaining([
+      { item_kind: "POSTPUBLICATION_MESSAGE", status: "NOT_STARTED" },
+      { item_kind: "REVIEW", status: "NOT_STARTED" }
+    ]));
+    expect(parent.external_evidence.controller_directives.map(({ directive }) => directive))
+      .toEqual(expect.arrayContaining([
+        "require_postpublication_message_audit",
+        "require_review_acquisition"
+      ]));
+    const submission = externalStudyAudit(parent, output);
+    const ancestryReferences = submission.domain_findings.flatMap((finding) =>
+      finding.external_evidence_references
+    ).filter(({ item_kind }) => item_kind === "review_ancestry");
+    expect(ancestryReferences).toHaveLength(1);
+    expect(ancestryReferences[0]!.provider).toBe("epistemonikos");
+    expect(JSON.stringify(parent.external_evidence)).not.toContain("review_approved");
+    expect(JSON.stringify(parent.external_evidence)).not.toContain("study_invalid");
   });
 
   it("cannot recalculate partial external-provider coverage into unrestricted use", async () => {
@@ -973,7 +1030,7 @@ function externalStudyAudit(
   for (const link of output.bundle.review_ancestry) {
     references.push({
       ...referenceBase,
-      provider: "review_risk_of_bias",
+      provider: link.provider,
       item_kind: "review_ancestry",
       item_hash: link.link_hash
     });
@@ -1035,6 +1092,7 @@ function externalCoordinator(input: {
   withRetractionAndReplication?: boolean;
   withReplicationOnly?: boolean;
   forrtPartial?: boolean;
+  withOptionalEvidence?: boolean;
 } = {}) {
   return createStudyExternalEvidenceCoordinator({
     protocolManifests: input.protocols ?? PROTOCOLS,
@@ -1057,7 +1115,82 @@ function externalCoordinator(input: {
           input.withRetractionAndReplication || input.withReplicationOnly
             ? [replication(doi)]
             : []
-        ))
+        )),
+      ...(input.withOptionalEvidence
+        ? {
+          pubpeer: vi.fn(async (doi) => pubpeerEnvelope(doi)),
+          epistemonikos: vi.fn(async (doi) => epistemonikosEnvelope(doi))
+        }
+        : {})
+    }
+  });
+}
+
+function pubpeerEnvelope(
+  doi: string
+): ProvenanceEnvelope<PubpeerPostPublicationLookupData> {
+  return adaptPubpeerAuthorizedRecord(doi, {
+    record_kind: "response",
+    contract_version: "askrigor.pubpeer-authorized-response.v1",
+    retrieved_at: "2026-08-24T02:59:30.000Z",
+    doi,
+    thread: {
+      thread_id: "formal-pubpeer-thread",
+      provider_record_id: "formal-pubpeer-publication",
+      canonical_url: "https://pubpeer.com/publications/FORMAL",
+      provider_reported_message_count: 1,
+      messages: [{
+        message_id: "formal-pubpeer-message",
+        role: "comment",
+        posted_at: "2026-08-24T02:59:00.000Z",
+        updated_at: null,
+        provider_revision_id: null,
+        revision_state: "current_visible",
+        text: "A source-linked concern requiring independent audit.",
+        links: [],
+        classification: { raw_label: "methodological", source: "provider" }
+      }]
+    },
+    pagination: {
+      returned: 1,
+      provider_reported_total: 1,
+      page_size: 100,
+      next_cursor: null,
+      exhausted: true
+    }
+  });
+}
+
+function epistemonikosEnvelope(
+  doi: string
+): ProvenanceEnvelope<EpistemonikosReviewAncestryLookupData> {
+  return adaptEpistemonikosAuthorizedRecord(doi, {
+    record_kind: "response",
+    contract_version: "askrigor.epistemonikos-authorized-response.v1",
+    retrieved_at: "2026-08-24T02:59:40.000Z",
+    doi,
+    source_document_id: "formal-epistemonikos-source",
+    source_title: `External identity ${doi}`,
+    ancestry: [{
+      provider_record_id: "formal-epistemonikos-relation",
+      relationship: "review_includes_study",
+      raw_relationship: "included",
+      relation_state: "current",
+      classification: { raw_label: "systematic review", source: "provider" },
+      review: {
+        doi: "10.5555/formal.review",
+        pmid: null,
+        title: "Formal evidence review",
+        first_author: "Reviewer",
+        year: 2025
+      }
+    }],
+    pagination: {
+      returned: 1,
+      provider_reported_total: 1,
+      page_size: 100,
+      next_cursor: null,
+      exhausted: true
     }
   });
 }
