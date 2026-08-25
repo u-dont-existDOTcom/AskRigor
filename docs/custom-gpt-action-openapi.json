@@ -183,9 +183,11 @@
                           "type": "string",
                           "enum": [
                             "complete",
+                            "progress_recorded",
                             "semantic_work_recorded",
                             "protocol_drift",
-                            "blocked_retryable"
+                            "blocked_retryable",
+                            "blocked_terminal"
                           ]
                         }
                       }
@@ -676,9 +678,11 @@
                           "type": "string",
                           "enum": [
                             "complete",
+                            "progress_recorded",
                             "semantic_work_recorded",
                             "protocol_drift",
-                            "blocked_retryable"
+                            "blocked_retryable",
+                            "blocked_terminal"
                           ]
                         }
                       }
@@ -1242,9 +1246,11 @@
                           "type": "string",
                           "enum": [
                             "complete",
+                            "progress_recorded",
                             "semantic_work_recorded",
                             "protocol_drift",
-                            "blocked_retryable"
+                            "blocked_retryable",
+                            "blocked_terminal"
                           ]
                         }
                       }

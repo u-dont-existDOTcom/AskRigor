@@ -284,6 +284,29 @@ export function initialResearchCandidateDiscoveryState(): ResearchCandidateDisco
   });
 }
 
+export function markExternalScoutFrontierBoundary(
+  rawState: ResearchCandidateDiscoveryState,
+  status: "BLOCKED_RETRYABLE" | "BLOCKED_TERMINAL",
+  boundaryCode: string
+): ResearchCandidateDiscoveryState {
+  const state = researchCandidateDiscoveryStateSchema.parse(rawState);
+  const frontierId = state.external_scout.frontier_id ?? createHash("sha256")
+    .update(JSON.stringify({
+      source: "GEMINI_SCOUT",
+      status,
+      boundary_code: boundaryCode
+    }), "utf8")
+    .digest("hex");
+  return researchCandidateDiscoveryStateSchema.parse({
+    ...state,
+    external_scout: {
+      ...state.external_scout,
+      status,
+      frontier_id: frontierId
+    }
+  });
+}
+
 export function ingestValidatedGeminiFrontier(
   rawState: ResearchCandidateDiscoveryState,
   packet: GeminiYoutubeCandidatePacket,
@@ -370,16 +393,22 @@ export function nativeSurveyInputFromCandidateDiscovery(
   researchQuestion: string
 ): YoutubeCommunitySurveyInput {
   const state = researchCandidateDiscoveryStateSchema.parse(rawState);
-  if (state.external_scout.status !== "COMPLETE") {
-    throw new Error("Native discovery input requires a completed external scout frontier");
+  if (state.external_scout.status === "BLOCKED_RETRYABLE") {
+    throw new Error("Native discovery cannot bypass retryable external scout work");
+  }
+  if (
+    state.external_scout.status !== "COMPLETE" &&
+    state.external_scout.status !== "BLOCKED_TERMINAL"
+  ) {
+    throw new Error("Native discovery input requires a resolved external scout attempt");
   }
   const selected = selectNativeQueries(state.external_scout.queries);
-  if (selected.length === 0) {
-    throw new Error("Completed external scout frontier has no discovery queries");
-  }
+  const searches = selected.length > 0
+    ? selected
+    : fallbackNativeQueries(researchQuestion);
   return {
     research_question: researchQuestion,
-    searches: selected.map(({ direction, query }) => ({ direction, query })),
+    searches: searches.map(({ direction, query }) => ({ direction, query })),
     results_per_search: 10
   };
 }
@@ -390,8 +419,14 @@ export function ingestNativeYoutubeSurvey(
 ): ResearchCandidateDiscoveryState {
   const state = researchCandidateDiscoveryStateSchema.parse(rawState);
   survey = youtubeCommunitySurveyOutputSchema.parse(survey);
-  if (state.external_scout.status !== "COMPLETE") {
-    throw new Error("Native discovery cannot replace the required external scout");
+  if (state.external_scout.status === "BLOCKED_RETRYABLE") {
+    throw new Error("Native discovery cannot bypass retryable external scout work");
+  }
+  if (
+    state.external_scout.status !== "COMPLETE" &&
+    state.external_scout.status !== "BLOCKED_TERMINAL"
+  ) {
+    throw new Error("Native discovery requires a resolved external scout attempt");
   }
   const frontierId = nativeFrontierDigest(survey);
   const nativeCandidates = survey.candidates
@@ -481,10 +516,8 @@ export function candidateDiscoveryReadyForScreening(
   rawState: ResearchCandidateDiscoveryState
 ): boolean {
   const state = researchCandidateDiscoveryStateSchema.parse(rawState);
-  const diagnostics = deriveCandidateDiscoveryDiagnostics(state);
-  return state.external_scout.status === "COMPLETE" &&
-    state.native_youtube.status === "COMPLETE" &&
-    diagnostics.unresolved_identity_video_ids.length === 0 &&
+  return frontierReadyForScreening(state.external_scout) &&
+    frontierReadyForScreening(state.native_youtube) &&
     state.candidates.length > 0;
 }
 
@@ -1030,6 +1063,35 @@ function selectNativeQueries(
     });
   }
   return selected;
+}
+
+function fallbackNativeQueries(
+  researchQuestion: string
+): Array<{
+  direction: "general" | "benefit" | "no_effect" | "harm" |
+    "discontinuation" | "formal_discriminator";
+  query: string;
+}> {
+  const target = researchQuestion.trim();
+  return [
+    { direction: "general", query: `${target} treatment experience` },
+    { direction: "benefit", query: `${target} what worked` },
+    { direction: "no_effect", query: `${target} no improvement failed` },
+    { direction: "harm", query: `${target} side effects worsening` },
+    { direction: "discontinuation", query: `${target} stopped treatment` },
+    {
+      direction: "formal_discriminator",
+      query: `${target} evidence comparison trial`
+    }
+  ];
+}
+
+function frontierReadyForScreening(
+  frontier: { status: z.output<typeof frontierStatusSchema>; unresolved_candidate_video_ids: string[] }
+): boolean {
+  return frontier.status === "BLOCKED_TERMINAL" ||
+    frontier.status === "COMPLETE" &&
+      frontier.unresolved_candidate_video_ids.length === 0;
 }
 
 function nativeFrontierDigest(survey: YoutubeCommunitySurveyOutput): string {

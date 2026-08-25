@@ -817,6 +817,15 @@ Do not project the compact Action contract until its K0 advancement and K1
 report gates pass. This is a controller implementation repair, not a new
 orchestration architecture or another model-instruction exception.
 
+The first K3 product replay subsequently exposed a controller contradiction:
+`CONTINUE_RESEARCH` had no next capability, while the Custom GPT projection
+directed finalization and the server correctly denied it. The repair is tracked
+in `docs/superpowers/plans/2026-08-25-phase-k-terminal-discovery-and-finalization-repair.md`.
+K3 remains incomplete until that repair is merged, exactly deployed, and a
+fresh challenge yields a server-signed product-acceptance receipt. The fixed
+live scenario is a concrete regression for treatment-program diversity; it
+does not add a condition-specific protocol branch.
+
 Tasks:
 
 - [x] Execute every later controller capability through one shared

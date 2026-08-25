@@ -2,7 +2,7 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "6acfdc3b0b464746a6961dce738407216c42bc9978f9c01b66fb9198bbe91524"
+      "sha256": "63ce76bfc7c763a6a5ffb77cba0e9badc17a89608f42ca5c42ce698b1db83681"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
@@ -10,7 +10,7 @@
     },
     {
       "path": "apps/research-mcp/src/generated/custom-gpt-bundle.ts",
-      "sha256": "0f45ae17bfd283977f439ee5db8d10f52ab41cbef1514a473c96aefa7ed815f3"
+      "sha256": "e78b103ea67c0ffaabb6869ae1d86ab23a58e660391ab943802990b5de237ef5"
     }
   ],
   "consequential_operation_ids": [
@@ -25,8 +25,8 @@
   },
   "generated_at": "2026-08-25",
   "installation_bundle": {
-    "action_schema_sha256": "6acfdc3b0b464746a6961dce738407216c42bc9978f9c01b66fb9198bbe91524",
-    "bundle_sha256": "c62820b1cd3cc431a445049545d7e4bff812b124702431544a7b9adfafafdf2d",
+    "action_schema_sha256": "63ce76bfc7c763a6a5ffb77cba0e9badc17a89608f42ca5c42ce698b1db83681",
+    "bundle_sha256": "b7e76b819b1ac390cabe9ef97058b0e6f5d6b376644a8a68e1f322eb2abc62ba",
     "instructions_sha256": "16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab"
   },
   "internal_scout_skill_sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645",

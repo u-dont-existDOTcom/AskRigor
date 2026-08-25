@@ -107,6 +107,7 @@ export const privateResearchOrchestrationViewSchema = z.object({
       "protocol_current",
       "protocol_drift",
       "complete",
+      "progress_recorded",
       "blocked_retryable",
       "blocked_terminal",
       "already_complete",
@@ -534,7 +535,7 @@ export function createPrivateResearchOrchestrationHandler(
       const projected = projectPrivateView(
         parsed.data.session_id,
         result.state,
-        { capability: result.capability, result: "complete" }
+        { capability: result.capability, result: result.transition_result }
       );
       store.replace(parsed.data.session_id, result.state);
       return { status: 200, body: projected };

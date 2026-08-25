@@ -1,6 +1,39 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-25 Phase K3 terminal-discovery repair candidate
+
+The K3 replay exposed a server-state dead end: unfinished research had no next
+capability while the compact client was directed to finalize. This candidate
+preserves a valid earlier Gemini/Spark frontier after a later provider failure,
+continues independent native YouTube discovery after a terminal external-scout
+boundary, derives required module status from server-owned operations, and
+never translates `CONTINUE_RESEARCH` into finalization. An all-terminal search
+with no candidates now returns a stable terminal-blocked view instead of an
+internal exception. Deterministic transition receipts distinguish progress,
+retryable boundaries, terminal boundaries, and actual operation completion.
+
+The acceptance fixture now tests a specified, de-identified population and
+requires materially different exercise and nonexercise programs rather than
+pooled “exercise” evidence. The automated compact scout uses medium thinking
+and requests 8–16 nonredundant candidates for broad treatment-choice targets,
+allowing fewer only with a concrete search gap. This is a product regression,
+not condition-specific research policy.
+
+The compact Instructions remain **3,995 characters**, SHA-256
+`16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab`.
+The regenerated synchronization ledger SHA-256 is
+`80597b039ffc8e8a483aca6e0424953e70dd3e773ba24c778a9b1c9a51617616`;
+the Action OpenAPI SHA-256 is
+`63ce76bfc7c763a6a5ffb77cba0e9badc17a89608f42ca5c42ce698b1db83681`;
+and the installation-bundle digest is
+`b7e76b819b1ac390cabe9ef97058b0e6f5d6b376644a8a68e1f322eb2abc62ba`.
+The exact `npm run verify` passes typecheck, 1,383 tests across 105 passing
+files with six declared skips and one skipped credential-guarded file, and the
+production build. The Action and MCP operation counts are unchanged. Reviewed merge, exact
+deployment, editor schema refresh, and fresh signed-in product acceptance are
+still required.
+
 ## 2026-08-25 Phase K2 controlled Custom GPT projection candidate
 
 Phase K2 replaces the Custom GPT's low-level research tool collection with four

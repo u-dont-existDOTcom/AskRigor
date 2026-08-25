@@ -3,7 +3,13 @@ import { getProtocolManifest } from "@askrigor/protocol";
 
 import { createControlledResearchRoutes } from
   "../apps/research-mcp/src/actions/controlled-research-route.js";
-import { RESEARCH_MODULE_IDS } from
+import { CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID } from
+  "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
+import {
+  RESEARCH_MODULE_IDS,
+  recordAutomatedScoutBoundary,
+  recordNativeYoutubeDiscovery
+} from
   "../apps/research-mcp/src/actions/research-session-controller.js";
 import { createResearchSessionStore } from
   "../apps/research-mcp/src/actions/research-session-store.js";
@@ -145,6 +151,148 @@ describe("controlled research Action projection", () => {
     expect((result.body as any).product_acceptance_receipt).toBeUndefined();
   });
 
+  it("never directs finalization from a continue state with terminal scout evidence", async () => {
+    let observedDiagnosisStatus: string | undefined;
+    const routes = testRoutes(getProtocolManifest, {
+      automatedScout: async (state) => {
+        observedDiagnosisStatus = state.diagnosis_status;
+        return recordAutomatedScoutBoundary(state, {
+          classification: "TERMINAL_NONRETRYABLE",
+          code: "AUTOMATED_SCOUT_INVALID_PACKET",
+          summary: "The external scout returned an invalid packet after bounded recovery."
+        });
+      }
+    });
+    const started = await call(routes, "start_research_session", {
+      research_target: "Fixed synthetic acceptance fixture",
+      diagnosis_status: "diagnosis_not_specified",
+      acceptance_challenge_id: CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID
+    });
+    const moduleWork = await completeWorkerPayload(
+      routes,
+      started.body as any
+    );
+    const workerInput = JSON.parse(moduleWork.json);
+    const routed = await call(routes, "continue_research_session", {
+      session_id: workerInput.session_id,
+      state_digest: workerInput.state_digest,
+      worker_payload_receipt: moduleWork.receipt,
+      semantic_result: {
+        contract_version: "askrigor_hermes_semantic_result_v1",
+        session_id: workerInput.session_id,
+        state_digest: workerInput.state_digest,
+        work_type: "module_applicability",
+        submission: {
+          package_version: "askrigor_module_applicability_v1",
+          decisions: workerInput.semantic_work.package.unresolved_module_ids.map(
+            (module_id: (typeof RESEARCH_MODULE_IDS)[number]) => ({
+              module_id,
+              applicability: "REQUIRED",
+              rationale: "Required for the broad comparative fixture."
+            })
+          )
+        }
+      }
+    });
+    const routedView = routed.body as any;
+    const terminal = await call(routes, "continue_research_session", {
+      session_id: routedView.session_id,
+      state_digest: routedView.state_digest
+    });
+
+    expect(terminal).toMatchObject({
+      status: 200,
+      body: {
+        directive: "continue_research",
+        output_boundary: "CONTINUE_RESEARCH",
+        next_capability: "native_video_discovery",
+        last_transition: {
+          capability: "automated_video_scout",
+          result: "blocked_terminal"
+        }
+      }
+    });
+    expect(observedDiagnosisStatus).toBe("user_supplied_diagnosis");
+  });
+
+  it("returns a stable blocked view when every discovery lane ends without candidates", async () => {
+    const routes = testRoutes(getProtocolManifest, {
+      automatedScout: async (state) => recordAutomatedScoutBoundary(state, {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "AUTOMATED_SCOUT_INVALID_PACKET",
+        summary: "The external scout returned no usable packet after bounded recovery."
+      }),
+      nativeDiscovery: async (state) => recordNativeYoutubeDiscovery(state, {
+        provider: "youtube",
+        record_type: "youtube_community_survey",
+        retrieved_at: "2026-08-25T00:00:00.000Z",
+        research_question: state.research_target,
+        access_status: "inaccessible",
+        limitations: ["No public candidate results were accessible."],
+        searches: [{
+          directions: ["general"],
+          query: `${state.research_target} treatment experience`,
+          access_status: "inaccessible",
+          pagination: { returned: 0, exhausted: true },
+          limitations: ["The search reached a terminal access boundary."],
+          candidate_video_ids: []
+        }],
+        candidates: []
+      })
+    });
+    const started = await call(routes, "start_research_session", {
+      research_target: "Population-level evidence comparing treatment programs for chronic joint pain",
+      diagnosis_status: "diagnosis_not_specified"
+    });
+    const moduleWork = await completeWorkerPayload(routes, started.body as any);
+    const workerInput = JSON.parse(moduleWork.json);
+    const routed = await call(routes, "continue_research_session", {
+      session_id: workerInput.session_id,
+      state_digest: workerInput.state_digest,
+      worker_payload_receipt: moduleWork.receipt,
+      semantic_result: {
+        contract_version: "askrigor_hermes_semantic_result_v1",
+        session_id: workerInput.session_id,
+        state_digest: workerInput.state_digest,
+        work_type: "module_applicability",
+        submission: {
+          package_version: "askrigor_module_applicability_v1",
+          decisions: workerInput.semantic_work.package.unresolved_module_ids.map(
+            (module_id: (typeof RESEARCH_MODULE_IDS)[number]) => ({
+              module_id,
+              applicability: "REQUIRED",
+              rationale: "Required for the broad comparative fixture."
+            })
+          )
+        }
+      }
+    });
+    const afterRouting = routed.body as any;
+    const afterScout = await call(routes, "continue_research_session", {
+      session_id: afterRouting.session_id,
+      state_digest: afterRouting.state_digest
+    });
+    const scoutView = afterScout.body as any;
+    const terminal = await call(routes, "continue_research_session", {
+      session_id: scoutView.session_id,
+      state_digest: scoutView.state_digest
+    });
+
+    expect(terminal).toMatchObject({
+      status: 200,
+      body: {
+        directive: "blocked",
+        execution_status: "BLOCKED_TERMINAL",
+        output_boundary: "CONTINUE_RESEARCH",
+        next_capability: null,
+        last_transition: {
+          capability: "native_video_discovery",
+          result: "blocked_terminal"
+        }
+      }
+    });
+  });
+
   it("fails closed for unknown sessions and protocol drift", async () => {
     let drift = false;
     const routes = testRoutes(async (protocol) => {
@@ -193,7 +341,10 @@ describe("controlled research Action projection", () => {
 });
 
 function testRoutes(
-  manifests: typeof getProtocolManifest = getProtocolManifest
+  manifests: typeof getProtocolManifest = getProtocolManifest,
+  deterministicAdvanceDependencies: Parameters<
+    typeof createControlledResearchRoutes
+  >[0]["deterministicAdvanceDependencies"] = {}
 ): readonly ActionRoute[] {
   let randomByte = 7;
   return createControlledResearchRoutes({
@@ -201,12 +352,35 @@ function testRoutes(
       random: () => new Uint8Array(24).fill(randomByte++)
     }),
     getProtocolManifest: manifests,
-    deterministicAdvanceDependencies: {},
+    deterministicAdvanceDependencies,
     semanticAdvanceDependencies: {},
     continuationSigningSecret: SECRET,
     finalizationSigningSecret: SECRET,
     finalizationKeyId: "test-key"
   });
+}
+
+async function completeWorkerPayload(
+  routes: readonly ActionRoute[],
+  view: any
+): Promise<{ json: string; receipt: unknown }> {
+  const chunks: string[] = [];
+  let current = await call(routes, "continue_research_session", {
+    session_id: view.session_id,
+    state_digest: view.state_digest
+  });
+  let page = (current.body as any).worker_payload;
+  chunks.push(page.worker_input_json_chunk);
+  while (!page.complete) {
+    current = await call(routes, "continue_research_session", {
+      session_id: view.session_id,
+      state_digest: view.state_digest,
+      worker_payload_cursor: page.next_cursor
+    });
+    page = (current.body as any).worker_payload;
+    chunks.push(page.worker_input_json_chunk);
+  }
+  return { json: chunks.join(""), receipt: page.terminal_receipt };
 }
 
 async function call(

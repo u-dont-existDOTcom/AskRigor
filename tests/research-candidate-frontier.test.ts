@@ -7,6 +7,8 @@ import {
   ingestNativeYoutubeSurvey,
   ingestValidatedGeminiFrontier,
   initialResearchCandidateDiscoveryState,
+  markExternalScoutFrontierBoundary,
+  nativeSurveyInputFromCandidateDiscovery,
   researchCandidateDiscoveryStateSchema
 } from "../apps/research-mcp/src/index.js";
 import {
@@ -70,7 +72,7 @@ describe("server-owned research candidate frontier", () => {
     expect(rejected.candidates).toEqual([]);
     expect(candidateDiscoveryReadyForScreening(rejected)).toBe(false);
     expect(() => ingestNativeYoutubeSurvey(rejected, nativeSurvey())).toThrow(
-      /cannot replace the required external scout/u
+      /cannot bypass retryable external scout/u
     );
   });
 
@@ -105,7 +107,7 @@ describe("server-owned research candidate frontier", () => {
     expect(() => ingestNativeYoutubeSurvey(
       initialResearchCandidateDiscoveryState(),
       nativeSurvey()
-    )).toThrow(/cannot replace the required external scout/u);
+    )).toThrow(/requires a resolved external scout attempt/u);
 
     const reconciled = ingestNativeYoutubeSurvey(external, nativeSurvey());
     const diagnostics = deriveCandidateDiscoveryDiagnostics(reconciled);
@@ -131,6 +133,55 @@ describe("server-owned research candidate frontier", () => {
       program_description_status: "NOT_DESCRIBED"
     });
     expect(candidateDiscoveryReadyForScreening(reconciled)).toBe(true);
+  });
+
+  it("continues native discovery after a terminal external scout boundary", () => {
+    const terminal = markExternalScoutFrontierBoundary(
+      initialResearchCandidateDiscoveryState(),
+      "BLOCKED_TERMINAL",
+      "AUTOMATED_SCOUT_INVALID_PACKET"
+    );
+
+    expect(terminal.external_scout).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      source_candidate_video_ids: [],
+      validated_candidate_video_ids: [],
+      unresolved_candidate_video_ids: []
+    });
+    expect(terminal.external_scout.frontier_id).toMatch(/^[a-f0-9]{64}$/u);
+
+    const input = nativeSurveyInputFromCandidateDiscovery(
+      terminal,
+      "de-identified treatment comparison"
+    );
+    expect(input.searches).toHaveLength(6);
+    expect(input.searches.flatMap(({ direction }) => direction)).toEqual([
+      "general",
+      "benefit",
+      "no_effect",
+      "harm",
+      "discontinuation",
+      "formal_discriminator"
+    ]);
+
+    const discovered = ingestNativeYoutubeSurvey(terminal, nativeSurvey());
+    expect(discovered.native_youtube.status).toBe("COMPLETE");
+    expect(candidateDiscoveryReadyForScreening(discovered)).toBe(true);
+  });
+
+  it("keeps retryable external scout work from being bypassed", () => {
+    const retryable = markExternalScoutFrontierBoundary(
+      initialResearchCandidateDiscoveryState(),
+      "BLOCKED_RETRYABLE",
+      "AUTOMATED_SCOUT_RATE_LIMITED"
+    );
+    expect(() => nativeSurveyInputFromCandidateDiscovery(
+      retryable,
+      "de-identified treatment comparison"
+    )).toThrow(/retryable external scout/u);
+    expect(() => ingestNativeYoutubeSurvey(retryable, nativeSurvey())).toThrow(
+      /retryable external scout/u
+    );
   });
 
   it("fails missing reciprocal links and caller-authored diagnostic fields", () => {

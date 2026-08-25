@@ -115,6 +115,7 @@ const controlledViewSchema = z.object({
   execution_status: z.enum([
     "IN_PROGRESS",
     "BLOCKED_RETRYABLE",
+    "BLOCKED_TERMINAL",
     "BOUNDED",
     "READY_TO_FINALIZE",
     "PROTOCOL_DRIFT"
@@ -131,9 +132,11 @@ const controlledViewSchema = z.object({
     capability: z.string().min(1).max(100),
     result: z.enum([
       "complete",
+      "progress_recorded",
       "semantic_work_recorded",
       "protocol_drift",
-      "blocked_retryable"
+      "blocked_retryable",
+      "blocked_terminal"
     ])
   }).strict().optional(),
   technical_summary: z.object({
@@ -267,9 +270,11 @@ const controlledViewActionSchema: Record<string, unknown> = {
           type: "string",
           enum: [
             "complete",
+            "progress_recorded",
             "semantic_work_recorded",
             "protocol_drift",
-            "blocked_retryable"
+            "blocked_retryable",
+            "blocked_terminal"
           ]
         }
       }
@@ -506,7 +511,7 @@ export function createControlledResearchRoutes(
         research_target: researchTarget,
         diagnosis_status: input.acceptance_challenge_id === undefined
           ? input.diagnosis_status
-          : "diagnosis_not_specified"
+          : "user_supplied_diagnosis"
       },
       await currentProtocolBindings(manifests)
     );
@@ -599,11 +604,11 @@ export function createControlledResearchRoutes(
       );
       commit(input.session_id, current, result.state, {
         capability: result.capability,
-        result: "complete"
+        result: result.transition_result
       });
       return project(input.session_id, result.state, undefined, {
         capability: result.capability,
-        result: "complete"
+        result: result.transition_result
       });
     } catch (error) {
       if (
@@ -749,9 +754,9 @@ function project(
     ? "restart_required" as const
     : semantic !== undefined
       ? "perform_semantic_work" as const
-      : view.output_boundary !== "CONTINUE_RESEARCH" || next === null
+      : view.output_boundary !== "CONTINUE_RESEARCH"
         ? "finalize" as const
-        : view.execution_status === "BLOCKED_RETRYABLE"
+        : next === null
           ? "blocked" as const
           : "continue_research" as const;
   return controlledViewSchema.parse({

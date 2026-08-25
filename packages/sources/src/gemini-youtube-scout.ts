@@ -370,7 +370,7 @@ function baseInteractionRequest(
     input,
     generation_config: {
       max_output_tokens: GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS,
-      thinking_level: "low"
+      thinking_level: "medium"
     },
     response_format: {
       type: "text",
@@ -402,7 +402,7 @@ function compactTransportInstructions(): string {
     "Set packet_name to gemini_youtube_candidate_handoff and packet_version to 2.0.",
     "Each discovery_query_rows entry is exactly [purpose, query]. Return 8–18 unique rows, reproduce every executed query exactly, and cover all five required purposes.",
     "Each candidate_rows entry is exactly 12 strings in this order: [video_id, canonical_url, title, channel, target_distance, provisional_intervention_family, creator_claim_summary, provisional_specific_program, provisional_population_or_stage, provisional_outcome_and_horizon, summary_basis, why_surfaced].",
-    "Return 3–16 unique candidate rows. Use not described for an unavailable program, population/stage, outcome, or horizon.",
+    "For a broad treatment-choice or avoid-procedure target, return 8–16 unique candidate rows spanning materially different programs and trajectories when public candidates exist. For a narrower target, normally return 6–16. Return only 3–5 when the executed searches genuinely surface fewer useful candidates, and state that concrete gap in search_gaps. Use not described for an unavailable program, population/stage, outcome, or horizon.",
     `Set every summary_basis cell to ${GEMINI_YOUTUBE_SUMMARY_BASIS}.`,
     "Set disclosures, in order, to comments_not_retrieved, provider_metadata_not_validated_by_gemini, creator_claims_not_validated, not_medical_advice.",
     "Do not return discovery_queries or candidates objects. AskRigor will reconstruct the canonical object packet and validate every value and relationship."

@@ -1,5 +1,70 @@
 # AskRigor Codex Current State
 
+## 2026-08-25 Phase K3 terminal discovery and acceptance repair candidate
+
+The first real controlled Custom GPT acceptance replay exposed a server-state
+dead end rather than a model-only failure. The server returned
+`CONTINUE_RESEARCH`, denied finalization, and supplied no next capability. The
+controlled projection nevertheless told the GPT to finalize. The encrypted
+checkpoint showed that a useful first Gemini/Spark frontier had been retained
+(eight grounded searches, six source IDs, and two independently validated
+videos), but a later invalid scout attempt changed the operation to terminal
+while leaving the retained frontier retryable. Native YouTube discovery was
+therefore suppressed and required module execution remained disconnected from
+the operations implementing it.
+
+Branch `agent/controller-terminal-boundary-finalization-20260825` repairs the
+controller rather than adding another Custom GPT instruction exception. A
+terminal external-scout boundary now preserves validated candidates and search
+provenance while permitting independent native discovery; retryable work still
+cannot be silently bypassed. Restored checkpoints reconcile operation and
+frontier state. Complete or terminal discovery frontiers can reach screening
+when at least one independently validated candidate exists. Required module
+statuses are projected from their server-owned operation groups. A continue
+state can never become a finalize directive, and a continue state with no
+server-directed work returns a stable terminal-blocked view instead of entering
+the observed loop or throwing an internal exception. Signed transition traces
+now distinguish progress, retryable boundaries, terminal boundaries, and actual
+operation completion. The fixed acceptance fixture enters the controller as a
+specified diagnosis, matching its declared de-identified scenario.
+
+The fixed product-acceptance target is now a concrete regression scenario for
+end-stage hip osteoarthritis. It requires separate resistance, aquatic,
+mobility, gait/movement, cycling/conditioning, multimodal rehabilitation,
+injection, nutrition/supplement, waiting, and surgery trajectories; this is an
+acceptance fixture, not a hip-specific protocol exception. A live pre-merge
+replay of the current low-thinking compact scout ran nine grounded searches
+but returned only four candidates, of which two passed independent identity
+validation and two had channel mismatches. That evidence identified a second
+implementation conflict: the compact transport weakened the richer scout skill
+by inviting only three candidates and forcing low thinking. The candidate now
+uses medium thinking and requests 8–16 materially distinct candidates for broad
+treatment-choice targets while still allowing honest smaller results with a
+recorded gap.
+
+Focused controller and orchestration re-verification passes 51/51, and the
+independent re-review passes 25/25 with no remaining finding in the repaired
+paths. The compact Instructions remain 3,995 characters, SHA-256
+`16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab`.
+The regenerated synchronization ledger SHA-256 is
+`80597b039ffc8e8a483aca6e0424953e70dd3e773ba24c778a9b1c9a51617616`,
+the Action OpenAPI SHA-256 is
+`63ce76bfc7c763a6a5ffb77cba0e9badc17a89608f42ca5c42ce698b1db83681`,
+and the installation-bundle digest is
+`b7e76b819b1ac390cabe9ef97058b0e6f5d6b376644a8a68e1f322eb2abc62ba`.
+The generated Action schema changed only to expose the truthful terminal and
+progress transition values; the Instructions did not change. The exact final
+`npm run verify` passes typecheck, 1,383 tests across 105 passing files with six
+declared skips and one skipped credential-guarded file, and the production
+build. A preceding parallel test checkpoint had one fixed-duration HTTP timeout
+and correctly caught stale generated-artifact hashes; the HTTP test and updated
+release packet passed 59/59 in isolation before the clean exact gate. Lesson
+closeout, PR review, merge, exact deployment, plugin
+synchronization, editor schema refresh, and a fresh signed-in Custom GPT
+acceptance replay remain pending. Public Action and MCP operation counts,
+canonical protocols, provider credentials, retention, and health-policy
+boundaries are unchanged.
+
 ## 2026-08-25 complete plugin package receipt repair candidate
 
 The installed AskRigor plugin now contains two declared skills, but the prior

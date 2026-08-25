@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID,
+  CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET,
   issueCustomGptAcceptanceReceipt,
   verifyCustomGptAcceptanceReceipt
 } from "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
@@ -26,6 +27,23 @@ const protocols = [{
 }] as const;
 
 describe("server-issued Custom GPT product acceptance receipt", () => {
+  it("uses a concrete regression target that cannot pass by pooling exercise", () => {
+    expect(CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET).toContain(
+      "radiographically confirmed end-stage hip osteoarthritis"
+    );
+    expect(CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET).toContain(
+      "specific implementations rather than pooling exercise or conservative care"
+    );
+    expect(CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET).toContain(
+      "progressive resistance training"
+    );
+    expect(CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET).toContain("aquatic exercise");
+    expect(CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET).toContain(
+      "gait or movement retraining"
+    );
+    expect(CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET).toContain("study methods");
+  });
+
   it("binds bundle, protocols, transition trace, permit, report, and challenge without private content", () => {
     const receipt = issueCustomGptAcceptanceReceipt({
       challengeId: CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID,

@@ -40,6 +40,7 @@ import {
   ingestNativeYoutubeSurvey,
   ingestValidatedGeminiFrontier,
   initialResearchCandidateDiscoveryState,
+  markExternalScoutFrontierBoundary,
   researchCandidateDiscoveryStateSchema,
   type CandidateScreeningSubmission
 } from "./research-candidate-frontier.js";
@@ -746,6 +747,7 @@ export const researchSessionViewSchema = z.object({
   execution_status: z.enum([
     "IN_PROGRESS",
     "BLOCKED_RETRYABLE",
+    "BLOCKED_TERMINAL",
     "BOUNDED",
     "READY_TO_FINALIZE",
     "PROTOCOL_DRIFT"
@@ -960,7 +962,7 @@ export function createInitialResearchSessionState(
     authority: "PENDING_SERVER_ROUTER"
   });
 
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     state_version: "4.0",
     research_target: input.research_target,
     diagnosis_status: input.diagnosis_status,
@@ -1049,7 +1051,7 @@ export function applyServerModuleApplicability(
         authority
       };
   }
-  return researchSessionStateSchema.parse({ ...state, modules });
+  return parseProjectedResearchSessionState({ ...state, modules });
 }
 
 export function applyProtocolRecheck(
@@ -1059,7 +1061,7 @@ export function applyProtocolRecheck(
   const state = researchSessionStateSchema.parse(rawState);
   if (state.protocol_binding.currency === "DRIFTED") return state;
   if (sameProtocols(state.protocol_binding.expected, observedCurrent)) return state;
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     protocol_binding: {
       expected: state.protocol_binding.expected,
@@ -1122,7 +1124,7 @@ export function recordAutomatedScoutCompletion(
       : "BLOCKED_TERMINAL" as const;
   const frontier = completion.receipt.candidate_frontier;
 
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     operations: {
       ...state.operations,
@@ -1150,8 +1152,8 @@ export function recordNativeYoutubeDiscovery(
   survey: YoutubeCommunitySurveyOutput
 ): ResearchSessionState {
   const state = requireCurrentProtocols(rawState);
-  if (state.operations.automated_video_scout.status !== "COMPLETE") {
-    throw new Error("Native discovery cannot replace incomplete external scouting");
+  if (!operationCompleteOrTerminal(state.operations.automated_video_scout)) {
+    throw new Error("Native discovery cannot bypass executable external scouting");
   }
   if (survey.research_question !== state.research_target) {
     throw new Error("Native discovery research target does not match the execution");
@@ -1176,7 +1178,7 @@ export function recordNativeYoutubeDiscovery(
     : nativeStatus === "BLOCKED_RETRYABLE"
       ? "BLOCKED_RETRYABLE" as const
       : "BLOCKED_TERMINAL" as const;
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     operations: {
       ...state.operations,
@@ -1195,10 +1197,10 @@ export function recordCandidateScreeningCompletion(
 ): ResearchSessionState {
   const state = requireCurrentProtocols(rawState);
   if (
-    state.operations.automated_video_scout.status !== "COMPLETE" ||
-    state.operations.native_video_discovery.status !== "COMPLETE"
+    !operationCompleteOrTerminal(state.operations.automated_video_scout) ||
+    !operationCompleteOrTerminal(state.operations.native_video_discovery)
   ) {
-    throw new Error("Candidate screening requires both completed discovery frontiers");
+    throw new Error("Candidate screening requires both resolved discovery frontiers");
   }
   if (state.operations.candidate_screening.status === "COMPLETE") {
     throw new Error("Completed candidate screening is immutable");
@@ -1216,7 +1218,7 @@ export function recordCandidateScreeningCompletion(
     candidateDiscovery,
     state.research_target
   );
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     operations: {
       ...state.operations,
@@ -1316,6 +1318,32 @@ export function reconcileRestoredResearchSessionState(
   rawState: ResearchSessionState,
 ): ResearchSessionState {
   let state = researchSessionStateSchema.parse(rawState);
+  const scoutOperation = state.operations.automated_video_scout;
+  if (
+    scoutOperation.status === "BLOCKED_RETRYABLE" ||
+    scoutOperation.status === "BLOCKED_TERMINAL"
+  ) {
+    const candidateDiscovery = markExternalScoutFrontierBoundary(
+      state.candidate_discovery,
+      scoutOperation.status,
+      scoutOperation.boundary!.code
+    );
+    const scout = blockedScoutProjection(
+      state.scout,
+      candidateDiscovery,
+      scoutOperation.boundary!
+    );
+    if (
+      JSON.stringify(candidateDiscovery) !== JSON.stringify(state.candidate_discovery) ||
+      JSON.stringify(scout) !== JSON.stringify(state.scout)
+    ) {
+      state = researchSessionStateSchema.parse({
+        ...state,
+        candidate_discovery: candidateDiscovery,
+        scout
+      });
+    }
+  }
   const videoDepth = reconcileVideoDepthAfterEphemeralLoss(state.video_depth);
   if (JSON.stringify(videoDepth) !== JSON.stringify(state.video_depth)) {
     state = withVideoDepth(state, videoDepth);
@@ -1332,7 +1360,7 @@ export function reconcileRestoredResearchSessionState(
   if (JSON.stringify(bidirectional) !== JSON.stringify(state.bidirectional_iteration)) {
     state = withBidirectionalIteration(state, bidirectional);
   }
-  return researchSessionStateSchema.parse(state);
+  return parseProjectedResearchSessionState(state);
 }
 
 export function recordVideoDepthRestart(
@@ -1607,7 +1635,7 @@ export function executeResearchSessionFinalCompletionAudit(
       authority: "SERVER_EVIDENCE" as const
     }
   };
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     modules,
     operations: { ...state.operations, final_completion_audit: operation },
@@ -1624,20 +1652,45 @@ export function recordAutomatedScoutBoundary(
   const status = parsedBoundary.classification === "RETRYABLE"
     ? "BLOCKED_RETRYABLE" as const
     : "BLOCKED_TERMINAL" as const;
-  return researchSessionStateSchema.parse({
+  const candidateDiscovery = markExternalScoutFrontierBoundary(
+    state.candidate_discovery,
+    status,
+    parsedBoundary.code
+  );
+  const scout = blockedScoutProjection(
+    state.scout,
+    candidateDiscovery,
+    parsedBoundary
+  );
+  return parseProjectedResearchSessionState({
     ...state,
     operations: {
       ...state.operations,
       automated_video_scout: { status, boundary: parsedBoundary }
     },
-    scout: {
-      status: "BLOCKED",
-      candidate_count: 0,
-      validated_candidate_ids: [],
-      unresolved_candidate_ids: [],
-      access_boundary: parsedBoundary
-    }
+    scout,
+    candidate_discovery: candidateDiscovery
   });
+}
+
+function blockedScoutProjection(
+  prior: ResearchSessionState["scout"],
+  candidateDiscovery: ResearchSessionState["candidate_discovery"],
+  boundary: z.output<typeof operationBoundarySchema>
+): ResearchSessionState["scout"] {
+  const external = candidateDiscovery.external_scout;
+  const providerResponseId = external.provider_response_id ?? prior.provider_response_id;
+  return {
+    ...prior,
+    status: "BLOCKED",
+    candidate_count: external.source_candidate_video_ids.length,
+    validated_candidate_ids: external.validated_candidate_video_ids,
+    unresolved_candidate_ids: external.unresolved_candidate_video_ids,
+    access_boundary: boundary,
+    ...(providerResponseId === undefined
+      ? {}
+      : { provider_response_id: providerResponseId })
+  };
 }
 
 export function deriveRequiredNextCapabilities(
@@ -1657,14 +1710,19 @@ export function deriveRequiredNextCapabilities(
 
   const scout = state.operations.automated_video_scout;
   if (isExecutable(scout)) capabilities.push("automated_video_scout");
-  if (scout.status !== "COMPLETE") return unique(capabilities);
+  if (!operationCompleteOrTerminal(scout)) return unique(capabilities);
 
   const nativeDiscovery = state.operations.native_video_discovery;
   if (isExecutable(nativeDiscovery)) capabilities.push("native_video_discovery");
-  const candidateDiagnostics = deriveCandidateDiscoveryDiagnostics(
-    state.candidate_discovery
-  );
-  if (candidateDiagnostics.unresolved_identity_video_ids.length > 0) {
+  if (
+    (
+      state.candidate_discovery.external_scout.status === "BLOCKED_RETRYABLE" &&
+      state.candidate_discovery.external_scout.unresolved_candidate_video_ids.length > 0
+    ) || (
+      state.candidate_discovery.native_youtube.status === "BLOCKED_RETRYABLE" &&
+      state.candidate_discovery.native_youtube.unresolved_candidate_video_ids.length > 0
+    )
+  ) {
     capabilities.push("resolve_candidate_identities");
   }
   if (
@@ -1792,8 +1850,12 @@ export function projectResearchSessionView(
 ): z.output<typeof researchSessionViewSchema> {
   const state = researchSessionStateSchema.parse(rawState);
   const outputBoundary = deriveResearchOutputBoundary(state);
+  const requiredNextCapabilities = deriveRequiredNextCapabilities(state);
   const hasRetryable = Object.values(state.operations).some(({ status }) =>
     status === "BLOCKED_RETRYABLE"
+  );
+  const hasTerminal = Object.values(state.operations).some(({ status }) =>
+    status === "BLOCKED_TERMINAL"
   );
   return researchSessionViewSchema.parse({
     session_id: sessionId,
@@ -1805,6 +1867,8 @@ export function projectResearchSessionView(
         ? "BOUNDED"
         : hasRetryable
           ? "BLOCKED_RETRYABLE"
+          : requiredNextCapabilities.length === 0 && hasTerminal
+            ? "BLOCKED_TERMINAL"
           : "IN_PROGRESS",
     output_boundary: outputBoundary,
     finalization_readiness: deriveResearchFinalizationReadiness(state),
@@ -1894,7 +1958,7 @@ export function projectResearchSessionView(
       reportSynthesisEvidence(state)
     )?.report_digest ?? null,
     final_completion_audit: projectFinalCompletionAuditView(state),
-    required_next_capabilities: deriveRequiredNextCapabilities(state),
+    required_next_capabilities: requiredNextCapabilities,
     finalization_permit: null
   });
 }
@@ -2639,7 +2703,7 @@ function withFormalEvidence(
     ),
     operations.final_completion_audit
   );
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     modules,
     operations,
@@ -2689,7 +2753,7 @@ function withVideoDepth(
     ...lateDraft,
     operations,
   } as ResearchSessionState);
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     modules: projectFinalAuditModule(
       projectBidirectionalModule(state.modules, operations.bidirectional_evidence_return),
@@ -2729,7 +2793,7 @@ function withBoundedEvidence(
     ...lateDraft,
     operations
   } as ResearchSessionState);
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     modules: projectFinalAuditModule(
       projectBidirectionalModule(state.modules, operations.bidirectional_evidence_return),
@@ -2762,7 +2826,7 @@ function withBidirectionalIteration(
     ...lateDraft,
     operations
   } as ResearchSessionState);
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     modules: projectFinalAuditModule(
       projectBidirectionalModule(state.modules, operation),
@@ -2792,7 +2856,7 @@ function withTreatmentFinalization(
     ...draft,
     operations
   } as ResearchSessionState);
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     modules: projectFinalAuditModule(
       state.modules,
@@ -2818,7 +2882,7 @@ function withReport(
     ...draft,
     operations
   } as ResearchSessionState);
-  return researchSessionStateSchema.parse({
+  return parseProjectedResearchSessionState({
     ...state,
     modules: projectFinalAuditModule(state.modules, operations.final_completion_audit),
     operations,
@@ -2990,6 +3054,80 @@ function projectFinalAuditModule(
       authority: "SERVER_EVIDENCE"
     }
   };
+}
+
+function parseProjectedResearchSessionState(input: unknown): ResearchSessionState {
+  const state = researchSessionStateSchema.parse(input);
+  const modules = projectAllResearchModules(state.modules, state.operations);
+  if (JSON.stringify(modules) === JSON.stringify(state.modules)) return state;
+  return researchSessionStateSchema.parse({ ...state, modules });
+}
+
+function projectAllResearchModules(
+  rawModules: ResearchSessionState["modules"],
+  operations: ResearchSessionState["operations"]
+): ResearchSessionState["modules"] {
+  let modules = rawModules;
+  modules = projectOperationGroupModule(modules, "FORUM_SIGNAL", [
+    operations.automated_video_scout,
+    operations.native_video_discovery,
+    operations.candidate_screening,
+    operations.transcript_acquisition,
+    operations.community_discussion_audit,
+    operations.video_evidence_synthesis
+  ]);
+  modules = projectOperationGroupModule(modules, "DIRECT_HUMAN", [
+    operations.formal_evidence_search,
+    operations.accessible_full_text_acquisition,
+    operations.study_method_audit
+  ]);
+  modules = projectOperationGroupModule(modules, "EXTENDED_GREY", [
+    operations.external_study_evidence_audit,
+    operations.linked_replication_and_review_audit,
+    operations.claim_capability_recalculation
+  ]);
+  modules = projectOperationGroupModule(modules, "BIDIRECTIONAL_ITERATION", [
+    operations.bidirectional_evidence_return
+  ]);
+  modules = projectOperationGroupModule(modules, "HRP", Object.entries(operations)
+    .filter(([operationId]) => operationId !== "final_completion_audit")
+    .map(([, operation]) => operation), true);
+  return projectFinalAuditModule(modules, operations.final_completion_audit);
+}
+
+function projectOperationGroupModule(
+  modules: ResearchSessionState["modules"],
+  moduleId: Exclude<ResearchModuleId, "FINAL_COMPLETION_AUDIT">,
+  operations: ResearchSessionState["operations"][ResearchOperationId][],
+  startsInProgress = false
+): ResearchSessionState["modules"] {
+  const current = modules[moduleId];
+  if (current.applicability !== "REQUIRED") return modules;
+  const status = operationGroupExecutionStatus(operations, startsInProgress);
+  if (status === current.execution_status) return modules;
+  return {
+    ...modules,
+    [moduleId]: {
+      ...current,
+      execution_status: status,
+      authority: "SERVER_EVIDENCE"
+    }
+  };
+}
+
+function operationGroupExecutionStatus(
+  operations: ResearchSessionState["operations"][ResearchOperationId][],
+  startsInProgress: boolean
+): ResearchSessionState["modules"][ResearchModuleId]["execution_status"] {
+  if (operations.every(({ status }) => status === "COMPLETE")) return "COMPLETE";
+  if (operations.some(({ status }) =>
+    status === "BLOCKED_RETRYABLE" || status === "BLOCKED_TERMINAL"
+  )) return "BLOCKED";
+  if (
+    startsInProgress ||
+    operations.some(({ status }) => status === "IN_PROGRESS" || status === "COMPLETE")
+  ) return "IN_PROGRESS";
+  return "NOT_STARTED";
 }
 
 function formalEvidenceOperationProjection(
@@ -3782,7 +3920,7 @@ function formalPipelineTerminal(state: ResearchSessionState): boolean {
 }
 
 function requireCurrentProtocols(rawState: ResearchSessionState): ResearchSessionState {
-  const state = researchSessionStateSchema.parse(rawState);
+  const state = parseProjectedResearchSessionState(rawState);
   if (state.protocol_binding.currency !== "CURRENT") {
     throw new Error("Research session protocol binding is no longer current");
   }
