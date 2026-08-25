@@ -1,5 +1,45 @@
 # AskRigor Codex Current State
 
+## 2026-08-25 PR #99 exact deployment; provider capacity and product replay pending
+
+PR #99 merged as `c543cf94360e73937221861667b69f144d2029af`. A
+secret-free Git archive of that exact merge contained 487 tracked files,
+measured 1,637,125 bytes, and had SHA-256
+`ebe5e51a63213369b136df927a4b7e1791ce105e5adfc585768699a50568c053`.
+The server built immutable image
+`askrigor-research:c543cf94360e73937221861667b69f144d2029af`, image ID
+`sha256:dd86174f031dc4c92bae6c7ba380bbe5bdfb23e787a11105b3e11666bfe3b1d1`.
+Only `research-mcp` was recreated; healthy container ID is
+`dd275bca38b7e6ec1733f0b30e3a3b15ecde8d49ccac20a47148a855d4c2e3c1`.
+Caddy was not recreated.
+
+Immediate rollback is image
+`askrigor-research:rollback-c543cf9-predeploy`, preserving image ID
+`sha256:818f5d5dc5b39fc53ada9e5c63c676562f16b8904c82af4f6fb6041b74aa8a0c`,
+plus `/opt/askrigor/compose.yaml.rollback-c543cf9`, SHA-256
+`d710d529f4fb01fa97fc40145101231cfe769a51a5478346ed760ac9e75c5493`.
+The active Compose SHA-256 is
+`b790c1f6d98a2cf6fc5895eaf9b6045f6fd5f410ac93fc3133218df90192e289`.
+
+Public verification passed health, semantic equality with the generated
+five-operation Action schema, the unchanged 21-tool MCP catalog, Universal
+20.5.15 and HRP 20.5.23 exact manifests, and HTTP 401 without Action
+authentication. YouTube now returns a retryable quota boundary even for video
+metadata, confirming that native provider capacity—not Spark candidate
+generation or the controller repair—still blocks a fresh product replay. The
+owner is creating one dedicated YouTube Data API project; sustained additional
+capacity should use Google's formal quota-extension process rather than
+repeated project creation.
+
+The installed personal plugin remains current at
+`0.1.0+codex.20260825134144`: all seven skill/asset files are byte-identical to
+source, and the eighth inventory member differs only because the installed
+manifest carries the intentional cache-buster version. No plugin reinstall is
+required. The remaining Phase K work is secure installation of the replacement
+YouTube key, one Custom GPT editor transaction using the generated Instructions
+and Action URL, and a fresh signed-in acceptance replay yielding the server
+receipt.
+
 ## 2026-08-25 Phase K3 retryable dependency projection repair candidate
 
 PR #98 merged as `ab2433c5d774081dff4fecb2f78600b213b250a2` and that

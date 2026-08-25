@@ -1,6 +1,25 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-25 PR #99 deployment checkpoint
+
+PR #99 merged as `c543cf94360e73937221861667b69f144d2029af` and was
+deployed from an exact 1,637,125-byte Git archive with SHA-256
+`ebe5e51a63213369b136df927a4b7e1791ce105e5adfc585768699a50568c053`.
+The healthy production image ID is
+`sha256:dd86174f031dc4c92bae6c7ba380bbe5bdfb23e787a11105b3e11666bfe3b1d1`;
+only the research service was recreated. Immediate rollback preserves image ID
+`sha256:818f5d5dc5b39fc53ada9e5c63c676562f16b8904c82af4f6fb6041b74aa8a0c`
+and prior Compose SHA-256
+`d710d529f4fb01fa97fc40145101231cfe769a51a5478346ed760ac9e75c5493`.
+
+Public health, the exact five controlled Actions, the unchanged 21-tool MCP
+catalog, protocol manifests, and authentication rejection passed. YouTube
+remains quota-blocked, including a bounded metadata probe. The deployment is
+accepted at the server boundary; product-interface acceptance is still pending
+replacement provider capacity, the editor transaction, and a fresh signed-in
+receipt.
+
 ## 2026-08-25 K3 retryable dependency projection candidate
 
 The first post-PR-#98 signed-in replay reached native YouTube discovery after

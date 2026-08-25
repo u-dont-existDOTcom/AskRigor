@@ -1,5 +1,24 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-25 retry-session repair deployed; fresh acceptance pending
+
+PR #99 merged as `c543cf94360e73937221861667b69f144d2029af` and that
+exact source is live as healthy image ID
+`sha256:dd86174f031dc4c92bae6c7ba380bbe5bdfb23e787a11105b3e11666bfe3b1d1`,
+container `dd275bca38b7`. The source archive SHA-256 is
+`ebe5e51a63213369b136df927a4b7e1791ce105e5adfc585768699a50568c053`.
+Rollback preserves the prior image ID
+`sha256:818f5d5dc5b39fc53ada9e5c63c676562f16b8904c82af4f6fb6041b74aa8a0c`
+and exact prior Compose bytes.
+
+The public boundary passed health, semantic equality with the generated
+five-operation Action schema, 21 MCP tools, exact Universal 20.5.15 and HRP
+20.5.23 manifests, and unauthenticated rejection. A post-deployment YouTube
+video-metadata probe reached the same retryable provider quota boundary, so a
+fresh signed-in acceptance replay remains blocked on replacement native-search
+capacity and the one editor transaction. No product-acceptance receipt exists
+for this deployed revision yet.
+
 ## 2026-08-25 retryable YouTube search boundary; projection repair in progress
 
 PR #98 merged as `ab2433c5d774081dff4fecb2f78600b213b250a2` and was

@@ -1,5 +1,15 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-25 PR #99 server deployment
+
+Exact merge `c543cf94360e73937221861667b69f144d2029af` is live in a
+healthy unprivileged container with retained image/config rollback. Public
+health, five semantically exact controlled Actions, 21 MCP tools, exact
+protocol manifests, and unauthenticated rejection pass. Provider quota still
+blocks native YouTube discovery, so the signed-in Custom GPT replay and its
+server acceptance receipt remain open. The installed personal plugin's complete
+skill/asset content remains current; no reinstall is needed.
+
 ## 2026-08-25 K3 retryable dependency projection candidate
 
 The post-PR-#98 product-interface acceptance replay reached the native YouTube

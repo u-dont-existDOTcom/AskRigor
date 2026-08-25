@@ -835,6 +835,11 @@ sessions. The repair on
 `agent/retryable-controller-resume-20260825` makes retry-blocked work a stable
 same-session product state while preserving explicit later retryability. K3
 also requires restored native-search capacity before another acceptance run.
+PR #99 merged that repair as
+`c543cf94360e73937221861667b69f144d2029af`; the exact merge is live and
+passes the server/public boundary. The remaining K3 gate is replacement
+YouTube capacity, one generated-bundle editor transaction, and a fresh
+signed-in replay with a valid server product-acceptance receipt.
 
 Tasks:
 
