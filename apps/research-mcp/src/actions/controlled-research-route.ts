@@ -199,6 +199,7 @@ const controlledViewActionSchema: Record<string, unknown> = {
       enum: [
         "IN_PROGRESS",
         "BLOCKED_RETRYABLE",
+        "BLOCKED_TERMINAL",
         "BOUNDED",
         "READY_TO_FINALIZE",
         "PROTOCOL_DRIFT"
@@ -611,10 +612,17 @@ export function createControlledResearchRoutes(
         result: result.transition_result
       });
     } catch (error) {
-      if (
-        error instanceof ResearchAdvanceDependencyUnavailableError ||
-        error instanceof ResearchAdvanceNoProgressError
-      ) throw new ControlledDependencyUnavailableError();
+      if (error instanceof ResearchAdvanceNoProgressError) {
+        const stable = projectResearchSessionView(input.session_id, checked);
+        if (
+          stable.execution_status === "BLOCKED_RETRYABLE" &&
+          stable.required_next_capabilities[0] === error.capability
+        ) return project(input.session_id, checked);
+        throw new ControlledDependencyUnavailableError();
+      }
+      if (error instanceof ResearchAdvanceDependencyUnavailableError) {
+        throw new ControlledDependencyUnavailableError();
+      }
       throw error;
     }
   }
@@ -750,13 +758,17 @@ function project(
 ) {
   const view = projectResearchSessionView(sessionId, state);
   const next = view.required_next_capabilities[0] ?? null;
+  const retryBlocked = next !== null &&
+    Object.hasOwn(state.operations, next) &&
+    state.operations[next as keyof ResearchSessionState["operations"]].status ===
+      "BLOCKED_RETRYABLE";
   const directive = view.protocol_binding.currency === "DRIFTED"
     ? "restart_required" as const
     : semantic !== undefined
       ? "perform_semantic_work" as const
       : view.output_boundary !== "CONTINUE_RESEARCH"
         ? "finalize" as const
-        : next === null
+        : next === null || retryBlocked
           ? "blocked" as const
           : "continue_research" as const;
   return controlledViewSchema.parse({

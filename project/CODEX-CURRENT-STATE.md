@@ -1,5 +1,63 @@
 # AskRigor Codex Current State
 
+## 2026-08-25 Phase K3 retryable dependency projection repair candidate
+
+PR #98 merged as `ab2433c5d774081dff4fecb2f78600b213b250a2` and that
+exact commit is live in healthy production container
+`a3cfd14478dd21de58cf64dd29c5aaacf7375ae44714ec5e9030740ea3ffd0ac`.
+Public verification passed five controlled Action operations, the unchanged
+21-tool MCP catalog, exact Universal 20.5.15 and HRP 20.5.23 manifests,
+unauthenticated Action rejection, and a complete YouTube metadata retrieval.
+The installed personal plugin's complete skill/asset inventory remains
+byte-identical to source apart from its intentional cache-buster manifest
+version, so no reinstall was required.
+
+The next fresh signed-in acceptance replay ran for about eleven minutes before
+returning a retryable dependency error and no acceptance receipt. Sanitized
+checkpoint inspection showed that the GPT had created several new sessions
+instead of preserving one. Every recent retryable session stopped at
+`native_video_discovery`; one retained five Gemini candidates. A direct public
+probe then reproduced `youtube_rate_limited` for YouTube search while ordinary
+YouTube video metadata still completed. This proves that Gemini/Spark
+integration and the YouTube credential remained functional; the immediate
+external condition was search quota.
+
+The product defect was broader than quota. The first rate-limited search was
+truthfully recorded as retryable, but the compact projection still returned a
+continue directive. An immediate unchanged retry then became a generic 409
+dependency error, encouraging the GPT to start replacement sessions. Branch
+`agent/retryable-controller-resume-20260825` makes a retry-blocked authoritative
+capability project as stable `blocked` with the same session, digest, and next
+capability. An unchanged explicit retry returns that same HTTP-200 view without
+inventing a transition; a genuinely missing dependency still fails closed.
+The compact Instructions preserve the session, prohibit immediate retry loops
+and replacement sessions, and recover a retryable Action error through one
+same-session status call. The public schema now also includes the already valid
+terminal-blocked execution value.
+
+Focused controller/generated-packet/OpenAPI tests pass 18/18. The exact
+host-boundary `npm run verify` passes typecheck, 1,385 tests across 105 passing
+files with one credential-gated file and six credential-gated tests skipped,
+and the production build. The regenerated Instructions are 4,469 characters,
+SHA-256
+`cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95`;
+the synchronization-ledger SHA-256 is
+`d235742745299d1e8a55dd8936c518136ecfbf90189559ab626f8182580b2b48`;
+Action OpenAPI SHA-256 is
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`;
+and installation-bundle digest is
+`5aafafc5a43fb1d2be58086729154daee128def922735ca78aa2f904aa20652d`.
+Review, merge, exact deployment, editor transaction, and a fresh acceptance
+receipt remain pending. A new dedicated YouTube Data API
+project/key or the provider's quota reset is also required before that replay.
+
+The pre-PR lesson checkpoint was available at
+`2026-08-25T21:36:57.004Z`: 1 open/needs-review candidate, 0 accepted but not
+incorporated, 3 incorporated/closed, and 0 deletion-eligible. No new lesson
+candidate was created because this repair directly implements the already
+incorporated executable-frontier/coherent-retry guidance rather than adding a
+new transferable architecture finding.
+
 ## 2026-08-25 Phase K3 terminal discovery and acceptance repair candidate
 
 The first real controlled Custom GPT acceptance replay exposed a server-state

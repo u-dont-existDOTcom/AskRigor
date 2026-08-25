@@ -1,6 +1,38 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-25 K3 retryable dependency projection candidate
+
+The first post-PR-#98 signed-in replay reached native YouTube discovery after
+Gemini retained candidates, then stopped on a provider search rate limit. The
+server preserved retryability but projected continue, so an unchanged immediate
+retry became a generic dependency error and the GPT created replacement
+sessions. This candidate projects the same authoritative state as stable
+blocked, preserves the session/digest/retry target, and returns the same view on
+an unchanged explicit retry without inventing progress. Missing server
+dependencies still fail closed.
+
+Focused controller/generated-packet/OpenAPI verification passes 18/18. The
+exact host-boundary `npm run verify` passes typecheck, 1,385 tests across 105
+passing files with one credential-gated file and six credential-gated tests
+skipped, and the production build.
+
+The compact Instructions are 4,469 characters, SHA-256
+`cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95`.
+The synchronization ledger SHA-256 is
+`d235742745299d1e8a55dd8936c518136ecfbf90189559ab626f8182580b2b48`;
+the Action OpenAPI SHA-256 is
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`;
+and the installation-bundle digest is
+`5aafafc5a43fb1d2be58086729154daee128def922735ca78aa2f904aa20652d`.
+Fresh product-interface acceptance remains pending restored native-search
+capacity, reviewed merge, exact deployment, and one editor transaction.
+
+The pre-PR lesson checkpoint was available with 1 open/needs-review candidate,
+0 accepted but not incorporated, 3 incorporated/closed, and 0
+deletion-eligible. This repair implements the existing executable-frontier
+lesson; no duplicate lesson candidate was created.
+
 ## 2026-08-25 Phase K3 terminal-discovery repair candidate
 
 The K3 replay exposed a server-state dead end: unfinished research had no next

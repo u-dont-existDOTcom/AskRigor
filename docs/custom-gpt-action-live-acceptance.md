@@ -1,5 +1,51 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-25 retryable YouTube search boundary; projection repair in progress
+
+PR #98 merged as `ab2433c5d774081dff4fecb2f78600b213b250a2` and was
+deployed exactly with retained rollback. The public boundary passed health,
+five semantically exact Action operations, 21 MCP tools, exact protocol
+manifests, unauthorized-write rejection, and a complete YouTube video-metadata
+probe.
+
+The next fresh signed-in product challenge ran for about eleven minutes and
+returned only `research_dependency_unavailable` with `retryable: true`; no
+server acceptance receipt was issued. Sanitized checkpoint status showed
+several replacement sessions at the same retryable
+`native_video_discovery` frontier, including one session that retained five
+Gemini candidates. A direct public YouTube search probe reproduced
+`youtube_rate_limited`, while video metadata still completed. This is negative
+acceptance evidence: Spark scouting worked, but native search quota prevented
+the required independent lane from advancing.
+
+The replay also exposed an integration defect independent of the provider
+quota. A retry-blocked authoritative capability was still projected as
+continue, and an unchanged immediate retry became a generic 409 dependency
+error. Branch `agent/retryable-controller-resume-20260825` projects that state
+as stable blocked while retaining the same session, digest, and retry target.
+An explicit retry after the external condition changes remains executable; an
+unchanged retry returns the same stable view rather than an error or false
+transition. The compact Instructions prohibit immediate retry loops and fresh
+replacement sessions, and recover any remaining retryable Action error through
+one status call on the same session.
+
+Focused controller/generated-packet/OpenAPI verification passes 18/18. The
+exact host-boundary `npm run verify` passes typecheck, 1,385 tests across 105
+passing files with one credential-gated file and six credential-gated tests
+skipped, and the production build. This verifies the repair candidate but does
+not replace the still-required signed-in product replay.
+
+The regenerated Instructions are 4,469 characters, SHA-256
+`cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95`,
+the synchronization-ledger SHA-256 is
+`d235742745299d1e8a55dd8936c518136ecfbf90189559ab626f8182580b2b48`,
+Action OpenAPI SHA-256 is
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`,
+and installation-bundle digest is
+`5aafafc5a43fb1d2be58086729154daee128def922735ca78aa2f904aa20652d`.
+Fresh signed-in acceptance remains required after merge, exact deployment, an
+editor transaction, and restoration of native YouTube search capacity.
+
 ## 2026-08-25 first K3 replay denied; controller repair in progress
 
 The first fresh controlled replay did not produce a product-acceptance receipt.

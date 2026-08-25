@@ -1,5 +1,29 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-25 K3 retryable dependency projection candidate
+
+The post-PR-#98 product-interface acceptance replay reached the native YouTube
+search lane but encountered a real provider quota limit. The current candidate
+keeps the same retryable session and projects a stable blocked result instead
+of encouraging an immediate continue loop or replacement session. A later
+explicit retry remains possible after capacity returns; no blocked state
+authorizes synthesis or finalization.
+
+Focused controller/generated-packet/OpenAPI verification passes 18/18. The
+exact host-boundary `npm run verify` passes typecheck, 1,385 tests across 105
+passing files with one credential-gated file and six credential-gated tests
+skipped, and the production build.
+
+The compact Instructions are 4,469 characters, SHA-256
+`cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95`.
+The Action OpenAPI SHA-256 is
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`;
+the synchronization ledger SHA-256 is
+`d235742745299d1e8a55dd8936c518136ecfbf90189559ab626f8182580b2b48`;
+and the installation-bundle digest is
+`5aafafc5a43fb1d2be58086729154daee128def922735ca78aa2f904aa20652d`.
+Product-interface acceptance is not yet complete.
+
 ## 2026-08-25 Phase K2 controlled Custom GPT projection candidate
 
 Phase K2 replaces the Custom GPT's low-level research tool collection with four

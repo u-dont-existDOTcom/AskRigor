@@ -293,6 +293,165 @@ describe("controlled research Action projection", () => {
     });
   });
 
+  it("returns and preserves a resumable blocked view instead of retry-looping a rate-limited capability", async () => {
+    let nativeCalls = 0;
+    const routes = testRoutes(getProtocolManifest, {
+      automatedScout: async (state) => recordAutomatedScoutBoundary(state, {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "AUTOMATED_SCOUT_INVALID_PACKET",
+        summary: "The external scout reached a terminal boundary."
+      }),
+      nativeDiscovery: async (state) => {
+        nativeCalls += 1;
+        if (nativeCalls > 1) return state;
+        return recordNativeYoutubeDiscovery(state, {
+          provider: "youtube",
+          record_type: "youtube_community_survey",
+          retrieved_at: "2026-08-25T00:00:00.000Z",
+          research_question: state.research_target,
+          access_status: "rate_limited",
+          limitations: ["The provider temporarily refused search requests."],
+          searches: [{
+            directions: ["general"],
+            query: `${state.research_target} treatment experience`,
+            access_status: "rate_limited",
+            pagination: { returned: 0, exhausted: false },
+            limitations: ["Search can be retried after the provider limit clears."],
+            candidate_video_ids: []
+          }],
+          candidates: []
+        });
+      }
+    });
+    const started = await call(routes, "start_research_session", {
+      research_target: "Population-level evidence comparing treatment programs for chronic joint pain",
+      diagnosis_status: "diagnosis_not_specified"
+    });
+    const moduleWork = await completeWorkerPayload(routes, started.body as any);
+    const workerInput = JSON.parse(moduleWork.json);
+    const routed = await call(routes, "continue_research_session", {
+      session_id: workerInput.session_id,
+      state_digest: workerInput.state_digest,
+      worker_payload_receipt: moduleWork.receipt,
+      semantic_result: {
+        contract_version: "askrigor_hermes_semantic_result_v1",
+        session_id: workerInput.session_id,
+        state_digest: workerInput.state_digest,
+        work_type: "module_applicability",
+        submission: {
+          package_version: "askrigor_module_applicability_v1",
+          decisions: workerInput.semantic_work.package.unresolved_module_ids.map(
+            (module_id: (typeof RESEARCH_MODULE_IDS)[number]) => ({
+              module_id,
+              applicability: "REQUIRED",
+              rationale: "Required for the broad comparative fixture."
+            })
+          )
+        }
+      }
+    });
+    const afterRouting = routed.body as any;
+    const afterScout = await call(routes, "continue_research_session", {
+      session_id: afterRouting.session_id,
+      state_digest: afterRouting.state_digest
+    });
+    const scoutView = afterScout.body as any;
+    const firstBlocked = await call(routes, "continue_research_session", {
+      session_id: scoutView.session_id,
+      state_digest: scoutView.state_digest
+    });
+
+    expect(firstBlocked).toMatchObject({
+      status: 200,
+      body: {
+        directive: "blocked",
+        execution_status: "BLOCKED_RETRYABLE",
+        output_boundary: "CONTINUE_RESEARCH",
+        next_capability: "native_video_discovery",
+        last_transition: {
+          capability: "native_video_discovery",
+          result: "blocked_retryable"
+        }
+      }
+    });
+    const blockedView = firstBlocked.body as any;
+    const unchangedRetry = await call(routes, "continue_research_session", {
+      session_id: blockedView.session_id,
+      state_digest: blockedView.state_digest
+    });
+    expect(unchangedRetry).toMatchObject({
+      status: 200,
+      body: {
+        directive: "blocked",
+        execution_status: "BLOCKED_RETRYABLE",
+        output_boundary: "CONTINUE_RESEARCH",
+        next_capability: "native_video_discovery"
+      }
+    });
+    expect((unchangedRetry.body as any).last_transition).toBeUndefined();
+    expect((unchangedRetry.body as any).state_digest).toBe(
+      blockedView.state_digest
+    );
+    expect(nativeCalls).toBe(2);
+  });
+
+  it("still fails closed when a required deterministic dependency is genuinely absent", async () => {
+    const routes = testRoutes(getProtocolManifest, {
+      automatedScout: async (state) => recordAutomatedScoutBoundary(state, {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "AUTOMATED_SCOUT_INVALID_PACKET",
+        summary: "The external scout reached a terminal boundary."
+      })
+    });
+    const started = await call(routes, "start_research_session", {
+      research_target: "Population-level evidence comparing treatment programs for chronic joint pain",
+      diagnosis_status: "diagnosis_not_specified"
+    });
+    const moduleWork = await completeWorkerPayload(routes, started.body as any);
+    const workerInput = JSON.parse(moduleWork.json);
+    const routed = await call(routes, "continue_research_session", {
+      session_id: workerInput.session_id,
+      state_digest: workerInput.state_digest,
+      worker_payload_receipt: moduleWork.receipt,
+      semantic_result: {
+        contract_version: "askrigor_hermes_semantic_result_v1",
+        session_id: workerInput.session_id,
+        state_digest: workerInput.state_digest,
+        work_type: "module_applicability",
+        submission: {
+          package_version: "askrigor_module_applicability_v1",
+          decisions: workerInput.semantic_work.package.unresolved_module_ids.map(
+            (module_id: (typeof RESEARCH_MODULE_IDS)[number]) => ({
+              module_id,
+              applicability: "REQUIRED",
+              rationale: "Required for the broad comparative fixture."
+            })
+          )
+        }
+      }
+    });
+    const afterRouting = routed.body as any;
+    const afterScout = await call(routes, "continue_research_session", {
+      session_id: afterRouting.session_id,
+      state_digest: afterRouting.state_digest
+    });
+    const scoutView = afterScout.body as any;
+    const unavailable = await call(routes, "continue_research_session", {
+      session_id: scoutView.session_id,
+      state_digest: scoutView.state_digest
+    });
+
+    expect(unavailable).toMatchObject({
+      status: 409,
+      body: {
+        error: {
+          code: "research_dependency_unavailable",
+          retryable: true
+        }
+      }
+    });
+  });
+
   it("fails closed for unknown sessions and protocol drift", async () => {
     let drift = false;
     const routes = testRoutes(async (protocol) => {
