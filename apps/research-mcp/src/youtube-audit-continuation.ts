@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 
 import type {
   YoutubeComment,
@@ -10,6 +11,8 @@ import { z } from "zod";
 const TOKEN_VERSION = 1;
 const TOKEN_LIFETIME_MS = 3_600_000;
 const MAX_TOKEN_CHARACTERS = 65_536;
+const MAX_DECODED_PAYLOAD_BYTES = MAX_TOKEN_CHARACTERS * 16;
+const COMPRESSED_PAYLOAD_PREFIX = "z1_";
 const MAX_ANALYSIS_RECORDS = 500;
 const MIN_SECRET_BYTES = 32;
 const MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER;
@@ -18,10 +21,12 @@ const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/;
 const SHA256_BASE64URL_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const MAX_TOP_LEVEL_PAGE_IDENTIFIERS = 20;
 const MAX_REPLY_PAGE_IDENTIFIERS = 100;
-const IDENTIFIER_MEMBERSHIP_BYTES = 2_048;
+const LEGACY_IDENTIFIER_MEMBERSHIP_BYTES = 2_048;
+const IDENTIFIER_MEMBERSHIP_BYTES = 4_096;
 const IDENTIFIER_MEMBERSHIP_BITS = IDENTIFIER_MEMBERSHIP_BYTES * 8;
 const IDENTIFIER_MEMBERSHIP_HASHES = 11;
-const IDENTIFIER_MEMBERSHIP_CHARACTERS = 2_731;
+const LEGACY_IDENTIFIER_MEMBERSHIP_CHARACTERS = 2_731;
+const IDENTIFIER_MEMBERSHIP_CHARACTERS = 5_462;
 
 const boundedInteger = z.number().int().min(0).max(MAX_SAFE_INTEGER);
 const youtubeProviderIdentifierSchema = z.string().min(1).max(512);
@@ -74,11 +79,15 @@ const sampleIdentifierSchema = z.union([
   legacySampleIdentifierSchema
 ]).transform((value) => typeof value === "string" ? value : value.comment_id);
 const identifierMembershipSchema = z.string()
-  .length(IDENTIFIER_MEMBERSHIP_CHARACTERS)
+  .min(LEGACY_IDENTIFIER_MEMBERSHIP_CHARACTERS)
+  .max(IDENTIFIER_MEMBERSHIP_CHARACTERS)
   .regex(BASE64URL_PATTERN)
   .refine((value) => {
     const decoded = Buffer.from(value, "base64url");
-    return decoded.length === IDENTIFIER_MEMBERSHIP_BYTES &&
+    return (
+      decoded.length === LEGACY_IDENTIFIER_MEMBERSHIP_BYTES ||
+      decoded.length === IDENTIFIER_MEMBERSHIP_BYTES
+    ) &&
       decoded.toString("base64url") === value;
   }, { message: "Identifier membership filter is invalid" });
 const replyMismatchSchema = z.object({
@@ -204,7 +213,14 @@ export function encodeYoutubeAuditContinuation(
 ): string {
   validateSecret(secret);
   const parsed = parseState(state);
-  const encodedPayload = Buffer.from(canonicalJson(parsed), "utf8").toString("base64url");
+  const payloadBytes = Buffer.from(canonicalJson(parsed), "utf8");
+  const rawPayload = payloadBytes.toString("base64url");
+  const compressedPayload = `${COMPRESSED_PAYLOAD_PREFIX}${
+    deflateRawSync(payloadBytes, { level: 9 }).toString("base64url")
+  }`;
+  const encodedPayload = compressedPayload.length < rawPayload.length
+    ? compressedPayload
+    : rawPayload;
   const signature = createHmac("sha256", secret)
     .update(encodedPayload)
     .digest("base64url");
@@ -232,7 +248,7 @@ export function decodeYoutubeAuditContinuation(
     parts.length !== 2 ||
     parts[0] === undefined ||
     parts[1] === undefined ||
-    !BASE64URL_PATTERN.test(parts[0]) ||
+    !encodedPayloadCharactersValid(parts[0]) ||
     !BASE64URL_PATTERN.test(parts[1])
   ) {
     throw invalidContinuation("Invalid YouTube audit continuation token");
@@ -247,8 +263,10 @@ export function decodeYoutubeAuditContinuation(
   ) {
     throw invalidContinuation("Invalid YouTube audit continuation token signature");
   }
-  const payloadBytes = Buffer.from(encodedPayload, "base64url");
-  if (payloadBytes.toString("base64url") !== encodedPayload) {
+  let payloadBytes: Buffer;
+  try {
+    payloadBytes = decodePayloadBytes(encodedPayload);
+  } catch {
     throw invalidContinuation("Invalid YouTube audit continuation token payload");
   }
   let payload: unknown;
@@ -275,6 +293,30 @@ export function decodeYoutubeAuditContinuation(
     throw invalidContinuation("Invalid YouTube audit continuation token state");
   }
   return state;
+}
+
+function encodedPayloadCharactersValid(value: string): boolean {
+  return value.startsWith(COMPRESSED_PAYLOAD_PREFIX)
+    ? BASE64URL_PATTERN.test(value.slice(COMPRESSED_PAYLOAD_PREFIX.length))
+    : BASE64URL_PATTERN.test(value);
+}
+
+function decodePayloadBytes(encodedPayload: string): Buffer {
+  if (!encodedPayload.startsWith(COMPRESSED_PAYLOAD_PREFIX)) {
+    const payload = Buffer.from(encodedPayload, "base64url");
+    if (payload.toString("base64url") !== encodedPayload) {
+      throw new Error("Noncanonical continuation payload");
+    }
+    return payload;
+  }
+  const compressed = encodedPayload.slice(COMPRESSED_PAYLOAD_PREFIX.length);
+  const compressedBytes = Buffer.from(compressed, "base64url");
+  if (compressedBytes.toString("base64url") !== compressed) {
+    throw new Error("Noncanonical compressed continuation payload");
+  }
+  return inflateRawSync(compressedBytes, {
+    maxOutputLength: MAX_DECODED_PAYLOAD_BYTES
+  });
 }
 
 export function advanceYoutubeAuditState(
@@ -398,6 +440,20 @@ function parseState(value: unknown): YoutubeVideoAuditContinuationState {
       throw new YoutubeAuditRestartRequiredError(
         "youtube_video_audit_continuation_migration_restart_required",
         "YouTube audit continuation predates the full-corpus identifier-membership upgrade; restart the audit from the video ID",
+        createRestartSnapshot(parsed)
+      );
+    }
+    seenIdentifierMembership = createYoutubeAuditIdentifierMembership(
+      parsed.sample_identifiers
+    );
+  } else if (
+    Buffer.from(seenIdentifierMembership, "base64url").length ===
+      LEGACY_IDENTIFIER_MEMBERSHIP_BYTES
+  ) {
+    if (parsed.sample_identifiers.length !== parsed.records_retrieved_cumulative) {
+      throw new YoutubeAuditRestartRequiredError(
+        "youtube_video_audit_continuation_migration_restart_required",
+        "YouTube audit continuation uses the prior identifier-membership capacity and cannot be upgraded without the exact corpus; restart the audit from the video ID",
         createRestartSnapshot(parsed)
       );
     }
