@@ -18,6 +18,11 @@ const RESEARCH_CONCURRENCY_SCHEMA = actionErrorSchema(
   { const: "action_concurrency_limit_exceeded" },
   true
 );
+const CONTROLLED_RESEARCH_ROUTER_ERROR_SCHEMA = {
+  type: "object",
+  description: "Router-owned rate, concurrency, or response-size error.",
+  additionalProperties: true
+} as const;
 
 export function createActionOpenApiDocument(
   routes: readonly ActionRoute[]
@@ -37,10 +42,16 @@ export function createActionOpenApiDocument(
     if (!route.public) {
       responseSchemas[401] = AUTH_REQUIRED_SCHEMA;
     }
-    if (route.publicResearch === true) {
-      responseSchemas[429] = RESEARCH_RATE_LIMIT_SCHEMA;
-      responseSchemas[502] = RESEARCH_RESPONSE_TOO_LARGE_SCHEMA;
-      responseSchemas[503] = RESEARCH_CONCURRENCY_SCHEMA;
+    if (route.publicResearch === true || route.controlledResearch === true) {
+      responseSchemas[429] = route.controlledResearch === true
+        ? CONTROLLED_RESEARCH_ROUTER_ERROR_SCHEMA
+        : RESEARCH_RATE_LIMIT_SCHEMA;
+      responseSchemas[502] = route.controlledResearch === true
+        ? CONTROLLED_RESEARCH_ROUTER_ERROR_SCHEMA
+        : RESEARCH_RESPONSE_TOO_LARGE_SCHEMA;
+      responseSchemas[503] = route.controlledResearch === true
+        ? CONTROLLED_RESEARCH_ROUTER_ERROR_SCHEMA
+        : RESEARCH_CONCURRENCY_SCHEMA;
     }
 
     const operation: Record<string, unknown> = {
@@ -93,7 +104,8 @@ function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
   return status === 500 ||
     (route.method === "POST" && (status === 400 || status === 413)) ||
     (!route.public && status === 401) ||
-    (route.publicResearch === true && [429, 502, 503].includes(status));
+    ((route.publicResearch === true || route.controlledResearch === true) &&
+      [429, 502, 503].includes(status));
 }
 
 function actionErrorSchema(

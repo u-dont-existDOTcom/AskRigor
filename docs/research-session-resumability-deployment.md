@@ -1,8 +1,8 @@
 # Research-session resumability deployment runbook
 
-Status: Phase G reviewed configuration; execute during the later private-
-interface/release transaction, not as an independent change to the current
-public service
+Status: Phase G reviewed configuration; the same store now supports the Phase
+K2 controlled Custom GPT projection when configured. Activate and verify it in
+the reversible K3 candidate deployment, then close it in Phase L.
 
 ## Fixed topology
 
@@ -33,8 +33,9 @@ The two directories must not be the same path or nested inside each other.
 ## Protected configuration
 
 Add these names to the existing root-owned mode-`0600`
-`/opt/askrigor/runtime.env` only when the private Phase H interface is ready to
-instantiate the file-backed store:
+`/opt/askrigor/runtime.env` when the controlled Custom GPT projection is ready
+to instantiate the file-backed store. The separate Phase H names remain off
+unless that private interface is independently activated:
 
 | Name | Exact boundary |
 | --- | --- |
@@ -70,10 +71,10 @@ and never receives `/opt/askrigor/runtime.env`.
    service and verify that its root filesystem remains read-only, it remains
    non-root with dropped capabilities/no-new-privileges, and its public
    inventory is unchanged.
-6. During Phase H, add the separate checkpoint read-write mount and three
-   protected configuration names, then instantiate the encrypted store only for
-   the private orchestration boundary. The public Action/MCP paths remain on
-   their existing storage behavior unless a later reviewed phase says otherwise.
+6. Add the separate checkpoint read-write mount and three protected
+   configuration names. The private orchestration and four authenticated
+   controlled Custom GPT routes use the encrypted controller store; low-level
+   public MCP behavior remains unchanged.
 7. Start a synthetic de-identified session, advance it to handle-dependent
    work, recreate the application container, and verify the same opaque session
    resumes with only lost ephemeral work reopened. Verify that finalization

@@ -118,7 +118,7 @@ describe("heterodox discovery and weighting matrix", () => {
       readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
-    for (const surface of [project, forum, skill, generated]) {
+    for (const surface of [project, forum, skill]) {
       for (const fragment of [
         "steelman without inflation",
         "get_youtube_transcript",
@@ -138,7 +138,7 @@ describe("heterodox discovery and weighting matrix", () => {
     expect(forum).toContain("relevant timestamp");
     expect(forum).toContain("No content-verified watchlist candidate located");
 
-    for (const compactSurface of [skill, generated]) {
+    for (const compactSurface of [skill]) {
       for (const compactControl of [
         "how I cured/reversed/fixed",
         "are hooks",
@@ -153,6 +153,9 @@ describe("heterodox discovery and weighting matrix", () => {
         expect(compactSurface, compactControl).toContain(compactControl);
       }
     }
+    expect(generated).toContain("perform only the exact bounded work");
+    expect(generated).toContain("treatment-program distinctions");
+    expect(generated).toContain("never turn all exercise");
 
     expect(forum).toContain("Prepare up to six YouTube searches **per discovery batch**");
     expect(forum).toContain("rewrite queries, use cursors, or start another batch");

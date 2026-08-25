@@ -39,7 +39,6 @@ async function loadInstructionSurfaces(): Promise<string[]> {
     readFile(rootFile("project/PROJECT_INSTRUCTIONS.md"), "utf8"),
     readFile(rootFile("project/FORUM_SIGNAL_MODULE.md"), "utf8"),
     readFile(rootFile("skills/askrigor/SKILL.md"), "utf8"),
-    readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
   ]);
 }
 
@@ -101,5 +100,14 @@ describe("Custom GPT compact citation-display regressions", () => {
       expect(surface).toContain("adjacent source");
       expect(surface).toContain("does not entail");
     }
+  });
+
+  it("keeps the compact renderer source-linked without duplicating the threshold policy", async () => {
+    const generated = await readFile(
+      rootFile("docs/custom-gpt-instructions.md"), "utf8"
+    );
+    expect(generated).toContain("Hyperlink claims to their source records");
+    expect(generated).toContain("Mark an inference briefly as inferred");
+    expect(generated).toContain("render only `finalization.reader_facing.report`");
   });
 });

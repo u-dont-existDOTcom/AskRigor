@@ -1,7 +1,7 @@
 # Phase K controlled research and report projection
 
-Status: owner-directed implementation plan; execute as Phase K sub-gates from
-current `main`
+Status: K0 and K1 merged; K2 implemented and locally verified; K2 PR/merge and
+K3 deployment/product acceptance remain
 
 ## Why this repair is required
 
@@ -80,8 +80,9 @@ no-progress loops are rejected.
 
 ## K1 — bounded evidence projection and report gate
 
-Status: implemented and locally verified on the K1 candidate; final diff,
-lesson closeout, PR, hosted checks, and merge remain required.
+Status: merged through PR #86 at
+`42c36ae70651e8c33e7da665cc706a285fe83118`; hosted and exact post-merge
+checks passed.
 
 - [x] Preserve bounded transcript-verified creator findings with timestamps and
   transcript receipt binding.
@@ -115,22 +116,27 @@ checkpoint or reader packet.
 
 ## K2 — compact public Action projection
 
-- Add the four authenticated controlled Action routes over the same controller.
-- Remove low-level research operations from the generated Custom GPT Action
+- [x] Add the four authenticated controlled Action routes over the same controller.
+- [x] Remove low-level research operations from the generated Custom GPT Action
   document only after K0/K1 pass; retain server/MCP routes needed by controlled
   internal execution and technical clients.
-- Generate compact Custom GPT Instructions from a dedicated checked-in source,
+- [x] Generate compact Custom GPT Instructions from a dedicated checked-in source,
   not from the full plugin skill. The GPT starts/resumes, performs only the
   exact returned semantic package when asked, continues while required, and
   renders only the server-authorized reader packet.
-- Keep Spark/Gemini an internal automated high-recall scout. No user handoff,
+- [x] Keep Spark/Gemini an internal automated high-recall scout. No user handoff,
   pasted packet, or Gemini key enters the GPT.
-- Replace caller-authored product-acceptance JSON with a signed server-issued
+- [x] Replace caller-authored product-acceptance JSON with a signed server-issued
   acceptance receipt containing the exact bundle/protocol/session transition
   trace, final boundary, permit digest, report digest, fixed synthetic challenge
   identity, and no private content.
-- Prove the GPT projection is exactly four research reads plus the lesson write,
+- [x] Prove the GPT projection is exactly four research reads plus the lesson write,
   while the MCP catalog remains 21 tools.
+
+Local K2 gate: typecheck/build pass; the complete suite passes 1,362 tests with
+six credential-guarded skips; public-site validation covers four pages and the
+deployment regression passes 28/28. The K2 PR, hosted review, merge, and K3
+real-product gate remain required.
 
 ## K3 — reversible candidate deployment and real product acceptance
 

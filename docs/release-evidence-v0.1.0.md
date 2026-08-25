@@ -1,6 +1,37 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-25 Phase K2 controlled Custom GPT projection candidate
+
+Phase K2 replaces the Custom GPT's low-level research tool collection with four
+authenticated controller operations plus the isolated consented lesson write.
+The server now issues bounded, signed, resumable semantic-work packages; rejects
+stale state, forged evidence receipts, caller-authored completion fields, and
+premature finalization; and keeps automatic Gemini/Spark scouting inside the
+controller. The 21-tool MCP catalog is unchanged.
+
+The dedicated compact Instructions are 3,995 characters, SHA-256
+`16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab`.
+The synchronization ledger SHA-256 is
+`624002ab904cb3593da8751039f26809214c8bc03907dfeb66a6542e62389c99`;
+the candidate Action OpenAPI SHA-256 is
+`6acfdc3b0b464746a6961dce738407216c42bc9978f9c01b66fb9198bbe91524`;
+and the installation-bundle digest is
+`c62820b1cd3cc431a445049545d7e4bff812b124702431544a7b9adfafafdf2d`.
+Local verification is complete: `npm run test:run` and the test stage inside
+`npm run verify` each passed 1,362 tests across 105 passing files, with one
+credential-guarded file and six credential-guarded tests skipped; typecheck and
+build passed. `npm run test:site` validated all four public pages and
+`npm run test:site-deploy` passed 28/28. The pre-PR lesson checkpoint was
+available with 1 open/needs-review candidate, 0 accepted-not-incorporated, 3
+incorporated/closed, and 0 deletion-eligible. No new lesson candidate was
+created: K2 implements the already-approved server-authority roadmap and did
+not establish a new transferable failure.
+
+This is repository candidate evidence only. K3 still requires reviewed merge,
+reversible exact-commit deployment, one editor import, and fresh signed-in
+product replays using server-issued acceptance receipts.
+
 ## 2026-08-23 deployed automated Gemini YouTube scout
 
 PR #67 merged as `8b26dcef2d4f9b892df909391f8253545dd67399` and is

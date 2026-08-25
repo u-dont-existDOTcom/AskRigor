@@ -88,14 +88,16 @@ complete XML protocol.
   script
 - `public-review-automation.md`: bounded direct-MCP and Responses API review runner
 - `tool-inventory-v0.1.0.json`: generated tool inventory
+- `../project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md`: dedicated compact source
+  for the Custom GPT worker/display contract; complete research policy and
+  completion authority remain server-side
 - `custom-gpt-instructions.md` (repository path
-  `docs/custom-gpt-instructions.md`): sole generated Custom GPT instruction
+  `docs/custom-gpt-instructions.md`): generated Custom GPT instruction
   artifact; Knowledge remains empty
-- `custom-gpt-action-openapi.json`: generated 25-read/one-write Action schema;
-  `get_youtube_transcript`, `assess_treatment_landscape_coverage`,
-  `scout_gemini_youtube_candidates`, and
-  `validate_gemini_youtube_candidate_handoff` are Action-only and MCP remains
-  frozen at 21 tools
+- `custom-gpt-action-openapi.json`: generated four-operation controlled
+  research Action schema plus the separately consequential lesson Action;
+  low-level retrieval and Gemini scouting remain server-internal and MCP
+  remains frozen at 21 tools
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff
@@ -169,6 +171,10 @@ complete XML protocol.
 - `superpowers/plans/2026-08-24-phase-i-hermes-worker-pilot-implementation.md`:
   reviewed-upstream reuse decision, bounded worker loop, exact-package
   validation, response guard, benchmark, and Phase I verification plan
+- `superpowers/plans/2026-08-25-execution-control-phase-k2-implementation.md`:
+  compact four-Action Custom GPT projection, signed bounded semantic-work
+  transport, server-issued product acceptance, hostile tests, and deployment
+  handoff
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

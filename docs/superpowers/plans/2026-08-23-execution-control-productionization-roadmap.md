@@ -827,12 +827,12 @@ Tasks:
   of the checkpoint.
 - [x] Require a current report packet for final completion and bind its digest
   into the signed finalization permit.
-- [ ] Decide the minimum public Action projection after Hermes/n8n pilots prove the controller.
-- [ ] Keep the external provider coordinator internal during the first accepted server-owned release; do not expose separate Crossref/FORRT/PubPeer/etc. model-callable checkboxes.
-- [ ] If a later technical-audit operation is exposed, expose at most one composite read-only operation and never let caller-submitted output unlock session completion.
-- [ ] Keep public educational scope and current product-policy boundary.
-- [ ] Shrink model-side workflow responsibility: start/resume, obey next required step, render server-authorized result, expose technical state only on request.
-- [ ] Update Instructions/OpenAPI/synchronization ledgers only after the exact product projection is reviewed.
+- [x] Decide the minimum public Action projection after Hermes/n8n pilots prove the controller.
+- [x] Keep the external provider coordinator internal during the first accepted server-owned release; do not expose separate Crossref/FORRT/PubPeer/etc. model-callable checkboxes.
+- [x] If a later technical-audit operation is exposed, expose at most one composite read-only operation and never let caller-submitted output unlock session completion. No separate technical-audit operation is exposed in K2.
+- [x] Keep public educational scope and current product-policy boundary.
+- [x] Shrink model-side workflow responsibility: start/resume, obey next required step, render server-authorized result, expose technical state only on request.
+- [x] Update Instructions/OpenAPI/synchronization ledgers only after the exact product projection is reviewed.
 - [ ] Run fresh signed-in editor import and Preview acceptance.
 - [ ] Run repeated fresh chats on the known failure shape and unrelated held-out treatment questions; record actual operation IDs and finalization result rather than a manually authored acceptance fixture.
 - [ ] Include product cases where a study is retracted/corrected, FORRT has a linked repetition, and optional providers are unconfigured; output must remain plain-language and provider-scoped.

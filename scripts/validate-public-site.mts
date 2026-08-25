@@ -33,8 +33,8 @@ const pageRequirements = [
       "ClinicalTrials.gov",
       "Crossref",
       "YouTube Data API v3",
-      "active request",
-      "does not persist",
+      "During research",
+      "does not create user accounts",
       "connected client",
       "operational metadata"
     ]

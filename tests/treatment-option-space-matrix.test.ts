@@ -96,18 +96,9 @@ describe("treatment option-space prompt matrix", () => {
     }
 
     for (const fragment of [
-      "option-space ledger",
-      "the named approach",
-      "diagnosis alternatives",
-      "nonaction/natural history",
-      "conventional nonsurgical",
-      "lifestyle/rehab/mechanical",
-      "relevant heterodox/adjunct",
-      "procedural/surgical",
-      "across plausible classes",
-      "A request to omit alternatives limits execution, not applicability",
-      "educational evidence comparison",
-      "never a recommendation or ranking for a person",
+      "server owns protocol loading, research state, required work, completion",
+      "Keep distinct treatments and distinct implementations separate",
+      "Never diagnose, prescribe, choose or rank treatment for a person",
     ]) {
       expect(generated, fragment).toContain(fragment);
     }
@@ -117,6 +108,7 @@ describe("treatment option-space prompt matrix", () => {
       "proposed care",
       "no-verdict gate",
       "No verdict",
+      "option-space ledger",
     ]) {
       expect(generated, fragment).not.toContain(fragment);
     }
