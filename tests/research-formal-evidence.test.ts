@@ -96,6 +96,48 @@ const PROTOCOLS = {
 };
 
 describe("controller-owned formal evidence frontier", () => {
+  it("allows initial semantic screening to activate study integrity work", async () => {
+    let before = formalSession();
+    const executors = formalExecutors();
+    for (const hypothesis of before.formal_evidence.hypotheses) {
+      before = await executeResearchSessionFormalSearch(
+        before,
+        hypothesis.hypothesis_id,
+        executors
+      );
+    }
+    const screening = createFormalEvidenceScreeningWorkPackage(
+      before.formal_evidence
+    );
+    const after = recordResearchSessionFormalScreening(before, {
+      package_version: screening.package_version,
+      formal_frontier_digest: screening.formal_frontier_digest,
+      decisions: screening.sources.map(({ source_id }) => ({
+        source_id,
+        source_kind: "SCIENTIFIC_STUDY",
+        decision_importance: "DECISION_IMPORTANT",
+        possible_decision_impact: "confidence_changing",
+        rationale: "Fixture study selected for full-text, methods, and integrity review."
+      }))
+    });
+
+    expect(after.formal_evidence.sources.every(({ external_evidence }) =>
+      external_evidence.status === "NOT_STARTED"
+    )).toBe(true);
+    expect(() => assertResearchSessionTransition(before, after)).not.toThrow();
+
+    const screenedTerminal = structuredClone(after);
+    screenedTerminal.formal_evidence.sources[0]!.external_evidence.status =
+      "NOT_APPLICABLE";
+    const illegallyReopened = structuredClone(screenedTerminal);
+    illegallyReopened.formal_evidence.sources[0]!.external_evidence.status =
+      "NOT_STARTED";
+    expect(() => assertResearchSessionTransition(
+      screenedTerminal,
+      illegallyReopened
+    )).toThrow();
+  });
+
   it("rejects a changed hypothesis core or frontier digest", () => {
     const formal = initializeResearchFormalEvidence(
       screenedCandidates(),

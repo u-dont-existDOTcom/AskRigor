@@ -3279,10 +3279,16 @@ function assertFormalEvidenceTransition(
     ) {
       throw new Error("Completed source-linked method audit is immutable");
     }
-    if (
-      ["COMPLETE", "BOUNDED_NONRETRYABLE", "NOT_APPLICABLE"].includes(
+    const priorExternalEvidenceIsTerminal =
+      ["COMPLETE", "BOUNDED_NONRETRYABLE"].includes(
         prior.external_evidence.status
-      ) &&
+      ) ||
+      (
+        prior.external_evidence.status === "NOT_APPLICABLE" &&
+        prior.screening_status === "SCREENED"
+      );
+    if (
+      priorExternalEvidenceIsTerminal &&
       JSON.stringify({ ...prior.external_evidence, linked_work: undefined }) !==
         JSON.stringify({ ...later.external_evidence, linked_work: undefined })
     ) {
