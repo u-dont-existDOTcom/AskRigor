@@ -139,6 +139,76 @@ describe("server-owned selected-video depth", () => {
     expect(restored.discussions[1]!.status).toBe("COMPLETE");
   });
 
+  it("migrates restored retryable chains that have no continuation handle", () => {
+    const depth = initializeResearchVideoDepth(screenedCandidates());
+    const transcriptRetry = transcriptOutput(VIDEO_ONE, {
+      complete: false,
+      returned: 0,
+      cumulative: 0,
+      retryable: true
+    });
+    const discussionRetry = discussionOutput(VIDEO_ONE, {
+      complete: false,
+      retryable: true
+    });
+    const legacy = researchVideoDepthStateSchema.parse({
+      ...depth,
+      transcripts: depth.transcripts.map((record) =>
+        record.source.video_id !== VIDEO_ONE
+          ? record
+          : {
+              source: record.source,
+              status: "BLOCKED_RETRYABLE",
+              attempt: 0,
+              receipt: transcriptRetry.coverage_receipt,
+              boundary: {
+                classification: "RETRYABLE",
+                code: "TRANSCRIPT_RETRYABLE_BOUNDARY",
+                summary: "Legacy retryable transcript without a handle."
+              }
+            }
+      ),
+      discussions: depth.discussions.map((record) =>
+        record.source.video_id !== VIDEO_ONE
+          ? record
+          : {
+              source: record.source,
+              status: "BLOCKED_RETRYABLE",
+              attempt: 0,
+              segment_index: discussionRetry.segment_index,
+              corpus_rolling_sha256: discussionRetry.corpus_rolling_sha256,
+              receipt: {
+                ...discussionRetry.coverage_receipt,
+                continuation_recommended: false
+              },
+              boundary: {
+                classification: "RETRYABLE",
+                code: "DISCUSSION_RETRYABLE_BOUNDARY",
+                summary: "Legacy retryable discussion without a handle."
+              }
+            }
+      )
+    });
+
+    const restored = reconcileVideoDepthAfterEphemeralLoss(legacy);
+    expect(restored.transcripts[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        code: "TRANSCRIPT_RETRYABLE_WITHOUT_CONTINUATION_ON_RESTORE"
+      }
+    });
+    expect(restored.discussions[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        code: "DISCUSSION_RETRYABLE_WITHOUT_CONTINUATION_ON_RESTORE"
+      }
+    });
+    expect(restored.transcripts[0]).not.toHaveProperty("receipt");
+    expect(restored.discussions[0]).not.toHaveProperty("receipt");
+  });
+
   it("binds semantic screening to the exact discovered frontier and every identity", () => {
     const discovered = discoveredCandidates();
     const work = createCandidateScreeningWorkPackage(discovered);

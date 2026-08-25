@@ -655,21 +655,31 @@ export function reconcileVideoDepthAfterEphemeralLoss(
 ): ResearchVideoDepthState {
   let state = researchVideoDepthStateSchema.parse(rawState);
   for (const record of [...state.transcripts]) {
-    if (record.continuation_handle === undefined) continue;
+    const restartCode = record.continuation_handle !== undefined
+      ? "TRANSCRIPT_HANDLE_LOST_ON_RESTORE"
+      : record.status === "BLOCKED_RETRYABLE"
+        ? "TRANSCRIPT_RETRYABLE_WITHOUT_CONTINUATION_ON_RESTORE"
+        : undefined;
+    if (restartCode === undefined) continue;
     state = restartResearchVideoDepthChain(
       state,
       "transcript_acquisition",
       record.source.video_id,
-      "TRANSCRIPT_HANDLE_LOST_ON_RESTORE",
+      restartCode,
     );
   }
   for (const record of [...state.discussions]) {
-    if (record.continuation_handle === undefined) continue;
+    const restartCode = record.continuation_handle !== undefined
+      ? "DISCUSSION_HANDLE_LOST_ON_RESTORE"
+      : record.status === "BLOCKED_RETRYABLE"
+        ? "DISCUSSION_RETRYABLE_WITHOUT_CONTINUATION_ON_RESTORE"
+        : undefined;
+    if (restartCode === undefined) continue;
     state = restartResearchVideoDepthChain(
       state,
       "community_discussion_audit",
       record.source.video_id,
-      "DISCUSSION_HANDLE_LOST_ON_RESTORE",
+      restartCode,
     );
   }
   return researchVideoDepthStateSchema.parse(state);
