@@ -500,6 +500,63 @@ describe("transport-independent research-session advancement", () => {
       "continuation_handle"
     );
   });
+
+  it("restarts repeated retryable discussion boundaries that have no continuation handle", async () => {
+    const selected = RESEARCH_FIXTURE_VIDEO_IDS[0]!;
+    let state = await depthReadyState();
+    state = (await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      {
+        videoDepth: {
+          getTranscript: async () => transcriptOutput(selected),
+          auditDiscussion: async () => discussionOutput(selected)
+        }
+      }
+    )).state;
+
+    const rawRetry = discussionOutput(selected, {
+      complete: false,
+      retryable: true
+    });
+    const retryWithoutHandle = {
+      ...rawRetry,
+      continuation_recommended: false,
+      coverage_receipt: {
+        ...rawRetry.coverage_receipt,
+        continuation_recommended: false
+      }
+    };
+    for (const expectedAttempt of [1, 2]) {
+      const result = await advanceResearchSessionDeterministically(
+        SESSION_ID,
+        state,
+        {
+          videoDepth: {
+            getTranscript: async () => transcriptOutput(selected),
+            auditDiscussion: async () => retryWithoutHandle
+          }
+        }
+      );
+      state = result.state;
+      expect(result).toMatchObject({
+        capability: "community_discussion_audit",
+        state_changed: true
+      });
+      expect(state.video_depth.discussions[0]).toMatchObject({
+        status: "RESTART_REQUIRED",
+        attempt: expectedAttempt,
+        boundary: {
+          classification: "RETRYABLE",
+          code: "DISCUSSION_RETRYABLE_WITHOUT_CONTINUATION_RESTART_REQUIRED"
+        }
+      });
+      expect(state.video_depth.discussions[0]).not.toHaveProperty("receipt");
+      expect(state.video_depth.discussions[0]).not.toHaveProperty(
+        "continuation_handle"
+      );
+    }
+  });
 });
 
 function fixtureActionRoute(operationId: string, body: unknown): ActionRoute {

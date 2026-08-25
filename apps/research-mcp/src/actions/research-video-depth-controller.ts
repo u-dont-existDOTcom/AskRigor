@@ -384,18 +384,23 @@ export function ingestTranscriptActionOutput(
       receipt
     };
   } else if (receipt.error_retryable === true || receipt.access_status === "rate_limited") {
-    next = {
-      source: previous.source,
-      status: "BLOCKED_RETRYABLE",
-      attempt: previous.attempt,
-      ...(nextHandle === undefined ? {} : { continuation_handle: nextHandle }),
-      receipt,
-      boundary: {
-        classification: "RETRYABLE",
-        code: "TRANSCRIPT_RETRYABLE_BOUNDARY",
-        summary: "The selected transcript chain has retryable provider work remaining."
-      }
-    };
+    next = nextHandle === undefined
+      ? restartTranscriptRecord(
+          previous,
+          "TRANSCRIPT_RETRYABLE_WITHOUT_CONTINUATION_RESTART_REQUIRED"
+        )
+      : {
+          source: previous.source,
+          status: "BLOCKED_RETRYABLE",
+          attempt: previous.attempt,
+          continuation_handle: nextHandle,
+          receipt,
+          boundary: {
+            classification: "RETRYABLE",
+            code: "TRANSCRIPT_RETRYABLE_BOUNDARY",
+            summary: "The selected transcript chain has retryable provider work remaining."
+          }
+        };
   } else if (!receipt.pagination.exhausted && nextHandle !== undefined) {
     if (nextHandle === suppliedHandle) {
       throw new Error("Successful transcript continuation cannot replay the same handle");
@@ -468,8 +473,29 @@ export function ingestDiscussionActionOutput(
     assertDiscussionReceiptAdvance(previous, output);
   }
   let next: z.output<typeof discussionDepthRecordSchema>;
+  const explicitlyRetryable = receipt.error_retryable === true;
   if (restartRequiredCode !== undefined) {
     next = restartDiscussionRecord(previous, restartRequiredCode);
+  } else if (explicitlyRetryable) {
+    next = output.continuation_token === undefined
+      ? restartDiscussionRecord(
+          previous,
+          "DISCUSSION_RETRYABLE_WITHOUT_CONTINUATION_RESTART_REQUIRED"
+        )
+      : {
+          source: previous.source,
+          status: "BLOCKED_RETRYABLE",
+          attempt: previous.attempt,
+          segment_index: output.segment_index,
+          corpus_rolling_sha256: output.corpus_rolling_sha256,
+          continuation_handle: output.continuation_token,
+          receipt,
+          boundary: {
+            classification: "RETRYABLE",
+            code: "DISCUSSION_RETRYABLE_BOUNDARY",
+            summary: "The selected discussion has retryable provider work remaining."
+          }
+        };
   } else if (
     receipt.receipt.synthesis_lock === "pass" &&
     receipt.receipt.completion_state === "api_visible_complete"
@@ -504,23 +530,26 @@ export function ingestDiscussionActionOutput(
     };
   } else if (receipt.receipt.synthesis_lock === "pass") {
     throw new Error("Discussion synthesis lock passed without a terminal completion state");
-  } else if (receipt.error_retryable === true || output.access_status === "rate_limited") {
-    next = {
-      source: previous.source,
-      status: "BLOCKED_RETRYABLE",
-      attempt: previous.attempt,
-      segment_index: output.segment_index,
-      corpus_rolling_sha256: output.corpus_rolling_sha256,
-      ...(output.continuation_token === undefined
-        ? {}
-        : { continuation_handle: output.continuation_token }),
-      receipt,
-      boundary: {
-        classification: "RETRYABLE",
-        code: "DISCUSSION_RETRYABLE_BOUNDARY",
-        summary: "The selected discussion has retryable provider work remaining."
-      }
-    };
+  } else if (output.access_status === "rate_limited") {
+    next = output.continuation_token === undefined
+      ? restartDiscussionRecord(
+          previous,
+          "DISCUSSION_RATE_LIMIT_WITHOUT_CONTINUATION_RESTART_REQUIRED"
+        )
+      : {
+          source: previous.source,
+          status: "BLOCKED_RETRYABLE",
+          attempt: previous.attempt,
+          segment_index: output.segment_index,
+          corpus_rolling_sha256: output.corpus_rolling_sha256,
+          continuation_handle: output.continuation_token,
+          receipt,
+          boundary: {
+            classification: "RETRYABLE",
+            code: "DISCUSSION_RETRYABLE_BOUNDARY",
+            summary: "The selected discussion has retryable provider work remaining."
+          }
+        };
   } else if (output.continuation_recommended) {
     next = {
       source: previous.source,
@@ -555,16 +584,9 @@ export function restartResearchVideoDepthChain(
     const previous = state.transcripts[index]!;
     assertRestartableRecord(previous.status, "Transcript");
     const transcripts = [...state.transcripts];
-    transcripts[index] = transcriptDepthRecordSchema.parse({
-      source: previous.source,
-      status: "RESTART_REQUIRED",
-      attempt: previous.attempt + 1,
-      boundary: {
-        classification: "RETRYABLE",
-        code: normalizeBoundaryCode(code, "TRANSCRIPT_RESTART_REQUIRED"),
-        summary: "The transcript continuation was discarded; restart only this selected video."
-      }
-    });
+    transcripts[index] = transcriptDepthRecordSchema.parse(
+      restartTranscriptRecord(previous, code)
+    );
     return researchVideoDepthStateSchema.parse({ ...state, transcripts });
   }
   const index = state.discussions.findIndex(({ source }) => source.video_id === videoId);
@@ -844,6 +866,22 @@ function restartDiscussionRecord(
       classification: "RETRYABLE",
       code: normalizeBoundaryCode(code, "DISCUSSION_RESTART_REQUIRED"),
       summary: "The discussion continuation was discarded; restart only this selected video."
+    }
+  });
+}
+
+function restartTranscriptRecord(
+  previous: z.output<typeof transcriptDepthRecordSchema>,
+  code: string
+): z.output<typeof transcriptDepthRecordSchema> {
+  return transcriptDepthRecordSchema.parse({
+    source: previous.source,
+    status: "RESTART_REQUIRED",
+    attempt: previous.attempt + 1,
+    boundary: {
+      classification: "RETRYABLE",
+      code: normalizeBoundaryCode(code, "TRANSCRIPT_RESTART_REQUIRED"),
+      summary: "The transcript continuation was discarded; restart only this selected video."
     }
   });
 }

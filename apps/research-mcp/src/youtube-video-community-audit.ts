@@ -290,11 +290,16 @@ export async function auditYoutubeVideoCommunity(
     !mismatchBlock &&
     segment.error === undefined &&
     segment.next_cursor === undefined;
-  const retryLater = segment.next_cursor !== undefined && segment.error?.retryable === true;
-  const terminalAccessBoundary = ACCESS_BOUNDARIES.has(segment.access_status) && !retryLater;
-  const restartRequired = segment.next_cursor !== undefined &&
+  const retryableProviderBoundary = segment.error?.retryable === true;
+  const retryLater = segment.next_cursor !== undefined && retryableProviderBoundary;
+  const retryFromStart = segment.next_cursor === undefined && retryableProviderBoundary;
+  const terminalAccessBoundary = ACCESS_BOUNDARIES.has(segment.access_status) &&
+    !retryableProviderBoundary;
+  const restartRequired = retryFromStart || (
+    segment.next_cursor !== undefined &&
     segment.error?.retryable === false &&
-    !terminalAccessBoundary;
+    !terminalAccessBoundary
+  );
   const canAutoContinue =
     !apiVisibleComplete &&
     !terminalAccessBoundary &&
@@ -439,7 +444,7 @@ export async function auditYoutubeVideoCommunity(
     ? "api_visible_complete"
     : terminalAccessBoundary
       ? segment.access_status
-      : retryLater
+      : retryableProviderBoundary
         ? segment.access_status
         : "partial";
   const acceptedTopLevelThisCall =
