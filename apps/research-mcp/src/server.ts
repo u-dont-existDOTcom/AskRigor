@@ -27,6 +27,7 @@ import {
   PUBLIC_RATE_LIMIT,
   publicServerIsEnabled,
   researchFinalizationSigningConfigFromEnv,
+  researchSessionCheckpointConfigFromEnv,
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
   SERVICE_NAME,
@@ -41,9 +42,8 @@ import {
   validateActionRoutes
 } from "./actions/router.js";
 import type { ActionRoute } from "./actions/types.js";
-import { createResearchActionRoutes } from "./actions/research-routes.js";
-import { createActionOnlyResearchRoutes } from
-  "./actions/youtube-transcript-route.js";
+import { createControlledResearchRoutes } from
+  "./actions/controlled-research-route.js";
 import { validateProtocolActionContinuationSecret } from
   "./actions/protocol-continuation.js";
 import { createEnabledActionRoutes } from "./actions/runtime.js";
@@ -69,6 +69,10 @@ import {
 } from "./private-research-orchestration.js";
 import { createResearchSessionRuntimeDependencies } from
   "./research-session-runtime.js";
+import { createResearchSessionStore } from
+  "./actions/research-session-store.js";
+import { createFileResearchSessionStore } from
+  "./actions/file-research-session-store.js";
 import type { N8nControlPlaneHandler } from "./n8n-control-plane-route.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
@@ -171,17 +175,43 @@ export function createAskRigorHttpServer(
     researchActionsAreEnabled();
   const privateOrchestrationEnabled = options.privateOrchestrationEnabled ??
     privateResearchOrchestrationIsEnabled();
+  const researchActionContinuationSecret =
+    options.researchActionContinuationSecret ??
+    process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET ??
+    "";
   if (researchActionsEnabled) {
     validateProtocolActionContinuationSecret(
-      options.researchActionContinuationSecret ??
-      process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET ??
-      ""
+      researchActionContinuationSecret
     );
   }
   const actionApiKey = options.actionApiKey ?? actionApiKeyFromEnv();
+  const controlledRuntime = researchActionsEnabled && options.actionRoutes === undefined
+    ? createResearchSessionRuntimeDependencies()
+    : undefined;
+  const controlledFinalizationSigning = controlledRuntime === undefined
+    ? undefined
+    : researchFinalizationSigningConfigFromEnv() ?? {
+        signingSecret: researchActionContinuationSecret,
+        keyId: "controlled-action-v1"
+      };
+  const controlledCheckpointConfig = controlledRuntime === undefined
+    ? undefined
+    : researchSessionCheckpointConfigFromEnv();
+  const controlledStore = controlledRuntime === undefined
+    ? undefined
+    : controlledCheckpointConfig === undefined
+      ? createResearchSessionStore()
+      : createFileResearchSessionStore(controlledCheckpointConfig);
   const configuredActionRoutes = options.actionRoutes ?? [
     ...(researchActionsEnabled
-      ? [...createResearchActionRoutes(), ...createActionOnlyResearchRoutes()]
+      ? createControlledResearchRoutes({
+          store: controlledStore!,
+          deterministicAdvanceDependencies: controlledRuntime!.deterministic,
+          semanticAdvanceDependencies: controlledRuntime!.semantic,
+          continuationSigningSecret: researchActionContinuationSecret,
+          finalizationSigningSecret: controlledFinalizationSigning!.signingSecret,
+          finalizationKeyId: controlledFinalizationSigning!.keyId
+        })
       : []),
     ...createDefaultActionRoutes()
   ];
@@ -189,11 +219,11 @@ export function createAskRigorHttpServer(
   const actionRoutes = createEnabledActionRoutes({
     researchEnabled: researchActionsEnabled,
     lessonsEnabled: actionsEnabled,
-    research: configuredActionRoutes.filter(({ publicResearch }) =>
-      publicResearch === true
+    research: configuredActionRoutes.filter(({ publicResearch, controlledResearch }) =>
+      publicResearch === true || controlledResearch === true
     ),
-    lessons: configuredActionRoutes.filter(({ publicResearch }) =>
-      publicResearch !== true
+    lessons: configuredActionRoutes.filter(({ publicResearch, controlledResearch }) =>
+      publicResearch !== true && controlledResearch !== true
     )
   });
   const trustedClientIpHeader = options.trustedClientIpHeader ??

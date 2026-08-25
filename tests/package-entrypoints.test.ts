@@ -10,14 +10,15 @@ const WORKSPACE_PACKAGES = [
 
 describe("workspace package entrypoints", () => {
   it("imports every built workspace package through Node resolution", () => {
-    for (const packageName of WORKSPACE_PACKAGES) {
-      const result = spawnSync(
-        process.execPath,
-        ["--input-type=module", "--eval", `await import("${packageName}")`],
-        { encoding: "utf8" }
-      );
+    const imports = WORKSPACE_PACKAGES
+      .map((packageName) => `await import(${JSON.stringify(packageName)});`)
+      .join("\n");
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "--eval", imports],
+      { encoding: "utf8" }
+    );
 
-      expect(result.status, result.stderr).toBe(0);
-    }
+    expect(result.status, result.stderr).toBe(0);
   }, 10_000);
 });

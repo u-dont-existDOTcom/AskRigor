@@ -29,32 +29,20 @@ describe("AskRigor public site", () => {
     expect(result.internalLinks).toBe(35);
   });
 
-  it("discloses the Custom GPT research Action as the same transient retrieval path", async () => {
+  it("discloses the server-controlled Custom GPT research path and bounded checkpoint", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
-    expect(privacy).toContain("Custom GPT Actions");
-    expect(privacy).toContain("same transient research retrieval path");
-    expect(privacy).toContain("search terms and public identifiers");
-    expect(privacy).toContain("public provider metadata, comment text, and caption segments");
-    expect(privacy).toContain("Custom GPT-only read");
-    expect(privacy).toContain("caption segments");
-    expect(privacy).toContain("no transcript text is retained between requests");
-    expect(privacy).toContain("does not log full request or response bodies");
+    expect(privacy).toContain("four authenticated Actions");
+    expect(privacy).toContain("server-controlled research session");
+    expect(privacy).toContain("screened, de-identified population-level research target");
+    expect(privacy).toContain("performs low-level public-source retrieval and automated Gemini scouting");
+    expect(privacy).toContain("Signed state and work receipts");
+    expect(privacy).toContain("Requests and responses are not written to application logs");
     expect(privacy).toContain("Direct MCP continuation remains client-carried and stateless");
-    expect(privacy).toContain("Custom GPT YouTube continuations use short unguessable handles");
-    expect(privacy).toContain("The comment-audit map stores a signed minimized token");
-    expect(privacy).toContain("The transcript map stores only provider cursor");
-    expect(privacy).toContain("next expected segment index");
-    expect(privacy).toContain("4 MiB");
-    expect(privacy).toContain("process-memory state");
-    expect(privacy).toContain("no longer than one hour");
-    expect(privacy).toContain("2,048 handles");
-    expect(privacy).toContain("16 MiB");
-    expect(privacy).toContain("no comment/reply or caption text");
-    expect(privacy).toContain("Neither map is written to disk or application logs");
-    expect(privacy).toContain("restart, expiry, or capacity eviction");
-    expect(privacy).toContain("requires that video chain to restart");
-    expect(privacy).toContain("single application replica");
-    expect(privacy).toContain("must not be horizontally scaled");
+    expect(privacy).toContain("encrypted single-host checkpoint");
+    expect(privacy).toContain("72 hours without use");
+    expect(privacy).toContain("seven days after creation");
+    expect(privacy).toContain("Raw chat, provider bodies, transcripts, comments");
+    expect(privacy).toContain("excluded from backups");
     expect(privacy).toContain("separately consented lesson-feedback path");
   });
 
@@ -100,7 +88,7 @@ describe("AskRigor public site", () => {
       "public YouTube author/channel IDs", "display names", "comment and reply text",
       "public caption text", "automatically generated", "unofficial YouTube interface",
       "NCBI/PubMed", "Europe PMC", "Unpaywall", "ClinicalTrials.gov", "Crossref", "YouTube Data API v3",
-      "active request", "does not persist", "connected client", "operational metadata",
+      "During research", "does not create user accounts", "connected client", "operational metadata",
       "Infrastructure providers may retain",
       "access, correction, or deletion",
       "joel@askrigor.com"
@@ -127,7 +115,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 23, 2026",
+      "Effective August 25, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",

@@ -241,6 +241,31 @@ chat so the new tool metadata and Project instructions are active.
 
 ## Custom GPT research Action bridge
 
+The current source candidate replaces the Custom GPT's low-level research tool
+graph with four authenticated controller operations:
+`start_research_session`, `continue_research_session`,
+`get_research_session_status`, and `finalize_research_report`. The GPT converts
+a request to a de-identified population-level target, follows one server
+directive at a time, and performs only an exact receipt-bound semantic work
+package. Low-level Gemini/Spark discovery, YouTube transcript and community
+retrieval, open-full-text acquisition, study/review checking, evidence
+iteration, treatment-program coverage, and completion checks run inside the
+server. Only server-authorized finalization can release a reader report.
+
+Generate the exact four-operation schema, compact Instructions, runtime bundle,
+and digest ledger with `npm run generate:custom-gpt`. Install
+`docs/custom-gpt-instructions.md`, keep Knowledge empty, and import
+`https://mcp.askrigor.com/actions/openapi.json` with API Key → Bearer
+authentication. The separately consented lesson write remains the fifth Action.
+The MCP surface is independent and remains exactly 21 read-only tools. Current
+deployment and signed product-acceptance state is recorded in
+`docs/custom-gpt-action-live-acceptance.md`.
+
+### Historical pre-controller deployment chronology
+
+The remainder of this section records prior low-level Action releases for audit
+and rollback context. It is not the current editor installation contract.
+
 Production now exposes the frozen 17 read-only research operations as public
 Custom GPT Actions from merge
 `dd73d7dccb6bc3f96b964aafa6a2f74f96ab16c4`. The direct server acceptance has
@@ -349,6 +374,14 @@ installation. Disabling the Action or revoking its repository-scoped App stops
 new lessons while MCP remains available and unchanged.
 
 ## Public-review status
+
+The Phase K2 source candidate is not a public-release claim. It requires a
+reviewed merge, exact-commit deployment, source-identical privacy publication,
+five-operation editor import, empty Knowledge, plugin/MCP currency checks, and
+a fresh signed-in acceptance challenge whose signed server receipt verifies.
+The canonical current gate is recorded in `docs/public-review-checklist.md`.
+
+### Historical public-review chronology
 
 The deployed MCP connector serves the exact existing 17-tool read-only inventory
 and the separate Action route. Production serves deployed HRP `20.5.18`

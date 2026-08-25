@@ -2,40 +2,27 @@ import { readFile } from "node:fs/promises";
 
 import { describe, expect, it } from "vitest";
 
-import { createActionOpenApiDocument } from
-  "../apps/research-mcp/src/actions/openapi.js";
-import { createResearchActionRoutes } from
-  "../apps/research-mcp/src/actions/research-routes.js";
-import { createActionOnlyResearchRoutes } from
-  "../apps/research-mcp/src/actions/youtube-transcript-route.js";
-import { createEnabledActionRoutes } from
-  "../apps/research-mcp/src/actions/runtime.js";
-import { createDefaultActionRoutes } from
-  "../apps/research-mcp/src/lessons/runtime.js";
-import { generateActionOpenApiJson } from
-  "../scripts/generate-action-openapi.mts";
+import { generateCustomGptActionOpenApiJson } from
+  "../scripts/generate-custom-gpt-packet.mts";
 
 const committedDocumentUrl = new URL("../docs/custom-gpt-action-openapi.json", import.meta.url);
 
 describe("reproducible Custom GPT Action OpenAPI", () => {
   it("generates the committed deterministic two-space JSON document with a trailing newline", async () => {
-    const routes = completeActionRoutes();
-    const document = createActionOpenApiDocument(routes);
-    const generated = generateActionOpenApiJson();
+    const generated = generateCustomGptActionOpenApiJson();
     const committed = await readFile(committedDocumentUrl, "utf8");
 
-    expect(generated).toBe(`${JSON.stringify(document, null, 2)}\n`);
     expect(committed).toBe(generated);
-    expect(JSON.parse(committed)).toEqual(document);
+    expect(JSON.parse(committed)).toEqual(JSON.parse(generated));
   });
 
-  it("describes 25 public reads and one private consequential lesson operation without secrets", () => {
-    const document = createActionOpenApiDocument(completeActionRoutes()) as {
+  it("describes four authenticated controlled reads and one private consequential lesson operation without secrets", () => {
+    const document = JSON.parse(generateCustomGptActionOpenApiJson()) as {
       paths: Record<string, Record<string, Record<string, unknown>>>;
     };
     const operation = document.paths["/actions/lessons"]?.post;
 
-    expect(Object.keys(document.paths)).toHaveLength(26);
+    expect(Object.keys(document.paths)).toHaveLength(5);
     expect(operation).toMatchObject({
       operationId: "submit_lesson_candidate",
       "x-openai-isConsequential": true,
@@ -70,8 +57,23 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
         },
       },
     });
+    const controlled = Object.values(document.paths)
+      .flatMap(Object.values)
+      .filter((candidate) => candidate.operationId !== "submit_lesson_candidate");
+    expect(controlled).toHaveLength(4);
+    expect(controlled.every((candidate) =>
+      JSON.stringify(candidate.security) === JSON.stringify([{ bearerAuth: [] }]) &&
+      candidate["x-openai-isConsequential"] === false &&
+      ["200", "400", "401", "409", "413", "422", "429", "500", "502", "503"]
+        .every((status) => Object.hasOwn(candidate.responses as object, status))
+    )).toBe(true);
 
     const serialized = JSON.stringify(document);
+    expect(serialized.length).toBeLessThan(90_000);
+    expect(serialized).toContain("Server-authoritative finalization decision");
+    expect(serialized).toContain("videos_worth_watching");
+    expect(serialized).not.toContain('"semantic_result":{}');
+    expect(serialized).not.toContain('"worker_payload_receipt":{}');
     expect(objectKeys(document)).not.toEqual(expect.arrayContaining(["example", "examples"]));
     expect(serialized).not.toContain("test-action-key");
     expect(serialized).not.toContain("test-openai-key");
@@ -80,15 +82,6 @@ describe("reproducible Custom GPT Action OpenAPI", () => {
     expect(arrayValuedItemsPaths(document)).toEqual([]);
   });
 });
-
-function completeActionRoutes() {
-  return createEnabledActionRoutes({
-    researchEnabled: true,
-    lessonsEnabled: true,
-    research: [...createResearchActionRoutes(), ...createActionOnlyResearchRoutes()],
-    lessons: createDefaultActionRoutes()
-  });
-}
 
 function objectKeys(value: unknown): string[] {
   if (Array.isArray(value)) return value.flatMap(objectKeys);

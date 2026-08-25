@@ -3,7 +3,7 @@
 These source-controlled files serve two distinct ChatGPT installation surfaces. Updating GitHub or the MCP server does not update an existing ChatGPT Project automatically, and it does not update an existing Custom GPT automatically.
 
 `AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs.
-`CUSTOM_GPT_ACTION_MODULE.md` is a generator source, not a direct ChatGPT installation input.
+`CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md` is the dedicated Custom GPT generator source. `CUSTOM_GPT_ACTION_MODULE.md` is retained for historical/technical MCP projection context; neither is pasted separately into the editor.
 
 ## ChatGPT Project with MCP
 
@@ -17,16 +17,17 @@ This MCP Project package is the read-only research integration. The lesson submi
 
 In the Custom GPT editor, copy only the generated
 `../docs/custom-gpt-instructions.md`, keep Knowledge empty, and import
-`https://mcp.askrigor.com/actions/openapi.json`. The generator combines the
-reviewed AskRigor skill with `CUSTOM_GPT_ACTION_MODULE.md`; do not paste that
-source module separately. Action authentication and import are separate from the MCP Project connection. The generated instructions alone do not create or
-authorize an Action.
+`https://mcp.askrigor.com/actions/openapi.json`. The generator projects the
+dedicated controlled instruction source and exactly four authenticated research
+operations plus the consented lesson write. Low-level research operations stay
+inside the server and the 21-tool MCP catalog. Action authentication and import are separate from the MCP Project connection. The generated instructions alone do not create or authorize an Action.
 
 After changing either installation, start a new chat. Existing chats do not acquire the new standing-consent behavior, and consent from an old chat never carries into a new one.
 
-ChatGPT remains the reasoning engine. AskRigor MCP supplies deterministic
-read-only retrieval and stateless continuation; only the separately installed,
-consequential Custom GPT Action can submit an anonymized lesson candidate.
+ChatGPT performs only the exact bounded semantic work package returned by the
+controller. AskRigor owns retrieval, session advancement, and finalization;
+only the separately installed consequential lesson Action can submit an
+anonymized lesson candidate.
 
 These conversation files route work but do not replace or summarize the complete
 canonical `../protocols/HRP_Full.xml` or

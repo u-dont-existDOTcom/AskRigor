@@ -25,7 +25,8 @@ describe("AskRigor ChatGPT Project router", () => {
     const repositoryControlFiles = new Set([
       "AGENTS.md",
       "CODEX-CURRENT-STATE.md",
-      "CUSTOM_GPT_ACTION_MODULE.md"
+      "CUSTOM_GPT_ACTION_MODULE.md",
+      "CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md"
     ]);
     expect(files.filter((file) => !repositoryControlFiles.has(file)).sort()).toEqual([
       "FORUM_SIGNAL_MODULE.md",
@@ -36,7 +37,8 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(files.filter((file) => repositoryControlFiles.has(file)).sort()).toEqual([
       "AGENTS.md",
       "CODEX-CURRENT-STATE.md",
-      "CUSTOM_GPT_ACTION_MODULE.md"
+      "CUSTOM_GPT_ACTION_MODULE.md",
+      "CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md"
     ]);
 
     const readme = await projectFile("README.md");
@@ -44,7 +46,10 @@ describe("AskRigor ChatGPT Project router", () => {
       "`AGENTS.md` and `CODEX-CURRENT-STATE.md` are repository-control files, not ChatGPT installation inputs."
     );
     expect(readme).toContain(
-      "`CUSTOM_GPT_ACTION_MODULE.md` is a generator source, not a direct ChatGPT installation input."
+      "`CUSTOM_GPT_ACTION_MODULE.md` is retained for historical/technical MCP projection context"
+    );
+    expect(readme).toContain(
+      "`CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md` is the dedicated Custom GPT generator source"
     );
   });
 

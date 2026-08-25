@@ -1,7 +1,8 @@
 # Research-session resumability threat model
 
-Status: Phase G approved implementation boundary; production activation remains
-part of the later private-interface and release phases
+Status: Phase G approved implementation boundary; Phase K2 projects the same
+controller through four authenticated Custom GPT Actions. Exact deployment and
+restart acceptance remain K3/Phase L gates.
 
 ## Scope and assets
 
@@ -64,6 +65,9 @@ session identifier, query, health detail, or user content.
 | Worker death, provider retry, or elapsed time becomes completion | AskRigor retains state; retries and no-progress transitions are bounded; retry exhaustion becomes `STUCK`; blocked/owner-gate/incomplete paths return non-success and Stop And Error; clocks never satisfy evidence gates | Retry limits may require operator continuation after an infrastructure outage; availability is not converted into evidence |
 | n8n execution history leaks research content | The adapter returns no research target, inner session ID, source body, semantic package, credential, or report; execution saving is disabled in the ephemeral pilot; risky code/command/file nodes and embedded credentials are rejected | Host/network metadata and the opaque n8n execution ID remain visible to the local operator |
 | n8n becomes an accidental durable research database | Phase J uses an ephemeral AskRigor-side store and a disposable n8n database only; restart reconstructs safe control state from current AskRigor server authority | Production persistence, backup, retention, or horizontal operation remains unapproved and requires a new privacy decision |
+| Custom GPT forges or skips semantic evidence | Work is bound to exact session/state/work/payload digests and delivered through a sequential signed chunk chain; the terminal receipt is required with a strict semantic result before state can advance | The GPT may still reason incorrectly inside a bounded package; strict schemas and later controller gates limit but do not prove semantic truth |
+| Custom GPT invents or replays product acceptance | Acceptance is issued only by the server for one fixed synthetic challenge, is valid only during its signed one-hour interval, and signs the exact bundle, protocol identities, transition trace, final boundary, permit, report, and expiry | The receipt proves controlled execution and bundle identity. Product acceptance additionally requires observed signed-in UI execution; a direct API client could run the same fixed challenge and receipt verification alone does not prove which client invoked it |
+| Application restart during the fixed acceptance challenge | The challenge marker and compact transition trace are bounded process memory; loss prevents receipt issuance and the fixed challenge must restart from the beginning | The encrypted research checkpoint may survive, but a pre-restart and post-restart trace are never combined into product-acceptance evidence |
 
 ## Retention, deletion, backup, and recovery
 
@@ -100,9 +104,9 @@ check time.
    key, retention rule, or backup lifecycle.
 5. Horizontal replicas/shared storage remain unsupported and require a new
    owner-reviewed design.
-6. Production activation requires the later private-interface/release gates,
-   exact mount verification, non-secret configuration-name checks, and restart
-   acceptance. Phase G does not add a public Action or MCP operation.
+6. Production activation requires exact mount verification, non-secret
+   configuration-name checks, and restart acceptance. Phase K2 changes only the
+   authenticated Custom GPT Action projection; it does not change MCP tools.
 
 ## Rollback
 

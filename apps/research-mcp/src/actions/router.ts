@@ -53,6 +53,18 @@ export function validateActionRoutes(routes: readonly ActionRoute[]): void {
       throw new Error(`Invalid public research Action route: ${route.operationId}`);
     }
     if (
+      route.controlledResearch === true &&
+      (
+        route.method !== "POST" ||
+        route.public !== false ||
+        route.consequential !== false ||
+        route.publicResearch === true ||
+        route.path !== `/actions/research/${route.operationId}`
+      )
+    ) {
+      throw new Error(`Invalid controlled research Action route: ${route.operationId}`);
+    }
+    if (
       route.maximumRequestBytes !== undefined &&
       (
         route.method !== "POST" ||
@@ -108,7 +120,7 @@ export async function dispatchActionRequest(
   }
 
   if (
-    route.publicResearch === true &&
+    (route.publicResearch === true || route.controlledResearch === true) &&
     !options.publicRateLimiter.consume(options.clientIp)
   ) {
     writeJson(response, 429, {
@@ -138,7 +150,7 @@ export async function dispatchActionRequest(
     }
   }
 
-  const releasePermit = route.publicResearch === true
+  const releasePermit = route.publicResearch === true || route.controlledResearch === true
     ? options.publicConcurrencyLimiter.tryAcquire()
     : () => {};
   if (releasePermit === undefined) {
@@ -229,7 +241,8 @@ function isRouterOwnedStatus(route: ActionRoute, status: number): boolean {
   return status === 500 ||
     (route.method === "POST" && (status === 400 || status === 413)) ||
     (!route.public && status === 401) ||
-    (route.publicResearch === true && [429, 502, 503].includes(status));
+    ((route.publicResearch === true || route.controlledResearch === true) &&
+      [429, 502, 503].includes(status));
 }
 
 function isHttpToken(value: string): boolean {

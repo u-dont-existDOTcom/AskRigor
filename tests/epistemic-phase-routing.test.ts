@@ -128,10 +128,12 @@ describe("canonical epistemic phase and heuristic-attractor routing", () => {
     expect(router).toContain("DEVELOPMENT=`YES/NO`");
     expect(router).toContain("HRP cannot erase this distinction");
 
-    // The Custom GPT projection deliberately loads the complete runtime
-    // protocols instead of embedding a competing or version-pinned excerpt.
-    expect(generatedInstructions).toContain("Load Universal first; use its activation boundary");
-    expect(generatedInstructions).toContain("then load HRP. HRP wins");
+    // The compact GPT delegates canonical protocol loading and precedence to
+    // the server-owned controller instead of embedding another excerpt.
+    expect(generatedInstructions).toContain(
+      "server owns protocol loading, research state, required work, completion"
+    );
+    expect(generatedInstructions).toContain("Do not recreate those rules");
     expect(generatedInstructions).not.toMatch(/Universal (?:20\.5\.14|20\.5\.15)/u);
   });
 

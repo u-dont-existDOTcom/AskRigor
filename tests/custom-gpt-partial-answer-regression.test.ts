@@ -59,10 +59,12 @@ describe("Custom GPT partial-answer regressions", () => {
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
 
-    for (const surface of [project, forum, skill, generated]) {
+    for (const surface of [project, forum, skill]) {
       expect(surface).toContain("A partial or bounded answer does not waive executable required work");
       expect(surface).toContain("one unavailable full text or inaccessible private community");
     }
+    expect(generated).toContain("If it is denied, follow its required next work");
+    expect(generated).toContain("do not draft a substitute answer");
   });
 
   it("requires program-specific inference and discovery on every instruction surface", async () => {
@@ -73,14 +75,14 @@ describe("Custom GPT partial-answer regressions", () => {
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
 
-    for (const surface of [project, forum, skill, generated]) {
+    for (const surface of [project, forum, skill]) {
       expect(surface).toContain("program not described");
     }
     expect(project).toContain("Fingerprint components");
     expect(forum).toContain("cannot support a class-wide benefit, failure, comparison, or ranking");
     expect(forum).toContain("materially distinct program hypotheses");
 
-    for (const compactSurface of [skill, generated]) {
+    for (const compactSurface of [skill]) {
       expect(compactSurface).toContain("Fingerprint components");
       expect(compactSurface).toContain("no class-wide benefit/failure/ranking follows");
       expect(compactSurface).toContain("Mismatched comparators narrow inference");
@@ -93,6 +95,8 @@ describe("Custom GPT partial-answer regressions", () => {
     for (const fullSurface of [project, forum]) {
       expect(fullSurface).toContain("weak or mismatched comparator narrows inference");
     }
+    expect(generated).toContain("Keep distinct treatments and distinct implementations separate");
+    expect(generated).toContain("never turn all exercise");
   });
 
   it("keeps machine enums out of ordinary user-facing prose", async () => {
@@ -103,10 +107,12 @@ describe("Custom GPT partial-answer regressions", () => {
       readFile(rootFile("docs/custom-gpt-instructions.md"), "utf8"),
     ]);
 
-    for (const surface of [project, forum, skill, generated]) {
+    for (const surface of [project, forum, skill]) {
       expect(surface).toContain("Translate internal status codes into plain language");
       expect(surface).toContain("only when the user explicitly asks for a technical audit or debug export");
     }
+    expect(generated).toContain("Do not expose internal status codes");
+    expect(generated).toContain("unless the user explicitly requests a technical audit");
 
     const userFacingStart = forum.indexOf("## Required user-facing output");
     const internalStart = forum.indexOf("## Internal completion record");
@@ -127,12 +133,11 @@ describe("Custom GPT partial-answer regressions", () => {
     );
 
     for (const required of [
-      "call `scout_gemini_youtube_candidates`",
-      "Never ask the user to copy a packet",
-      "Only an absent operation means stale Actions",
-      "hard-block synthesis below 8 fully audited videos/6 audited programs",
-      "A missing title/link is a render failure",
-      "Ordinary answers omit API-visible"
+      "Never ask the user to copy a Gemini packet",
+      "server owns protocol loading, research state, required work, completion",
+      "perform only the exact bounded work",
+      "render only `finalization.reader_facing.report`",
+      "Do not expose internal status codes"
     ]) {
       expect(generated).toContain(required);
     }

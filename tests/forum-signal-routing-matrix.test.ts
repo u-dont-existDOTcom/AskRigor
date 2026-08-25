@@ -120,16 +120,10 @@ describe("Forum Signal routing prompt matrix", () => {
     }
 
     for (const fragment of [
-      "For general population-level health research, require Forum Signal",
-      "treatment alternatives",
-      "avoiding joint replacement or other surgery",
-      "A request to exclude forums limits execution, not applicability",
-      "simple definition or terminology",
-      "pure chemistry or mechanism with no real-world outcome or safety claim",
-      "emergency triage before stabilization",
-      "no meaningful user-experience corpus",
-      "If uncertain, require it",
-      "never a recommendation or ranking for a person",
+      "server owns protocol loading, research state, required work, completion",
+      "Follow only the returned `directive`",
+      "Gemini/Spark scouting, transcripts, comments",
+      "Never diagnose, prescribe, choose or rank treatment for a person",
     ]) {
       expect(generated, fragment).toContain(fragment);
     }
@@ -139,6 +133,7 @@ describe("Forum Signal routing prompt matrix", () => {
       "now versus wait or delay",
       "even if alternatives are unstated",
       "`do you agree`",
+      "For general population-level health research, require Forum Signal",
     ]) {
       expect(generated, fragment).not.toContain(fragment);
     }

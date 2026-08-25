@@ -106,6 +106,45 @@ describe("research Action HTTP boundaries", () => {
     }
   });
 
+  it("projects exactly the four authenticated controller routes by default", async () => {
+    await withServer({
+      researchActionsEnabled: true,
+      actionsEnabled: false
+    }, async (baseUrl) => {
+      const schemaResponse = await fetch(new URL("/actions/openapi.json", baseUrl));
+      expect(schemaResponse.status).toBe(200);
+      const schema = await schemaResponse.json() as {
+        paths: Record<string, Record<string, {
+          operationId: string;
+          security?: unknown;
+        }>>;
+      };
+      const operations = Object.values(schema.paths).flatMap(Object.values);
+      expect(operations.map(({ operationId }) => operationId).sort()).toEqual([
+        "continue_research_session",
+        "finalize_research_report",
+        "get_research_session_status",
+        "start_research_session"
+      ]);
+      expect(operations.every(({ security }) =>
+        JSON.stringify(security) === JSON.stringify([{ bearerAuth: [] }])
+      )).toBe(true);
+
+      const unauthenticated = await fetch(new URL(
+        "/actions/research/start_research_session",
+        baseUrl
+      ), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          research_target: "Population-level evidence about chronic joint pain",
+          diagnosis_status: "diagnosis_not_specified"
+        })
+      });
+      expect(unauthenticated.status).toBe(401);
+    });
+  });
+
   it("shares one client token bucket between research Actions and MCP but not lessons", async () => {
     const limiter = () => createTokenBucketLimiter({
       capacity: 1,

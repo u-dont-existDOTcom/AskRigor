@@ -6,7 +6,17 @@ The August 13, 2026 lesson notice is live and was reverified before the lesson A
 
 ## Purpose and boundary
 
-AskRigor has three deliberately separate processing paths:
+AskRigor has deliberately separate processing paths:
+
+- **Controlled Custom GPT research path:** four authenticated Actions start,
+  continue, inspect technical status, and finalize one server-owned research
+  session. Start contains a screened de-identified population-level target and
+  diagnosis-status enum. Continue contains the opaque session ID, exact state
+  digest, and at most one signed paging cursor or receipt-bound semantic result.
+  Low-level retrieval and automatic Gemini scouting run inside the server. An
+  exact bounded semantic package is returned in signed sequential chunks; only
+  server finalization returns a reader report. Caller completion assertions,
+  operation counts/lists, and manually pasted Gemini packets cannot advance it.
 
 - **Research retrieval path:** the existing MCP research operations and, when
   independently enabled, their public read-only Custom GPT Action forms use the
@@ -41,8 +51,8 @@ AskRigor has three deliberately separate processing paths:
   older operator-supplied validator remains only for backward-compatible
   technical inspection of historical packets; ordinary research does not
   require a person to transfer a packet.
-- **Non-production research-session prototype:** an unregistered internal
-  controller binds one research target to exact protocol identities, public
+- **Server-owned research-session controller:** the controller binds one
+  research target to exact protocol identities, public
   candidate metadata, bounded semantic screening decisions, and per-video
   transcript/discussion coverage receipts. Phase D3 also binds material
   program-derived formal-search receipts, public source identities and access
@@ -62,8 +72,9 @@ AskRigor has three deliberately separate processing paths:
   credentials, or protocol text. A bounded query-limited return search may
   retain only its opaque provider continuation in the same ephemeral session
   state until that exact search completes; it is never exported as evidence or
-  written durably. The prototype is absent
-  from the public MCP and Action inventories and is not deployed.
+  written durably. The controller is projected through four authenticated
+  Custom GPT Actions; its low-level provider operations remain absent from that
+  Action inventory and the MCP inventory is unchanged.
   Phase F can issue a compact, short-lived HMAC-SHA256 finalization permit only
   from authoritative controller state. The permit contains an opaque execution
   ID, exact protocol identities, state/authorization/limitation digests,
@@ -164,12 +175,13 @@ The lesson path is deployed from exact code revision
 `1c32ab047e20db9c833ac5a18b9e0eda1bc3c11a` and passed its bounded synthetic
 submission, append-only duplicate, failure-isolation, and rollback acceptance.
 
-The research Action bridge is gated by the exact literal
+The controlled research Action bridge is gated by the exact literal
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true`, separately from the deployed lesson
 switch. Its local candidate limits are **60,000 serialized UTF-8 bytes** per
 response and **48,000 UTF-8 bytes** of exact protocol text per ordered chunk.
-Research Actions and MCP use one shared per-client rate limit and concurrency
-pool.
+Controlled research Actions and MCP use the existing shared per-client rate
+limit and concurrency pool. Controlled Actions additionally require the Bearer
+key; they are not anonymous public reads.
 The bridge is live; its exact deployment and acceptance identities are recorded
 separately in `docs/custom-gpt-action-live-acceptance.md` and
 `docs/release-evidence-v0.1.0.md`.
@@ -272,7 +284,9 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Provider requests | Necessary query/identifier and fixed service contact values where required by a provider, including the service contact email sent to Unpaywall; the screened population-level target plus public scout instructions sent to Gemini; and, only after a malformed scout packet, one bounded correction containing Gemini's own public candidate output, exact executed public queries, and safe validation issues. If the internal Phase D1 adapters are invoked by later controller work, Crossref receives the public DOI and configured service contact, while FORRT receives only the public DOI and fixed headers. | Europe PMC, Unpaywall, public copy hosts, Crossref, FORRT, Google Gemini, Google Search, and YouTube process requests under their own policies. Both possible Gemini interactions use the paid fixed model with `store:false`; only the first can use Google Search. Provider keys and contacts remain server-only. AskRigor does not claim to control provider processing or retain a provider-side copy. Phase D1 itself does not expose or deploy the new internal adapters. |
 | Aggregate AI budget ledger | UTC month, fixed $50 monthly limit, aggregate charged nano-USD, update time, and schema version shared by lesson privacy and Gemini scouting | Owner-only mode-0600 file. It contains no target, prompt, candidate, request, response, identity, or credential. Each Gemini call reserves at most $1 before provider execution. |
 | Optional local legacy Gemini-candidate validator | Operator-supplied de-identified research target, executed search queries, public video IDs/URLs/titles/channels, provisional creator-claim annotations, and independently retrieved bounded public video metadata | The operator controls the historical input file and standard output. AskRigor creates no additional file, database row, log, account record, comment corpus, or transcript store. YouTube processes the video-ID lookups under its own policy. |
-| Phase G/K1 research-session controller checkpoint | Opaque execution ID; sensitive research target and diagnosis-status enum; exact protocol identities; module/operation/controller state; public candidate/video/channel/source metadata; bounded semantic screening/program/audit/transfer/treatment annotations; source-linked de-identified creator/community findings; exact study/review method findings and claim capabilities; the bounded reader report and its digest; compact coverage receipts, source identities, hashes, directives, limitations, unresolved state, and final-audit basis. It excludes raw chat, transcript/comment/return-search text, commenter identity, article blocks/full text, raw provider bodies, Gemini responses, credentials, keys, cookies, and private sources. | The implemented adapter writes one AES-256-GCM authenticated envelope per session to a dedicated mode-`0700` local directory with mode-`0600` files. The complete controller payload is encrypted; only opaque identity, lifecycle/generation/claim metadata, key ID, algorithm, nonce, ciphertext, and tag are visible. Retention is 72 hours idle and seven days absolute, at most 1,024 sessions, 16 MiB plaintext and 24 MiB stored. It has no backup, rejects capacity rather than evicting unexpired sessions, prunes expiry, supports internal deletion, and is single-writer/single-host only. The K1 report is capped below the existing Action response budget. Public MCP/Action inventory remains unchanged in K1. |
+| Phase G/K2 research-session controller checkpoint | Opaque execution ID; sensitive research target and diagnosis-status enum; exact protocol identities; module/operation/controller state; public candidate/video/channel/source metadata; bounded semantic screening/program/audit/transfer/treatment annotations; source-linked de-identified creator/community findings; exact study/review method findings and claim capabilities; the bounded reader report and its digest; compact coverage receipts, source identities, hashes, directives, limitations, unresolved state, and final-audit basis. It excludes raw chat, transcript/comment/return-search text, commenter identity, article blocks/full text, raw provider bodies, Gemini responses, credentials, keys, cookies, and private sources. | With reviewed checkpoint configuration, one AES-256-GCM authenticated envelope is written per session to a mode-`0700` directory with mode-`0600` files; development without it uses the bounded in-memory adapter. Retention is 72 hours idle and seven days absolute, at most 1,024 sessions, 16 MiB plaintext and 24 MiB stored. It has no backup, rejects capacity rather than evicting unexpired sessions, prunes expiry, supports internal deletion, and is single-writer/single-host only. The report remains below the Action response budget. K2 changes only the authenticated Custom GPT Action projection; MCP remains unchanged. |
+| Phase K2 signed worker-payload chain | Exact bounded semantic-work descriptor, minimum task evidence, response schema, de-identified target, opaque session/state/work/payload digests, signed cursor, and terminal receipt | Returned transiently to the invoking Custom GPT in UTF-8-safe chunks no larger than 40,000 bytes. Cursors and receipts expire after one hour and use domain-separated HMAC. Raw evidence is not written into the checkpoint or server logs. ChatGPT may retain tool results under its own terms. |
+| Phase K2 product-acceptance receipt | Fixed synthetic challenge ID, opaque session ID, exact installation-bundle and protocol digests, ordered capability/result and before/after state digests, final boundary, permit/report digests, issue/expiry times, key ID, payload hash, and signature | Issued only after authorized or bounded finalization of the fixed challenge and expires after one hour. It contains no prompt, health detail, source text, provider body, credential, or private content and replaces caller-authored acceptance counts/prose. |
 | Phase H private orchestration request/result | Start may contain one screened de-identified target and diagnosis-status enum. Resume/status/finalize contain only an opaque session ID. Semantic submission contains that ID, exact state/package digest, and one bounded routing or candidate-screening assessment. Results contain minimized controller status, boundary, next capability, safe boundary codes/counts, and at most one bounded work package or compact finalization result. | The HTTP transport itself writes no body log or separate store. When enabled later, controller state follows the Phase G encrypted checkpoint rules above; raw provider/source material remains ephemeral. Authentication uses a distinct server-held secret. Browser Origin requests are refused, responses are non-cacheable, and neither secret nor raw research/source content is sent to an external orchestrator merely for convenience. Phase H adds no live external recipient or deployment. |
 | Disabled Phase I/K1 Hermes semantic worker | One opaque session ID and state digest; the exact current state-only work descriptor; for the active bounded semantic task only, the minimum exact public evidence context required to inspect it (timestamped transcript segments, comment text with author identity removed, exact public article blocks, bounded external-audit records, or bounded current report evidence); for new-session module routing, the same deterministically screened de-identified population-level target accepted by the private start route; one dedicated model credential; provider/model and non-authoritative API-call/cost diagnostics | One fresh child process and temporary directory per work package. Hermes tools, memory, context files, trajectories, checkpoints, and background review are disabled. Evidence context is transient, never returned by private status, and never written to the checkpoint as raw source text. The temporary directory is removed after the turn; AskRigor writes no Hermes conversation or model output to a new store. The external model provider may process the transient public/de-identified package under its own terms. The child never receives commenter names/channel IDs, the private orchestration credential, production research-provider secrets, raw private health content, credentials, or a finalization permit. Phase K1 adds no deployment or live recipient. |
 | Phase K1 process-local evidence-material cache | Exact timestamped public transcript segments and the bounded public discussion analysis sample for selected videos, indexed by opaque session/video identity and exact receipt hashes; commenter names and channel IDs are discarded on ingestion | Process memory only, default maximum 100 session/video entries and 64 MiB aggregate. Least-recently-used entries may be evicted because their loss reopens exact reacquisition rather than advancing state. The cache is never checkpointed, logged, returned by private status, or included in the reader report. Stored community findings reject direct identifiers and substantial verbatim source copying. A miss may trigger exact source reacquisition; mismatched replay receipts revoke the session cache and fail closed. Process loss discards the cache. |

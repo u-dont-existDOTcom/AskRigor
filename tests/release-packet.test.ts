@@ -140,6 +140,11 @@ describe("AskRigor public-review packet", () => {
       ASKRIGOR_ACTIONS_ENABLED: "Exact literal `true` only when ready to accept Actions.",
       ASKRIGOR_RESEARCH_ACTIONS_ENABLED: "Exact literal `true` only when ready to expose public read-only research Actions.",
       ASKRIGOR_YOUTUBE_CONTINUATION_SECRET: "Server-only secret containing at least 32 UTF-8 bytes; required at startup when research Actions are enabled and never returned or logged.",
+      ASKRIGOR_RESEARCH_SESSION_DIRECTORY: "Exact container path `/var/lib/askrigor-research-sessions` for the separately mounted encrypted checkpoint directory.",
+      ASKRIGOR_RESEARCH_SESSION_ENCRYPTION_KEY_BASE64URL: "Exactly 32 random bytes encoded as canonical unpadded base64url; server-only and never printed.",
+      ASKRIGOR_RESEARCH_SESSION_ENCRYPTION_KEY_ID: "Bounded non-secret identifier for the active checkpoint key.",
+      ASKRIGOR_FINALIZATION_SIGNING_SECRET: "Separate server-only secret of at least 32 UTF-8 bytes for domain-separated finalization and acceptance receipts.",
+      ASKRIGOR_FINALIZATION_KEY_ID: "Bounded non-secret identifier for the active finalization key.",
       ASKRIGOR_UNPAYWALL_EMAIL: "Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential.",
       ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
       OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
@@ -235,9 +240,9 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 23, 2026");
+    expect(privacySite).toContain("Effective August 25, 2026");
     expect(privacySite).toContain("Unpaywall");
-    expect(privacySite).toContain("64 handles and 128 MiB");
+    expect(privacySite).toContain("encrypted single-host checkpoint");
     expect(privacySite).toContain("Optional lesson feedback");
     expect(readme).toContain("The lesson Action is deployed and live-accepted");
     expect(checklist).toContain(
@@ -249,7 +254,7 @@ describe("AskRigor public-review packet", () => {
     expect(releaseEvidence).toContain("56d13b73e74c377cfd6d513a5f4ceeec9949e0bf");
   });
 
-  it("records the repaired Custom GPT UI continuation proof without overstating remaining acceptance", async () => {
+  it("records the controlled Custom GPT candidate without erasing historical acceptance evidence", async () => {
     const [setup, privacyMap, privacySite, readme, index, checklist, release, state, acceptance] =
       await Promise.all([
         readFile(rootFile("docs/custom-gpt-actions-setup.md"), "utf8"),
@@ -263,12 +268,12 @@ describe("AskRigor public-review packet", () => {
         readFile(rootFile("docs/custom-gpt-action-live-acceptance.md"), "utf8")
       ]);
 
-    for (const document of [setup, privacyMap, privacySite, readme, release, state]) {
+    for (const document of [setup, privacyMap, readme, release, state]) {
       expect(document).toContain("ASKRIGOR_RESEARCH_ACTIONS_ENABLED");
       expect(document).toContain("60,000");
       expect(document).toContain("48,000");
     }
-    for (const document of [setup, privacyMap, privacySite, readme]) {
+    for (const document of [setup, privacyMap, readme]) {
       expect(document).toContain("shared");
       expect(document).toContain("transient");
     }
@@ -279,8 +284,10 @@ describe("AskRigor public-review packet", () => {
     }
     expect(privacyMap).toContain("protocol identity, digest, byte offset, chunk index, and expiry");
     expect(privacyMap).toContain("no protocol text, health content, or secret");
-    expect(privacySite).toContain("Custom GPT Actions");
-    expect(privacySite).toContain("public provider metadata, comment text, and caption segments");
+    expect(privacySite).toContain("four authenticated Actions");
+    expect(privacySite).toContain("server-controlled research session");
+    expect(privacySite).toContain("encrypted single-host checkpoint");
+    expect(privacySite).toContain("Raw chat, provider bodies, transcripts, comments");
     expect(setup).toContain("does not disable lesson capture or MCP");
     expect(setup).toContain("direct `/g/...`");
     const releaseStatus = sectionBetween(

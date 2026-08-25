@@ -37,7 +37,8 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
     for (const required of [
       "Plugin-package currency, backend currency, Custom GPT installation, and fresh",
       "UI behavior are separate receipts",
-      "26-operation Action document",
+      "exactly four authenticated",
+      "plus the authenticated consequential lesson write",
       "a matching tool catalog or working connector is not a package receipt",
       "reinstall the exact reviewed package",
       "keep Knowledge empty",

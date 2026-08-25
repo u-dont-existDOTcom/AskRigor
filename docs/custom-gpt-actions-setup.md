@@ -1,5 +1,32 @@
 # AskRigor Custom GPT Action setup
 
+## Current controlled projection — Phase K2
+
+The generated Custom GPT schema now contains exactly four authenticated,
+non-consequential research operations—`start_research_session`,
+`continue_research_session`, `get_research_session_status`, and
+`finalize_research_report`—plus the authenticated consequential lesson write.
+The low-level research routes documented later in this file are retained as
+historical/internal technical behavior and are not installed in the Custom GPT.
+The exact 21-tool MCP catalog is unchanged.
+
+The controller runs automatic Gemini/Spark scouting, native discovery,
+transcript and community depth, formal search, lawful open-full-text acquisition,
+method checking, bidirectional iteration, treatment-program coverage, and report
+validation. The GPT follows one returned directive at a time and performs only
+an exact signed, resumable semantic package. It cannot unlock completion with a
+claimed count, operation list, renamed field, or prose assertion. A final answer
+comes only from the reader packet returned by authorized or bounded server
+finalization.
+
+The editor imports `docs/custom-gpt-instructions.md` with Knowledge empty and
+imports `https://mcp.askrigor.com/actions/openapi.json` using the existing API
+Key → Bearer authentication. Never paste a Gemini key or packet into the GPT.
+Product acceptance uses the fixed synthetic challenge and a server-issued
+signed receipt bound to the exact installation bundle, protocol identities,
+session transitions, final boundary, permit, and report. Caller-authored
+acceptance JSON is obsolete.
+
 This runbook installs the read-only research bridge and preserves the existing
 optional lesson-submission Action after the reviewed server build and privacy
 notice are ready. The research bridge is a verified local candidate until the
@@ -54,6 +81,11 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_ACTIONS_ENABLED` | Exact literal `true` only when ready to accept Actions. |
 | `ASKRIGOR_RESEARCH_ACTIONS_ENABLED` | Exact literal `true` only when ready to expose public read-only research Actions. |
 | `ASKRIGOR_YOUTUBE_CONTINUATION_SECRET` | Server-only secret containing at least 32 UTF-8 bytes; required at startup when research Actions are enabled and never returned or logged. |
+| `ASKRIGOR_RESEARCH_SESSION_DIRECTORY` | Exact container path `/var/lib/askrigor-research-sessions` for the separately mounted encrypted checkpoint directory. |
+| `ASKRIGOR_RESEARCH_SESSION_ENCRYPTION_KEY_BASE64URL` | Exactly 32 random bytes encoded as canonical unpadded base64url; server-only and never printed. |
+| `ASKRIGOR_RESEARCH_SESSION_ENCRYPTION_KEY_ID` | Bounded non-secret identifier for the active checkpoint key. |
+| `ASKRIGOR_FINALIZATION_SIGNING_SECRET` | Separate server-only secret of at least 32 UTF-8 bytes for domain-separated finalization and acceptance receipts. |
+| `ASKRIGOR_FINALIZATION_KEY_ID` | Bounded non-secret identifier for the active finalization key. |
 | `ASKRIGOR_UNPAYWALL_EMAIL` | Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential. |
 | `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
 | `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
@@ -101,25 +133,26 @@ Privacy: https://askrigor.com/privacy
    must arrive as verified runtime Action results, not stale uploaded copies.
 4. Import the Action URL, select **API Key** then **Bearer**, and retain only
    the existing protected Action key in the editor authentication control.
-5. Confirm the 25 research operations are non-consequential, including the
-   Action-only `get_youtube_transcript` and
-   `assess_treatment_landscape_coverage`, plus
-   `scout_gemini_youtube_candidates`,
-   `validate_gemini_youtube_candidate_handoff`, the four open-full-text and
-   method-audit operations, and the single
-   `submit_lesson_candidate` operation remains consequential. The MCP inventory
-   must expose the reviewed 21-tool contract.
+5. Confirm exactly four research operations are present:
+   `start_research_session`, `continue_research_session`,
+   `get_research_session_status`, and `finalize_research_report`. They are
+   authenticated and non-consequential. Confirm the separately consented
+   `submit_lesson_candidate` operation remains authenticated and consequential.
+   No low-level provider, transcript, comment, full-text, study-audit,
+   treatment-lock, or Gemini operation belongs in the editor Action list. The
+   MCP inventory must independently preserve the reviewed 21-tool contract.
 6. Save the GPT without publishing and test in a new chat.
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
 
 Before calling the installation current, record the exact three member digests
 and bundle digest from `docs/custom-gpt-sync.json`. In the editor, confirm the
-complete operation list after importing the live schema—not merely that an
-Action with the old name still exists. A broad-treatment replay must visibly
-call `scout_gemini_youtube_candidates`, `get_youtube_transcript`, and
-`assess_treatment_landscape_coverage`. If the last two are absent, re-import the
-schema URL; do not attempt the research with a stale Action.
+complete five-operation list after importing the live schema—not merely that an
+Action with an old name still exists. A broad-treatment replay must visibly
+start one controlled session, follow repeated server directives, perform only
+receipt-bound semantic packages, and finalize only when directed. Gemini,
+transcript, community, full-text, and method-audit calls are server-internal and
+must not appear as manual GPT tool calls.
 
 ### Release completion and plugin synchronization
 
@@ -127,8 +160,9 @@ Do not stop at a source merge when deployment and installation are authorized.
 Complete and verify each distinct surface in order:
 
 1. deploy the exact reviewed `main` commit and retain a rollback image/config;
-2. directly verify health, the 26-operation Action document, protocol
-   manifests/integrity, and security boundaries;
+2. directly verify health, the five-operation Action document, protocol
+   manifests/integrity, encrypted controller checkpoint, and security
+   boundaries;
 3. verify the installed AskRigor plugin exposes exactly the reviewed 21 MCP
    tools, returns the newly deployed protocol manifests, and completes one
    read-only probe;
@@ -143,21 +177,20 @@ Complete and verify each distinct surface in order:
    settings, save, and start a fresh chat;
 7. run fresh product-interface acceptance and record only observed results.
 
-The release remains incomplete until one synthetic, fresh-chat broad-treatment
-replay includes a validated Spark packet and passes the local product contract:
+The release remains incomplete until the fixed synthetic acceptance challenge
+completes through a fresh signed-in GPT chat and its server-issued receipt
+passes the local product contract:
 
 ```text
-npm run validate:custom-gpt-product -- /tmp/askrigor-custom-gpt-acceptance.json
+npm run validate:custom-gpt-product -- /tmp/askrigor-custom-gpt-server-receipt.json
 ```
 
-The local JSON records only synthetic output, the three reviewed digests, the
-installed and observed operation IDs, and the returned landscape counts. Never
-save a user's health details or raw private research. The validator fails stale
-Instructions/schema/skill bytes; missing required calls; fewer than eight fully
-audited material videos or six materially different programs when the broad
-minimum applies; no screened Spark lead; missing linked video titles; and
-ordinary-output leakage such as API coverage codes, lock/receipt names,
-deterministic-sample terminology, or protocol-compliance preambles.
+The JSON contains only the signed `product_acceptance_receipt` returned by the
+fixed challenge. It has exact bundle/protocol digests, opaque transition and
+finalization digests, and no research target, health detail, source text, or
+answer prose. The validator rejects caller-authored counts, operation lists,
+completion claims, or mutated receipts. Run it only where the protected
+finalization verification key is available; never print that key.
 
 Static repository tests, production health, and matching plugin bytes are
 necessary but cannot substitute for this exact product replay. If the UI replay
@@ -200,7 +233,12 @@ Action fields is not the shell. Existing chats do not acquire new
 standing-consent behavior after an instruction update. Start a new chat for
 acceptance testing, and never carry standing consent between chats.
 
-## 4. Research Action behavior and limits
+## 4. Historical low-level Action behavior and limits
+
+This section documents the pre-K2 compatibility implementation and internal
+retrieval primitives. It is retained for audit and rollback context. Do not use
+it to configure the current Custom GPT; the current editor contract is the
+four-operation controlled projection in sections 1–3 above.
 
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` independently exposes the public,
 read-only `/actions/research/*` routes. It does not disable lesson capture or
