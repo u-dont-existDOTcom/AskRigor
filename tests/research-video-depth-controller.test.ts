@@ -570,6 +570,56 @@ describe("server-owned selected-video depth", () => {
       });
   });
 
+  it("accepts only an exact no-progress discussion restart snapshot", () => {
+    const initial = initializeResearchVideoDepth(screenedCandidates());
+    const first = ingestDiscussionActionOutput(
+      initial,
+      VIDEO_ONE,
+      undefined,
+      discussionOutput(VIDEO_ONE, {
+        complete: false,
+        continuationHandle: DISCUSSION_HANDLE
+      })
+    );
+    const restartOutput = discussionOutput(VIDEO_ONE, {
+      restart: true,
+      segmentIndex: 0,
+      cumulative: 1,
+      errorCode:
+        "youtube_video_audit_identifier_membership_restart_required"
+    });
+
+    const restarted = ingestDiscussionActionOutput(
+      first,
+      VIDEO_ONE,
+      DISCUSSION_HANDLE,
+      restartOutput
+    );
+    expect(restarted.discussions[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "YOUTUBE_VIDEO_AUDIT_IDENTIFIER_MEMBERSHIP_RESTART_REQUIRED"
+      }
+    });
+    expect(restarted.discussions[0]).not.toHaveProperty("receipt");
+    expect(restarted.discussions[0]).not.toHaveProperty("continuation_handle");
+
+    expect(() => ingestDiscussionActionOutput(
+      first,
+      VIDEO_ONE,
+      DISCUSSION_HANDLE,
+      discussionOutput(VIDEO_ONE, {
+        restart: true,
+        segmentIndex: 0,
+        cumulative: 2,
+        errorCode:
+          "youtube_video_audit_identifier_membership_restart_required"
+      })
+    )).toThrow(/restart snapshot/u);
+  });
+
   it("makes completed per-video evidence immutable in the session store", () => {
     const before = initialSession();
     const after = recordTranscriptDepthResult(
