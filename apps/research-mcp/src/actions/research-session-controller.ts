@@ -1379,6 +1379,16 @@ export async function executeResearchSessionSourceExternalEvidence(
   return withFormalEvidence(state, formalEvidence);
 }
 
+export function reconcileResearchSessionLinkedWork(
+  rawState: ResearchSessionState
+): ResearchSessionState {
+  const state = requireFormalReady(rawState);
+  return withFormalEvidence(
+    state,
+    reconcileFormalEvidenceLinkedWork(state.formal_evidence)
+  );
+}
+
 export async function recalculateResearchSessionSourceClaimCapability(
   rawState: ResearchSessionState,
   input: Parameters<typeof recalculateResearchSourceClaimCapability>[1]

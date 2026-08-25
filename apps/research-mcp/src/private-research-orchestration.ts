@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
+import { getProtocolManifest } from "@askrigor/protocol";
 import { z } from "zod";
 
 import {
@@ -16,27 +17,23 @@ import {
   readActionJsonBody
 } from "./actions/body.js";
 import {
-  candidateDiscoveryReadyForScreening,
-  candidateScreeningSubmissionSchema
-} from "./actions/research-candidate-frontier.js";
-import {
-  applyServerModuleApplicability,
+  applyProtocolRecheck,
   finalizationDecisionSchema,
   projectResearchSessionView,
-  RESEARCH_MODULE_IDS,
-  recordCandidateScreeningCompletion,
+  protocolBindingsFromManifests,
   researchNextCapabilitySchema,
   researchOutputBoundarySchema,
   researchSessionStateDigest,
   researchSessionViewSchema,
   verifyResearchFinalizationPermit,
-  type ResearchModuleId,
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
 import {
   createResearchSessionPrototypeRoutes,
   type CreateResearchSessionPrototypeRoutesOptions
 } from "./actions/research-session-prototype-route.js";
+import { createResearchSessionDiscoveryExecutors } from
+  "./actions/research-session-discovery.js";
 import {
   createResearchSessionStore,
   ResearchSessionUnavailableError,
@@ -50,12 +47,21 @@ import type {
   TokenBucketLimiter
 } from "./rate-limit.js";
 import {
-  assertResearchSemanticBinding,
   researchSemanticExecutionEnvelopeSchema,
+  researchSemanticModelOutputSchema,
   researchSemanticWorkSchema,
   type ResearchSemanticExecutor,
   type ResearchSemanticWork
 } from "./research-semantic-worker.js";
+import {
+  advanceResearchSessionDeterministically,
+  applyResearchSemanticResult,
+  deriveResearchSemanticWorkForState,
+  ResearchAdvanceDependencyUnavailableError,
+  ResearchAdvanceNoProgressError,
+  type ResearchDeterministicAdvanceDependencies,
+  type ResearchSemanticAdvanceDependencies
+} from "./research-session-advance.js";
 
 export const PRIVATE_RESEARCH_ORCHESTRATION_PREFIX =
   "/internal/research/v1" as const;
@@ -73,27 +79,6 @@ const startInputSchema = z.object({
 const stateBoundSessionInputSchema = sessionInputSchema.extend({
   state_digest: digestSchema
 }).strict();
-const moduleDecisionSchema = z.object({
-  module_id: z.enum(RESEARCH_MODULE_IDS),
-  applicability: z.enum(["REQUIRED", "NOT_REQUIRED"]),
-  rationale: z.string().trim().min(1).max(1_000)
-}).strict();
-const moduleSubmissionSchema = stateBoundSessionInputSchema.extend({
-  work_type: z.literal("module_applicability"),
-  submission: z.object({
-    package_version: z.literal("askrigor_module_applicability_v1"),
-    decisions: z.array(moduleDecisionSchema).min(1).max(RESEARCH_MODULE_IDS.length)
-  }).strict()
-}).strict();
-const candidateSubmissionSchema = stateBoundSessionInputSchema.extend({
-  work_type: z.literal("candidate_screening"),
-  submission: candidateScreeningSubmissionSchema
-}).strict();
-const semanticSubmissionSchema = z.discriminatedUnion("work_type", [
-  moduleSubmissionSchema,
-  candidateSubmissionSchema
-]);
-
 const boundarySchema = z.object({
   capability: z.string().regex(/^[a-z][a-z0-9_]{2,79}$/u),
   classification: z.enum(["RETRYABLE", "TERMINAL_NONRETRYABLE"]),
@@ -162,6 +147,8 @@ export interface PrivateResearchOrchestrationHandlerOptions
   store?: ResearchSessionStore;
   maximumResponseBytes?: number;
   semanticExecutor?: ResearchSemanticExecutor;
+  semanticAdvanceDependencies?: ResearchSemanticAdvanceDependencies;
+  deterministicAdvanceDependencies?: ResearchDeterministicAdvanceDependencies;
 }
 
 export interface PrivateResearchOrchestrationDispatchOptions {
@@ -201,6 +188,8 @@ export function createPrivateResearchOrchestrationHandler(
   const {
     maximumResponseBytes: _maximumResponseBytes,
     semanticExecutor: _semanticExecutor,
+    semanticAdvanceDependencies: _semanticAdvanceDependencies,
+    deterministicAdvanceDependencies: _deterministicAdvanceDependencies,
     store: _configuredStore,
     ...prototypeOptions
   } = options;
@@ -208,6 +197,15 @@ export function createPrivateResearchOrchestrationHandler(
     ...prototypeOptions,
     store
   });
+  const fallbackDiscovery = createResearchSessionDiscoveryExecutors(
+    prototypeOptions
+  );
+  const deterministicAdvanceDependencies =
+    options.deterministicAdvanceDependencies ?? {
+      automatedScout: fallbackDiscovery.automatedScout,
+      nativeDiscovery: fallbackDiscovery.nativeDiscovery,
+      resolveCandidateIdentities: fallbackDiscovery.resolveCandidateIdentities
+    };
 
   return Object.freeze({ dispatch });
 
@@ -325,9 +323,7 @@ export function createPrivateResearchOrchestrationHandler(
       );
     }
     if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/resume`) {
-      return projectActionResult(
-        await invokeRoute(routes, "continue_research_session", body)
-      );
+      return advanceServerDirectedWork(body);
     }
     if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/status`) {
       return projectActionResult(
@@ -362,7 +358,7 @@ export function createPrivateResearchOrchestrationHandler(
       };
     }
     if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/submit`) {
-      return submitSemanticWork(body);
+      return await submitSemanticWork(body);
     }
     if (pathname === `${PRIVATE_RESEARCH_ORCHESTRATION_PREFIX}/advance`) {
       return advanceServerDirectedWork(body);
@@ -378,22 +374,32 @@ export function createPrivateResearchOrchestrationHandler(
     };
   }
 
-  function submitSemanticWork(body: unknown): { status: number; body: PrivateView } {
-    const parsed = semanticSubmissionSchema.safeParse(body);
-    if (!parsed.success) throw new PrivateInputInvalidError();
-    const sessionId = parsed.data.session_id;
+  async function submitSemanticWork(
+    body: unknown
+  ): Promise<{ status: number; body: PrivateView }> {
+    const parsed = parseSemanticSubmission(body);
+    if (parsed === undefined) throw new PrivateInputInvalidError();
+    const sessionId = parsed.session_id;
     const claimed = store.claim(sessionId);
     try {
-      if (researchSessionStateDigest(claimed) !== parsed.data.state_digest) {
+      if (researchSessionStateDigest(claimed) !== parsed.state_digest) {
         throw new PrivateStateStaleError();
       }
-      const next = parsed.data.work_type === "module_applicability"
-        ? applyModuleSubmission(claimed, parsed.data.submission)
-        : applyCandidateSubmission(claimed, parsed.data.submission);
+      let next: ResearchSessionState;
+      try {
+        next = await applyResearchSemanticResult(
+          sessionId,
+          claimed,
+          parsed,
+          options.semanticAdvanceDependencies ?? {}
+        );
+      } catch {
+        throw new PrivateWorkMismatchError();
+      }
       const projected = projectPrivateView(
         sessionId,
         next,
-        { capability: parsed.data.work_type, result: "semantic_work_recorded" }
+        { capability: parsed.work_type, result: "semantic_work_recorded" }
       );
       store.replace(sessionId, next);
       return {
@@ -416,9 +422,38 @@ export function createPrivateResearchOrchestrationHandler(
     if (currentDigest !== parsed.data.state_digest) {
       throw new PrivateStateStaleError();
     }
+    const manifests = options.getProtocolManifest ?? getProtocolManifest;
+    const checked = applyProtocolRecheck(
+      current,
+      protocolBindingsFromManifests(
+        await manifests("universal"),
+        await manifests("hrp")
+      )
+    );
+    if (checked.protocol_binding.currency === "DRIFTED") {
+      const claimed = store.claim(parsed.data.session_id);
+      try {
+        if (researchSessionStateDigest(claimed) !== currentDigest) {
+          throw new PrivateStateStaleError();
+        }
+        const projected = projectPrivateView(
+          parsed.data.session_id,
+          checked,
+          {
+            capability: "protocol_currency_recheck",
+            result: "protocol_drift"
+          }
+        );
+        store.replace(parsed.data.session_id, checked);
+        return { status: 200, body: projected };
+      } catch (error) {
+        store.rollback(parsed.data.session_id);
+        throw error;
+      }
+    }
     const semanticWork = semanticWorkForState(
       parsed.data.session_id,
-      current,
+      checked,
       currentDigest
     );
     if (semanticWork !== null) {
@@ -430,7 +465,7 @@ export function createPrivateResearchOrchestrationHandler(
         rawExecution = await options.semanticExecutor.execute({
           session_id: parsed.data.session_id,
           state_digest: currentDigest,
-          research_context: current.research_target,
+          research_context: checked.research_target,
           semantic_work: semanticWork
         });
       } catch {
@@ -440,26 +475,22 @@ export function createPrivateResearchOrchestrationHandler(
         rawExecution
       );
       if (!execution.success) throw new PrivateWorkerOutputRejectedError();
-      try {
-        assertResearchSemanticBinding({
-          session_id: parsed.data.session_id,
-          state_digest: currentDigest,
-          work_type: semanticWork.kind,
-          ...(semanticWork.kind === "candidate_screening"
-            ? { discovery_digest: semanticWork.package.discovery_digest }
-            : {})
-        }, execution.data.model_output);
-      } catch {
-        throw new PrivateWorkerOutputRejectedError();
-      }
       const claimed = store.claim(parsed.data.session_id);
       try {
         if (researchSessionStateDigest(claimed) !== currentDigest) {
           throw new PrivateStateStaleError();
         }
-        const next = execution.data.model_output.work_type === "module_applicability"
-          ? applyModuleSubmission(claimed, execution.data.model_output.submission)
-          : applyCandidateSubmission(claimed, execution.data.model_output.submission);
+        let next: ResearchSessionState;
+        try {
+          next = await applyResearchSemanticResult(
+            parsed.data.session_id,
+            claimed,
+            execution.data.model_output,
+            options.semanticAdvanceDependencies ?? {}
+          );
+        } catch {
+          throw new PrivateWorkerOutputRejectedError();
+        }
         const projected = projectPrivateView(parsed.data.session_id, next, {
           capability: execution.data.model_output.work_type,
           result: "semantic_work_recorded"
@@ -471,53 +502,36 @@ export function createPrivateResearchOrchestrationHandler(
         throw error;
       }
     }
-    const privateView = projectPrivateView(parsed.data.session_id, current);
+    const privateView = projectPrivateView(parsed.data.session_id, checked);
     if (privateView.required_next_capabilities.length === 0) {
       return { status: 200, body: privateView };
     }
-    return projectActionResult(await invokeRoute(
-      routes,
-      "continue_research_session",
-      { session_id: parsed.data.session_id }
-    ));
-  }
-
-  function applyModuleSubmission(
-    state: ResearchSessionState,
-    submission: z.output<typeof moduleSubmissionSchema>["submission"]
-  ): ResearchSessionState {
-    const unresolved = RESEARCH_MODULE_IDS.filter((moduleId) =>
-      state.modules[moduleId].applicability === "UNRESOLVED"
-    );
-    const submitted = submission.decisions.map(({ module_id }) => module_id);
-    if (
-      new Set(submitted).size !== submitted.length ||
-      unresolved.length !== submitted.length ||
-      unresolved.some((moduleId) => !submitted.includes(moduleId))
-    ) {
-      throw new PrivateWorkMismatchError();
-    }
-    const updates: Partial<Record<ResearchModuleId, "REQUIRED" | "NOT_REQUIRED">> = {};
-    for (const decision of submission.decisions) {
-      updates[decision.module_id] = decision.applicability;
-    }
-    return applyServerModuleApplicability(state, updates, "SERVER_ROUTER");
-  }
-
-  function applyCandidateSubmission(
-    state: ResearchSessionState,
-    submission: z.output<typeof candidateScreeningSubmissionSchema>
-  ): ResearchSessionState {
-    if (
-      state.operations.candidate_screening.status === "COMPLETE" ||
-      !candidateDiscoveryReadyForScreening(state.candidate_discovery)
-    ) {
-      throw new PrivateWorkMismatchError();
-    }
+    const claimed = store.claim(parsed.data.session_id);
     try {
-      return recordCandidateScreeningCompletion(state, submission);
-    } catch {
-      throw new PrivateWorkMismatchError();
+      if (researchSessionStateDigest(claimed) !== currentDigest) {
+        throw new PrivateStateStaleError();
+      }
+      const result = await advanceResearchSessionDeterministically(
+        parsed.data.session_id,
+        checked,
+        deterministicAdvanceDependencies
+      );
+      const projected = projectPrivateView(
+        parsed.data.session_id,
+        result.state,
+        { capability: result.capability, result: "complete" }
+      );
+      store.replace(parsed.data.session_id, result.state);
+      return { status: 200, body: projected };
+    } catch (error) {
+      store.rollback(parsed.data.session_id);
+      if (
+        error instanceof ResearchAdvanceDependencyUnavailableError ||
+        error instanceof ResearchAdvanceNoProgressError
+      ) {
+        throw new PrivateWorkerUnavailableError();
+      }
+      throw error;
     }
   }
 
@@ -583,30 +597,20 @@ function projectPrivateView(
 function semanticWorkForState(
   sessionId: string,
   state: ResearchSessionState,
-  stateDigest: string
+  _stateDigest: string
 ): ResearchSemanticWork | null {
-  const unresolvedModuleIds = RESEARCH_MODULE_IDS.filter((moduleId) =>
-    state.modules[moduleId].applicability === "UNRESOLVED"
-  );
-  if (unresolvedModuleIds.length > 0) {
-    return researchSemanticWorkSchema.parse({
-      kind: "module_applicability",
-      package: {
-        package_version: "askrigor_module_applicability_v1",
-        state_digest: stateDigest,
-        unresolved_module_ids: unresolvedModuleIds
-      }
-    });
-  }
-  const view = projectResearchSessionView(sessionId, state);
-  if (view.candidate_screening_work_package === null) return null;
-  return researchSemanticWorkSchema.parse({
-    kind: "candidate_screening",
-    package: {
-      ...view.candidate_screening_work_package,
-      state_digest: stateDigest
-    }
+  return deriveResearchSemanticWorkForState(sessionId, state);
+}
+
+function parseSemanticSubmission(
+  body: unknown
+): z.output<typeof researchSemanticModelOutputSchema> | undefined {
+  if (!isRecord(body) || "contract_version" in body) return undefined;
+  const parsed = researchSemanticModelOutputSchema.safeParse({
+    contract_version: "askrigor_hermes_semantic_result_v1",
+    ...body
   });
+  return parsed.success ? parsed.data : undefined;
 }
 
 async function invokeRoute(

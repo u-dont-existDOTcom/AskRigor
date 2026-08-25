@@ -1,17 +1,7 @@
-import { readFile } from "node:fs/promises";
-
-import {
-  scoutGeminiYoutubeCandidates,
-  validateGeminiYoutubeCandidateHandoff,
-  type GeminiYoutubeScoutConfig,
-  type GeminiYoutubeScoutInput
-} from "@askrigor/sources";
 import { getProtocolManifest } from "@askrigor/protocol";
 import { z } from "zod";
 
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
-import { surveyYoutubeCommunity } from "../youtube-community-survey.js";
-import { nativeSurveyInputFromCandidateDiscovery } from "./research-candidate-frontier.js";
 import {
   applyProtocolRecheck,
   createInitialResearchSessionState,
@@ -19,12 +9,13 @@ import {
   finalizationDecisionSchema,
   projectResearchSessionView,
   protocolBindingsFromManifests,
-  recordAutomatedScoutBoundary,
-  recordAutomatedScoutCompletion,
-  recordNativeYoutubeDiscovery,
   researchSessionViewSchema,
   type ResearchSessionState
 } from "./research-session-controller.js";
+import {
+  createResearchSessionDiscoveryExecutors,
+  type CreateResearchSessionDiscoveryExecutorsOptions
+} from "./research-session-discovery.js";
 import {
   createResearchSessionStore,
   ResearchSessionUnavailableError,
@@ -63,19 +54,10 @@ const actionErrorSchema = z.object({
   }).strict()
 }).strict();
 
-type ScoutFunction = typeof scoutGeminiYoutubeCandidates;
-type ValidateFunction = typeof validateGeminiYoutubeCandidateHandoff;
-type NativeSurveyFunction = typeof surveyYoutubeCommunity;
-
-export interface CreateResearchSessionPrototypeRoutesOptions {
+export interface CreateResearchSessionPrototypeRoutesOptions
+  extends CreateResearchSessionDiscoveryExecutorsOptions {
   store?: ResearchSessionStore;
   getProtocolManifest?: typeof getProtocolManifest;
-  scout?: ScoutFunction;
-  validateCandidates?: ValidateFunction;
-  surveyNativeCandidates?: NativeSurveyFunction;
-  loadScoutInstructions?: () => Promise<string>;
-  geminiConfig?: GeminiYoutubeScoutConfig;
-  youtubeApiKey?: string;
   finalizationSigningSecret?: string;
   finalizationKeyId?: string;
   finalizationNow?: () => Date;
@@ -91,10 +73,7 @@ export function createResearchSessionPrototypeRoutes(
 ): readonly ActionRoute[] {
   const store = options.store ?? createResearchSessionStore();
   const manifests = options.getProtocolManifest ?? getProtocolManifest;
-  const scout = options.scout ?? scoutGeminiYoutubeCandidates;
-  const validate = options.validateCandidates ?? validateGeminiYoutubeCandidateHandoff;
-  const surveyNativeCandidates = options.surveyNativeCandidates ?? surveyYoutubeCommunity;
-  const loadScoutInstructions = options.loadScoutInstructions ?? defaultScoutInstructions;
+  const discovery = createResearchSessionDiscoveryExecutors(options);
 
   return Object.freeze([
     startRoute(),
@@ -160,7 +139,7 @@ export function createResearchSessionPrototypeRoutes(
               store.replace(sessionId, checked);
               return projected;
             }
-            const next = await runScout(checked);
+            const next = await discovery.automatedScout(checked);
             const operationStatus = next.operations.automated_video_scout.status;
             const projected = {
               ...projectResearchSessionView(sessionId, next),
@@ -192,7 +171,7 @@ export function createResearchSessionPrototypeRoutes(
             return projected;
           }
 
-          const next = await runNativeDiscovery(checked);
+          const next = await discovery.nativeDiscovery(checked);
           const operationStatus = next.operations.native_video_discovery.status;
           const projected = {
             ...projectResearchSessionView(sessionId, next),
@@ -264,60 +243,6 @@ export function createResearchSessionPrototypeRoutes(
     });
   }
 
-  async function runScout(state: ResearchSessionState): Promise<ResearchSessionState> {
-    const config = options.geminiConfig;
-    const youtubeApiKey = options.youtubeApiKey;
-    if (
-      config === undefined ||
-      config.apiKey.trim().length === 0 ||
-      config.model.trim().length === 0 ||
-      youtubeApiKey === undefined ||
-      youtubeApiKey.trim().length === 0
-    ) {
-      return recordAutomatedScoutBoundary(state, {
-        classification: "RETRYABLE",
-        code: "AUTOMATED_SCOUT_NOT_CONFIGURED",
-        summary: "Automated candidate discovery is not configured; no manual packet was substituted."
-      });
-    }
-
-    const scoutInput: GeminiYoutubeScoutInput = {
-      researchTarget: state.research_target,
-      diagnosisStatus: state.diagnosis_status,
-      scoutInstructions: await loadScoutInstructions()
-    };
-    const frontier = await scout(scoutInput, config);
-    if (frontier.access_status !== "complete" || !("packet" in frontier.data)) {
-      return recordAutomatedScoutBoundary(
-        state,
-        scoutBoundary(frontier.access_status)
-      );
-    }
-    const receipt = await validate(
-      JSON.stringify(frontier.data.packet),
-      { apiKey: youtubeApiKey }
-    );
-    return recordAutomatedScoutCompletion(state, {
-      providerResponseId: frontier.data.response_id,
-      packet: frontier.data.packet,
-      receipt
-    });
-  }
-
-  async function runNativeDiscovery(
-    state: ResearchSessionState
-  ): Promise<ResearchSessionState> {
-    const youtubeApiKey = options.youtubeApiKey;
-    if (youtubeApiKey === undefined || youtubeApiKey.trim().length === 0) {
-      throw new Error("Native discovery requires the configured YouTube identity provider");
-    }
-    const input = nativeSurveyInputFromCandidateDiscovery(
-      state.candidate_discovery,
-      state.research_target
-    );
-    const survey = await surveyNativeCandidates(input, { apiKey: youtubeApiKey });
-    return recordNativeYoutubeDiscovery(state, survey);
-  }
 }
 
 interface RouteDefinition<T extends z.ZodType, O extends z.ZodType> {
@@ -380,35 +305,6 @@ async function currentProtocolBindings(
     manifests("hrp")
   ]);
   return protocolBindingsFromManifests(universal, hrp);
-}
-
-function scoutBoundary(accessStatus: string) {
-  if (accessStatus === "rate_limited") {
-    return {
-      classification: "RETRYABLE" as const,
-      code: "AUTOMATED_SCOUT_RATE_LIMITED",
-      summary: "Automated candidate discovery was temporarily rate limited; no manual packet was substituted."
-    };
-  }
-  if (accessStatus === "inaccessible") {
-    return {
-      classification: "RETRYABLE" as const,
-      code: "AUTOMATED_SCOUT_ACCOUNT_INACCESSIBLE",
-      summary: "Automated candidate discovery could not be accessed with the configured provider account; no manual packet was substituted."
-    };
-  }
-  return {
-    classification: "RETRYABLE" as const,
-    code: "AUTOMATED_SCOUT_INVALID_FRONTIER",
-    summary: "Automated candidate discovery did not return a valid grounded frontier; no manual packet was substituted."
-  };
-}
-
-async function defaultScoutInstructions(): Promise<string> {
-  return readFile(new URL(
-    "../../../../integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
-    import.meta.url
-  ), "utf8");
 }
 
 function invalidInput(): ActionResult {

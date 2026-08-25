@@ -8,6 +8,7 @@ import {
   geminiYoutubeDiscoveryPurposeSchema,
   scoutGeminiYoutubeCandidates,
   validateGeminiYoutubeCandidateHandoff,
+  type GeminiYoutubeCandidatePacket,
   type GeminiYoutubeCandidateValidationReceipt,
   type GeminiYoutubeScoutData
 } from "@askrigor/sources";
@@ -119,15 +120,20 @@ export interface CreateAutomatedGeminiScoutActionRouteOptions {
   loadScoutInstructions?: () => Promise<string>;
 }
 
+export interface AutomatedGeminiScoutExecution {
+  receipt: AutomatedGeminiScoutReceipt;
+  controller_completion?: {
+    provider_response_id: string;
+    packet: GeminiYoutubeCandidatePacket;
+    validation: GeminiYoutubeCandidateValidationReceipt;
+  };
+}
+
 let cachedScoutInstructions: Promise<string> | undefined;
 
 export function createAutomatedGeminiScoutActionRoute(
   options: CreateAutomatedGeminiScoutActionRouteOptions = {}
 ): ActionRoute {
-  const scout = options.scout ?? scoutGeminiYoutubeCandidates;
-  const validate = options.validate ?? validateGeminiYoutubeCandidateHandoff;
-  const loadScoutInstructions = options.loadScoutInstructions ?? defaultScoutInstructions;
-
   return Object.freeze({
     method: "POST",
     path: "/actions/research/scout_gemini_youtube_candidates",
@@ -149,140 +155,183 @@ export function createAutomatedGeminiScoutActionRoute(
       if (!isDeidentifiedResearchTarget(parsed.data.research_target)) {
         return invalidInput("research_target_not_deidentified", true);
       }
-
-      const geminiApiKey = options.geminiApiKey ??
-        process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
-      if (geminiApiKey.trim().length === 0) {
-        return successfulBoundary(parsed.data, "gemini_provider_not_configured", false);
-      }
-      const youtubeApiKey = options.youtubeApiKey ?? process.env.YOUTUBE_API_KEY ?? "";
-      if (youtubeApiKey.trim().length === 0) {
-        return successfulBoundary(parsed.data, "youtube_provider_not_configured", false);
-      }
-
-      let budget: AiBudget;
-      try {
-        budget = options.budget ?? productionAiBudget();
-      } catch {
-        return successfulBoundary(parsed.data, "gemini_scout_budget_unavailable", false);
-      }
-
-      let reservation;
-      try {
-        reservation = await budget.reserve(
-          "gemini_youtube_candidate_scout",
-          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
-        );
-      } catch {
-        return successfulBoundary(parsed.data, "gemini_scout_budget_unavailable", false);
-      }
-      if (!reservation) {
-        return successfulBoundary(parsed.data, "gemini_scout_budget_exhausted", false);
-      }
-
-      let frontier;
-      try {
-        frontier = await scout({
-          researchTarget: parsed.data.research_target,
-          diagnosisStatus: parsed.data.diagnosis_status,
-          scoutInstructions: await loadScoutInstructions()
-        }, {
-          apiKey: geminiApiKey,
-          model: GEMINI_YOUTUBE_SCOUT_MODEL
-        });
-      } catch {
-        await reservation.forfeit();
-        return successfulBoundary(
-          parsed.data,
-          "gemini_youtube_scout_unclassified_failure",
-          false,
-          "error",
-          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
-        );
-      }
-
-      if (frontier.access_status !== "complete" || !("packet" in frontier.data)) {
-        await reservation.forfeit();
-        return successfulBoundary(
-          parsed.data,
-          knownBoundaryCode(frontier.error?.code),
-          frontier.error?.retryable === true,
-          frontier.access_status,
-          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
-        );
-      }
-
-      const scoutData = frontier.data as GeminiYoutubeScoutData;
-      const accountedNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage);
-      try {
-        await reservation.commit(accountedNanoUsd);
-      } catch {
-        return successfulBoundary(
-          parsed.data,
-          "gemini_scout_budget_unavailable",
-          false,
-          "error",
-          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
-        );
-      }
-
-      let validation: GeminiYoutubeCandidateValidationReceipt;
-      try {
-        validation = await validate(JSON.stringify(scoutData.packet), {
-          apiKey: youtubeApiKey
-        });
-      } catch {
-        return successfulBoundary(
-          parsed.data,
-          "gemini_youtube_candidate_validation_failed",
-          true,
-          "error",
-          accountedNanoUsd
-        );
-      }
-
-      const output = automatedGeminiScoutReceiptSchema.parse({
-        packet_name: "askrigor_automated_gemini_youtube_scout",
-        packet_version: "1.0",
-        status: validation.status,
-        research_target: parsed.data.research_target,
-        diagnosis_status: parsed.data.diagnosis_status,
-        discovery_queries: scoutData.packet.discovery_queries,
-        search_gaps: scoutData.packet.search_gaps,
-        scout_receipt: {
-          provider: "gemini_api",
-          model: GEMINI_YOUTUBE_SCOUT_MODEL,
-          access_status: "complete",
-          google_search_grounded: true,
-          provider_storage_disabled: true,
-          correction_attempted: scoutData.correction_attempted,
-          provider_interaction_count: scoutData.provider_interaction_count,
-          executed_search_queries: scoutData.executed_search_queries,
-          usage: scoutData.usage,
-          accounted_nano_usd: accountedNanoUsd
-        },
-        validation,
-        boundary: null,
-        access_boundaries: accessBoundaries()
-      });
-      if (
-        Buffer.byteLength(JSON.stringify(output), "utf8") >
-          RESEARCH_ACTION_RESPONSE_MAX_BYTES
-      ) {
-        return successfulBoundary(
-          parsed.data,
-          "gemini_youtube_candidate_validation_response_too_large",
-          false,
-          "complete",
-          accountedNanoUsd
-        );
-      }
       return {
         status: 200,
-        body: output
+        body: (await executeAutomatedGeminiScout(parsed.data, options)).receipt
       };
     }
   });
+}
+
+/**
+ * One budgeted provider implementation shared by the public scout Action and
+ * the server-owned controller. The private completion material never enters
+ * the public Action response.
+ */
+export async function executeAutomatedGeminiScout(
+  input: z.output<typeof automatedScoutInputSchema>,
+  options: CreateAutomatedGeminiScoutActionRouteOptions = {}
+): Promise<AutomatedGeminiScoutExecution> {
+  const parsed = automatedScoutInputSchema.parse(input);
+  const scout = options.scout ?? scoutGeminiYoutubeCandidates;
+  const validate = options.validate ?? validateGeminiYoutubeCandidateHandoff;
+  const loadScoutInstructions = options.loadScoutInstructions ??
+    defaultScoutInstructions;
+  const geminiApiKey = options.geminiApiKey ??
+    process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
+  if (geminiApiKey.trim().length === 0) {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_provider_not_configured",
+      false
+    ) };
+  }
+  const youtubeApiKey = options.youtubeApiKey ?? process.env.YOUTUBE_API_KEY ?? "";
+  if (youtubeApiKey.trim().length === 0) {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "youtube_provider_not_configured",
+      false
+    ) };
+  }
+
+  let budget: AiBudget;
+  try {
+    budget = options.budget ?? productionAiBudget();
+  } catch {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_scout_budget_unavailable",
+      false
+    ) };
+  }
+
+  let reservation;
+  try {
+    reservation = await budget.reserve(
+      "gemini_youtube_candidate_scout",
+      GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    );
+  } catch {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_scout_budget_unavailable",
+      false
+    ) };
+  }
+  if (!reservation) {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_scout_budget_exhausted",
+      false
+    ) };
+  }
+
+  let frontier;
+  try {
+    frontier = await scout({
+      researchTarget: parsed.research_target,
+      diagnosisStatus: parsed.diagnosis_status,
+      scoutInstructions: await loadScoutInstructions()
+    }, {
+      apiKey: geminiApiKey,
+      model: GEMINI_YOUTUBE_SCOUT_MODEL
+    });
+  } catch {
+    await reservation.forfeit();
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_youtube_scout_unclassified_failure",
+      false,
+      "error",
+      GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    ) };
+  }
+
+  if (frontier.access_status !== "complete" || !("packet" in frontier.data)) {
+    await reservation.forfeit();
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      knownBoundaryCode(frontier.error?.code),
+      frontier.error?.retryable === true,
+      frontier.access_status,
+      GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    ) };
+  }
+
+  const scoutData = frontier.data as GeminiYoutubeScoutData;
+  const accountedNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage);
+  try {
+    await reservation.commit(accountedNanoUsd);
+  } catch {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_scout_budget_unavailable",
+      false,
+      "error",
+      GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    ) };
+  }
+
+  let validation: GeminiYoutubeCandidateValidationReceipt;
+  try {
+    validation = await validate(JSON.stringify(scoutData.packet), {
+      apiKey: youtubeApiKey
+    });
+  } catch {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_youtube_candidate_validation_failed",
+      true,
+      "error",
+      accountedNanoUsd
+    ) };
+  }
+
+  const receipt = automatedGeminiScoutReceiptSchema.parse({
+    packet_name: "askrigor_automated_gemini_youtube_scout",
+    packet_version: "1.0",
+    status: validation.status,
+    research_target: parsed.research_target,
+    diagnosis_status: parsed.diagnosis_status,
+    discovery_queries: scoutData.packet.discovery_queries,
+    search_gaps: scoutData.packet.search_gaps,
+    scout_receipt: {
+      provider: "gemini_api",
+      model: GEMINI_YOUTUBE_SCOUT_MODEL,
+      access_status: "complete",
+      google_search_grounded: true,
+      provider_storage_disabled: true,
+      correction_attempted: scoutData.correction_attempted,
+      provider_interaction_count: scoutData.provider_interaction_count,
+      executed_search_queries: scoutData.executed_search_queries,
+      usage: scoutData.usage,
+      accounted_nano_usd: accountedNanoUsd
+    },
+    validation,
+    boundary: null,
+    access_boundaries: accessBoundaries()
+  });
+  if (
+    Buffer.byteLength(JSON.stringify(receipt), "utf8") >
+      RESEARCH_ACTION_RESPONSE_MAX_BYTES
+  ) {
+    return { receipt: successfulBoundaryReceipt(
+      parsed,
+      "gemini_youtube_candidate_validation_response_too_large",
+      false,
+      "complete",
+      accountedNanoUsd
+    ) };
+  }
+  return {
+    receipt,
+    controller_completion: {
+      provider_response_id: scoutData.response_id,
+      packet: scoutData.packet,
+      validation
+    }
+  };
 }
 
 export function isDeidentifiedResearchTarget(value: string): boolean {
@@ -355,40 +404,37 @@ function productionAiBudget(): AiBudget {
   });
 }
 
-function successfulBoundary(
+function successfulBoundaryReceipt(
   input: z.output<typeof automatedScoutInputSchema>,
   code: z.output<typeof automatedScoutBoundarySchema>["code"],
   retryable: boolean,
   accessStatus: z.output<typeof scoutProviderReceiptSchema>["access_status"] = "inaccessible",
   accountedNanoUsd = 0
-): ActionResult {
-  return {
-    status: 200,
-    body: automatedGeminiScoutReceiptSchema.parse({
-      packet_name: "askrigor_automated_gemini_youtube_scout",
-      packet_version: "1.0",
-      status: "blocked",
-      research_target: input.research_target,
-      diagnosis_status: input.diagnosis_status,
-      discovery_queries: [],
-      search_gaps: [],
-      scout_receipt: {
-        provider: "gemini_api",
-        model: GEMINI_YOUTUBE_SCOUT_MODEL,
-        access_status: accessStatus,
-        google_search_grounded: false,
-        provider_storage_disabled: true,
-        correction_attempted: null,
-        provider_interaction_count: null,
-        executed_search_queries: [],
-        usage: null,
-        accounted_nano_usd: accountedNanoUsd
-      },
-      validation: null,
-      boundary: { code, retryable },
-      access_boundaries: accessBoundaries()
-    })
-  };
+): AutomatedGeminiScoutReceipt {
+  return automatedGeminiScoutReceiptSchema.parse({
+    packet_name: "askrigor_automated_gemini_youtube_scout",
+    packet_version: "1.0",
+    status: "blocked",
+    research_target: input.research_target,
+    diagnosis_status: input.diagnosis_status,
+    discovery_queries: [],
+    search_gaps: [],
+    scout_receipt: {
+      provider: "gemini_api",
+      model: GEMINI_YOUTUBE_SCOUT_MODEL,
+      access_status: accessStatus,
+      google_search_grounded: false,
+      provider_storage_disabled: true,
+      correction_attempted: null,
+      provider_interaction_count: null,
+      executed_search_queries: [],
+      usage: null,
+      accounted_nano_usd: accountedNanoUsd
+    },
+    validation: null,
+    boundary: { code, retryable },
+    access_boundaries: accessBoundaries()
+  });
 }
 
 function invalidInput(

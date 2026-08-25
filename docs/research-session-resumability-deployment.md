@@ -44,6 +44,8 @@ instantiate the file-backed store:
 | `ASKRIGOR_RETRACTION_WATCH_DIRECTORY` | `/var/lib/askrigor-retraction-watch` |
 | `ASKRIGOR_PRIVATE_ORCHESTRATION_ENABLED` | Exact literal `true` only during the later reviewed private-interface activation; absent/false keeps the namespace unavailable |
 | `ASKRIGOR_PRIVATE_ORCHESTRATION_API_KEY` | Separate random secret of at least 32 UTF-8 bytes; never reuse the public Action key or expose it to a browser, Custom GPT, n8n workflow JSON, Hermes memory, logs, or command arguments |
+| `ASKRIGOR_FINALIZATION_SIGNING_SECRET` | Separate random secret of at least 32 UTF-8 bytes used only for domain-separated controller finalization permits; never expose it outside the server runtime |
+| `ASKRIGOR_FINALIZATION_KEY_ID` | Bounded nonsecret identifier for the active finalization signing key |
 
 Do not put the key in Compose, Git, chat, shell arguments, systemd unit bytes,
 logs, validation output, or the Custom GPT editor. Verify only the variable
@@ -106,8 +108,8 @@ and never receives `/opt/askrigor/runtime.env`.
    service.
 3. Remove the Retraction Watch read-only mount and private checkpoint read-write
    mount from the active Compose selection.
-4. Remove the four Phase G configuration names and both Phase H private-
-   interface names with the existing secret-safe
+4. Remove the four Phase G configuration names, both Phase H private-interface
+   names, and both finalization-signing names with the existing secret-safe
    editor; never print the removed key.
 5. Unlink private checkpoint files and remove the private directory after
    confirming no active private session is expected to survive. No completion

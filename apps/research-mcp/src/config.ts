@@ -23,6 +23,11 @@ export interface ResearchSessionCheckpointConfig {
   keyId: string;
 }
 
+export interface ResearchFinalizationSigningConfig {
+  signingSecret: string;
+  keyId: string;
+}
+
 export const PUBLIC_RATE_LIMIT = {
   capacity: 60,
   refillTokensPerMinute: 60,
@@ -125,6 +130,21 @@ export function externalEvidenceReceiptKeyIdFromEnv(
   return normalized === undefined || normalized.length === 0
     ? undefined
     : normalized;
+}
+
+export function researchFinalizationSigningConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env
+): ResearchFinalizationSigningConfig | undefined {
+  const signingSecret = env.ASKRIGOR_FINALIZATION_SIGNING_SECRET?.trim();
+  const keyId = env.ASKRIGOR_FINALIZATION_KEY_ID?.trim();
+  if (signingSecret === undefined && keyId === undefined) return undefined;
+  if (
+    signingSecret === undefined || Buffer.byteLength(signingSecret, "utf8") < 32 ||
+    keyId === undefined || !/^[A-Za-z0-9._-]{1,100}$/u.test(keyId)
+  ) {
+    throw new Error("Research finalization signing configuration unavailable");
+  }
+  return { signingSecret, keyId };
 }
 
 export function researchSessionCheckpointConfigFromEnv(

@@ -53,6 +53,9 @@ reason to add more model instructions.
 
 ## K0 — transport-independent advancement engine
 
+Status: implemented and locally verified on the Phase K K0 candidate; merge
+and hosted checks remain required before K1 begins from fresh `main`.
+
 - Extract a lifetime-shared dependency bundle and a one-transition advancement
   engine from the private route.
 - Support protocol recheck/restart classification, module applicability,

@@ -26,6 +26,7 @@ import {
   PUBLIC_MCP_CONCURRENCY_LIMIT,
   PUBLIC_RATE_LIMIT,
   publicServerIsEnabled,
+  researchFinalizationSigningConfigFromEnv,
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
   SERVICE_NAME,
@@ -66,6 +67,8 @@ import {
   createPrivateResearchOrchestrationHandler,
   type PrivateResearchOrchestrationHandler
 } from "./private-research-orchestration.js";
+import { createResearchSessionRuntimeDependencies } from
+  "./research-session-runtime.js";
 import type { N8nControlPlaneHandler } from "./n8n-control-plane-route.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
@@ -166,6 +169,8 @@ export function createAskRigorHttpServer(
   const actionsEnabled = options.actionsEnabled ?? actionsAreEnabled();
   const researchActionsEnabled = options.researchActionsEnabled ??
     researchActionsAreEnabled();
+  const privateOrchestrationEnabled = options.privateOrchestrationEnabled ??
+    privateResearchOrchestrationIsEnabled();
   if (researchActionsEnabled) {
     validateProtocolActionContinuationSecret(
       options.researchActionContinuationSecret ??
@@ -202,17 +207,31 @@ export function createAskRigorHttpServer(
     mcpHandshakeDiagnosticsAreEnabled();
   const mcpHandshakeDiagnosticLogger = options.mcpHandshakeDiagnosticLogger ??
     writeMcpHandshakeDiagnostic;
-  const privateOrchestrationEnabled = options.privateOrchestrationEnabled ??
-    privateResearchOrchestrationIsEnabled();
   const privateOrchestrationApiKey = privateOrchestrationEnabled
     ? validatePrivateResearchOrchestrationApiKey(
       options.privateOrchestrationApiKey ??
       privateResearchOrchestrationApiKeyFromEnv()
     )
     : undefined;
+  const privateRuntime = privateOrchestrationEnabled &&
+      options.privateOrchestrationHandler === undefined
+    ? createResearchSessionRuntimeDependencies()
+    : undefined;
+  const finalizationSigning = privateRuntime === undefined
+    ? undefined
+    : researchFinalizationSigningConfigFromEnv();
   const privateOrchestrationHandler = options.privateOrchestrationHandler ??
     (privateOrchestrationEnabled
-      ? createPrivateResearchOrchestrationHandler()
+      ? createPrivateResearchOrchestrationHandler({
+          deterministicAdvanceDependencies: privateRuntime!.deterministic,
+          semanticAdvanceDependencies: privateRuntime!.semantic,
+          ...(finalizationSigning === undefined
+            ? {}
+            : {
+                finalizationSigningSecret: finalizationSigning.signingSecret,
+                finalizationKeyId: finalizationSigning.keyId
+              })
+        })
       : undefined);
   const privateOrchestrationRateLimiter =
     options.privateOrchestrationRateLimiter ??

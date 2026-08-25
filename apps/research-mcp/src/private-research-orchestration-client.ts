@@ -8,6 +8,8 @@ import {
   PRIVATE_RESEARCH_ORCHESTRATION_PREFIX,
   privateResearchOrchestrationViewSchema
 } from "./private-research-orchestration.js";
+import type { ResearchSemanticModelOutput } from
+  "./research-semantic-worker.js";
 
 const sessionIdSchema = z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u);
 const digestSchema = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -21,6 +23,12 @@ const errorSchema = z.object({
 export type PrivateResearchView = z.output<
   typeof privateResearchOrchestrationViewSchema
 >;
+export type PrivateResearchSemanticSubmission =
+  ResearchSemanticModelOutput extends infer Output
+    ? Output extends { contract_version: string }
+      ? Omit<Output, "contract_version">
+      : never
+    : never;
 
 export interface PrivateResearchOrchestrationClient {
   start(input: {
@@ -28,17 +36,15 @@ export interface PrivateResearchOrchestrationClient {
     diagnosis_status: "diagnosis_not_specified" | "user_supplied_diagnosis";
   }): Promise<PrivateResearchView>;
   status(sessionId: string): Promise<PrivateResearchView>;
-  resume(sessionId: string): Promise<PrivateResearchView>;
+  resume(input: {
+    session_id: string;
+    state_digest: string;
+  }): Promise<PrivateResearchView>;
   advance(input: {
     session_id: string;
     state_digest: string;
   }): Promise<PrivateResearchView>;
-  submit(input: {
-    session_id: string;
-    state_digest: string;
-    work_type: "module_applicability" | "candidate_screening";
-    submission: unknown;
-  }): Promise<PrivateResearchView>;
+  submit(input: PrivateResearchSemanticSubmission): Promise<PrivateResearchView>;
   finalize(sessionId: string): Promise<ResearchFinalizationDecision>;
 }
 
@@ -85,10 +91,11 @@ export function createHttpPrivateResearchOrchestrationClient(input: {
         await post("/status", { session_id: sessionIdSchema.parse(id) })
       );
     },
-    async resume(id) {
-      return privateResearchOrchestrationViewSchema.parse(
-        await post("/resume", { session_id: sessionIdSchema.parse(id) })
-      );
+    async resume(body) {
+      return privateResearchOrchestrationViewSchema.parse(await post("/resume", {
+        session_id: sessionIdSchema.parse(body.session_id),
+        state_digest: digestSchema.parse(body.state_digest)
+      }));
     },
     async advance(body) {
       return privateResearchOrchestrationViewSchema.parse(await post("/advance", {

@@ -6,6 +6,7 @@ import {
   RETRACTION_WATCH_MAX_AGE_MS,
   privateResearchOrchestrationApiKeyFromEnv,
   privateResearchOrchestrationIsEnabled,
+  researchFinalizationSigningConfigFromEnv,
   researchSessionCheckpointConfigFromEnv,
   retractionWatchSnapshotRootFromEnv,
   validatePrivateResearchOrchestrationApiKey,
@@ -69,5 +70,23 @@ describe("Phase G persistence configuration", () => {
       .toThrow("Private research orchestration authentication unavailable");
     expect(validatePrivateResearchOrchestrationApiKey("x".repeat(32)))
       .toBe("x".repeat(32));
+  });
+
+  it("requires finalization signing configuration as one complete fail-closed pair", () => {
+    expect(researchFinalizationSigningConfigFromEnv({})).toBeUndefined();
+    expect(() => researchFinalizationSigningConfigFromEnv({
+      ASKRIGOR_FINALIZATION_SIGNING_SECRET: "x".repeat(32)
+    })).toThrow("Research finalization signing configuration unavailable");
+    expect(() => researchFinalizationSigningConfigFromEnv({
+      ASKRIGOR_FINALIZATION_SIGNING_SECRET: "short",
+      ASKRIGOR_FINALIZATION_KEY_ID: "finalization-v1"
+    })).toThrow("Research finalization signing configuration unavailable");
+    expect(researchFinalizationSigningConfigFromEnv({
+      ASKRIGOR_FINALIZATION_SIGNING_SECRET: "x".repeat(32),
+      ASKRIGOR_FINALIZATION_KEY_ID: "finalization-v1"
+    })).toEqual({
+      signingSecret: "x".repeat(32),
+      keyId: "finalization-v1"
+    });
   });
 });

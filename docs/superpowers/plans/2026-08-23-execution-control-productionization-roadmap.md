@@ -819,7 +819,7 @@ orchestration architecture or another model-instruction exception.
 
 Tasks:
 
-- [ ] Execute every later controller capability through one shared
+- [x] Execute every later controller capability through one shared
   transport-independent advancement engine; fail closed on unsupported or
   no-progress states.
 - [ ] Preserve only bounded source-linked semantic findings and produce a
