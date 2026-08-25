@@ -29,6 +29,7 @@ import {
   mapTreatmentLandscapeBoundary,
   projectResearchSessionView,
   protocolBindingsFromManifests,
+  reconcileRestoredResearchSessionState,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
   recordCandidateScreeningCompletion,
@@ -272,7 +273,14 @@ function completionFixture(): ResearchSessionState {
   packet.candidates[0]!.provisional_specific_program = "named program one";
   receipt.validated_candidates[0]!.gemini_provisional_annotations.specific_program =
     "named program one";
-  let initial = recordAutomatedScoutCompletion(initialState(), {
+  const routed = applyServerModuleApplicability(
+    initialState(),
+    Object.fromEntries(RESEARCH_MODULE_IDS
+      .filter((moduleId) => !["HRP", "FINAL_COMPLETION_AUDIT"].includes(moduleId))
+      .map((moduleId) => [moduleId, "REQUIRED"])),
+    "SERVER_ROUTER"
+  );
+  let initial = recordAutomatedScoutCompletion(routed, {
     providerResponseId: "interaction-narrow-completion",
     packet,
     receipt
@@ -357,17 +365,6 @@ function completionFixture(): ResearchSessionState {
       limitations: ["The public discussion sample contained no analyzable records."]
     });
   }
-  const modules = structuredClone(state.modules);
-  for (const moduleId of RESEARCH_MODULE_IDS) {
-    modules[moduleId] = {
-      applicability: "REQUIRED",
-      execution_status: moduleId === "BIDIRECTIONAL_ITERATION" ||
-        moduleId === "FINAL_COMPLETION_AUDIT"
-        ? "NOT_STARTED"
-        : "COMPLETE",
-      authority: "SERVER_ROUTER"
-    };
-  }
   const operations = structuredClone(state.operations);
   for (const operationId of [
     "formal_evidence_search",
@@ -392,7 +389,6 @@ function completionFixture(): ResearchSessionState {
   ));
   let ready = researchSessionStateSchema.parse({
     ...state,
-    modules,
     operations,
     formal_evidence: formalEvidence
   });
@@ -717,6 +713,75 @@ describe("research session controller core", () => {
     );
   });
 
+  it("reconciles a retained partial frontier after a later terminal scout attempt", () => {
+    const packet = researchPacket();
+    const receipt = researchReceipt();
+    const unresolvedId = RESEARCH_FIXTURE_VIDEO_IDS[2];
+    const partial = recordAutomatedScoutCompletion(initialState(), {
+      providerResponseId: "interaction-partial-before-terminal",
+      packet,
+      receipt: {
+        ...receipt,
+        status: "partial",
+        candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
+          RESEARCH_FIXTURE_VIDEO_IDS,
+          RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
+          [],
+          [unresolvedId]
+        ),
+        validated_candidates: receipt.validated_candidates.slice(0, 2),
+        unresolved_candidates: [{
+          video_id: unresolvedId,
+          metadata_access_status: "rate_limited",
+          retryable: true,
+          provider_error_code: "youtube_rate_limited",
+          limitations: ["Retryable fixture boundary."]
+        }]
+      }
+    });
+    const terminalBoundary = {
+      classification: "TERMINAL_NONRETRYABLE" as const,
+      code: "AUTOMATED_SCOUT_INVALID_PACKET",
+      summary: "A later provider response was terminally invalid."
+    };
+    const legacy = researchSessionStateSchema.parse({
+      ...partial,
+      operations: {
+        ...partial.operations,
+        automated_video_scout: {
+          status: "BLOCKED_TERMINAL",
+          boundary: terminalBoundary
+        }
+      },
+      scout: {
+        ...partial.scout,
+        status: "BLOCKED",
+        access_boundary: terminalBoundary
+      }
+    });
+
+    const reconciled = reconcileRestoredResearchSessionState(legacy);
+    expect(reconciled.candidate_discovery.external_scout).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      validated_candidate_video_ids: RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
+      unresolved_candidate_video_ids: [unresolvedId]
+    });
+    expect(reconciled.candidate_discovery.candidates).toHaveLength(2);
+    expect(reconciled.scout).toMatchObject({
+      status: "BLOCKED",
+      candidate_count: 3,
+      validated_candidate_ids: RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
+      unresolved_candidate_ids: [unresolvedId],
+      provider_response_id: "interaction-partial-before-terminal"
+    });
+    expect(deriveRequiredNextCapabilities(reconciled)).toContain(
+      "native_video_discovery"
+    );
+    expect(deriveRequiredNextCapabilities(reconciled)).not.toContain(
+      "resolve_candidate_identities"
+    );
+  });
+
   it("maps treatment boundaries without treating a component lock as global synthesis", () => {
     expect(mapTreatmentLandscapeBoundary("continue_research")).toBe(
       "CONTINUE_RESEARCH"
@@ -736,9 +801,20 @@ describe("research session controller core", () => {
       summary: "The required provider returned a recognized terminal boundary."
     });
     expect(deriveResearchOutputBoundary(boundedScout)).toBe("CONTINUE_RESEARCH");
+    expect(deriveRequiredNextCapabilities(boundedScout)).toEqual([
+      "route_module_applicability",
+      "native_video_discovery"
+    ]);
+    expect(boundedScout.candidate_discovery.external_scout.status).toBe(
+      "BLOCKED_TERMINAL"
+    );
     expect(evaluateResearchFinalization(SESSION_ID, boundedScout)).toMatchObject({
       authorization: "DENIED",
       output_boundary: "CONTINUE_RESEARCH",
+      required_next_capabilities: [
+        "route_module_applicability",
+        "native_video_discovery"
+      ],
       denial_reasons: expect.arrayContaining([
         "TERMINAL_BOUNDARY_LIMITS_OUTPUT",
         "REQUIRED_OPERATION_INCOMPLETE"
@@ -761,6 +837,41 @@ describe("research session controller core", () => {
         accessible_full_text_acquisition: terminalOperation
       }
     })).toThrow(/derived exactly from per-source formal evidence state/u);
+  });
+
+  it("projects a stable terminal block instead of a continue-without-work exception", () => {
+    const routed = applyServerModuleApplicability(
+      initialState(),
+      Object.fromEntries(RESEARCH_MODULE_IDS
+        .filter((moduleId) => !["HRP", "FINAL_COMPLETION_AUDIT"].includes(moduleId))
+        .map((moduleId) => [moduleId, "REQUIRED"])),
+      "SERVER_ROUTER"
+    );
+    const externalTerminal = recordAutomatedScoutBoundary(routed, {
+      classification: "TERMINAL_NONRETRYABLE",
+      code: "AUTOMATED_SCOUT_TERMINAL_BOUNDARY",
+      summary: "The external scout reached a terminal boundary."
+    });
+    const emptySurvey = nativeSurvey();
+    emptySurvey.access_status = "inaccessible";
+    emptySurvey.candidates = [];
+    emptySurvey.searches = emptySurvey.searches.map((search) => ({
+      ...search,
+      access_status: "inaccessible" as const,
+      candidate_video_ids: []
+    }));
+    const noCandidates = recordNativeYoutubeDiscovery(
+      externalTerminal,
+      emptySurvey
+    );
+
+    expect(deriveResearchOutputBoundary(noCandidates)).toBe("CONTINUE_RESEARCH");
+    expect(deriveRequiredNextCapabilities(noCandidates)).toEqual([]);
+    expect(projectResearchSessionView(SESSION_ID, noCandidates)).toMatchObject({
+      execution_status: "BLOCKED_TERMINAL",
+      output_boundary: "CONTINUE_RESEARCH",
+      required_next_capabilities: []
+    });
   });
 
   it("issues a signed permit only for a controller-complete execution", () => {

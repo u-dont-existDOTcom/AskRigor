@@ -1,5 +1,62 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-25 first K3 replay denied; controller repair in progress
+
+The first fresh controlled replay did not produce a product-acceptance receipt.
+Finalization correctly returned `DENIED`, but the preceding controller view was
+internally impossible: it said `CONTINUE_RESEARCH` while returning no next
+capability, and the compact Custom GPT projection translated that state into a
+finalize directive. The observed denial reasons were required module and
+operation incompleteness plus a terminal-boundary limitation. This is negative
+acceptance evidence; it is not a completed or bounded product result.
+
+The encrypted checkpoint was inspected only through a sanitized technical
+projection. It contained no exposed prompt, source text, comment, credential,
+or provider body. It showed that the first automated Gemini/Spark attempt had
+already preserved eight public search queries, six public source IDs, two
+validated candidates, two terminal identity rejections, and two unresolved
+IDs. A later invalid-packet attempt had overwritten only the scout operation
+status, creating a contradiction with that retained frontier. The repair keeps
+the useful frontier, aligns its status with the authoritative boundary, and
+continues to native YouTube discovery rather than finalization.
+
+The old fixed acceptance target was also too abstract to test candidate
+quality: it allowed Gemini to choose an arbitrary condition. The replacement
+is a concrete, de-identified end-stage hip-osteoarthritis regression requiring
+materially distinct exercise and nonexercise programs. This is a product test,
+not condition-specific research policy. A bounded pre-merge live scout replay
+against that target executed nine grounded searches and returned four public
+candidate IDs. Two passed independent YouTube identity validation and two were
+rejected for declared-channel mismatch. Because this remained thinner than the
+checked-in skill's own intended breadth, the automated compact overlay now uses
+medium rather than low thinking and asks for 8–16 distinct candidates on broad
+treatment-choice targets, allowing fewer only when the searches establish a
+concrete gap.
+
+Fresh signed-in acceptance remains required after reviewed merge and exact
+deployment. The failed session cannot be resumed across that deployment
+because acceptance traces are deliberately process-local; the next replay must
+start a fresh challenge.
+
+Independent review also found and the candidate now fixes three adjacent
+problems before merge: an all-terminal/no-candidate search returns a stable
+`blocked` directive rather than an internal exception; signed transition traces
+distinguish progress, retryable and terminal boundaries from actual completion;
+and the fixed diagnosed acceptance scenario enters the controller as diagnosis
+specified. Focused re-review found no remaining issue in those paths.
+
+The compact Instructions remain **3,995 characters**, SHA-256
+`16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab`.
+The repaired output enum changes the generated editor schema: synchronization
+ledger SHA-256
+`80597b039ffc8e8a483aca6e0424953e70dd3e773ba24c778a9b1c9a51617616`,
+Action OpenAPI SHA-256
+`63ce76bfc7c763a6a5ffb77cba0e9badc17a89608f42ca5c42ce698b1db83681`,
+and installation-bundle digest
+`b7e76b819b1ac390cabe9ef97058b0e6f5d6b376644a8a68e1f322eb2abc62ba`.
+The editor must refresh the Action schema after deployment; the Instructions
+bytes themselves do not need replacement.
+
 ## 2026-08-25 Phase K2 controlled Custom GPT projection candidate
 
 Phase K2 replaces the Custom GPT's low-level research tool collection with four

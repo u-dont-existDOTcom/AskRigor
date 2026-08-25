@@ -182,7 +182,7 @@ describe("Gemini YouTube scout adapter", () => {
       tools: [{ type: "google_search" }],
       generation_config: {
         max_output_tokens: 12_000,
-        thinking_level: "low"
+        thinking_level: "medium"
       },
       response_format: {
         type: "text",
@@ -217,6 +217,9 @@ describe("Gemini YouTube scout adapter", () => {
     });
     expect(String(request.input)).toContain("AUTOMATED COMPACT TRANSPORT");
     expect(String(request.input)).toContain("exactly 12 strings");
+    expect(String(request.input)).toContain(
+      "broad treatment-choice or avoid-procedure target, return 8–16"
+    );
   });
 
   it("accepts the stateless live response shape without an interaction id", async () => {

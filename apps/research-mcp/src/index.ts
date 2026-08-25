@@ -238,6 +238,7 @@ export {
   ingestNativeYoutubeSurvey,
   ingestValidatedGeminiFrontier,
   initialResearchCandidateDiscoveryState,
+  markExternalScoutFrontierBoundary,
   nativeSurveyInputFromCandidateDiscovery,
   nativeSurveyInputFromGeminiPacket,
   researchCandidateDiscoveryStateSchema,

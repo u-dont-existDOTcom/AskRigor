@@ -7,7 +7,7 @@ import { CUSTOM_GPT_INSTALLATION_BUNDLE } from
 export const CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID =
   "askrigor-controlled-research-acceptance-v1" as const;
 export const CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET =
-  "Fixed synthetic acceptance: compare materially distinct treatment programs using community and formal evidence; preserve corrected or retracted study status, linked replications, unavailable optional providers, and plain-language limitations." as const;
+  "Fixed synthetic acceptance: for adults with radiographically confirmed end-stage hip osteoarthritis, severely limited walking, and an existing surgical indication, compare total hip replacement with materially distinct nonoperative programs. Search specific implementations rather than pooling exercise or conservative care: progressive resistance training, aquatic exercise, mobility or range-of-motion work, gait or movement retraining, cycling or other low-impact conditioning, multimodal rehabilitation, injections, nutrition or supplements, and watchful waiting. Distinguish program components and dose, disease stage, benefit, no effect, worsening, complications, eventual surgery, durability, study methods, and plain-language limitations." as const;
 const ACCEPTANCE_RECEIPT_LIFETIME_MS = 3_600_000;
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
@@ -22,7 +22,14 @@ const protocolIdentitySchema = z.object({
 export const customGptAcceptanceTransitionSchema = z.object({
   sequence: z.number().int().nonnegative(),
   capability: z.string().regex(/^[a-z][a-z0-9_]{2,99}$/u),
-  result: z.enum(["complete", "semantic_work_recorded", "protocol_drift"]),
+  result: z.enum([
+    "complete",
+    "progress_recorded",
+    "blocked_retryable",
+    "blocked_terminal",
+    "semantic_work_recorded",
+    "protocol_drift"
+  ]),
   before_state_digest: digest,
   after_state_digest: digest
 }).strict();

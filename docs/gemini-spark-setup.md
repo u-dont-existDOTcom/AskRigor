@@ -16,8 +16,8 @@ retrieves and checks the selected caption track.
 The integration uses Google's official Interactions API at
 `https://generativelanguage.googleapis.com/v1beta/interactions`, the stable
 fixed model `gemini-3.6-flash`, and the built-in `google_search` tool. Requests
-set `store:false`, use a bounded output and low thinking level, and send the API
-key only in the `x-goog-api-key` header.
+set `store:false`, use a bounded output and medium thinking level, and send the
+API key only in the `x-goog-api-key` header.
 
 Google Search grounding for this model requires a paid Gemini API project.
 Consumer Gemini AI Pro/Ultra or a consumer Spark subscription is separate and

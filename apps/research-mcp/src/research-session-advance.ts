@@ -137,6 +137,11 @@ export interface ResearchDeterministicAdvanceDependencies {
 export interface ResearchDeterministicAdvanceResult {
   state: ResearchSessionState;
   capability: string;
+  transition_result:
+    | "complete"
+    | "progress_recorded"
+    | "blocked_retryable"
+    | "blocked_terminal";
   state_changed: true;
 }
 
@@ -563,7 +568,26 @@ export async function advanceResearchSessionDeterministically(
   if (researchSessionStateDigest(next) === researchSessionStateDigest(rawState)) {
     throw new ResearchAdvanceNoProgressError(capability);
   }
-  return { state: next, capability, state_changed: true };
+  return {
+    state: next,
+    capability,
+    transition_result: deterministicTransitionResult(next, capability),
+    state_changed: true
+  };
+}
+
+function deterministicTransitionResult(
+  state: ResearchSessionState,
+  capability: string
+): ResearchDeterministicAdvanceResult["transition_result"] {
+  if (!(capability in state.operations)) return "progress_recorded";
+  const operation = state.operations[
+    capability as keyof ResearchSessionState["operations"]
+  ];
+  if (operation.status === "COMPLETE") return "complete";
+  if (operation.status === "BLOCKED_RETRYABLE") return "blocked_retryable";
+  if (operation.status === "BLOCKED_TERMINAL") return "blocked_terminal";
+  return "progress_recorded";
 }
 
 function requireDependency<T>(
