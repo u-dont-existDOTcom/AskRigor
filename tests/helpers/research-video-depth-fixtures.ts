@@ -8,6 +8,7 @@ import {
   type CandidateScreeningSubmission,
   type ResearchCandidateDiscoveryState
 } from "../../apps/research-mcp/src/index.js";
+import type { YoutubeComment } from "@askrigor/sources";
 
 export const TRANSCRIPT_HANDLE = `art1_${"T".repeat(32)}`;
 export const DISCUSSION_HANDLE = `arh1_${"D".repeat(32)}`;
@@ -162,6 +163,7 @@ export function discussionOutput(
     retryable?: boolean;
     terminal?: boolean;
     errorCode?: string;
+    comments?: YoutubeComment[];
   } = {}
 ): YoutubeDiscussionActionOutput {
   const complete = options.complete ?? options.continuationHandle === undefined;
@@ -242,6 +244,16 @@ export function discussionOutput(
   };
   return youtubeDiscussionActionOutputSchema.parse({
     ...base,
+    ...(options.comments === undefined
+      ? {}
+      : {
+          sample: {
+            mode: "all",
+            corpus_count: options.comments.length,
+            sampled_count: options.comments.length,
+            comments: options.comments
+          }
+        }),
     coverage_receipt: projectDiscussionCoverageReceipt(base)
   });
 }

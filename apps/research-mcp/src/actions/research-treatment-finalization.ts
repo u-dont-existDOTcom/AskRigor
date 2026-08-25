@@ -129,6 +129,8 @@ const treatmentAttemptSchema = z.object({
   attempt: z.number().int().positive().max(100),
   evidence_basis_digest: digest,
   semantic_submission_digest: digest,
+  selected_video_interpretations:
+    z.array(selectedVideoInterpretationSchema).min(1).max(76),
   assessor_input_digest: digest,
   assessment: treatmentLandscapeCoverageOutputSchema
 }).strict();
@@ -261,6 +263,7 @@ export function ingestTreatmentLandscapeSubmission(
     attempt: submission.attempt,
     evidence_basis_digest: submission.evidence_basis_digest,
     semantic_submission_digest: sha256(JSON.stringify(submission)),
+    selected_video_interpretations: submission.selected_video_interpretations,
     assessor_input_digest: sha256(JSON.stringify(assessorInput)),
     assessment
   });

@@ -278,6 +278,24 @@ describe("controller-owned formal evidence frontier", () => {
         audit: studyAudit(documentIndex(exhausted.identity.doi!))
       });
       formal = recordFormalMethodAudit(formal, sourceId, audit);
+      const readerEvidence = formal.sources.find(({ source_id }) =>
+        source_id === sourceId
+      )!.method_audit.reader_evidence;
+      expect(readerEvidence).toMatchObject({
+        audit_kind: "STUDY",
+        source_content_sha256: exhausted.full_text.source_content_sha256,
+        audit_sha256: audit.audit_receipt.audit_sha256
+      });
+      if (readerEvidence?.audit_kind !== "STUDY") {
+        throw new Error("Missing source-linked reader evidence");
+      }
+      const expectedBlockId = documentIndex(exhausted.identity.doi!).blocks[0]!.block_id;
+      expect(readerEvidence.method_findings.every(({ evidence_block_ids }) =>
+        evidence_block_ids.every((blockId) => blockId === expectedBlockId)
+      )).toBe(true);
+      expect(readerEvidence.claim_capabilities.every(({ evidence_block_ids }) =>
+        evidence_block_ids.every((blockId) => blockId === expectedBlockId)
+      )).toBe(true);
     }
 
     expect(deriveFormalEvidenceOperationStatus(formal, "study_method_audit"))

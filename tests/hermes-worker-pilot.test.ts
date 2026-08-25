@@ -24,6 +24,10 @@ import {
 import type {
   ResearchFinalizationDecision
 } from "../apps/research-mcp/src/actions/research-session-controller.js";
+import {
+  readerReportDigest,
+  type ReaderReportPacket
+} from "../apps/research-mcp/src/actions/research-report-synthesis.js";
 
 const SESSION = `ars1_${"A".repeat(32)}`;
 const STATE_A = "a".repeat(64);
@@ -514,12 +518,13 @@ function terminalDecision(
   outputBoundary: "FINALIZATION_ALLOWED" | "BOUNDED_NONRANKING_ONLY",
   stateDigest: string
 ): ResearchFinalizationDecision {
+  const report = terminalReport(authorization);
   return {
     session_id: SESSION,
     authorization,
     output_boundary: outputBoundary,
     finalization_permit: {
-      permit_version: "askrigor_finalization_permit_v1",
+      permit_version: "askrigor_finalization_permit_v2",
       artifact_kind: authorization === "AUTHORIZED"
         ? "COMPARATIVE_FINALIZATION_PERMIT"
         : "BOUNDED_NONRANKING_REPORT_PERMIT",
@@ -541,6 +546,7 @@ function terminalDecision(
       state_digest: stateDigest,
       authorization_basis_digest: HASH_E,
       limitations_digest: sha256("[]"),
+      report_digest: readerReportDigest(report),
       issued_at: "2026-08-24T00:00:00.000Z",
       expires_at: "2026-08-24T00:15:00.000Z",
       key_id: "fixture-key",
@@ -552,10 +558,85 @@ function terminalDecision(
       permitted_scope: authorization === "AUTHORIZED"
         ? "comparative_synthesis"
         : "bounded_nonranking_report",
-      limitations: []
+      limitations: [],
+      report
     },
     required_next_capabilities: [],
     state_digest: stateDigest
+  };
+}
+
+function terminalReport(
+  authorization: "AUTHORIZED" | "BOUNDED"
+): ReaderReportPacket {
+  const reportScope = authorization === "AUTHORIZED"
+    ? "comparative_synthesis" as const
+    : "bounded_nonranking_report" as const;
+  return {
+    packet_version: "askrigor_reader_report_v1",
+    evidence_basis_digest: HASH_E,
+    report_scope: reportScope,
+    title: "Bounded fixture report",
+    public_boundary: "General evidence research; no individualized medical advice.",
+    bottom_line: ["The exact server-authorized report is returned with its permit."],
+    comparative_conclusion: authorization === "AUTHORIZED"
+      ? "The compared approaches differ in the exact audited evidence."
+      : null,
+    claims: [{
+      claim_id: STATE_A,
+      claim_kind: authorization === "AUTHORIZED"
+        ? "comparative_effect"
+        : "formal_effect",
+      wording: "The formal source reports the bounded fixture finding.",
+      inference: "direct",
+      population_or_stage: "Fixture population",
+      program: fixtureReportProgram(),
+      outcome_and_horizon: "Fixture outcome at the stated horizon",
+      uncertainty: "Fixture uncertainty remains.",
+      references: [{
+        reference_kind: "formal_capability",
+        source_id: STATE_B,
+        capability_id: STATE_C
+      }]
+    }],
+    approaches: [{
+      approach_name: "Fixture approach",
+      program: fixtureReportProgram(),
+      population_or_stage: "Fixture population",
+      outcome_and_horizon: "Fixture outcome at the stated horizon",
+      evidence_summary: "One exact fixture claim is represented.",
+      claim_ids: [STATE_A]
+    }],
+    alternatives: [],
+    harms_and_counter_signals: [],
+    uncertainty: ["This is a schema-valid fixture, not research evidence."],
+    videos_actually_audited: [{
+      video_id: "abcdefghijk",
+      canonical_url: "https://www.youtube.com/watch?v=abcdefghijk",
+      title: "Fixture video",
+      channel_title: "Fixture channel",
+      evidence_status: "COMPLETE",
+      creator_finding_ids: [],
+      community_finding_ids: [],
+      limitations: []
+    }],
+    videos_worth_watching: [],
+    provider_and_access_limitations: [],
+    clinician_review_questions: []
+  };
+}
+
+function fixtureReportProgram() {
+  return {
+    name: "Fixture program",
+    components: ["Fixture component"],
+    dose_or_intensity: "Program not described",
+    frequency: "Program not described",
+    duration: "Program not described",
+    supervision: "Program not described",
+    adherence: "Program not described",
+    co_interventions: [],
+    care_stage: "not_described" as const
   };
 }
 

@@ -65,6 +65,34 @@ import {
 } from "./research-video-depth-controller.js";
 import type { TreatmentLandscapeCoverageOutput } from "./treatment-landscape-coverage-route.js";
 import {
+  createVideoEvidenceWorkPackage,
+  deriveVideoEvidenceStatus,
+  ingestVideoEvidenceSubmission,
+  initialResearchBoundedEvidenceState,
+  initializeResearchBoundedEvidence,
+  nextVideoEvidenceId,
+  reconcileVideoEvidenceBoundaries,
+  researchBoundedEvidenceStateSchema,
+  videoEvidenceWorkPackageSchema,
+  type ResearchBoundedEvidenceState,
+  type VideoEvidenceMaterial,
+  type VideoEvidenceSubmission
+} from "./research-bounded-evidence.js";
+import {
+  createReportSynthesisWorkPackage,
+  currentResearchReport,
+  deriveReportSynthesisStatus,
+  ingestReportSynthesisSubmission,
+  initialResearchReportState,
+  reportEvidenceBasisDigest,
+  readerReportPacketSchema,
+  reportSynthesisWorkPackageSchema,
+  researchReportStateSchema,
+  type ReaderReportPacket,
+  type ReportSynthesisSubmission,
+  type ResearchReportState
+} from "./research-report-synthesis.js";
+import {
   createFormalEvidenceScreeningWorkPackage,
   createFormalClaimRecalculationWorkPackages,
   createFormalExternalEvidenceWorkPackages,
@@ -126,6 +154,7 @@ export const RESEARCH_OPERATION_IDS = [
   "candidate_screening",
   "transcript_acquisition",
   "community_discussion_audit",
+  "video_evidence_synthesis",
   "formal_evidence_search",
   "accessible_full_text_acquisition",
   "study_method_audit",
@@ -134,6 +163,7 @@ export const RESEARCH_OPERATION_IDS = [
   "claim_capability_recalculation",
   "bidirectional_evidence_return",
   "treatment_landscape_finalization",
+  "report_synthesis",
   "final_completion_audit"
 ] as const;
 
@@ -265,6 +295,7 @@ const operationStatesSchema = z.object({
   candidate_screening: operationStateSchema,
   transcript_acquisition: operationStateSchema,
   community_discussion_audit: operationStateSchema,
+  video_evidence_synthesis: operationStateSchema,
   formal_evidence_search: operationStateSchema,
   accessible_full_text_acquisition: operationStateSchema,
   study_method_audit: operationStateSchema,
@@ -273,6 +304,7 @@ const operationStatesSchema = z.object({
   claim_capability_recalculation: operationStateSchema,
   bidirectional_evidence_return: operationStateSchema,
   treatment_landscape_finalization: operationStateSchema,
+  report_synthesis: operationStateSchema,
   final_completion_audit: operationStateSchema
 }).strict();
 
@@ -312,9 +344,11 @@ export const researchSessionStateSchema = z.object({
   scout: scoutStateSchema,
   candidate_discovery: researchCandidateDiscoveryStateSchema,
   video_depth: researchVideoDepthStateSchema,
+  bounded_evidence: researchBoundedEvidenceStateSchema,
   formal_evidence: researchFormalEvidenceStateSchema,
   bidirectional_iteration: researchBidirectionalIterationStateSchema,
   treatment_finalization: researchTreatmentFinalizationStateSchema,
+  report: researchReportStateSchema,
   final_completion_audit: finalCompletionAuditStateSchema
 }).strict().superRefine((state, context) => {
   if (
@@ -443,11 +477,38 @@ export const researchSessionStateSchema = z.object({
         });
       }
     }
+    const expectedVideoEvidenceOperation = videoEvidenceOperationProjection(
+      state.bounded_evidence,
+      state.video_depth
+    );
+    if (
+      state.bounded_evidence.selection_digest !==
+        state.video_depth.selection_digest ||
+      canonicalJson([...state.bounded_evidence.videos.map(({ video_id }) =>
+        video_id
+      )].sort()) !== canonicalJson([...state.video_depth.selected_video_ids].sort())
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Bounded selected-video evidence must match the exact candidate selection frontier"
+      });
+    }
+    if (
+      JSON.stringify(state.operations.video_evidence_synthesis) !==
+      JSON.stringify(expectedVideoEvidenceOperation)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "video_evidence_synthesis operation must be derived exactly from selected-video receipt-bound findings"
+      });
+    }
   } else if (
     state.video_depth.selected_video_ids.length > 0 ||
     state.video_depth.selection_digest !== undefined ||
     state.video_depth.transcripts.length > 0 ||
-    state.video_depth.discussions.length > 0
+    state.video_depth.discussions.length > 0 ||
+    state.bounded_evidence.videos.length > 0 ||
+    state.bounded_evidence.selection_digest !== undefined
   ) {
     context.addIssue({
       code: "custom",
@@ -532,6 +593,16 @@ export const researchSessionStateSchema = z.object({
       message: "treatment_landscape_finalization operation must be derived exactly from the current session-owned coverage assessment"
     });
   }
+  const reportOperation = reportSynthesisOperationProjection(state);
+  if (
+    JSON.stringify(state.operations.report_synthesis) !==
+    JSON.stringify(reportOperation)
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "report_synthesis operation must be derived exactly from the current bounded evidence and treatment frontier"
+    });
+  }
   const finalAuditOperation = finalCompletionAuditOperationProjection(state);
   if (
     JSON.stringify(state.operations.final_completion_audit) !==
@@ -583,6 +654,7 @@ export const researchNextCapabilitySchema = z.enum([
   "candidate_screening",
   "transcript_acquisition",
   "community_discussion_audit",
+  "video_evidence_synthesis",
   "formal_evidence_search",
   "accessible_full_text_acquisition",
   "study_method_audit",
@@ -591,6 +663,7 @@ export const researchNextCapabilitySchema = z.enum([
   "claim_capability_recalculation",
   "bidirectional_evidence_return",
   "treatment_landscape_finalization",
+  "report_synthesis",
   "final_completion_audit",
   "restart_under_current_protocols"
 ]);
@@ -626,7 +699,7 @@ export type ResearchFinalizationLimitation = z.output<
 >;
 
 export const finalizationPermitSchema = z.object({
-  permit_version: z.literal("askrigor_finalization_permit_v1"),
+  permit_version: z.literal("askrigor_finalization_permit_v2"),
   artifact_kind: z.enum([
     "COMPARATIVE_FINALIZATION_PERMIT",
     "BOUNDED_NONRANKING_REPORT_PERMIT"
@@ -637,6 +710,7 @@ export const finalizationPermitSchema = z.object({
   state_digest: z.string().regex(/^[a-f0-9]{64}$/u),
   authorization_basis_digest: z.string().regex(/^[a-f0-9]{64}$/u),
   limitations_digest: z.string().regex(/^[a-f0-9]{64}$/u),
+  report_digest: z.string().regex(/^[a-f0-9]{64}$/u),
   issued_at: z.string().datetime({ offset: true }),
   expires_at: z.string().datetime({ offset: true }),
   key_id: z.string().regex(/^[A-Za-z0-9._-]{1,100}$/u),
@@ -696,6 +770,13 @@ export const researchSessionViewSchema = z.object({
   candidate_screening_work_package: candidateScreeningWorkPackageSchema.nullable(),
   video_depth: researchVideoDepthDiagnosticsSchema,
   next_video_work_packages: z.array(researchVideoDepthWorkPackageSchema),
+  next_video_evidence_work_package: videoEvidenceWorkPackageSchema.nullable(),
+  video_evidence: z.object({
+    selected: z.number().int().nonnegative(),
+    complete: z.number().int().nonnegative(),
+    bounded: z.number().int().nonnegative(),
+    pending: z.number().int().nonnegative()
+  }).strict(),
   formal_evidence: formalEvidenceDiagnosticsSchema,
   formal_source_screening_work_package:
     formalEvidenceScreeningWorkPackageSchema.nullable(),
@@ -711,6 +792,8 @@ export const researchSessionViewSchema = z.object({
     z.array(bidirectionalReturnAssessmentWorkPackageSchema),
   treatment_finalization: treatmentFinalizationDiagnosticsSchema,
   treatment_landscape_work_package: treatmentLandscapeWorkPackageSchema.nullable(),
+  report_synthesis_work_package: reportSynthesisWorkPackageSchema.nullable(),
+  report_digest: z.string().regex(/^[a-f0-9]{64}$/u).nullable(),
   final_completion_audit: z.object({
     status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETE"]),
     basis_digest: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
@@ -735,7 +818,8 @@ const authorizedReaderFacingSchema = z.object({
     "comparative_synthesis",
     "bounded_nonranking_report"
   ]),
-  limitations: z.array(researchFinalizationLimitationSchema).max(4_000)
+  limitations: z.array(researchFinalizationLimitationSchema).max(4_000),
+  report: readerReportPacketSchema
 }).strict();
 
 const finalizationAuthorizedDecisionSchema = z.object({
@@ -803,6 +887,24 @@ export const finalizationDecisionSchema = z.discriminatedUnion("authorization", 
     context.addIssue({
       code: "custom",
       message: "Reader-facing limitations must match the exact permit-bound limitation set"
+    });
+  }
+  if (
+    decision.finalization_permit.report_digest !==
+      sha256(canonicalJson(decision.reader_facing.report))
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Reader-facing report must match the exact permit-bound report digest"
+    });
+  }
+  if (
+    decision.reader_facing.report.report_scope !==
+      decision.reader_facing.permitted_scope
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Reader-facing report scope must match the exact permitted scope"
     });
   }
 });
@@ -888,6 +990,7 @@ export function createInitialResearchSessionState(
       candidate_screening: notStarted(),
       transcript_acquisition: notStarted(),
       community_discussion_audit: notStarted(),
+      video_evidence_synthesis: notStarted(),
       formal_evidence_search: notStarted(),
       accessible_full_text_acquisition: notStarted(),
       study_method_audit: notStarted(),
@@ -896,6 +999,7 @@ export function createInitialResearchSessionState(
       claim_capability_recalculation: notStarted(),
       bidirectional_evidence_return: notStarted(),
       treatment_landscape_finalization: notStarted(),
+      report_synthesis: notStarted(),
       final_completion_audit: notStarted()
     },
     scout: {
@@ -906,9 +1010,11 @@ export function createInitialResearchSessionState(
     },
     candidate_discovery: initialResearchCandidateDiscoveryState(),
     video_depth: initialResearchVideoDepthState(),
+    bounded_evidence: initialResearchBoundedEvidenceState(),
     formal_evidence: initialResearchFormalEvidenceState(),
     bidirectional_iteration: initialResearchBidirectionalIterationState(),
-    treatment_finalization: initialResearchTreatmentFinalizationState()
+    treatment_finalization: initialResearchTreatmentFinalizationState(),
+    report: initialResearchReportState()
   });
 }
 
@@ -1097,6 +1203,10 @@ export function recordCandidateScreeningCompletion(
     submission
   );
   const videoDepth = initializeResearchVideoDepth(candidateDiscovery);
+  const boundedEvidence = initializeResearchBoundedEvidence(
+    videoDepth.selection_digest!,
+    videoDepth.selected_video_ids
+  );
   const formalEvidence = initializeResearchFormalEvidence(
     candidateDiscovery,
     state.research_target
@@ -1113,6 +1223,10 @@ export function recordCandidateScreeningCompletion(
       community_discussion_audit: videoDepthOperationProjection(
         videoDepth,
         "community_discussion_audit"
+      ),
+      video_evidence_synthesis: videoEvidenceOperationProjection(
+        boundedEvidence,
+        videoDepth
       ),
       formal_evidence_search: formalEvidenceOperationProjection(
         formalEvidence,
@@ -1141,6 +1255,7 @@ export function recordCandidateScreeningCompletion(
     },
     candidate_discovery: candidateDiscovery,
     video_depth: videoDepth,
+    bounded_evidence: boundedEvidence,
     formal_evidence: formalEvidence
   });
 }
@@ -1189,6 +1304,22 @@ export function recordDiscussionDepthResult(
     },
     video_depth: videoDepth
   });
+}
+
+export function recordResearchSessionVideoEvidence(
+  rawState: ResearchSessionState,
+  material: VideoEvidenceMaterial,
+  submission: VideoEvidenceSubmission
+): ResearchSessionState {
+  const state = requireDepthReady(rawState);
+  const boundedEvidence = ingestVideoEvidenceSubmission(
+    state.bounded_evidence,
+    state.candidate_discovery,
+    state.video_depth,
+    material,
+    submission
+  );
+  return withBoundedEvidence(state, boundedEvidence);
 }
 
 /**
@@ -1462,6 +1593,22 @@ export function recordResearchSessionTreatmentLandscape(
   return withTreatmentFinalization(state, treatment);
 }
 
+export function recordResearchSessionReport(
+  rawState: ResearchSessionState,
+  submission: ReportSynthesisSubmission
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (!operationCompleteOrTerminal(state.operations.treatment_landscape_finalization)) {
+    throw new Error("Report synthesis requires a terminal treatment landscape");
+  }
+  const report = ingestReportSynthesisSubmission(
+    state.report,
+    reportSynthesisEvidence(state),
+    submission
+  );
+  return withReport(state, report);
+}
+
 export function executeResearchSessionFinalCompletionAudit(
   rawState: ResearchSessionState
 ): ResearchSessionState {
@@ -1599,6 +1746,12 @@ export function deriveRequiredNextCapabilities(
   if (
     operationCompleteOrTerminal(state.operations.transcript_acquisition) &&
     operationCompleteOrTerminal(state.operations.community_discussion_audit) &&
+    isExecutable(state.operations.video_evidence_synthesis)
+  ) {
+    capabilities.push("video_evidence_synthesis");
+  }
+  if (
+    operationCompleteOrTerminal(state.operations.video_evidence_synthesis) &&
     formalPipelineTerminal(state) &&
     isExecutable(state.operations.bidirectional_evidence_return)
   ) {
@@ -1612,6 +1765,12 @@ export function deriveRequiredNextCapabilities(
   }
   if (
     operationCompleteOrTerminal(state.operations.treatment_landscape_finalization) &&
+    isExecutable(state.operations.report_synthesis)
+  ) {
+    capabilities.push("report_synthesis");
+  }
+  if (
+    state.operations.report_synthesis.status === "COMPLETE" &&
     isExecutable(state.operations.final_completion_audit)
   ) {
     capabilities.push("final_completion_audit");
@@ -1703,6 +1862,22 @@ export function projectResearchSessionView(
     next_video_work_packages: state.protocol_binding.currency === "CURRENT"
       ? deriveResearchVideoDepthWorkPackages(state.video_depth)
       : [],
+    next_video_evidence_work_package:
+      state.protocol_binding.currency === "CURRENT"
+        ? videoEvidenceWorkPackageOrNull(state)
+        : null,
+    video_evidence: {
+      selected: state.bounded_evidence.videos.length,
+      complete: state.bounded_evidence.videos.filter(({ status }) =>
+        status === "COMPLETE"
+      ).length,
+      bounded: state.bounded_evidence.videos.filter(({ status }) =>
+        status === "BOUNDED_TERMINAL"
+      ).length,
+      pending: state.bounded_evidence.videos.filter(({ status }) =>
+        status === "NOT_STARTED"
+      ).length
+    },
     formal_evidence: deriveFormalEvidenceDiagnostics(state.formal_evidence),
     formal_source_screening_work_package:
       state.protocol_binding.currency === "CURRENT"
@@ -1739,6 +1914,14 @@ export function projectResearchSessionView(
       state.protocol_binding.currency === "CURRENT"
         ? treatmentWorkPackageOrNull(state)
         : null,
+    report_synthesis_work_package:
+      state.protocol_binding.currency === "CURRENT"
+        ? reportWorkPackageOrNull(state)
+        : null,
+    report_digest: currentResearchReport(
+      state.report,
+      reportSynthesisEvidence(state)
+    )?.report_digest ?? null,
     final_completion_audit: projectFinalCompletionAuditView(state),
     required_next_capabilities: deriveRequiredNextCapabilities(state),
     finalization_permit: null
@@ -1809,6 +1992,18 @@ export function evaluateResearchFinalization(
   }
 
   const limitations = deriveResearchFinalizationLimitations(state);
+  const report = currentResearchReport(state.report, reportSynthesisEvidence(state));
+  if (report === undefined) {
+    return finalizationDecisionSchema.parse({
+      session_id: sessionId,
+      authorization: "DENIED",
+      output_boundary: "CONTINUE_RESEARCH",
+      finalization_permit: null,
+      denial_reasons: ["REQUIRED_OPERATION_INCOMPLETE"],
+      required_next_capabilities: deriveRequiredNextCapabilities(state),
+      state_digest: stateDigest
+    });
+  }
   const permit = issueResearchFinalizationPermit(sessionId, state, limitations, {
     signingSecret: secret,
     keyId,
@@ -1826,14 +2021,15 @@ export function evaluateResearchFinalization(
       permitted_scope: outputBoundary === "FINALIZATION_ALLOWED"
         ? "comparative_synthesis"
         : "bounded_nonranking_report",
-      limitations
+      limitations,
+      report: report.packet
     },
     required_next_capabilities: [],
     state_digest: stateDigest
   });
 }
 
-const FINALIZATION_PERMIT_KEY_DOMAIN = "askrigor:research-finalization-permit:v1";
+const FINALIZATION_PERMIT_KEY_DOMAIN = "askrigor:research-finalization-permit:v2";
 const FINALIZATION_PERMIT_DEFAULT_TTL_MS = 15 * 60 * 1_000;
 const FINALIZATION_PERMIT_MAX_TTL_MS = 60 * 60 * 1_000;
 const FINALIZATION_PERMIT_MIN_SECRET_BYTES = 32;
@@ -1848,7 +2044,14 @@ export class ResearchFinalizationPermitError extends Error {
 export function deriveResearchFinalizationLimitations(
   rawState: ResearchSessionState
 ): ResearchFinalizationLimitation[] {
-  const state = researchSessionStateSchema.parse(rawState);
+  return deriveResearchFinalizationLimitationsFromState(
+    researchSessionStateSchema.parse(rawState)
+  );
+}
+
+function deriveResearchFinalizationLimitationsFromState(
+  state: ResearchSessionState
+): ResearchFinalizationLimitation[] {
   const limitations: ResearchFinalizationLimitation[] = [];
   const add = (input: Omit<ResearchFinalizationLimitation, "limitation_id">) => {
     const core = researchFinalizationLimitationSchema.omit({ limitation_id: true })
@@ -1924,6 +2127,20 @@ export function deriveResearchFinalizationLimitations(
     }
   }
 
+  for (const video of state.bounded_evidence.videos.filter(({ status }) =>
+    status === "BOUNDED_TERMINAL"
+  )) {
+    const candidate = state.candidate_discovery.candidates.find(({ video_id }) =>
+      video_id === video.video_id
+    );
+    for (const limitation of video.limitations) {
+      add({
+        scope: "source_access",
+        plain_language: `${candidate?.title ?? "A selected video"}: ${limitation}`
+      });
+    }
+  }
+
   const treatment = currentTreatmentLandscapeAssessment(
     state.treatment_finalization,
     treatmentFinalizationEvidence(state)
@@ -1963,19 +2180,23 @@ export function verifyResearchFinalizationPermit(
     ) throw new ResearchFinalizationPermitError();
 
     const limitations = deriveResearchFinalizationLimitations(state);
+    const report = currentResearchReport(state.report, reportSynthesisEvidence(state));
+    if (report === undefined) throw new ResearchFinalizationPermitError();
     const expected = {
       execution_id: executionId,
       protocol_identities: state.protocol_binding.expected,
       state_digest: researchSessionStateDigest(state),
       authorization_basis_digest: finalizationAuthorizationBasisDigest(state, boundary),
-      limitations_digest: finalizationLimitationsDigest(limitations)
+      limitations_digest: finalizationLimitationsDigest(limitations),
+      report_digest: report.report_digest
     };
     if (canonicalJson({
       execution_id: permit.execution_id,
       protocol_identities: permit.protocol_identities,
       state_digest: permit.state_digest,
       authorization_basis_digest: permit.authorization_basis_digest,
-      limitations_digest: permit.limitations_digest
+      limitations_digest: permit.limitations_digest,
+      report_digest: permit.report_digest
     }) !== canonicalJson(expected)) {
       throw new ResearchFinalizationPermitError();
     }
@@ -2026,13 +2247,15 @@ function issueResearchFinalizationPermit(
     boundary === "BOUNDED_NONRANKING_ONLY" && !boundedNonrankingReady(state)
   ) throw new ResearchFinalizationPermitError();
   const issued = readFinalizationClock(options.now ?? (() => new Date()));
+  const report = currentResearchReport(state.report, reportSynthesisEvidence(state));
+  if (report === undefined) throw new ResearchFinalizationPermitError();
   const ttlMs = options.ttlMs ?? FINALIZATION_PERMIT_DEFAULT_TTL_MS;
   if (
     !Number.isSafeInteger(ttlMs) || ttlMs < 1 ||
     ttlMs > FINALIZATION_PERMIT_MAX_TTL_MS
   ) throw new Error("Research finalization permit TTL is invalid");
   const unsigned = {
-    permit_version: "askrigor_finalization_permit_v1" as const,
+    permit_version: "askrigor_finalization_permit_v2" as const,
     artifact_kind: boundary === "FINALIZATION_ALLOWED"
       ? "COMPARATIVE_FINALIZATION_PERMIT" as const
       : "BOUNDED_NONRANKING_REPORT_PERMIT" as const,
@@ -2042,6 +2265,7 @@ function issueResearchFinalizationPermit(
     state_digest: researchSessionStateDigest(state),
     authorization_basis_digest: finalizationAuthorizationBasisDigest(state, boundary),
     limitations_digest: finalizationLimitationsDigest(limitations),
+    report_digest: report.report_digest,
     issued_at: issued.toISOString(),
     expires_at: new Date(issued.getTime() + ttlMs).toISOString(),
     key_id: options.keyId,
@@ -2254,6 +2478,10 @@ export function assertResearchSessionTransition(
     throw new Error("Completed candidate screening records are immutable");
   }
   assertVideoDepthTransition(previous.video_depth, next.video_depth);
+  assertBoundedEvidenceTransition(
+    previous.bounded_evidence,
+    next.bounded_evidence
+  );
   assertFormalEvidenceTransition(previous, next);
   assertBidirectionalIterationTransition(
     previous.bidirectional_iteration,
@@ -2263,6 +2491,7 @@ export function assertResearchSessionTransition(
     previous.treatment_finalization,
     next.treatment_finalization
   );
+  assertReportTransition(previous.report, next.report);
   assertFinalCompletionAuditTransition(previous, next);
 }
 
@@ -2314,6 +2543,10 @@ function lateEvidenceExpansionJustifiesReopen(
   if (operationId === "treatment_landscape_finalization") {
     return treatmentEvidenceBasisDigest(treatmentFinalizationEvidence(previous)) !==
       treatmentEvidenceBasisDigest(treatmentFinalizationEvidence(next));
+  }
+  if (operationId === "report_synthesis") {
+    return reportEvidenceBasisForSession(previous) !==
+      reportEvidenceBasisForSession(next);
   }
   if (operationId === "final_completion_audit") {
     return finalCompletionAuditBasisDigest(previous) !==
@@ -2368,9 +2601,10 @@ function requireBidirectionalReady(
   }
   if (
     !operationCompleteOrTerminal(state.operations.transcript_acquisition) ||
-    !operationCompleteOrTerminal(state.operations.community_discussion_audit)
+    !operationCompleteOrTerminal(state.operations.community_discussion_audit) ||
+    !operationCompleteOrTerminal(state.operations.video_evidence_synthesis)
   ) {
-    throw new Error("Bidirectional iteration requires terminal selected-video receipt chains");
+    throw new Error("Bidirectional iteration requires terminal selected-video receipts and bounded findings");
   }
   if (
     requireUpstreamTerminal &&
@@ -2419,6 +2653,10 @@ function withFormalEvidence(
   const lateDraft = { ...draft, operations } as ResearchSessionState;
   operations.treatment_landscape_finalization =
     treatmentFinalizationOperationProjection(lateDraft);
+  operations.report_synthesis = reportSynthesisOperationProjection({
+    ...lateDraft,
+    operations
+  } as ResearchSessionState);
   operations.final_completion_audit = finalCompletionAuditOperationProjection({
     ...lateDraft,
     operations
@@ -2443,6 +2681,10 @@ function withVideoDepth(
   rawVideoDepth: ResearchSessionState["video_depth"],
 ): ResearchSessionState {
   const videoDepth = researchVideoDepthStateSchema.parse(rawVideoDepth);
+  const boundedEvidence = reconcileVideoEvidenceBoundaries(
+    state.bounded_evidence,
+    videoDepth
+  );
   const operations = {
     ...state.operations,
     transcript_acquisition: videoDepthOperationProjection(
@@ -2453,12 +2695,25 @@ function withVideoDepth(
       videoDepth,
       "community_discussion_audit",
     ),
+    video_evidence_synthesis: videoEvidenceOperationProjection(
+      boundedEvidence,
+      videoDepth
+    )
   };
-  const draft = { ...state, operations, video_depth: videoDepth } as ResearchSessionState;
+  const draft = {
+    ...state,
+    operations,
+    video_depth: videoDepth,
+    bounded_evidence: boundedEvidence
+  } as ResearchSessionState;
   operations.bidirectional_evidence_return = bidirectionalOperationProjection(draft);
   const lateDraft = { ...draft, operations } as ResearchSessionState;
   operations.treatment_landscape_finalization =
     treatmentFinalizationOperationProjection(lateDraft);
+  operations.report_synthesis = reportSynthesisOperationProjection({
+    ...lateDraft,
+    operations
+  } as ResearchSessionState);
   operations.final_completion_audit = finalCompletionAuditOperationProjection({
     ...lateDraft,
     operations,
@@ -2471,6 +2726,46 @@ function withVideoDepth(
     ),
     operations,
     video_depth: videoDepth,
+    bounded_evidence: boundedEvidence
+  });
+}
+
+function withBoundedEvidence(
+  state: ResearchSessionState,
+  rawBoundedEvidence: ResearchBoundedEvidenceState
+): ResearchSessionState {
+  const boundedEvidence = reconcileVideoEvidenceBoundaries(
+    researchBoundedEvidenceStateSchema.parse(rawBoundedEvidence),
+    state.video_depth
+  );
+  const operations = {
+    ...state.operations,
+    video_evidence_synthesis: videoEvidenceOperationProjection(
+      boundedEvidence,
+      state.video_depth
+    )
+  };
+  const draft = { ...state, operations, bounded_evidence: boundedEvidence } as ResearchSessionState;
+  operations.bidirectional_evidence_return = bidirectionalOperationProjection(draft);
+  const lateDraft = { ...draft, operations } as ResearchSessionState;
+  operations.treatment_landscape_finalization =
+    treatmentFinalizationOperationProjection(lateDraft);
+  operations.report_synthesis = reportSynthesisOperationProjection({
+    ...lateDraft,
+    operations
+  } as ResearchSessionState);
+  operations.final_completion_audit = finalCompletionAuditOperationProjection({
+    ...lateDraft,
+    operations
+  } as ResearchSessionState);
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules: projectFinalAuditModule(
+      projectBidirectionalModule(state.modules, operations.bidirectional_evidence_return),
+      operations.final_completion_audit
+    ),
+    operations,
+    bounded_evidence: boundedEvidence
   });
 }
 
@@ -2488,6 +2783,10 @@ function withBidirectionalIteration(
   const lateDraft = { ...draft, operations } as ResearchSessionState;
   operations.treatment_landscape_finalization =
     treatmentFinalizationOperationProjection(lateDraft);
+  operations.report_synthesis = reportSynthesisOperationProjection({
+    ...lateDraft,
+    operations
+  } as ResearchSessionState);
   operations.final_completion_audit = finalCompletionAuditOperationProjection({
     ...lateDraft,
     operations
@@ -2514,6 +2813,10 @@ function withTreatmentFinalization(
     ...state.operations,
     treatment_landscape_finalization: treatmentOperation
   };
+  operations.report_synthesis = reportSynthesisOperationProjection({
+    ...draft,
+    operations
+  } as ResearchSessionState);
   operations.final_completion_audit = finalCompletionAuditOperationProjection({
     ...draft,
     operations
@@ -2526,6 +2829,29 @@ function withTreatmentFinalization(
     ),
     operations,
     treatment_finalization: treatment
+  });
+}
+
+function withReport(
+  state: ResearchSessionState,
+  rawReport: ResearchReportState
+): ResearchSessionState {
+  const report = researchReportStateSchema.parse(rawReport);
+  const draft = { ...state, report } as ResearchSessionState;
+  const reportOperation = reportSynthesisOperationProjection(draft);
+  const operations = {
+    ...state.operations,
+    report_synthesis: reportOperation
+  };
+  operations.final_completion_audit = finalCompletionAuditOperationProjection({
+    ...draft,
+    operations
+  } as ResearchSessionState);
+  return researchSessionStateSchema.parse({
+    ...state,
+    modules: projectFinalAuditModule(state.modules, operations.final_completion_audit),
+    operations,
+    report
   });
 }
 
@@ -2622,6 +2948,47 @@ function treatmentFinalizationOperationProjection(
     };
   }
   return { status };
+}
+
+function videoEvidenceOperationProjection(
+  boundedEvidence: ResearchBoundedEvidenceState,
+  videoDepth: ResearchSessionState["video_depth"]
+): ResearchSessionState["operations"]["video_evidence_synthesis"] {
+  const status = deriveVideoEvidenceStatus(boundedEvidence, videoDepth);
+  if (status === "BLOCKED_TERMINAL") {
+    return {
+      status,
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "VIDEO_EVIDENCE_BOUNDED_TERMINAL",
+        summary: "At least one selected video could not support transcript-verified creator findings or a complete public-discussion audit."
+      }
+    };
+  }
+  return { status };
+}
+
+function reportSynthesisEvidence(state: ResearchSessionState) {
+  return {
+    researchTarget: state.research_target,
+    candidates: state.candidate_discovery,
+    boundedEvidence: state.bounded_evidence,
+    formalEvidence: state.formal_evidence,
+    treatment: state.treatment_finalization,
+    limitations: deriveResearchFinalizationLimitationsFromState(state).map((limitation) => ({
+      limitation_id: limitation.limitation_id,
+      plain_language: limitation.plain_language
+    }))
+  };
+}
+
+function reportSynthesisOperationProjection(
+  state: ResearchSessionState
+): ResearchSessionState["operations"]["report_synthesis"] {
+  if (!operationCompleteOrTerminal(state.operations.treatment_landscape_finalization)) {
+    return { status: "NOT_STARTED" };
+  }
+  return { status: deriveReportSynthesisStatus(state.report, reportSynthesisEvidence(state)) };
 }
 
 function finalCompletionAuditOperationProjection(
@@ -3048,6 +3415,55 @@ function assertTreatmentFinalizationTransition(
   }
 }
 
+function assertBoundedEvidenceTransition(
+  previous: ResearchBoundedEvidenceState,
+  next: ResearchBoundedEvidenceState
+): void {
+  if (
+    previous.selection_digest === undefined &&
+    previous.videos.length === 0
+  ) {
+    if (
+      next.videos.some(({ status }) => status !== "NOT_STARTED") ||
+      next.videos.some(({ creator_findings, community_findings, limitations }) =>
+        creator_findings.length > 0 || community_findings.length > 0 ||
+        limitations.length > 0
+      )
+    ) {
+      throw new Error("Bounded selected-video evidence must initialize without caller-authored findings");
+    }
+    return;
+  }
+  if (
+    previous.selection_digest !== next.selection_digest ||
+    previous.videos.length !== next.videos.length
+  ) throw new Error("Bounded selected-video evidence frontier is immutable");
+  const nextById = new Map(next.videos.map((video) => [video.video_id, video]));
+  for (const prior of previous.videos) {
+    const later = nextById.get(prior.video_id);
+    if (later === undefined) throw new Error("Bounded video evidence cannot be removed");
+    if (
+      prior.status !== "NOT_STARTED" &&
+      JSON.stringify(prior) !== JSON.stringify(later)
+    ) throw new Error("Completed or bounded selected-video findings are immutable");
+  }
+}
+
+function assertReportTransition(
+  previous: ResearchReportState,
+  next: ResearchReportState
+): void {
+  if (
+    next.attempts.length < previous.attempts.length ||
+    next.attempts.length > previous.attempts.length + 1
+  ) throw new Error("Reader-report attempts must advance monotonically one at a time");
+  for (let index = 0; index < previous.attempts.length; index += 1) {
+    if (JSON.stringify(previous.attempts[index]) !== JSON.stringify(next.attempts[index])) {
+      throw new Error("Completed reader-report packets are immutable");
+    }
+  }
+}
+
 function assertFinalCompletionAuditTransition(
   previous: ResearchSessionState,
   next: ResearchSessionState
@@ -3076,6 +3492,19 @@ function bidirectionalEvidenceBasisDigestForSession(state: ResearchSessionState)
   }
 }
 
+function reportEvidenceBasisForSession(state: ResearchSessionState): string {
+  try {
+    return reportEvidenceBasisDigest(reportSynthesisEvidence(state));
+  } catch {
+    return sha256(canonicalJson({
+      candidates: state.candidate_discovery,
+      bounded_evidence: state.bounded_evidence,
+      formal_evidence: state.formal_evidence,
+      treatment: state.treatment_finalization
+    }));
+  }
+}
+
 function formalScreeningWorkPackageOrNull(
   formalEvidence: ResearchFormalEvidenceState
 ): z.output<typeof formalEvidenceScreeningWorkPackageSchema> | null {
@@ -3089,6 +3518,29 @@ function formalScreeningWorkPackageOrNull(
   }
 }
 
+function videoEvidenceWorkPackageOrNull(
+  state: ResearchSessionState
+): z.output<typeof videoEvidenceWorkPackageSchema> | null {
+  const videoId = nextVideoEvidenceId(state.bounded_evidence, state.video_depth);
+  if (videoId === undefined) return null;
+  try {
+    const transcript = state.video_depth.transcripts.find(({ source }) =>
+      source.video_id === videoId
+    );
+    const discussion = state.video_depth.discussions.find(({ source }) =>
+      source.video_id === videoId
+    );
+    if (transcript?.receipt === undefined || discussion?.receipt === undefined) return null;
+    return createVideoEvidenceWorkPackage(
+      state.bounded_evidence,
+      state.candidate_discovery,
+      state.video_depth
+    );
+  } catch {
+    return null;
+  }
+}
+
 function bidirectionalWorkPackageOrNull(
   state: ResearchSessionState
 ): z.output<typeof bidirectionalIterationWorkPackageSchema> | null {
@@ -3096,6 +3548,7 @@ function bidirectionalWorkPackageOrNull(
     state.modules.BIDIRECTIONAL_ITERATION.applicability !== "REQUIRED" ||
     !operationCompleteOrTerminal(state.operations.transcript_acquisition) ||
     !operationCompleteOrTerminal(state.operations.community_discussion_audit) ||
+    !operationCompleteOrTerminal(state.operations.video_evidence_synthesis) ||
     !formalPipelineTerminal(state)
   ) return null;
   try {
@@ -3114,6 +3567,7 @@ function projectBidirectionalIterationDiagnostics(
   if (
     !operationCompleteOrTerminal(state.operations.transcript_acquisition) ||
     !operationCompleteOrTerminal(state.operations.community_discussion_audit) ||
+    !operationCompleteOrTerminal(state.operations.video_evidence_synthesis) ||
     !formalPipelineTerminal(state)
   ) {
     const rounds = state.bidirectional_iteration.rounds;
@@ -3162,6 +3616,25 @@ function treatmentWorkPackageOrNull(
     return createTreatmentLandscapeWorkPackage(
       state.treatment_finalization,
       treatmentFinalizationEvidence(state)
+    );
+  } catch {
+    return null;
+  }
+}
+
+function reportWorkPackageOrNull(
+  state: ResearchSessionState
+): z.output<typeof reportSynthesisWorkPackageSchema> | null {
+  if (!operationCompleteOrTerminal(state.operations.treatment_landscape_finalization)) {
+    return null;
+  }
+  if (currentResearchReport(state.report, reportSynthesisEvidence(state)) !== undefined) {
+    return null;
+  }
+  try {
+    return createReportSynthesisWorkPackage(
+      state.report,
+      reportSynthesisEvidence(state)
     );
   } catch {
     return null;
@@ -3243,6 +3716,11 @@ function deriveFinalCompletionChecks(state: ResearchSessionState) {
     ) === "COMPLETE",
     "Both transfer directions are complete for the current evidence basis."
   );
+  add(
+    "READER_REPORT_CURRENT",
+    currentResearchReport(state.report, reportSynthesisEvidence(state)) !== undefined,
+    "The reader report is current, source-linked, and bound to this exact evidence basis."
+  );
   const unresolvedLinked = state.formal_evidence.sources.flatMap((source) =>
     source.external_evidence.linked_work.filter((item) =>
       item.possible_decision_impact !== "detail_only" && item.status !== "COMPLETE"
@@ -3277,9 +3755,11 @@ function finalCompletionAuditBasisDigest(state: ResearchSessionState): string {
     scout: state.scout,
     candidate_discovery: state.candidate_discovery,
     video_depth: state.video_depth,
+    bounded_evidence: state.bounded_evidence,
     formal_evidence: state.formal_evidence,
     bidirectional_iteration: state.bidirectional_iteration,
-    treatment_finalization: state.treatment_finalization
+    treatment_finalization: state.treatment_finalization,
+    report: state.report
   }), "utf8").digest("hex");
 }
 

@@ -11,8 +11,11 @@ import {
   createBidirectionalIterationWorkPackage,
   createCandidateScreeningWorkPackage,
   createInitialResearchSessionState,
+  createReportSynthesisEvidenceContext,
+  createReportSynthesisWorkPackage,
   createResearchSessionStore,
   createTreatmentLandscapeWorkPackage,
+  createVideoEvidenceWorkPackage,
   deriveResearchFinalizationLimitations,
   deriveResearchFinalizationReadiness,
   deriveRequiredNextCapabilities,
@@ -21,6 +24,8 @@ import {
   executeResearchSessionFinalCompletionAudit,
   finalizationDecisionSchema,
   finalizationPermitSchema,
+  ingestReportSynthesisSubmission,
+  initialResearchReportState,
   mapTreatmentLandscapeBoundary,
   projectResearchSessionView,
   protocolBindingsFromManifests,
@@ -30,9 +35,13 @@ import {
   recordDiscussionDepthResult,
   recordNativeYoutubeDiscovery,
   recordResearchSessionBidirectionalIteration,
+  recordResearchSessionReport,
   recordResearchSessionTreatmentLandscape,
+  recordResearchSessionVideoEvidence,
   recordTranscriptDepthResult,
   researchSessionStateSchema,
+  sourceMaterialDigest,
+  sourceRecordSha256,
   verifyResearchFinalizationPermit,
   ResearchFinalizationPermitError,
   type FinalizationPermit,
@@ -156,6 +165,38 @@ function completedDecisionStudy(
       source_content_sha256: contentHash,
       source_primary_identifier: "PMC12345678",
       claim_capability_digest: capabilityHash,
+      reader_evidence: {
+        audit_kind: "STUDY",
+        source_content_sha256: contentHash,
+        audit_sha256: methodHash,
+        design_label: "Randomized comparative study",
+        design_capability_statement: "Supports the exact studied comparison, population, outcomes, and horizon subject to the audited limitations.",
+        population_and_stage: "Adults in the exact decision population and stage.",
+        intervention_program: reportProgram("Intervention program"),
+        comparator_program: reportProgram("Comparator program"),
+        outcome_and_horizon: "Walking and symptom outcomes at the reported follow-up.",
+        method_findings: [{
+          finding_id: "e".repeat(64),
+          domain: "allocation and follow-up",
+          status: "adequate",
+          plain_language_finding: "The source blocks support the audited design description.",
+          evidence_block_ids: ["jats_000001_aaaaaaaaaaaa"],
+          unresolved_fields: []
+        }],
+        claim_capabilities: [{
+          capability_id: capabilityHash,
+          claim: "The exact intervention and comparator can be compared for the reported outcome and horizon.",
+          capability: "can_support",
+          reason: "The complete audited study directly reports this comparison.",
+          evidence_block_ids: ["jats_000001_aaaaaaaaaaaa"]
+        }, {
+          capability_id: "f".repeat(64),
+          claim: "The study proves effects in every disease stage and program implementation.",
+          capability: "cannot_support",
+          reason: "The audited population and programs are narrower.",
+          evidence_block_ids: ["jats_000001_aaaaaaaaaaaa"]
+        }]
+      },
       external_receipt_payload_sha256: externalReceiptHash,
       external_bound_audit_sha256: "a".repeat(64)
     },
@@ -206,6 +247,20 @@ function completedDecisionStudy(
   };
 }
 
+function reportProgram(name: string) {
+  return {
+    name,
+    components: ["Exact described component"],
+    dose_or_intensity: "As described in the audited source",
+    frequency: "As described in the audited source",
+    duration: "As described in the audited source",
+    supervision: "As described in the audited source",
+    adherence: "As reported in the audited source",
+    co_interventions: [],
+    care_stage: "nonsurgical" as const
+  };
+}
+
 function testJsonHash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value), "utf8").digest("hex");
 }
@@ -246,13 +301,60 @@ function completionFixture(): ResearchSessionState {
     }
   );
   for (const videoId of state.video_depth.selected_video_ids) {
-    state = recordTranscriptDepthResult(state, videoId, transcriptOutput(videoId));
+    const transcript = transcriptOutput(videoId);
+    const discussion = discussionOutput(videoId);
+    state = recordTranscriptDepthResult(state, videoId, transcript);
     state = recordDiscussionDepthResult(
       state,
       videoId,
       undefined,
-      discussionOutput(videoId)
+      discussion
     );
+    const transcriptReceiptSha256 = sourceRecordSha256(
+      transcript.coverage_receipt
+    );
+    const discussionReceiptSha256 = sourceRecordSha256(
+      discussion.coverage_receipt
+    );
+    const transcriptSegments = transcript.data.map((segment) => ({
+      ...segment,
+      record_sha256: sourceRecordSha256(segment)
+    }));
+    const material = {
+      video_id: videoId,
+      transcript_receipt_sha256: transcriptReceiptSha256,
+      discussion_receipt_sha256: discussionReceiptSha256,
+      transcript_segments: transcriptSegments,
+      discussion_comments: [],
+      source_material_digest: sourceMaterialDigest({
+        video_id: videoId,
+        transcript_receipt_sha256: transcriptReceiptSha256,
+        discussion_receipt_sha256: discussionReceiptSha256,
+        transcript_record_sha256s: transcriptSegments.map(({ record_sha256 }) =>
+          record_sha256
+        ),
+        discussion_record_sha256s: []
+      })
+    };
+    const videoWork = createVideoEvidenceWorkPackage(
+      state.bounded_evidence,
+      state.candidate_discovery,
+      state.video_depth,
+      material
+    );
+    state = recordResearchSessionVideoEvidence(state, material, {
+      package_version: videoWork.package_version,
+      evidence_basis_digest: videoWork.evidence_basis_digest,
+      video_id: videoId,
+      creator_findings: [{
+        finding_type: "program",
+        plain_language: "The creator describes the exact selected program.",
+        transcript_segment_sha256s: [transcriptSegments[0]!.record_sha256],
+        program: reportProgram("Selected video program")
+      }],
+      community_findings: [],
+      limitations: ["The public discussion sample contained no analyzable records."]
+    });
   }
   const modules = structuredClone(state.modules);
   for (const moduleId of RESEARCH_MODULE_IDS) {
@@ -363,6 +465,88 @@ function completionFixture(): ResearchSessionState {
     })),
     further_expansion_likely_to_improve_answer: "no"
   });
+  const limitations = deriveResearchFinalizationLimitations(ready).map((item) => ({
+    limitation_id: item.limitation_id,
+    plain_language: item.plain_language
+  }));
+  const reportWork = createReportSynthesisWorkPackage(ready.report, {
+    researchTarget: ready.research_target,
+    candidates: ready.candidate_discovery,
+    boundedEvidence: ready.bounded_evidence,
+    formalEvidence: ready.formal_evidence,
+    treatment: ready.treatment_finalization,
+    limitations
+  });
+  const reportContext = createReportSynthesisEvidenceContext({
+    researchTarget: ready.research_target,
+    candidates: ready.candidate_discovery,
+    boundedEvidence: ready.bounded_evidence,
+    formalEvidence: ready.formal_evidence,
+    treatment: ready.treatment_finalization,
+    limitations
+  });
+  const creator = reportContext.videos[0]!.evidence.creator_findings[0]!;
+  ready = recordResearchSessionReport(ready, {
+    package_version: reportWork.package_version,
+    evidence_basis_digest: reportWork.evidence_basis_digest,
+    packet: {
+      packet_version: "askrigor_reader_report_v1",
+      evidence_basis_digest: reportWork.evidence_basis_digest,
+      report_scope: "comparative_synthesis",
+      title: "De-identified treatment comparison",
+      public_boundary: "This is population-level evidence research, not a personal diagnosis or treatment directive.",
+      bottom_line: ["The exact audited comparison supports a bounded population-level conclusion."],
+      comparative_conclusion: "For the exact studied population and programs, the audited evidence supports the reported comparison.",
+      claims: [{
+        claim_kind: "comparative_effect",
+        wording: "The exact audited intervention and comparator differed for the reported walking outcome at follow-up.",
+        inference: "direct",
+        population_or_stage: "Adults in the exact audited decision population.",
+        program: reportProgram("Intervention program"),
+        outcome_and_horizon: "Walking outcome at the reported follow-up.",
+        uncertainty: "This does not establish the result for materially different programs or stages.",
+        references: [{
+          reference_kind: "formal_capability",
+          source_id: "1".repeat(64),
+          capability_id: "4".repeat(64)
+        }]
+      }],
+      approaches: [{
+        approach_name: "Exact intervention program",
+        program: reportProgram("Intervention program"),
+        population_or_stage: "Adults in the exact audited decision population.",
+        outcome_and_horizon: "Walking outcome at the reported follow-up.",
+        evidence_summary: "The complete study supports only its exact comparison.",
+        claim_indexes: [0]
+      }],
+      alternatives: ["The exact comparator program."],
+      harms_and_counter_signals: ["The public discussion sample contained no analyzable records."],
+      uncertainty: ["The finding should not be generalized beyond the audited population and programs."],
+      videos_actually_audited: reportContext.videos.map((video) => ({
+        video_id: video.video_id,
+        canonical_url: video.canonical_url,
+        title: video.title,
+        channel_title: video.channel_title,
+        evidence_status: video.evidence.status,
+        creator_finding_ids: video.evidence.creator_findings.map(({ finding_id }) =>
+          finding_id
+        ),
+        community_finding_ids: video.evidence.community_findings.map(({ finding_id }) =>
+          finding_id
+        ),
+        limitations: video.evidence.limitations
+      })),
+      videos_worth_watching: [{
+        video_id: reportContext.videos[0]!.video_id,
+        creator_finding_id: creator.finding_id,
+        timestamp_url: creator.timestamp_url,
+        why_it_is_useful: "It describes the exact selected program at the cited timestamp.",
+        boundary: "The creator account is attributed and is not treated as proof of efficacy."
+      }],
+      provider_and_access_limitations: limitations,
+      clinician_review_questions: ["Does the evidence population and exact program match the clinical question?"]
+    }
+  });
   return executeResearchSessionFinalCompletionAudit(ready);
 }
 
@@ -381,6 +565,7 @@ function stateAfterFormalEvidenceChange(
     operations: {
       ...rawState.operations,
       treatment_landscape_finalization: { status: "IN_PROGRESS" },
+      report_synthesis: { status: "NOT_STARTED" },
       final_completion_audit: { status: "NOT_STARTED" }
     },
     final_completion_audit: undefined
@@ -605,7 +790,7 @@ describe("research session controller core", () => {
       /de-identified treatment|diagnosis|transcript|comment|provider_body|credential/iu
     );
     expect(JSON.stringify(decision)).not.toMatch(
-      /de-identified treatment comparison|diagnosis_not_specified|transcript text|comment text|provider body|credential/iu
+      /diagnosis_not_specified|Segment 0|raw transcript|raw comment|provider body|credential/iu
     );
   });
 
@@ -689,6 +874,103 @@ describe("research session controller core", () => {
     changedReceipt.formal_evidence.sources[0]!.external_evidence
       .receipt_payload_sha256 = "0".repeat(64);
     expect(() => verify(permit, changedReceipt)).toThrow(ResearchFinalizationPermitError);
+  });
+
+  it("rejects invented report references, effect-excluded support, and report mutation", () => {
+    const finished = completionFixture();
+    const storedPacket = finished.report.attempts.at(-1)!.packet;
+    const evidence = {
+      researchTarget: finished.research_target,
+      candidates: finished.candidate_discovery,
+      boundedEvidence: finished.bounded_evidence,
+      formalEvidence: finished.formal_evidence,
+      treatment: finished.treatment_finalization,
+      limitations: deriveResearchFinalizationLimitations(finished).map((item) => ({
+        limitation_id: item.limitation_id,
+        plain_language: item.plain_language
+      }))
+    };
+    const work = createReportSynthesisWorkPackage(
+      initialResearchReportState(),
+      evidence
+    );
+    const submissionPacket = {
+      ...storedPacket,
+      evidence_basis_digest: work.evidence_basis_digest,
+      claims: storedPacket.claims.map(({ claim_id: _claimId, ...claim }) => claim),
+      approaches: storedPacket.approaches.map(({
+        claim_ids: _claimIds,
+        ...approach
+      }, index) => ({ ...approach, claim_indexes: [index] }))
+    };
+    const invented = structuredClone(submissionPacket);
+    invented.claims[0]!.references = [{
+      reference_kind: "formal_capability",
+      source_id: "0".repeat(64),
+      capability_id: "4".repeat(64)
+    }];
+    expect(() => ingestReportSynthesisSubmission(
+      initialResearchReportState(),
+      evidence,
+      {
+        package_version: "askrigor_report_synthesis_v1",
+        evidence_basis_digest: work.evidence_basis_digest,
+        packet: invented
+      }
+    )).toThrow(/unknown formal claim capability/u);
+
+    const conflatedProgram = structuredClone(submissionPacket);
+    conflatedProgram.claims[0]!.program = reportProgram(
+      "A materially different program hidden under the same treatment label"
+    );
+    expect(() => ingestReportSynthesisSubmission(
+      initialResearchReportState(),
+      evidence,
+      {
+        package_version: "askrigor_report_synthesis_v1",
+        evidence_basis_digest: work.evidence_basis_digest,
+        packet: conflatedProgram
+      }
+    )).toThrow(/materially different program/u);
+
+    const excludedFormal = structuredClone(finished.formal_evidence);
+    excludedFormal.sources[0]!.claim_capability = {
+      ...excludedFormal.sources[0]!.claim_capability,
+      status: "EFFECT_CLAIMS_EXCLUDED",
+      unrestricted_decision_use: false
+    };
+    excludedFormal.sources[0]!.external_evidence.effect_claims_excluded = true;
+    const excludedEvidence = { ...evidence, formalEvidence: excludedFormal };
+    const excludedWork = createReportSynthesisWorkPackage(
+      initialResearchReportState(),
+      excludedEvidence
+    );
+    expect(() => ingestReportSynthesisSubmission(
+      initialResearchReportState(),
+      excludedEvidence,
+      {
+        package_version: "askrigor_report_synthesis_v1",
+        evidence_basis_digest: excludedWork.evidence_basis_digest,
+        packet: {
+          ...submissionPacket,
+          evidence_basis_digest: excludedWork.evidence_basis_digest
+        }
+      }
+    )).toThrow(/effect-excluded/u);
+
+    const decision = evaluateResearchFinalization(SESSION_ID, finished, {
+      signingSecret: FINALIZATION_SECRET,
+      keyId: FINALIZATION_KEY_ID,
+      now: () => FINALIZATION_NOW
+    });
+    if (decision.authorization === "DENIED") throw new Error("Missing report permit");
+    expect(finalizationDecisionSchema.safeParse({
+      ...decision,
+      reader_facing: {
+        ...decision.reader_facing,
+        report: { ...decision.reader_facing.report, title: "Mutated after permit" }
+      }
+    }).success).toBe(false);
   });
 
   it("preserves publication history and provider-scoped limitations", () => {
@@ -785,6 +1067,7 @@ describe("research session controller core", () => {
       operations: {
         ...finished.operations,
         treatment_landscape_finalization: { status: "NOT_STARTED" },
+        report_synthesis: { status: "NOT_STARTED" },
         final_completion_audit: { status: "NOT_STARTED" }
       }
     });
@@ -810,7 +1093,7 @@ describe("research session controller core", () => {
       blockers: ["One exact source path reached a nonretryable boundary."],
       access_boundary_ids_used: ["formal_program_fixture"]
     };
-    const bounded = researchSessionStateSchema.parse({
+    let bounded = researchSessionStateSchema.parse({
       ...finished,
       treatment_finalization: treatment,
       final_completion_audit: undefined,
@@ -832,7 +1115,43 @@ describe("research session controller core", () => {
             summary: "The current treatment landscape permits only bounded nonranking output."
           }
         },
+        report_synthesis: { status: "IN_PROGRESS" },
         final_completion_audit: { status: "NOT_STARTED" }
+      }
+    });
+    const limitations = deriveResearchFinalizationLimitations(bounded).map((item) => ({
+      limitation_id: item.limitation_id,
+      plain_language: item.plain_language
+    }));
+    const reportWork = createReportSynthesisWorkPackage(bounded.report, {
+      researchTarget: bounded.research_target,
+      candidates: bounded.candidate_discovery,
+      boundedEvidence: bounded.bounded_evidence,
+      formalEvidence: bounded.formal_evidence,
+      treatment: bounded.treatment_finalization,
+      limitations
+    });
+    const priorPacket = finished.report.attempts.at(-1)!.packet;
+    bounded = recordResearchSessionReport(bounded, {
+      package_version: reportWork.package_version,
+      evidence_basis_digest: reportWork.evidence_basis_digest,
+      packet: {
+        ...priorPacket,
+        evidence_basis_digest: reportWork.evidence_basis_digest,
+        report_scope: "bounded_nonranking_report",
+        bottom_line: ["The inspected evidence and unresolved boundary can be described without ranking treatments."],
+        comparative_conclusion: null,
+        claims: priorPacket.claims.map(({ claim_id: _claimId, ...claim }) => ({
+          ...claim,
+          claim_kind: claim.claim_kind === "comparative_effect"
+            ? "formal_effect" as const
+            : claim.claim_kind
+        })),
+        approaches: priorPacket.approaches.map(({
+          claim_ids: _claimIds,
+          ...approach
+        }, index) => ({ ...approach, claim_indexes: [index] })),
+        provider_and_access_limitations: limitations
       }
     });
 
@@ -906,6 +1225,7 @@ describe("research session controller core", () => {
         operationId === "candidate_screening" ||
         operationId === "transcript_acquisition" ||
         operationId === "community_discussion_audit" ||
+        operationId === "video_evidence_synthesis" ||
         operationId === "formal_evidence_search" ||
         operationId === "accessible_full_text_acquisition" ||
         operationId === "study_method_audit" ||
@@ -913,10 +1233,11 @@ describe("research session controller core", () => {
         operationId === "linked_replication_and_review_audit" ||
         operationId === "claim_capability_recalculation" ||
         operationId === "bidirectional_evidence_return" ||
-        operationId === "treatment_landscape_finalization"
+        operationId === "treatment_landscape_finalization" ||
+        operationId === "report_synthesis"
       ) {
         expect(() => researchSessionStateSchema.parse({ ...withoutFinalAudit, operations }))
-          .toThrow(/depth|derived.*(?:per-video|per-source).*state|source-bound iteration|session-owned coverage assessment/u);
+          .toThrow(/depth|derived.*(?:per-video|per-source).*state|source-bound iteration|session-owned coverage assessment|video_evidence_synthesis|report_synthesis/u);
         continue;
       }
       const mutated = researchSessionStateSchema.parse({ ...withoutFinalAudit, operations });

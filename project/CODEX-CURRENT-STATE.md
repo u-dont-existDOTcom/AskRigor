@@ -1,74 +1,66 @@
 # AskRigor Codex Current State
 
-## 2026-08-25 execution-control Phase K K0 candidate
+## 2026-08-25 execution-control Phase K K1 candidate
 
-Phase J merged through PR #84 at exact commit
-`af8d96e189a8488afe2915a02ec83bf211a6aeb7`; all hosted and exact post-merge
-checks passed. Phase K runs on branch
-`agent/execution-control-phase-k-20260824` from that baseline.
+K0 merged through PR #85 at exact commit
+`bf592f03d71a891edab3ab73f300fd3686a66cac`; all hosted and exact post-merge
+checks passed. K1 runs on branch
+`agent/execution-control-phase-k1-20260825` from that baseline.
 
-The Phase K readiness audit found a controller implementation gap rather than
-a Custom GPT prompt defect. The private advancement route could execute module
-routing, automated/native discovery, and candidate screening only. Later
-transcript, discussion, formal-evidence, full-text, method, external,
-bidirectional, treatment, and final-audit state functions existed but were not
-connected to the transport. Finalization also returned authorization and
-limitations without the source-linked evidence needed to render a scientific
-answer. Installing the planned four-operation GPT surface in that state would
-have reproduced the known stop-or-invent failure.
+K1 closes the remaining server-authoritative answer gap. Each selected video
+now reaches a separate bounded evidence step after exact transcript and
+discussion completion. Creator findings cite exact transcript-segment hashes
+and receive server-derived timestamps; community findings cite exact sampled
+comment hashes and retain only non-identifying wording, regimen clues, outcomes,
+and counter-signals. Every creator and community finding carries its own exact
+structured program, so a report cannot assign a claim to some other exercise,
+rehabilitation, dietary, procedural, or multimodal program mentioned in the
+same video. Direct identifiers and substantial verbatim copying are rejected.
+Raw public source material lives only in a bounded
+process-local cache. On cache loss, the server replays the completed transcript
+and discussion from their first pages, compares exact receipt hashes, and fails
+closed and revokes the cache if the reacquired frontier differs. Commenter names
+and channel IDs are discarded as the cache ingests the public sample.
 
-The owner-directed repair sequence is committed in
-`docs/superpowers/plans/2026-08-24-phase-k-controlled-research-and-report-projection.md`
-and reconciled into the productionization roadmap. It keeps one controller,
-one encrypted checkpoint boundary, provider-specific controls internal, raw
-source/provider/private content ephemeral, and the MCP catalog unchanged.
+Completed study/review/notice audits now retain bounded reader evidence: exact
+population/stage, program/comparator, outcome/horizon, method findings, and
+claim capabilities linked to exact document block IDs and audit/source hashes.
+Treatment finalization preserves the exact selected-video interpretations used
+by the assessor rather than only their digest. Raw article blocks, transcript
+text, comment text, and provider output are not added to controller state.
 
-The K0 candidate introduces a transport-independent server-selected
-advancement core. It derives later formal-screening, source-method,
-claim-recalculation, bidirectional, return-assessment, and treatment semantic
-packages from current state; validates every result against the exact session,
-state, source/frontier, receipt, and attempt; and applies results only through
-the existing controller/source validators. It also dispatches real transcript,
-discussion, formal search, lawful full text, external evidence, linked-work,
-bidirectional return-search, and final-audit executors one authoritative step
-at a time. Missing dependencies and unchanged state fail closed.
+After treatment finalization, the controller issues one strict report-synthesis
+package. The state-visible package contains only the evidence digest, scope,
+target, and counts; exact bounded evidence is supplied transiently to the
+worker. The server materializes stable claim IDs, validates every formal,
+creator, community, audited-video, timestamp, and limitation reference, rejects
+effect claims backed by bounded/effect-excluded/retracted sources, prohibits a
+comparative conclusion in a bounded report, and caps the packet below the
+existing Action response limit. A current report is required by the final
+completion audit. Finalization permit v2 signs its exact digest and returns the
+same reader packet; report mutation invalidates the decision.
 
-The private `/advance` and `/resume` paths now recheck exact protocol identities
-and require the exact current state digest before any work. Both use the shared
-dispatcher; the discovery-only prototype continuation is no longer a private
-fallback. The strict semantic union accepts eight current work kinds without
-accepting caller completion/count fields. The budgeted Gemini implementation is
-shared with the public scout Action and keeps its source packet private to the
-controller transition. One lifetime-shared runtime graph owns native discovery,
-transcript/discussion handles, formal search, lawful full text, external
-evidence/cache, bidirectional search, and final audit. Missing configuration,
-unsupported capabilities, and unchanged work fail closed. The protected
-finalization signing pair is explicit and fail-closed; no real secret is stored
-in Git.
+Hostile coverage includes unknown/mutated report references, effect-excluded
+support, report mutation, raw-comment identity exclusion, exact transcript and
+comment citation binding, immutable evidence state, process-local cache
+revocation, cache-loss receipt mismatch, source-block-linked method evidence,
+and updated Hermes/n8n permit consumers. Typechecking and the focused K1 suites
+pass, including the listener-backed private orchestration tests. The complete
+host-bound `npm run verify` gate passes typechecking, 1,355 tests with six
+intentional skips, and the production build. Final diff review, lesson
+closeout, commit, PR, hosted checks, and merge remain pending.
 
-Typechecking passes. Focused controller/private/Hermes/Gemini/config tests pass,
-including hostile stale-package, caller-completion, server-selected-capability,
-missing-dependency, protocol-drift, budget enforcement, retryable configuration
-boundary, and real receipt ingestion cases. `npm run test:run` passes with
-1,350 tests and six intentional skips after one loaded-host Action HTTP timeout
-was isolated and passed, then the unchanged full suite passed. The merge-ready
-`npm run verify` gate also passes: typecheck, 101 passed/one skipped test files,
-1,350 passed/six intentionally skipped tests, and production build. Test-
-efficiency telemetry records 529.67 seconds of observed test time, zero forced
-redundant green reruns, and zero redundant green runs skipped.
-
-The pre-PR lesson checkpoint at `2026-08-25T01:07:12.309Z` was available:
-1 open candidate, 1 needs review, 0 accepted but not incorporated, 3
-incorporated or closed, and 0 deletion eligible. No unreviewed lesson expanded
-K0. Lesson disposition is project-specific/no-new-lesson: this sub-gate applies
-the already approved server-authority architecture and creates no distinct
-transferable product-failure lesson.
-
-Final diff review, commit, PR, and hosted checks remain pending for this K0
-sub-gate. Bounded reader evidence/report synthesis, exact report-digest permit
-binding, and restart-safe evidence reacquisition remain K1 work. Public
-Action/OpenAPI, the 21-tool MCP inventory, Custom GPT Instructions, plugin,
-deployment, paid services, and canonical protocols are unchanged.
+The final pre-PR K1 lesson checkpoint at `2026-08-25T03:01:29.026Z` was available:
+1 open candidate, 1 needs
+review, 0 accepted but not incorporated, 3 incorporated or closed, and 0
+deletion eligible. No unreviewed lesson expands K1. Lesson disposition is
+project-specific/no-new-lesson: K1 enforces the already approved server-owned
+report/program-fingerprint architecture and introduces no distinct generalized
+failure pattern beyond the incorporated treatment-landscape lesson. Public Action/OpenAPI, the
+21-tool MCP inventory, Custom GPT Instructions, plugin, deployment, paid
+services, canonical protocols, checkpoint retention, and production activation
+remain unchanged. K2 is the compact public Action and generated Custom GPT
+projection after reviewed K1 merge.
 
 ## 2026-08-24 execution-control Phase J candidate
 

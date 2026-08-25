@@ -111,6 +111,7 @@ describe("private research orchestration HTTP boundary", () => {
       expect(started.status).toBe(200);
       const startedText = await started.text();
       expect(startedText).not.toContain(target);
+      expect(startedText).not.toContain("evidence_context");
       const start = JSON.parse(startedText) as PrivateView;
       expect(start).toMatchObject({
         session_id: expect.stringMatching(/^ars1_/u),
@@ -357,8 +358,18 @@ describe("private research orchestration HTTP boundary", () => {
 
   it("lets only the server choose and apply the next semantic or deterministic step", async () => {
     const worker: HermesSemanticExecutor = {
-      execute: vi.fn(async ({ session_id, state_digest, research_context, semantic_work }) => {
+      execute: vi.fn(async ({
+        session_id,
+        state_digest,
+        research_context,
+        response_contract,
+        semantic_work
+      }) => {
         expect(research_context).toBe("de-identified server-owned advance fixture");
+        expect(response_contract).toMatchObject({
+          type: "object",
+          properties: { work_type: { const: "module_applicability" } }
+        });
         expect(semantic_work.kind).toBe("module_applicability");
         if (semantic_work.kind !== "module_applicability") throw new Error("wrong fixture work");
         return {

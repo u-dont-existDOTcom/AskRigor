@@ -14,7 +14,10 @@ sensitive even when de-identified.
 
 The checkpoint deliberately excludes raw chat, transcripts, comments, replies,
 commenter identity, article text/blocks, raw provider bodies, Gemini responses,
-credentials, signing keys, encryption keys, and private sources.
+credentials, signing keys, encryption keys, and private sources. It may retain
+bounded source-linked findings, exact source hashes, a bounded reader report,
+and that report's digest; these remain part of encrypted controller state and
+cannot substitute for the source receipts that authorize them.
 
 The Retraction Watch mirror is a separate asset and lifecycle. It contains only
 normalized public Crossref data and verification metadata. It never contains a
@@ -44,6 +47,9 @@ session identifier, query, health detail, or user content.
 | Crash while writing | Mode-`0600` exclusive staging file, file sync, atomic link/rename, and directory sync | A crash may leave an ignored dot-prefixed staging file; it cannot be loaded as a checkpoint |
 | Silent eviction or disk pressure | Fixed 1,024-session, 16-MiB plaintext, and 24-MiB stored bounds; expired entries are pruned; unexpired capacity rejects new issuance instead of evicting prior work | Operator intervention is required for corrupt files or persistent capacity exhaustion |
 | Lost ephemeral source handle after restart | Restore reconciliation moves only backward: handle-bound video chains restart, unfinished return-search result state resets, and exact full text is reacquired/re-audited when later work still needs its document index | Some verified work may repeat; no lost handle becomes completion, negative evidence, or a terminal provider boundary |
+| Reacquired public evidence differs from the completed frontier | Selected-video evidence is replayed from the first transcript/discussion page into a non-authoritative process-local cache; exact completed receipt hashes must match the checkpoint before semantic work proceeds | A changed or inaccessible public source can force retry/restart; it cannot be silently combined with old receipts or findings |
+| Worker invents or mutates reader claims | Report work is bound to the exact current evidence digest; every creator/community finding carries its own structured program; every claim reference, program, audited-video set, limitation, source capability, and timestamp is validated; effect claims cannot use bounded, effect-excluded, stale, or retracted sources | Semantic wording remains model-fallible, but unknown references, cross-program pooling, broader unsupported claims, or a mutated report cannot obtain a current completion audit or permit |
+| Finalization permit is paired with a different report | Permit v2 signs the exact reader-report digest; finalization revalidates that digest and returns the exact packet | Rendering clients may format the authorized packet but cannot substitute a different report while retaining valid authorization |
 | Protocol or schema drift | Every restored state passes the exact schema and current protocol identity recheck before authoritative continuation/finalization | Incompatible old checkpoints restart rather than migrate implicitly |
 | Permit replay without state | Finalization permits remain short-lived and are not stored as controller checkpoints; a permit cannot recreate or advance a missing session | A still-valid permit may be rendered only for its exact already-authorized boundary; it grants no mutation authority |
 | Accidental logs/backups | Application logs exclude bodies/content; checkpoint directory is explicitly excluded from general backups; raw artifacts stay in memory | Infrastructure metadata remains governed by the hosting provider's policy |
@@ -69,7 +75,9 @@ physical secure erasure on SSD, filesystem journal, or host snapshots it does
 not control; those stores must exclude this directory. If the volume or key is
 lost, research restarts from source and no completion is inherited.
 
-Raw external-evidence artifacts and source bodies remain process-memory only.
+Raw external-evidence artifacts, selected-video evidence material, and source
+bodies remain process-memory only. The selected-video cache is bounded to 100
+entries and 64 MiB by default and is revoked when a replay receipt differs.
 After a completed coordinator/method result, only the strict bounded state and
 hashes needed by the controller remain in the encrypted checkpoint. A crash
 during unfinished work reruns that exact operation.

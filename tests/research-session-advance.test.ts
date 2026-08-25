@@ -9,6 +9,7 @@ import {
   applyResearchSemanticResult,
   applyServerModuleApplicability,
   createCandidateScreeningWorkPackage,
+  createInMemoryResearchEvidenceMaterialCache,
   createInitialResearchSessionState,
   createResearchSessionRuntimeDependencies,
   deriveResearchSemanticWorkForState,
@@ -22,6 +23,8 @@ import {
   researchSessionStateSchema,
   type ResearchSessionState
 } from "../apps/research-mcp/src/index.js";
+import type { ActionRoute } from
+  "../apps/research-mcp/src/actions/types.js";
 import {
   RESEARCH_FIXTURE_VIDEO_IDS,
   nativeSurvey,
@@ -287,4 +290,114 @@ describe("transport-independent research-session advancement", () => {
     });
     expect(next.scout.candidate_count).toBe(0);
   });
+
+  it("fails closed when reacquired video material no longer matches the authoritative receipts", async () => {
+    let state = await depthReadyState();
+    const selected = RESEARCH_FIXTURE_VIDEO_IDS[0]!;
+    state = (await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      {
+        videoDepth: {
+          getTranscript: async () => transcriptOutput(selected),
+          auditDiscussion: async () => discussionOutput(selected)
+        }
+      }
+    )).state;
+    state = (await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      {
+        videoDepth: {
+          getTranscript: async () => transcriptOutput(selected),
+          auditDiscussion: async () => discussionOutput(selected)
+        }
+      }
+    )).state;
+    const work = deriveResearchSemanticWorkForState(SESSION_ID, state);
+    expect(work?.kind).toBe("video_evidence_synthesis");
+    if (work?.kind !== "video_evidence_synthesis") {
+      throw new Error("Missing video evidence work package");
+    }
+    const identifyingComment = {
+      video_id: selected,
+      comment_id: "comment-private-identity",
+      parent_id: null,
+      top_level_comment_id: "comment-private-identity",
+      is_reply: false,
+      author_channel_id: `UC${"p".repeat(22)}`,
+      author_display_name: "Private Display Name",
+      text: "Exact public comment text needed for bounded semantic analysis.",
+      like_count: 0,
+      published_at: "2026-08-25T00:00:00Z",
+      updated_at: "2026-08-25T00:00:00Z"
+    };
+    const exactCache = createInMemoryResearchEvidenceMaterialCache();
+    exactCache.captureTranscript({
+      sessionId: SESSION_ID,
+      videoId: selected,
+      output: transcriptOutput(selected)
+    });
+    exactCache.captureDiscussion({
+      sessionId: SESSION_ID,
+      videoId: selected,
+      output: discussionOutput(selected, { comments: [identifyingComment] })
+    });
+    const exactRuntime = createResearchSessionRuntimeDependencies({
+      env: { YOUTUBE_API_KEY: "server-held-youtube-key" },
+      evidenceMaterialCache: exactCache
+    });
+    const exactContext = await exactRuntime.semantic.evidenceContextForWork?.({
+      sessionId: SESSION_ID,
+      state,
+      work
+    });
+    const serializedContext = JSON.stringify(exactContext);
+    expect(serializedContext).toContain(identifyingComment.text);
+    expect(serializedContext).toContain("record_sha256");
+    expect(serializedContext).not.toContain(identifyingComment.author_channel_id);
+    expect(serializedContext).not.toContain(identifyingComment.author_display_name);
+
+    const cache = createInMemoryResearchEvidenceMaterialCache();
+    const runtime = createResearchSessionRuntimeDependencies({
+      env: { YOUTUBE_API_KEY: "server-held-youtube-key" },
+      evidenceMaterialCache: cache,
+      transcriptRoute: fixtureActionRoute(
+        "get_youtube_transcript",
+        transcriptOutput(selected, { returned: 2, cumulative: 2 })
+      ),
+      discussionRoute: fixtureActionRoute(
+        "audit_youtube_video_community",
+        discussionOutput(selected)
+      )
+    });
+
+    await expect(runtime.semantic.evidenceContextForWork?.({
+      sessionId: SESSION_ID,
+      state,
+      work
+    })).rejects.toThrow(/did not match the exact prior receipt frontier/u);
+    expect(cache.get({
+      sessionId: SESSION_ID,
+      videoId: selected,
+      transcriptReceiptSha256: work.package.transcript_receipt_sha256,
+      discussionReceiptSha256: work.package.discussion_receipt_sha256
+    })).toBeUndefined();
+  });
 });
+
+function fixtureActionRoute(operationId: string, body: unknown): ActionRoute {
+  return {
+    method: "POST",
+    path: `/actions/${operationId}`,
+    operationId,
+    summary: "Fixture internal Action",
+    description: "Returns exact bounded fixture evidence.",
+    consequential: false,
+    public: false,
+    responseSchemas: { 200: { type: "object" } },
+    async handle() {
+      return { status: 200, body };
+    }
+  };
+}

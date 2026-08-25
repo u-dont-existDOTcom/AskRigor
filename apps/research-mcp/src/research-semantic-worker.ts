@@ -11,6 +11,14 @@ import {
   candidateScreeningWorkPackageSchema
 } from "./actions/research-candidate-frontier.js";
 import {
+  videoEvidenceSubmissionSchema,
+  videoEvidenceWorkPackageSchema
+} from "./actions/research-bounded-evidence.js";
+import {
+  reportSynthesisSubmissionSchema,
+  reportSynthesisWorkPackageSchema
+} from "./actions/research-report-synthesis.js";
+import {
   formalClaimRecalculationWorkPackageSchema,
   formalEvidenceScreeningSubmissionSchema,
   formalEvidenceScreeningWorkPackageSchema,
@@ -107,6 +115,18 @@ const treatmentLandscapeOutputSchema = z.object({
   submission: treatmentLandscapeSubmissionSchema
 }).strict();
 
+const videoEvidenceOutputSchema = z.object({
+  ...modelOutputEnvelope,
+  work_type: z.literal("video_evidence_synthesis"),
+  submission: videoEvidenceSubmissionSchema
+}).strict();
+
+const reportSynthesisOutputSchema = z.object({
+  ...modelOutputEnvelope,
+  work_type: z.literal("report_synthesis"),
+  submission: reportSynthesisSubmissionSchema
+}).strict();
+
 export const researchSemanticModelOutputSchema = z.discriminatedUnion(
   "work_type",
   [
@@ -115,9 +135,11 @@ export const researchSemanticModelOutputSchema = z.discriminatedUnion(
     formalScreeningOutputSchema,
     formalMethodAuditOutputSchema,
     formalClaimRecalculationOutputSchema,
+    videoEvidenceOutputSchema,
     bidirectionalIterationOutputSchema,
     bidirectionalReturnAssessmentOutputSchema,
-    treatmentLandscapeOutputSchema
+    treatmentLandscapeOutputSchema,
+    reportSynthesisOutputSchema
   ]
 );
 
@@ -187,15 +209,31 @@ const treatmentLandscapeSemanticWorkPackageSchema = z.object({
   }).strict()
 }).strict();
 
+const videoEvidenceSemanticWorkPackageSchema = z.object({
+  kind: z.literal("video_evidence_synthesis"),
+  package: videoEvidenceWorkPackageSchema.extend({
+    state_digest: digest
+  }).strict()
+}).strict();
+
+const reportSynthesisSemanticWorkPackageSchema = z.object({
+  kind: z.literal("report_synthesis"),
+  package: reportSynthesisWorkPackageSchema.extend({
+    state_digest: digest
+  }).strict()
+}).strict();
+
 export const researchSemanticWorkSchema = z.union([
   moduleWorkPackageSchema,
   candidateWorkPackageSchema,
   formalScreeningWorkPackageSchema,
   formalMethodAuditSemanticWorkPackageSchema,
   formalClaimRecalculationSemanticWorkPackageSchema,
+  videoEvidenceSemanticWorkPackageSchema,
   bidirectionalIterationSemanticWorkPackageSchema,
   bidirectionalReturnAssessmentSemanticWorkPackageSchema,
-  treatmentLandscapeSemanticWorkPackageSchema
+  treatmentLandscapeSemanticWorkPackageSchema,
+  reportSynthesisSemanticWorkPackageSchema
 ]);
 
 export type ResearchSemanticWork = z.output<
@@ -206,11 +244,32 @@ export interface ResearchSemanticWorkPackage {
   session_id: string;
   state_digest: string;
   research_context?: string;
+  evidence_context?: unknown;
+  response_contract?: unknown;
   semantic_work: ResearchSemanticWork;
 }
 
 export interface ResearchSemanticExecutor {
   execute(input: ResearchSemanticWorkPackage): Promise<unknown>;
+}
+
+/** Exact output JSON Schema supplied internally to a no-tools semantic worker. */
+export function researchSemanticResponseContract(
+  kind: ResearchSemanticWork["kind"]
+): unknown {
+  const schema = {
+    module_applicability: moduleOutputSchema,
+    candidate_screening: candidateOutputSchema,
+    formal_source_screening: formalScreeningOutputSchema,
+    formal_method_audit: formalMethodAuditOutputSchema,
+    formal_claim_recalculation: formalClaimRecalculationOutputSchema,
+    video_evidence_synthesis: videoEvidenceOutputSchema,
+    bidirectional_iteration: bidirectionalIterationOutputSchema,
+    bidirectional_return_assessment: bidirectionalReturnAssessmentOutputSchema,
+    treatment_landscape: treatmentLandscapeOutputSchema,
+    report_synthesis: reportSynthesisOutputSchema
+  } satisfies Record<ResearchSemanticWork["kind"], z.ZodType>;
+  return z.toJSONSchema(schema[kind]);
 }
 
 export function assertResearchSemanticBinding(
@@ -229,6 +288,16 @@ export function assertResearchSemanticBinding(
     throw new Error("Semantic result is bound to another work package");
   }
   const work = expected.semantic_work;
+  if (
+    output.work_type === "video_evidence_synthesis" &&
+    (
+      work.kind !== "video_evidence_synthesis" ||
+      output.submission.evidence_basis_digest !== work.package.evidence_basis_digest ||
+      output.submission.video_id !== work.package.video_id
+    )
+  ) {
+    throw new Error("Video-evidence result is bound to another receipt frontier");
+  }
   if (
     output.work_type === "candidate_screening" &&
     (
@@ -310,5 +379,16 @@ export function assertResearchSemanticBinding(
     )
   ) {
     throw new Error("Treatment result is bound to another evidence frontier");
+  }
+  if (
+    output.work_type === "report_synthesis" &&
+    (
+      work.kind !== "report_synthesis" ||
+      output.submission.evidence_basis_digest !== work.package.evidence_basis_digest ||
+      output.submission.packet.evidence_basis_digest !== work.package.evidence_basis_digest ||
+      output.submission.packet.report_scope !== work.package.report_scope
+    )
+  ) {
+    throw new Error("Reader report is bound to another evidence frontier");
   }
 }

@@ -25,7 +25,9 @@ import {
   recordResearchSessionBidirectionalIteration,
   recordResearchSessionBidirectionalReturnAssessment,
   recordResearchSessionFormalScreening,
+  recordResearchSessionReport,
   recordResearchSessionTreatmentLandscape,
+  recordResearchSessionVideoEvidence,
   executeResearchSessionMethodAudit,
   deriveRequiredNextCapabilities,
   executeResearchSessionBidirectionalReturnSearch,
@@ -41,6 +43,10 @@ import {
   type ResearchModuleId,
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
+import type { VideoEvidenceMaterial } from
+  "./actions/research-bounded-evidence.js";
+import type { ResearchEvidenceMaterialCache } from
+  "./research-evidence-material-cache.js";
 import {
   assertResearchSemanticBinding,
   researchSemanticWorkSchema,
@@ -56,6 +62,17 @@ export interface ResearchSemanticAdvanceDependencies {
     receiptPayloadSha256: string;
   }): StudyExternalEvidenceAuditOutput | undefined;
   externalEvidenceReceiptSecret?: string;
+  videoEvidenceMaterialFor?(input: {
+    sessionId: string;
+    videoId: string;
+    transcriptReceiptSha256: string;
+    discussionReceiptSha256: string;
+  }): VideoEvidenceMaterial | undefined;
+  evidenceContextForWork?(input: {
+    sessionId: string;
+    state: ResearchSessionState;
+    work: ResearchSemanticWork;
+  }): unknown | Promise<unknown>;
 }
 
 export interface ResearchExternalAuditCache {
@@ -105,6 +122,7 @@ export interface ResearchDeterministicAdvanceDependencies {
     state: ResearchSessionState
   ): Promise<ResearchSessionState>;
   videoDepth?: ResearchVideoDepthExecutors;
+  evidenceMaterialCache?: ResearchEvidenceMaterialCache;
   formalSearch?: FormalSearchExecutors;
   openFullText?: OpenFullTextExecutor;
   externalEvidence?: {
@@ -173,6 +191,13 @@ export function deriveResearchSemanticWorkForState(
       package: { ...formalScreening, state_digest: stateDigest }
     });
   }
+  const videoEvidence = view.next_video_evidence_work_package;
+  if (videoEvidence !== null) {
+    return researchSemanticWorkSchema.parse({
+      kind: "video_evidence_synthesis",
+      package: { ...videoEvidence, state_digest: stateDigest }
+    });
+  }
   const methodAudit = view.formal_method_audit_work_packages[0];
   if (methodAudit !== undefined) {
     return researchSemanticWorkSchema.parse({
@@ -207,6 +232,13 @@ export function deriveResearchSemanticWorkForState(
     return researchSemanticWorkSchema.parse({
       kind: "treatment_landscape",
       package: { ...treatment, state_digest: stateDigest }
+    });
+  }
+  const report = view.report_synthesis_work_package;
+  if (report !== null) {
+    return researchSemanticWorkSchema.parse({
+      kind: "report_synthesis",
+      package: { ...report, state_digest: stateDigest }
     });
   }
   return null;
@@ -279,6 +311,27 @@ export async function applyResearchSemanticResult(
         receiptSecret: dependencies.externalEvidenceReceiptSecret
       });
     }
+    case "video_evidence_synthesis": {
+      const work = semanticWork.kind === "video_evidence_synthesis"
+        ? semanticWork.package
+        : undefined;
+      const material = work === undefined
+        ? undefined
+        : dependencies.videoEvidenceMaterialFor?.({
+          sessionId,
+          videoId: work.video_id,
+          transcriptReceiptSha256: work.transcript_receipt_sha256,
+          discussionReceiptSha256: work.discussion_receipt_sha256
+        });
+      if (material === undefined) {
+        throw new Error("The exact transcript and discussion material must be reacquired before video-evidence synthesis");
+      }
+      return recordResearchSessionVideoEvidence(
+        rawState,
+        material,
+        rawOutput.submission
+      );
+    }
     case "bidirectional_iteration":
       return recordResearchSessionBidirectionalIteration(
         rawState,
@@ -294,6 +347,8 @@ export async function applyResearchSemanticResult(
         rawState,
         rawOutput.submission
       );
+    case "report_synthesis":
+      return recordResearchSessionReport(rawState, rawOutput.submission);
   }
 }
 
@@ -338,6 +393,11 @@ export async function advanceResearchSessionDeterministically(
       const output = await executors.getTranscript(
         deriveTranscriptActionInput(rawState.video_depth, work.video_id)
       );
+      dependencies.evidenceMaterialCache?.captureTranscript({
+        sessionId,
+        videoId: work.video_id,
+        output
+      });
       next = recordTranscriptDepthResult(rawState, work.video_id, output);
       break;
     }
@@ -354,6 +414,11 @@ export async function advanceResearchSessionDeterministically(
       const output = await executors.auditDiscussion(
         deriveDiscussionActionInput(rawState.video_depth, work.video_id)
       );
+      dependencies.evidenceMaterialCache?.captureDiscussion({
+        sessionId,
+        videoId: work.video_id,
+        output
+      });
       next = recordDiscussionDepthResult(
         rawState,
         work.video_id,
