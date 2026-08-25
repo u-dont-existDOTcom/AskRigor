@@ -162,11 +162,15 @@ export function discussionOutput(
     complete?: boolean;
     retryable?: boolean;
     terminal?: boolean;
+    restart?: boolean;
     errorCode?: string;
     comments?: YoutubeComment[];
   } = {}
 ): YoutubeDiscussionActionOutput {
-  const complete = options.complete ?? options.continuationHandle === undefined;
+  const restart = options.restart ?? false;
+  const complete = options.complete ?? (
+    !restart && options.continuationHandle === undefined
+  );
   const terminal = options.terminal ?? false;
   const retryable = options.retryable ?? false;
   const cumulative = options.cumulative ?? 1;
@@ -208,10 +212,10 @@ export function discussionOutput(
           retryable
         }
       }),
-    top_level_comments_retrieved_this_call: retryable ? 0 : 1,
+    top_level_comments_retrieved_this_call: retryable || restart ? 0 : 1,
     replies_retrieved_this_call: 0,
-    records_retrieved_this_call: retryable ? 0 : 1,
-    comment_thread_pages_this_call: retryable ? 0 : 1,
+    records_retrieved_this_call: retryable || restart ? 0 : 1,
+    comment_thread_pages_this_call: retryable || restart ? 0 : 1,
     reply_pages_this_call: 0,
     top_level_comments_retrieved_cumulative: cumulative,
     replies_retrieved_cumulative: 0,
@@ -224,7 +228,7 @@ export function discussionOutput(
     reply_count_mismatches: [],
     corpus_rolling_sha256: segmentIndex.toString(16).padStart(64, "b").slice(-64),
     insufficient_depth: false,
-    continuation_recommended: !complete && !terminal,
+    continuation_recommended: !restart && !complete && !terminal,
     ...(options.continuationHandle === undefined
       ? {}
       : { continuation_token: options.continuationHandle }),
@@ -239,7 +243,11 @@ export function discussionOutput(
       top_level_pagination_exhausted: complete || terminal,
       replies_reconciled: complete || terminal,
       query_bounded_comments_used_as_corpus: false as const,
-      blockers: complete || terminal ? [] : ["Continue the discussion chain."]
+      blockers: complete || terminal
+        ? []
+        : [restart
+          ? "Restart the discussion from the selected video."
+          : "Continue the discussion chain."]
     }
   };
   return youtubeDiscussionActionOutputSchema.parse({

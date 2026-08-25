@@ -457,11 +457,19 @@ export function ingestDiscussionActionOutput(
   ) {
     throw new Error("Discussion Action output does not match the selected receipt chain");
   }
-  assertDiscussionReceiptAdvance(previous, output);
   const restartCode = output.error?.code;
+  const restartRequiredCode = restartCode !== undefined &&
+    DISCUSSION_RESTART_CODES.has(restartCode)
+    ? restartCode
+    : undefined;
+  if (restartRequiredCode !== undefined) {
+    assertDiscussionRestartSnapshot(previous, output);
+  } else {
+    assertDiscussionReceiptAdvance(previous, output);
+  }
   let next: z.output<typeof discussionDepthRecordSchema>;
-  if (restartCode !== undefined && DISCUSSION_RESTART_CODES.has(restartCode)) {
-    next = restartDiscussionRecord(previous, restartCode);
+  if (restartRequiredCode !== undefined) {
+    next = restartDiscussionRecord(previous, restartRequiredCode);
   } else if (
     receipt.receipt.synthesis_lock === "pass" &&
     receipt.receipt.completion_state === "api_visible_complete"
@@ -791,6 +799,37 @@ function assertDiscussionReceiptAdvance(
     output.records_retrieved_cumulative <= priorReceipt.records_retrieved_cumulative &&
     output.error?.retryable !== true
   ) throw new Error("Discussion continuation did not advance cumulative coverage");
+}
+
+function assertDiscussionRestartSnapshot(
+  previous: z.output<typeof discussionDepthRecordSchema>,
+  output: YoutubeDiscussionActionOutput
+): void {
+  const prior = previous.receipt;
+  if (
+    prior === undefined ||
+    output.segment_index !== previous.segment_index ||
+    output.records_retrieved_cumulative !== prior.records_retrieved_cumulative ||
+    output.top_level_comments_retrieved_cumulative !==
+      prior.top_level_comments_retrieved_cumulative ||
+    output.replies_retrieved_cumulative !== prior.replies_retrieved_cumulative ||
+    output.corpus_rolling_sha256 !== previous.corpus_rolling_sha256 ||
+    JSON.stringify(output.reply_count_mismatches) !==
+      JSON.stringify(prior.reply_count_mismatches) ||
+    output.records_retrieved_this_call !== 0 ||
+    output.top_level_comments_retrieved_this_call !== 0 ||
+    output.replies_retrieved_this_call !== 0 ||
+    output.comment_thread_pages_this_call !== 0 ||
+    output.reply_pages_this_call !== 0 ||
+    output.continuation_recommended ||
+    output.continuation_token !== undefined ||
+    output.receipt.completion_state !== "incomplete" ||
+    output.receipt.synthesis_lock !== "block"
+  ) {
+    throw new Error(
+      "Discussion restart snapshot does not match the authoritative prior frontier"
+    );
+  }
 }
 
 function restartDiscussionRecord(
