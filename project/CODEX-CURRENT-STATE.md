@@ -11,7 +11,7 @@ The server built immutable image
 `sha256:dd86174f031dc4c92bae6c7ba380bbe5bdfb23e787a11105b3e11666bfe3b1d1`.
 Only `research-mcp` was recreated; healthy container ID is
 `dd275bca38b7e6ec1733f0b30e3a3b15ecde8d49ccac20a47148a855d4c2e3c1`.
-Caddy was not recreated.
+Caddy was not recreated and remains container `62f77648cf1e`.
 
 Immediate rollback is image
 `askrigor-research:rollback-c543cf9-predeploy`, preserving image ID

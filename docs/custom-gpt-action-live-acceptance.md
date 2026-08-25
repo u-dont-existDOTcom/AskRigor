@@ -7,6 +7,7 @@ exact source is live as healthy image ID
 `sha256:dd86174f031dc4c92bae6c7ba380bbe5bdfb23e787a11105b3e11666bfe3b1d1`,
 container `dd275bca38b7`. The source archive SHA-256 is
 `ebe5e51a63213369b136df927a4b7e1791ce105e5adfc585768699a50568c053`.
+Caddy was not recreated and remains container `62f77648cf1e`.
 Rollback preserves the prior image ID
 `sha256:818f5d5dc5b39fc53ada9e5c63c676562f16b8904c82af4f6fb6041b74aa8a0c`
 and exact prior Compose bytes.
