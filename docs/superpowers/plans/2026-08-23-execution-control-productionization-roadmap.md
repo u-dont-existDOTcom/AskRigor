@@ -826,6 +826,16 @@ fresh challenge yields a server-signed product-acceptance receipt. The fixed
 live scenario is a concrete regression for treatment-program diversity; it
 does not add a condition-specific protocol branch.
 
+After PR #98 was merged and deployed exactly, the next signed-in replay exposed
+a separate retry-state projection defect under real YouTube search quota
+exhaustion. The server retained the retryable native-discovery operation, but
+the compact projection invited immediate continue calls; the unchanged retry
+then became a generic dependency error and the GPT created replacement
+sessions. The repair on
+`agent/retryable-controller-resume-20260825` makes retry-blocked work a stable
+same-session product state while preserving explicit later retryability. K3
+also requires restored native-search capacity before another acceptance run.
+
 Tasks:
 
 - [x] Execute every later controller capability through one shared

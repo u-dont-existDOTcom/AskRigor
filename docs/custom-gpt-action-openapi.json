@@ -65,6 +65,7 @@
                       "enum": [
                         "IN_PROGRESS",
                         "BLOCKED_RETRYABLE",
+                        "BLOCKED_TERMINAL",
                         "BOUNDED",
                         "READY_TO_FINALIZE",
                         "PROTOCOL_DRIFT"
@@ -560,6 +561,7 @@
                       "enum": [
                         "IN_PROGRESS",
                         "BLOCKED_RETRYABLE",
+                        "BLOCKED_TERMINAL",
                         "BOUNDED",
                         "READY_TO_FINALIZE",
                         "PROTOCOL_DRIFT"
@@ -1128,6 +1130,7 @@
                       "enum": [
                         "IN_PROGRESS",
                         "BLOCKED_RETRYABLE",
+                        "BLOCKED_TERMINAL",
                         "BOUNDED",
                         "READY_TO_FINALIZE",
                         "PROTOCOL_DRIFT"

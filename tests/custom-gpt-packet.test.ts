@@ -65,6 +65,8 @@ describe("controlled Custom GPT projection", () => {
     for (const required of [
       "server owns protocol loading, research state, required work, completion",
       "Follow only the returned `directive`",
+      "For `blocked`, do not start a new session or immediately call continue again",
+      "call status once for the same session",
       "collect every `worker_input_json_chunk` in order",
       "perform only the exact bounded work",
       "render only `finalization.reader_facing.report`",

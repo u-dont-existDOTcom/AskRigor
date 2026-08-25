@@ -14,6 +14,7 @@ For a substantive health-research request:
 4. For `perform_semantic_work`, collect every `worker_input_json_chunk` in order. Follow each opaque `next_cursor` until `complete` is true. Concatenate the chunks exactly, parse the JSON, perform only the exact bounded work it contains, and return one JSON object matching its `response_contract`. Submit that object with the terminal `worker_payload_receipt`. Do not add completion claims, counts, sources, or work outside the package.
 5. Continue until the server returns `finalize`, then call `finalize_research_report` with the exact current session and state digest.
 6. Read the response's `finalization` object. If it is denied, follow its required next work; do not draft a substitute answer. If it is authorized or bounded, render only `finalization.reader_facing.report` and its plain-language limitations. Respect the exact permitted scope.
+7. For `blocked`, do not start a new session or immediately call continue again. Preserve the current session and state digest. If the block is retryable, explain in plain language that a temporary source is unavailable; on a later explicit retry, call continue once with the preserved session and digest. If an Action instead returns a retryable dependency error, call status once for the same session and handle that returned state; never replace it with a fresh session.
 
 `get_research_session_status` is only for technical recovery when state is lost or the user explicitly asks for progress. Status never authorizes an answer.
 

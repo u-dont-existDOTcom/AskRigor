@@ -2,15 +2,15 @@
   "artifacts": [
     {
       "path": "docs/custom-gpt-action-openapi.json",
-      "sha256": "63ce76bfc7c763a6a5ffb77cba0e9badc17a89608f42ca5c42ce698b1db83681"
+      "sha256": "cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930"
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab"
+      "sha256": "cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95"
     },
     {
       "path": "apps/research-mcp/src/generated/custom-gpt-bundle.ts",
-      "sha256": "e78b103ea67c0ffaabb6869ae1d86ab23a58e660391ab943802990b5de237ef5"
+      "sha256": "783311e5ebc8d206feabe9ab60d1f719eb9db530cfc00d7aa1559aaf39eb17df"
     }
   ],
   "consequential_operation_ids": [
@@ -25,9 +25,9 @@
   },
   "generated_at": "2026-08-25",
   "installation_bundle": {
-    "action_schema_sha256": "63ce76bfc7c763a6a5ffb77cba0e9badc17a89608f42ca5c42ce698b1db83681",
-    "bundle_sha256": "b7e76b819b1ac390cabe9ef97058b0e6f5d6b376644a8a68e1f322eb2abc62ba",
-    "instructions_sha256": "16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab"
+    "action_schema_sha256": "cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930",
+    "bundle_sha256": "5aafafc5a43fb1d2be58086729154daee128def922735ca78aa2f904aa20652d",
+    "instructions_sha256": "cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95"
   },
   "internal_scout_skill_sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645",
   "mcp_research_operation_ids": [
@@ -63,7 +63,7 @@
   "sources": [
     {
       "path": "project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md",
-      "sha256": "16be9335dfcfc1fe721d4ef2a7268c5ccc1508869e8d65df28c7dde586f97bab"
+      "sha256": "cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95"
     },
     {
       "path": "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",
