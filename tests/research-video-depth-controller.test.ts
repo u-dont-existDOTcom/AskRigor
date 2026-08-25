@@ -399,6 +399,40 @@ describe("server-owned selected-video depth", () => {
       status: "BLOCKED_TERMINAL",
       receipt: { timestamp_provenance: "unavailable" }
     });
+
+    const boundedSession = recordTranscriptDepthResult(
+      initialSession(),
+      VIDEO_ONE,
+      transcriptOutput(VIDEO_ONE, {
+        timestamped: false,
+        returned: 0,
+        cumulative: 0
+      })
+    );
+    expect(boundedSession.video_depth.transcripts[0]).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: { classification: "TERMINAL_NONRETRYABLE" }
+    });
+    expect(boundedSession.bounded_evidence.videos[0]).toMatchObject({
+      video_id: VIDEO_ONE,
+      status: "BOUNDED_TERMINAL"
+    });
+    expect(boundedSession.operations.video_evidence_synthesis.status)
+      .toBe("IN_PROGRESS");
+    const fullyBoundedSession = recordTranscriptDepthResult(
+      boundedSession,
+      VIDEO_TWO,
+      transcriptOutput(VIDEO_TWO, {
+        timestamped: false,
+        returned: 0,
+        cumulative: 0
+      })
+    );
+    expect(fullyBoundedSession.operations.video_evidence_synthesis)
+      .toMatchObject({
+        status: "BLOCKED_TERMINAL",
+        boundary: { code: "VIDEO_EVIDENCE_BOUNDED_TERMINAL" }
+      });
   });
 
   it("requires every selected discussion to pass its own completion lock", () => {
@@ -510,6 +544,30 @@ describe("server-owned selected-video depth", () => {
       bounded,
       "community_discussion_audit"
     )).toBe("BLOCKED_TERMINAL");
+
+    const boundedSession = recordDiscussionDepthResult(
+      initialSession(),
+      VIDEO_ONE,
+      undefined,
+      discussionOutput(VIDEO_ONE, { terminal: true })
+    );
+    expect(boundedSession.bounded_evidence.videos[0]).toMatchObject({
+      video_id: VIDEO_ONE,
+      status: "BOUNDED_TERMINAL"
+    });
+    expect(boundedSession.operations.video_evidence_synthesis.status)
+      .toBe("IN_PROGRESS");
+    const fullyBoundedSession = recordDiscussionDepthResult(
+      boundedSession,
+      VIDEO_TWO,
+      undefined,
+      discussionOutput(VIDEO_TWO, { terminal: true })
+    );
+    expect(fullyBoundedSession.operations.video_evidence_synthesis)
+      .toMatchObject({
+        status: "BLOCKED_TERMINAL",
+        boundary: { code: "VIDEO_EVIDENCE_BOUNDED_TERMINAL" }
+      });
   });
 
   it("makes completed per-video evidence immutable in the session store", () => {
