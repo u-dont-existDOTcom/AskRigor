@@ -38,6 +38,7 @@ import {
   reconcileResearchSessionLinkedWork,
   recordDiscussionDepthResult,
   recordTranscriptDepthResult,
+  recordVideoDepthRestart,
   RESEARCH_MODULE_IDS,
   researchSessionStateDigest,
   type ResearchModuleId,
@@ -150,6 +151,17 @@ export class ResearchAdvanceNoProgressError extends Error {
   constructor(public readonly capability: string) {
     super(`Research advancement made no authoritative progress for ${capability}`);
     this.name = "ResearchAdvanceNoProgressError";
+  }
+}
+
+export class ResearchVideoDepthRestartRequiredError extends Error {
+  constructor(
+    public readonly capability:
+      "transcript_acquisition" | "community_discussion_audit",
+    public readonly code: string
+  ) {
+    super(`Research video depth restart required for ${capability}: ${code}`);
+    this.name = "ResearchVideoDepthRestartRequiredError";
   }
 }
 
@@ -390,9 +402,24 @@ export async function advanceResearchSessionDeterministically(
       const work = deriveResearchVideoDepthWorkPackages(rawState.video_depth)
         .find((candidate) => candidate.capability === capability);
       if (work === undefined) throw new ResearchAdvanceNoProgressError(capability);
-      const output = await executors.getTranscript(
-        deriveTranscriptActionInput(rawState.video_depth, work.video_id)
-      );
+      let output: Awaited<ReturnType<typeof executors.getTranscript>>;
+      try {
+        output = await executors.getTranscript(
+          deriveTranscriptActionInput(rawState.video_depth, work.video_id)
+        );
+      } catch (error) {
+        if (error instanceof ResearchVideoDepthRestartRequiredError) {
+          if (error.capability !== capability) throw error;
+          next = recordVideoDepthRestart(
+            rawState,
+            capability,
+            work.video_id,
+            error.code
+          );
+          break;
+        }
+        throw error;
+      }
       dependencies.evidenceMaterialCache?.captureTranscript({
         sessionId,
         videoId: work.video_id,
@@ -411,9 +438,24 @@ export async function advanceResearchSessionDeterministically(
       );
       if (record === undefined) throw new ResearchAdvanceNoProgressError(capability);
       const requestedHandle = record.continuation_handle;
-      const output = await executors.auditDiscussion(
-        deriveDiscussionActionInput(rawState.video_depth, work.video_id)
-      );
+      let output: Awaited<ReturnType<typeof executors.auditDiscussion>>;
+      try {
+        output = await executors.auditDiscussion(
+          deriveDiscussionActionInput(rawState.video_depth, work.video_id)
+        );
+      } catch (error) {
+        if (error instanceof ResearchVideoDepthRestartRequiredError) {
+          if (error.capability !== capability) throw error;
+          next = recordVideoDepthRestart(
+            rawState,
+            capability,
+            work.video_id,
+            error.code
+          );
+          break;
+        }
+        throw error;
+      }
       dependencies.evidenceMaterialCache?.captureDiscussion({
         sessionId,
         videoId: work.video_id,

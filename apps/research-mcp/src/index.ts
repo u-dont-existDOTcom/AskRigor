@@ -401,6 +401,7 @@ export {
   deriveResearchSemanticWorkForState,
   ResearchAdvanceDependencyUnavailableError,
   ResearchAdvanceNoProgressError,
+  ResearchVideoDepthRestartRequiredError,
   type ResearchDeterministicAdvanceDependencies,
   type ResearchDeterministicAdvanceResult,
   type ResearchExternalAuditCache,

@@ -384,6 +384,122 @@ describe("transport-independent research-session advancement", () => {
       discussionReceiptSha256: work.package.discussion_receipt_sha256
     })).toBeUndefined();
   });
+
+  it("restarts only the selected transcript when its Action continuation handle expires", async () => {
+    const selected = RESEARCH_FIXTURE_VIDEO_IDS[0]!;
+    let state = await depthReadyState();
+    state = (await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      {
+        videoDepth: {
+          getTranscript: async () => transcriptOutput(selected, {
+            nextHandle: `art1_${"R".repeat(32)}`,
+            complete: false
+          }),
+          auditDiscussion: async () => discussionOutput(selected)
+        }
+      }
+    )).state;
+    expect(state.video_depth.transcripts[0]).toMatchObject({
+      status: "IN_PROGRESS",
+      attempt: 0,
+      continuation_handle: `art1_${"R".repeat(32)}`
+    });
+
+    const runtime = createResearchSessionRuntimeDependencies({
+      env: { YOUTUBE_API_KEY: "server-held-youtube-key" },
+      transcriptRoute: fixtureErrorActionRoute(
+        "get_youtube_transcript",
+        "youtube_transcript_action_continuation_invalid_or_expired"
+      )
+    });
+    const result = await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      runtime.deterministic
+    );
+
+    expect(result).toMatchObject({
+      capability: "transcript_acquisition",
+      state_changed: true
+    });
+    expect(result.state.video_depth.transcripts[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "YOUTUBE_TRANSCRIPT_ACTION_CONTINUATION_INVALID_OR_EXPIRED"
+      }
+    });
+    expect(result.state.video_depth.transcripts[0]).not.toHaveProperty("receipt");
+    expect(result.state.video_depth.transcripts[0]).not.toHaveProperty(
+      "continuation_handle"
+    );
+  });
+
+  it("restarts only the selected discussion when its Action continuation handle expires", async () => {
+    const selected = RESEARCH_FIXTURE_VIDEO_IDS[0]!;
+    let state = await depthReadyState();
+    state = (await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      {
+        videoDepth: {
+          getTranscript: async () => transcriptOutput(selected),
+          auditDiscussion: async () => discussionOutput(selected)
+        }
+      }
+    )).state;
+    state = (await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      {
+        videoDepth: {
+          getTranscript: async () => transcriptOutput(selected),
+          auditDiscussion: async () => discussionOutput(selected, {
+            continuationHandle: `arh1_${"R".repeat(32)}`,
+            complete: false
+          })
+        }
+      }
+    )).state;
+    expect(state.video_depth.discussions[0]).toMatchObject({
+      status: "IN_PROGRESS",
+      attempt: 0,
+      continuation_handle: `arh1_${"R".repeat(32)}`
+    });
+
+    const runtime = createResearchSessionRuntimeDependencies({
+      env: { YOUTUBE_API_KEY: "server-held-youtube-key" },
+      discussionRoute: fixtureErrorActionRoute(
+        "audit_youtube_video_community",
+        "youtube_action_continuation_invalid_or_expired"
+      )
+    });
+    const result = await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      state,
+      runtime.deterministic
+    );
+
+    expect(result).toMatchObject({
+      capability: "community_discussion_audit",
+      state_changed: true
+    });
+    expect(result.state.video_depth.discussions[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "YOUTUBE_ACTION_CONTINUATION_INVALID_OR_EXPIRED"
+      }
+    });
+    expect(result.state.video_depth.discussions[0]).not.toHaveProperty("receipt");
+    expect(result.state.video_depth.discussions[0]).not.toHaveProperty(
+      "continuation_handle"
+    );
+  });
 });
 
 function fixtureActionRoute(operationId: string, body: unknown): ActionRoute {
@@ -398,6 +514,25 @@ function fixtureActionRoute(operationId: string, body: unknown): ActionRoute {
     responseSchemas: { 200: { type: "object" } },
     async handle() {
       return { status: 200, body };
+    }
+  };
+}
+
+function fixtureErrorActionRoute(operationId: string, code: string): ActionRoute {
+  return {
+    method: "POST",
+    path: `/actions/${operationId}`,
+    operationId,
+    summary: "Fixture internal Action continuation failure",
+    description: "Returns an expired internal Action continuation boundary.",
+    consequential: false,
+    public: false,
+    responseSchemas: { 422: { type: "object" } },
+    async handle() {
+      return {
+        status: 422,
+        body: { error: { code, retryable: false } }
+      };
     }
   };
 }
