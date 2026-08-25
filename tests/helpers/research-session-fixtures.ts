@@ -108,6 +108,34 @@ export function researchReceipt(): GeminiYoutubeCandidateValidationReceipt {
   };
 }
 
+export function rejectedResearchReceipt(): GeminiYoutubeCandidateValidationReceipt {
+  const accepted = researchReceipt();
+  return {
+    ...accepted,
+    status: "rejected",
+    candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
+      RESEARCH_FIXTURE_VIDEO_IDS,
+      [],
+      RESEARCH_FIXTURE_VIDEO_IDS,
+      []
+    ),
+    validated_candidates: [],
+    rejected_candidates: RESEARCH_FIXTURE_VIDEO_IDS.map((videoId) => ({
+      video_id: videoId,
+      metadata_access_status: "not_found",
+      retryable: false,
+      rejection_reasons: ["metadata_not_api_visible_complete"],
+      limitations: ["The provider-scouted identity was not independently visible."]
+    })),
+    suggested_seed_receipts: [{
+      video_id: RESEARCH_FIXTURE_VIDEO_IDS[0],
+      disposition: "rejected",
+      reasons: ["candidate_rejected"]
+    }],
+    eligible_seed_video_ids: []
+  };
+}
+
 export function nativeSurvey(
   metadataStatus: "api_visible_complete" | "rate_limited" = "api_visible_complete"
 ): YoutubeCommunitySurveyOutput {
