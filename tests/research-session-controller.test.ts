@@ -51,6 +51,7 @@ import { deriveGeminiYoutubeCandidateFrontier } from "../packages/sources/src/in
 import {
   RESEARCH_FIXTURE_VIDEO_IDS,
   nativeSurvey,
+  rejectedResearchReceipt,
   researchPacket,
   researchReceipt
 } from "./helpers/research-session-fixtures.js";
@@ -686,6 +687,34 @@ describe("research session controller core", () => {
       "automated_video_scout"
     ]);
     expect(partial.candidate_discovery.candidates).toHaveLength(2);
+  });
+
+  it("keeps a wholly rejected scout packet retryable and blocks native discovery", () => {
+    const rejected = recordAutomatedScoutCompletion(initialState(), {
+      providerResponseId: "interaction-rejected",
+      packet: researchPacket(),
+      receipt: rejectedResearchReceipt()
+    });
+
+    expect(rejected.operations.automated_video_scout).toMatchObject({
+      status: "BLOCKED_RETRYABLE",
+      boundary: {
+        classification: "RETRYABLE",
+        code: "AUTOMATED_SCOUT_PACKET_REJECTED"
+      }
+    });
+    expect(rejected.scout).toMatchObject({
+      status: "BLOCKED",
+      validation_status: "rejected",
+      candidate_count: 3,
+      validated_candidate_ids: []
+    });
+    expect(deriveRequiredNextCapabilities(rejected)).toContain(
+      "automated_video_scout"
+    );
+    expect(deriveRequiredNextCapabilities(rejected)).not.toContain(
+      "native_video_discovery"
+    );
   });
 
   it("maps treatment boundaries without treating a component lock as global synthesis", () => {

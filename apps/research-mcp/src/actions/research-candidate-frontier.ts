@@ -331,7 +331,9 @@ export function ingestValidatedGeminiFrontier(
   return researchCandidateDiscoveryStateSchema.parse({
     ...state,
     external_scout: {
-      status: receipt.unresolved_candidates.some(({ retryable }) => retryable)
+      status: receipt.status === "rejected"
+        ? "BLOCKED_RETRYABLE"
+        : receipt.unresolved_candidates.some(({ retryable }) => retryable)
         ? "BLOCKED_RETRYABLE"
         : receipt.unresolved_candidates.length > 0
           ? "BLOCKED_TERMINAL"
@@ -388,7 +390,7 @@ export function ingestNativeYoutubeSurvey(
 ): ResearchCandidateDiscoveryState {
   const state = researchCandidateDiscoveryStateSchema.parse(rawState);
   survey = youtubeCommunitySurveyOutputSchema.parse(survey);
-  if (state.external_scout.status === "NOT_STARTED") {
+  if (state.external_scout.status !== "COMPLETE") {
     throw new Error("Native discovery cannot replace the required external scout");
   }
   const frontierId = nativeFrontierDigest(survey);

@@ -1097,11 +1097,16 @@ export function recordAutomatedScoutCompletion(
     completion.providerResponseId
   );
   const externalStatus = discovery.external_scout.status;
+  const rejectedPacket = completion.receipt.status === "rejected";
   const boundary = externalStatus === "BLOCKED_RETRYABLE"
     ? {
       classification: "RETRYABLE" as const,
-      code: "AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED",
-      summary: "Some externally scouted video identities remain unresolved and must be retried."
+      code: rejectedPacket
+        ? "AUTOMATED_SCOUT_PACKET_REJECTED"
+        : "AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED",
+      summary: rejectedPacket
+        ? "All externally scouted video identities failed independent validation; scouting must be rerun rather than bypassed."
+        : "Some externally scouted video identities remain unresolved and must be retried."
     }
     : externalStatus === "BLOCKED_TERMINAL"
       ? {

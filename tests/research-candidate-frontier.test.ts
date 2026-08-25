@@ -17,6 +17,7 @@ import {
   NATIVE_ONLY_VIDEO_ID,
   RESEARCH_FIXTURE_VIDEO_IDS,
   nativeSurvey,
+  rejectedResearchReceipt,
   researchPacket,
   researchReceipt
 } from "./helpers/research-session-fixtures.js";
@@ -56,6 +57,23 @@ function unresolvedReceipt(): GeminiYoutubeCandidateValidationReceipt {
 }
 
 describe("server-owned research candidate frontier", () => {
+  it("does not let an entirely rejected external packet unlock native discovery", () => {
+    const rejected = externalDiscovery(rejectedResearchReceipt());
+
+    expect(rejected.external_scout).toMatchObject({
+      status: "BLOCKED_RETRYABLE",
+      source_candidate_video_ids: RESEARCH_FIXTURE_VIDEO_IDS,
+      validated_candidate_video_ids: [],
+      terminally_rejected_video_ids: RESEARCH_FIXTURE_VIDEO_IDS,
+      unresolved_candidate_video_ids: []
+    });
+    expect(rejected.candidates).toEqual([]);
+    expect(candidateDiscoveryReadyForScreening(rejected)).toBe(false);
+    expect(() => ingestNativeYoutubeSurvey(rejected, nativeSurvey())).toThrow(
+      /cannot replace the required external scout/u
+    );
+  });
+
   it("admits only independently validated external identities with exact provenance", () => {
     expect(initialResearchCandidateDiscoveryState().candidates).toEqual([]);
 
