@@ -53,8 +53,9 @@ reason to add more model instructions.
 
 ## K0 — transport-independent advancement engine
 
-Status: implemented and locally verified on the Phase K K0 candidate; merge
-and hosted checks remain required before K1 begins from fresh `main`.
+Status: merged through PR #85 at
+`bf592f03d71a891edab3ab73f300fd3686a66cac`; hosted and exact post-merge
+checks passed.
 
 - Extract a lifetime-shared dependency bundle and a one-transition advancement
   engine from the private route.
@@ -79,28 +80,31 @@ no-progress loops are rejected.
 
 ## K1 — bounded evidence projection and report gate
 
-- Preserve bounded transcript-verified creator findings with timestamps and
+Status: implemented and locally verified on the K1 candidate; final diff,
+lesson closeout, PR, hosted checks, and merge remain required.
+
+- [x] Preserve bounded transcript-verified creator findings with timestamps and
   transcript receipt binding.
-- Preserve de-identified community findings/counter-signals with discussion
+- [x] Preserve de-identified community findings/counter-signals with discussion
   corpus/receipt binding.
-- Preserve source method findings, applicability, exact program/comparator,
+- [x] Preserve source method findings, applicability, exact program/comparator,
   outcomes/horizon, material limitations, and claim capabilities with exact
   document/block/audit binding.
-- Preserve selected-video treatment interpretations rather than only their
+- [x] Preserve selected-video treatment interpretations rather than only their
   digest.
-- Retain or safely reacquire the exact bounded external-audit input required by
+- [x] Retain or safely reacquire the exact bounded external-audit input required by
   claim recalculation; never accept caller-recreated provider receipts.
-- Add a strict `report_synthesis` package and submission. The reader packet maps
+- [x] Add a strict `report_synthesis` package and submission. The reader packet maps
   every material claim to capable current sources and carries explicit
   inference, population/stage, program, outcome/horizon, uncertainty,
   alternatives, harms/counter-signals, videos actually audited, and
   provider/access limitations.
-- Validate all report references against current state. A retracted,
+- [x] Validate all report references against current state. A retracted,
   effect-excluded, inaccessible, or unaudited source cannot silently support an
   effect claim. Permit-bound limitations must be represented.
-- Bind the current report-package SHA-256 into final completion and the signed
+- [x] Bind the current report-package SHA-256 into final completion and the signed
   permit. Return the exact packet on authorized or bounded finalization.
-- Keep the ordinary reader packet within the existing Action response limit.
+- [x] Keep the ordinary reader packet within the existing Action response limit.
   A later optional technical projection may paginate details but cannot unlock
   completion.
 

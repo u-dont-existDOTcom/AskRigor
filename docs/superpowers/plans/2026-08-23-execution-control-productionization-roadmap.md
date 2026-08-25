@@ -822,10 +822,10 @@ Tasks:
 - [x] Execute every later controller capability through one shared
   transport-independent advancement engine; fail closed on unsupported or
   no-progress states.
-- [ ] Preserve only bounded source-linked semantic findings and produce a
+- [x] Preserve only bounded source-linked semantic findings and produce a
   server-validated reader packet; keep raw source/provider/private content out
   of the checkpoint.
-- [ ] Require a current report packet for final completion and bind its digest
+- [x] Require a current report packet for final completion and bind its digest
   into the signed finalization permit.
 - [ ] Decide the minimum public Action projection after Hermes/n8n pilots prove the controller.
 - [ ] Keep the external provider coordinator internal during the first accepted server-owned release; do not expose separate Crossref/FORRT/PubPeer/etc. model-callable checkboxes.

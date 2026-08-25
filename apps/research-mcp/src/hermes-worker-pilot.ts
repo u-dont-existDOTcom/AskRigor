@@ -19,6 +19,7 @@ import {
 } from "./private-research-orchestration-client.js";
 import {
   assertResearchSemanticBinding,
+  researchSemanticResponseContract,
   researchSemanticModelOutputSchema,
   type ResearchSemanticExecutor
 } from "./research-semantic-worker.js";
@@ -196,6 +197,9 @@ export async function runHermesResearchTask(
           ...(input.research_context === undefined
             ? {}
             : { research_context: input.research_context }),
+          response_contract: researchSemanticResponseContract(
+            view.semantic_work.kind
+          ),
           semantic_work: view.semantic_work
         }));
         assertResearchSemanticBinding({

@@ -47,6 +47,7 @@ import type {
   TokenBucketLimiter
 } from "./rate-limit.js";
 import {
+  researchSemanticResponseContract,
   researchSemanticExecutionEnvelopeSchema,
   researchSemanticModelOutputSchema,
   researchSemanticWorkSchema,
@@ -462,10 +463,24 @@ export function createPrivateResearchOrchestrationHandler(
       }
       let rawExecution: unknown;
       try {
+        const evidenceContext =
+          options.semanticAdvanceDependencies?.evidenceContextForWork === undefined
+            ? undefined
+            : await options.semanticAdvanceDependencies.evidenceContextForWork({
+                sessionId: parsed.data.session_id,
+                state: checked,
+                work: semanticWork
+              });
         rawExecution = await options.semanticExecutor.execute({
           session_id: parsed.data.session_id,
           state_digest: currentDigest,
           research_context: checked.research_target,
+          ...(evidenceContext === undefined
+            ? {}
+            : { evidence_context: evidenceContext }),
+          response_contract: researchSemanticResponseContract(
+            semanticWork.kind
+          ),
           semantic_work: semanticWork
         });
       } catch {

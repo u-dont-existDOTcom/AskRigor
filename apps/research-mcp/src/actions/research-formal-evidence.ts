@@ -38,6 +38,10 @@ import {
 } from "./study-external-evidence.js";
 import { OpenFullTextHandleError } from "./open-full-text-handle-store.js";
 import type { StudyMethodAuditExternalSubmission } from "./study-method-audit.js";
+import {
+  formalReaderEvidenceSchema,
+  sourceRecordSha256
+} from "./research-bounded-evidence.js";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const bounded = (maximum: number) => z.string().trim().min(1).max(maximum);
@@ -213,6 +217,7 @@ const methodAuditStateSchema = z.object({
   source_content_sha256: digest.optional(),
   source_primary_identifier: bounded(2_048).optional(),
   claim_capability_digest: digest.optional(),
+  reader_evidence: formalReaderEvidenceSchema.optional(),
   external_receipt_payload_sha256: digest.optional(),
   external_bound_audit_sha256: digest.optional()
 }).strict();
@@ -1168,7 +1173,11 @@ export function recordFormalMethodAudit(
       audit_sha256: receipt.audit_sha256,
       source_content_sha256: receipt.source_content_sha256,
       source_primary_identifier: receipt.source_primary_identifier,
-      claim_capability_digest: capabilityDigest
+      claim_capability_digest: capabilityDigest,
+      reader_evidence: readerEvidenceFromMethodReceipt(
+        source.method_audit.audit_kind,
+        receipt
+      )
     }),
     external_evidence: source.method_audit.audit_kind === "STUDY" &&
       source.identity.doi !== undefined
@@ -2500,6 +2509,81 @@ function sameMembers(left: string[], right: string[]): boolean {
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function readerEvidenceFromMethodReceipt(
+  auditKind: "STUDY" | "REVIEW" | "NOTICE" | "NOT_APPLICABLE",
+  rawReceipt: unknown
+) {
+  if (auditKind === "STUDY") {
+    const receipt = studyMethodAuditActionOutputSchema.shape.audit_receipt.parse(
+      rawReceipt
+    );
+    return formalReaderEvidenceSchema.parse({
+      audit_kind: "STUDY",
+      source_content_sha256: receipt.source_content_sha256,
+      audit_sha256: receipt.audit_sha256,
+      design_label: receipt.design_label,
+      design_capability_statement: receipt.design_capability_statement,
+      population_and_stage: receipt.population_and_stage,
+      intervention_program: receipt.intervention_program,
+      comparator_program: receipt.comparator_program,
+      outcome_and_horizon: receipt.outcome_and_horizon,
+      method_findings: receipt.domain_findings.map((finding) => ({
+        finding_id: sourceRecordSha256(finding),
+        domain: finding.domain,
+        status: finding.status,
+        plain_language_finding: finding.plain_language_finding,
+        evidence_block_ids: finding.evidence_block_ids,
+        unresolved_fields: finding.unresolved_fields
+      })),
+      claim_capabilities: receipt.claim_capabilities.map((capability) => ({
+        capability_id: sourceRecordSha256(capability),
+        ...capability
+      }))
+    });
+  }
+  if (auditKind === "REVIEW") {
+    const receipt = reviewMethodAuditActionOutputSchema.shape.audit_receipt.parse(
+      rawReceipt
+    );
+    return formalReaderEvidenceSchema.parse({
+      audit_kind: "REVIEW",
+      source_content_sha256: receipt.source_content_sha256,
+      audit_sha256: receipt.audit_sha256,
+      review_type: receipt.review_type,
+      search_end_date: receipt.search_end_date,
+      included_source_families: receipt.included_source_families,
+      program_fingerprints: receipt.program_fingerprints,
+      method_findings: receipt.domain_findings.map((finding) => ({
+        finding_id: sourceRecordSha256(finding),
+        domain: finding.domain,
+        status: finding.status,
+        plain_language_finding: finding.plain_language_finding,
+        evidence_block_ids: finding.evidence_block_ids,
+        unresolved_fields: finding.unresolved_fields
+      })),
+      claim_capabilities: receipt.claim_capabilities.map((capability) => ({
+        capability_id: sourceRecordSha256(capability),
+        ...capability
+      }))
+    });
+  }
+  if (auditKind === "NOTICE") {
+    const receipt = noticeMethodAuditOutputSchema.shape.audit_receipt.parse(rawReceipt);
+    return formalReaderEvidenceSchema.parse({
+      audit_kind: "NOTICE",
+      source_content_sha256: receipt.source_content_sha256,
+      audit_sha256: receipt.audit_sha256,
+      notice_type: receipt.notice_type,
+      affected_source_identity: receipt.affected_source_identity,
+      plain_language_finding: receipt.plain_language_finding,
+      evidence_block_ids: receipt.evidence_block_ids,
+      possible_decision_impact: receipt.possible_decision_impact,
+      unresolved_fields: receipt.unresolved_fields
+    });
+  }
+  throw new Error("A not-applicable source cannot produce reader evidence");
 }
 
 function canonicalJson(value: unknown): string {

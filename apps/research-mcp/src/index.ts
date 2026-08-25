@@ -76,7 +76,9 @@ export {
   recordResearchSessionFormalScreening,
   recordResearchSessionBidirectionalIteration,
   recordResearchSessionBidirectionalReturnAssessment,
+  recordResearchSessionReport,
   recordResearchSessionTreatmentLandscape,
+  recordResearchSessionVideoEvidence,
   executeResearchSessionMethodAudit,
   recalculateResearchSessionSourceClaimCapability,
   recordTranscriptDepthResult,
@@ -101,6 +103,45 @@ export {
   type ResearchSessionStartInput,
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
+export {
+  createVideoEvidenceWorkPackage,
+  deriveVideoEvidenceStatus,
+  ingestVideoEvidenceSubmission,
+  initialResearchBoundedEvidenceState,
+  initializeResearchBoundedEvidence,
+  nextVideoEvidenceId,
+  researchBoundedEvidenceStateSchema,
+  sourceMaterialDigest,
+  sourceRecordSha256,
+  videoEvidenceFindingIds,
+  videoEvidenceSubmissionSchema,
+  videoEvidenceWorkPackageSchema,
+  type ResearchBoundedEvidenceState,
+  type VideoEvidenceMaterial,
+  type VideoEvidenceSubmission,
+  type VideoEvidenceWorkPackage
+} from "./actions/research-bounded-evidence.js";
+export {
+  createReportSynthesisWorkPackage,
+  createReportSynthesisEvidenceContext,
+  currentResearchReport,
+  deriveReportSynthesisStatus,
+  ingestReportSynthesisSubmission,
+  initialResearchReportState,
+  readerReportClaimSchema,
+  readerReportDigest,
+  readerReportPacketSchema,
+  reportEvidenceBasisDigest,
+  reportSynthesisSubmissionSchema,
+  reportSynthesisEvidenceContextSchema,
+  reportSynthesisWorkPackageSchema,
+  researchReportStateSchema,
+  type ReaderReportPacket,
+  type ReportSynthesisSubmission,
+  type ReportSynthesisEvidenceContext,
+  type ReportSynthesisWorkPackage,
+  type ResearchReportState
+} from "./actions/research-report-synthesis.js";
 export {
   createTreatmentLandscapeWorkPackage,
   currentTreatmentLandscapeAssessment,
@@ -371,7 +412,12 @@ export {
   type ResearchSessionRuntimeDependencies
 } from "./research-session-runtime.js";
 export {
+  createInMemoryResearchEvidenceMaterialCache,
+  type ResearchEvidenceMaterialCache
+} from "./research-evidence-material-cache.js";
+export {
   assertResearchSemanticBinding,
+  researchSemanticResponseContract,
   moduleApplicabilitySubmissionSchema,
   researchSemanticExecutionEnvelopeSchema,
   researchSemanticModelOutputSchema,

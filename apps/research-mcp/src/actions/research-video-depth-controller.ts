@@ -571,6 +571,51 @@ export function restartResearchVideoDepthChain(
 }
 
 /**
+ * Build a non-authoritative replay frontier for reacquiring raw public source
+ * material after the process-local cache is lost. The caller must compare the
+ * replay's final receipts with the authoritative completed receipts and must
+ * never persist this replay state.
+ */
+export function createCompletedVideoDepthReplay(
+  rawState: ResearchVideoDepthState,
+  capability: "transcript_acquisition" | "community_discussion_audit",
+  videoId: string
+): ResearchVideoDepthState {
+  const state = researchVideoDepthStateSchema.parse(rawState);
+  const boundary = {
+    classification: "RETRYABLE" as const,
+    code: "EPHEMERAL_MATERIAL_REACQUISITION",
+    summary: "Reacquire the exact completed public source only for receipt comparison."
+  };
+  if (capability === "transcript_acquisition") {
+    const index = state.transcripts.findIndex(({ source }) => source.video_id === videoId);
+    if (index < 0 || state.transcripts[index]!.status !== "COMPLETE") {
+      throw new Error("Only a completed selected transcript can be replayed");
+    }
+    const transcripts = [...state.transcripts];
+    transcripts[index] = transcriptDepthRecordSchema.parse({
+      source: transcripts[index]!.source,
+      status: "RESTART_REQUIRED",
+      attempt: transcripts[index]!.attempt + 1,
+      boundary
+    });
+    return researchVideoDepthStateSchema.parse({ ...state, transcripts });
+  }
+  const index = state.discussions.findIndex(({ source }) => source.video_id === videoId);
+  if (index < 0 || state.discussions[index]!.status !== "COMPLETE") {
+    throw new Error("Only a completed selected discussion can be replayed");
+  }
+  const discussions = [...state.discussions];
+  discussions[index] = discussionDepthRecordSchema.parse({
+    source: discussions[index]!.source,
+    status: "RESTART_REQUIRED",
+    attempt: discussions[index]!.attempt + 1,
+    boundary
+  });
+  return researchVideoDepthStateSchema.parse({ ...state, discussions });
+}
+
+/**
  * Continuation handles are process-local. On durable-session restore, discard
  * only active handle-bound chains and preserve completed or genuinely terminal
  * receipts.

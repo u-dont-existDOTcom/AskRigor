@@ -212,6 +212,7 @@ export interface CreateOpenFullTextActionRoutesOptions {
 }
 
 export interface OpenFullTextExecutor {
+  readAuditMaterial?(documentHandle: string): AuditableDocumentIndex;
   acquire(
     input: z.output<typeof acquireOpenFullTextActionInputSchema>
   ): Promise<z.output<typeof openFullTextActionOutputSchema>>;
@@ -255,6 +256,12 @@ export function createOpenFullTextExecutor(
   const unpaywallConfig = options.unpaywallConfig ?? defaultUnpaywallConfig();
 
   const executor: OpenFullTextExecutor = {
+    readAuditMaterial(documentHandle) {
+      const parsedHandle = handleSchema.parse(documentHandle);
+      const state = store.read(parsedHandle);
+      if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
+      return structuredClone(state.index);
+    },
     async acquire(input) {
       const parsed = acquireOpenFullTextActionInputSchema.parse(input);
       const result = await acquire(parsed, unpaywallConfig);
