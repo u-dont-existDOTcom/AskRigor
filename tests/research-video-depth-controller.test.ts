@@ -337,7 +337,7 @@ describe("server-owned selected-video depth", () => {
     expect(session.operations.transcript_acquisition.status).toBe("IN_PROGRESS");
   });
 
-  it("keeps transcript retries executable, clears restarted chains, and rejects transcript-free completion", () => {
+  it("restarts transcript retries without a cursor, clears restarted chains, and rejects transcript-free completion", () => {
     const initial = initializeResearchVideoDepth(screenedCandidates());
     const retryable = ingestTranscriptActionOutput(
       initial,
@@ -350,13 +350,18 @@ describe("server-owned selected-video depth", () => {
       })
     );
     expect(retryable.transcripts[0]).toMatchObject({
-      status: "BLOCKED_RETRYABLE",
-      boundary: { classification: "RETRYABLE" }
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "TRANSCRIPT_RETRYABLE_WITHOUT_CONTINUATION_RESTART_REQUIRED"
+      }
     });
+    expect(retryable.transcripts[0]!.receipt).toBeUndefined();
     expect(deriveResearchVideoDepthWorkPackages(retryable)).toContainEqual({
       capability: "transcript_acquisition",
       video_id: VIDEO_ONE,
-      attempt: 0,
+      attempt: 1,
       continuation: false
     });
 
@@ -527,6 +532,33 @@ describe("server-owned selected-video depth", () => {
       attempt: 0,
       continuation: true
     });
+
+    const retryWithoutHandleOutput = discussionOutput(VIDEO_TWO, {
+      complete: false,
+      retryable: true
+    });
+    const retryWithoutHandle = ingestDiscussionActionOutput(
+      initial,
+      VIDEO_TWO,
+      undefined,
+      {
+        ...retryWithoutHandleOutput,
+        continuation_recommended: false,
+        coverage_receipt: {
+          ...retryWithoutHandleOutput.coverage_receipt,
+          continuation_recommended: false
+        }
+      }
+    );
+    expect(retryWithoutHandle.discussions[1]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "DISCUSSION_RETRYABLE_WITHOUT_CONTINUATION_RESTART_REQUIRED"
+      }
+    });
+    expect(retryWithoutHandle.discussions[1]!.receipt).toBeUndefined();
 
     let bounded = ingestDiscussionActionOutput(
       initial,

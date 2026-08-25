@@ -459,6 +459,51 @@ describe("adaptive per-video YouTube community audit", () => {
     expect(dependencies.get_comments_by_ids).not.toHaveBeenCalled();
   });
 
+  it("keeps an explicitly retryable boundary without a cursor incomplete", async () => {
+    const dependencies: YoutubeVideoCommunityAuditDependencies = {
+      get_video: vi.fn(async () => videoEnvelope("399")),
+      get_segment: vi.fn(async () => ({
+        video_id: VIDEO_ID,
+        comments: makeComments(1),
+        top_level_comments_retrieved: 1,
+        replies_retrieved: 0,
+        comment_thread_pages: 1,
+        reply_pages: 0,
+        reply_count_mismatches: [],
+        exhausted: false,
+        access_status: "rate_limited" as const,
+        limitations: ["YouTube rate limit reached."],
+        error: {
+          code: "youtube_rate_limited",
+          message: "YouTube rate limit reached",
+          retryable: true
+        }
+      })),
+      get_comments_by_ids: vi.fn()
+    };
+
+    const result = await auditYoutubeVideoCommunity(
+      { video_id_or_url: VIDEO_ID },
+      CONFIG,
+      { now: () => NOW, dependencies }
+    );
+
+    expect(result).toMatchObject({
+      access_status: "rate_limited",
+      extraction_coverage: "partial",
+      records_retrieved_cumulative: 1,
+      continuation_recommended: false,
+      receipt: {
+        completion_state: "incomplete",
+        synthesis_lock: "block",
+        blockers: [expect.stringMatching(/restart.*video/i)]
+      }
+    });
+    expect(result.continuation_token).toBeUndefined();
+    expect(result.sample).toBeUndefined();
+    expect(dependencies.get_comments_by_ids).not.toHaveBeenCalled();
+  });
+
   it("returns previously acquired records when a continuation reaches an access boundary", async () => {
     const comments = makeComments(2);
     const getSegment = vi.fn(async (input: { cursor?: unknown }) => input.cursor === undefined
