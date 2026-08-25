@@ -119,16 +119,52 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
       "assets/askrigor-composer-icon.svg",
       "assets/askrigor-logo.svg",
       "skills/askrigor/SKILL.md",
+      "skills/browser-archive-downloading/GVSU-REFERENCE.md",
+      "skills/browser-archive-downloading/SCENARIOS.md",
+      "skills/browser-archive-downloading/SKILL.md",
+      "skills/browser-archive-downloading/SUCCESS-PROFILE.json",
     ]);
 
     const temporary = await mkdtemp(join(tmpdir(), "askrigor-plugin-receipt-"));
     try {
-      for (const path of [".codex-plugin", "assets", "skills/askrigor"]) {
+      for (const path of [".codex-plugin", "assets", "skills"]) {
         await cp(new URL(`../${path}`, import.meta.url), join(temporary, path), {
           recursive: true,
         });
       }
       await writeFile(join(temporary, "assets/unreviewed.svg"), "<svg/>", "utf8");
+      await expect(createPluginPackageReceipt(temporary)).rejects.toThrow(
+        "Plugin package inventory mismatch",
+      );
+
+      await rm(join(temporary, "assets/unreviewed.svg"));
+      const baseline = await createPluginPackageReceipt(temporary);
+      const browserSkillPath = join(
+        temporary,
+        "skills/browser-archive-downloading/SKILL.md",
+      );
+      const browserSkill = await readFile(browserSkillPath, "utf8");
+      await writeFile(browserSkillPath, `${browserSkill}\n`, "utf8");
+      const changed = await createPluginPackageReceipt(temporary);
+      expect(changed.package_sha256).not.toBe(baseline.package_sha256);
+      expect(changed.inventory.find(({ path }: { path: string }) =>
+        path === "skills/browser-archive-downloading/SKILL.md"
+      )?.sha256).not.toBe(baseline.inventory.find(({ path }: { path: string }) =>
+        path === "skills/browser-archive-downloading/SKILL.md"
+      )?.sha256);
+      await writeFile(browserSkillPath, browserSkill, "utf8");
+
+      await rm(browserSkillPath);
+      await expect(createPluginPackageReceipt(temporary)).rejects.toThrow(
+        "Plugin package inventory mismatch",
+      );
+      await writeFile(browserSkillPath, browserSkill, "utf8");
+
+      await writeFile(
+        join(temporary, "skills/browser-archive-downloading/UNREVIEWED.md"),
+        "unreviewed",
+        "utf8",
+      );
       await expect(createPluginPackageReceipt(temporary)).rejects.toThrow(
         "Plugin package inventory mismatch",
       );
