@@ -1,5 +1,40 @@
 # AskRigor Codex Current State
 
+## 2026-08-25 complete plugin package receipt repair candidate
+
+The installed AskRigor plugin now contains two declared skills, but the prior
+package-receipt generator traversed only `skills/askrigor`. It could therefore
+return a passing receipt while silently omitting every file in
+`skills/browser-archive-downloading`. Branch
+`agent/plugin-receipt-complete-inventory-20260825` repairs the receipt to cover
+the complete manifest-declared `skills/` tree as well as the manifest and
+assets. Hostile coverage proves that adding, removing, or changing a browser-
+archive skill file invalidates the receipt.
+
+The repaired generator derives an eight-file receipt for both the personal
+plugin source and installed cache at version
+`0.1.0+codex.20260825134144`; both produce exact package SHA-256
+`d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+Focused plugin/deployment tests pass 10/10. The complete gate passes with one
+worker under current host load: 105 test files passed with one declared skip,
+1,376 tests passed with six declared skips, and typecheck/build passed. A prior
+normal-concurrency attempt reached 1,373 passing tests and only three fixed-
+duration timeouts; each affected suite had already passed independently, and
+hosted normal-concurrency CI remains the merge gate.
+
+This repair changes no plugin bytes, installed plugin registration, public
+Action or MCP inventory, canonical protocol, production runtime, provider,
+credential, retention, or privacy boundary. It makes the existing source-versus-
+installed currency claim complete and fail-closed rather than requiring another
+reinstall of already identical bytes.
+
+The pre-PR lesson checkpoint at `2026-08-25T14:44:05.788Z` was available:
+1 open candidate, 1 needing review, 0 accepted but not incorporated, 3
+incorporated or closed, and 0 deletion eligible. No queued lesson expands this
+repair. Lesson disposition is project-specific/no-new-lesson: the change
+enforces the already documented exact installed-package receipt requirement in
+the repository test that owns it.
+
 ## 2026-08-25 Phase K2 controlled Custom GPT projection candidate
 
 Phase K2 replaces the Custom GPT's low-level research tool collection with four

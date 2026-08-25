@@ -166,9 +166,11 @@ Complete and verify each distinct surface in order:
 3. verify the installed AskRigor plugin exposes exactly the reviewed 21 MCP
    tools, returns the newly deployed protocol manifests, and completes one
    read-only probe;
-4. compare an exact installed-package receipt covering `plugin.json`,
-   `SKILL.md`, and packaged assets/inventory with the reviewed source package;
-   a matching tool catalog or working connector is not a package receipt;
+4. compare an exact installed-package receipt covering `plugin.json`, every
+   file under the manifest-declared `skills/` tree, and all packaged assets
+   with the reviewed source package; the receipt must fail if any declared
+   skill file is added, removed, or changed, and a matching tool catalog or
+   working connector is not a package receipt;
 5. if installed bytes cannot be read back, mark package currency unverified,
    preserve a non-secret prior package/registration receipt and rollback path,
    then reinstall the exact reviewed package;

@@ -9,8 +9,12 @@ const EXPECTED_FILES = [
   "assets/askrigor-composer-icon.svg",
   "assets/askrigor-logo.svg",
   "skills/askrigor/SKILL.md",
+  "skills/browser-archive-downloading/GVSU-REFERENCE.md",
+  "skills/browser-archive-downloading/SCENARIOS.md",
+  "skills/browser-archive-downloading/SKILL.md",
+  "skills/browser-archive-downloading/SUCCESS-PROFILE.json",
 ];
-const PACKAGE_ROOTS = [".codex-plugin", "assets", "skills/askrigor"];
+const PACKAGE_ROOTS = [".codex-plugin", "assets", "skills"];
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");

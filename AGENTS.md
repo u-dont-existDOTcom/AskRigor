@@ -63,8 +63,10 @@ intervenes.
 At every backend or Custom GPT release, also verify the installed AskRigor
 plugin against the release: exact 21-tool MCP catalog, live HRP/Universal
 manifests, one read-only connector probe, and an exact installed-package
-receipt covering `.codex-plugin/plugin.json`, `skills/askrigor/SKILL.md`, and
-the packaged asset/inventory set. An unchanged catalog can become current
+receipt covering `.codex-plugin/plugin.json`, every file under the
+manifest-declared `skills/` tree (including `skills/askrigor/SKILL.md`), and
+the packaged asset/inventory set in full. The receipt must fail if a declared
+skill file is added, removed, or changed. An unchanged catalog can become current
 through the backend deployment without a package reinstall, but it does not
 prove that the installed skill bytes are current. If installed-package bytes
 cannot be read back, mark package currency unverified and reinstall the exact
