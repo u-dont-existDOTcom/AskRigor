@@ -916,7 +916,12 @@ describe("adaptive per-video YouTube community audit", () => {
   it("returns a blocking receipt instead of failing when exact continuation state is too large", async () => {
     const comments = makeComments(500);
     const mismatches = comments.map(({ comment_id }) => ({
-      parent_comment_id: comment_id.padEnd(512, "x"),
+      parent_comment_id: Array.from(
+        { length: 8 },
+        (_, index) => createHash("sha256")
+          .update(`${comment_id}-${index}`)
+          .digest("hex")
+      ).join(""),
       expected: Number.MAX_SAFE_INTEGER,
       retrieved: Number.MAX_SAFE_INTEGER
     }));

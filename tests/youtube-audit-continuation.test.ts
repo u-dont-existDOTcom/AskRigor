@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { deflateRawSync, inflateRawSync } from "node:zlib";
 
 import { describe, expect, it } from "vitest";
 
@@ -53,13 +54,35 @@ const comment = (id: string, text = `comment ${id}`): YoutubeComment => ({
   updated_at: "2025-02-01T11:00:00Z"
 });
 
+function legacyIdentifierMembership(identifiers: readonly string[]): string {
+  const membership = Buffer.alloc(2_048);
+  for (const identifier of identifiers) {
+    const digest = createHash("sha256").update(identifier).digest();
+    for (let index = 0; index < 11; index += 1) {
+      const bit = digest.readUInt16BE(index * 2) & (2_048 * 8 - 1);
+      membership[bit >>> 3] = membership[bit >>> 3]! | (1 << (bit & 7));
+    }
+  }
+  return membership.toString("base64url");
+}
+
+function decodedTokenPayload(token: string): string {
+  const encoded = token.split(".")[0]!;
+  if (!encoded.startsWith("z1_")) {
+    return Buffer.from(encoded, "base64url").toString("utf8");
+  }
+  return inflateRawSync(
+    Buffer.from(encoded.slice("z1_".length), "base64url")
+  ).toString("utf8");
+}
+
 describe("YouTube audit continuation tokens", () => {
   it("authenticates minimized continuation state without comment text", () => {
     const token = encodeYoutubeAuditContinuation(STATE, SECRET);
 
     expect(decodeYoutubeAuditContinuation(token, SECRET, STATE.started_at_ms + 1))
       .toEqual(STATE);
-    const payload = Buffer.from(token.split(".")[0]!, "base64url").toString("utf8");
+    const payload = decodedTokenPayload(token);
     expect(payload).not.toContain("my hip stopped hurting");
     expect(payload).not.toContain("author_display_name");
     expect(payload).not.toContain(SECRET);
@@ -84,7 +107,7 @@ describe("YouTube audit continuation tokens", () => {
     const token = encodeYoutubeAuditContinuation(stateWithOverlap, SECRET);
 
     expect(decodeYoutubeAuditContinuation(token, SECRET, NOW)).toEqual(stateWithOverlap);
-    const payload = Buffer.from(token.split(".")[0]!, "base64url").toString("utf8");
+    const payload = decodedTokenPayload(token);
     expect(payload).not.toContain("top-overlap");
     expect(payload).not.toContain("reply-overlap");
   });
@@ -94,6 +117,21 @@ describe("YouTube audit continuation tokens", () => {
       ...STATE,
       seen_identifier_membership: undefined,
       sample_identifiers: STATE.sample_identifiers.map((comment_id) => ({ comment_id }))
+    }), "utf8").toString("base64url");
+    const signature = createHmac("sha256", SECRET).update(legacyPayload).digest("base64url");
+
+    expect(decodeYoutubeAuditContinuation(
+      `${legacyPayload}.${signature}`,
+      SECRET,
+      NOW
+    )).toEqual(STATE);
+  });
+
+  it("upgrades a signed exact-corpus token using the prior membership capacity", () => {
+    const legacyPayload = Buffer.from(JSON.stringify({
+      ...STATE,
+      seen_identifier_membership:
+        legacyIdentifierMembership(STATE.sample_identifiers)
     }), "utf8").toString("base64url");
     const signature = createHmac("sha256", SECRET).update(legacyPayload).digest("base64url");
 
@@ -135,6 +173,29 @@ describe("YouTube audit continuation tokens", () => {
         }
       });
     }
+  });
+
+  it("requires a restart for a signed bounded corpus using the prior membership capacity", () => {
+    const identifiers = Array.from(
+      { length: 501 },
+      (_, index) => `prior-filter-${String(index).padStart(4, "0")}`
+    );
+    const legacyPayload = Buffer.from(JSON.stringify({
+      ...STATE,
+      segment_index: 6,
+      top_level_comments_retrieved: 501,
+      comment_thread_pages: 26,
+      records_retrieved_cumulative: 501,
+      sample_identifiers: identifiers.slice(0, 500),
+      seen_identifier_membership: legacyIdentifierMembership(identifiers)
+    }), "utf8").toString("base64url");
+    const signature = createHmac("sha256", SECRET).update(legacyPayload).digest("base64url");
+
+    expect(() => decodeYoutubeAuditContinuation(
+      `${legacyPayload}.${signature}`,
+      SECRET,
+      NOW
+    )).toThrowError(YoutubeAuditRestartRequiredError);
   });
 
   it("enforces expiry before classifying a signed legacy corpus migration", () => {
@@ -182,6 +243,30 @@ describe("YouTube audit continuation tokens", () => {
       .toThrow(/invalid/i);
     expect(() => decodeYoutubeAuditContinuation(token, SECRET, STATE.expires_at_ms))
       .toThrow(/expired/i);
+  });
+
+  it("rejects malformed and over-expanded signed compressed payloads", () => {
+    const malformedPayload = `z1_${Buffer.from("not-deflate").toString("base64url")}`;
+    const malformedSignature = createHmac("sha256", SECRET)
+      .update(malformedPayload)
+      .digest("base64url");
+    expect(() => decodeYoutubeAuditContinuation(
+      `${malformedPayload}.${malformedSignature}`,
+      SECRET,
+      NOW
+    )).toThrow(/invalid/i);
+
+    const oversizedPayload = `z1_${deflateRawSync(
+      Buffer.alloc(65_536 * 16 + 1)
+    ).toString("base64url")}`;
+    const oversizedSignature = createHmac("sha256", SECRET)
+      .update(oversizedPayload)
+      .digest("base64url");
+    expect(() => decodeYoutubeAuditContinuation(
+      `${oversizedPayload}.${oversizedSignature}`,
+      SECRET,
+      NOW
+    )).toThrow(/invalid/i);
   });
 
   it("rejects short secrets, invalid versions, oversized tokens, and oversized samples", () => {
@@ -340,7 +425,7 @@ describe("YouTube audit continuation tokens", () => {
     expect(advanced.rolling_sha256).not.toBe(base.rolling_sha256);
 
     const token = encodeYoutubeAuditContinuation(advanced, SECRET);
-    const payload = Buffer.from(token.split(".")[0]!, "base64url").toString("utf8");
+    const payload = decodedTokenPayload(token);
     expect(payload).not.toContain("my hip stopped hurting");
     expect(payload).not.toContain("author-UgxC");
   });
@@ -506,6 +591,47 @@ describe("YouTube audit continuation tokens", () => {
         }
       });
     }
+  });
+
+  it("keeps a 1,800-record segmented corpus below the deterministic false-positive boundary", () => {
+    let state: YoutubeVideoAuditContinuationState = {
+      ...STATE,
+      segment_index: 0,
+      cursor: { thread_offset: 0, top_level_emitted: false },
+      provider_reported_comments: "1800",
+      top_level_comments_retrieved: 0,
+      replies_retrieved: 0,
+      comment_thread_pages: 0,
+      reply_pages: 0,
+      records_retrieved_cumulative: 0,
+      rolling_sha256: "0".repeat(64),
+      sample_identifiers: [],
+      seen_identifier_membership: createYoutubeAuditIdentifierMembership([])
+    };
+    for (let segment = 0; segment < 90; segment += 1) {
+      const comments = Array.from({ length: 20 }, (_, index) =>
+        comment(`segmented-${String(segment * 20 + index).padStart(4, "0")}`)
+      );
+      const { cursor: _cursor, ...withoutCursor } = state;
+      state = advanceYoutubeAuditState(
+        withoutCursor,
+        comments,
+        {
+          top_level_comments_retrieved: comments.length,
+          replies_retrieved: 0,
+          comment_thread_pages: 1,
+          reply_pages: 0,
+          reply_count_mismatches: []
+        },
+        { thread_offset: segment + 1, top_level_emitted: false }
+      );
+    }
+
+    expect(state.records_retrieved_cumulative).toBe(1_800);
+    expect(state.segment_index).toBe(90);
+    const token = encodeYoutubeAuditContinuation(state, SECRET);
+    expect(token.length).toBeLessThanOrEqual(65_536);
+    expect(decodeYoutubeAuditContinuation(token, SECRET, NOW)).toEqual(state);
   });
 
   it("allows a resumable cursor to exceed a stale provider reply count", () => {
