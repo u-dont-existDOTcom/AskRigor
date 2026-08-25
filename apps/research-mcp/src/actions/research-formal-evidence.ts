@@ -752,15 +752,11 @@ export function ingestFormalEvidenceScreeningSubmission(
         : notApplicableClaimCapability()
     });
   });
-  for (const hypothesis of state.hypotheses) {
-    const candidates = sources.filter((source) => source.hypothesis_ids.includes(hypothesis.hypothesis_id));
-    if (
-      candidates.length > 0 &&
-      !candidates.some(({ decision_importance }) => decision_importance === "DECISION_IMPORTANT")
-    ) {
-      throw new Error("Every formal hypothesis with candidates needs a decision-important source or further search");
-    }
-  }
+  // Provider hits are retrieval candidates, not semantic support. Once every
+  // configured search is terminal, a truthful screening may determine that no
+  // hit is decision-important. Forcing one unrelated hit into the evidence set
+  // would turn retrieval noise into false support instead of preserving the
+  // protocol's support-not-located boundary.
   return researchFormalEvidenceStateSchema.parse({ ...state, sources });
 }
 

@@ -206,6 +206,37 @@ describe("controller-owned formal evidence frontier", () => {
     });
   });
 
+  it("allows exhausted provider results to contain no decision-important source", async () => {
+    const formal = await searchedFormal();
+    const work = createFormalEvidenceScreeningWorkPackage(formal);
+
+    const screened = ingestFormalEvidenceScreeningSubmission(formal, {
+      package_version: work.package_version,
+      formal_frontier_digest: work.formal_frontier_digest,
+      decisions: work.sources.map(({ source_id }) => ({
+        source_id,
+        source_kind: "OTHER",
+        decision_importance: "NOT_DECISION_IMPORTANT",
+        possible_decision_impact: "detail_only",
+        rationale: "Provider result is unrelated to the treatment hypothesis."
+      }))
+    });
+
+    expect(screened.sources.every((source) =>
+      source.screening_status === "SCREENED" &&
+      source.decision_importance === "NOT_DECISION_IMPORTANT" &&
+      source.full_text.status === "NOT_APPLICABLE" &&
+      source.method_audit.status === "NOT_APPLICABLE"
+    )).toBe(true);
+    expect(deriveFormalEvidenceOperationStatus(screened, "formal_evidence_search"))
+      .toBe("COMPLETE");
+    expect(deriveFormalEvidenceDiagnostics(screened)).toMatchObject({
+      hypotheses: 3,
+      hypotheses_search_complete: 3,
+      decision_important_sources: 0
+    });
+  });
+
   it("keeps abstract-only or inaccessible sources as unseen claim-local leads", async () => {
     let formal = selectAllStudies(await searchedFormal());
     const executor = createOpenFullTextExecutor({
