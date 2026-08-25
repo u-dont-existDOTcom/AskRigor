@@ -58,6 +58,7 @@ export {
   executeResearchSessionFinalCompletionAudit,
   executeResearchSessionFormalSearch,
   executeResearchSessionSourceExternalEvidence,
+  reconcileResearchSessionLinkedWork,
   executeResearchSessionSourceFullTextChain,
   executeResearchSessionVideoDepthChain,
   finalizationDecisionSchema,
@@ -352,6 +353,39 @@ export type {
   ActionResult,
   ActionRoute
 } from "./actions/types.js";
+export {
+  advanceResearchSessionDeterministically,
+  applyResearchSemanticResult,
+  createInMemoryResearchExternalAuditCache,
+  deriveResearchSemanticWorkForState,
+  ResearchAdvanceDependencyUnavailableError,
+  ResearchAdvanceNoProgressError,
+  type ResearchDeterministicAdvanceDependencies,
+  type ResearchDeterministicAdvanceResult,
+  type ResearchExternalAuditCache,
+  type ResearchSemanticAdvanceDependencies
+} from "./research-session-advance.js";
+export {
+  createResearchSessionRuntimeDependencies,
+  type CreateResearchSessionRuntimeOptions,
+  type ResearchSessionRuntimeDependencies
+} from "./research-session-runtime.js";
+export {
+  assertResearchSemanticBinding,
+  moduleApplicabilitySubmissionSchema,
+  researchSemanticExecutionEnvelopeSchema,
+  researchSemanticModelOutputSchema,
+  researchSemanticWorkSchema,
+  type ResearchSemanticExecutor,
+  type ResearchSemanticModelOutput,
+  type ResearchSemanticWork,
+  type ResearchSemanticWorkPackage
+} from "./research-semantic-worker.js";
+export {
+  createResearchSessionDiscoveryExecutors,
+  type CreateResearchSessionDiscoveryExecutorsOptions,
+  type ResearchSessionDiscoveryExecutors
+} from "./actions/research-session-discovery.js";
 
 if (
   process.argv[1] !== undefined &&

@@ -1,7 +1,8 @@
 # Private research orchestration interface
 
-Status: Phase H implementation with disabled Phase I Hermes and Phase J n8n pilots;
-not part of the public MCP or Custom GPT Action inventories.
+Status: Phase K K0 candidate extending the Phase H interface and disabled
+Phase I Hermes/Phase J n8n pilots; not part of the public MCP or Custom GPT
+Action inventories.
 
 ## Boundary
 
@@ -15,7 +16,10 @@ six private POST routes:
 - `/internal/research/v1/finalize`
 - `/internal/research/v1/advance`
 
-It is a transport adapter, not a second controller. The same store,
+It is a transport adapter, not a second controller. `/resume` and `/advance`
+are state-digest-bound aliases over the same one-transition advancement engine;
+the legacy discovery-only continuation path is not reachable through this
+interface. The same store,
 protocol-drift checks, monotonic module state, operation receipts, treatment
 locks, final audit, and finalization permit rules remain authoritative.
 
@@ -61,24 +65,38 @@ or caller-authored completion fields. Start accepts only the same screened,
 de-identified population-level target form allowed by the automated Gemini
 scout.
 
-Phase H accepts two semantic package kinds: complete module-applicability
-routing for the exact unresolved module set, and candidate screening bound to
-the exact discovery digest. Both are additionally bound to the current full
-controller-state digest. Stale, incomplete, duplicate, extra-field, provider-
-toggle, count, or completion submissions fail without advancing state. Later
-worker phases may add other exact package kinds; they must not weaken this
-contract.
+The K0 controller accepts exact semantic packages for module applicability,
+candidate screening, formal-source screening, source-bound method audit,
+external-evidence-bound claim recalculation, bidirectional iteration,
+bidirectional return assessment, and treatment-landscape finalization. Every
+package is bound to the current full controller-state digest plus its exact
+frontier/source/receipt/round identity. Stale, incomplete, duplicate,
+extra-field, provider-toggle, count, or completion submissions fail without
+advancing state. Schema and source validation prove binding, not scientific
+truth.
 
-Deterministic provider operations remain server-internal. The interface has no
-provider-by-provider completion controls.
+Deterministic provider operations remain server-internal. One lifetime-shared
+runtime graph owns the budgeted Gemini scout, native YouTube discovery,
+transcript and discussion continuation stores, PubMed/Europe PMC search,
+lawful open-full-text continuation store, external-evidence coordinator/cache,
+bidirectional comment search, linked-work reconciliation, and completion
+audit. The interface has no provider-by-provider completion controls. A
+missing executor or unchanged result fails closed and cannot be relabeled as
+completion or a terminal evidence boundary.
 
-`/advance` is additionally bound to the caller's exact current state digest.
+`/advance` and `/resume` are additionally bound to the caller's exact current
+state digest.
 The server, not the caller, derives whether the next step is deterministic or
 one exact semantic package. A worker result is schema-, state-, kind-, and
 frontier-bound before commit. Worker death is retryable; malformed or unbound
 output is rejected; stale state cannot commit. Authorized permits returned by
 the private finalization route are reverified against current server state,
 protocol identity, expiry, signing key, payload hash, and signature.
+
+Successful permit issuance additionally needs the complete protected pair
+`ASKRIGOR_FINALIZATION_SIGNING_SECRET` (at least 32 UTF-8 bytes) and
+`ASKRIGOR_FINALIZATION_KEY_ID` (a bounded nonsecret identifier). An incomplete
+pair fails startup; an absent pair leaves successful finalization unavailable.
 
 ## Phase I Hermes client
 

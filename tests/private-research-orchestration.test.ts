@@ -218,11 +218,15 @@ describe("private research orchestration HTTP boundary", () => {
         }
       });
 
-      expect((await privatePost(baseUrl, "/resume", {
-        session_id: start.session_id
-      })).status).toBe(200);
+      const scoutResponse = await privatePost(baseUrl, "/resume", {
+        session_id: start.session_id,
+        state_digest: routed.state_digest
+      });
+      expect(scoutResponse.status).toBe(200);
+      const scouted = await scoutResponse.json() as PrivateView;
       const discoveredResponse = await privatePost(baseUrl, "/resume", {
-        session_id: start.session_id
+        session_id: start.session_id,
+        state_digest: scouted.state_digest
       });
       expect(discoveredResponse.status).toBe(200);
       const discovered = await discoveredResponse.json() as PrivateView;

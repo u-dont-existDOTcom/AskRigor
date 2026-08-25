@@ -201,10 +201,7 @@ export async function runHermesResearchTask(
         assertResearchSemanticBinding({
           session_id: view.session_id,
           state_digest: view.state_digest,
-          work_type: view.semantic_work.kind,
-          ...(view.semantic_work.kind === "candidate_screening"
-            ? { discovery_digest: view.semantic_work.package.discovery_digest }
-            : {})
+          semantic_work: view.semantic_work
         }, parsedExecution.model_output);
         // Re-assign only after the strict worker and exact package binding pass.
         execution = parsedExecution;
@@ -215,15 +212,27 @@ export async function runHermesResearchTask(
       metrics.reported_api_calls += execution.diagnostics.usage.api_calls;
       metrics.reported_cost_nano_usd +=
         execution.diagnostics.usage.estimated_cost_nano_usd ?? 0;
-      view = await client.submit({
-        session_id: view.session_id,
-        state_digest: view.state_digest,
-        work_type: execution.model_output.work_type,
-        submission: execution.model_output.submission
-      });
+      const { contract_version: _contractVersion, ...submission } =
+        execution.model_output;
+      view = await client.submit(submission);
     } else if (view.required_next_capabilities.length > 0) {
       metrics.deterministic_resume_requests += 1;
-      view = await client.resume(view.session_id);
+      try {
+        view = await client.resume({
+          session_id: view.session_id,
+          state_digest: view.state_digest
+        });
+      } catch (error) {
+        if (!(error instanceof PrivateOrchestrationClientError)) throw error;
+        consecutiveNoProgress += 1;
+        metrics.no_progress_transitions += 1;
+        decision = await client.finalize(view.session_id);
+        if (consecutiveNoProgress >= input.maximum_no_progress_transitions) {
+          const terminal = terminalResultOrNull(view.session_id, decision, metrics);
+          return terminal ?? incompleteResult("NO_PROGRESS", decision, metrics);
+        }
+        continue;
+      }
     } else {
       return incompleteResult("SERVER_DENIED", decision, metrics);
     }
