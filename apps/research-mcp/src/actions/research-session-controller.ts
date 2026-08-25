@@ -1272,17 +1272,7 @@ export function recordTranscriptDepthResult(
 ): ResearchSessionState {
   const state = requireDepthReady(rawState);
   const videoDepth = ingestTranscriptActionOutput(state.video_depth, videoId, output);
-  return researchSessionStateSchema.parse({
-    ...state,
-    operations: {
-      ...state.operations,
-      transcript_acquisition: videoDepthOperationProjection(
-        videoDepth,
-        "transcript_acquisition"
-      )
-    },
-    video_depth: videoDepth
-  });
+  return withVideoDepth(state, videoDepth);
 }
 
 export function recordDiscussionDepthResult(
@@ -1298,17 +1288,7 @@ export function recordDiscussionDepthResult(
     requestedHandle,
     output
   );
-  return researchSessionStateSchema.parse({
-    ...state,
-    operations: {
-      ...state.operations,
-      community_discussion_audit: videoDepthOperationProjection(
-        videoDepth,
-        "community_discussion_audit"
-      )
-    },
-    video_depth: videoDepth
-  });
+  return withVideoDepth(state, videoDepth);
 }
 
 export function recordResearchSessionVideoEvidence(
@@ -1368,14 +1348,7 @@ export function recordVideoDepthRestart(
     videoId,
     code
   );
-  return researchSessionStateSchema.parse({
-    ...state,
-    operations: {
-      ...state.operations,
-      [capability]: videoDepthOperationProjection(videoDepth, capability)
-    },
-    video_depth: videoDepth
-  });
+  return withVideoDepth(state, videoDepth);
 }
 
 export async function executeResearchSessionVideoDepthChain(
@@ -1399,14 +1372,7 @@ export async function executeResearchSessionVideoDepthChain(
       executors.auditDiscussion,
       maximumCalls
     );
-  return researchSessionStateSchema.parse({
-    ...state,
-    operations: {
-      ...state.operations,
-      [capability]: videoDepthOperationProjection(videoDepth, capability)
-    },
-    video_depth: videoDepth
-  });
+  return withVideoDepth(state, videoDepth);
 }
 
 export async function executeResearchSessionFormalSearch(
