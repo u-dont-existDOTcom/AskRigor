@@ -49,6 +49,7 @@ import { youtubeVideoCommunityAuditOutputSchema } from
   "./youtube-video-community-audit.js";
 import {
   createInMemoryResearchExternalAuditCache,
+  ResearchVideoDepthRestartRequiredError,
   type ResearchDeterministicAdvanceDependencies,
   type ResearchExternalAuditCache,
   type ResearchSemanticAdvanceDependencies
@@ -407,9 +408,50 @@ async function executeActionRoute(
     body
   });
   if (result.status !== 200) {
+    const restart = videoDepthTransportRestart(
+      route.operationId,
+      result.status,
+      result.body
+    );
+    if (restart !== null) throw restart;
     throw new Error(`Internal Action executor ${route.operationId} failed`);
   }
   return result.body;
+}
+
+function videoDepthTransportRestart(
+  operationId: string,
+  status: number,
+  body: unknown
+): ResearchVideoDepthRestartRequiredError | null {
+  if (status !== 422) return null;
+  if (typeof body !== "object" || body === null || !("error" in body)) {
+    return null;
+  }
+  const error = body.error;
+  if (typeof error !== "object" || error === null || !("code" in error)) {
+    return null;
+  }
+  const code = error.code;
+  if (
+    operationId === "get_youtube_transcript" &&
+    code === "youtube_transcript_action_continuation_invalid_or_expired"
+  ) {
+    return new ResearchVideoDepthRestartRequiredError(
+      "transcript_acquisition",
+      code
+    );
+  }
+  if (
+    operationId === "audit_youtube_video_community" &&
+    code === "youtube_action_continuation_invalid_or_expired"
+  ) {
+    return new ResearchVideoDepthRestartRequiredError(
+      "community_discussion_audit",
+      code
+    );
+  }
+  return null;
 }
 
 function createLazyExternalCoordinator(input: {
