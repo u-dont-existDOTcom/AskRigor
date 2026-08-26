@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-08-26 Phase K discovery-resilience repair in progress
+## 2026-08-26 Phase K discovery-resilience deployed; progress projection repair in progress
 
 The owner installed the current compact Custom GPT bundle and ran the fixed
 synthetic challenge. Preserved session
@@ -17,7 +17,16 @@ exhausted with zero candidates. Bounded live comparisons returned candidates
 for concise and deterministic-prefix variants, so the result was query
 construction failure rather than an empty corpus.
 
-Branch `agent/phase-k-discovery-resilience-20260826` repairs both generically.
+PR #101 merged the generic repair as
+`50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a` after both required GitHub
+checks passed. The exact merge is deployed as image
+`askrigor-research:50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a`, image ID
+`sha256:699b066cdbab7793da792c8315e94a7699e7303140b5710dc93f981bcfb20a3f`,
+in healthy container `d5e9e5aba261`. Immediate rollback preserves the prior
+image as `askrigor-research:rollback-50a766e-predeploy` and the prior Compose
+file at `/opt/askrigor/compose.yaml.rollback-50a766e`.
+
+The repair bounds native fallback queries generically.
 Native fallback uses a fixed 160-character word-boundary subject and a
 200-character final-query ceiling. The controlled Gemini lane uses background
 Interactions, records only one opaque bounded job checkpoint as controller
@@ -41,8 +50,39 @@ reviewed inventory members and match repository content byte-for-byte except
 for the installed manifest's intentional cache-buster. Lesson status at the
 release checkpoint was available: one open candidate, one needing review, zero
 accepted-but-unincorporated, three incorporated/closed, and zero deletion
-eligible. PR/CI, exact deployment, direct controlled acceptance, and a fresh
-product replay remain.
+eligible. The privacy-site release
+`50a766e-20260826-discovery-resilience` is live; the checked-in and live
+privacy page bytes match exactly. Live MCP verification returned 21 tools and
+exact Universal 20.5.15 and HRP 20.5.23 identities. The Action schema is
+semantically equal to the checked-in five-operation document and rejects an
+unauthenticated controlled call with HTTP 401.
+
+A sanitized exact-target provider replay then passed the previously failing
+frontier: Gemini completed after 20 polls and 14 grounded searches, returned
+10 candidates, independently validated six, and requested deletion of the
+temporary background interaction; the generic native fallback completed all
+six searches with a maximum query length of 177 and returned one candidate.
+
+The first direct production Action replay exposed one narrower projection
+defect after that provider success. The controller validly persisted
+`scout.status=IN_PROGRESS`, but `researchSessionViewSchema` omitted
+`IN_PROGRESS` from its scout-status enum, so rendering the persisted progress
+state produced `action_internal_error`. This is not a provider or candidate
+failure. Branch `agent/phase-k-progress-projection-20260826` adds the missing
+view state and a route-level hostile regression; its focused controller suites
+pass 37/37. The standalone full suite and `npm run verify` both pass 1,394
+tests across 105 files, with one file and six tests skipped only by their
+declared credential gates; typecheck and build pass. Reviewed merge, exact
+redeployment, a repeated production controller replay, and a fresh signed-in
+product receipt remain. Before merge, exact Git archive
+`60672fca4e95e054e6ab5a56b20ccc63758c6adace963d3223d2c7da1b8af9c0`
+was built as isolated image
+`sha256:4d10dae907865c41cc34d27d29427fb8788bca28b090d13a14dd8d4226e8005c`.
+The unexposed read-only candidate rendered three consecutive background
+`IN_PROGRESS` transitions, completed Gemini with eight reconciled candidates,
+completed native discovery, and reached candidate screening with 51 candidates.
+Its temporary synthetic-session container was removed after the pass;
+production remained healthy and unchanged.
 
 ## 2026-08-25 PR #99 exact deployment; provider capacity and product replay pending
 

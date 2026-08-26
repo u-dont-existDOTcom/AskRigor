@@ -853,6 +853,26 @@ its privacy/budget/acceptance gates are tracked in
 incomplete until that repair passes host verification, reviewed merge, exact
 deployment, direct controlled replay, and fresh signed-in product acceptance.
 
+PR #101 merged that repair as
+`50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a`; required CI passed and the
+exact runtime/privacy release is live with rollback. Direct provider replay now
+passes both background Gemini and the bounded native fallback. The first
+authenticated controller replay then exposed a narrower projection omission:
+server-owned scout progress was validly stored as `IN_PROGRESS`, but the
+compact research-session view enum could not render that value. The generic
+route-level follow-up is tracked on
+`agent/phase-k-progress-projection-20260826`. K3 remains incomplete until that
+follow-up is reviewed, deployed, passes the repeated controlled replay, and a
+fresh signed-in challenge returns the server receipt.
+
+Before merge, an exact-head isolated candidate replay passed the repaired
+controller/provider boundary: three background progress states rendered,
+automated scouting completed with eight reconciled candidates, native discovery
+completed, and candidate screening was reached with 51 candidates. The
+temporary unexposed container was removed. This is strong pre-merge execution
+evidence, not a substitute for required CI, exact production deployment, or
+the signed installed-product receipt.
+
 Tasks:
 
 - [x] Execute every later controller capability through one shared

@@ -1,5 +1,44 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-26 discovery resilience live; controlled progress projection failed
+
+PR #101 merged as `50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a` with both
+required checks passing and is deployed exactly in healthy container
+`d5e9e5aba261`. Public health, unauthenticated rejection, semantic equality
+with the unchanged five-operation Action schema, 21 MCP tools, and exact
+Universal 20.5.15 / HRP 20.5.23 manifests pass. The generated Custom GPT
+Instructions and Action schema are byte-identical to the installed bundle, so
+this server-only release requires no editor transaction or MCP URL change.
+
+A sanitized provider replay of the exact fixed acceptance target completed the
+new background Gemini flow after 20 polls and 14 grounded searches, returned
+10 candidates, independently validated six, requested deletion of the
+temporary provider interaction, and left no unresolved identities. The
+generic native fallback completed all six searches, kept every query at or
+below 177 characters, and returned one candidate. This closes the two provider
+failures observed in session `ars1_VfivvctoY04Mxpdu0sBa1S9zuKm6e_3u`.
+
+The next direct authenticated controlled replay did not yet reach candidate
+screening. It discovered a narrower server projection defect: the controller
+persisted valid `IN_PROGRESS` scout state, while its compact view schema omitted
+that value and returned `action_internal_error` during rendering. Branch
+`agent/phase-k-progress-projection-20260826` adds the missing projection state
+and a route-level regression. Focused verification passes 37/37; the standalone
+full suite and `npm run verify` each pass 1,394 tests across 105 files with the
+declared credential-only skips, plus typecheck/build. No product acceptance
+receipt is claimed; a fresh signed-in challenge remains required after reviewed
+merge, exact redeployment, and a passing direct controller replay.
+
+The exact PR-head candidate was separately built and run as an unexposed,
+read-only container without replacing production. Its authenticated controlled
+replay rendered three successive background `IN_PROGRESS` states, completed
+automated scouting with eight reconciled candidates, completed native YouTube
+discovery, and reached the candidate-screening semantic boundary with 51
+candidates. The temporary synthetic-session container was removed after the
+pass. This proves the projection repair in the real controller/provider path,
+but it is not the installed Custom GPT receipt and does not substitute for the
+post-merge production replay.
+
 ## 2026-08-25 retry-session repair deployed; fresh acceptance pending
 
 PR #99 merged as `c543cf94360e73937221861667b69f144d2029af` and that

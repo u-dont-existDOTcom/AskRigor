@@ -1,6 +1,24 @@
 # AskRigor v0 public-review checklist
 
-## 2026-08-26 Phase K discovery-resilience candidate
+## 2026-08-26 background-progress projection repair candidate
+
+The live background provider and native fallback paths pass, but the direct
+controlled Action replay found that the compact session view could not render
+the controller's valid `IN_PROGRESS` scout state. The candidate adds that one
+missing enum value and a route-level hostile regression requiring a successful
+server-owned background-progress response. Focused controller verification
+passes 37/37. The standalone full suite and `npm run verify` each pass 1,394
+tests across 105 files, with the declared credential-only skips; typecheck and
+build pass. Reviewed merge, exact redeployment, a repeated direct replay, and a
+signed installed-product receipt remain open.
+
+An exact-head isolated candidate replay also passes the repaired boundary: the
+unexposed read-only container rendered three `IN_PROGRESS` responses, completed
+Gemini and native discovery, and reached candidate screening with 51
+candidates. The synthetic container was removed afterward. Production remains
+on PR #101 until PR #102 passes the required GitHub checks and merges.
+
+## 2026-08-26 Phase K discovery-resilience deployed
 
 The fixed installed-product challenge preserved session
 `ars1_VfivvctoY04Mxpdu0sBa1S9zuKm6e_3u` and correctly refused to invent a
@@ -14,8 +32,12 @@ query construction generically. The public Action and MCP inventories and the
 canonical protocol bytes remain unchanged. Complete host verification passes
 1,393 tests plus typecheck/build; the public-site and dependency gates pass;
 the generated Custom GPT artifacts are byte-identical to the installed bundle;
-and the eight-member plugin content is current. Merge, deployment, and fresh
-product acceptance remain open until the gates below pass.
+and the eight-member plugin content is current. PR #101 merged as
+`50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a`, required CI passed, the exact
+image and privacy site are deployed with rollback, public health/auth/schema/
+MCP/protocol checks pass, and the fixed target now completes Gemini plus native
+discovery at the provider layer. The progress-view follow-up and fresh product
+acceptance remain open until the gates below pass.
 
 ## 2026-08-25 PR #99 server deployment
 

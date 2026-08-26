@@ -814,7 +814,7 @@ export const researchSessionViewSchema = z.object({
   modules: moduleStatesSchema,
   operations: operationStatesSchema,
   scout: z.object({
-    status: z.enum(["NOT_STARTED", "COMPLETE", "BLOCKED"]),
+    status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "BLOCKED"]),
     candidate_count: z.number().int().nonnegative(),
     validated_candidate_count: z.number().int().nonnegative(),
     unresolved_candidate_count: z.number().int().nonnegative(),

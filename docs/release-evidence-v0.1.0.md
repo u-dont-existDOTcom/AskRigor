@@ -1,7 +1,36 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-26 Phase K discovery-resilience candidate
+## 2026-08-26 background-progress projection repair candidate
+
+The exact PR #101 deployment passed its live Gemini and native YouTube
+discovery probes, but the first direct controlled Action replay found a
+separate public-view mismatch. The server stored a valid resumable background
+checkpoint with scout operation and scout state both `IN_PROGRESS`; the
+reader/session view schema still accepted only `NOT_STARTED`, `COMPLETE`, or
+`BLOCKED`, so rendering the progress response failed with
+`action_internal_error`.
+
+The candidate adds `IN_PROGRESS` to that one authoritative projection enum and
+adds a route-level regression that starts a session, records signed
+module-applicability work, advances the automated scout into server-owned
+background progress, and requires a successful `IN_PROGRESS`/
+`progress_recorded` Action response. Focused controller suites pass 37/37.
+This is a transport projection repair, not new research policy, provider
+behavior, public inventory, or Custom GPT prose. The standalone full suite and
+`npm run verify` each pass 1,394 tests across 105 files, with one file and six
+tests skipped only by their declared credential gates; typecheck/build pass.
+Reviewed merge, exact redeployment, direct replay, and signed-in product
+acceptance remain required. An isolated pre-merge image built from exact head
+`496ef11e471a573636f494e062750702352e28f1` had image ID
+`sha256:4d10dae907865c41cc34d27d29427fb8788bca28b090d13a14dd8d4226e8005c`.
+Its unexposed controlled replay rendered three resumable progress responses,
+completed automated scouting with eight reconciled candidates, completed
+native discovery, and reached candidate screening with 51 candidates. The
+temporary candidate container and its synthetic session were removed after
+the pass; this does not replace the required exact-merge production replay.
+
+## 2026-08-26 Phase K discovery-resilience deployed
 
 The fixed installed-product challenge reached the production controller but
 did not finalize. Preserved session
@@ -12,7 +41,7 @@ zero-result native searches whose fallback queries repeated the complete
 746-character challenge. A bounded live comparison returned candidates for
 concise and deterministic-prefix queries.
 
-This candidate bounds native fallback queries generically, keeps transport
+This release bounds native fallback queries generically, keeps transport
 timeouts retryable, and makes controlled Gemini scouting a resumable
 server-owned background operation. One opaque job checkpoint is stored inside
 the existing encrypted session, later polls neither reserve nor charge again,
@@ -33,9 +62,29 @@ and synchronization ledger
 `d235742745299d1e8a55dd8936c518136ecfbf90189559ab626f8182580b2b48`.
 The personal plugin's eight-member source and installed inventories remain
 content-identical; the installed manifest differs only by its intentional
-cache-buster. This is candidate evidence only; reviewed merge, exact
-deployment, direct controlled acceptance, and a fresh installed-product
-receipt remain required.
+cache-buster.
+
+PR #101 merged as `50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a` after both
+required GitHub checks passed. The exact 1,653,295-byte source archive had
+SHA-256 `7a6e8da54d22a25edbe4d0e107de97da7a6a0df60c3d0a8cccd675dde8f52994`.
+Production image ID is
+`sha256:699b066cdbab7793da792c8315e94a7699e7303140b5710dc93f981bcfb20a3f`;
+healthy container is `d5e9e5aba261`. Rollback preserves the previous image and
+Compose bytes. Privacy-site release
+`50a766e-20260826-discovery-resilience` is active and its live privacy page is
+byte-identical to source at SHA-256
+`44c07ec39da51f46f76f4aa81c88719cc60e5a3061795351c24ece8acd904257`.
+
+Live public verification passed health, semantic equality with the five
+controlled Actions, HTTP 401 without authentication, 21 MCP tools, and exact
+Universal 20.5.15 / HRP 20.5.23 protocol manifests. A sanitized exact-target
+provider replay completed Gemini after 20 polls and 14 grounded queries,
+returned 10 candidates, independently validated six with no unresolved
+identities, and requested provider-interaction deletion. Six compact native
+fallback searches all completed; their maximum query length was 177 and the
+frontier returned one candidate. Direct controlled acceptance then exposed the
+separate progress-view defect recorded above, so a fresh installed-product
+receipt remains required after that follow-up repair.
 
 ## 2026-08-25 PR #99 deployment checkpoint
 
