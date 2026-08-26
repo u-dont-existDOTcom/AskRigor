@@ -859,11 +859,11 @@ exact runtime/privacy release is live with rollback. Direct provider replay now
 passes both background Gemini and the bounded native fallback. The first
 authenticated controller replay then exposed a narrower projection omission:
 server-owned scout progress was validly stored as `IN_PROGRESS`, but the
-compact research-session view enum could not render that value. The generic
-route-level follow-up is tracked on
-`agent/phase-k-progress-projection-20260826`. K3 remains incomplete until that
-follow-up is reviewed, deployed, passes the repeated controlled replay, and a
-fresh signed-in challenge returns the server receipt.
+compact research-session view enum could not render that value. PR #102 merged
+the generic route-level follow-up as
+`acf4766989c828900118e7e968fb3a76718b6d3c`; its exact deployment and repeated
+controlled replay pass. K3 remains incomplete only until a fresh signed-in
+challenge returns and validates the server receipt.
 
 Before merge, an exact-head isolated candidate replay passed the repaired
 controller/provider boundary: three background progress states rendered,
@@ -872,6 +872,17 @@ completed, and candidate screening was reached with 51 candidates. The
 temporary unexposed container was removed. This is strong pre-merge execution
 evidence, not a substitute for required CI, exact production deployment, or
 the signed installed-product receipt.
+
+PR #102 passed every required check and merged as
+`acf4766989c828900118e7e968fb3a76718b6d3c`. That exact merge is deployed with
+retained prior-image and Compose rollback. The direct production replay
+rendered repeated background progress, retained a real retryable Gemini
+boundary, resumed the same session, completed Gemini and native discovery, and
+reached candidate screening with 49 reconciled candidates. The generated
+Custom GPT artifacts and plugin bytes remain unchanged from the installed
+bundle, so no editor import, Action/MCP URL update, or plugin reinstall is
+required. K3 now waits only on a fresh signed-in product replay and its valid
+server-issued acceptance receipt.
 
 Tasks:
 
@@ -889,7 +900,11 @@ Tasks:
 - [x] Keep public educational scope and current product-policy boundary.
 - [x] Shrink model-side workflow responsibility: start/resume, obey next required step, render server-authorized result, expose technical state only on request.
 - [x] Update Instructions/OpenAPI/synchronization ledgers only after the exact product projection is reviewed.
-- [ ] Run fresh signed-in editor import and Preview acceptance.
+- [x] Confirm the installed generated Instructions, Action schema, MCP URL, and
+  plugin remain exact for the server-only repair; no editor or plugin
+  transaction is required.
+- [ ] Run fresh signed-in Preview acceptance and validate its server-issued
+  product-acceptance receipt.
 - [ ] Run repeated fresh chats on the known failure shape and unrelated held-out treatment questions; record actual operation IDs and finalization result rather than a manually authored acceptance fixture.
 - [ ] Include product cases where a study is retracted/corrected, FORRT has a linked repetition, and optional providers are unconfigured; output must remain plain-language and provider-scoped.
 - [ ] If the Custom GPT repeatedly bypasses even the compact server-directed contract, stop treating it as the authoritative synthesis surface. Keep AskRigor server/application finalization authoritative.

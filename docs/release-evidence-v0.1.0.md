@@ -1,7 +1,7 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-26 background-progress projection repair candidate
+## 2026-08-26 background-progress projection repair deployed
 
 The exact PR #101 deployment passed its live Gemini and native YouTube
 discovery probes, but the first direct controlled Action replay found a
@@ -20,15 +20,45 @@ This is a transport projection repair, not new research policy, provider
 behavior, public inventory, or Custom GPT prose. The standalone full suite and
 `npm run verify` each pass 1,394 tests across 105 files, with one file and six
 tests skipped only by their declared credential gates; typecheck/build pass.
-Reviewed merge, exact redeployment, direct replay, and signed-in product
-acceptance remain required. An isolated pre-merge image built from exact head
+PR #102 passed `Deterministic verification`, `workflow-policy`, and CodeQL on
+exact head `3b23aea66c8d31d990809845aeb00e319ddbb59d`, then merged as
+`acf4766989c828900118e7e968fb3a76718b6d3c`. GitHub Actions was in a declared
+major outage while the protected checks queued; no check was bypassed. The
+exact 1,657,491-byte merge archive has SHA-256
+`d2335a45aeba47e7736363ef494affad37cdf58dd5dadc59d76b396cf4f4b775`.
+Production image ID is
+`sha256:51cc770c4297b8ac6ee431d76f7f9698f15ad2b7a1bf7b2e7282f574ca672253`
+in healthy container `2dfdda352bf1`. Immediate rollback is
+`askrigor-research:rollback-acf4766-predeploy`, preserving prior image ID
+`sha256:699b066cdbab7793da792c8315e94a7699e7303140b5710dc93f981bcfb20a3f`,
+plus `/opt/askrigor/compose.yaml.rollback-acf4766`, SHA-256
+`ec99db91201b02bf1f2c6d96908c3f0475b478a26b23d6e3bd6d0c3c1683bf11`.
+The active Compose SHA-256 is
+`8162aaa3f235498a52bf6f32038da4f4299c97f43d2cab037a51f2352ea5455b`;
+Caddy remained container `fd1a7e709dab` with the same start time.
+
+Live health, semantic equality with the checked-in five-operation Action
+schema, HTTP 401 without authentication, the 21-tool MCP catalog, and exact
+Universal 20.5.15 / HRP 20.5.23 manifests pass. Production controlled session
+`ars1_Hd9kXQQBTaL6esgtLqFprUu9taAmbGVp` rendered repeated background
+`IN_PROGRESS`/`progress_recorded` responses. A later Gemini provider failure
+was projected as `BLOCKED_RETRYABLE`; the same session and digest remained
+executable. Its explicit retry resumed background progress, completed Gemini
+with seven candidates, completed native discovery with 49 reconciled
+candidates, and reached candidate screening. This passes the direct
+post-deployment discovery gate without erasing the real retry boundary or
+creating a replacement session. Fresh signed-in product acceptance and its
+server-issued receipt remain required.
+
+For provenance, an isolated pre-merge image built from exact head
 `496ef11e471a573636f494e062750702352e28f1` had image ID
 `sha256:4d10dae907865c41cc34d27d29427fb8788bca28b090d13a14dd8d4226e8005c`.
 Its unexposed controlled replay rendered three resumable progress responses,
 completed automated scouting with eight reconciled candidates, completed
 native discovery, and reached candidate screening with 51 candidates. The
 temporary candidate container and its synthetic session were removed after
-the pass; this does not replace the required exact-merge production replay.
+the pass; the exact-merge production replay above supersedes it for the server
+boundary but not for signed installed-product acceptance.
 
 ## 2026-08-26 Phase K discovery-resilience deployed
 

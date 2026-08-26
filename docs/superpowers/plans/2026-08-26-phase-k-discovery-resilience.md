@@ -1,7 +1,7 @@
 # Phase K discovery resilience repair
 
-Status: PR #101 merged and exactly deployed; one live-discovered progress-view
-follow-up is in progress on `agent/phase-k-progress-projection-20260826`
+Status: PR #102 merged and exactly deployed; direct controlled production
+replay passes through candidate screening; signed-in product receipt pending
 
 ## Failure evidence
 
@@ -141,13 +141,17 @@ more Custom GPT prose.
   completed after 20 polls/14 searches with 10 candidates and six independently
   validated; all six bounded native fallback searches completed and returned a
   candidate.
-- [ ] Direct controlled discovery replay on the exact deployment. The first
-  replay exposed the missing `IN_PROGRESS` view projection and therefore does
-  not count as acceptance.
+- [x] Direct controlled discovery replay on exact merge
+  `acf4766989c828900118e7e968fb3a76718b6d3c`: the preserved session rendered
+  repeated background progress, retained and resumed a real retryable Gemini
+  boundary, completed Gemini with seven candidates, completed native discovery
+  with 49 candidates, and reached candidate screening.
 - [x] Progress-view follow-up passes its 37 focused tests, standalone 1,394-test
   full suite, complete `npm run verify`, typecheck, and build.
 - [x] Exact PR-head isolated candidate renders repeated background progress,
   completes Gemini and native discovery, and reaches candidate screening with
   51 reconciled candidates without replacing production.
+- [x] Required PR #102 checks, reviewed merge, exact deployment, public
+  health/auth/schema/MCP/protocol verification, and rollback evidence pass.
 - [ ] Fresh signed-in product replay with a valid server-issued acceptance
   receipt.

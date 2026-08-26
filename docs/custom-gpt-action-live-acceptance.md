@@ -1,43 +1,35 @@
 # Custom GPT Action live acceptance
 
-## 2026-08-26 discovery resilience live; controlled progress projection failed
+## 2026-08-26 controlled progress repair live; signed-in acceptance pending
 
-PR #101 merged as `50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a` with both
-required checks passing and is deployed exactly in healthy container
-`d5e9e5aba261`. Public health, unauthenticated rejection, semantic equality
-with the unchanged five-operation Action schema, 21 MCP tools, and exact
-Universal 20.5.15 / HRP 20.5.23 manifests pass. The generated Custom GPT
-Instructions and Action schema are byte-identical to the installed bundle, so
-this server-only release requires no editor transaction or MCP URL change.
+PR #102 passed all required checks on exact head
+`3b23aea66c8d31d990809845aeb00e319ddbb59d` and merged as
+`acf4766989c828900118e7e968fb3a76718b6d3c`. The exact merge is live as
+healthy image ID
+`sha256:51cc770c4297b8ac6ee431d76f7f9698f15ad2b7a1bf7b2e7282f574ca672253`,
+container `2dfdda352bf1`, with prior-image and exact-Compose rollback retained.
+Caddy remained `fd1a7e709dab`. Public health, unauthenticated rejection,
+semantic equality with the unchanged five-operation Action schema, 21 MCP
+tools, and exact Universal 20.5.15 / HRP 20.5.23 manifests pass.
 
-A sanitized provider replay of the exact fixed acceptance target completed the
-new background Gemini flow after 20 polls and 14 grounded searches, returned
-10 candidates, independently validated six, requested deletion of the
-temporary provider interaction, and left no unresolved identities. The
-generic native fallback completed all six searches, kept every query at or
-below 177 characters, and returned one candidate. This closes the two provider
-failures observed in session `ars1_VfivvctoY04Mxpdu0sBa1S9zuKm6e_3u`.
+The post-deployment controlled replay preserved session
+`ars1_Hd9kXQQBTaL6esgtLqFprUu9taAmbGVp`. It rendered repeated server-owned
+`IN_PROGRESS`/`progress_recorded` responses at the exact boundary that had
+previously returned `action_internal_error`. A later Gemini provider failure
+became `BLOCKED_RETRYABLE` with `automated_video_scout` still executable. The
+same session and state digest were retried after the transient condition; the
+controller resumed background progress, completed Gemini with seven
+candidates, completed native discovery with 49 reconciled candidates, and
+reached candidate screening. No replacement session or caller-authored
+completion evidence was used.
 
-The next direct authenticated controlled replay did not yet reach candidate
-screening. It discovered a narrower server projection defect: the controller
-persisted valid `IN_PROGRESS` scout state, while its compact view schema omitted
-that value and returned `action_internal_error` during rendering. Branch
-`agent/phase-k-progress-projection-20260826` adds the missing projection state
-and a route-level regression. Focused verification passes 37/37; the standalone
-full suite and `npm run verify` each pass 1,394 tests across 105 files with the
-declared credential-only skips, plus typecheck/build. No product acceptance
-receipt is claimed; a fresh signed-in challenge remains required after reviewed
-merge, exact redeployment, and a passing direct controller replay.
-
-The exact PR-head candidate was separately built and run as an unexposed,
-read-only container without replacing production. Its authenticated controlled
-replay rendered three successive background `IN_PROGRESS` states, completed
-automated scouting with eight reconciled candidates, completed native YouTube
-discovery, and reached the candidate-screening semantic boundary with 51
-candidates. The temporary synthetic-session container was removed after the
-pass. This proves the projection repair in the real controller/provider path,
-but it is not the installed Custom GPT receipt and does not substitute for the
-post-merge production replay.
+The generated Custom GPT Instructions, Action schema, synchronization ledger,
+and plugin content remain unchanged from the installed bundle, so this
+server-only release requires no editor import, Action URL change, MCP URL
+change, or plugin reinstall. No product-acceptance receipt is claimed. The one
+remaining K3 gate is a fresh signed-in installed-GPT challenge that follows the
+server directives through finalization and returns the server-issued signed
+receipt.
 
 ## 2026-08-25 retry-session repair deployed; fresh acceptance pending
 
