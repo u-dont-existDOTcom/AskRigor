@@ -34,7 +34,7 @@ zero-result native searches whose fallback queries repeated the complete
 746-character challenge. A bounded live comparison returned candidates for
 concise and deterministic-prefix queries.
 
-This candidate bounds native fallback queries generically, keeps transport
+This release bounds native fallback queries generically, keeps transport
 timeouts retryable, and makes controlled Gemini scouting a resumable
 server-owned background operation. One opaque job checkpoint is stored inside
 the existing encrypted session, later polls neither reserve nor charge again,
