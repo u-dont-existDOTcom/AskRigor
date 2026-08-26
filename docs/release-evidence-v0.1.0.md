@@ -1,6 +1,27 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-26 formal-provider pagination repair candidate
+
+Fresh installed-product acceptance preserved one server session through 900
+formal-source candidates, then failed on the next formal-search continuation
+with non-retryable `action_internal_error`. Sanitized state inspection and a
+non-committing exact transition replay proved the cause: a terminal provider
+page inherited the previous page's cursor, producing an internally forbidden
+complete-with-cursor record. Evidence volume itself remained within the
+controller's configured bounds.
+
+The candidate makes provider-page state replacement explicit: prior cursor and
+retry-boundary fields are removed before current status, current cursor when
+still in progress, and current boundary when blocked are added. The regression
+suite exercises both terminal cursor cleanup and recovery from a retryable
+boundary, including the controlled Action route that previously surfaced the
+generic internal error. Focused verification passes 25/25 and typechecking
+passes. Protocols, public Action/MCP inventories, generated Custom GPT
+artifacts, privacy behavior, credentials, provider policy, and plugin bytes are
+unchanged. This is not yet release evidence for deployment or product
+acceptance; those gates remain pending.
+
 ## 2026-08-26 background-progress projection repair deployed
 
 The exact PR #101 deployment passed its live Gemini and native YouTube

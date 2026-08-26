@@ -1,5 +1,27 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-26 formal-search terminal-page failure; repair candidate
+
+The next installed-GPT fixed challenge ran for about eleven minutes and did
+not reach finalization. It preserved session
+`ars1_nxbYhtm-4VbuMomta5U4tgC-H4rO13LS` at state digest
+`ac40307c3d10ac89d879a0d30ed25c7201eb15e9769a58a22b645d3f9dc6a9d2`,
+with 900 formal-source candidates and formal search still in progress. The
+next continuation returned non-retryable `action_internal_error`; one status
+read confirmed unchanged state, and a second continuation reproduced the
+error. No replacement session, reader report, or product-acceptance receipt
+was created.
+
+Sanitized, non-committing server replay identified a deterministic transition
+bug: a provider's final paginated response was marked complete while retaining
+the preceding page cursor. The state schema rejected that contradiction. The
+candidate repair removes cursor and retry-boundary fields before deriving the
+new page state. Source- and controlled-Action-level regressions now cover
+terminal pagination and retry recovery. Focused tests pass 25/25 and
+typechecking passes. This negative product result remains open until reviewed
+merge, exact deployment, direct full-path replay, and a fresh signed-in receipt.
+No Custom GPT editor, Action URL/schema, MCP, protocol, or plugin bytes change.
+
 ## 2026-08-26 controlled progress repair live; signed-in acceptance pending
 
 PR #102 passed all required checks on exact head

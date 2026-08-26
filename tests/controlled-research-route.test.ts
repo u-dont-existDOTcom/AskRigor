@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
+import { okEnvelope } from "@askrigor/contracts";
+import type { PubmedRecord } from "@askrigor/sources";
 
 import { createControlledResearchRoutes } from
   "../apps/research-mcp/src/actions/controlled-research-route.js";
@@ -7,8 +9,14 @@ import { CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID } from
   "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
 import {
   RESEARCH_MODULE_IDS,
+  applyServerModuleApplicability,
+  createInitialResearchSessionState,
+  protocolBindingsFromManifests,
   recordAutomatedScoutBoundary,
+  recordAutomatedScoutCompletion,
   recordAutomatedScoutProgress,
+  recordCandidateScreeningCompletion,
+  researchSessionStateDigest,
   recordNativeYoutubeDiscovery
 } from
   "../apps/research-mcp/src/actions/research-session-controller.js";
@@ -16,6 +24,15 @@ import { createResearchSessionStore } from
   "../apps/research-mcp/src/actions/research-session-store.js";
 import type { ActionRoute } from
   "../apps/research-mcp/src/actions/types.js";
+import type { FormalSearchExecutors } from
+  "../apps/research-mcp/src/actions/research-formal-evidence.js";
+import {
+  nativeSurvey,
+  researchPacket,
+  researchReceipt
+} from "./helpers/research-session-fixtures.js";
+import { screeningSubmissionFor } from
+  "./helpers/research-video-depth-fixtures.js";
 
 const SECRET = "controlled-research-route-test-secret-32-bytes";
 
@@ -208,6 +225,87 @@ describe("controlled research Action projection", () => {
         }
       }
     });
+  });
+
+  it("continues formal search when a paginated provider reaches its terminal page", async () => {
+    const [universal, hrp] = await Promise.all([
+      getProtocolManifest("universal"),
+      getProtocolManifest("hrp")
+    ]);
+    let state = createInitialResearchSessionState({
+      research_target: "de-identified treatment comparison",
+      diagnosis_status: "diagnosis_not_specified"
+    }, protocolBindingsFromManifests(universal, hrp));
+    state = applyServerModuleApplicability(state, {
+      DIRECT_HUMAN: "REQUIRED",
+      EXTENDED_GREY: "REQUIRED",
+      FORUM_SIGNAL: "REQUIRED",
+      BIDIRECTIONAL_ITERATION: "REQUIRED"
+    }, "SERVER_ROUTER");
+    state = recordAutomatedScoutCompletion(state, {
+      providerResponseId: "formal-pagination-route-fixture",
+      packet: researchPacket(),
+      receipt: researchReceipt()
+    });
+    state = recordNativeYoutubeDiscovery(state, nativeSurvey());
+    state = recordCandidateScreeningCompletion(
+      state,
+      screeningSubmissionFor(state.candidate_discovery)
+    );
+
+    let randomByte = 91;
+    const store = createResearchSessionStore({
+      random: () => new Uint8Array(24).fill(randomByte++)
+    });
+    const sessionId = store.issue(state);
+    const routes = createControlledResearchRoutes({
+      store,
+      getProtocolManifest,
+      deterministicAdvanceDependencies: {
+        formalSearch: paginatedFormalSearchExecutors()
+      },
+      semanticAdvanceDependencies: {},
+      continuationSigningSecret: SECRET,
+      finalizationSigningSecret: SECRET,
+      finalizationKeyId: "test-key"
+    });
+
+    const first = await call(routes, "continue_research_session", {
+      session_id: sessionId,
+      state_digest: researchSessionStateDigest(state)
+    });
+    expect(first).toMatchObject({
+      status: 200,
+      body: {
+        directive: "continue_research",
+        next_capability: "formal_evidence_search",
+        last_transition: {
+          capability: "formal_evidence_search",
+          result: "progress_recorded"
+        }
+      }
+    });
+
+    const second = await call(routes, "continue_research_session", {
+      session_id: sessionId,
+      state_digest: (first.body as any).state_digest
+    });
+    expect(second).toMatchObject({
+      status: 200,
+      body: {
+        directive: "continue_research",
+        next_capability: "formal_evidence_search",
+        last_transition: {
+          capability: "formal_evidence_search",
+          result: "progress_recorded"
+        }
+      }
+    });
+    const persisted = store.read(sessionId);
+    for (const provider of persisted.formal_evidence.hypotheses[0]!.provider_searches) {
+      expect(provider.status).toBe("COMPLETE");
+      expect(provider.next_cursor).toBeUndefined();
+    }
   });
 
   it("never directs finalization from a continue state with terminal scout evidence", async () => {
@@ -576,6 +674,78 @@ function testRoutes(
     finalizationSigningSecret: SECRET,
     finalizationKeyId: "test-key"
   });
+}
+
+function paginatedFormalSearchExecutors(): FormalSearchExecutors {
+  let pubmedCalls = 0;
+  let europeCalls = 0;
+  return {
+    searchPubmed: (async (input: { query: string }) => {
+      pubmedCalls += 1;
+      const identifier = String(4_000 + pubmedCalls);
+      return okEnvelope({
+        provider: "pubmed",
+        recordType: "pubmed_search_result",
+        query: { query: input.query },
+        accessStatus: "complete",
+        pagination: pubmedCalls === 1
+          ? {
+              page_size: 100,
+              returned: 1,
+              next_cursor: "pubmed-terminal-page",
+              exhausted: false
+            }
+          : { page_size: 100, returned: 1, exhausted: true },
+        data: [{ pmid: identifier }]
+      });
+    }) as never,
+    fetchPubmedRecord: (async (identifier: string) => okEnvelope({
+      provider: "pubmed",
+      recordType: "pubmed_record",
+      primaryIdentifier: identifier,
+      sourceIdentity: {
+        canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${identifier}/`
+      },
+      accessStatus: "api_visible_complete",
+      pagination: { returned: 1, exhausted: true },
+      data: {
+        pmid: identifier,
+        doi: `10.5555/route.${identifier}`,
+        title: `Route fixture study ${identifier}`,
+        abstract: "Abstract only.",
+        authors: ["Researcher"],
+        dates: [{ type: "pub", value: "2025" }]
+      } satisfies PubmedRecord
+    })) as never,
+    searchEuropePmc: (async (input: { query: string }) => {
+      europeCalls += 1;
+      const identifier = String(5_000 + europeCalls);
+      return okEnvelope({
+        provider: "europe_pmc",
+        recordType: "europe_pmc_search_result",
+        query: { query: input.query },
+        accessStatus: "complete",
+        pagination: europeCalls === 1
+          ? {
+              page_size: 100,
+              returned: 1,
+              next_cursor: "europe-terminal-page",
+              exhausted: false
+            }
+          : { page_size: 100, returned: 1, exhausted: true },
+        data: [{
+          source: "MED",
+          id: identifier,
+          pmid: identifier,
+          doi: `10.5555/route.${identifier}`,
+          title: `Route fixture study ${identifier}`,
+          authors: ["Researcher"],
+          year: "2025"
+        }]
+      });
+    }) as never,
+    pubmedConfig: { tool: "askrigor-test", email: "research@example.test" }
+  };
 }
 
 async function completeWorkerPayload(
