@@ -12,6 +12,12 @@ tests across 105 files, with the declared credential-only skips; typecheck and
 build pass. Reviewed merge, exact redeployment, a repeated direct replay, and a
 signed installed-product receipt remain open.
 
+An exact-head isolated candidate replay also passes the repaired boundary: the
+unexposed read-only container rendered three `IN_PROGRESS` responses, completed
+Gemini and native discovery, and reached candidate screening with 51
+candidates. The synthetic container was removed afterward. Production remains
+on PR #101 until PR #102 passes the required GitHub checks and merges.
+
 ## 2026-08-26 Phase K discovery-resilience deployed
 
 The fixed installed-product challenge preserved session

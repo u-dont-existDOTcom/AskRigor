@@ -73,8 +73,16 @@ view state and a route-level hostile regression; its focused controller suites
 pass 37/37. The standalone full suite and `npm run verify` both pass 1,394
 tests across 105 files, with one file and six tests skipped only by their
 declared credential gates; typecheck and build pass. Reviewed merge, exact
-redeployment, a repeated direct controller replay, and a fresh signed-in
-product receipt remain.
+redeployment, a repeated production controller replay, and a fresh signed-in
+product receipt remain. Before merge, exact Git archive
+`60672fca4e95e054e6ab5a56b20ccc63758c6adace963d3223d2c7da1b8af9c0`
+was built as isolated image
+`sha256:4d10dae907865c41cc34d27d29427fb8788bca28b090d13a14dd8d4226e8005c`.
+The unexposed read-only candidate rendered three consecutive background
+`IN_PROGRESS` transitions, completed Gemini with eight reconciled candidates,
+completed native discovery, and reached candidate screening with 51 candidates.
+Its temporary synthetic-session container was removed after the pass;
+production remained healthy and unchanged.
 
 ## 2026-08-25 PR #99 exact deployment; provider capacity and product replay pending
 

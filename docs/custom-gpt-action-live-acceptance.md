@@ -29,6 +29,16 @@ declared credential-only skips, plus typecheck/build. No product acceptance
 receipt is claimed; a fresh signed-in challenge remains required after reviewed
 merge, exact redeployment, and a passing direct controller replay.
 
+The exact PR-head candidate was separately built and run as an unexposed,
+read-only container without replacing production. Its authenticated controlled
+replay rendered three successive background `IN_PROGRESS` states, completed
+automated scouting with eight reconciled candidates, completed native YouTube
+discovery, and reached the candidate-screening semantic boundary with 51
+candidates. The temporary synthetic-session container was removed after the
+pass. This proves the projection repair in the real controller/provider path,
+but it is not the installed Custom GPT receipt and does not substitute for the
+post-merge production replay.
+
 ## 2026-08-25 retry-session repair deployed; fresh acceptance pending
 
 PR #99 merged as `c543cf94360e73937221861667b69f144d2029af` and that

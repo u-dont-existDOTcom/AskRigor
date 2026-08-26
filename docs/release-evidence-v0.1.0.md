@@ -21,7 +21,14 @@ behavior, public inventory, or Custom GPT prose. The standalone full suite and
 `npm run verify` each pass 1,394 tests across 105 files, with one file and six
 tests skipped only by their declared credential gates; typecheck/build pass.
 Reviewed merge, exact redeployment, direct replay, and signed-in product
-acceptance remain required.
+acceptance remain required. An isolated pre-merge image built from exact head
+`496ef11e471a573636f494e062750702352e28f1` had image ID
+`sha256:4d10dae907865c41cc34d27d29427fb8788bca28b090d13a14dd8d4226e8005c`.
+Its unexposed controlled replay rendered three resumable progress responses,
+completed automated scouting with eight reconciled candidates, completed
+native discovery, and reached candidate screening with 51 candidates. The
+temporary candidate container and its synthetic session were removed after
+the pass; this does not replace the required exact-merge production replay.
 
 ## 2026-08-26 Phase K discovery-resilience deployed
 

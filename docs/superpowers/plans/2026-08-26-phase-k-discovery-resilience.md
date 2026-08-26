@@ -146,5 +146,8 @@ more Custom GPT prose.
   not count as acceptance.
 - [x] Progress-view follow-up passes its 37 focused tests, standalone 1,394-test
   full suite, complete `npm run verify`, typecheck, and build.
+- [x] Exact PR-head isolated candidate renders repeated background progress,
+  completes Gemini and native discovery, and reaches candidate screening with
+  51 reconciled candidates without replacing production.
 - [ ] Fresh signed-in product replay with a valid server-issued acceptance
   receipt.
