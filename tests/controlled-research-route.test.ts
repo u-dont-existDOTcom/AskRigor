@@ -8,6 +8,7 @@ import { CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID } from
 import {
   RESEARCH_MODULE_IDS,
   recordAutomatedScoutBoundary,
+  recordAutomatedScoutProgress,
   recordNativeYoutubeDiscovery
 } from
   "../apps/research-mcp/src/actions/research-session-controller.js";
@@ -149,6 +150,64 @@ describe("controlled research Action projection", () => {
     });
     expect((result.body as any).finalization.reader_facing).toBeUndefined();
     expect((result.body as any).product_acceptance_receipt).toBeUndefined();
+  });
+
+  it("projects server-owned background scout progress without an internal error", async () => {
+    const routes = testRoutes(getProtocolManifest, {
+      automatedScout: async (state) => recordAutomatedScoutProgress(state, {
+        interaction_id: "interaction-controller-progress",
+        phase: "INITIAL",
+        provider_interaction_count: 1,
+        poll_attempts: 0,
+        executed_search_queries: []
+      }, 1_000_000_000)
+    });
+    const started = await call(routes, "start_research_session", {
+      research_target: "Population-level evidence comparing treatment programs for chronic joint pain",
+      diagnosis_status: "diagnosis_not_specified"
+    });
+    const moduleWork = await completeWorkerPayload(routes, started.body as any);
+    const workerInput = JSON.parse(moduleWork.json);
+    const routed = await call(routes, "continue_research_session", {
+      session_id: workerInput.session_id,
+      state_digest: workerInput.state_digest,
+      worker_payload_receipt: moduleWork.receipt,
+      semantic_result: {
+        contract_version: "askrigor_hermes_semantic_result_v1",
+        session_id: workerInput.session_id,
+        state_digest: workerInput.state_digest,
+        work_type: "module_applicability",
+        submission: {
+          package_version: "askrigor_module_applicability_v1",
+          decisions: workerInput.semantic_work.package.unresolved_module_ids.map(
+            (module_id: (typeof RESEARCH_MODULE_IDS)[number]) => ({
+              module_id,
+              applicability: "REQUIRED",
+              rationale: "Required for the broad comparative fixture."
+            })
+          )
+        }
+      }
+    });
+    const routedView = routed.body as any;
+    const progress = await call(routes, "continue_research_session", {
+      session_id: routedView.session_id,
+      state_digest: routedView.state_digest
+    });
+
+    expect(progress).toMatchObject({
+      status: 200,
+      body: {
+        directive: "continue_research",
+        execution_status: "IN_PROGRESS",
+        output_boundary: "CONTINUE_RESEARCH",
+        next_capability: "automated_video_scout",
+        last_transition: {
+          capability: "automated_video_scout",
+          result: "progress_recorded"
+        }
+      }
+    });
   });
 
   it("never directs finalization from a continue state with terminal scout evidence", async () => {

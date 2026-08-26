@@ -1,7 +1,7 @@
 # Phase K discovery resilience repair
 
-Status: implementation in progress from `main` at
-`41a54786a4219b80b65f94f23b9bc67cc6ca4674`
+Status: PR #101 merged and exactly deployed; one live-discovered progress-view
+follow-up is in progress on `agent/phase-k-progress-projection-20260826`
 
 ## Failure evidence
 
@@ -134,8 +134,17 @@ more Custom GPT prose.
 - [x] Personal plugin source and installed cache contain all eight reviewed
   inventory members and match source content byte-for-byte; only the installed
   manifest's intentional cache-buster differs.
-- [ ] Reviewed PR, CI, and merge.
-- [ ] Exact production and privacy-site deployment with retained rollback.
-- [ ] Direct controlled discovery replay on the exact deployment.
+- [x] Reviewed PR #101, required CI, and merge
+  `50a766e7eaddc7d718ceb7d0ad3ab65351e79a9a`.
+- [x] Exact production and privacy-site deployment with retained rollback.
+- [x] Exact-target provider discovery replay on the deployed image: Gemini
+  completed after 20 polls/14 searches with 10 candidates and six independently
+  validated; all six bounded native fallback searches completed and returned a
+  candidate.
+- [ ] Direct controlled discovery replay on the exact deployment. The first
+  replay exposed the missing `IN_PROGRESS` view projection and therefore does
+  not count as acceptance.
+- [x] Progress-view follow-up passes its 37 focused tests, standalone 1,394-test
+  full suite, complete `npm run verify`, typecheck, and build.
 - [ ] Fresh signed-in product replay with a valid server-issued acceptance
   receipt.
