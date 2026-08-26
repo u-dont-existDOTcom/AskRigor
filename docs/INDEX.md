@@ -175,6 +175,10 @@ complete XML protocol.
   compact four-Action Custom GPT projection, signed bounded semantic-work
   transport, server-issued product acceptance, hostile tests, and deployment
   handoff
+- `superpowers/plans/2026-08-26-phase-k-discovery-resilience.md`: fixed-product
+  failure evidence, generic native-query bound, resumable Gemini background
+  scouting, temporary-storage/deletion boundary, hostile tests, and acceptance
+  recovery sequence
 - `superpowers/plans/2026-08-23-automated-gemini-youtube-scout-integration.md`:
   no-transfer Gemini integration, privacy/cost/receipt enforcement, deployment,
   plugin/editor synchronization, live acceptance, and provider owner gate

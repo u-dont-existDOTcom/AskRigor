@@ -23,6 +23,8 @@ import {
   researchPacket,
   researchReceipt
 } from "./helpers/research-session-fixtures.js";
+import { CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET } from
+  "../apps/research-mcp/src/custom-gpt-acceptance-receipt.js";
 
 function externalDiscovery(
   receipt: GeminiYoutubeCandidateValidationReceipt = researchReceipt()
@@ -167,6 +169,27 @@ describe("server-owned research candidate frontier", () => {
     const discovered = ingestNativeYoutubeSurvey(terminal, nativeSurvey());
     expect(discovered.native_youtube.status).toBe("COMPLETE");
     expect(candidateDiscoveryReadyForScreening(discovered)).toBe(true);
+  });
+
+  it("bounds fallback queries for a long research target without losing its leading clinical scope", () => {
+    const terminal = markExternalScoutFrontierBoundary(
+      initialResearchCandidateDiscoveryState(),
+      "BLOCKED_TERMINAL",
+      "AUTOMATED_SCOUT_INVALID_PACKET"
+    );
+
+    const input = nativeSurveyInputFromCandidateDiscovery(
+      terminal,
+      CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET
+    );
+
+    expect(input.searches).toHaveLength(6);
+    expect(new Set(input.searches.map(({ query }) => query)).size).toBe(6);
+    for (const { query } of input.searches) {
+      expect(query.length).toBeLessThanOrEqual(200);
+      expect(query).toContain("end-stage hip osteoarthritis");
+      expect(query).not.toContain("plain-language limitations");
+    }
   });
 
   it("keeps retryable external scout work from being bypassed", () => {

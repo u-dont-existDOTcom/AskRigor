@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { okEnvelope } from "@askrigor/contracts";
+import { errorEnvelope, okEnvelope } from "@askrigor/contracts";
 import { scoutGeminiYoutubeCandidates } from "@askrigor/sources";
 
 import {
@@ -233,6 +233,7 @@ describe("transport-independent research-session advancement", () => {
         model: "gemini-3.6-flash",
         google_search_grounded: true,
         provider_storage_disabled: true,
+        provider_interaction_delete_requested: false,
         correction_attempted: false,
         provider_interaction_count: 1,
         executed_search_queries: packet.discovery_queries.map(({ query }) => query),
@@ -270,6 +271,138 @@ describe("transport-independent research-session advancement", () => {
     expect(budget.reserve).toHaveBeenCalledOnce();
     expect(commit).toHaveBeenCalledOnce();
     expect(forfeit).not.toHaveBeenCalled();
+  });
+
+  it("charges a background scout once and resumes its server-owned checkpoint without a second reservation", async () => {
+    const packet = researchPacket();
+    const commit = vi.fn(async () => undefined);
+    const forfeit = vi.fn(async () => undefined);
+    const budget = {
+      reserve: vi.fn(async () => ({ commit, forfeit }))
+    };
+    const backgroundScout = vi.fn()
+      .mockResolvedValueOnce({
+        kind: "progress" as const,
+        checkpoint: {
+          interaction_id: "interaction-background-runtime-1",
+          phase: "INITIAL" as const,
+          provider_interaction_count: 1 as const,
+          poll_attempts: 0,
+          executed_search_queries: []
+        }
+      })
+      .mockResolvedValueOnce({
+        kind: "complete" as const,
+        frontier: okEnvelope({
+          provider: "gemini_api",
+          recordType: "gemini_youtube_candidate_frontier",
+          primaryIdentifier: "interaction-background-runtime-1",
+          query: {},
+          pagination: { exhausted: true },
+          returned: packet.candidates.length,
+          accessStatus: "complete",
+          limitations: [],
+          rawMetadata: {},
+          data: {
+            response_id: "interaction-background-runtime-1",
+            model: "gemini-3.6-flash",
+            google_search_grounded: true as const,
+            provider_storage_disabled: false,
+            provider_interaction_delete_requested: true,
+            correction_attempted: false,
+            provider_interaction_count: 1 as const,
+            executed_search_queries: packet.discovery_queries.map(({ query }) => query),
+            usage: {
+              total_input_tokens: 1_000,
+              total_output_tokens: 2_000,
+              total_thought_tokens: 100,
+              google_search_queries: packet.discovery_queries.length
+            },
+            packet
+          }
+        })
+      });
+    const runtime = createResearchSessionRuntimeDependencies({
+      env: {
+        YOUTUBE_API_KEY: "server-held-youtube-key",
+        ASKRIGOR_GEMINI_API_KEY: "server-held-gemini-key"
+      },
+      geminiScout: {
+        budget,
+        backgroundScout,
+        validate: vi.fn(async () => researchReceipt()),
+        loadScoutInstructions: async () => "Exact repository scout instructions"
+      }
+    });
+    const executeScout = runtime.deterministic.automatedScout;
+    if (executeScout === undefined) throw new Error("Missing runtime scout");
+
+    const progress = await executeScout(routedState());
+    expect(progress.operations.automated_video_scout.status).toBe("IN_PROGRESS");
+    expect(progress.scout.background_job).toMatchObject({
+      interaction_id: "interaction-background-runtime-1"
+    });
+    expect(budget.reserve).toHaveBeenCalledOnce();
+    expect(forfeit).toHaveBeenCalledOnce();
+    expect(commit).not.toHaveBeenCalled();
+
+    const completed = await executeScout(progress);
+    expect(completed.operations.automated_video_scout.status).toBe("COMPLETE");
+    expect(completed.scout.background_job).toBeUndefined();
+    expect(completed.scout.provider_storage_mode).toBe(
+      "TEMPORARY_BACKGROUND_DELETE_REQUESTED"
+    );
+    expect(budget.reserve).toHaveBeenCalledOnce();
+    expect(backgroundScout).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps a background transport boundary retryable and executable", async () => {
+    const forfeit = vi.fn(async () => undefined);
+    const budget = {
+      reserve: vi.fn(async () => ({
+        commit: vi.fn(async () => undefined),
+        forfeit
+      }))
+    };
+    const runtime = createResearchSessionRuntimeDependencies({
+      env: {
+        YOUTUBE_API_KEY: "server-held-youtube-key",
+        ASKRIGOR_GEMINI_API_KEY: "server-held-gemini-key"
+      },
+      geminiScout: {
+        budget,
+        backgroundScout: vi.fn(async () => ({
+          kind: "boundary" as const,
+          frontier: errorEnvelope({
+            provider: "gemini_api",
+            recordType: "gemini_youtube_candidate_frontier",
+            query: {},
+            accessStatus: "error",
+            code: "gemini_youtube_scout_request_failed",
+            message: "Bounded fixture transport failure.",
+            retryable: true,
+            limitations: [],
+            data: {}
+          })
+        })),
+        loadScoutInstructions: async () => "Exact repository scout instructions"
+      }
+    });
+    const executeScout = runtime.deterministic.automatedScout;
+    if (executeScout === undefined) throw new Error("Missing runtime scout");
+
+    const next = await executeScout(routedState());
+
+    expect(next.operations.automated_video_scout).toMatchObject({
+      status: "BLOCKED_RETRYABLE",
+      boundary: {
+        classification: "RETRYABLE",
+        code: "AUTOMATED_SCOUT_GEMINI_YOUTUBE_SCOUT_REQUEST_FAILED"
+      }
+    });
+    expect(next.scout.background_job).toBeUndefined();
+    expect(budget.reserve).toHaveBeenCalledOnce();
+    expect(forfeit).toHaveBeenCalledOnce();
   });
 
   it("keeps missing runtime provider configuration retryable instead of inventing a terminal boundary", async () => {

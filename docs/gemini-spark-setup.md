@@ -16,8 +16,13 @@ retrieves and checks the selected caption track.
 The integration uses Google's official Interactions API at
 `https://generativelanguage.googleapis.com/v1beta/interactions`, the stable
 fixed model `gemini-3.6-flash`, and the built-in `google_search` tool. Requests
-set `store:false`, use a bounded output and medium thinking level, and send the
-API key only in the `x-goog-api-key` header.
+use a bounded output and medium thinking level, and send the API key only in
+the `x-goog-api-key` header. The low-level one-request technical route uses
+`store:false`. Controlled research uses Google's background mode with
+`store:true` because grounded scouting can exceed an ordinary request window;
+AskRigor retains only the opaque job checkpoint, polls it through later
+server-owned transitions, and requests deletion immediately after consuming
+each completed interaction.
 
 Google Search grounding for this model requires a paid Gemini API project.
 Consumer Gemini AI Pro/Ultra or a consumer Spark subscription is separate and
@@ -32,8 +37,10 @@ model alias that can silently change quality or price.
 
 ## Cost boundary
 
-Every request reserves at most $1.00 from the existing aggregate AskRigor AI
-budget before Gemini is called. Successful calls commit a conservative amount
+Every scout reserves at most $1.00 from the existing aggregate AskRigor AI
+budget before Gemini is called. A background scout is conservatively charged
+the full reservation when its job starts; later polls do not reserve or charge
+again. A one-request technical call that completes synchronously commits an amount
 from reported input, output, thought, and Google Search-query usage at the
 reviewed list prices. Missing or implausible usage commits the full reservation;
 provider failures forfeit it conservatively. The shared application ledger
@@ -67,11 +74,14 @@ must not redact by guesswork or forward the original chat.
 The operation then:
 
 1. loads the checked-in candidate-scout instructions;
-2. runs 8–18 materially different Google searches through Gemini;
+2. starts or resumes one server-owned background interaction and runs 8–18
+   materially different Google searches through Gemini;
 3. requires every declared discovery query to reconcile with the API's actual
    `google_search_call` receipts;
 4. parses the strict version-2 candidate packet without retaining raw invalid
-   model output or Google search-result HTML;
+   model output or Google search-result HTML, requests provider deletion, and,
+   when correction is necessary, starts one separately deletable no-search
+   background interaction;
 5. independently fetches YouTube metadata for every candidate;
 6. partitions every ID into validated, terminally rejected, or unresolved
    state and emits a SHA-256 frontier receipt; and
@@ -119,7 +129,8 @@ Use the de-identified target:
 
 Acceptance requires:
 
-1. the Action exists in the public OpenAPI document while MCP remains unchanged;
+1. the controlled server can execute the scout while the installed Custom GPT
+   remains limited to its compact controller operations and MCP remains unchanged;
 2. the target passes the outbound privacy screen and a first-person version is
    rejected before any provider call;
 3. Gemini returns the current strict packet with 8–18 receipt-reconciled Google
@@ -128,18 +139,23 @@ Acceptance requires:
 5. at least one useful candidate frontier reaches `accepted` or `partial`
    without invented identifiers;
 6. the response stays within the public Action size boundary;
-7. the installed Custom GPT invokes the automated Action and never asks for a
-   manual packet; and
+7. the installed Custom GPT follows the server's controlled-research directive
+   and never asks for a manual packet; and
 8. captions, discussions, formal evidence, method audits, treatment coverage,
    and finalization remain visibly downstream work rather than being inferred
    from Gemini's output.
 
 ## Privacy and removal
 
-The request is stateless and is not retained as a Gemini Interaction object.
-Google still processes the request under the configured API project's terms.
-Use the paid tier so submitted content is not used to improve Google products,
-and enforce de-identification before the request.
+The low-level technical request is stateless. The controlled path uses a
+temporarily stored Gemini Interaction so work can finish asynchronously. Only
+the already screened de-identified population target, public scout instructions,
+and—if needed—public candidate output, public search receipts, and safe
+validation issues are sent. AskRigor requests deletion after consuming each
+interaction. A successful delete request is not a claim that Google immediately
+erases backups or data retained under its policies. Google processes the request
+under the configured API project's terms, and de-identification is enforced
+before the request.
 
 To disable the lane, remove `ASKRIGOR_GEMINI_API_KEY` from the protected server
 environment and recreate only the research service. The Action remains present

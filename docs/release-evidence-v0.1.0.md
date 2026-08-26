@@ -1,6 +1,42 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-26 Phase K discovery-resilience candidate
+
+The fixed installed-product challenge reached the production controller but
+did not finalize. Preserved session
+`ars1_VfivvctoY04Mxpdu0sBa1S9zuKm6e_3u` truthfully returned a terminal blocked
+directive and no acceptance receipt. Its sanitized checkpoint showed a
+45-second Gemini timeout misclassified as permanent followed by six exhausted
+zero-result native searches whose fallback queries repeated the complete
+746-character challenge. A bounded live comparison returned candidates for
+concise and deterministic-prefix queries.
+
+This candidate bounds native fallback queries generically, keeps transport
+timeouts retryable, and makes controlled Gemini scouting a resumable
+server-owned background operation. One opaque job checkpoint is stored inside
+the existing encrypted session, later polls neither reserve nor charge again,
+and each consumed provider interaction receives a deletion request. No raw
+Gemini response enters the checkpoint. The full $1 maximum is charged when a
+background job starts; the $50 monthly cap is unchanged.
+
+Focused source/route/frontier/controller/runtime verification passes. The
+complete host suite passes 1,393 tests across 105 files with one file and six
+tests skipped only by their declared credential gates. `npm run verify`, the
+four-page site validator, 28/28 public-site deployment tests, and the
+zero-vulnerability production dependency audit pass. Protocols and public
+Action/MCP operation counts are unchanged. Regeneration kept the exact prior
+Custom GPT hashes: Instructions
+`cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95`,
+OpenAPI `cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`,
+and synchronization ledger
+`d235742745299d1e8a55dd8936c518136ecfbf90189559ab626f8182580b2b48`.
+The personal plugin's eight-member source and installed inventories remain
+content-identical; the installed manifest differs only by its intentional
+cache-buster. This is candidate evidence only; reviewed merge, exact
+deployment, direct controlled acceptance, and a fresh installed-product
+receipt remain required.
+
 ## 2026-08-25 PR #99 deployment checkpoint
 
 PR #99 merged as `c543cf94360e73937221861667b69f144d2029af` and was

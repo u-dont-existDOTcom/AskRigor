@@ -198,7 +198,11 @@ export {
 export {
   GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS,
   GEMINI_YOUTUBE_SCOUT_MODEL,
+  advanceGeminiYoutubeScoutBackground,
+  geminiYoutubeScoutBackgroundCheckpointSchema,
   scoutGeminiYoutubeCandidates,
+  type GeminiYoutubeScoutBackgroundAdvance,
+  type GeminiYoutubeScoutBackgroundCheckpoint,
   type GeminiYoutubeScoutConfig,
   type GeminiYoutubeScoutData,
   type GeminiYoutubeScoutInput

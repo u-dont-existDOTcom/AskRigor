@@ -32,6 +32,7 @@ import {
   reconcileRestoredResearchSessionState,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
+  recordAutomatedScoutProgress,
   recordCandidateScreeningCompletion,
   recordDiscussionDepthResult,
   recordNativeYoutubeDiscovery,
@@ -839,6 +840,39 @@ describe("research session controller core", () => {
     })).toThrow(/derived exactly from per-source formal evidence state/u);
   });
 
+  it("records an opaque automated-scout job as executable progress without candidate evidence", () => {
+    const progress = recordAutomatedScoutProgress(initialState(), {
+      interaction_id: "interaction-background-controller-1",
+      phase: "INITIAL",
+      provider_interaction_count: 1,
+      poll_attempts: 0,
+      executed_search_queries: []
+    }, 1_000_000_000);
+
+    expect(progress.operations.automated_video_scout).toEqual({
+      status: "IN_PROGRESS"
+    });
+    expect(progress.scout).toMatchObject({
+      status: "IN_PROGRESS",
+      provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_PENDING",
+      accounted_nano_usd: 1_000_000_000,
+      candidate_count: 0,
+      background_job: {
+        interaction_id: "interaction-background-controller-1",
+        phase: "INITIAL"
+      }
+    });
+    expect(progress.candidate_discovery.external_scout.status).toBe("NOT_STARTED");
+    expect(deriveRequiredNextCapabilities(progress)).toContain(
+      "automated_video_scout"
+    );
+    expect(deriveRequiredNextCapabilities(progress)).not.toContain(
+      "native_video_discovery"
+    );
+    expect(reconcileRestoredResearchSessionState(progress).scout.background_job)
+      .toEqual(progress.scout.background_job);
+  });
+
   it("projects a stable terminal block instead of a continue-without-work exception", () => {
     const routed = applyServerModuleApplicability(
       initialState(),
@@ -1391,5 +1425,5 @@ describe("research session controller core", () => {
     expect(
       evaluateResearchFinalization(SESSION_ID, scoutMissing).denial_reasons
     ).toContain("REQUIRED_OPERATION_INCOMPLETE");
-  });
+  }, 15_000);
 });

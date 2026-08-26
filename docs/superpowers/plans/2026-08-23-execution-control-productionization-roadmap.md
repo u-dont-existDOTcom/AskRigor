@@ -1,9 +1,11 @@
 # AskRigor execution-control productionization roadmap
 
-**Status:** Active. Phases A through G are merged; Phase G is merge
-`86c9455c63f94f832d3d933eb1a174d784e0a132`. Phase H is implemented and
-locally verified on `agent/execution-control-phase-h-20260824`; its
-reviewed merge remains pending. This document does not replace the complete canonical protocols or the
+**Status:** Active. Phases A through J are merged. Phase H landed as
+`8c292a4`, Phase I as `cc78d49`, and Phase J as `af8d96e`. Phase K is active;
+its discovery-resilience repair is locally verified on
+`agent/phase-k-discovery-resilience-20260826` and still requires reviewed
+merge, exact deployment, direct controlled replay, and fresh signed-in product
+acceptance. This document does not replace the complete canonical protocols or the
 owner-approved scientific corrections in
 `2026-08-23-executable-research-orchestrator-and-study-audit.md`.
 
@@ -840,6 +842,16 @@ PR #99 merged that repair as
 passes the server/public boundary. The remaining K3 gate is replacement
 YouTube capacity, one generated-bundle editor transaction, and a fresh
 signed-in replay with a valid server product-acceptance receipt.
+
+The owner subsequently installed the bundle and ran the fixed challenge.
+Preserved session `ars1_VfivvctoY04Mxpdu0sBa1S9zuKm6e_3u` exposed another
+execution-layer failure: a long grounded Gemini call timed out and was
+misclassified as terminal, then the native fallback repeated the entire long
+research target in each query and found no candidates. The generic repair and
+its privacy/budget/acceptance gates are tracked in
+`docs/superpowers/plans/2026-08-26-phase-k-discovery-resilience.md`. K3 remains
+incomplete until that repair passes host verification, reviewed merge, exact
+deployment, direct controlled replay, and fresh signed-in product acceptance.
 
 Tasks:
 

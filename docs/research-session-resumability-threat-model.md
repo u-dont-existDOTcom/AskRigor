@@ -11,7 +11,10 @@ resume a long-running execution. It contains the research target, protocol
 identity, controller state, public source identities, bounded semantic
 annotations, receipt hashes, unresolved work, and server-derived authorization
 basis. A research target can reveal a health interest and is treated as
-sensitive even when de-identified.
+sensitive even when de-identified. While controlled Gemini scouting is active,
+the checkpoint may additionally contain one opaque provider interaction ID,
+its initial/repair phase, bounded public search receipts, aggregate usage, and
+a poll counter. It contains no Gemini response body.
 
 The checkpoint deliberately excludes raw chat, transcripts, comments, replies,
 commenter identity, article text/blocks, raw provider bodies, Gemini responses,
@@ -49,6 +52,8 @@ session identifier, query, health detail, or user content.
 | Silent eviction or disk pressure | Fixed 1,024-session, 16-MiB plaintext, and 24-MiB stored bounds; expired entries are pruned; unexpired capacity rejects new issuance instead of evicting prior work | Operator intervention is required for corrupt files or persistent capacity exhaustion |
 | Lost ephemeral source handle after restart | Restore reconciliation moves only backward: handle-bound video chains restart, unfinished return-search result state resets, and exact full text is reacquired/re-audited when later work still needs its document index | Some verified work may repeat; no lost handle becomes completion, negative evidence, or a terminal provider boundary |
 | Reacquired public evidence differs from the completed frontier | Selected-video evidence is replayed from the first transcript/discussion page into a non-authoritative process-local cache; exact completed receipt hashes must match the checkpoint before semantic work proceeds | A changed or inaccessible public source can force retry/restart; it cannot be silently combined with old receipts or findings |
+| Long Gemini scout is mistaken for a permanent provider failure | Controlled scouting starts one provider background Interaction, records it as `IN_PROGRESS`, and resumes only its exact opaque checkpoint; network/timeouts remain retryable; later polls do not reserve or charge again | The provider can still fail or expire the job; that remains unresolved work and never becomes candidate evidence or completion |
+| Temporary Gemini background storage outlives AskRigor work | Outbound screening permits only a de-identified population target and public scout material; AskRigor requests deletion immediately after consuming each initial/correction interaction and removes the checkpoint on completion/boundary | A delete request does not prove erasure of backups or policy-retained data. If a session is abandoned before AskRigor can consume/delete the job, provider retention governs the stored interaction |
 | Worker invents or mutates reader claims | Report work is bound to the exact current evidence digest; every creator/community finding carries its own structured program; every claim reference, program, audited-video set, limitation, source capability, and timestamp is validated; effect claims cannot use bounded, effect-excluded, stale, or retracted sources | Semantic wording remains model-fallible, but unknown references, cross-program pooling, broader unsupported claims, or a mutated report cannot obtain a current completion audit or permit |
 | Finalization permit is paired with a different report | Permit v2 signs the exact reader-report digest; finalization revalidates that digest and returns the exact packet | Rendering clients may format the authorized packet but cannot substitute a different report while retaining valid authorization |
 | Protocol or schema drift | Every restored state passes the exact schema and current protocol identity recheck before authoritative continuation/finalization | Incompatible old checkpoints restart rather than migrate implicitly |
@@ -85,6 +90,15 @@ entries and 64 MiB by default and is revoked when a replay receipt differs.
 After a completed coordinator/method result, only the strict bounded state and
 hashes needed by the controller remain in the encrypted checkpoint. A crash
 during unfinished work reruns that exact operation.
+
+An unfinished Gemini background job resumes from its opaque encrypted
+checkpoint rather than starting a duplicate or charging again. Each completed
+interaction receives a provider deletion request before its result can advance
+candidate state. If the session is abandoned, expires, or is deleted before
+that cleanup transition, AskRigor may no longer hold the interaction ID needed
+to request deletion; Google's retention then applies. No raw chat, personal
+medical narrative, or Gemini output is stored in the checkpoint or sent by
+this lane.
 
 The Retraction Watch mirror retains only the active and previous verified
 generations. It has no backup because it is reproducible from the fixed public

@@ -1,5 +1,22 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-26 Phase K discovery-resilience candidate
+
+The fixed installed-product challenge preserved session
+`ars1_VfivvctoY04Mxpdu0sBa1S9zuKm6e_3u` and correctly refused to invent a
+reader report or acceptance receipt, but exposed two execution defects before
+candidate screening: a synchronous Gemini timeout was classified as terminal,
+and every native fallback search repeated the full 746-character synthetic
+target. This candidate makes the controlled Gemini lane a resumable background
+operation with an opaque encrypted checkpoint and post-consumption provider
+deletion request, keeps timeout/network failures retryable, and bounds native
+query construction generically. The public Action and MCP inventories and the
+canonical protocol bytes remain unchanged. Complete host verification passes
+1,393 tests plus typecheck/build; the public-site and dependency gates pass;
+the generated Custom GPT artifacts are byte-identical to the installed bundle;
+and the eight-member plugin content is current. Merge, deployment, and fresh
+product acceptance remain open until the gates below pass.
+
 ## 2026-08-25 PR #99 server deployment
 
 Exact merge `c543cf94360e73937221861667b69f144d2029af` is live in a
