@@ -911,6 +911,17 @@ review, exact deployment, direct replay, and a new
 signed-in receipt. Complete host-bound verification now passes 105 test files,
 1,400 tests, and the production build; protected review is next.
 
+PR #105 passed all protected checks and merged as
+`acd4d2f9664de0332f695a9099de111558aca918`. That exact merge is live in a
+healthy, rollback-armed research container. Public Action/MCP/protocol checks,
+the installed connector probe, and both complete plugin receipts pass. The
+live image reproduced the 41-hypothesis/40-query bounded initializer result on
+a disposable checkpoint copy. Bounded authenticated Action calls then advanced
+the preserved session from five to seven completed hypotheses and persisted
+both donor-provider bindings plus all 968 source links for the indistinguishable
+pair. Fresh signed-in Custom GPT finalization remains the only current K3 gate;
+it was unavailable because the browser runtime reported no available browsers.
+
 Tasks:
 
 - [x] Execute every later controller capability through one shared
