@@ -1,5 +1,32 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-26 signed-in continuation failed at stale-state recovery
+
+Browser control connected to the signed-in installed AskRigor GPT and resumed
+the preserved fixed-acceptance session
+`ars1_nxbYhtm-4VbuMomta5U4tgC-H4rO13LS`; no replacement session was started.
+The first continuation in the existing conversation reported that the old
+client digest was rejected, the same server session was recovered, and formal
+evidence continued. The ChatGPT response then remained nonterminal with no
+visible content change for 30 minutes. Closing that browser tab did not delete
+the saved conversation or submit another user message.
+
+A fresh AskRigor tab then received an explicit same-session-only continuation.
+Its response completed after 1 minute 12 seconds. The visible GPT summary said
+that it first recovered the preserved session as in progress, received a
+server continuation directive, then received a stale-state result. It also
+said that its required single recovery read against the same session failed
+before returning a new authoritative state. It terminated with an explicit
+honest boundary: finalization was not authorized, no reader-facing report was
+rendered, and no `product_acceptance_receipt` was returned or invented.
+
+This product result proves fail-closed visible rendering through the failure.
+It reports but does not independently prove server-side session preservation,
+does not prove that the server checkpoint was lost, does not identify the
+failed request's transport or server cause, and does not satisfy K3. Sanitized
+Action/server evidence is required before classifying or repairing the
+recovery failure. Full signed-in product acceptance remains unverified.
+
 ## 2026-08-26 formal-query repair live; backend acceptance passed, signed-in UI blocked
 
 PR #105 passed deterministic verification, workflow policy, and every CodeQL

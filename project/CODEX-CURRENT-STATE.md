@@ -1,5 +1,32 @@
 # AskRigor Codex Current State
 
+## 2026-08-26 signed-in product continuation stopped at recovery-call failure
+
+The browser is now connected to the signed-in installed AskRigor GPT. A
+continuation in the original fixed-acceptance conversation preserved session
+`ars1_nxbYhtm-4VbuMomta5U4tgC-H4rO13LS` and reported recovery from the obsolete
+client digest plus continuing formal-evidence work. Its ChatGPT response then
+remained nonterminal without visible text changes for 30 minutes. The browser
+tab was closed without deleting the saved conversation or submitting a retry.
+
+A new AskRigor tab received an explicit instruction to continue only that same
+session. The visible GPT summary said it recovered an in-progress authoritative
+state, called the directed continuation, received a stale-state result, and
+made one same-session recovery read. It said that call failed before returning
+a new authoritative state. The GPT completed after 1 minute 12 seconds with
+finalization unauthorized, no reader-facing report, and no
+`product_acceptance_receipt`.
+
+Do not infer exact Action-call history, checkpoint loss, or a repaired/known
+server defect from the visible GPT summary alone. Preserve the session, obtain
+sanitized Action/server diagnostics for the reported failed recovery read, and
+classify the transport or route boundary before changing code or initiating
+another product run. Phase K/K3 remains incomplete.
+
+The postdeployment lesson checkpoint is available: one open candidate, one
+needs review, zero accepted but not incorporated, three incorporated/closed,
+and zero deletion-eligible.
+
 ## 2026-08-26 Phase K query-specificity repair deployed; signed-in UI remains
 
 PR #105 passed every protected check on exact head

@@ -922,6 +922,21 @@ both donor-provider bindings plus all 968 source links for the indistinguishable
 pair. Fresh signed-in Custom GPT finalization remains the only current K3 gate;
 it was unavailable because the browser runtime reported no available browsers.
 
+Browser control later connected to the signed-in installed GPT and exercised
+that gate without displaying a replacement research session. The original-chat
+continuation reported recovery of the preserved session from a stale client
+digest and further formal-evidence progress, but its ChatGPT response remained
+nonterminal without visible change for 30 minutes. A fresh GPT tab then issued
+an explicit same-session-only continuation. Its visible summary said that it
+recovered the session as in progress, received a stale-state result on
+continuation, and made the required single same-session recovery read; that
+read reportedly failed before returning a new authoritative state. The GPT
+withheld finalization, the reader report, and the product-acceptance receipt.
+K3 therefore remains incomplete. The visible summary does not establish exact
+Action-call history, distinguish transport failure from a server-route failure,
+or prove checkpoint loss; sanitized Action/server diagnosis is required before
+another code change or acceptance replay.
+
 Tasks:
 
 - [x] Execute every later controller capability through one shared

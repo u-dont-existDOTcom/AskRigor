@@ -1,6 +1,31 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-26 signed-in continuation reached a recovery-call boundary
+
+The signed-in installed AskRigor GPT was exercised after the exact PR #105
+deployment and PR #107 evidence merge. Both attempts preserved production
+session `ars1_nxbYhtm-4VbuMomta5U4tgC-H4rO13LS`; neither called the start
+operation or displayed a replacement session. The existing-chat continuation
+reported recovery from a stale client digest and same-session formal-evidence
+progress, but its ChatGPT response remained nonterminal with no visible text
+change for 30 minutes and produced no receipt.
+
+A fresh GPT tab then submitted an explicit same-session-only continuation. The
+visible GPT summary said that it recovered an in-progress server state,
+received a stale-state result on the next continuation, and attempted the
+required single recovery read. It said that read failed before a new
+authoritative state was returned. The GPT stopped after 1 minute 12 seconds and
+withheld both the reader report and `product_acceptance_receipt`. No
+finalization was authorized and no receipt was invented.
+
+This is negative visible-product evidence, not a new deployment result, raw
+Action-call evidence, or proof of server checkpoint loss. The public
+health/schema/auth/MCP/protocol/plugin receipts recorded below remain current,
+but they do not cover this signed-in recovery failure. K3 and full product
+acceptance remain incomplete pending sanitized diagnosis and a later
+receipt-bearing signed-in replay.
+
 ## 2026-08-26 formal-query specificity and exact-receipt reuse deployed
 
 PR #105 passed all protected checks on exact head
