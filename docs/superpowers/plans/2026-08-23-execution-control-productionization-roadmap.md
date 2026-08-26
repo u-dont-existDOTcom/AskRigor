@@ -895,6 +895,22 @@ merge and deploy exactly, and complete a direct full-path replay before asking
 for another signed-in acceptance run. This does not change research policy,
 provider breadth, public inventories, or the compact Custom GPT contract.
 
+PR #104 passed every protected check and merged the repair as
+`37bb2744cb73e4d0bbcee67b85eb7134f95d189a`. That exact merge is deployed
+in a healthy container with prior-image and exact-Compose rollback. Public
+health/auth/schema/MCP/protocol and complete plugin-package receipts pass. The
+exact failed transition and repeated same-session Action continuations now pass
+without the stale-cursor error. The direct writer was stopped without
+finalization after sanitized inspection found a distinct query-construction
+defect: 41 hypotheses collapsed to 10 broad queries, one repeated 31 times,
+and the first five completed hypotheses each mapped to the same 968-source set.
+The follow-up candidate preserves all hypotheses, generates 40 bounded queries
+on the exact checkpoint fixture, and reuses the one remaining semantically
+identical receipt chain without provider calls. It still requires protected
+review, exact deployment, direct replay, and a new
+signed-in receipt. Complete host-bound verification now passes 105 test files,
+1,400 tests, and the production build; protected review is next.
+
 Tasks:
 
 - [x] Execute every later controller capability through one shared

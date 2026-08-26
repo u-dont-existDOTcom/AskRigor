@@ -1,5 +1,43 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-26 formal-pagination repair live; replay stopped at query-specificity boundary
+
+PR #104 passed all protected checks on exact head
+`bdd4de6f9cb27735880e51b141805977a4c96893` and merged as
+`37bb2744cb73e4d0bbcee67b85eb7134f95d189a`. That exact merge is live as
+healthy image ID
+`sha256:863bb44cfa0e16e7eb0e61b90d728d476428b79966566a25dd7d0f02f598fab3`
+in container `b268a7232c3f`, with the prior image and exact Compose bytes
+retained as immediate rollback. Caddy remained `fd1a7e709dab`.
+
+Public health, semantic equality with the five-operation Action schema,
+unauthenticated rejection, the 21-tool MCP catalog, exact protocol manifests,
+one read-only plugin connector call, and the complete eight-member installed
+plugin receipt all pass. The generated Custom GPT bundle and installed plugin
+content did not change, so no editor import, Action/MCP URL update, or plugin
+reinstall is required.
+
+The exact failed transition now passes in a sanitized non-committing replay.
+An authenticated continuation also resumed preserved session
+`ars1_nxbYhtm-4VbuMomta5U4tgC-H4rO13LS` from its failed digest and crossed
+repeated formal-provider terminal pages with normal `progress_recorded`
+responses. The owned replay writer was then stopped deliberately without
+finalization when sanitized inspection found a separate development defect:
+the 746-character target prefixed every formal query, 41 hypotheses produced
+only 10 unique queries, one query was repeated 31 times, and the first five
+completed hypotheses each linked the same 968 sources.
+
+The follow-up candidate keeps all 41 hypotheses but bounds new queries to 600
+characters, adds program/claim terms and source-title fallback, and reuses one
+exact terminal provider receipt chain when no truthful query discriminator
+exists. Against a disposable copy of the same encrypted checkpoint, fresh
+initialization produced 40 unique queries of 180--581 characters; none
+contained the complete target, all 32 undescribed material candidates used
+their titles, and the sole semantically identical pair reused both provider
+receipts with all 968 source links preserved and no provider call. This
+candidate is not deployed. Direct finalization and fresh signed-in product
+acceptance remain pending; no product acceptance is claimed.
+
 ## 2026-08-26 formal-search terminal-page failure; repair candidate
 
 The next installed-GPT fixed challenge ran for about eleven minutes and did

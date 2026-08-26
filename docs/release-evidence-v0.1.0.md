@@ -1,6 +1,56 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-26 formal-provider pagination repair deployed
+
+PR #104 passed deterministic verification, workflow policy, and all CodeQL
+analyses on exact head `bdd4de6f9cb27735880e51b141805977a4c96893` and
+merged as `37bb2744cb73e4d0bbcee67b85eb7134f95d189a`. Its secret-free
+exact Git archive contained 488 tracked files, measured 1,662,801 bytes, and had
+SHA-256 `79d7dc1cf0e5002c8c290ab7e9cbaaea4b124844eefd763321a1444479d1ec49`.
+Production image ID is
+`sha256:863bb44cfa0e16e7eb0e61b90d728d476428b79966566a25dd7d0f02f598fab3`
+in healthy container `b268a7232c3f`. Immediate rollback is
+`askrigor-research:rollback-37bb274-predeploy`, preserving prior image ID
+`sha256:51cc770c4297b8ac6ee431d76f7f9698f15ad2b7a1bf7b2e7282f574ca672253`,
+plus prior Compose SHA-256
+`8162aaa3f235498a52bf6f32038da4f4299c97f43d2cab037a51f2352ea5455b`.
+The active Compose SHA-256 is
+`c698cb6651b8c21d54fb3b8b1dc1546cb7b3817ba216ef51a05b3a7865cb9def`;
+Caddy remained container `fd1a7e709dab`.
+
+Public verification passes health, exact semantic Action-schema equality,
+HTTP 401 without Action authentication, 21 MCP tools, and exact Universal
+20.5.15 / HRP 20.5.23 identities. The complete plugin receipt still covers
+eight members; every non-manifest member is byte-identical and the manifest
+differs only by the installed cache-buster version. Source and installed
+package SHA-256 values are respectively
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c`
+and `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+
+The exact failed provider transition now advances successfully in a sanitized
+non-committing replay, from 900 to 968 deduplicated formal identities. The
+authenticated controlled path also resumed the original session and crossed
+repeated terminal pages without the former internal error. The writer was
+stopped without finalization after inspection found that a 746-character
+research target prefixed every query: 41 hypotheses produced only 10 unique
+queries, one query appeared 31 times, and each of the first five completed
+hypotheses mapped to the same 968-source set.
+
+An undeployed follow-up candidate bounds and specializes generated formal
+queries while preserving every hypothesis, and reuses exact terminal receipt
+chains for hypotheses with no truthful query-level discriminator. A
+non-provider run against a disposable copy of the encrypted checkpoint
+produced 40 unique queries for 41 hypotheses, all 180--581 characters, with no
+complete-target query. The only remaining identical pair had identical
+program, title, channel, claim, treatment class, and signature; it reused both
+terminal provider receipts and inherited all 968 exact source links without an
+executor call. Direct finalization and fresh signed-in product acceptance
+remain pending and cannot be inferred from the deployed pagination repair. The
+follow-up candidate's complete host-bound `npm run verify` gate passes 105 test
+files and 1,400 tests, with one file and six tests skipped, plus the production
+TypeScript build.
+
 ## 2026-08-26 formal-provider pagination repair candidate
 
 Fresh installed-product acceptance preserved one server session through 900
