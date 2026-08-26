@@ -1,6 +1,6 @@
 # AskRigor v0 public-review checklist
 
-## 2026-08-26 background-progress projection repair candidate
+## 2026-08-26 background-progress projection repair deployed
 
 The live background provider and native fallback paths pass, but the direct
 controlled Action replay found that the compact session view could not render
@@ -9,14 +9,23 @@ missing enum value and a route-level hostile regression requiring a successful
 server-owned background-progress response. Focused controller verification
 passes 37/37. The standalone full suite and `npm run verify` each pass 1,394
 tests across 105 files, with the declared credential-only skips; typecheck and
-build pass. Reviewed merge, exact redeployment, a repeated direct replay, and a
-signed installed-product receipt remain open.
+build pass. PR #102 passed the required deterministic, workflow-policy, and
+CodeQL checks and merged as `acf4766989c828900118e7e968fb3a76718b6d3c`.
+That exact merge is deployed in healthy container `2dfdda352bf1`, image ID
+`sha256:51cc770c4297b8ac6ee431d76f7f9698f15ad2b7a1bf7b2e7282f574ca672253`,
+with exact prior-image/Compose rollback. Public health, Action-schema equality,
+authentication rejection, 21 MCP tools, and exact protocol manifests pass.
 
-An exact-head isolated candidate replay also passes the repaired boundary: the
+An exact-head isolated candidate replay passed the repaired boundary: the
 unexposed read-only container rendered three `IN_PROGRESS` responses, completed
 Gemini and native discovery, and reached candidate screening with 51
-candidates. The synthetic container was removed afterward. Production remains
-on PR #101 until PR #102 passes the required GitHub checks and merges.
+candidates. The synthetic container was removed afterward. The production
+replay then rendered the same repeated progress states. Its Gemini lane later
+returned a genuine retryable boundary; the same preserved session resumed,
+completed Gemini with seven candidates, completed native discovery with 49
+candidates, and reached candidate screening. Fresh signed-in installed-product
+acceptance and its server-issued receipt remain open; no Action/editor/MCP or
+plugin update is required because those artifacts did not change.
 
 ## 2026-08-26 Phase K discovery-resilience deployed
 

@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-08-26 Phase K discovery-resilience deployed; progress projection repair in progress
+## 2026-08-26 Phase K discovery repairs deployed; signed-in acceptance pending
 
 The owner installed the current compact Custom GPT bundle and ran the fixed
 synthetic challenge. Preserved session
@@ -68,13 +68,11 @@ defect after that provider success. The controller validly persisted
 `scout.status=IN_PROGRESS`, but `researchSessionViewSchema` omitted
 `IN_PROGRESS` from its scout-status enum, so rendering the persisted progress
 state produced `action_internal_error`. This is not a provider or candidate
-failure. Branch `agent/phase-k-progress-projection-20260826` adds the missing
+failure. PR #102 added the missing
 view state and a route-level hostile regression; its focused controller suites
 pass 37/37. The standalone full suite and `npm run verify` both pass 1,394
 tests across 105 files, with one file and six tests skipped only by their
-declared credential gates; typecheck and build pass. Reviewed merge, exact
-redeployment, a repeated production controller replay, and a fresh signed-in
-product receipt remain. Before merge, exact Git archive
+declared credential gates; typecheck and build pass. Before merge, exact Git archive
 `60672fca4e95e054e6ab5a56b20ccc63758c6adace963d3223d2c7da1b8af9c0`
 was built as isolated image
 `sha256:4d10dae907865c41cc34d27d29427fb8788bca28b090d13a14dd8d4226e8005c`.
@@ -83,6 +81,42 @@ The unexposed read-only candidate rendered three consecutive background
 completed native discovery, and reached candidate screening with 51 candidates.
 Its temporary synthetic-session container was removed after the pass;
 production remained healthy and unchanged.
+
+PR #102 subsequently passed exact-head `Deterministic verification`,
+`workflow-policy`, and CodeQL and merged as
+`acf4766989c828900118e7e968fb3a76718b6d3c`. GitHub Actions was under a
+declared major outage while checks queued; no required context was bypassed.
+The exact 1,657,491-byte merge archive has SHA-256
+`d2335a45aeba47e7736363ef494affad37cdf58dd5dadc59d76b396cf4f4b775`.
+Production runs image
+`askrigor-research:acf4766989c828900118e7e968fb3a76718b6d3c`, image ID
+`sha256:51cc770c4297b8ac6ee431d76f7f9698f15ad2b7a1bf7b2e7282f574ca672253`,
+in healthy container `2dfdda352bf1`. Immediate rollback is
+`askrigor-research:rollback-acf4766-predeploy`, preserving prior image ID
+`sha256:699b066cdbab7793da792c8315e94a7699e7303140b5710dc93f981bcfb20a3f`,
+plus `/opt/askrigor/compose.yaml.rollback-acf4766` with SHA-256
+`ec99db91201b02bf1f2c6d96908c3f0475b478a26b23d6e3bd6d0c3c1683bf11`.
+The active Compose SHA-256 is
+`8162aaa3f235498a52bf6f32038da4f4299c97f43d2cab037a51f2352ea5455b`;
+Caddy remained container `fd1a7e709dab` with the same start time.
+
+Post-deployment public verification passes health, semantic equality with the
+five controlled Actions, unauthenticated HTTP 401, the 21-tool MCP catalog,
+and exact Universal 20.5.15 / HRP 20.5.23 manifests. Controlled production
+session `ars1_Hd9kXQQBTaL6esgtLqFprUu9taAmbGVp` rendered repeated
+`IN_PROGRESS`/`progress_recorded` states at the repaired boundary. A later
+Gemini failure was truthfully retained as `BLOCKED_RETRYABLE`; the same
+session and digest remained executable. An explicit same-session retry resumed
+background progress, completed Gemini with seven candidates, completed native
+discovery with 49 reconciled candidates, and reached candidate screening. No
+replacement session or caller completion claim was used.
+
+The generated Instructions, Action schema, synchronization ledger, and plugin
+content did not change, so the installed Custom GPT needs no editor import,
+Action/MCP URL update, or plugin reinstall. The only remaining Phase K gate is
+a fresh signed-in fixed acceptance challenge followed through finalization and
+validation of the returned server-issued `product_acceptance_receipt`. Do not
+claim Phase K complete before that receipt passes.
 
 ## 2026-08-25 PR #99 exact deployment; provider capacity and product replay pending
 
