@@ -1,5 +1,49 @@
 # AskRigor Codex Current State
 
+## 2026-08-26 Phase K discovery-resilience repair in progress
+
+The owner installed the current compact Custom GPT bundle and ran the fixed
+synthetic challenge. Preserved session
+`ars1_VfivvctoY04Mxpdu0sBa1S9zuKm6e_3u` ended after native discovery with a
+terminal blocked directive and correctly returned no reader report or product
+acceptance receipt.
+
+Sanitized inspection of the encrypted server checkpoint proved two execution
+defects. The synchronous Gemini scout reached its 45-second client timeout;
+the transport exception had no HTTP status and was incorrectly classified as
+non-retryable. Native fallback then sent six queries based on the complete
+746-character challenge; the first was 767 characters and every search
+exhausted with zero candidates. Bounded live comparisons returned candidates
+for concise and deterministic-prefix variants, so the result was query
+construction failure rather than an empty corpus.
+
+Branch `agent/phase-k-discovery-resilience-20260826` repairs both generically.
+Native fallback uses a fixed 160-character word-boundary subject and a
+200-character final-query ceiling. The controlled Gemini lane uses background
+Interactions, records only one opaque bounded job checkpoint as controller
+`IN_PROGRESS`, polls it without charging again, and requests provider deletion
+before consuming an initial or correction result. Timeout/network failure is
+retryable. The low-level technical scout remains storage-disabled. Controlled
+temporary provider storage receives only the screened de-identified target and
+public scout material; deletion is not described as erasing provider backups
+or policy-retained data.
+
+The test-first focused suites pass. The host-boundary complete suite passes
+1,393 tests across 105 files with one file and six tests skipped only by their
+declared credential gates. `npm run verify`, the four-page site validator,
+28/28 site-deployment tests, and the zero-vulnerability production dependency
+audit pass. Protocol bytes and public operation inventories are intentionally
+unchanged. Regeneration proved the Custom GPT Instructions, OpenAPI, sync
+ledger, and compiled bundle byte-identical to the already installed bundle, so
+the editor Action URL and schema need no transaction for this server-only
+repair. The personal plugin source and installed cache contain the exact eight
+reviewed inventory members and match repository content byte-for-byte except
+for the installed manifest's intentional cache-buster. Lesson status at the
+release checkpoint was available: one open candidate, one needing review, zero
+accepted-but-unincorporated, three incorporated/closed, and zero deletion
+eligible. PR/CI, exact deployment, direct controlled acceptance, and a fresh
+product replay remain.
+
 ## 2026-08-25 PR #99 exact deployment; provider capacity and product replay pending
 
 PR #99 merged as `c543cf94360e73937221861667b69f144d2029af`. A

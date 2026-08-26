@@ -115,7 +115,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 25, 2026",
+      "Effective August 26, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",
@@ -126,6 +126,8 @@ describe("AskRigor public site", () => {
       "private review candidate",
       "anonymous occurrence count",
       "No user account, conversation ID, medical history, upload, or raw quotation",
+      "temporarily enables provider storage",
+      "requests deletion immediately after consuming each interaction",
       "deletion-eligible only after more than 90 complete days from terminal review",
       "Deletion is not automatic; a maintainer must act, so it may occur later.",
       "ARL-####",

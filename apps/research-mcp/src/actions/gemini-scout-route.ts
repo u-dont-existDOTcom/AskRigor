@@ -4,12 +4,15 @@ import { isAbsolute, normalize } from "node:path";
 import { ACCESS_STATUSES } from "@askrigor/contracts";
 import {
   GEMINI_YOUTUBE_SCOUT_MODEL,
+  advanceGeminiYoutubeScoutBackground,
   geminiYoutubeCandidateValidationReceiptSchema,
   geminiYoutubeDiscoveryPurposeSchema,
   scoutGeminiYoutubeCandidates,
   validateGeminiYoutubeCandidateHandoff,
   type GeminiYoutubeCandidatePacket,
   type GeminiYoutubeCandidateValidationReceipt,
+  type GeminiYoutubeScoutBackgroundAdvance,
+  type GeminiYoutubeScoutBackgroundCheckpoint,
   type GeminiYoutubeScoutData
 } from "@askrigor/sources";
 import { z } from "zod";
@@ -116,6 +119,8 @@ export interface CreateAutomatedGeminiScoutActionRouteOptions {
   youtubeApiKey?: string;
   budget?: AiBudget;
   scout?: typeof scoutGeminiYoutubeCandidates;
+  backgroundScout?: typeof advanceGeminiYoutubeScoutBackground;
+  backgroundPollDelayMs?: number;
   validate?: typeof validateGeminiYoutubeCandidateHandoff;
   loadScoutInstructions?: () => Promise<string>;
 }
@@ -126,8 +131,29 @@ export interface AutomatedGeminiScoutExecution {
     provider_response_id: string;
     packet: GeminiYoutubeCandidatePacket;
     validation: GeminiYoutubeCandidateValidationReceipt;
+    provider_storage_mode?: "DISABLED" | "TEMPORARY_BACKGROUND_DELETE_REQUESTED";
+    accounted_nano_usd?: number;
   };
 }
+
+export type ResumableAutomatedGeminiScoutExecution =
+  | {
+      controller_progress: {
+        checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
+        accounted_nano_usd: number;
+      };
+    }
+  | {
+      controller_completion: NonNullable<
+        AutomatedGeminiScoutExecution["controller_completion"]
+      >;
+    }
+  | {
+      controller_boundary: {
+        code: z.output<typeof automatedScoutBoundarySchema>["code"];
+        retryable: boolean;
+      };
+    };
 
 let cachedScoutInstructions: Promise<string> | undefined;
 
@@ -332,6 +358,178 @@ export async function executeAutomatedGeminiScout(
       validation
     }
   };
+}
+
+/**
+ * Controller-only Gemini executor. The first transition starts one budgeted
+ * background Interaction; later transitions poll the exact server-owned
+ * checkpoint without reserving or charging the budget again.
+ */
+export async function executeResumableAutomatedGeminiScout(
+  input: z.output<typeof automatedScoutInputSchema>,
+  resume: {
+    checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
+    accountedNanoUsd: number;
+  } | undefined,
+  options: CreateAutomatedGeminiScoutActionRouteOptions = {}
+): Promise<ResumableAutomatedGeminiScoutExecution> {
+  const parsed = automatedScoutInputSchema.parse(input);
+  const backgroundScout = options.backgroundScout ??
+    advanceGeminiYoutubeScoutBackground;
+  const validate = options.validate ?? validateGeminiYoutubeCandidateHandoff;
+  const loadScoutInstructions = options.loadScoutInstructions ??
+    defaultScoutInstructions;
+  const geminiApiKey = options.geminiApiKey ??
+    process.env.ASKRIGOR_GEMINI_API_KEY ?? "";
+  if (geminiApiKey.trim().length === 0) {
+    return controllerBoundary("gemini_provider_not_configured", false);
+  }
+  const youtubeApiKey = options.youtubeApiKey ?? process.env.YOUTUBE_API_KEY ?? "";
+  if (youtubeApiKey.trim().length === 0) {
+    return controllerBoundary("youtube_provider_not_configured", false);
+  }
+  if (
+    resume !== undefined &&
+    (
+      !Number.isSafeInteger(resume.accountedNanoUsd) ||
+      resume.accountedNanoUsd < 0 ||
+      resume.accountedNanoUsd > GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+    )
+  ) {
+    return controllerBoundary("gemini_scout_budget_unavailable", false);
+  }
+
+  let reservation: Awaited<ReturnType<AiBudget["reserve"]>> | undefined;
+  if (resume === undefined) {
+    let budget: AiBudget;
+    try {
+      budget = options.budget ?? productionAiBudget();
+      reservation = await budget.reserve(
+        "gemini_youtube_candidate_scout",
+        GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+      );
+    } catch {
+      return controllerBoundary("gemini_scout_budget_unavailable", false);
+    }
+    if (!reservation) {
+      return controllerBoundary("gemini_scout_budget_exhausted", false);
+    }
+  }
+
+  let advance: GeminiYoutubeScoutBackgroundAdvance;
+  try {
+    const scoutInput = {
+      researchTarget: parsed.research_target,
+      diagnosisStatus: parsed.diagnosis_status,
+      scoutInstructions: await loadScoutInstructions()
+    };
+    const scoutConfig = {
+      apiKey: geminiApiKey,
+      model: GEMINI_YOUTUBE_SCOUT_MODEL
+    };
+    let activeCheckpoint = resume?.checkpoint;
+    const maximumAdvances = activeCheckpoint === undefined ? 1 : 3;
+    const pollDelayMs = boundedBackgroundPollDelay(
+      options.backgroundPollDelayMs ?? 5_000
+    );
+    advance = await backgroundScout(scoutInput, scoutConfig, activeCheckpoint);
+    for (
+      let attempt = 1;
+      advance.kind === "progress" && attempt < maximumAdvances;
+      attempt += 1
+    ) {
+      activeCheckpoint = advance.checkpoint;
+      await waitForBackgroundPoll(pollDelayMs);
+      advance = await backgroundScout(
+        scoutInput,
+        scoutConfig,
+        activeCheckpoint
+      );
+    }
+  } catch {
+    if (reservation !== undefined) await reservation.forfeit();
+    return controllerBoundary("gemini_youtube_scout_unclassified_failure", true);
+  }
+
+  if (advance.kind === "progress") {
+    if (reservation !== undefined) {
+      try {
+        await reservation.forfeit();
+      } catch {
+        return controllerBoundary("gemini_scout_budget_unavailable", false);
+      }
+    }
+    return {
+      controller_progress: {
+        checkpoint: advance.checkpoint,
+        accounted_nano_usd: resume?.accountedNanoUsd ??
+          GEMINI_SCOUT_MAXIMUM_REQUEST_NANO_USD
+      }
+    };
+  }
+  if (advance.kind === "boundary") {
+    if (reservation !== undefined) await reservation.forfeit();
+    return controllerBoundary(
+      knownBoundaryCode(advance.frontier.error?.code),
+      advance.frontier.error?.retryable === true
+    );
+  }
+
+  const scoutData = advance.frontier.data;
+  let accountedNanoUsd = resume?.accountedNanoUsd;
+  if (reservation !== undefined) {
+    accountedNanoUsd = calculateGeminiScoutNanoUsd(scoutData.usage);
+    try {
+      await reservation.commit(accountedNanoUsd);
+    } catch {
+      return controllerBoundary("gemini_scout_budget_unavailable", false);
+    }
+  }
+  if (accountedNanoUsd === undefined) {
+    return controllerBoundary("gemini_scout_budget_unavailable", false);
+  }
+
+  let validation: GeminiYoutubeCandidateValidationReceipt;
+  try {
+    validation = await validate(JSON.stringify(scoutData.packet), {
+      apiKey: youtubeApiKey
+    });
+  } catch {
+    return controllerBoundary(
+      "gemini_youtube_candidate_validation_failed",
+      true
+    );
+  }
+  return {
+    controller_completion: {
+      provider_response_id: scoutData.response_id,
+      packet: scoutData.packet,
+      validation,
+      provider_storage_mode: scoutData.provider_storage_disabled
+        ? "DISABLED"
+        : "TEMPORARY_BACKGROUND_DELETE_REQUESTED",
+      accounted_nano_usd: accountedNanoUsd
+    }
+  };
+}
+
+function controllerBoundary(
+  code: z.output<typeof automatedScoutBoundarySchema>["code"],
+  retryable: boolean
+): ResumableAutomatedGeminiScoutExecution {
+  return { controller_boundary: { code, retryable } };
+}
+
+function boundedBackgroundPollDelay(value: number): number {
+  if (!Number.isSafeInteger(value) || value < 0 || value > 10_000) {
+    throw new Error("Gemini background poll delay is outside its fixed bound");
+  }
+  return value;
+}
+
+async function waitForBackgroundPoll(milliseconds: number): Promise<void> {
+  if (milliseconds === 0) return;
+  await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 }
 
 export function isDeidentifiedResearchTarget(value: string): boolean {

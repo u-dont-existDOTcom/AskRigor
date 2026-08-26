@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  advanceGeminiYoutubeScoutBackground,
   scoutGeminiYoutubeCandidates,
   type GeminiYoutubeCandidatePacket
 } from "../packages/sources/src/index.js";
@@ -398,5 +399,127 @@ describe("Gemini YouTube scout adapter", () => {
     });
     expect(JSON.stringify(result)).not.toContain("private-quota-detail");
     expect(JSON.stringify(result)).not.toContain("private provider message");
+  });
+
+  it("keeps a transport timeout retryable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new DOMException("timed out", "TimeoutError");
+    }));
+
+    const result = await scoutGeminiYoutubeCandidates(INPUT, CONFIG);
+
+    expect(result.access_status).toBe("error");
+    expect(result.error).toMatchObject({
+      code: "gemini_youtube_scout_request_failed",
+      retryable: true
+    });
+  });
+
+  it("starts a temporarily stored background interaction and returns only an opaque checkpoint", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      id: "interaction-background-1",
+      status: "in_progress"
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG);
+
+    expect(result).toMatchObject({
+      kind: "progress",
+      checkpoint: {
+        interaction_id: "interaction-background-1",
+        phase: "INITIAL",
+        provider_interaction_count: 1,
+        poll_attempts: 0,
+        executed_search_queries: []
+      }
+    });
+    expect(JSON.stringify(result)).not.toContain("fixture-gemini-key");
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe(
+      "https://generativelanguage.googleapis.com/v1beta/interactions"
+    );
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      background: true,
+      store: true,
+      tools: [{ type: "google_search" }]
+    });
+    expect((init?.headers as Record<string, string>)["Api-Revision"]).toBe(
+      "2026-05-20"
+    );
+  });
+
+  it("polls, deletes, and returns a completed grounded background frontier", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(interactionResponse())
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG, {
+      interaction_id: "interaction-background-1",
+      phase: "INITIAL",
+      provider_interaction_count: 1,
+      poll_attempts: 0,
+      executed_search_queries: []
+    });
+
+    expect(result.kind).toBe("complete");
+    if (result.kind !== "complete") throw new Error("expected completion");
+    expect(result.frontier).toMatchObject({
+      access_status: "complete",
+      data: {
+        provider_storage_disabled: false,
+        provider_interaction_delete_requested: true,
+        packet: { packet_version: "2.0" }
+      }
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
+      "/interactions/interaction-background-1"
+    );
+    expect(fetchMock.mock.calls[0]?.[1]?.method).toBe("GET");
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("DELETE");
+  });
+
+  it("deletes an invalid initial interaction before starting a bound background repair", async () => {
+    const invalid = compactPacketValue();
+    invalid.candidate_rows[0]!.pop();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(interactionResponse(JSON.stringify(invalid)))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "interaction-background-repair-1",
+        status: "in_progress",
+        steps: []
+      }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await advanceGeminiYoutubeScoutBackground(INPUT, CONFIG, {
+      interaction_id: "interaction-background-1",
+      phase: "INITIAL",
+      provider_interaction_count: 1,
+      poll_attempts: 0,
+      executed_search_queries: []
+    });
+
+    expect(result).toMatchObject({
+      kind: "progress",
+      checkpoint: {
+        interaction_id: "interaction-background-repair-1",
+        phase: "REPAIR",
+        provider_interaction_count: 2,
+        poll_attempts: 0,
+        executed_search_queries: packet().discovery_queries.map(({ query }) => query)
+      }
+    });
+    expect(fetchMock.mock.calls.map(([, init]) => init?.method)).toEqual([
+      "GET",
+      "DELETE",
+      "POST"
+    ]);
+    const repairRequest = JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body));
+    expect(repairRequest).toMatchObject({ background: true, store: true });
+    expect(repairRequest.tools).toBeUndefined();
+    expect(String(repairRequest.input)).toContain("Executed Google Search queries");
   });
 });

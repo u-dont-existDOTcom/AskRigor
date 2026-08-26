@@ -26,6 +26,8 @@ const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const accessStatus = z.enum(ACCESS_STATUSES);
 const queryText = z.string().min(1).max(5_000);
 const boundedText = (maximum: number) => z.string().min(1).max(maximum);
+export const NATIVE_YOUTUBE_QUERY_MAX_CHARACTERS = 200 as const;
+const NATIVE_YOUTUBE_SUBJECT_MAX_CHARACTERS = 160;
 
 const programFieldsSchema = z.object({
   components: boundedText(900),
@@ -304,6 +306,24 @@ export function markExternalScoutFrontierBoundary(
       status,
       frontier_id: frontierId
     }
+  });
+}
+
+export function resetExternalScoutFrontierForRetry(
+  rawState: ResearchCandidateDiscoveryState
+): ResearchCandidateDiscoveryState {
+  const state = researchCandidateDiscoveryStateSchema.parse(rawState);
+  return researchCandidateDiscoveryStateSchema.parse({
+    ...state,
+    external_scout: {
+      status: "NOT_STARTED",
+      queries: [],
+      source_candidate_video_ids: [],
+      validated_candidate_video_ids: [],
+      terminally_rejected_video_ids: [],
+      unresolved_candidate_video_ids: []
+    },
+    candidates: withoutDiscoveryOrigin(state.candidates, "GEMINI_SCOUT")
   });
 }
 
@@ -1072,8 +1092,8 @@ function fallbackNativeQueries(
     "discontinuation" | "formal_discriminator";
   query: string;
 }> {
-  const target = researchQuestion.trim();
-  return [
+  const target = boundedNativeQuerySubject(researchQuestion);
+  const searches = [
     { direction: "general", query: `${target} treatment experience` },
     { direction: "benefit", query: `${target} what worked` },
     { direction: "no_effect", query: `${target} no improvement failed` },
@@ -1083,7 +1103,28 @@ function fallbackNativeQueries(
       direction: "formal_discriminator",
       query: `${target} evidence comparison trial`
     }
-  ];
+  ] as const;
+  if (searches.some(({ query }) =>
+    query.length > NATIVE_YOUTUBE_QUERY_MAX_CHARACTERS
+  )) {
+    throw new Error("Native YouTube fallback query exceeded its fixed bound");
+  }
+  return searches.map(({ direction, query }) => ({ direction, query }));
+}
+
+function boundedNativeQuerySubject(researchQuestion: string): string {
+  const normalized = researchQuestion.trim().replace(/\s+/gu, " ");
+  if (normalized.length <= NATIVE_YOUTUBE_SUBJECT_MAX_CHARACTERS) {
+    return normalized;
+  }
+  const prefix = normalized.slice(0, NATIVE_YOUTUBE_SUBJECT_MAX_CHARACTERS + 1);
+  const wordBoundary = prefix.lastIndexOf(" ");
+  return prefix.slice(
+    0,
+    wordBoundary >= Math.floor(NATIVE_YOUTUBE_SUBJECT_MAX_CHARACTERS / 2)
+      ? wordBoundary
+      : NATIVE_YOUTUBE_SUBJECT_MAX_CHARACTERS
+  ).trimEnd();
 }
 
 function frontierReadyForScreening(

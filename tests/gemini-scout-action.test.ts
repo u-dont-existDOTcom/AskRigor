@@ -73,6 +73,7 @@ function scoutData(): GeminiYoutubeScoutData {
     model: "gemini-3.6-flash",
     google_search_grounded: true,
     provider_storage_disabled: true,
+    provider_interaction_delete_requested: false,
     correction_attempted: false,
     provider_interaction_count: 1,
     executed_search_queries: value.discovery_queries.map(({ query }) => query),

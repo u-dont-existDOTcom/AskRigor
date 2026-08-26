@@ -16,13 +16,15 @@ import {
   type GeminiYoutubeCandidateHandoffIssue,
   type GeminiYoutubeCandidatePacket
 } from "./gemini-youtube-candidate-handoff.js";
-import { fetchJson, UpstreamHttpError } from "./http.js";
+import { fetchJson, fetchText, UpstreamHttpError } from "./http.js";
 
 const GEMINI_INTERACTIONS_ENDPOINT =
   "https://generativelanguage.googleapis.com/v1beta/interactions";
 export const GEMINI_YOUTUBE_SCOUT_MODEL = "gemini-3.6-flash" as const;
 export const GEMINI_YOUTUBE_SCOUT_MAX_OUTPUT_TOKENS = 12_000 as const;
 const GEMINI_YOUTUBE_SCOUT_TIMEOUT_MS = 45_000;
+const GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS = 20_000;
+const GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS = 120;
 const diagnosisStatusSchema = z.enum([
   "diagnosis_not_specified",
   "user_supplied_diagnosis"
@@ -44,7 +46,7 @@ const interactionResponseSchema = z.object({
   id: z.string().min(1).optional(),
   status: z.string().min(1),
   model: z.string().optional(),
-  steps: z.array(interactionStepSchema),
+  steps: z.array(interactionStepSchema).default([]),
   usage: z.object({
     total_input_tokens: z.number().int().nonnegative().optional(),
     total_output_tokens: z.number().int().nonnegative().optional(),
@@ -89,6 +91,55 @@ const compactProviderPacketSchema = z.object({
 
 type InteractionResponse = z.output<typeof interactionResponseSchema>;
 
+const backgroundUsageSchema = z.object({
+  total_input_tokens: z.number().int().nonnegative().optional(),
+  total_output_tokens: z.number().int().nonnegative().optional(),
+  total_thought_tokens: z.number().int().nonnegative().optional(),
+  grounding_tool_count: z.array(z.object({
+    type: z.string(),
+    count: z.number().int().nonnegative()
+  }).passthrough()).optional()
+}).passthrough();
+
+export const geminiYoutubeScoutBackgroundCheckpointSchema = z.object({
+  interaction_id: z.string().regex(/^[A-Za-z0-9._-]{1,500}$/u),
+  phase: z.enum(["INITIAL", "REPAIR"]),
+  provider_interaction_count: z.union([z.literal(1), z.literal(2)]),
+  poll_attempts: z.number().int().min(0).max(GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS),
+  executed_search_queries: z.array(z.string().min(1).max(500)).max(18),
+  initial_usage: backgroundUsageSchema.optional()
+}).strict().superRefine((checkpoint, context) => {
+  if (
+    checkpoint.phase === "INITIAL" &&
+    (
+      checkpoint.provider_interaction_count !== 1 ||
+      checkpoint.executed_search_queries.length !== 0 ||
+      checkpoint.initial_usage !== undefined
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Initial Gemini background checkpoint contains repair-only fields"
+    });
+  }
+  if (
+    checkpoint.phase === "REPAIR" &&
+    (
+      checkpoint.provider_interaction_count !== 2 ||
+      checkpoint.executed_search_queries.length < 8
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Repair checkpoint must remain bound to the initial search receipt"
+    });
+  }
+});
+
+export type GeminiYoutubeScoutBackgroundCheckpoint = z.output<
+  typeof geminiYoutubeScoutBackgroundCheckpointSchema
+>;
+
 interface PacketAttemptSuccess {
   success: true;
   packet: GeminiYoutubeCandidatePacket;
@@ -117,7 +168,8 @@ export interface GeminiYoutubeScoutData {
   response_id: string;
   model: string;
   google_search_grounded: true;
-  provider_storage_disabled: true;
+  provider_storage_disabled: boolean;
+  provider_interaction_delete_requested: boolean;
   correction_attempted: boolean;
   provider_interaction_count: 1 | 2;
   executed_search_queries: string[];
@@ -129,6 +181,20 @@ export interface GeminiYoutubeScoutData {
   };
   packet: GeminiYoutubeCandidatePacket;
 }
+
+export type GeminiYoutubeScoutBackgroundAdvance =
+  | {
+      kind: "progress";
+      checkpoint: GeminiYoutubeScoutBackgroundCheckpoint;
+    }
+  | {
+      kind: "complete";
+      frontier: ProvenanceEnvelope<GeminiYoutubeScoutData>;
+    }
+  | {
+      kind: "boundary";
+      frontier: ProvenanceEnvelope<Record<string, never>>;
+    };
 
 /**
  * Runs Gemini as a high-recall, Google-grounded YouTube discovery scout.
@@ -249,6 +315,7 @@ export async function scoutGeminiYoutubeCandidates(
         model: responseModel,
         google_search_grounded: true,
         provider_storage_disabled: true,
+        provider_interaction_delete_requested: false,
         correction_attempted: responses.length > 1,
         usage
       },
@@ -257,6 +324,7 @@ export async function scoutGeminiYoutubeCandidates(
         model: responseModel,
         google_search_grounded: true,
         provider_storage_disabled: true,
+        provider_interaction_delete_requested: false,
         correction_attempted: responses.length > 1,
         provider_interaction_count: responses.length as 1 | 2,
         executed_search_queries: executedSearchQueries,
@@ -265,37 +333,263 @@ export async function scoutGeminiYoutubeCandidates(
       }
     });
   } catch (error) {
-    const status = error instanceof UpstreamHttpError ? error.status : undefined;
-    if (status === 429) {
-      return scoutErrorEnvelope(parsedInput.data, {
-        accessStatus: "rate_limited",
-        code: "gemini_youtube_scout_rate_limited",
-        message: "Gemini scout rate limit was reached",
-        httpStatus: status,
-        retryable: true
-      });
-    }
-    if (status === 401 || status === 403) {
-      return scoutErrorEnvelope(parsedInput.data, {
-        accessStatus: "inaccessible",
-        code: "gemini_youtube_scout_inaccessible",
-        message: "Gemini scout was not accessible with the configured credentials",
-        httpStatus: status,
-        retryable: false
-      });
-    }
-    return scoutErrorEnvelope(parsedInput.data, {
-      accessStatus: "error",
-      code: status !== undefined && status >= 500
-        ? "gemini_youtube_scout_upstream_unavailable"
-        : "gemini_youtube_scout_request_failed",
-      message: status !== undefined && status >= 500
-        ? "Gemini scout service was unavailable"
-        : "Gemini scout request failed",
-      ...(status === undefined ? {} : { httpStatus: status }),
-      retryable: status !== undefined && status >= 500
-    });
+    return scoutFailureEnvelope(parsedInput.data, error);
   }
+}
+
+/**
+ * Starts or advances one provider-stored background Interaction. The returned
+ * checkpoint contains only opaque provider identity, bounded public search
+ * receipts, usage counters, and progress counters. Provider output is parsed
+ * in memory and never returned in a progress checkpoint.
+ */
+export async function advanceGeminiYoutubeScoutBackground(
+  input: GeminiYoutubeScoutInput,
+  config: GeminiYoutubeScoutConfig,
+  checkpoint?: GeminiYoutubeScoutBackgroundCheckpoint
+): Promise<GeminiYoutubeScoutBackgroundAdvance> {
+  const parsedInput = scoutInputSchema.safeParse(input);
+  if (!parsedInput.success) throw new Error("Invalid Gemini YouTube scout input");
+  const parsedConfig = scoutConfigSchema.safeParse(config);
+  if (!parsedConfig.success) throw new Error("Invalid Gemini YouTube scout configuration");
+  const parsedCheckpoint = checkpoint === undefined
+    ? undefined
+    : geminiYoutubeScoutBackgroundCheckpointSchema.parse(checkpoint);
+
+  try {
+    const raw = parsedCheckpoint === undefined
+      ? await requestGeminiBackgroundInteraction(
+          parsedConfig.data,
+          buildInitialRequest(parsedInput.data, parsedConfig.data.model)
+        )
+      : await pollGeminiBackgroundInteraction(
+          parsedConfig.data,
+          parsedCheckpoint.interaction_id
+        );
+    return processGeminiBackgroundInteraction(
+      parsedInput.data,
+      parsedConfig.data,
+      raw,
+      parsedCheckpoint,
+      parsedCheckpoint !== undefined
+    );
+  } catch (error) {
+    return {
+      kind: "boundary",
+      frontier: scoutFailureEnvelope(parsedInput.data, error)
+    };
+  }
+}
+
+async function processGeminiBackgroundInteraction(
+  input: z.output<typeof scoutInputSchema>,
+  config: z.output<typeof scoutConfigSchema>,
+  raw: unknown,
+  prior: GeminiYoutubeScoutBackgroundCheckpoint | undefined,
+  polled: boolean
+): Promise<GeminiYoutubeScoutBackgroundAdvance> {
+  const parsed = interactionResponseSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      kind: "boundary",
+      frontier: scoutErrorEnvelope(input, {
+        accessStatus: "error",
+        code: "gemini_youtube_scout_invalid_response",
+        message: "Gemini background scout returned an invalid response",
+        retryable: true
+      })
+    };
+  }
+  const response = parsed.data;
+  const interactionId = response.id ?? prior?.interaction_id;
+  if (interactionId === undefined) {
+    return {
+      kind: "boundary",
+      frontier: scoutErrorEnvelope(input, {
+        accessStatus: "error",
+        code: "gemini_youtube_scout_invalid_response",
+        message: "Gemini background scout omitted its interaction identity",
+        retryable: true
+      })
+    };
+  }
+  const phase = prior?.phase ?? "INITIAL";
+  const current = geminiYoutubeScoutBackgroundCheckpointSchema.parse({
+    interaction_id: interactionId,
+    phase,
+    provider_interaction_count: prior?.provider_interaction_count ?? 1,
+    poll_attempts: prior === undefined
+      ? 0
+      : polled
+        ? Math.min(
+            GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS,
+            prior.poll_attempts + 1
+          )
+        : prior.poll_attempts,
+    executed_search_queries: prior?.executed_search_queries ?? [],
+    ...(prior?.initial_usage === undefined
+      ? {}
+      : { initial_usage: prior.initial_usage })
+  });
+
+  if (response.status === "in_progress") {
+    if (current.poll_attempts >= GEMINI_YOUTUBE_BACKGROUND_MAX_POLLS) {
+      if (!await deleteGeminiBackgroundInteraction(config, interactionId)) {
+        return { kind: "progress", checkpoint: current };
+      }
+      return {
+        kind: "boundary",
+        frontier: scoutErrorEnvelope(input, {
+          accessStatus: "error",
+          code: "gemini_youtube_scout_request_failed",
+          message: "Gemini background scout did not complete within its bounded polling frontier",
+          retryable: true
+        })
+      };
+    }
+    return { kind: "progress", checkpoint: current };
+  }
+  if (response.status !== "completed") {
+    const deleted = await deleteGeminiBackgroundInteraction(config, interactionId);
+    if (!deleted) return { kind: "progress", checkpoint: current };
+    return {
+      kind: "boundary",
+      frontier: scoutErrorEnvelope(input, {
+        accessStatus: "error",
+        code: "gemini_youtube_scout_request_failed",
+        message: "Gemini background scout ended without a completed response",
+        retryable: true
+      })
+    };
+  }
+
+  const executedSearchQueries = phase === "INITIAL"
+    ? findExecutedSearchQueries(response.steps)
+    : current.executed_search_queries;
+  if (
+    phase === "INITIAL" &&
+    !response.steps.some((step) =>
+      step.type === "google_search_call" || step.type === "google_search_result"
+    )
+  ) {
+    if (!await deleteGeminiBackgroundInteraction(config, interactionId)) {
+      return { kind: "progress", checkpoint: current };
+    }
+    return {
+      kind: "boundary",
+      frontier: scoutErrorEnvelope(input, {
+        accessStatus: "error",
+        code: "gemini_youtube_scout_ungrounded",
+        message: "Gemini background scout response did not include Google Search grounding",
+        retryable: false
+      })
+    };
+  }
+  const output = findModelOutput(response.steps);
+  if (output === undefined) {
+    if (!await deleteGeminiBackgroundInteraction(config, interactionId)) {
+      return { kind: "progress", checkpoint: current };
+    }
+    return {
+      kind: "boundary",
+      frontier: scoutErrorEnvelope(input, {
+        accessStatus: "error",
+        code: "gemini_youtube_scout_missing_output",
+        message: "Gemini background scout did not include structured model output",
+        retryable: false
+      })
+    };
+  }
+  const attempt = attemptProviderPacket(output, executedSearchQueries);
+  if (!attempt.success && phase === "INITIAL") {
+    if (!await deleteGeminiBackgroundInteraction(config, interactionId)) {
+      return { kind: "progress", checkpoint: current };
+    }
+    const repairRaw = await requestGeminiBackgroundInteraction(
+      config,
+      buildRepairRequest(
+        input,
+        config.model,
+        output,
+        attempt,
+        executedSearchQueries
+      )
+    );
+    const repairStart = interactionResponseSchema.safeParse(repairRaw);
+    if (!repairStart.success || repairStart.data.id === undefined) {
+      return {
+        kind: "boundary",
+        frontier: scoutErrorEnvelope(input, {
+          accessStatus: "error",
+          code: "gemini_youtube_scout_invalid_response",
+          message: "Gemini background scout correction did not return an interaction identity",
+          retryable: true
+        })
+      };
+    }
+    return processGeminiBackgroundInteraction(input, config, repairRaw, {
+      interaction_id: repairStart.data.id,
+      phase: "REPAIR",
+      provider_interaction_count: 2,
+      poll_attempts: 0,
+      executed_search_queries: executedSearchQueries,
+      ...(response.usage === undefined ? {} : { initial_usage: response.usage })
+    }, false);
+  }
+  if (!attempt.success) {
+    if (!await deleteGeminiBackgroundInteraction(config, interactionId)) {
+      return { kind: "progress", checkpoint: current };
+    }
+    return { kind: "boundary", frontier: packetFailureEnvelope(input, attempt.code) };
+  }
+  if (!await deleteGeminiBackgroundInteraction(config, interactionId)) {
+    return { kind: "progress", checkpoint: current };
+  }
+
+  const usage = providerUsage(
+    phase === "REPAIR"
+      ? [current.initial_usage, response.usage]
+      : [response.usage],
+    executedSearchQueries.length
+  );
+  const responseModel = response.model ?? config.model;
+  const data: GeminiYoutubeScoutData = {
+    response_id: interactionId,
+    model: responseModel,
+    google_search_grounded: true,
+    provider_storage_disabled: false,
+    provider_interaction_delete_requested: true,
+    correction_attempted: phase === "REPAIR",
+    provider_interaction_count: current.provider_interaction_count,
+    executed_search_queries: executedSearchQueries,
+    usage,
+    packet: attempt.packet
+  };
+  return {
+    kind: "complete",
+    frontier: okEnvelope({
+      provider: "gemini_api",
+      recordType: "gemini_youtube_candidate_frontier",
+      primaryIdentifier: interactionId,
+      query: {
+        research_target: input.researchTarget,
+        diagnosis_status: input.diagnosisStatus
+      },
+      pagination: { exhausted: true },
+      returned: attempt.packet.candidates.length,
+      accessStatus: "complete",
+      limitations: scoutLimitations(),
+      rawMetadata: {
+        model: responseModel,
+        google_search_grounded: true,
+        provider_storage_disabled: false,
+        provider_interaction_delete_requested: true,
+        correction_attempted: phase === "REPAIR",
+        usage
+      },
+      data
+    })
+  };
 }
 
 function statelessResponseIdentifier(raw: unknown): string {
@@ -310,12 +604,75 @@ async function requestGeminiInteraction(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Api-Revision": "2026-05-20",
       "x-goog-api-key": config.apiKey
     },
     body: JSON.stringify(request),
     maxRetries: 0,
     timeoutMs: GEMINI_YOUTUBE_SCOUT_TIMEOUT_MS
   });
+}
+
+async function requestGeminiBackgroundInteraction(
+  config: z.output<typeof scoutConfigSchema>,
+  request: Record<string, unknown>
+): Promise<unknown> {
+  return fetchJson(GEMINI_INTERACTIONS_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Api-Revision": "2026-05-20",
+      "x-goog-api-key": config.apiKey
+    },
+    body: JSON.stringify({
+      ...request,
+      background: true,
+      store: true
+    }),
+    maxRetries: 0,
+    timeoutMs: GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS
+  });
+}
+
+async function pollGeminiBackgroundInteraction(
+  config: z.output<typeof scoutConfigSchema>,
+  interactionId: string
+): Promise<unknown> {
+  return fetchJson(
+    `${GEMINI_INTERACTIONS_ENDPOINT}/${encodeURIComponent(interactionId)}`,
+    {
+      method: "GET",
+      headers: {
+        "Api-Revision": "2026-05-20",
+        "x-goog-api-key": config.apiKey
+      },
+      maxRetries: 0,
+      timeoutMs: GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS
+    }
+  );
+}
+
+async function deleteGeminiBackgroundInteraction(
+  config: z.output<typeof scoutConfigSchema>,
+  interactionId: string
+): Promise<boolean> {
+  try {
+    await fetchText(
+      `${GEMINI_INTERACTIONS_ENDPOINT}/${encodeURIComponent(interactionId)}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Api-Revision": "2026-05-20",
+          "x-goog-api-key": config.apiKey
+        },
+        maxRetries: 0,
+        timeoutMs: GEMINI_YOUTUBE_BACKGROUND_REQUEST_TIMEOUT_MS
+      }
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function completedInteraction(raw: unknown): InteractionResponse | undefined {
@@ -683,6 +1040,42 @@ interface ScoutErrorDetails {
   message: string;
   httpStatus?: number;
   retryable: boolean;
+}
+
+function scoutFailureEnvelope(
+  input: z.output<typeof scoutInputSchema>,
+  error: unknown
+): ProvenanceEnvelope<Record<string, never>> {
+  const status = error instanceof UpstreamHttpError ? error.status : undefined;
+  if (status === 429) {
+    return scoutErrorEnvelope(input, {
+      accessStatus: "rate_limited",
+      code: "gemini_youtube_scout_rate_limited",
+      message: "Gemini scout rate limit was reached",
+      httpStatus: status,
+      retryable: true
+    });
+  }
+  if (status === 401 || status === 403) {
+    return scoutErrorEnvelope(input, {
+      accessStatus: "inaccessible",
+      code: "gemini_youtube_scout_inaccessible",
+      message: "Gemini scout was not accessible with the configured credentials",
+      httpStatus: status,
+      retryable: false
+    });
+  }
+  return scoutErrorEnvelope(input, {
+    accessStatus: "error",
+    code: status !== undefined && status >= 500
+      ? "gemini_youtube_scout_upstream_unavailable"
+      : "gemini_youtube_scout_request_failed",
+    message: status !== undefined && status >= 500
+      ? "Gemini scout service was unavailable"
+      : "Gemini scout request failed",
+    ...(status === undefined ? {} : { httpStatus: status }),
+    retryable: status === undefined || status >= 500
+  });
 }
 
 function scoutErrorEnvelope(

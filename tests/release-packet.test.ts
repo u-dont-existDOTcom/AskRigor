@@ -148,7 +148,7 @@ describe("AskRigor public-review packet", () => {
       ASKRIGOR_UNPAYWALL_EMAIL: "Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential.",
       ASKRIGOR_ACTIONS_API_KEY: "Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control.",
       OPENAI_API_KEY: "Dedicated server-only OpenAI API project key for the privacy check.",
-      ASKRIGOR_GEMINI_API_KEY: "Dedicated restricted paid Gemini API project key for the stateless automated public-candidate scout. Without it the Action remains present and returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor.",
+      ASKRIGOR_GEMINI_API_KEY: "Dedicated restricted paid Gemini API project key for automated public-candidate scouting. The controlled path uses a temporary background Interaction and requests deletion after use. Without the key the server returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor.",
       ASKRIGOR_AI_BUDGET_LEDGER: "Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`.",
       ASKRIGOR_AI_MONTHLY_BUDGET_USD: "Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`.",
       ASKRIGOR_GITHUB_APP_ID: "Positive decimal App ID.",
@@ -240,7 +240,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 25, 2026");
+    expect(privacySite).toContain("Effective August 26, 2026");
     expect(privacySite).toContain("Unpaywall");
     expect(privacySite).toContain("encrypted single-host checkpoint");
     expect(privacySite).toContain("Optional lesson feedback");

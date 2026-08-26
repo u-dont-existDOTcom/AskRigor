@@ -1,9 +1,11 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 import type { ProtocolManifest } from "@askrigor/protocol";
-import type {
-  GeminiYoutubeCandidatePacket,
-  GeminiYoutubeCandidateValidationReceipt
+import {
+  geminiYoutubeScoutBackgroundCheckpointSchema,
+  type GeminiYoutubeScoutBackgroundCheckpoint,
+  type GeminiYoutubeCandidatePacket,
+  type GeminiYoutubeCandidateValidationReceipt
 } from "@askrigor/sources";
 import { z } from "zod";
 
@@ -41,6 +43,7 @@ import {
   ingestValidatedGeminiFrontier,
   initialResearchCandidateDiscoveryState,
   markExternalScoutFrontierBoundary,
+  resetExternalScoutFrontierForRetry,
   researchCandidateDiscoveryStateSchema,
   type CandidateScreeningSubmission
 } from "./research-candidate-frontier.js";
@@ -310,14 +313,21 @@ const operationStatesSchema = z.object({
 }).strict();
 
 const scoutStateSchema = z.object({
-  status: z.enum(["NOT_STARTED", "COMPLETE", "BLOCKED"]),
+  status: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETE", "BLOCKED"]),
   provider_response_id: z.string().max(500).optional(),
   source_packet_version: z.string().max(20).optional(),
   validation_status: z.enum(["accepted", "partial", "rejected", "blocked"]).optional(),
   candidate_count: z.number().int().nonnegative().max(16),
   validated_candidate_ids: z.array(z.string().regex(/^[A-Za-z0-9_-]{11}$/u)).max(16),
   unresolved_candidate_ids: z.array(z.string().regex(/^[A-Za-z0-9_-]{11}$/u)).max(16),
-  access_boundary: operationBoundarySchema.optional()
+  access_boundary: operationBoundarySchema.optional(),
+  provider_storage_mode: z.enum([
+    "DISABLED",
+    "TEMPORARY_BACKGROUND_DELETE_PENDING",
+    "TEMPORARY_BACKGROUND_DELETE_REQUESTED"
+  ]).optional(),
+  accounted_nano_usd: z.number().int().nonnegative().max(1_000_000_000).optional(),
+  background_job: geminiYoutubeScoutBackgroundCheckpointSchema.optional()
 }).strict();
 
 const finalCompletionAuditStateSchema = z.object({
@@ -393,6 +403,48 @@ export const researchSessionStateSchema = z.object({
     context.addIssue({
       code: "custom",
       message: "An unstarted scout needs an unstarted scout operation"
+    });
+  }
+  if (
+    state.scout.status === "IN_PROGRESS" && scoutOperation.status !== "IN_PROGRESS"
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "An in-progress scout needs an in-progress scout operation"
+    });
+  }
+  if (
+    scoutOperation.status === "IN_PROGRESS" &&
+    state.scout.status !== "IN_PROGRESS"
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "An in-progress scout operation needs an in-progress checkpoint"
+    });
+  }
+  if (
+    (state.scout.background_job !== undefined) !==
+      (state.scout.status === "IN_PROGRESS")
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Only an in-progress scout may retain a background provider checkpoint"
+    });
+  }
+  if (
+    state.scout.status === "IN_PROGRESS" &&
+    (
+      state.scout.provider_storage_mode !==
+        "TEMPORARY_BACKGROUND_DELETE_PENDING" ||
+      state.scout.accounted_nano_usd === undefined ||
+      state.scout.candidate_count !== 0 ||
+      state.scout.validated_candidate_ids.length !== 0 ||
+      state.scout.unresolved_candidate_ids.length !== 0
+    )
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Background scout progress cannot contain candidate evidence or omit its storage/budget state"
     });
   }
   if (
@@ -937,6 +989,8 @@ export interface AutomatedScoutCompletion {
   providerResponseId: string;
   packet: GeminiYoutubeCandidatePacket;
   receipt: GeminiYoutubeCandidateValidationReceipt;
+  providerStorageMode?: "DISABLED" | "TEMPORARY_BACKGROUND_DELETE_REQUESTED";
+  accountedNanoUsd?: number;
 }
 
 export function protocolBindingsFromManifests(
@@ -1141,9 +1195,57 @@ export function recordAutomatedScoutCompletion(
       candidate_count: frontier.source_candidate_video_ids.length,
       validated_candidate_ids: frontier.validated_candidate_video_ids,
       unresolved_candidate_ids: frontier.unresolved_candidate_video_ids,
+      provider_storage_mode: completion.providerStorageMode ?? "DISABLED",
+      ...(completion.accountedNanoUsd === undefined
+        ? {}
+        : { accounted_nano_usd: completion.accountedNanoUsd }),
       ...(boundary === undefined ? {} : { access_boundary: boundary })
     },
     candidate_discovery: discovery
+  });
+}
+
+export function recordAutomatedScoutProgress(
+  rawState: ResearchSessionState,
+  checkpoint: GeminiYoutubeScoutBackgroundCheckpoint,
+  accountedNanoUsd: number
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  if (
+    state.operations.automated_video_scout.status === "COMPLETE" ||
+    state.operations.automated_video_scout.status === "BLOCKED_TERMINAL"
+  ) {
+    throw new Error("Resolved automated scout work cannot be reopened as progress");
+  }
+  const parsedCheckpoint = geminiYoutubeScoutBackgroundCheckpointSchema.parse(
+    checkpoint
+  );
+  if (
+    !Number.isSafeInteger(accountedNanoUsd) ||
+    accountedNanoUsd < 0 ||
+    accountedNanoUsd > 1_000_000_000
+  ) {
+    throw new Error("Automated scout accounting is outside its fixed bound");
+  }
+  const candidateDiscovery = resetExternalScoutFrontierForRetry(
+    state.candidate_discovery
+  );
+  return parseProjectedResearchSessionState({
+    ...state,
+    operations: {
+      ...state.operations,
+      automated_video_scout: { status: "IN_PROGRESS" }
+    },
+    scout: {
+      status: "IN_PROGRESS",
+      candidate_count: 0,
+      validated_candidate_ids: [],
+      unresolved_candidate_ids: [],
+      provider_storage_mode: "TEMPORARY_BACKGROUND_DELETE_PENDING",
+      accounted_nano_usd: accountedNanoUsd,
+      background_job: parsedCheckpoint
+    },
+    candidate_discovery: candidateDiscovery
   });
 }
 
@@ -1680,8 +1782,9 @@ function blockedScoutProjection(
 ): ResearchSessionState["scout"] {
   const external = candidateDiscovery.external_scout;
   const providerResponseId = external.provider_response_id ?? prior.provider_response_id;
+  const { background_job: _backgroundJob, ...withoutBackgroundJob } = prior;
   return {
-    ...prior,
+    ...withoutBackgroundJob,
     status: "BLOCKED",
     candidate_count: external.source_candidate_video_ids.length,
     validated_candidate_ids: external.validated_candidate_video_ids,

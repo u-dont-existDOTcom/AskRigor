@@ -10,6 +10,7 @@ import {
 
 import {
   executeAutomatedGeminiScout,
+  executeResumableAutomatedGeminiScout,
   type CreateAutomatedGeminiScoutActionRouteOptions
 } from "./actions/gemini-scout-route.js";
 import {
@@ -22,6 +23,7 @@ import {
   deriveResearchFinalizationLimitations,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
+  recordAutomatedScoutProgress,
   type ResearchSessionState
 } from "./actions/research-session-controller.js";
 import { createReportSynthesisEvidenceContext } from
@@ -351,6 +353,44 @@ async function executeBudgetedScout(
   state: ResearchSessionState,
   options: CreateAutomatedGeminiScoutActionRouteOptions
 ): Promise<ResearchSessionState> {
+  if (options.scout === undefined || options.backgroundScout !== undefined) {
+    const checkpoint = state.scout.background_job;
+    const execution = await executeResumableAutomatedGeminiScout({
+      research_target: state.research_target,
+      diagnosis_status: state.diagnosis_status
+    }, checkpoint === undefined
+      ? undefined
+      : {
+          checkpoint,
+          accountedNanoUsd: state.scout.accounted_nano_usd!
+        }, options);
+    if ("controller_progress" in execution) {
+      return recordAutomatedScoutProgress(
+        state,
+        execution.controller_progress.checkpoint,
+        execution.controller_progress.accounted_nano_usd
+      );
+    }
+    if ("controller_completion" in execution) {
+      const completion = execution.controller_completion;
+      return recordAutomatedScoutCompletion(state, {
+        providerResponseId: completion.provider_response_id,
+        packet: completion.packet,
+        receipt: completion.validation,
+        providerStorageMode: completion.provider_storage_mode,
+        accountedNanoUsd: completion.accounted_nano_usd
+      });
+    }
+    const boundary = execution.controller_boundary;
+    return recordAutomatedScoutBoundary(state, {
+      classification: boundary.retryable || isConfigurationBoundary(boundary.code)
+        ? "RETRYABLE"
+        : "TERMINAL_NONRETRYABLE",
+      code: controllerBoundaryCode(boundary.code),
+      summary: "Automated candidate discovery did not complete; no manual packet or caller assertion was substituted."
+    });
+  }
+
   const execution = await executeAutomatedGeminiScout({
     research_target: state.research_target,
     diagnosis_status: state.diagnosis_status

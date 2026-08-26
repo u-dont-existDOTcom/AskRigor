@@ -89,7 +89,7 @@ The runtime requires these exact names and constraints:
 | `ASKRIGOR_UNPAYWALL_EMAIL` | Public service contact email sent to Unpaywall; defaults to `support@askrigor.com` when unset. It is not a secret or authentication credential. |
 | `ASKRIGOR_ACTIONS_API_KEY` | Dedicated Action Bearer secret; installed only on the server and in the GPT editor authentication control. |
 | `OPENAI_API_KEY` | Dedicated server-only OpenAI API project key for the privacy check. |
-| `ASKRIGOR_GEMINI_API_KEY` | Dedicated restricted paid Gemini API project key for the stateless automated public-candidate scout. Without it the Action remains present and returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor. |
+| `ASKRIGOR_GEMINI_API_KEY` | Dedicated restricted paid Gemini API project key for automated public-candidate scouting. The controlled path uses a temporary background Interaction and requests deletion after use. Without the key the server returns `gemini_provider_not_configured`; never paste it into chat or the GPT editor. |
 | `ASKRIGOR_AI_BUDGET_LEDGER` | Exact absolute path `/var/lib/askrigor-actions/ai-budget.json`. |
 | `ASKRIGOR_AI_MONTHLY_BUDGET_USD` | Canonical production literal `50.00`; the runtime accepts only exact `50` or `50.00`. |
 | `ASKRIGOR_GITHUB_APP_ID` | Positive decimal App ID. |
@@ -103,7 +103,7 @@ same cap before provider execution. One scout can use one grounded-search
 interaction and, only if its packet fails strict validation, one no-search
 correction interaction under the same reservation. The server accepts only the fixed privacy model
 `gpt-5.4-nano-2026-03-17`; no moving alias is allowed.
-The privacy and both possible Gemini interactions use provider storage-disabled modes. Budget exhaustion, ledger failure,
+The lesson privacy check and the low-level Gemini route use provider storage-disabled modes. Controlled Gemini scouting uses temporary provider storage for background execution and requests deletion after each interaction. Budget exhaustion, ledger failure,
 privacy-model failure, or invalid structured output fails closed; none bypasses
 screening or reaches GitHub. The Gemini route also fails closed on missing
 grounded-search receipts, mismatched executed queries, invalid candidate JSON
@@ -335,14 +335,19 @@ frontier receipt. Retryable identity failures remain unresolved; every
 validated lead must be screened regardless of caller materiality or redundancy
 labels before broad synthesis.
 
-`scout_gemini_youtube_candidates` is the ordinary automated route. It accepts
+`scout_gemini_youtube_candidates` is the low-level technical route. Controlled
+research invokes the same scout logic inside the server-owned session rather
+than requiring the GPT or user to call this operation directly. Both paths accept
 only a de-identified population-level target and diagnosis-status category,
-rejects personal or identifier-bearing text before any provider work, calls
-Gemini with interaction storage disabled, reconciles the actual Google Search
+reject personal or identifier-bearing text before any provider work, and
+reconcile the actual Google Search
 queries, reconstructs its compact fixed-column output into the strict canonical
-packet, and feeds that packet directly into the same independent YouTube
-validator. If strict validation fails, it permits exactly one storage-disabled,
-no-search correction and then fails closed. It retrieves no captions or discussions and cannot authorize
+packet before feeding it into the same independent YouTube validator. The
+low-level route disables interaction storage. Controlled research uses a
+resumable background interaction, retains only an opaque encrypted checkpoint,
+and requests provider deletion after consumption. If strict validation fails,
+either path permits exactly one no-search correction under its corresponding
+storage mode and then fails closed. It retrieves no captions or discussions and cannot authorize
 synthesis. The manual validator above exists for historical compatibility, not
 as a step the user must perform.
 
