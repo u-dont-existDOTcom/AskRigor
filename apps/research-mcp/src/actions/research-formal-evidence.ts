@@ -1842,8 +1842,16 @@ function recordFormalProviderPage(
     error: envelope.error,
     data: envelope.data
   }));
+  // A cursor and failure boundary describe only the preceding executable
+  // state. Carrying either field through a successful terminal page creates
+  // an impossible COMPLETE-with-cursor or nonblocked-with-boundary record.
+  const {
+    next_cursor: _previousCursor,
+    boundary: _previousBoundary,
+    ...stableBefore
+  } = before;
   const updated = formalProviderSearchSchema.parse({
-    ...before,
+    ...stableBefore,
     status,
     pages_retrieved: before.pages_retrieved + 1,
     records_returned_cumulative: before.records_returned_cumulative + envelope.data.length,

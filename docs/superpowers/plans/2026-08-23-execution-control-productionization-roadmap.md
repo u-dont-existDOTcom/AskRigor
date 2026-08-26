@@ -884,6 +884,17 @@ bundle, so no editor import, Action/MCP URL update, or plugin reinstall is
 required. K3 now waits only on a fresh signed-in product replay and its valid
 server-issued acceptance receipt.
 
+That replay reached the formal-evidence frontier with 900 retained candidates,
+then exposed a generic terminal-page transition defect. A provider search that
+had an in-progress cursor reached its exhausted page; the controller marked it
+complete but retained the old cursor, so authoritative schema validation failed
+and the Action surface returned `action_internal_error`. The repair must remove
+prior cursor and retry-boundary state before projecting each current provider
+page, prove the transition at both source and controlled-Action boundaries,
+merge and deploy exactly, and complete a direct full-path replay before asking
+for another signed-in acceptance run. This does not change research policy,
+provider breadth, public inventories, or the compact Custom GPT contract.
+
 Tasks:
 
 - [x] Execute every later controller capability through one shared

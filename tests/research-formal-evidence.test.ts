@@ -206,6 +206,120 @@ describe("controller-owned formal evidence frontier", () => {
     });
   });
 
+  it("discards stale provider cursors and retry boundaries when a later page completes", async () => {
+    let formal = initializeResearchFormalEvidence(
+      screenedCandidates(),
+      "de-identified treatment comparison"
+    );
+    const hypothesis = formal.hypotheses[0]!;
+    let pubmedCalls = 0;
+    let europeCalls = 0;
+    const executors: FormalSearchExecutors = {
+      searchPubmed: vi.fn(async (input: { query: string; cursor?: string }) => {
+        pubmedCalls += 1;
+        const identifier = String(2_000 + pubmedCalls);
+        return okEnvelope({
+          provider: "pubmed",
+          recordType: "pubmed_search_result",
+          query: { query: input.query },
+          accessStatus: "complete",
+          pagination: pubmedCalls === 1
+            ? {
+                page_size: 100,
+                returned: 1,
+                next_cursor: "pubmed-next-page",
+                exhausted: false
+              }
+            : { page_size: 100, returned: 1, exhausted: true },
+          data: [{ pmid: identifier }]
+        });
+      }) as never,
+      fetchPubmedRecord: vi.fn(async (identifier: string) => okEnvelope({
+        provider: "pubmed",
+        recordType: "pubmed_record",
+        primaryIdentifier: identifier,
+        sourceIdentity: {
+          canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${identifier}/`
+        },
+        accessStatus: "api_visible_complete",
+        pagination: { returned: 1, exhausted: true },
+        data: {
+          pmid: identifier,
+          doi: `10.5555/paginated.${identifier}`,
+          title: `Paginated study ${identifier}`,
+          abstract: "Abstract only.",
+          authors: ["Researcher"],
+          dates: [{ type: "pub", value: "2025" }]
+        } satisfies PubmedRecord
+      })) as never,
+      searchEuropePmc: vi.fn(async (input: { query: string }) => {
+        europeCalls += 1;
+        if (europeCalls === 1) {
+          return errorEnvelope({
+            provider: "europe_pmc",
+            recordType: "europe_pmc_search_result",
+            query: { query: input.query },
+            accessStatus: "rate_limited",
+            pagination: {
+              page_size: 100,
+              next_cursor: "europe-retry-page",
+              exhausted: false
+            },
+            returned: 0,
+            limitations: ["Retryable fixture boundary."],
+            code: "europe_pmc_rate_limited",
+            message: "Europe PMC rate limit reached",
+            retryable: true,
+            data: []
+          });
+        }
+        return okEnvelope({
+          provider: "europe_pmc",
+          recordType: "europe_pmc_search_result",
+          query: { query: input.query },
+          accessStatus: "complete",
+          pagination: { page_size: 100, returned: 1, exhausted: true },
+          data: [{
+            source: "MED",
+            id: "3001",
+            pmid: "3001",
+            doi: "10.5555/paginated.3001",
+            title: "Recovered provider study",
+            authors: ["Researcher"],
+            year: "2025"
+          }]
+        });
+      }) as never,
+      pubmedConfig: { tool: "askrigor-test", email: "research@example.test" }
+    };
+
+    formal = await executeResearchFormalSearch(
+      formal,
+      hypothesis.hypothesis_id,
+      executors
+    );
+    const interrupted = formal.hypotheses[0]!.provider_searches;
+    expect(interrupted[0]).toMatchObject({
+      status: "IN_PROGRESS",
+      next_cursor: "pubmed-next-page"
+    });
+    expect(interrupted[1]).toMatchObject({
+      status: "BLOCKED_RETRYABLE",
+      boundary: { classification: "RETRYABLE" }
+    });
+
+    formal = await executeResearchFormalSearch(
+      formal,
+      hypothesis.hypothesis_id,
+      executors
+    );
+    for (const provider of formal.hypotheses[0]!.provider_searches) {
+      expect(provider.status).toBe("COMPLETE");
+      expect(provider.next_cursor).toBeUndefined();
+      expect(provider.boundary).toBeUndefined();
+    }
+  });
+
   it("allows exhausted provider results to contain no decision-important source", async () => {
     const formal = await searchedFormal();
     const work = createFormalEvidenceScreeningWorkPackage(formal);

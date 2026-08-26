@@ -1,5 +1,40 @@
 # AskRigor Codex Current State
 
+## 2026-08-26 Phase K formal-provider terminal-page repair candidate
+
+The next fresh signed-in fixed challenge preserved session
+`ars1_nxbYhtm-4VbuMomta5U4tgC-H4rO13LS` but returned non-retryable
+`action_internal_error` during formal-evidence search and correctly issued no
+reader report or product-acceptance receipt. Sanitized checkpoint inspection
+showed 41 formal hypotheses, 900 deduplicated provider candidates, one
+completed PubMed search, one in-progress Europe PMC search, and 80 not-started
+provider searches. The state remained at exact digest
+`ac40307c3d10ac89d879a0d30ed25c7201eb15e9769a58a22b645d3f9dc6a9d2`;
+no replacement session was created.
+
+A non-committing replay of the exact next deterministic transition reproduced
+the exception. When a paginated provider reached its final page, the controller
+changed the search to `COMPLETE` but spread the preceding `next_cursor` back
+into the terminal record. The authoritative schema rejected that impossible
+complete-with-cursor state, and the Action router converted the uncaught
+exception to `action_internal_error`. The defect is generic pagination-state
+cleanup; it is not a 900-source limit, a provider outage, or a scientific-policy
+change.
+
+The candidate transition now explicitly discards the preceding cursor and
+retry boundary before projecting the new provider-page state. A source-layer
+regression covers both an in-progress cursor becoming complete and a retryable
+provider boundary recovering to complete. A controlled-Action regression
+starts from a server-owned formal frontier, executes two paginated pages, and
+requires the terminal continuation to return a normal 200 transition with no
+stale cursor. Focused verification passes 25/25 tests and typechecking passes
+after the isolated worktree's locked npm workspace install was restored.
+
+Reviewed merge, exact deployment with rollback, a complete direct controlled
+replay through finalization, and a fresh signed-in product replay remain
+required. The generated Instructions, Action schema/URL, MCP surface, protocol
+bytes, and personal plugin are not changed by this server-only candidate.
+
 ## 2026-08-26 Phase K discovery repairs deployed; signed-in acceptance pending
 
 The owner installed the current compact Custom GPT bundle and ran the fixed
