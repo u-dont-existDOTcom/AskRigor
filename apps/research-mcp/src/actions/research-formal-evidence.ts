@@ -52,6 +52,8 @@ const handle = z.string().regex(/^aft1_[A-Za-z0-9_-]{32}$/u);
 const blockId = z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u);
 
 export const FORMAL_EVIDENCE_PROVIDERS = ["pubmed", "europe_pmc"] as const;
+const FORMAL_QUERY_SUBJECT_MAX_CHARACTERS = 160;
+const FORMAL_QUERY_MAX_CHARACTERS = 600;
 export const FORMAL_SOURCE_KINDS = [
   "SCIENTIFIC_STUDY",
   "SYSTEMATIC_REVIEW",
@@ -87,6 +89,7 @@ const formalProviderSearchSchema = z.object({
   pages_retrieved: z.number().int().nonnegative().max(10_000),
   records_returned_cumulative: z.number().int().nonnegative().max(100_000),
   next_cursor: z.string().min(1).max(4_096).optional(),
+  reused_from_hypothesis_id: digest.optional(),
   page_receipt_hashes: z.array(digest).max(10_000),
   access_statuses: z.array(z.string().min(1).max(80)).max(10_000),
   limitations: z.array(bounded(1_000)).max(200),
@@ -103,6 +106,13 @@ const formalProviderSearchSchema = z.object({
   }
   if (record.status === "COMPLETE" && record.next_cursor !== undefined) {
     context.addIssue({ code: "custom", message: "Completed formal provider search cannot retain a cursor" });
+  }
+  if (
+    record.reused_from_hypothesis_id !== undefined &&
+    record.status !== "COMPLETE" &&
+    record.status !== "BLOCKED_TERMINAL"
+  ) {
+    context.addIssue({ code: "custom", message: "Only terminal formal searches can reuse an exact receipt chain" });
   }
   if (record.page_receipt_hashes.length !== record.pages_retrieved) {
     context.addIssue({ code: "custom", message: "Formal provider pages require exact receipt hashes" });
@@ -466,6 +476,32 @@ export const researchFormalEvidenceStateSchema = z.object({
         message: "Formal hypothesis identity must match its exact program/outcome/query core"
       });
     }
+    for (const search of hypothesis.provider_searches) {
+      if (search.reused_from_hypothesis_id === undefined) continue;
+      const donor = state.hypotheses.find(({ hypothesis_id }) =>
+        hypothesis_id === search.reused_from_hypothesis_id
+      );
+      const donorSearch = donor?.provider_searches.find(({ provider }) =>
+        provider === search.provider
+      );
+      const { reused_from_hypothesis_id: _reuse, ...searchReceipt } = search;
+      const {
+        reused_from_hypothesis_id: _donorReuse,
+        ...donorReceipt
+      } = donorSearch ?? {};
+      if (
+        donor === undefined ||
+        donor.hypothesis_id === hypothesis.hypothesis_id ||
+        donorSearch === undefined ||
+        !["COMPLETE", "BLOCKED_TERMINAL"].includes(donorSearch.status) ||
+        JSON.stringify(searchReceipt) !== JSON.stringify(donorReceipt)
+      ) {
+        context.addIssue({
+          code: "custom",
+          message: "Reused formal provider evidence must match one exact terminal query receipt chain"
+        });
+      }
+    }
   }
   if (
     state.hypothesis_frontier_digest !== undefined &&
@@ -677,6 +713,7 @@ export async function executeResearchFormalSearch(
     throw new Error("Invalid formal-search page limit");
   }
   for (const provider of FORMAL_EVIDENCE_PROVIDERS) {
+    state = reuseTerminalFormalProviderSearch(state, hypothesisId, provider);
     for (let page = 0; page < maximumPagesPerProvider; page += 1) {
       const current = providerSearch(state, hypothesisId, provider);
       if (current.status === "COMPLETE" || current.status === "BLOCKED_TERMINAL") break;
@@ -1741,17 +1778,47 @@ function formalHypothesisCore(
 }
 
 function formalQuery(researchTarget: string, candidate: ResearchCandidateRecord): string {
+  const fallbackTitle = candidate.program_description_status === "NOT_DESCRIBED"
+    ? boundedFormalQueryTerm(candidate.title, 140)
+    : "";
   const values = [
-    researchTarget,
-    candidate.provisional_treatment_class,
-    candidate.program.components,
-    candidate.program.stage_or_baseline,
-    candidate.program.outcome,
-    candidate.program.horizon
-  ].map((value) => value.trim()).filter((value, index, all) =>
-    value.length > 0 && value !== "program not described" && all.indexOf(value) === index
+    boundedFormalQueryTerm(researchTarget, FORMAL_QUERY_SUBJECT_MAX_CHARACTERS),
+    boundedFormalQueryTerm(candidate.provisional_treatment_class, 100),
+    fallbackTitle,
+    boundedFormalQueryTerm(candidate.program.components, 120),
+    boundedFormalQueryTerm(candidate.provisional_claim_summary, 140),
+    boundedFormalQueryTerm(candidate.program.stage_or_baseline, 80),
+    boundedFormalQueryTerm(candidate.program.outcome, 80),
+    boundedFormalQueryTerm(candidate.program.horizon, 60),
+    boundedFormalQueryTerm(candidate.program.care_stage, 60)
+  ].filter((value, index, all) =>
+    !formalQueryPlaceholder(value) && all.indexOf(value) === index
   );
-  return values.join(" ").slice(0, 5_000);
+  return boundedFormalQueryTerm(
+    values.join(" "),
+    FORMAL_QUERY_MAX_CHARACTERS
+  );
+}
+
+function boundedFormalQueryTerm(value: string, maximum: number): string {
+  const normalized = value.trim().replace(/\s+/gu, " ");
+  if (normalized.length <= maximum) return normalized;
+  const prefix = normalized.slice(0, maximum + 1);
+  const wordBoundary = prefix.lastIndexOf(" ");
+  return prefix.slice(
+    0,
+    wordBoundary >= Math.floor(maximum / 2) ? wordBoundary : maximum
+  ).trimEnd();
+}
+
+function formalQueryPlaceholder(value: string): boolean {
+  return value.length === 0 || [
+    "program not described",
+    "not described",
+    "not reported",
+    "unassessed",
+    "unknown"
+  ].includes(value.toLowerCase());
 }
 
 async function executePubmedSearchPage(
@@ -2007,6 +2074,72 @@ function providerSearch(
   const search = hypothesis?.provider_searches.find((item) => item.provider === provider);
   if (search === undefined) throw new Error("Unknown formal provider search");
   return search;
+}
+
+function reuseTerminalFormalProviderSearch(
+  rawState: ResearchFormalEvidenceState,
+  hypothesisId: string,
+  provider: typeof FORMAL_EVIDENCE_PROVIDERS[number]
+): ResearchFormalEvidenceState {
+  const state = researchFormalEvidenceStateSchema.parse(rawState);
+  const target = state.hypotheses.find(({ hypothesis_id }) =>
+    hypothesis_id === hypothesisId
+  );
+  if (target === undefined) throw new Error("Unknown formal-search hypothesis");
+  const targetSearch = target.provider_searches.find((search) =>
+    search.provider === provider
+  );
+  if (targetSearch?.status !== "NOT_STARTED") return state;
+  const donor = state.hypotheses.find((hypothesis) => {
+    if (
+      hypothesis.hypothesis_id === hypothesisId ||
+      hypothesis.formal_query !== target.formal_query
+    ) return false;
+    const search = hypothesis.provider_searches.find((candidate) =>
+      candidate.provider === provider
+    );
+    return search !== undefined &&
+      search.reused_from_hypothesis_id === undefined &&
+      (search.status === "COMPLETE" || search.status === "BLOCKED_TERMINAL");
+  });
+  const donorSearch = donor?.provider_searches.find((search) =>
+    search.provider === provider
+  );
+  if (donor === undefined || donorSearch === undefined) return state;
+
+  const hypotheses = state.hypotheses.map((hypothesis) => {
+    if (hypothesis.hypothesis_id !== hypothesisId) return hypothesis;
+    const searches = hypothesis.provider_searches.map((search) =>
+      search.provider === provider
+        ? formalProviderSearchSchema.parse({
+          ...donorSearch,
+          reused_from_hypothesis_id: donor.hypothesis_id
+        })
+        : search
+    ) as z.output<typeof formalHypothesisSchema>["provider_searches"];
+    return formalHypothesisSchema.parse({ ...hypothesis, provider_searches: searches });
+  });
+  const sources = state.sources.map((source) => {
+    const matchingOrigins = source.origins.filter((origin) =>
+      origin.provider === provider &&
+      origin.hypothesis_ids.includes(donor.hypothesis_id)
+    );
+    if (matchingOrigins.length === 0) return source;
+    return formalSourceSchema.parse({
+      ...source,
+      hypothesis_ids: unique([...source.hypothesis_ids, hypothesisId]).sort(),
+      origins: source.origins.map((origin) =>
+        origin.provider === provider &&
+          origin.hypothesis_ids.includes(donor.hypothesis_id)
+          ? sourceOriginSchema.parse({
+            ...origin,
+            hypothesis_ids: unique([...origin.hypothesis_ids, hypothesisId]).sort()
+          })
+          : origin
+      )
+    });
+  });
+  return researchFormalEvidenceStateSchema.parse({ ...state, hypotheses, sources });
 }
 
 function formalSearchProvidersTerminal(state: ResearchFormalEvidenceState): boolean {

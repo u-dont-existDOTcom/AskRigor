@@ -1,5 +1,62 @@
 # AskRigor Codex Current State
 
+## 2026-08-26 Phase K pagination repair deployed; query-specificity candidate verified
+
+PR #104 passed deterministic verification, workflow policy, and every CodeQL
+analysis on exact head `bdd4de6f9cb27735880e51b141805977a4c96893`, then
+merged as `37bb2744cb73e4d0bbcee67b85eb7134f95d189a`. A secret-free
+Git archive of the exact merge contained 488 tracked files, measured 1,662,801
+bytes, and had SHA-256
+`79d7dc1cf0e5002c8c290ab7e9cbaaea4b124844eefd763321a1444479d1ec49`.
+Production runs image ID
+`sha256:863bb44cfa0e16e7eb0e61b90d728d476428b79966566a25dd7d0f02f598fab3`
+in healthy container `b268a7232c3f`. Immediate rollback retains the prior
+image ID
+`sha256:51cc770c4297b8ac6ee431d76f7f9698f15ad2b7a1bf7b2e7282f574ca672253`
+as `askrigor-research:rollback-37bb274-predeploy` plus prior Compose SHA-256
+`8162aaa3f235498a52bf6f32038da4f4299c97f43d2cab037a51f2352ea5455b`.
+Active Compose SHA-256 is
+`c698cb6651b8c21d54fb3b8b1dc1546cb7b3817ba216ef51a05b3a7865cb9def`;
+Caddy remained container `fd1a7e709dab`.
+
+Post-deployment public verification passes health, semantic equality with the
+unchanged five-operation Action schema, unauthenticated HTTP 401, exactly 21
+MCP tools, and exact Universal 20.5.15 / HRP 20.5.23 manifests. The installed
+plugin's eight-member inventory remains byte-identical to source outside its
+intentional manifest version cache-buster; source package SHA-256 is
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c`
+and installed package SHA-256 is
+`d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+One installed-plugin read-only protocol probe returned the exact live
+Universal identity. No editor, plugin, protocol, public inventory, privacy, or
+credential transaction was required.
+
+A non-committing replay of the exact failed transition now passes, advancing
+from digest `ac40307c3d10ac89d879a0d30ed25c7201eb15e9769a58a22b645d3f9dc6a9d2`
+to a valid successor and increasing deduplicated formal sources from 900 to
+968. The authenticated controlled replay then resumed the same preserved
+session and crossed repeated provider terminal pages without
+`action_internal_error`. The writer was stopped deliberately without
+finalization after sanitized inspection identified a separate development
+defect: the 746-character target prefixed every formal query, 41 hypotheses
+produced only 10 unique queries, one query was repeated 31 times, and each of
+the first five completed hypotheses linked the same 968 sources.
+
+The undeployed follow-up candidate bounds generated queries to 600 characters,
+adds specific program/claim terms and source-title fallback, and preserves
+indistinguishable hypotheses while reusing an exact terminal provider receipt
+chain. Against a disposable copy of the same encrypted checkpoint, fresh
+initialization yielded 40 unique queries of 180--581 characters, zero complete
+target inclusions, and title fallback for all 32 undescribed material
+candidates. The sole remaining duplicate pair was identical across program,
+title, channel, claim, treatment class, and signature; both provider receipts
+were reused with all 968 source links preserved and no executor call. Focused
+typecheck and 40 tests pass. The complete host-bound `npm run verify` gate also
+passes: 105 test files passed, one skipped; 1,400 tests passed, six skipped; and
+the production TypeScript build passed. Protected review, exact deployment,
+direct finalization, and a fresh signed-in product receipt remain required, so
+Phase K is not complete.
+
 ## 2026-08-26 Phase K formal-provider terminal-page repair candidate
 
 The next fresh signed-in fixed challenge preserved session

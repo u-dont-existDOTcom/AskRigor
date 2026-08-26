@@ -36,6 +36,7 @@ import {
   createOpenFullTextHandleStore,
   createInitialResearchSessionState,
   createStudyExternalEvidenceCoordinator,
+  deriveProgramSignature,
   deriveFormalEvidenceDiagnostics,
   deriveFormalEvidenceOperationStatus,
   deriveRequiredNextCapabilities,
@@ -54,6 +55,7 @@ import {
   initialResearchCandidateDiscoveryState,
   initializeResearchFormalEvidence,
   protocolBindingsFromManifests,
+  PROGRAM_NOT_DESCRIBED,
   recalculateResearchSourceClaimCapability,
   reconcileFormalEvidenceAfterEphemeralLoss,
   reconcileFormalEvidenceLinkedWork,
@@ -152,6 +154,147 @@ describe("controller-owned formal evidence frontier", () => {
       ...formal,
       hypothesis_frontier_digest: "f".repeat(64)
     })).toThrow(/frontier digest/u);
+  });
+
+  it("builds bounded program-specific formal queries from a broad comparison target", () => {
+    const researchTarget = [
+      "Adults with advanced joint disease comparing surgery with materially distinct nonoperative programs.",
+      "The comparison includes resistance, aquatic, mobility, gait, cycling, rehabilitation, injections, nutrition, supplements, and waiting.",
+      "Distinguish components, dose, disease stage, benefit, no effect, harm, progression, eventual surgery, durability, and study methods."
+    ].join(" ").repeat(4);
+    const formal = initializeResearchFormalEvidence(
+      screenedCandidates(),
+      researchTarget
+    );
+    const queries = formal.hypotheses.map(({ formal_query }) => formal_query);
+
+    expect(new Set(queries).size).toBe(formal.hypotheses.length);
+    for (const hypothesis of formal.hypotheses) {
+      expect(hypothesis.formal_query.length).toBeLessThanOrEqual(600);
+      expect(hypothesis.formal_query).not.toContain(researchTarget);
+      expect(hypothesis.formal_query).toContain(hypothesis.treatment_class);
+      expect(hypothesis.formal_query).toContain(hypothesis.program.components);
+      expect(hypothesis.formal_query).toContain(hypothesis.claim_summary);
+    }
+  });
+
+  it("uses source titles to distinguish material hypotheses whose programs are undescribed", () => {
+    const candidateState = screenedUndescribedCandidates();
+
+    const formal = initializeResearchFormalEvidence(
+      candidateState,
+      "Adults with advanced joint disease comparing surgery with nonoperative care."
+    );
+    const materialTitles = candidateState.candidates
+      .filter(({ materiality }) => materiality === "MATERIAL")
+      .map(({ title }) => title);
+
+    expect(formal.hypotheses).toHaveLength(materialTitles.length);
+    expect(new Set(formal.hypotheses.map(({ formal_query }) => formal_query)).size)
+      .toBe(formal.hypotheses.length);
+    for (const hypothesis of formal.hypotheses) {
+      const title = materialTitles.find((candidateTitle) =>
+        hypothesis.formal_query.includes(candidateTitle)
+      );
+      expect(title).toBeDefined();
+      expect(hypothesis.formal_query.length).toBeLessThanOrEqual(600);
+    }
+  });
+
+  it("reuses exact terminal provider receipts without collapsing indistinguishable hypotheses", async () => {
+    const candidateState = screenedUndescribedCandidates(true);
+    let formal = initializeResearchFormalEvidence(
+      candidateState,
+      "Adults with advanced joint disease comparing surgery with nonoperative care."
+    );
+    const hypotheses = formal.hypotheses;
+    expect(hypotheses).toHaveLength(3);
+    expect(new Set(hypotheses.map(({ formal_query }) => formal_query)).size).toBe(1);
+    const executors = formalExecutors();
+
+    for (const hypothesis of hypotheses) {
+      formal = await executeResearchFormalSearch(
+        formal,
+        hypothesis.hypothesis_id,
+        executors
+      );
+    }
+
+    expect(executors.searchPubmed).toHaveBeenCalledTimes(1);
+    expect(executors.searchEuropePmc).toHaveBeenCalledTimes(1);
+    expect(executors.fetchPubmedRecord).toHaveBeenCalledTimes(1);
+    for (const hypothesis of formal.hypotheses.slice(1)) {
+      expect(hypothesis.provider_searches.every(({ reused_from_hypothesis_id }) =>
+        reused_from_hypothesis_id === hypotheses[0]!.hypothesis_id
+      )).toBe(true);
+    }
+    expect(formal.sources.every(({ hypothesis_ids, origins }) =>
+      hypothesis_ids.length === hypotheses.length &&
+      origins.every(({ hypothesis_ids: originHypothesisIds }) =>
+        originHypothesisIds.length === hypotheses.length
+      )
+    )).toBe(true);
+
+    const forged = structuredClone(formal);
+    forged.hypotheses[1]!.provider_searches[0]!.reused_from_hypothesis_id =
+      "f".repeat(64);
+    expect(() => researchFormalEvidenceStateSchema.parse(forged))
+      .toThrow(/exact terminal query receipt chain/u);
+  });
+
+  it("does not replace an in-progress chain with a later duplicate terminal receipt", async () => {
+    let formal = initializeResearchFormalEvidence(
+      screenedUndescribedCandidates(true),
+      "Adults with advanced joint disease comparing surgery with nonoperative care."
+    );
+    const [donor, target] = formal.hypotheses;
+    const executors = formalExecutors();
+    let pubmedCalls = 0;
+    executors.searchPubmed = vi.fn(async (input: { query: string; cursor?: string }) => {
+      pubmedCalls += 1;
+      return okEnvelope({
+        provider: "pubmed",
+        recordType: "pubmed_search_result",
+        query: { query: input.query },
+        accessStatus: "complete",
+        pagination: pubmedCalls === 1
+          ? {
+            page_size: 100,
+            returned: 0,
+            exhausted: false,
+            next_cursor: "target-partial-page"
+          }
+          : { page_size: 100, returned: 0, exhausted: true },
+        data: []
+      });
+    }) as never;
+    executors.searchEuropePmc = vi.fn(async (input: { query: string }) => okEnvelope({
+      provider: "europe_pmc",
+      recordType: "europe_pmc_search_result",
+      query: { query: input.query },
+      accessStatus: "complete",
+      pagination: { page_size: 100, returned: 0, exhausted: true },
+      data: []
+    })) as never;
+
+    formal = await executeResearchFormalSearch(formal, target!.hypothesis_id, executors);
+    expect(providerState(formal, target!.hypothesis_id, "pubmed")).toMatchObject({
+      status: "IN_PROGRESS",
+      pages_retrieved: 1,
+      next_cursor: "target-partial-page"
+    });
+    formal = await executeResearchFormalSearch(formal, donor!.hypothesis_id, executors);
+    formal = await executeResearchFormalSearch(formal, target!.hypothesis_id, executors);
+
+    expect(executors.searchPubmed).toHaveBeenCalledTimes(3);
+    expect(executors.searchEuropePmc).toHaveBeenCalledTimes(1);
+    const completedTarget = providerState(formal, target!.hypothesis_id, "pubmed");
+    expect(completedTarget).toMatchObject({
+      status: "COMPLETE",
+      pages_retrieved: 2
+    });
+    expect(completedTarget.page_receipt_hashes).toHaveLength(2);
+    expect(completedTarget.reused_from_hypothesis_id).toBeUndefined();
   });
 
   it("derives every material program/outcome hypothesis and calls both formal providers itself", async () => {
@@ -1069,6 +1212,46 @@ function screenedCandidates() {
     discovery,
     screeningSubmissionFor(discovery)
   );
+}
+
+function screenedUndescribedCandidates(sharedDiscoveryText = false) {
+  const candidateState = screenedCandidates();
+  const unspecifiedProgram = {
+    components: PROGRAM_NOT_DESCRIBED,
+    dose_or_intensity: PROGRAM_NOT_DESCRIBED,
+    frequency: PROGRAM_NOT_DESCRIBED,
+    duration: PROGRAM_NOT_DESCRIBED,
+    supervision: PROGRAM_NOT_DESCRIBED,
+    adherence_or_fidelity: PROGRAM_NOT_DESCRIBED,
+    cointerventions: PROGRAM_NOT_DESCRIBED,
+    stage_or_baseline: PROGRAM_NOT_DESCRIBED,
+    outcome: PROGRAM_NOT_DESCRIBED,
+    horizon: PROGRAM_NOT_DESCRIBED,
+    care_stage: PROGRAM_NOT_DESCRIBED
+  };
+  for (const candidate of candidateState.candidates) {
+    if (candidate.materiality !== "MATERIAL") continue;
+    if (sharedDiscoveryText) {
+      candidate.title = "Shared provisional source title";
+      candidate.channel_title = "Shared provisional source channel";
+    }
+    candidate.provisional_treatment_class = "joint preservation";
+    candidate.provisional_claim_summary = PROGRAM_NOT_DESCRIBED;
+    candidate.program = unspecifiedProgram;
+    candidate.program_description_status = "NOT_DESCRIBED";
+    candidate.program_signature = deriveProgramSignature(unspecifiedProgram);
+  }
+  return candidateState;
+}
+
+function providerState(
+  formal: ResearchFormalEvidenceState,
+  hypothesisId: string,
+  provider: "pubmed" | "europe_pmc"
+) {
+  return formal.hypotheses.find(({ hypothesis_id }) =>
+    hypothesis_id === hypothesisId
+  )!.provider_searches.find((search) => search.provider === provider)!;
 }
 
 function formalSession(): ResearchSessionState {
