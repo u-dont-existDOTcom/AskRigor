@@ -36,7 +36,8 @@ new state digest. The writer was stopped at the next untouched hypothesis.
 
 Fresh signed-in Custom GPT acceptance and a server-issued finalization receipt
 remain unverified because no authenticated browser-control session was
-connected. No full product acceptance is claimed.
+connected; the browser runtime reported no available browsers. No full product
+acceptance is claimed.
 
 ## 2026-08-26 formal-pagination repair live; replay stopped at query-specificity boundary
 

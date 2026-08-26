@@ -920,7 +920,7 @@ a disposable checkpoint copy. Bounded authenticated Action calls then advanced
 the preserved session from five to seven completed hypotheses and persisted
 both donor-provider bindings plus all 968 source links for the indistinguishable
 pair. Fresh signed-in Custom GPT finalization remains the only current K3 gate;
-it was unavailable because no browser-control session was connected.
+it was unavailable because the browser runtime reported no available browsers.
 
 Tasks:
 

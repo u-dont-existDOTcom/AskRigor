@@ -42,7 +42,8 @@ hypothesis, two donor-provider bindings, and all 968 source relationships.
 
 The generated Custom GPT bundle and plugin content are unchanged. Fresh
 signed-in Custom GPT finalization remains pending because no browser-control
-session was connected; no final product-acceptance receipt is claimed. The
+session was connected and the browser runtime reported no available browsers;
+no final product-acceptance receipt is claimed. The
 required predeployment lesson checkpoint was available with one open
 candidate, one needing review, zero accepted-not-incorporated, three
 incorporated/closed, and zero deletion-eligible.

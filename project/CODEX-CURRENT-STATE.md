@@ -36,10 +36,11 @@ searches, and all 968 source relationships attached to the reused hypothesis.
 The writer is stopped at untouched hypothesis index 7.
 
 Fresh signed-in Custom GPT acceptance remains required and was not attempted
-because no browser-control session was connected. There is no new finalization
-or product-acceptance receipt, so Phase K is not complete. Predeployment lesson
-status was available: one open, one needs review, zero accepted but not
-incorporated, three incorporated/closed, zero deletion-eligible.
+because the browser runtime reported no available browsers. There is no new
+finalization or product-acceptance receipt, so Phase K is not complete.
+Predeployment lesson status was available: one open, one needs review, zero
+accepted but not incorporated, three incorporated/closed, zero
+deletion-eligible.
 
 ## 2026-08-26 Phase K pagination repair deployed; query-specificity candidate verified
 
