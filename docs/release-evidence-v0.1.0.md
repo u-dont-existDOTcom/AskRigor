@@ -1,6 +1,52 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-26 formal-query specificity and exact-receipt reuse deployed
+
+PR #105 passed all protected checks on exact head
+`d31dd3089fed5c6f98a8d402406507abad2a14e6` and merged as
+`acd4d2f9664de0332f695a9099de111558aca918`. Its secret-free exact Git
+archive contained 488 tracked files, measured 1,667,999 bytes, and had SHA-256
+`29e838ef4a4f8ef1c2aeb8fdd05454048a0faa488fc74803288124dc6cc58101`.
+Production image ID is
+`sha256:760ef3989996b6a6f07c2aeef890829387144473c8d8ebf5519a28fc8f0dfa91`
+in healthy container `398cf359e697`. Immediate rollback is
+`askrigor-research:rollback-acd4d2f-predeploy`, preserving prior image ID
+`sha256:863bb44cfa0e16e7eb0e61b90d728d476428b79966566a25dd7d0f02f598fab3`
+and prior Compose SHA-256
+`c698cb6651b8c21d54fb3b8b1dc1546cb7b3817ba216ef51a05b3a7865cb9def`.
+The active Compose SHA-256 is
+`de623786089440754bc80c59ab8c0730a5dccf906782851940139f68ac08f53b`;
+Caddy remained container `fd1a7e709dab`.
+
+Live verification passes health, exact semantic Action-schema equality, HTTP
+401 without authentication, 21 MCP tools with tool-name digest
+`119a534d07a6787609876bf8f5ba71f44f5fd8eeb25beb730aeef51b814f0153`,
+and exact Universal 20.5.15 / HRP 20.5.23 manifests. One read-only installed
+AskRigor connector call returned the same Universal identity. Source and
+installed package receipts each cover all eight required members; every
+non-manifest member is byte-identical, and package SHA-256 values are
+respectively
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c`
+and `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+
+The deployed image passed a network-disabled, non-committing audit against a
+disposable encrypted-checkpoint copy: 41 hypotheses yielded 40 unique bounded
+queries, zero complete-target inclusions, and title fallback for all 32
+undescribed material candidates. The only duplicate pair was identical across
+every available semantic discriminator. An authenticated production Action
+replay then completed the old session's active PubMed chain and committed the
+next identical hypothesis through exact receipt reuse. The persisted state
+advanced from five to seven completed hypotheses and records one reused
+hypothesis, two donor-provider bindings, and all 968 source relationships.
+
+The generated Custom GPT bundle and plugin content are unchanged. Fresh
+signed-in Custom GPT finalization remains pending because no browser-control
+session was connected; no final product-acceptance receipt is claimed. The
+required predeployment lesson checkpoint was available with one open
+candidate, one needing review, zero accepted-not-incorporated, three
+incorporated/closed, and zero deletion-eligible.
+
 ## 2026-08-26 formal-provider pagination repair deployed
 
 PR #104 passed deterministic verification, workflow policy, and all CodeQL

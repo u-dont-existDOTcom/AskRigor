@@ -1,5 +1,46 @@
 # AskRigor Codex Current State
 
+## 2026-08-26 Phase K query-specificity repair deployed; signed-in UI remains
+
+PR #105 passed every protected check on exact head
+`d31dd3089fed5c6f98a8d402406507abad2a14e6`, merged as
+`acd4d2f9664de0332f695a9099de111558aca918`, and was deployed from a
+488-file, 1,667,999-byte exact archive with SHA-256
+`29e838ef4a4f8ef1c2aeb8fdd05454048a0faa488fc74803288124dc6cc58101`.
+Production is healthy on image ID
+`sha256:760ef3989996b6a6f07c2aeef890829387144473c8d8ebf5519a28fc8f0dfa91`
+and container `398cf359e697`. Immediate rollback retains prior image ID
+`sha256:863bb44cfa0e16e7eb0e61b90d728d476428b79966566a25dd7d0f02f598fab3`
+as `askrigor-research:rollback-acd4d2f-predeploy` plus prior Compose SHA-256
+`c698cb6651b8c21d54fb3b8b1dc1546cb7b3817ba216ef51a05b3a7865cb9def`.
+Active Compose SHA-256 is
+`de623786089440754bc80c59ab8c0730a5dccf906782851940139f68ac08f53b`;
+Caddy remained `fd1a7e709dab`.
+
+Postdeployment public health, exact five-operation Action-schema equality,
+unauthenticated rejection, the 21-tool MCP catalog, canonical Universal/HRP
+manifests, one installed-connector protocol call, and both complete
+eight-member plugin receipts pass. Every non-manifest plugin member is
+byte-identical; no editor, Action/MCP URL, plugin-package, protocol, privacy,
+credential, or public-inventory transaction was required.
+
+The live image passed the exact checkpoint-derived query audit without network
+or production-state writes: all 41 hypotheses remained, the new initializer
+produced 40 unique queries of 180--581 characters, none included the complete
+target, and all 32 undescribed material candidates used title fallback. The
+only identical pair had no semantic discriminator. Authenticated production
+Action calls then completed the already-active old PubMed chain and committed
+that pair's two exact donor-provider bindings. The persisted checkpoint now
+has seven completed hypotheses, one reused hypothesis, two reused provider
+searches, and all 968 source relationships attached to the reused hypothesis.
+The writer is stopped at untouched hypothesis index 7.
+
+Fresh signed-in Custom GPT acceptance remains required and was not attempted
+because no browser-control session was connected. There is no new finalization
+or product-acceptance receipt, so Phase K is not complete. Predeployment lesson
+status was available: one open, one needs review, zero accepted but not
+incorporated, three incorporated/closed, zero deletion-eligible.
+
 ## 2026-08-26 Phase K pagination repair deployed; query-specificity candidate verified
 
 PR #104 passed deterministic verification, workflow policy, and every CodeQL

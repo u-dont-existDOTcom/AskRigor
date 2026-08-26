@@ -1,5 +1,43 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-26 formal-query repair live; backend acceptance passed, signed-in UI blocked
+
+PR #105 passed deterministic verification, workflow policy, and every CodeQL
+analysis on exact head `d31dd3089fed5c6f98a8d402406507abad2a14e6`, then
+merged as `acd4d2f9664de0332f695a9099de111558aca918`. That exact merge is
+live as healthy image ID
+`sha256:760ef3989996b6a6f07c2aeef890829387144473c8d8ebf5519a28fc8f0dfa91`
+in container `398cf359e697`; the prior image and exact Compose bytes remain
+immediate rollback. Caddy remained `fd1a7e709dab`.
+
+Public health, exact semantic equality with the unchanged five-operation
+Action schema, unauthenticated rejection, the exact 21-tool MCP catalog,
+canonical protocol manifests, a read-only installed-plugin protocol call, and
+the complete eight-member plugin receipt all pass. Every non-manifest plugin
+member is byte-identical to source; the manifest differs only by its installed
+cache-buster version. The generated Custom GPT bundle, Action/MCP URLs, and
+plugin content did not change, so no editor import or package reinstall is
+required.
+
+The deployed image reinitialized formal evidence from a disposable copy of the
+preserved checkpoint without provider access: all 41 hypotheses remained, 40
+unique queries were 180--581 characters, no query contained the complete
+746-character target, and every one of the 32 undescribed material candidates
+used its title. The sole identical pair had no truthful discriminator across
+program, title, channel, claim, treatment class, or signature.
+
+Authenticated Action acceptance then advanced the preserved production
+session from five to seven completed hypotheses. Seven bounded PubMed pages
+completed the already-active old broad query; the next Action transition
+persisted both exact donor-provider receipt bindings for the identical pair,
+with all 968 source relationships and no repeated provider request. Every call
+returned `IN_PROGRESS` / `formal_evidence_search` / `progress_recorded` and a
+new state digest. The writer was stopped at the next untouched hypothesis.
+
+Fresh signed-in Custom GPT acceptance and a server-issued finalization receipt
+remain unverified because no authenticated browser-control session was
+connected. No full product acceptance is claimed.
+
 ## 2026-08-26 formal-pagination repair live; replay stopped at query-specificity boundary
 
 PR #104 passed all protected checks on exact head
