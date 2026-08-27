@@ -62,12 +62,27 @@ no replacement session, reader report, finalization, or
 `product_acceptance_receipt` is claimed.
 
 The required Google audit images were captured from the live public pages at
-1,351 pixels wide and below 1 MB each. An above-default request for 100,000
-daily units is now empirically justified, but the application remains
-unsubmitted pending the final browser action and accurate completion of the
-applicant's contact/address fields. The Privacy Notice truthfully discloses the
-separate best-effort unofficial YouTube transcript interface; that policy risk
-must not be hidden or relabeled as official Data API behavior during review.
+1,351 pixels wide and below 1 MB each. On 2026-08-27 the owner supplied the
+applicant fields and gave action-time authorization, and the YouTube Data API
+Services Audit and Quota Extension Form was submitted through the signed-in
+Google support surface. The application requests 100,000 total units per day
+and a 1,000-unit peak per minute for `search.list`, `videos.list`,
+`commentThreads.list`, and `comments.list`; the separately entered
+`search.list` limits remain 100/day and 100/minute with no search-quota
+increase requested. The three public evidence images cover the Privacy Notice,
+homepage, and Terms. Google's validator also treated the non-applicable
+conditional-evidence upload as mandatory, so the already-authorized homepage
+feature image was attached there again rather than inventing a conditional use
+case or a fourth evidence claim.
+
+The terminal Google page stated `Your email has been sent` and `Thank you for
+submitting the YouTube API Services Form.` It displayed no case identifier.
+This receipt proves submission only: quota approval, an effective quota change,
+and product acceptance remain unclaimed. Do not retry the preserved acceptance
+session until the daily quota resets or Google applies an increase. The Privacy
+Notice continues to truthfully disclose the separate best-effort unofficial
+YouTube transcript interface; that review risk was neither omitted nor
+relabeled as official Data API behavior.
 
 ## 2026-08-27 candidate-screening semantic guidance candidate
 

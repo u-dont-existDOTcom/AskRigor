@@ -38,19 +38,31 @@ dedicated search requests. Stop retries until quota resets or is increased; do
 not create a replacement session. No finalization or product-acceptance receipt
 exists yet.
 
-The live legal-page and homepage evidence images are prepared locally for the
-Google audit form. A 100,000-daily-unit request is justified by the observed
-single-session workload and would retain the existing 100/day search request
-limit. The form remains unsubmitted: applicant address/contact fields still
-require accurate owner data, and browser submission requires an action-time
-confirmation. The public Privacy Notice truthfully discloses the separate
-best-effort unofficial transcript interface. Do not omit that disclosure or
-claim the interface is an official YouTube Data API method; resolve or
-explicitly accept that review risk before submission.
+The owner supplied the applicant fields and authorized the signed-in Google
+submission at action time. On 2026-08-27 the YouTube Data API Services Audit
+and Quota Extension Form was submitted for 100,000 total units/day and a
+1,000-unit peak/minute across the four read-only methods `search.list`,
+`videos.list`, `commentThreads.list`, and `comments.list`. The separate search
+limits remain 100/day and 100/minute with no requested search increase. The
+three public Privacy, homepage, and Terms images were attached; because
+Google's validator incorrectly required the non-applicable conditional field,
+the already-authorized homepage feature image was attached there again rather
+than asserting a conditional use case. The terminal receipt said `Your email
+has been sent` and thanked the owner for submitting the form; no case ID was
+displayed. This is a submission receipt, not a quota approval or effective
+quota change. Keep the preserved product session stopped until daily quota
+resets or an increase is observed. The public Privacy Notice still truthfully
+discloses the separate best-effort unofficial transcript interface; do not
+relabel it as an official YouTube Data API method.
 
 The predeployment lesson checkpoint was available with one open candidate,
 one needing review, zero accepted but not incorporated, three incorporated or
 closed, and zero deletion-eligible.
+
+Lesson disposition for the quota-form transaction is project-specific / no-new-
+lesson. The mandatory conditional-upload behavior is a Google form validation
+detail, while the durable submission-versus-approval distinction and truthful
+provider-boundary reporting already follow current repository rules.
 
 ## 2026-08-27 candidate-screening semantic-contract repair candidate
 
