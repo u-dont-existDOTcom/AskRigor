@@ -17,6 +17,23 @@ The production YouTube project retained ample daily and per-minute quota during
 the failure. This is a deterministic controller liveness defect, not provider
 quota exhaustion.
 
+## Google audit disclosure correction
+
+The live privacy notice already disclosed public YouTube fields, provider
+sharing, transient processing, retention, deletion requests, and the no-account
+boundary, but it did not link the Google Privacy Policy. The Terms also did not
+link YouTube's Terms of Service or state the required agreement. Before release:
+
+1. Link the current Google Privacy Policy from an explicit YouTube API Services
+   section and state that AskRigor uses only server-authenticated public-data
+   requests, with no user OAuth or Authorized Data.
+2. State the no-advertising and no-cookie behavior of AskRigor's static site and
+   research API without making claims about separately controlled providers.
+3. Link YouTube's Terms of Service and state that users of YouTube-backed
+   features agree to be bound by them.
+4. Bind those disclosures into the executable public-site validator and tests,
+   then deploy and capture readable evidence before any audit submission.
+
 ## Governing repair
 
 1. Preserve the fixed-size authenticated membership filter and fail closed on
@@ -71,6 +88,8 @@ quota exhaustion.
   in the complete serial run and its sole 15-second child-process timeout
   passed immediately in isolation; six declared tests remain skipped.
 - [x] Typecheck, build, and whitespace/error diff checks pass.
+- [x] Public-site validator, 22 page tests, and 28 deployment tests pass with
+  the Google Privacy Policy, YouTube Terms, no-OAuth, and agreement disclosures.
 - [x] Protocol XML, public Action count, MCP tool count, credentials, privacy
   data classes, and generated product artifacts remain unchanged.
 - [ ] Pull request, hosted checks, exact merge, deployment, plugin audit, and
