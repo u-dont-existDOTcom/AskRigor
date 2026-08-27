@@ -207,3 +207,34 @@ export function nativeSearchQuotaSurvey(): YoutubeCommunitySurveyOutput {
     candidates: []
   };
 }
+
+export function nativeSearchAccessBoundarySurvey(): YoutubeCommunitySurveyOutput {
+  const survey = nativeSurvey();
+  const completeSearch = survey.searches[0]!;
+  return {
+    ...survey,
+    access_status: "partial",
+    limitations: [
+      ...survey.limitations,
+      "One bounded native YouTube search direction was unavailable."
+    ],
+    searches: [
+      completeSearch,
+      {
+        ...completeSearch,
+        directions: ["harm"],
+        query: "condition harm experience",
+        access_status: "rate_limited",
+        pagination: { returned: 0, exhausted: false },
+        limitations: ["The native YouTube search direction was rate limited."],
+        error: {
+          code: "youtube_rate_limited",
+          message: "YouTube search was temporarily unavailable",
+          http_status: 403,
+          retryable: true
+        },
+        candidate_video_ids: []
+      }
+    ]
+  };
+}

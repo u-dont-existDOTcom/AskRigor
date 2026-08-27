@@ -52,6 +52,7 @@ import {
 import { deriveGeminiYoutubeCandidateFrontier } from "../packages/sources/src/index.js";
 import {
   RESEARCH_FIXTURE_VIDEO_IDS,
+  nativeSearchAccessBoundarySurvey,
   nativeSearchQuotaSurvey,
   nativeSurvey,
   rejectedResearchReceipt,
@@ -990,6 +991,75 @@ describe("research session controller core", () => {
         expect.stringMatching(/daily YouTube search allocation.*validated.*frontier/iu)
       ]));
     expect(deriveResearchFinalizationReadiness(discovered)).toBe("CONTINUE_RESEARCH");
+  });
+
+  it("continues to screening after a generic blocked search with complete returned identities", () => {
+    const discovered = recordNativeYoutubeDiscovery(
+      livePartialScout(),
+      nativeSearchAccessBoundarySurvey()
+    );
+
+    expect(discovered.operations.native_video_discovery).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "NATIVE_SEARCH_ACCESS_BOUNDED"
+      }
+    });
+    expect(discovered.candidate_discovery.native_youtube
+      .unresolved_candidate_video_ids).toEqual([]);
+    expect(projectResearchSessionView(SESSION_ID, discovered)
+      .candidate_screening_work_package?.candidates).toHaveLength(8);
+    expect(deriveRequiredNextCapabilities(discovered)).toContain(
+      "candidate_screening"
+    );
+    expect(deriveRequiredNextCapabilities(discovered)).not.toContain(
+      "native_video_discovery"
+    );
+  });
+
+  it("migrates a preserved generic native-search retry into the bounded frontier", () => {
+    const bounded = recordNativeYoutubeDiscovery(
+      livePartialScout(),
+      nativeSearchAccessBoundarySurvey()
+    );
+    const legacyBoundary = {
+      classification: "RETRYABLE" as const,
+      code: "NATIVE_DISCOVERY_RETRYABLE_BOUNDARY",
+      summary: "Native video discovery has retryable search or identity work remaining."
+    };
+    const legacy = researchSessionStateSchema.parse({
+      ...bounded,
+      operations: {
+        ...bounded.operations,
+        native_video_discovery: {
+          status: "BLOCKED_RETRYABLE",
+          boundary: legacyBoundary
+        }
+      },
+      candidate_discovery: {
+        ...bounded.candidate_discovery,
+        native_youtube: {
+          ...bounded.candidate_discovery.native_youtube,
+          status: "BLOCKED_RETRYABLE"
+        }
+      }
+    });
+
+    const reconciled = reconcileRestoredResearchSessionState(legacy);
+    expect(reconciled.operations.native_video_discovery).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: { code: "NATIVE_SEARCH_ACCESS_BOUNDED" }
+    });
+    expect(reconciled.candidate_discovery.native_youtube.status).toBe(
+      "BLOCKED_TERMINAL"
+    );
+    expect(deriveRequiredNextCapabilities(reconciled)).toContain(
+      "candidate_screening"
+    );
+    expect(deriveRequiredNextCapabilities(reconciled)).not.toContain(
+      "native_video_discovery"
+    );
   });
 
   it("issues a signed permit only for a controller-complete execution", () => {
