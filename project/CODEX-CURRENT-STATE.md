@@ -1,5 +1,57 @@
 # AskRigor Codex Current State
 
+## 2026-08-27 identifier boundary and YouTube disclosures deployed; quota-bound continuation
+
+PR #111 passed every protected check on exact head
+`746ea03ef8daabec6f2f8f6c9e792632b0d7421d` and merged as
+`4cf17ae73ad2c2ffcfb55ab7ad8160fd83c86742`. The exact merge archive
+contains 549 members, measures 1,685,909 bytes, and has SHA-256
+`40f09379e7dfafca94d166fdf468c4a2ca8c2a9f953da86e1082729953182be9`.
+Production is healthy on image ID
+`sha256:2a6ac954f85bf3529187bdf7e690f59864e954854597f04bc4a68d7d26fb5945`
+in container `aef3c254f270`. Immediate rollback preserves prior image ID
+`sha256:b5d90dd0e4dd96a620e7a92614d8e79214c264de7a37869bd1dd0f738ab9495b`
+as `askrigor-research:rollback-4cf17ae-predeploy`, plus prior Compose
+SHA-256
+`9aafa28ef824ccf7975e95c0617797af416e282daa32afd4e3f7ab3d347e79b8`.
+The active Compose SHA-256 is
+`f8c942fb370a29bcc23121cb594a2d120208b87ccfd408ad4fd2b46b7e9effbc`.
+
+The site installer transaction activated
+`/opt/askrigor/site/releases/4cf17ae-20260827-youtube-api-disclosures/site`.
+Live Privacy now links Google's Privacy Policy, names YouTube API Services,
+and states the no-OAuth/no-Authorized-Data boundary; live Terms link YouTube's
+Terms and state the user-agreement boundary. Public verification passes exact
+five-Action semantic equality, unauthenticated 401, the exact 21-tool MCP
+catalog, HRP 20.5.23, Universal 20.5.15, one installed-connector manifest
+probe, and both complete eight-member plugin receipts. Every non-manifest
+plugin member is byte-identical; only the intentional cache-buster version
+differs in the installed manifest.
+
+The preserved fixed acceptance session survived the deployment and reconciled
+through the live Action surface. The repaired retry advanced immediately, then
+73 same-session `community_discussion_audit` transitions recorded monotonic
+forward progress without another identifier-membership restart. The next
+transition returned a genuine retryable boundary. Google Cloud then showed
+9,398/10,000 daily YouTube units used, 214.429/1,800,000 per minute, and zero
+dedicated search requests. Stop retries until quota resets or is increased; do
+not create a replacement session. No finalization or product-acceptance receipt
+exists yet.
+
+The live legal-page and homepage evidence images are prepared locally for the
+Google audit form. A 100,000-daily-unit request is justified by the observed
+single-session workload and would retain the existing 100/day search request
+limit. The form remains unsubmitted: applicant address/contact fields still
+require accurate owner data, and browser submission requires an action-time
+confirmation. The public Privacy Notice truthfully discloses the separate
+best-effort unofficial transcript interface. Do not omit that disclosure or
+claim the interface is an official YouTube Data API method; resolve or
+explicitly accept that review risk before submission.
+
+The predeployment lesson checkpoint was available with one open candidate,
+one needing review, zero accepted but not incorporated, three incorporated or
+closed, and zero deletion-eligible.
+
 ## 2026-08-27 candidate-screening semantic-contract repair candidate
 
 A genuinely fresh signed-in fixed product-acceptance challenge started session

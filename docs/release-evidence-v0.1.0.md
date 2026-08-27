@@ -1,6 +1,74 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-27 YouTube identifier boundary and API disclosures deployed
+
+PR #111 passed deterministic verification, workflow policy, and every CodeQL
+analysis on exact head `746ea03ef8daabec6f2f8f6c9e792632b0d7421d`, then
+merged as `4cf17ae73ad2c2ffcfb55ab7ad8160fd83c86742`. The complete
+serial release gate passed 106 test files and all 1,411 runnable tests, with
+six declared live tests skipped; typecheck, production build, the four-page
+site validator, and 28/28 site-deployment tests also passed.
+
+The exact secret-free merge archive contains 549 members, measures 1,685,909
+bytes, and has SHA-256
+`40f09379e7dfafca94d166fdf468c4a2ca8c2a9f953da86e1082729953182be9`.
+Production is healthy on image
+`askrigor-research:4cf17ae73ad2c2ffcfb55ab7ad8160fd83c86742`, image ID
+`sha256:2a6ac954f85bf3529187bdf7e690f59864e954854597f04bc4a68d7d26fb5945`,
+and container `aef3c254f270`. Immediate rollback retains prior image ID
+`sha256:b5d90dd0e4dd96a620e7a92614d8e79214c264de7a37869bd1dd0f738ab9495b`
+as `askrigor-research:rollback-4cf17ae-predeploy`, plus prior Compose
+SHA-256
+`9aafa28ef824ccf7975e95c0617797af416e282daa32afd4e3f7ab3d347e79b8`.
+The active Compose SHA-256 is
+`f8c942fb370a29bcc23121cb594a2d120208b87ccfd408ad4fd2b46b7e9effbc`.
+
+The transactional public-site installer activated release
+`/opt/askrigor/site/releases/4cf17ae-20260827-youtube-api-disclosures/site`
+from a 20,140-byte archive with SHA-256
+`8f2eda1b1e73564b32d4ba45a09caaf805a1acb5a60487f99f8f178cb3a151e7`.
+The live Privacy Notice now names YouTube API Services, links Google's Privacy
+Policy, states the no-OAuth/no-Authorized-Data boundary, and preserves the
+retention and deletion disclosures. The live Terms link YouTube's Terms and
+state the user-agreement boundary. The homepage visibly links Privacy and
+describes API-visible YouTube video, comment, and reply retrieval.
+
+Postdeployment verification passes loopback and public health, exact semantic
+equality with the five-operation Action schema, unauthenticated HTTP 401, and
+the exact 21-tool MCP catalog with ordered-name SHA-256
+`eac8422f275e82de0e44aa897ddbd1cc04796355dc6230e96248154965965e3b`.
+The live HRP manifest is 20.5.23 / 2026-08-24 /
+`bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`;
+Universal is 20.5.15 / 2026-08-24 /
+`69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`.
+One read-only installed AskRigor connector call returned that exact Universal
+identity. Source and installed plugin receipts each cover all eight declared
+members; the seven non-manifest members are byte-identical and the manifest
+differs only by the installed cache-buster version. Their package SHA-256
+values are respectively
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c`
+and `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+
+The preserved fixed acceptance session survived deployment. A live status
+read reconciled its post-restart state, and the formerly looping discussion
+retry immediately advanced as `progress_recorded`. Seventy-three consecutive
+same-session transitions then advanced authoritative digests monotonically
+without another identifier-membership restart. The next response was a genuine
+retryable provider boundary. Google Cloud showed 9,398 of 10,000 daily YouTube
+units used (93.98%), 214.429 of 1,800,000 per-minute units, and zero dedicated
+search requests. Further retries stopped at that observed daily-quota boundary;
+no replacement session, reader report, finalization, or
+`product_acceptance_receipt` is claimed.
+
+The required Google audit images were captured from the live public pages at
+1,351 pixels wide and below 1 MB each. An above-default request for 100,000
+daily units is now empirically justified, but the application remains
+unsubmitted pending the final browser action and accurate completion of the
+applicant's contact/address fields. The Privacy Notice truthfully discloses the
+separate best-effort unofficial YouTube transcript interface; that policy risk
+must not be hidden or relabeled as official Data API behavior during review.
+
 ## 2026-08-27 candidate-screening semantic guidance candidate
 
 Fresh signed-in product execution reproduced a nonretryable
