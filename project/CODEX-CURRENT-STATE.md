@@ -1,22 +1,23 @@
 # AskRigor Codex Current State
 
-## 2026-08-27 YouTube search-quota resilience candidate
+## 2026-08-27 YouTube search-quota resilience deployed
 
 Owner direction authorizes two related controlled-workflow changes: request
 100 top-level comment threads per YouTube provider page, and keep research
 advancing from its independently validated candidate frontier when the
 separate 100/day `search.list` allocation is exhausted.
 
-The isolated candidate branch
-`agent/youtube-search-quota-fallback-20260827` starts from merged public
-baseline `d8229a1`. It maps only HTTP 403 `search.list` quota exhaustion to the
-distinct sanitized code `youtube_search_quota_exhausted`, while generic 429s,
-metadata failures, unresolved identities, and other retryable errors remain
-retryable. The controller preserves literal rate-limited native-search
-receipts, marks only that search operation terminal for the immutable current
-execution, does not project native discovery complete, and exposes candidate
-screening from the already validated frontier instead of retry-looping. Any
-eventual answer remains limited by the native-search coverage boundary.
+PR #114 passed all protected checks on exact head
+`785270e8a3d363cb51a4b5a587433ae1c92bc887` and merged as
+`f2b39d637fef95b95b80ef4252a07a739aa5d151`. It maps only HTTP 403
+`search.list` daily-quota exhaustion to the distinct sanitized code
+`youtube_search_quota_exhausted`, while generic 429s, metadata failures,
+unresolved identities, and other retryable errors remain retryable. The
+controller preserves literal rate-limited native-search receipts, marks only
+that search operation terminal for the immutable current execution, does not
+project native discovery complete, and exposes candidate screening from the
+already validated frontier instead of retry-looping. Any eventual answer
+remains limited by the native-search coverage boundary.
 
 The resumable discussion audit now requests `commentThreads.list` pages of 100
 instead of 20. Existing 50-provider-request and 15-second per-call budgets,
@@ -31,9 +32,31 @@ file then passed 4/4 in isolation. The clean complete `npm run verify` gate
 passes 106 test files with one declared live file skipped, 1,417 tests with six
 declared live tests skipped, and the production TypeScript build. The durable
 implementation plan is `docs/superpowers/plans/2026-08-27-youtube-search-quota-fallback.md`.
-Complete diff review, lesson closeout, protected review, merge, exact deployment
-and rollback evidence, plugin synchronization checks, and fresh production
-acceptance remain required.
+
+The exact 550-member, 1,695,059-byte merge archive has SHA-256
+`79156c9d5fd1af1c54c9bdd824d92c646d8fe4226068505d4bb0ead043ce5c95`.
+Production is healthy on image ID
+`sha256:2f9f9be37cbc75fb2f2e835b09b1b95aa525f321b618917079fdc9e61d69aaf7`
+in container `9d952deda964`. Rollback retains prior image ID
+`sha256:2a6ac954f85bf3529187bdf7e690f59864e954854597f04bc4a68d7d26fb5945`
+as `askrigor-research:rollback-f2b39d6-predeploy` and prior Compose SHA-256
+`f8c942fb370a29bcc23121cb594a2d120208b87ccfd408ad4fd2b46b7e9effbc`.
+Active Compose SHA-256 is
+`b716ee0609877e76b60b6b1ce5e27f4f938f683878131778a1631ae22f1bbd84`;
+Caddy remained `cb061473089c`.
+
+Public health, the unchanged exact five-Action schema, unauthenticated 401,
+the exact 21-tool MCP catalog, both canonical protocol manifests, one
+read-only installed-connector manifest call, and both complete eight-member
+plugin receipts pass. Every non-manifest plugin member is byte-identical to
+source. No editor or plugin installation transaction was required because
+those bytes did not change. A live public-video discussion audit entered one
+comment-thread page, processed 18 top-level comments and 11 replies, then
+stopped at a generic retryable YouTube 403 during reply reconciliation. It did
+not exercise or claim the separate `search.list` fallback. That exact boundary
+cannot be manufactured while search capacity remains; the merged deterministic
+provider/frontier/controller regressions are the acceptance evidence for it.
+Fresh signed-in product finalization remains required.
 
 The start-of-task lesson checkpoint is available: one open candidate, one
 needs review, zero accepted but not incorporated, three incorporated/closed,
