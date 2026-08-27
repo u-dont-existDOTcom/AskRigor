@@ -63,4 +63,3 @@ overhead by using the provider's 100-item page maximum.
 - Before production deployment, preserve the current production version and
   deployment identifier. Roll back by redeploying that exact prior version;
   do not rewrite shared Git history.
-
