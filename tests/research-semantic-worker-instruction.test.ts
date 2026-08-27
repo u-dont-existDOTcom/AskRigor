@@ -47,6 +47,32 @@ describe("research semantic worker instructions", () => {
       .toContain("Similar titles, channels, or treatment themes alone do not establish DUPLICATE");
   });
 
+  it("binds formal source screening to one exact bounded batch", () => {
+    const instruction = researchSemanticWorkerInstruction("formal_source_screening");
+
+    expect(instruction).toContain("one bounded batch");
+    expect(instruction).toContain(
+      "exactly one decision for every source in semantic_work.package.sources"
+    );
+    expect(instruction).toContain("preserving every packaged source_id exactly once");
+    expect(instruction).toContain("never omit a packaged source");
+    expect(instruction).toContain("server alone decides whether another signed screening batch");
+
+    const contract = researchSemanticResponseContract("formal_source_screening") as {
+      properties: {
+        submission: {
+          properties: { decisions: { description?: string; maxItems?: number } };
+        };
+      };
+    };
+    const decisions = contract.properties.submission.properties.decisions;
+    expect(decisions.maxItems).toBe(100);
+    expect(decisions.description).toContain(
+      "Exactly one decision for every source_id in the current packaged screening batch"
+    );
+    expect(decisions.description).toContain("outside that batch");
+  });
+
   it("keeps unrelated semantic work on the bounded base instruction", () => {
     const instruction = researchSemanticWorkerInstruction("module_applicability");
 
