@@ -127,18 +127,10 @@ export function createResearchSessionPrototypeRoutes(
             return projected;
           }
 
-          if (checked.scout.status !== "COMPLETE") {
-            if (checked.operations.automated_video_scout.status === "BLOCKED_TERMINAL") {
-              const projected = {
-                ...projectResearchSessionView(sessionId, checked),
-                last_transition: {
-                  capability: "automated_video_scout" as const,
-                  result: "blocked_terminal" as const
-                }
-              };
-              store.replace(sessionId, checked);
-              return projected;
-            }
+          if (
+            checked.scout.status !== "COMPLETE" &&
+            checked.operations.automated_video_scout.status !== "BLOCKED_TERMINAL"
+          ) {
             const next = await discovery.automatedScout(checked);
             const operationStatus = next.operations.automated_video_scout.status;
             const projected = {

@@ -1155,6 +1155,9 @@ export function recordAutomatedScoutCompletion(
   );
   const externalStatus = discovery.external_scout.status;
   const rejectedPacket = completion.receipt.status === "rejected";
+  const usablePartialFrontier =
+    discovery.external_scout.validated_candidate_video_ids.length > 0 &&
+    discovery.external_scout.unresolved_candidate_video_ids.length > 0;
   const boundary = externalStatus === "BLOCKED_RETRYABLE"
     ? {
       classification: "RETRYABLE" as const,
@@ -1166,11 +1169,13 @@ export function recordAutomatedScoutCompletion(
         : "Some externally scouted video identities remain unresolved and must be retried."
     }
     : externalStatus === "BLOCKED_TERMINAL"
-      ? {
-        classification: "TERMINAL_NONRETRYABLE" as const,
-        code: "AUTOMATED_SCOUT_IDENTITIES_TERMINAL",
-        summary: "Some externally scouted video identities reached a terminal validation boundary."
-      }
+      ? usablePartialFrontier
+        ? partialValidatedScoutBoundary()
+        : {
+          classification: "TERMINAL_NONRETRYABLE" as const,
+          code: "AUTOMATED_SCOUT_IDENTITIES_TERMINAL",
+          summary: "Some externally scouted video identities reached a terminal validation boundary."
+        }
       : undefined;
   const operationStatus = externalStatus === "COMPLETE"
     ? "COMPLETE" as const
@@ -1421,15 +1426,33 @@ export function recordResearchSessionVideoEvidence(
 }
 
 /**
- * Reconcile a decrypted durable checkpoint with the intentionally ephemeral
- * source-handle stores. This function can only reopen work; it cannot advance
+ * Reconcile a decrypted durable checkpoint with current controller policy and
+ * the intentionally ephemeral source-handle stores. This function cannot add
  * evidence or authorize output.
  */
 export function reconcileRestoredResearchSessionState(
   rawState: ResearchSessionState,
 ): ResearchSessionState {
   let state = researchSessionStateSchema.parse(rawState);
-  const scoutOperation = state.operations.automated_video_scout;
+  let scoutOperation = state.operations.automated_video_scout;
+  if (legacyRetryablePartialScoutIsUsable(state)) {
+    const boundary = partialValidatedScoutBoundary();
+    const candidateDiscovery = markExternalScoutFrontierBoundary(
+      state.candidate_discovery,
+      "BLOCKED_TERMINAL",
+      boundary.code
+    );
+    state = researchSessionStateSchema.parse({
+      ...state,
+      operations: {
+        ...state.operations,
+        automated_video_scout: { status: "BLOCKED_TERMINAL", boundary }
+      },
+      scout: blockedScoutProjection(state.scout, candidateDiscovery, boundary),
+      candidate_discovery: candidateDiscovery
+    });
+    scoutOperation = state.operations.automated_video_scout;
+  }
   if (
     scoutOperation.status === "BLOCKED_RETRYABLE" ||
     scoutOperation.status === "BLOCKED_TERMINAL"
@@ -1472,6 +1495,24 @@ export function reconcileRestoredResearchSessionState(
     state = withBidirectionalIteration(state, bidirectional);
   }
   return parseProjectedResearchSessionState(state);
+}
+
+function legacyRetryablePartialScoutIsUsable(state: ResearchSessionState): boolean {
+  const operation = state.operations.automated_video_scout;
+  const external = state.candidate_discovery.external_scout;
+  return operation.status === "BLOCKED_RETRYABLE" &&
+    operation.boundary?.code === "AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED" &&
+    external.status === "BLOCKED_RETRYABLE" &&
+    external.validated_candidate_video_ids.length > 0 &&
+    external.unresolved_candidate_video_ids.length > 0;
+}
+
+function partialValidatedScoutBoundary() {
+  return {
+    classification: "TERMINAL_NONRETRYABLE" as const,
+    code: "AUTOMATED_SCOUT_PARTIAL_VALIDATED_FRONTIER",
+    summary: "The external scout produced an independently validated subset for this execution; identities still unresolved after the bounded validation attempt remain excluded and explicit."
+  };
 }
 
 export function recordVideoDepthRestart(
@@ -2286,6 +2327,21 @@ function deriveResearchFinalizationLimitationsFromState(
         plain_language: `${candidate?.title ?? "A selected video"}: ${limitation}`
       });
     }
+  }
+
+  for (const capability of [
+    "automated_video_scout",
+    "native_video_discovery"
+  ] as const) {
+    const operation = state.operations[capability];
+    if (
+      operation.status !== "BLOCKED_TERMINAL" ||
+      operation.boundary === undefined
+    ) continue;
+    add({
+      scope: "source_access",
+      plain_language: operation.boundary.summary
+    });
   }
 
   const treatment = currentTreatmentLandscapeAssessment(

@@ -72,6 +72,16 @@ const OTHER_SESSION_ID = `ars1_${"B".repeat(32)}`;
 const FINALIZATION_SECRET = "phase-f-finalization-secret-that-is-at-least-thirty-two-bytes";
 const FINALIZATION_KEY_ID = "phase-f-test-key";
 const FINALIZATION_NOW = new Date("2026-08-24T12:00:00.000Z");
+const LIVE_PARTIAL_SCOUT_VIDEO_IDS = [
+  "SparkVid001",
+  "SparkVid002",
+  "SparkVid003",
+  "SparkVid004",
+  "SparkVid005",
+  "SparkVid006",
+  "SparkVid007",
+  "SparkVid008"
+] as const;
 
 function manifest(protocol: "universal" | "hrp", hash?: string) {
   return {
@@ -94,6 +104,70 @@ function scoutComplete(state = initialState()): ResearchSessionState {
     providerResponseId: "interaction-1",
     packet: researchPacket(),
     receipt: researchReceipt()
+  });
+}
+
+function livePartialScout(state = initialState()): ResearchSessionState {
+  const packet = researchPacket();
+  const receipt = researchReceipt();
+  const rejected = rejectedResearchReceipt().rejected_candidates[0]!;
+  const validatedIds = LIVE_PARTIAL_SCOUT_VIDEO_IDS.slice(0, 6);
+  const rejectedId = LIVE_PARTIAL_SCOUT_VIDEO_IDS[6];
+  const unresolvedId = LIVE_PARTIAL_SCOUT_VIDEO_IDS[7];
+  return recordAutomatedScoutCompletion(state, {
+    providerResponseId: "interaction-live-partial",
+    packet: {
+      ...packet,
+      candidates: LIVE_PARTIAL_SCOUT_VIDEO_IDS.map((videoId, index) => ({
+        ...packet.candidates[index % packet.candidates.length]!,
+        video_id: videoId,
+        canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
+        title: `Spark candidate ${index + 1}`,
+        channel: `Spark channel ${index + 1}`,
+        provisional_specific_program: `Spark program ${index + 1}`
+      })),
+      suggested_seed_video_ids: [LIVE_PARTIAL_SCOUT_VIDEO_IDS[0]]
+    },
+    receipt: {
+      ...receipt,
+      status: "partial",
+      candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
+        LIVE_PARTIAL_SCOUT_VIDEO_IDS,
+        validatedIds,
+        [rejectedId],
+        [unresolvedId]
+      ),
+      validated_candidates: validatedIds.map((videoId, index) => ({
+        ...receipt.validated_candidates[index % receipt.validated_candidates.length]!,
+        video_id: videoId,
+        canonical_url: `https://www.youtube.com/watch?v=${videoId}`,
+        provider_metadata: {
+          ...receipt.validated_candidates[index % receipt.validated_candidates.length]!
+            .provider_metadata,
+          title: `Spark candidate ${index + 1}`,
+          channel_title: `Spark channel ${index + 1}`
+        },
+        gemini_provisional_annotations: {
+          ...receipt.validated_candidates[index % receipt.validated_candidates.length]!
+            .gemini_provisional_annotations,
+          specific_program: `Spark program ${index + 1}`
+        }
+      })),
+      rejected_candidates: [{ ...rejected, video_id: rejectedId }],
+      unresolved_candidates: [{
+        video_id: unresolvedId,
+        metadata_access_status: "rate_limited",
+        retryable: true,
+        provider_error_code: "youtube_rate_limited",
+        limitations: ["Retryable fixture boundary."]
+      }],
+      suggested_seed_receipts: [{
+        video_id: LIVE_PARTIAL_SCOUT_VIDEO_IDS[0],
+        disposition: "eligible",
+        reasons: []
+      }],
+      eligible_seed_video_ids: [LIVE_PARTIAL_SCOUT_VIDEO_IDS[0]]
+    }
   });
 }
 
@@ -652,39 +726,26 @@ describe("research session controller core", () => {
     expect(stillDrifted.protocol_binding.currency).toBe("DRIFTED");
   });
 
-  it("keeps unresolved scout identities executable and blocks downstream screening", () => {
-    const packet = researchPacket();
-    const receipt = researchReceipt();
-    const unresolvedId = RESEARCH_FIXTURE_VIDEO_IDS[2];
-    const partial = recordAutomatedScoutCompletion(initialState(), {
-      providerResponseId: "interaction-partial",
-      packet,
-      receipt: {
-        ...receipt,
-        status: "partial",
-        candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
-          RESEARCH_FIXTURE_VIDEO_IDS,
-          RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
-          [],
-          [unresolvedId]
-        ),
-        validated_candidates: receipt.validated_candidates.slice(0, 2),
-        unresolved_candidates: [{
-          video_id: unresolvedId,
-          metadata_access_status: "rate_limited",
-          retryable: true,
-          provider_error_code: "youtube_rate_limited",
-          limitations: ["Retryable fixture boundary."]
-        }]
+  it("bounds unresolved scout identities while advancing from the validated subset", () => {
+    const partial = livePartialScout();
+
+    expect(partial.operations.automated_video_scout).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "AUTOMATED_SCOUT_PARTIAL_VALIDATED_FRONTIER"
       }
     });
-
-    expect(partial.operations.automated_video_scout.status).toBe("BLOCKED_RETRYABLE");
     expect(deriveRequiredNextCapabilities(partial)).toEqual([
       "route_module_applicability",
-      "automated_video_scout"
+      "native_video_discovery"
     ]);
-    expect(partial.candidate_discovery.candidates).toHaveLength(2);
+    expect(partial.scout).toMatchObject({
+      candidate_count: 8,
+      validated_candidate_ids: LIVE_PARTIAL_SCOUT_VIDEO_IDS.slice(0, 6),
+      unresolved_candidate_ids: [LIVE_PARTIAL_SCOUT_VIDEO_IDS[7]]
+    });
+    expect(partial.candidate_discovery.candidates).toHaveLength(6);
   });
 
   it("keeps a wholly rejected scout packet retryable and blocks native discovery", () => {
@@ -716,65 +777,52 @@ describe("research session controller core", () => {
   });
 
   it("reconciles a retained partial frontier after a later terminal scout attempt", () => {
-    const packet = researchPacket();
-    const receipt = researchReceipt();
-    const unresolvedId = RESEARCH_FIXTURE_VIDEO_IDS[2];
-    const partial = recordAutomatedScoutCompletion(initialState(), {
-      providerResponseId: "interaction-partial-before-terminal",
-      packet,
-      receipt: {
-        ...receipt,
-        status: "partial",
-        candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
-          RESEARCH_FIXTURE_VIDEO_IDS,
-          RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
-          [],
-          [unresolvedId]
-        ),
-        validated_candidates: receipt.validated_candidates.slice(0, 2),
-        unresolved_candidates: [{
-          video_id: unresolvedId,
-          metadata_access_status: "rate_limited",
-          retryable: true,
-          provider_error_code: "youtube_rate_limited",
-          limitations: ["Retryable fixture boundary."]
-        }]
-      }
-    });
-    const terminalBoundary = {
-      classification: "TERMINAL_NONRETRYABLE" as const,
-      code: "AUTOMATED_SCOUT_INVALID_PACKET",
-      summary: "A later provider response was terminally invalid."
+    const bounded = livePartialScout();
+    const legacyBoundary = {
+      classification: "RETRYABLE" as const,
+      code: "AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED",
+      summary: "Some externally scouted video identities remain unresolved and must be retried."
     };
     const legacy = researchSessionStateSchema.parse({
-      ...partial,
+      ...bounded,
       operations: {
-        ...partial.operations,
+        ...bounded.operations,
         automated_video_scout: {
-          status: "BLOCKED_TERMINAL",
-          boundary: terminalBoundary
+          status: "BLOCKED_RETRYABLE",
+          boundary: legacyBoundary
         }
       },
       scout: {
-        ...partial.scout,
+        ...bounded.scout,
         status: "BLOCKED",
-        access_boundary: terminalBoundary
+        access_boundary: legacyBoundary
+      },
+      candidate_discovery: {
+        ...bounded.candidate_discovery,
+        external_scout: {
+          ...bounded.candidate_discovery.external_scout,
+          status: "BLOCKED_RETRYABLE"
+        }
       }
     });
 
     const reconciled = reconcileRestoredResearchSessionState(legacy);
     expect(reconciled.candidate_discovery.external_scout).toMatchObject({
       status: "BLOCKED_TERMINAL",
-      validated_candidate_video_ids: RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
-      unresolved_candidate_video_ids: [unresolvedId]
+      validated_candidate_video_ids: LIVE_PARTIAL_SCOUT_VIDEO_IDS.slice(0, 6),
+      unresolved_candidate_video_ids: [LIVE_PARTIAL_SCOUT_VIDEO_IDS[7]]
     });
-    expect(reconciled.candidate_discovery.candidates).toHaveLength(2);
+    expect(reconciled.operations.automated_video_scout).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: { code: "AUTOMATED_SCOUT_PARTIAL_VALIDATED_FRONTIER" }
+    });
+    expect(reconciled.candidate_discovery.candidates).toHaveLength(6);
     expect(reconciled.scout).toMatchObject({
       status: "BLOCKED",
-      candidate_count: 3,
-      validated_candidate_ids: RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
-      unresolved_candidate_ids: [unresolvedId],
-      provider_response_id: "interaction-partial-before-terminal"
+      candidate_count: 8,
+      validated_candidate_ids: LIVE_PARTIAL_SCOUT_VIDEO_IDS.slice(0, 6),
+      unresolved_candidate_ids: [LIVE_PARTIAL_SCOUT_VIDEO_IDS[7]],
+      provider_response_id: "interaction-live-partial"
     });
     expect(deriveRequiredNextCapabilities(reconciled)).toContain(
       "native_video_discovery"
@@ -911,7 +959,7 @@ describe("research session controller core", () => {
 
   it("continues to candidate screening after exact daily native-search exhaustion", () => {
     const discovered = recordNativeYoutubeDiscovery(
-      scoutComplete(),
+      livePartialScout(),
       nativeSearchQuotaSurvey()
     );
 
@@ -931,8 +979,17 @@ describe("research session controller core", () => {
     );
     expect(projectResearchSessionView(SESSION_ID, discovered)
       .candidate_screening_work_package?.candidates).toHaveLength(
-        RESEARCH_FIXTURE_VIDEO_IDS.length
+        6
       );
+    expect(discovered.scout.unresolved_candidate_ids).toEqual([
+      LIVE_PARTIAL_SCOUT_VIDEO_IDS[7]
+    ]);
+    expect(deriveResearchFinalizationLimitations(discovered)
+      .map(({ plain_language }) => plain_language)).toEqual(expect.arrayContaining([
+        expect.stringMatching(/validated subset.*unresolved.*excluded/iu),
+        expect.stringMatching(/daily YouTube search allocation.*validated.*frontier/iu)
+      ]));
+    expect(deriveResearchFinalizationReadiness(discovered)).toBe("CONTINUE_RESEARCH");
   });
 
   it("issues a signed permit only for a controller-complete execution", () => {

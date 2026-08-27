@@ -132,6 +132,10 @@ complete XML protocol.
 ## Plans
 
 - `superpowers/plans/`: implementation plans
+- `superpowers/plans/2026-08-27-spark-partial-frontier-fallback.md`:
+  owner-corrected use of a nonempty independently validated Spark subset,
+  explicit unresolved-identity and native-search gaps, durable-checkpoint
+  migration, route liveness, and release gates
 - `superpowers/plans/2026-08-27-youtube-identifier-terminal-boundary.md`:
   production restart-loop evidence, exact no-progress terminal-boundary
   contract, independent-work liveness regression, and release gates
