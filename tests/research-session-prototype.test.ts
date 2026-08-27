@@ -13,7 +13,10 @@ import type {
   scoutGeminiYoutubeCandidates,
   validateGeminiYoutubeCandidateHandoff
 } from "../packages/sources/src/index.js";
+import { deriveGeminiYoutubeCandidateFrontier } from
+  "../packages/sources/src/index.js";
 import {
+  RESEARCH_FIXTURE_VIDEO_IDS,
   nativeSurvey,
   researchPacket,
   researchReceipt
@@ -45,6 +48,29 @@ function protocolManifest(protocol: "universal" | "hrp") {
     version: protocol === "universal" ? "20.5.14" : "20.5.22",
     revisionDate: protocol === "universal" ? "2026-08-18" : "2026-08-23",
     sha256: protocol === "universal" ? HASH_A : HASH_B
+  };
+}
+
+function partialResearchReceipt() {
+  const receipt = researchReceipt();
+  const unresolvedId = receipt.candidate_frontier.source_candidate_video_ids[2]!;
+  return {
+    ...receipt,
+    status: "partial" as const,
+    candidate_frontier: deriveGeminiYoutubeCandidateFrontier(
+      receipt.candidate_frontier.source_candidate_video_ids,
+      receipt.candidate_frontier.source_candidate_video_ids.slice(0, 2),
+      [],
+      [unresolvedId]
+    ),
+    validated_candidates: receipt.validated_candidates.slice(0, 2),
+    unresolved_candidates: [{
+      video_id: unresolvedId,
+      metadata_access_status: "rate_limited" as const,
+      retryable: true,
+      provider_error_code: "youtube_rate_limited",
+      limitations: ["Retryable fixture boundary."]
+    }]
   };
 }
 
@@ -277,6 +303,82 @@ describe("server-owned research session feasibility routes", () => {
         ])
       }
     });
+  });
+
+  it("advances native discovery on the call after a bounded partial scout", async () => {
+    const scout = vi.fn<typeof scoutGeminiYoutubeCandidates>(async () => ({
+      provider: "gemini_api",
+      record_type: "gemini_youtube_candidate_frontier",
+      primary_identifier: "interaction-partial",
+      retrieved_at: "2026-08-27T00:00:00.000Z",
+      source_identity: {},
+      pagination: { returned: 3, exhausted: true },
+      access_status: "complete",
+      limitations: [],
+      data: {
+        response_id: "interaction-partial",
+        model: "fixture-model",
+        google_search_grounded: true,
+        packet: researchPacket()
+      }
+    }));
+    const survey = vi.fn(async () => nativeSurvey());
+    const routes = createResearchSessionPrototypeRoutes({
+      getProtocolManifest: async (protocol) => protocolManifest(protocol),
+      scout,
+      validateCandidates: vi.fn(async () => partialResearchReceipt()),
+      surveyNativeCandidates: survey,
+      loadScoutInstructions: async () => "Exact repository scout instructions",
+      geminiConfig: { apiKey: "server-held-gemini-key", model: "fixture-model" },
+      youtubeApiKey: "server-held-youtube-key"
+    });
+    const started = await route(routes, "start_research_session").handle(context({
+      research_target: "de-identified treatment comparison",
+      diagnosis_status: "diagnosis_not_specified"
+    }));
+    const sessionId = (started.body as { session_id: string }).session_id;
+
+    const bounded = await route(routes, "continue_research_session").handle(context({
+      session_id: sessionId
+    }));
+    expect(bounded).toMatchObject({
+      status: 200,
+      body: {
+        operations: {
+          automated_video_scout: {
+            status: "BLOCKED_TERMINAL",
+            boundary: { code: "AUTOMATED_SCOUT_PARTIAL_VALIDATED_FRONTIER" }
+          },
+          native_video_discovery: { status: "NOT_STARTED" }
+        },
+        required_next_capabilities: expect.arrayContaining([
+          "native_video_discovery"
+        ])
+      }
+    });
+
+    const discovered = await route(routes, "continue_research_session").handle(context({
+      session_id: sessionId
+    }));
+    expect(discovered).toMatchObject({
+      status: 200,
+      body: {
+        operations: {
+          automated_video_scout: { status: "BLOCKED_TERMINAL" },
+          native_video_discovery: { status: "COMPLETE" }
+        },
+        candidate_discovery: {
+          unresolved_identity_video_ids: [
+            RESEARCH_FIXTURE_VIDEO_IDS[2]
+          ],
+          semantic_screening_pending: 3
+        },
+        required_next_capabilities: expect.arrayContaining([
+          "candidate_screening"
+        ])
+      }
+    });
+    expect(survey).toHaveBeenCalledOnce();
   });
 
   it("rejects every caller-authored completion, count, and module claim", async () => {

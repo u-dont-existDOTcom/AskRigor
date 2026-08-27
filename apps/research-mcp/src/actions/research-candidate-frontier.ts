@@ -379,6 +379,9 @@ export function ingestValidatedGeminiFrontier(
     external_scout: {
       status: receipt.status === "rejected"
         ? "BLOCKED_RETRYABLE"
+        : receipt.candidate_frontier.validated_candidate_video_ids.length > 0 &&
+            receipt.unresolved_candidates.length > 0
+          ? "BLOCKED_TERMINAL"
         : receipt.unresolved_candidates.some(({ retryable }) => retryable)
         ? "BLOCKED_RETRYABLE"
         : receipt.unresolved_candidates.length > 0
@@ -468,7 +471,10 @@ export function ingestNativeYoutubeSurvey(
     !isCompleteAccess(search.access_status)
   ) || unresolved.length > 0;
   const dailySearchQuotaBoundary =
-    state.external_scout.status === "COMPLETE" &&
+    (
+      state.external_scout.status === "COMPLETE" ||
+      state.external_scout.status === "BLOCKED_TERMINAL"
+    ) &&
     state.external_scout.validated_candidate_video_ids.length > 0 &&
     nativeSurveyEndedByDailySearchQuota(survey);
 

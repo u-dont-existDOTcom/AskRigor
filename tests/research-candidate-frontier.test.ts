@@ -84,7 +84,7 @@ describe("server-owned research candidate frontier", () => {
 
     const state = externalDiscovery(unresolvedReceipt());
     expect(state.external_scout).toMatchObject({
-      status: "BLOCKED_RETRYABLE",
+      status: "BLOCKED_TERMINAL",
       source_candidate_video_ids: RESEARCH_FIXTURE_VIDEO_IDS,
       validated_candidate_video_ids: RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
       unresolved_candidate_video_ids: [RESEARCH_FIXTURE_VIDEO_IDS[2]]
@@ -294,6 +294,31 @@ describe("server-owned research candidate frontier", () => {
       RESEARCH_FIXTURE_VIDEO_IDS
     );
     expect(candidateDiscoveryReadyForScreening(bounded)).toBe(true);
+  });
+
+  it("uses a validated partial external frontier after exact daily native-search exhaustion", () => {
+    const external = externalDiscovery(unresolvedReceipt());
+
+    const bounded = ingestNativeYoutubeSurvey(external, nativeSearchQuotaSurvey());
+
+    expect(external.external_scout.status).toBe("BLOCKED_TERMINAL");
+    expect(bounded.native_youtube.status).toBe("BLOCKED_TERMINAL");
+    expect(bounded.candidates.map(({ video_id }) => video_id)).toEqual(
+      RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2)
+    );
+    expect(deriveCandidateDiscoveryDiagnostics(bounded)
+      .unresolved_identity_video_ids).toEqual([RESEARCH_FIXTURE_VIDEO_IDS[2]]);
+    expect(candidateDiscoveryReadyForScreening(bounded)).toBe(true);
+  });
+
+  it("does not broaden partial-frontier fallback to generic native identity failures", () => {
+    const external = externalDiscovery(unresolvedReceipt());
+
+    const blocked = ingestNativeYoutubeSurvey(external, nativeSurvey("rate_limited"));
+
+    expect(blocked.external_scout.status).toBe("BLOCKED_TERMINAL");
+    expect(blocked.native_youtube.status).toBe("BLOCKED_RETRYABLE");
+    expect(candidateDiscoveryReadyForScreening(blocked)).toBe(false);
   });
 
   it("does not use daily native-search exhaustion to bypass a missing external frontier", () => {
