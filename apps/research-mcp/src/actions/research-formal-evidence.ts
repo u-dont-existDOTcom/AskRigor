@@ -54,6 +54,11 @@ const blockId = z.string().regex(/^(?:jats|pdf)_[0-9]{6}_[a-f0-9]{12}$/u);
 export const FORMAL_EVIDENCE_PROVIDERS = ["pubmed", "europe_pmc"] as const;
 const FORMAL_QUERY_SUBJECT_MAX_CHARACTERS = 160;
 const FORMAL_QUERY_MAX_CHARACTERS = 600;
+export const FORMAL_SOURCE_MAXIMUM = 2_000;
+export const FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM = 100;
+const FORMAL_SOURCE_SCREENING_RATIONALE_MAX_CHARACTERS = 350;
+const FORMAL_SOURCE_CAPACITY_SUMMARY =
+  "The bounded formal-source frontier reached its 2,000-identity capacity; additional unseen provider records were not stored or treated as evidence.";
 export const FORMAL_SOURCE_KINDS = [
   "SCIENTIFIC_STUDY",
   "SYSTEMATIC_REVIEW",
@@ -455,7 +460,7 @@ export const researchFormalEvidenceStateSchema = z.object({
   candidate_screening_digest: digest.optional(),
   hypothesis_frontier_digest: digest.optional(),
   hypotheses: z.array(formalHypothesisSchema).max(100),
-  sources: z.array(formalSourceSchema).max(2_000)
+  sources: z.array(formalSourceSchema).max(FORMAL_SOURCE_MAXIMUM)
 }).strict().superRefine((state, context) => {
   if ((state.hypotheses.length > 0) !== (state.hypothesis_frontier_digest !== undefined)) {
     context.addIssue({ code: "custom", message: "Formal hypothesis frontier and digest must agree" });
@@ -533,13 +538,15 @@ export type ResearchFormalSource = z.output<typeof formalSourceSchema>;
 export const formalEvidenceScreeningWorkPackageSchema = z.object({
   package_version: z.literal("askrigor_formal_source_screening_v1"),
   formal_frontier_digest: digest,
+  sources_total: z.number().int().positive().max(FORMAL_SOURCE_MAXIMUM),
+  sources_pending_before: z.number().int().positive().max(FORMAL_SOURCE_MAXIMUM),
   sources: z.array(z.object({
     source_id: digest,
     hypothesis_ids: z.array(digest).min(1),
     origins: z.array(sourceOriginSchema).min(1),
     identity: sourceIdentitySchema,
     abstract_visibility: formalSourceSchema.shape.abstract_visibility
-  }).strict()).min(1).max(2_000)
+  }).strict()).min(1).max(FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM)
 }).strict();
 
 export const formalEvidenceScreeningSubmissionSchema = z.object({
@@ -550,8 +557,10 @@ export const formalEvidenceScreeningSubmissionSchema = z.object({
     source_kind: z.enum(FORMAL_SOURCE_KINDS),
     decision_importance: z.enum(["DECISION_IMPORTANT", "NOT_DECISION_IMPORTANT"]),
     possible_decision_impact: formalSourceSchema.shape.possible_decision_impact,
-    rationale: bounded(1_000)
-  }).strict()).min(1).max(2_000)
+    rationale: bounded(FORMAL_SOURCE_SCREENING_RATIONALE_MAX_CHARACTERS)
+  }).strict()).min(1).max(FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM).describe(
+    "Exactly one decision for every source_id in the current packaged screening batch; never omit a packaged source or include an identity outside that batch."
+  )
 }).strict();
 
 export type FormalEvidenceScreeningSubmission = z.output<
@@ -712,6 +721,9 @@ export async function executeResearchFormalSearch(
   if (!Number.isSafeInteger(maximumPagesPerProvider) || maximumPagesPerProvider < 1) {
     throw new Error("Invalid formal-search page limit");
   }
+  if (state.sources.length === FORMAL_SOURCE_MAXIMUM) {
+    return closeOpenFormalProviderSearchesAtCapacity(state);
+  }
   for (const provider of FORMAL_EVIDENCE_PROVIDERS) {
     state = reuseTerminalFormalProviderSearch(state, hypothesisId, provider);
     for (let page = 0; page < maximumPagesPerProvider; page += 1) {
@@ -734,13 +746,18 @@ export function createFormalEvidenceScreeningWorkPackage(
   if (!formalSearchProvidersTerminal(state)) {
     throw new Error("Formal provider searches are not ready for source screening");
   }
-  if (state.sources.length === 0) {
+  const pendingSources = state.sources.filter(({ screening_status }) =>
+    screening_status === "PENDING"
+  );
+  if (pendingSources.length === 0) {
     throw new Error("Formal search returned no identities to screen");
   }
   return formalEvidenceScreeningWorkPackageSchema.parse({
     package_version: "askrigor_formal_source_screening_v1",
     formal_frontier_digest: formalEvidenceFrontierDigest(state),
-    sources: state.sources.map((source) => ({
+    sources_total: state.sources.length,
+    sources_pending_before: pendingSources.length,
+    sources: pendingSources.slice(0, FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM).map((source) => ({
       source_id: source.source_id,
       hypothesis_ids: source.hypothesis_ids,
       origins: source.origins,
@@ -762,13 +779,14 @@ export function ingestFormalEvidenceScreeningSubmission(
   }
   if (!sameMembers(
     submission.decisions.map(({ source_id }) => source_id),
-    state.sources.map(({ source_id }) => source_id)
+    work.sources.map(({ source_id }) => source_id)
   )) {
-    throw new Error("Formal source screening must decide every provider identity exactly once");
+    throw new Error("Formal source screening must decide every packaged provider identity exactly once");
   }
   const decisions = new Map(submission.decisions.map((decision) => [decision.source_id, decision]));
   const sources = state.sources.map((source) => {
-    const decision = decisions.get(source.source_id)!;
+    const decision = decisions.get(source.source_id);
+    if (decision === undefined) return source;
     const selected = decision.decision_importance === "DECISION_IMPORTANT";
     return formalSourceSchema.parse({
       ...source,
@@ -1837,10 +1855,24 @@ async function executePubmedSearchPage(
     envelope: await executors.fetchPubmedRecord(identifier, executors.pubmedConfig)
   })));
   let next = state;
+  let sourceCapacityExceeded = false;
   for (const record of records) {
-    next = ingestPubmedSource(next, hypothesisId, record.identifier, record.envelope);
+    const ingested = ingestPubmedSource(
+      next,
+      hypothesisId,
+      record.identifier,
+      record.envelope
+    );
+    next = ingested.state;
+    sourceCapacityExceeded ||= ingested.sourceCapacityExceeded;
   }
-  return recordFormalProviderPage(next, hypothesisId, "pubmed", envelope);
+  return recordFormalProviderPage(
+    next,
+    hypothesisId,
+    "pubmed",
+    envelope,
+    sourceCapacityExceeded
+  );
 }
 
 async function executeEuropePmcSearchPage(
@@ -1855,17 +1887,32 @@ async function executeEuropePmcSearchPage(
     ...(search.next_cursor === undefined ? {} : { cursor: search.next_cursor })
   });
   let next = state;
+  let sourceCapacityExceeded = false;
   for (const record of envelope.data) {
-    next = ingestEuropePmcSource(next, hypothesisId, record, envelope.access_status);
+    const ingested = ingestEuropePmcSource(
+      next,
+      hypothesisId,
+      record,
+      envelope.access_status
+    );
+    next = ingested.state;
+    sourceCapacityExceeded ||= ingested.sourceCapacityExceeded;
   }
-  return recordFormalProviderPage(next, hypothesisId, "europe_pmc", envelope);
+  return recordFormalProviderPage(
+    next,
+    hypothesisId,
+    "europe_pmc",
+    envelope,
+    sourceCapacityExceeded
+  );
 }
 
 function recordFormalProviderPage(
   rawState: ResearchFormalEvidenceState,
   hypothesisId: string,
   provider: typeof FORMAL_EVIDENCE_PROVIDERS[number],
-  envelope: ProvenanceEnvelope<unknown[]>
+  envelope: ProvenanceEnvelope<unknown[]>,
+  sourceCapacityExceeded = false
 ): ResearchFormalEvidenceState {
   const state = researchFormalEvidenceStateSchema.parse(rawState);
   const hypothesisIndex = state.hypotheses.findIndex(({ hypothesis_id }) =>
@@ -1880,25 +1927,29 @@ function recordFormalProviderPage(
   }
   const error = envelope.error;
   const nextCursor = envelope.pagination.next_cursor;
-  const status = error !== undefined
-    ? error.retryable ? "BLOCKED_RETRYABLE" as const : "BLOCKED_TERMINAL" as const
-    : envelope.access_status === "partial" && envelope.pagination.exhausted
-      ? "BLOCKED_TERMINAL" as const
-      : envelope.pagination.exhausted
-        ? "COMPLETE" as const
-        : "IN_PROGRESS" as const;
-  const boundary = status === "BLOCKED_RETRYABLE" || status === "BLOCKED_TERMINAL"
-    ? {
-      classification: status === "BLOCKED_RETRYABLE"
-        ? "RETRYABLE" as const
-        : "TERMINAL_NONRETRYABLE" as const,
-      code: error !== undefined
-        ? `FORMAL_${provider.toUpperCase()}_${error.code.replace(/[^A-Za-z0-9]+/gu, "_").toUpperCase()}`.slice(0, 80)
-        : "FORMAL_PROVIDER_RESULT_LIMIT",
-      summary: error?.message ??
-        "The exact provider query reached a provider result boundary; unseen records were not treated as evidence."
-    }
-    : undefined;
+  const status = sourceCapacityExceeded
+    ? "BLOCKED_TERMINAL" as const
+    : error !== undefined
+      ? error.retryable ? "BLOCKED_RETRYABLE" as const : "BLOCKED_TERMINAL" as const
+      : envelope.access_status === "partial" && envelope.pagination.exhausted
+        ? "BLOCKED_TERMINAL" as const
+        : envelope.pagination.exhausted
+          ? "COMPLETE" as const
+          : "IN_PROGRESS" as const;
+  const boundary = sourceCapacityExceeded
+    ? formalSourceCapacityBoundary()
+    : status === "BLOCKED_RETRYABLE" || status === "BLOCKED_TERMINAL"
+      ? {
+        classification: status === "BLOCKED_RETRYABLE"
+          ? "RETRYABLE" as const
+          : "TERMINAL_NONRETRYABLE" as const,
+        code: error !== undefined
+          ? `FORMAL_${provider.toUpperCase()}_${error.code.replace(/[^A-Za-z0-9]+/gu, "_").toUpperCase()}`.slice(0, 80)
+          : "FORMAL_PROVIDER_RESULT_LIMIT",
+        summary: error?.message ??
+          "The exact provider query reached a provider result boundary; unseen records were not treated as evidence."
+      }
+      : undefined;
   const receiptHash = sha256(JSON.stringify({
     provider,
     query: envelope.query,
@@ -1925,7 +1976,11 @@ function recordFormalProviderPage(
     ...(nextCursor === undefined || status !== "IN_PROGRESS" ? {} : { next_cursor: nextCursor }),
     page_receipt_hashes: [...before.page_receipt_hashes, receiptHash],
     access_statuses: [...before.access_statuses, envelope.access_status],
-    limitations: unique([...before.limitations, ...envelope.limitations]),
+    limitations: unique([
+      ...before.limitations,
+      ...envelope.limitations,
+      ...(sourceCapacityExceeded ? [FORMAL_SOURCE_CAPACITY_SUMMARY] : [])
+    ]),
     ...(boundary === undefined ? {} : { boundary })
   });
   const hypotheses = [...state.hypotheses];
@@ -1938,7 +1993,57 @@ function recordFormalProviderPage(
     ...hypothesis,
     provider_searches: searches
   });
+  const updatedState = researchFormalEvidenceStateSchema.parse({ ...state, hypotheses });
+  return sourceCapacityExceeded
+    ? closeOpenFormalProviderSearchesAtCapacity(updatedState)
+    : updatedState;
+}
+
+function formalSourceCapacityBoundary() {
+  return {
+    classification: "TERMINAL_NONRETRYABLE" as const,
+    code: "FORMAL_SOURCE_CAPACITY_REACHED",
+    summary: FORMAL_SOURCE_CAPACITY_SUMMARY
+  };
+}
+
+function closeOpenFormalProviderSearchesAtCapacity(
+  rawState: ResearchFormalEvidenceState
+): ResearchFormalEvidenceState {
+  const state = researchFormalEvidenceStateSchema.parse(rawState);
+  if (state.sources.length !== FORMAL_SOURCE_MAXIMUM) {
+    throw new Error("Formal source capacity boundary requires an exactly full frontier");
+  }
+  const hypotheses = state.hypotheses.map((hypothesis) =>
+    formalHypothesisSchema.parse({
+      ...hypothesis,
+      provider_searches: hypothesis.provider_searches.map((search) => {
+        if (search.status === "COMPLETE" || search.status === "BLOCKED_TERMINAL") {
+          return search;
+        }
+        const {
+          next_cursor: _previousCursor,
+          boundary: _previousBoundary,
+          ...stableSearch
+        } = search;
+        return formalProviderSearchSchema.parse({
+          ...stableSearch,
+          status: "BLOCKED_TERMINAL",
+          limitations: unique([
+            ...search.limitations,
+            FORMAL_SOURCE_CAPACITY_SUMMARY
+          ]),
+          boundary: formalSourceCapacityBoundary()
+        });
+      })
+    })
+  );
   return researchFormalEvidenceStateSchema.parse({ ...state, hypotheses });
+}
+
+interface BoundedFormalSourceIngestion {
+  state: ResearchFormalEvidenceState;
+  sourceCapacityExceeded: boolean;
 }
 
 function ingestPubmedSource(
@@ -1946,7 +2051,7 @@ function ingestPubmedSource(
   hypothesisId: string,
   identifier: string,
   envelope: ProvenanceEnvelope<PubmedRecord>
-): ResearchFormalEvidenceState {
+): BoundedFormalSourceIngestion {
   const record = envelope.data;
   const normalizedDoi = record.doi === undefined ? undefined : normalizeDoiIdentifier(record.doi);
   const identity = sourceIdentity({
@@ -1978,7 +2083,7 @@ function ingestEuropePmcSource(
   hypothesisId: string,
   record: EuropePmcRecord,
   accessStatus: string
-): ResearchFormalEvidenceState {
+): BoundedFormalSourceIngestion {
   const normalizedDoi = record.doi === undefined ? undefined : normalizeDoiIdentifier(record.doi);
   const identity = sourceIdentity({
     ...(normalizedDoi === undefined ? {} : { doi: normalizedDoi }),
@@ -2016,7 +2121,7 @@ function upsertFormalSource(
     origin: Omit<z.output<typeof sourceOriginSchema>, "hypothesis_ids">;
     abstractVisibility: z.output<typeof formalSourceSchema>["abstract_visibility"];
   }
-): ResearchFormalEvidenceState {
+): BoundedFormalSourceIngestion {
   const state = researchFormalEvidenceStateSchema.parse(rawState);
   const match = state.sources.find((source) => identitiesOverlap(source.identity, input.identity));
   const origin = sourceOriginSchema.parse({
@@ -2024,6 +2129,9 @@ function upsertFormalSource(
     hypothesis_ids: [input.hypothesisId]
   });
   if (match === undefined) {
+    if (state.sources.length === FORMAL_SOURCE_MAXIMUM) {
+      return { state, sourceCapacityExceeded: true };
+    }
     const sourceId = sha256(`formal-source:${identityKey(input.identity)}`);
     const source = formalSourceSchema.parse({
       source_id: sourceId,
@@ -2040,12 +2148,15 @@ function upsertFormalSource(
       external_evidence: notApplicableExternalEvidence(),
       claim_capability: notApplicableClaimCapability()
     });
-    return researchFormalEvidenceStateSchema.parse({
-      ...state,
-      sources: [...state.sources, source].sort((left, right) =>
-        left.source_id.localeCompare(right.source_id)
-      )
-    });
+    return {
+      state: researchFormalEvidenceStateSchema.parse({
+        ...state,
+        sources: [...state.sources, source].sort((left, right) =>
+          left.source_id.localeCompare(right.source_id)
+        )
+      }),
+      sourceCapacityExceeded: false
+    };
   }
   const origins = mergeOrigins(match.origins, origin);
   const mergedIdentity = mergeIdentity(match.identity, input.identity);
@@ -2062,7 +2173,10 @@ function upsertFormalSource(
         ? "ABSTRACT_NOT_REPORTED"
         : "METADATA_ONLY"
   });
-  return replaceSource(state, match.source_id, source);
+  return {
+    state: replaceSource(state, match.source_id, source),
+    sourceCapacityExceeded: false
+  };
 }
 
 function providerSearch(

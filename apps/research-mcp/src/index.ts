@@ -162,6 +162,8 @@ export {
 } from "./actions/research-treatment-finalization.js";
 export {
   FORMAL_EVIDENCE_PROVIDERS,
+  FORMAL_SOURCE_MAXIMUM,
+  FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM,
   FORMAL_SOURCE_KINDS,
   appendResearchFormalHypotheses,
   communityFormalHypothesisInputSchema,

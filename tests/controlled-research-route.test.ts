@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { describe, expect, it } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
 import { okEnvelope } from "@askrigor/contracts";
@@ -11,11 +13,13 @@ import {
   RESEARCH_MODULE_IDS,
   applyServerModuleApplicability,
   createInitialResearchSessionState,
+  executeResearchSessionFormalSearch,
   protocolBindingsFromManifests,
   recordAutomatedScoutBoundary,
   recordAutomatedScoutCompletion,
   recordAutomatedScoutProgress,
   recordCandidateScreeningCompletion,
+  researchSessionStateSchema,
   researchSessionStateDigest,
   recordNativeYoutubeDiscovery
 } from
@@ -26,6 +30,9 @@ import type { ActionRoute } from
   "../apps/research-mcp/src/actions/types.js";
 import type { FormalSearchExecutors } from
   "../apps/research-mcp/src/actions/research-formal-evidence.js";
+import {
+  FORMAL_SOURCE_MAXIMUM
+} from "../apps/research-mcp/src/actions/research-formal-evidence.js";
 import {
   nativeSurvey,
   researchPacket,
@@ -307,6 +314,140 @@ describe("controlled research Action projection", () => {
       expect(provider.next_cursor).toBeUndefined();
     }
   });
+
+  it("crosses formal source capacity without an Action error and issues a bounded screening batch", async () => {
+    const [universal, hrp] = await Promise.all([
+      getProtocolManifest("universal"),
+      getProtocolManifest("hrp")
+    ]);
+    let state = createInitialResearchSessionState({
+      research_target: "de-identified treatment comparison",
+      diagnosis_status: "diagnosis_not_specified"
+    }, protocolBindingsFromManifests(universal, hrp));
+    state = applyServerModuleApplicability(state, {
+      DIRECT_HUMAN: "REQUIRED",
+      EXTENDED_GREY: "REQUIRED",
+      FORUM_SIGNAL: "REQUIRED",
+      BIDIRECTIONAL_ITERATION: "REQUIRED"
+    }, "SERVER_ROUTER");
+    state = recordAutomatedScoutCompletion(state, {
+      providerResponseId: "formal-capacity-route-fixture",
+      packet: researchPacket(),
+      receipt: researchReceipt()
+    });
+    state = recordNativeYoutubeDiscovery(state, nativeSurvey());
+    state = recordCandidateScreeningCompletion(
+      state,
+      screeningSubmissionFor(state.candidate_discovery)
+    );
+
+    const hypothesisId = state.formal_evidence.hypotheses[0]!.hypothesis_id;
+    state = await executeResearchSessionFormalSearch(
+      state,
+      hypothesisId,
+      paginatedFormalSearchExecutors()
+    );
+    const prototype = state.formal_evidence.sources[0]!;
+    const sources = Array.from(
+      { length: FORMAL_SOURCE_MAXIMUM - 1 },
+      (_, index) => {
+        const pmid = String(2_000_000 + index);
+        return {
+          ...prototype,
+          source_id: routeHash(`capacity-source:${pmid}`),
+          hypothesis_ids: [hypothesisId],
+          origins: [{
+            provider: "pubmed" as const,
+            provider_record_id: pmid,
+            canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+            hypothesis_ids: [hypothesisId],
+            provider_access_status: "api_visible_complete",
+            source_record_hash: routeHash(`capacity-record:${pmid}`)
+          }],
+          identity: {
+            pmid,
+            title: `Capacity route study ${pmid}`,
+            identity_status: "PROVIDER_REPORTED" as const,
+            identity_hash: routeHash(`capacity-identity:${pmid}`)
+          }
+        };
+      }
+    ).sort((left, right) => left.source_id.localeCompare(right.source_id));
+    state = researchSessionStateSchema.parse({
+      ...state,
+      formal_evidence: {
+        ...state.formal_evidence,
+        sources,
+        hypotheses: state.formal_evidence.hypotheses.map((hypothesis) => ({
+          ...hypothesis,
+          provider_searches: hypothesis.provider_searches.map((search) => ({
+            provider: search.provider,
+            query: search.query,
+            status: "NOT_STARTED" as const,
+            pages_retrieved: 0,
+            records_returned_cumulative: 0,
+            page_receipt_hashes: [],
+            access_statuses: [],
+            limitations: []
+          }))
+        }))
+      }
+    });
+
+    let randomByte = 111;
+    const store = createResearchSessionStore({
+      random: () => new Uint8Array(24).fill(randomByte++)
+    });
+    const sessionId = store.issue(state);
+    const routes = createControlledResearchRoutes({
+      store,
+      getProtocolManifest,
+      deterministicAdvanceDependencies: {
+        formalSearch: routeSourceCapacityExecutors()
+      },
+      semanticAdvanceDependencies: {},
+      continuationSigningSecret: SECRET,
+      finalizationSigningSecret: SECRET,
+      finalizationKeyId: "test-key"
+    });
+
+    const bounded = await call(routes, "continue_research_session", {
+      session_id: sessionId,
+      state_digest: researchSessionStateDigest(state)
+    });
+    expect(bounded).toMatchObject({
+      status: 200,
+      body: {
+        directive: "continue_research",
+        last_transition: {
+          capability: "formal_evidence_search",
+          result: "progress_recorded"
+        }
+      }
+    });
+    const persisted = store.read(sessionId);
+    expect(persisted.formal_evidence.sources).toHaveLength(FORMAL_SOURCE_MAXIMUM);
+    expect(persisted.formal_evidence.hypotheses.flatMap(({ provider_searches }) =>
+      provider_searches
+    ).every(({ status, boundary }) =>
+      status === "BLOCKED_TERMINAL" &&
+      boundary?.code === "FORMAL_SOURCE_CAPACITY_REACHED"
+    )).toBe(true);
+
+    const screening = await call(routes, "continue_research_session", {
+      session_id: sessionId,
+      state_digest: (bounded.body as any).state_digest
+    });
+    expect(screening).toMatchObject({
+      status: 200,
+      body: {
+        directive: "perform_semantic_work",
+        semantic_work_type: "formal_source_screening",
+        worker_payload: { chunk_index: 0 }
+      }
+    });
+    expect((screening.body as any).worker_payload.chunk_count).toBeGreaterThan(0);
+  }, 180_000);
 
   it("never directs finalization from a continue state with terminal scout evidence", async () => {
     let observedDiagnosisStatus: string | undefined;
@@ -746,6 +887,50 @@ function paginatedFormalSearchExecutors(): FormalSearchExecutors {
     }) as never,
     pubmedConfig: { tool: "askrigor-test", email: "research@example.test" }
   };
+}
+
+function routeSourceCapacityExecutors(): FormalSearchExecutors {
+  const identifiers = ["9900001", "9900002"];
+  return {
+    searchPubmed: (async (input: { query: string }) => okEnvelope({
+      provider: "pubmed",
+      recordType: "pubmed_search_result",
+      query: { query: input.query },
+      accessStatus: "complete",
+      pagination: {
+        page_size: 100,
+        returned: identifiers.length,
+        exhausted: false,
+        next_cursor: "capacity-next-page"
+      },
+      data: identifiers.map((pmid) => ({ pmid }))
+    })) as never,
+    fetchPubmedRecord: (async (identifier: string) => okEnvelope({
+      provider: "pubmed",
+      recordType: "pubmed_record",
+      primaryIdentifier: identifier,
+      sourceIdentity: {
+        canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${identifier}/`
+      },
+      accessStatus: "api_visible_complete",
+      pagination: { returned: 1, exhausted: true },
+      data: {
+        pmid: identifier,
+        title: `Capacity page study ${identifier}`,
+        abstract: "Abstract only.",
+        authors: ["Researcher"],
+        dates: [{ type: "pub", value: "2025" }]
+      } satisfies PubmedRecord
+    })) as never,
+    searchEuropePmc: (async () => {
+      throw new Error("Europe PMC must not run after the global source boundary");
+    }) as never,
+    pubmedConfig: { tool: "askrigor-test", email: "research@example.test" }
+  };
+}
+
+function routeHash(value: string): string {
+  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 async function completeWorkerPayload(

@@ -25,6 +25,8 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM,
+  FORMAL_SOURCE_MAXIMUM,
   STUDY_METHOD_AUDIT_DOMAINS,
   StudyExternalEvidenceIdentityError,
   assertResearchSessionTransition,
@@ -47,6 +49,8 @@ import {
   executeResearchSessionMethodAudit,
   executeResearchSessionSourceExternalEvidence,
   executeResearchSessionSourceFullTextChain,
+  formalEvidenceScreeningComplete,
+  formalEvidenceScreeningSubmissionSchema,
   ingestCandidateScreeningSubmission,
   ingestFormalEvidenceScreeningSubmission,
   ingestNativeYoutubeSurvey,
@@ -73,6 +77,8 @@ import {
   type StudyMethodAuditExternalSubmission,
   type StudyMethodAuditSubmission
 } from "../apps/research-mcp/src/index.js";
+import { PRIVATE_ORCHESTRATION_REQUEST_MAX_BYTES } from
+  "../apps/research-mcp/src/config.js";
 import {
   nativeSurvey,
   researchPacket,
@@ -297,6 +303,167 @@ describe("controller-owned formal evidence frontier", () => {
     expect(completedTarget.reused_from_hypothesis_id).toBeUndefined();
   });
 
+  it("closes the formal frontier truthfully when a provider page crosses source capacity", async () => {
+    let formal = await formalWithSourceCount(FORMAL_SOURCE_MAXIMUM - 1);
+    const hypothesis = formal.hypotheses[0]!;
+    const executors = sourceCapacityExecutors();
+
+    formal = await executeResearchFormalSearch(
+      formal,
+      hypothesis.hypothesis_id,
+      executors
+    );
+
+    expect(formal.sources).toHaveLength(FORMAL_SOURCE_MAXIMUM);
+    expect(formal.sources.some(({ identity }) => identity.pmid === "9000001"))
+      .toBe(true);
+    expect(formal.sources.some(({ identity }) => identity.pmid === "9000002"))
+      .toBe(false);
+    expect(executors.fetchPubmedRecord).toHaveBeenCalledTimes(2);
+    expect(executors.searchEuropePmc).not.toHaveBeenCalled();
+    for (const provider of formal.hypotheses.flatMap(({ provider_searches }) =>
+      provider_searches
+    )) {
+      expect(provider).toMatchObject({
+        status: "BLOCKED_TERMINAL",
+        boundary: {
+          classification: "TERMINAL_NONRETRYABLE",
+          code: "FORMAL_SOURCE_CAPACITY_REACHED"
+        }
+      });
+      expect(provider.next_cursor).toBeUndefined();
+      expect(provider.limitations).toContain(
+        "The bounded formal-source frontier reached its 2,000-identity capacity; additional unseen provider records were not stored or treated as evidence."
+      );
+    }
+    const current = providerState(formal, hypothesis.hypothesis_id, "pubmed");
+    expect(current).toMatchObject({
+      pages_retrieved: 1,
+      records_returned_cumulative: 2
+    });
+    expect(current.page_receipt_hashes).toHaveLength(1);
+    const work = createFormalEvidenceScreeningWorkPackage(formal);
+    expect(work).toMatchObject({
+      sources_total: FORMAL_SOURCE_MAXIMUM,
+      sources_pending_before: FORMAL_SOURCE_MAXIMUM
+    });
+    expect(work.sources).toHaveLength(FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM);
+  });
+
+  it("closes open provider searches without another request when source capacity is already full", async () => {
+    const formal = await formalWithSourceCount(FORMAL_SOURCE_MAXIMUM);
+    const hypothesis = formal.hypotheses[0]!;
+    const executors = sourceCapacityExecutors();
+
+    const bounded = await executeResearchFormalSearch(
+      formal,
+      hypothesis.hypothesis_id,
+      executors
+    );
+
+    expect(executors.searchPubmed).not.toHaveBeenCalled();
+    expect(executors.fetchPubmedRecord).not.toHaveBeenCalled();
+    expect(executors.searchEuropePmc).not.toHaveBeenCalled();
+    expect(bounded.sources).toEqual(formal.sources);
+    expect(bounded.hypotheses.flatMap(({ provider_searches }) =>
+      provider_searches
+    ).every(({ status, boundary }) =>
+      status === "BLOCKED_TERMINAL" &&
+      boundary?.code === "FORMAL_SOURCE_CAPACITY_REACHED"
+    )).toBe(true);
+  });
+
+  it("screens a full formal frontier in exact signed batches without dropping pending sources", async () => {
+    let formal = await formalWithSourceCount(205);
+    formal = researchFormalEvidenceStateSchema.parse({
+      ...formal,
+      hypotheses: formal.hypotheses.map((hypothesis) => ({
+        ...hypothesis,
+        provider_searches: hypothesis.provider_searches.map((search) => ({
+          provider: search.provider,
+          query: search.query,
+          status: "COMPLETE" as const,
+          pages_retrieved: 0,
+          records_returned_cumulative: 0,
+          page_receipt_hashes: [],
+          access_statuses: [],
+          limitations: []
+        })) as typeof hypothesis.provider_searches
+      }))
+    });
+
+    const seen = new Set<string>();
+    for (const expectedSize of [100, 100, 5]) {
+      const work = createFormalEvidenceScreeningWorkPackage(formal);
+      expect(work.sources_total).toBe(205);
+      expect(work.sources_pending_before).toBe(205 - seen.size);
+      expect(work.sources).toHaveLength(expectedSize);
+      expect(work.sources.every(({ source_id }) => !seen.has(source_id))).toBe(true);
+      for (const { source_id } of work.sources) seen.add(source_id);
+
+      formal = ingestFormalEvidenceScreeningSubmission(formal, {
+        package_version: work.package_version,
+        formal_frontier_digest: work.formal_frontier_digest,
+        decisions: work.sources.map(({ source_id }) => ({
+          source_id,
+          source_kind: "SCIENTIFIC_STUDY",
+          decision_importance: "NOT_DECISION_IMPORTANT",
+          possible_decision_impact: "unknown",
+          rationale: "Fixture source is not decision-important for this bounded target."
+        }))
+      });
+    }
+
+    expect(seen.size).toBe(205);
+    expect(formalEvidenceScreeningComplete(formal)).toBe(true);
+    expect(formal.sources.every(({ screening_status }) =>
+      screening_status === "SCREENED"
+    )).toBe(true);
+  });
+
+  it("keeps the maximum formal screening submission below the private Action request limit", () => {
+    const digest = "a".repeat(64);
+    const sessionId = `ars1_${"B".repeat(32)}`;
+    const submission = formalEvidenceScreeningSubmissionSchema.parse({
+      package_version: "askrigor_formal_source_screening_v1",
+      formal_frontier_digest: digest,
+      decisions: Array.from(
+        { length: FORMAL_SOURCE_SCREENING_BATCH_MAXIMUM },
+        (_, index) => ({
+          source_id: hash(`request-bound-source:${index}`),
+          source_kind: "SCIENTIFIC_STUDY",
+          decision_importance: "DECISION_IMPORTANT",
+          possible_decision_impact: "potentially_conclusion_changing",
+          rationale: "\u0001".repeat(350)
+        })
+      )
+    });
+    const request = {
+      session_id: sessionId,
+      state_digest: digest,
+      worker_payload_receipt: {
+        receipt_version: "askrigor_controlled_worker_payload_receipt_v1",
+        session_id: sessionId,
+        state_digest: digest,
+        work_digest: digest,
+        payload_digest: digest,
+        chunk_count: 999,
+        expires_at_ms: Number.MAX_SAFE_INTEGER,
+        signature: "s".repeat(512)
+      },
+      semantic_result: {
+        contract_version: "askrigor_hermes_semantic_result_v1",
+        session_id: sessionId,
+        state_digest: digest,
+        work_type: "formal_source_screening",
+        submission
+      }
+    };
+
+    expect(Buffer.byteLength(JSON.stringify(request), "utf8"))
+      .toBeLessThan(PRIVATE_ORCHESTRATION_REQUEST_MAX_BYTES);
+  });
+
   it("derives every material program/outcome hypothesis and calls both formal providers itself", async () => {
     const candidateState = screenedCandidates();
     let formal = initializeResearchFormalEvidence(
@@ -337,7 +504,7 @@ describe("controller-owned formal evidence frontier", () => {
       }))
     };
     expect(() => ingestFormalEvidenceScreeningSubmission(formal, omitted))
-      .toThrow(/every provider identity exactly once/u);
+      .toThrow(/every packaged provider identity exactly once/u);
 
     formal = selectAllStudies(formal);
     expect(deriveFormalEvidenceOperationStatus(formal, "formal_evidence_search"))
@@ -1296,6 +1463,103 @@ function selectAllStudies(state: ResearchFormalEvidenceState): ResearchFormalEvi
       rationale: "Fixture source selected for exact full-text and method audit."
     }))
   });
+}
+
+async function formalWithSourceCount(
+  sourceCount: number
+): Promise<ResearchFormalEvidenceState> {
+  let state = initializeResearchFormalEvidence(
+    screenedCandidates(),
+    "de-identified treatment comparison"
+  );
+  const hypothesisId = state.hypotheses[0]!.hypothesis_id;
+  state = await executeResearchFormalSearch(
+    state,
+    hypothesisId,
+    formalExecutors()
+  );
+  const prototype = state.sources[0]!;
+  const sources = Array.from({ length: sourceCount }, (_, index) => {
+    const pmid = String(1_000_000 + index);
+    const identity = {
+      pmid,
+      title: `Capacity seed study ${pmid}`,
+      identity_status: "PROVIDER_REPORTED" as const,
+      identity_hash: hash(`capacity-identity:${pmid}`)
+    };
+    return {
+      ...prototype,
+      source_id: hash(`capacity-source:${pmid}`),
+      hypothesis_ids: [hypothesisId],
+      origins: [{
+        provider: "pubmed" as const,
+        provider_record_id: pmid,
+        canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+        hypothesis_ids: [hypothesisId],
+        provider_access_status: "api_visible_complete",
+        source_record_hash: hash(`capacity-record:${pmid}`)
+      }],
+      identity
+    };
+  }).sort((left, right) => left.source_id.localeCompare(right.source_id));
+  const hypotheses = state.hypotheses.map((hypothesis) => ({
+    ...hypothesis,
+    provider_searches: hypothesis.provider_searches.map((search) => ({
+      provider: search.provider,
+      query: search.query,
+      status: "NOT_STARTED" as const,
+      pages_retrieved: 0,
+      records_returned_cumulative: 0,
+      page_receipt_hashes: [],
+      access_statuses: [],
+      limitations: []
+    })) as typeof hypothesis.provider_searches
+  }));
+  return researchFormalEvidenceStateSchema.parse({ ...state, hypotheses, sources });
+}
+
+function sourceCapacityExecutors(): FormalSearchExecutors & {
+  searchPubmed: ReturnType<typeof vi.fn>;
+  fetchPubmedRecord: ReturnType<typeof vi.fn>;
+  searchEuropePmc: ReturnType<typeof vi.fn>;
+} {
+  const identifiers = ["9000001", "9000002"];
+  return {
+    searchPubmed: vi.fn(async (input: { query: string }) => okEnvelope({
+      provider: "pubmed",
+      recordType: "pubmed_search_result",
+      query: { query: input.query },
+      accessStatus: "complete",
+      pagination: {
+        page_size: 100,
+        returned: identifiers.length,
+        exhausted: false,
+        next_cursor: "capacity-next-page"
+      },
+      data: identifiers.map((pmid) => ({ pmid }))
+    })) as never,
+    fetchPubmedRecord: vi.fn(async (identifier: string) => okEnvelope({
+      provider: "pubmed",
+      recordType: "pubmed_record",
+      primaryIdentifier: identifier,
+      sourceIdentity: {
+        canonical_url: `https://pubmed.ncbi.nlm.nih.gov/${identifier}/`
+      },
+      accessStatus: "api_visible_complete",
+      pagination: { returned: 1, exhausted: true },
+      data: {
+        pmid: identifier,
+        title: `Capacity page study ${identifier}`,
+        abstract: "Abstract only.",
+        authors: ["Researcher"],
+        dates: [{ type: "pub", value: "2025" }]
+      } satisfies PubmedRecord
+    })) as never,
+    searchEuropePmc: vi.fn(async () => {
+      throw new Error("Europe PMC must not run after the global source boundary");
+    }) as never,
+    pubmedConfig: { tool: "askrigor-test", email: "research@example.test" }
+  };
 }
 
 function formalExecutors(): FormalSearchExecutors & {
