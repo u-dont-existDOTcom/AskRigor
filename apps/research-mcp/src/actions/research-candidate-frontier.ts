@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 
 import { ACCESS_STATUSES } from "@askrigor/contracts";
 import {
+  YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE,
   deriveGeminiYoutubeCandidateFrontier,
   geminiYoutubeCandidatePacketSchema,
   geminiYoutubeCandidateValidationReceiptSchema,
@@ -466,13 +467,19 @@ export function ingestNativeYoutubeSurvey(
   const incomplete = survey.searches.some((search) =>
     !isCompleteAccess(search.access_status)
   ) || unresolved.length > 0;
+  const dailySearchQuotaBoundary =
+    state.external_scout.status === "COMPLETE" &&
+    state.external_scout.validated_candidate_video_ids.length > 0 &&
+    nativeSurveyEndedByDailySearchQuota(survey);
 
   return researchCandidateDiscoveryStateSchema.parse({
     ...state,
     native_youtube: {
       status: !incomplete
         ? "COMPLETE"
-        : retryable
+        : dailySearchQuotaBoundary
+          ? "BLOCKED_TERMINAL"
+          : retryable
           ? "BLOCKED_RETRYABLE"
           : "BLOCKED_TERMINAL",
       frontier_id: frontierId,
@@ -495,6 +502,23 @@ export function ingestNativeYoutubeSurvey(
       nativeCandidates
     )
   });
+}
+
+export function nativeSurveyEndedByDailySearchQuota(
+  survey: YoutubeCommunitySurveyOutput
+): boolean {
+  survey = youtubeCommunitySurveyOutputSchema.parse(survey);
+  const quotaBoundedSearches = survey.searches.filter(({ error }) =>
+    error?.code === YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE
+  );
+  return quotaBoundedSearches.length > 0 &&
+    survey.searches.every((search) =>
+      isCompleteAccess(search.access_status) ||
+      search.error?.code === YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE
+    ) &&
+    survey.candidates.every(({ metadata_access_status }) =>
+      isCompleteAccess(metadata_access_status)
+    );
 }
 
 export function deriveCandidateDiscoveryDiagnostics(

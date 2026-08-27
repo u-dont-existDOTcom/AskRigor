@@ -181,3 +181,29 @@ export function nativeSurvey(
     }))
   };
 }
+
+export function nativeSearchQuotaSurvey(): YoutubeCommunitySurveyOutput {
+  const survey = nativeSurvey();
+  return {
+    ...survey,
+    access_status: "rate_limited",
+    limitations: [
+      ...survey.limitations,
+      "The dedicated daily YouTube search allocation was exhausted."
+    ],
+    searches: survey.searches.map((search) => ({
+      ...search,
+      access_status: "rate_limited" as const,
+      pagination: { returned: 0, exhausted: false },
+      limitations: ["The dedicated daily YouTube search allocation was exhausted."],
+      error: {
+        code: "youtube_search_quota_exhausted",
+        message: "YouTube daily search quota reached",
+        http_status: 403,
+        retryable: true
+      },
+      candidate_video_ids: []
+    })),
+    candidates: []
+  };
+}

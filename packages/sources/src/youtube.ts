@@ -9,6 +9,8 @@ import { z } from "zod";
 import { fetchJson, UpstreamHttpError } from "./http.js";
 
 const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3";
+export const YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE =
+  "youtube_search_quota_exhausted" as const;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 50;
 const DEFAULT_COMMENT_PAGE_SIZE = 100;
@@ -1797,6 +1799,7 @@ type YoutubeFailureCode =
   | "youtube_video_not_found"
   | "youtube_parent_comment_not_found"
   | "youtube_video_not_visible"
+  | typeof YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE
   | "youtube_rate_limited"
   | "youtube_access_denied"
   | "youtube_upstream_unavailable"
@@ -1814,6 +1817,11 @@ const youtubeFailure = (error: unknown, operation: YoutubeOperation): YoutubeFai
   }
   const status = httpStatus(error);
   const reason = upstreamReason(error);
+  if (
+    operation === "search" &&
+    status === 403 &&
+    (reason === "quotaExceeded" || reason === "dailyLimitExceeded")
+  ) return YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE;
   if (status === 429 || reason === "quotaExceeded") return "youtube_rate_limited";
   if (operation === "commentThreads.list") {
     if (status === 403 && reason === "commentsDisabled") return "youtube_comments_disabled";
@@ -1847,6 +1855,7 @@ const failureDetails = (code: YoutubeFailureCode): {
   if (code === "youtube_video_not_found") return { accessStatus: "not_found", message: "YouTube video was not found", retryable: false, httpStatus: 404 };
   if (code === "youtube_parent_comment_not_found") return { accessStatus: "not_found", message: "YouTube parent comment was not found", retryable: false, httpStatus: 404 };
   if (code === "youtube_video_not_visible") return { accessStatus: "inaccessible", message: "YouTube did not expose the requested video", retryable: false, limitations: [VIDEO_NOT_VISIBLE_LIMITATION] };
+  if (code === YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE) return { accessStatus: "rate_limited", message: "YouTube daily search quota reached", retryable: true };
   if (code === "youtube_rate_limited") return { accessStatus: "rate_limited", message: "YouTube rate limit reached", retryable: true };
   if (code === "youtube_access_denied") return { accessStatus: "inaccessible", message: "YouTube access denied", retryable: false };
   if (code === "youtube_upstream_unavailable") return { accessStatus: "error", message: "YouTube upstream service unavailable", retryable: true };

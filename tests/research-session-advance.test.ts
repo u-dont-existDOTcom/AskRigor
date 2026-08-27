@@ -27,6 +27,7 @@ import type { ActionRoute } from
   "../apps/research-mcp/src/actions/types.js";
 import {
   RESEARCH_FIXTURE_VIDEO_IDS,
+  nativeSearchQuotaSurvey,
   nativeSurvey,
   researchPacket,
   researchReceipt
@@ -123,6 +124,38 @@ async function depthReadyState(): Promise<ResearchSessionState> {
 }
 
 describe("transport-independent research-session advancement", () => {
+  it("does not loop native discovery after exact daily search-quota exhaustion", async () => {
+    const scouted = recordAutomatedScoutCompletion(routedState(), {
+      providerResponseId: "phase-k-search-quota-scout",
+      packet: researchPacket(),
+      receipt: researchReceipt()
+    });
+    const nativeDiscovery = vi.fn(async (state: ResearchSessionState) =>
+      recordNativeYoutubeDiscovery(state, nativeSearchQuotaSurvey())
+    );
+
+    const result = await advanceResearchSessionDeterministically(
+      SESSION_ID,
+      scouted,
+      { nativeDiscovery }
+    );
+
+    expect(result).toMatchObject({
+      capability: "native_video_discovery",
+      transition_result: "blocked_terminal",
+      state_changed: true
+    });
+    expect(nativeDiscovery).toHaveBeenCalledOnce();
+    expect(deriveResearchSemanticWorkForState(SESSION_ID, result.state)?.kind)
+      .toBe("candidate_screening");
+    await expect(advanceResearchSessionDeterministically(
+      SESSION_ID,
+      result.state,
+      { nativeDiscovery }
+    )).rejects.toThrow(/Semantic work must be completed/iu);
+    expect(nativeDiscovery).toHaveBeenCalledOnce();
+  });
+
   it("derives and applies only the exact current state-bound semantic package", async () => {
     const state = initialState();
     const work = deriveResearchSemanticWorkForState(SESSION_ID, state);

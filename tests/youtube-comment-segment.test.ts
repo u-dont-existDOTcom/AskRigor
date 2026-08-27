@@ -16,6 +16,74 @@ afterEach(() => {
 });
 
 describe("resumable YouTube comment segments", () => {
+  it("requests and validates the provider maximum of 100 top-level threads", async () => {
+    const requests: URL[] = [];
+    const threads = Array.from({ length: 100 }, (_, index) => ({
+      id: `thread-${String(index).padStart(3, "0")}`,
+      snippet: {
+        videoId: "XpZHKGGCK-o",
+        topLevelComment: {
+          id: `top-${String(index).padStart(3, "0")}`,
+          snippet: {
+            videoId: "XpZHKGGCK-o",
+            textDisplay: `Top level ${index}`,
+            likeCount: 0,
+            publishedAt: "2025-02-01T10:00:00Z",
+            updatedAt: "2025-02-01T10:00:00Z"
+          }
+        },
+        totalReplyCount: 0
+      }
+    }));
+    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+      const url = new URL(String(input));
+      requests.push(url);
+      if (url.pathname.endsWith("/commentThreads")) {
+        return Response.json({
+          pageInfo: { totalResults: 100, resultsPerPage: 100 },
+          items: threads
+        });
+      }
+      return Response.json({
+        pageInfo: { totalResults: 0, resultsPerPage: 0 },
+        items: []
+      });
+    }));
+
+    const segments: Awaited<ReturnType<typeof getYoutubeCommentSegment>>[] = [];
+    let cursor: Awaited<ReturnType<typeof getYoutubeCommentSegment>>["next_cursor"];
+    do {
+      const segment = await getYoutubeCommentSegment(
+        {
+          video: "XpZHKGGCK-o",
+          ...(cursor === undefined ? {} : { cursor })
+        },
+        YOUTUBE,
+        { max_provider_requests: 50, max_elapsed_ms: 15_000, now: () => 1 }
+      );
+      segments.push(segment);
+      cursor = segment.next_cursor;
+    } while (cursor !== undefined);
+
+    expect(requests[0]!.searchParams.get("maxResults")).toBe("100");
+    expect(requests.filter((url) => url.pathname.endsWith("/commentThreads")))
+      .toSatisfy((urls: URL[]) => urls.every((url) =>
+        url.searchParams.get("maxResults") === "100"
+      ));
+    expect(segments).toHaveLength(3);
+    expect(segments.at(-1)).toMatchObject({
+      access_status: "api_visible_complete",
+      exhausted: true,
+      reply_pages: 2
+    });
+    const comments = segments.flatMap((segment) => segment.comments);
+    expect(comments).toHaveLength(100);
+    expect(new Set(comments.map(({ comment_id }) => comment_id)).size).toBe(100);
+    expect(comments.map(({ comment_id }) => comment_id)).toEqual(
+      threads.map(({ snippet }) => snippet.topLevelComment.id)
+    );
+  });
+
   it("treats an exhausted empty API-visible corpus as complete", async () => {
     const emptyPage = await fixture("comment-threads-empty.json");
     vi.stubGlobal("fetch", vi.fn(async () => new Response(emptyPage, { status: 200 })));

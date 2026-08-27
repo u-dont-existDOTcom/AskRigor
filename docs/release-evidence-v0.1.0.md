@@ -1,6 +1,33 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-27 YouTube search-quota resilience candidate
+
+The candidate distinguishes exact HTTP 403 `search.list` quota exhaustion from
+generic YouTube throttling. After a complete independently validated external
+frontier with at least one candidate exists, only that daily search boundary
+may close native discovery for the immutable current execution and expose the
+candidate-screening package. The rate-limited search receipts remain literal,
+native discovery is not marked complete, and the terminal operation prevents a
+full-completion audit from passing; generic 429s, incomplete metadata,
+unresolved identities, and a missing external frontier remain retryable.
+
+Controlled discussion audits now request the provider maximum of 100 top-level
+threads per `commentThreads.list` page. The existing 50-request, 15-second,
+within-page continuation, fingerprint, overlap, sampling, and 60 kB Action
+response bounds remain unchanged. A 100-thread regression crosses three
+continuations and preserves every identifier exactly once.
+
+Six focused files pass 221 tests. One first full-suite rerun had a single
+unrelated 10-second protocol-chunk timeout; that file then passed 4/4 in
+isolation. The clean complete `npm run verify` receipt passes 106 test files
+with one declared live file skipped, 1,417 tests with six declared live tests
+skipped, typechecking, and the production build. No protocol bytes, public
+Action/OpenAPI inventory, MCP inventory, site, privacy data map, provider
+credential, generated Custom GPT instruction, or plugin-package byte changes.
+Protected review, merge, exact deployment, rollback capture, live/plugin
+verification, and fresh product acceptance remain pending.
+
 ## 2026-08-27 YouTube identifier boundary and API disclosures deployed
 
 PR #111 passed deterministic verification, workflow policy, and every CodeQL

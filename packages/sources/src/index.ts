@@ -144,6 +144,7 @@ export {
   youtubeVideoDataSchema,
   youtubeVideoFailureDataSchema,
   youtubeVideoIdSchema,
+  YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE,
   DEFAULT_YOUTUBE_COMMENT_RETRIEVAL_BUDGETS,
   MIN_YOUTUBE_COMMENT_OUTPUT_BYTES,
   type GetYoutubeCommentsInput,

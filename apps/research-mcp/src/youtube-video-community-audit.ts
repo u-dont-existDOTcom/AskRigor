@@ -24,7 +24,7 @@ const TOKEN_LIFETIME_MS = 3_600_000;
 const MIN_SECRET_BYTES = 32;
 const DEFAULT_ANALYSIS_LIMIT = 500;
 const DEFAULT_MAX_ELAPSED_MS = 15_000;
-const COMMENT_PAGE_SIZE = 20;
+const COMMENT_PAGE_SIZE = 100;
 const ZERO_SHA256 = "0".repeat(64);
 const ACCESS_BOUNDARIES = new Set<AccessStatus>([
   "comments_disabled",

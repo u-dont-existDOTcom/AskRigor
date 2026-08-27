@@ -40,6 +40,7 @@ import {
   deriveCandidateDiscoveryDiagnostics,
   ingestCandidateScreeningSubmission,
   ingestNativeYoutubeSurvey,
+  nativeSurveyEndedByDailySearchQuota,
   ingestValidatedGeminiFrontier,
   initialResearchCandidateDiscoveryState,
   markExternalScoutFrontierBoundary,
@@ -1262,7 +1263,15 @@ export function recordNativeYoutubeDiscovery(
   }
   const discovery = ingestNativeYoutubeSurvey(state.candidate_discovery, survey);
   const nativeStatus = discovery.native_youtube.status;
-  const boundary = nativeStatus === "BLOCKED_RETRYABLE"
+  const dailySearchQuotaBoundary = nativeStatus === "BLOCKED_TERMINAL" &&
+    nativeSurveyEndedByDailySearchQuota(survey);
+  const boundary = dailySearchQuotaBoundary
+    ? {
+      classification: "TERMINAL_NONRETRYABLE" as const,
+      code: "NATIVE_SEARCH_DAILY_QUOTA_EXHAUSTED",
+      summary: "The dedicated daily YouTube search allocation ended native discovery for the current research execution; candidate screening will continue from the independently validated candidate frontier already present."
+    }
+    : nativeStatus === "BLOCKED_RETRYABLE"
     ? {
       classification: "RETRYABLE" as const,
       code: "NATIVE_DISCOVERY_RETRYABLE_BOUNDARY",

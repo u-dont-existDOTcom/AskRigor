@@ -1,5 +1,48 @@
 # AskRigor Codex Current State
 
+## 2026-08-27 YouTube search-quota resilience candidate
+
+Owner direction authorizes two related controlled-workflow changes: request
+100 top-level comment threads per YouTube provider page, and keep research
+advancing from its independently validated candidate frontier when the
+separate 100/day `search.list` allocation is exhausted.
+
+The isolated candidate branch
+`agent/youtube-search-quota-fallback-20260827` starts from merged public
+baseline `d8229a1`. It maps only HTTP 403 `search.list` quota exhaustion to the
+distinct sanitized code `youtube_search_quota_exhausted`, while generic 429s,
+metadata failures, unresolved identities, and other retryable errors remain
+retryable. The controller preserves literal rate-limited native-search
+receipts, marks only that search operation terminal for the immutable current
+execution, does not project native discovery complete, and exposes candidate
+screening from the already validated frontier instead of retry-looping. Any
+eventual answer remains limited by the native-search coverage boundary.
+
+The resumable discussion audit now requests `commentThreads.list` pages of 100
+instead of 20. Existing 50-provider-request and 15-second per-call budgets,
+page fingerprints, within-page cursors, overlap reconciliation, deterministic
+sampling, and the 60 kB public Action response bound remain unchanged. A
+100-thread regression crosses three exact within-page continuations and proves
+no duplicate or omitted identifiers.
+
+Six focused test files pass 221/221 tests. One first host-bound full rerun had
+one unrelated 10-second timeout in the protocol Action continuation test; that
+file then passed 4/4 in isolation. The clean complete `npm run verify` gate
+passes 106 test files with one declared live file skipped, 1,417 tests with six
+declared live tests skipped, and the production TypeScript build. The durable
+implementation plan is `docs/superpowers/plans/2026-08-27-youtube-search-quota-fallback.md`.
+Complete diff review, lesson closeout, protected review, merge, exact deployment
+and rollback evidence, plugin synchronization checks, and fresh production
+acceptance remain required.
+
+The start-of-task lesson checkpoint is available: one open candidate, one
+needs review, zero accepted but not incorporated, three incorporated/closed,
+and zero deletion-eligible. Neither pending item expands or blocks this task.
+Lesson disposition is project-specific/no-new-lesson: the dedicated YouTube
+quota-bucket behavior belongs to AskRigor's provider controller, while the
+general bounded-continuation and explicit-access-gap principles are already
+captured by current project and universal guidance.
+
 ## 2026-08-27 identifier boundary and YouTube disclosures deployed; quota-bound continuation
 
 PR #111 passed every protected check on exact head

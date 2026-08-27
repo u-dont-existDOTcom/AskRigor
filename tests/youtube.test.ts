@@ -252,7 +252,7 @@ describe("YouTube discovery", () => {
     });
   });
 
-  it("maps a structured quota error to rate_limited without exposing provider text", async () => {
+  it("maps search quota exhaustion distinctly without exposing provider text", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
       error: { errors: [{ reason: "quotaExceeded", message: "provider-secret" }] }
     }), { status: 403 })));
@@ -261,7 +261,31 @@ describe("YouTube discovery", () => {
 
     expect(result).toMatchObject({
       access_status: "rate_limited",
-      error: { code: "youtube_rate_limited", message: "YouTube rate limit reached", http_status: 403 }
+      error: {
+        code: "youtube_search_quota_exhausted",
+        message: "YouTube daily search quota reached",
+        http_status: 403,
+        retryable: true
+      }
+    });
+    expect(JSON.stringify(result)).not.toContain("provider-secret");
+  });
+
+  it("keeps a search HTTP 429 as a generic retryable rate limit", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("provider-secret", {
+      status: 429
+    })));
+
+    const result = await searchYoutube({ query: "recorded subject" }, youtubeConfig);
+
+    expect(result).toMatchObject({
+      access_status: "rate_limited",
+      error: {
+        code: "youtube_rate_limited",
+        message: "YouTube rate limit reached",
+        http_status: 429,
+        retryable: true
+      }
     });
     expect(JSON.stringify(result)).not.toContain("provider-secret");
   });
