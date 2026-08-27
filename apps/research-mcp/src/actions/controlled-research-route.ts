@@ -24,6 +24,7 @@ import {
 import {
   researchSemanticModelOutputSchema,
   researchSemanticResponseContract,
+  researchSemanticWorkerInstruction,
   type ResearchSemanticWork
 } from "../research-semantic-worker.js";
 import {
@@ -699,7 +700,7 @@ export function createControlledResearchRoutes(
         });
     return {
       worker_contract: "askrigor_controlled_semantic_worker_v1",
-      instruction: "Use only this exact package. Return one JSON object matching response_contract. Do not claim workflow completion.",
+      instruction: researchSemanticWorkerInstruction(work.kind),
       session_id: sessionId,
       state_digest: researchSessionStateDigest(state),
       research_context: state.research_target,

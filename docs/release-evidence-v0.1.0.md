@@ -1,6 +1,26 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-27 candidate-screening semantic guidance candidate
+
+Fresh signed-in product execution reproduced a nonretryable
+`research_semantic_work_mismatch` at the 45-candidate screening frontier while
+preserving the server session and digest. The exact rejected result covered all
+45 unique IDs but treated similar channels and treatment themes as duplicates;
+the controller's executable boundary requires described material candidates to
+use exact `program_signature` groups. A corrected package-bound submission
+using that rule advanced the same session to formal evidence and selected 35
+videos, proving the missing guidance rather than a provider or checkpoint
+failure.
+
+The candidate makes the all-candidate and exact-signature rules explicit in the
+signed worker instruction and internal response contract. Focused verification
+passes 13 tests and typechecking; the complete deterministic gate passes 106
+test files and 1,403 tests with the six declared live skips, followed by a
+successful build. No protocol, public Action/OpenAPI, MCP, privacy, or plugin
+inventory surface changes. Review, protected CI, exact deployment, and a new
+fresh signed-in receipt remain pending.
+
 ## 2026-08-26 signed-in continuation reached a recovery-call boundary
 
 The signed-in installed AskRigor GPT was exercised after the exact PR #105

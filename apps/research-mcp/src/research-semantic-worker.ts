@@ -253,6 +253,22 @@ export interface ResearchSemanticExecutor {
   execute(input: ResearchSemanticWorkPackage): Promise<unknown>;
 }
 
+const BASE_SEMANTIC_WORKER_INSTRUCTION =
+  "Use only this exact package. Return one JSON object matching response_contract. Do not claim workflow completion.";
+
+/** Task-specific guidance for a no-tools worker operating on one signed package. */
+export function researchSemanticWorkerInstruction(
+  kind: ResearchSemanticWork["kind"]
+): string {
+  if (kind !== "candidate_screening") return BASE_SEMANTIC_WORKER_INSTRUCTION;
+  return [
+    BASE_SEMANTIC_WORKER_INSTRUCTION,
+    "Candidate screening must return exactly one decision for every candidate in semantic_work.package.candidates, preserving every packaged video_id exactly once, including nonmaterial, duplicate, and unselected candidates; never return only selected candidates.",
+    "For MATERIAL candidates whose program_description_status is not NOT_DESCRIBED, use program_signature as the exact redundancy key: each shared signature has exactly one DISTINCT decision and every other candidate with that signature is DUPLICATE and names that distinct candidate's video_id; do not infer duplicates merely from similar titles, channels, or treatment themes.",
+    "Set duplicate_of_video_id if and only if redundancy is DUPLICATE. Set selection_status to SELECTED only when materiality is MATERIAL and redundancy is DISTINCT."
+  ].join(" ");
+}
+
 /** Exact output JSON Schema supplied internally to a no-tools semantic worker. */
 export function researchSemanticResponseContract(
   kind: ResearchSemanticWork["kind"]

@@ -1,5 +1,16 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-27 candidate-screening worker guidance candidate
+
+The fresh installed-product challenge reached candidate screening and rejected
+an otherwise complete 45-identity result because the worker inferred duplicate
+programs from channel/theme similarity instead of the server-required exact
+`program_signature` groups. A package-bound corrected submission advanced the
+same session to formal evidence. The candidate makes that executable rule
+explicit without changing public Action/OpenAPI, MCP, protocol, privacy, or
+plugin surfaces. Full deterministic verification passes; reviewed deployment
+and a new signed-in acceptance receipt remain required.
+
 ## 2026-08-26 background-progress projection repair deployed
 
 The live background provider and native fallback paths pass, but the direct

@@ -1,5 +1,33 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-27 candidate-screening contract mismatch reproduced and corrected
+
+A fresh signed-in fixed acceptance challenge started exactly one new server
+session, `ars1_1ayCoOm109wGXk4aBcBn-Lhu20weNUeZ`. It completed module
+applicability, recovered a retryable automated-scout boundary without replacing
+the session, completed automated scouting with six candidates, completed native
+discovery with 45 reconciled candidates, and reached candidate screening.
+
+The first candidate-screening semantic result failed closed with
+`research_semantic_work_mismatch`; the server retained the exact pre-submission
+digest. The rejected result contained one decision for each of the 45 unique
+candidate IDs and satisfied the transport-level duplicate and selection shape,
+but it assigned redundancy from similar channels and treatment themes. The
+authoritative controller instead requires exact `program_signature` grouping
+for described material programs. A corrected submission using only the signed
+package and that exact rule succeeded, selected 35 candidates for depth work,
+and advanced the same session to `formal_evidence_search`.
+
+This is direct installed-product evidence for the missing worker instruction.
+The candidate adds the exact membership, signature-group, duplicate-target, and
+selection invariants to the signed worker input and its internal response
+contract. It does not change the editor-facing Action schema, protocol bytes,
+MCP surface, or finalization authority. Complete deterministic verification
+passes 106 test files and 1,403 tests, with the six declared credential-bound
+live skips, plus the production build. Full product acceptance remains open
+until the reviewed candidate is deployed and a new process-local challenge
+returns a valid server-issued receipt.
+
 ## 2026-08-26 signed-in continuation failed at stale-state recovery
 
 Browser control connected to the signed-in installed AskRigor GPT and resumed
