@@ -559,7 +559,7 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("preserves prior counts when a non-adjacent identifier match requires restart", async () => {
+  it("preserves prior counts when identifier ambiguity closes a bounded terminal frontier", async () => {
     const { client, server } = await createInMemoryClient();
     const previousApiKey = process.env.YOUTUBE_API_KEY;
     const previousContinuationSecret = process.env.ASKRIGOR_YOUTUBE_CONTINUATION_SECRET;
@@ -632,17 +632,23 @@ describe("AskRigor MCP tools", () => {
       expect(result.structuredContent).toMatchObject({
         video_id: "XpZHKGGCK-o",
         segment_index: 6,
-        access_status: "error",
+        access_status: "partial",
+        extraction_coverage: "completed_with_access_boundary",
         error: {
-          code: "youtube_video_audit_identifier_membership_restart_required",
+          code: "youtube_video_audit_identifier_membership_boundary",
           retryable: false
         },
         top_level_comments_retrieved_cumulative: 501,
         records_retrieved_cumulative: 501,
         comment_thread_pages_cumulative: 26,
         corpus_rolling_sha256: "b".repeat(64),
-        limitations: [expect.stringMatching(/restart.*video/i)],
-        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+        limitations: [expect.stringMatching(/cannot prove.*already accepted/i)],
+        continuation_recommended: false,
+        receipt: {
+          completion_state: "completed_with_access_boundary",
+          synthesis_lock: "pass",
+          blockers: []
+        }
       });
     } finally {
       restoreEnvironment("YOUTUBE_API_KEY", previousApiKey);

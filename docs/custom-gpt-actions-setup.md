@@ -257,10 +257,16 @@ identity, provider credential, or protocol text, and is never written to disk
 or application logs. A missing, expired, restarted, or evicted handle returns
 `youtube_action_continuation_invalid_or_expired`; restart that audit from its
 video identifier. A valid continuation that returns
-`youtube_video_audit_continuation_migration_restart_required` or
-`youtube_video_audit_identifier_membership_restart_required` also requires a
-fresh audit from the video identifier. Its reported cumulative counts stop at
-the last accepted segment and must not be combined with the restarted chain.
+`youtube_video_audit_continuation_migration_restart_required` requires a fresh
+audit from the video identifier. A legacy deployment may return
+`youtube_video_audit_identifier_membership_restart_required`; that historical
+result also requires a fresh audit with counts kept separate. Current releases
+return `youtube_video_audit_identifier_membership_boundary` when the bounded
+membership structure cannot prove whether an identifier was already accepted.
+That result preserves the last verified cumulative frontier as
+`completed_with_access_boundary`, consumes the continuation handle, and is
+terminal for the affected video; do not restart it, and continue independent
+selected videos.
 
 `get_youtube_transcript` uses a separate 37-character one-hour handle backed by
 at most 2,048 entries/4 MiB of compact chain metadata: provider cursor, public

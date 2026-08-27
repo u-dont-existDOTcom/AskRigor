@@ -289,14 +289,14 @@ describe("read-only research Action routes", () => {
       });
   });
 
-  it("consumes a claimed handle when identifier membership requires a nonretryable restart", async () => {
+  it("consumes a claimed handle when identifier membership reaches a terminal boundary", async () => {
     const statelessToken = `payload.${"s".repeat(43)}`;
     let calls = 0;
     const operation: ResearchOperation = youtubeAuditOperation(async (input) => {
       calls += 1;
       if (calls === 1) return youtubeAuditContinuationOutput(statelessToken);
       expect(input).toEqual({ continuation_token: statelessToken });
-      return youtubeAuditRestartRequiredFailureOutput();
+      return youtubeAuditIdentifierMembershipBoundaryOutput();
     });
     const [route] = createResearchActionRoutes({ operations: [operation] });
     const first = await route!.handle(context({
@@ -310,11 +310,14 @@ describe("read-only research Action routes", () => {
       status: 200,
       body: {
         error: {
-          code: "youtube_video_audit_identifier_membership_restart_required",
+          code: "youtube_video_audit_identifier_membership_boundary",
           retryable: false
         },
         records_retrieved_cumulative: 501,
-        receipt: { completion_state: "incomplete", synthesis_lock: "block" }
+        receipt: {
+          completion_state: "completed_with_access_boundary",
+          synthesis_lock: "pass"
+        }
       }
     });
     await expect(route!.handle(context({ continuation_token: handle })))
@@ -754,17 +757,19 @@ function youtubeAuditFailureOutput() {
   });
 }
 
-function youtubeAuditRestartRequiredFailureOutput() {
+function youtubeAuditIdentifierMembershipBoundaryOutput() {
   const limitation =
-    "A possible non-adjacent duplicate was detected after the exact identifier sample became bounded; restart the audit from the video ID. No rejected record was added to cumulative counts.";
+    "A possible identifier-membership match was detected after the exact sample became bounded, so the server cannot prove whether the record was already accepted. The affected audit stopped at the last verified frontier and did not count the rejected record.";
   return youtubeVideoCommunityAuditOutputSchema.parse({
     ...youtubeAuditFailureOutput(),
     video_id: "XpZHKGGCK-o",
     canonical_url: "https://www.youtube.com/watch?v=XpZHKGGCK-o",
     segment_index: 6,
+    access_status: "partial",
+    extraction_coverage: "completed_with_access_boundary",
     limitations: [limitation],
     error: {
-      code: "youtube_video_audit_identifier_membership_restart_required",
+      code: "youtube_video_audit_identifier_membership_boundary",
       message: limitation,
       retryable: false
     },
@@ -773,13 +778,13 @@ function youtubeAuditRestartRequiredFailureOutput() {
     comment_thread_pages_cumulative: 26,
     corpus_rolling_sha256: "b".repeat(64),
     receipt: {
-      completion_state: "incomplete",
-      synthesis_lock: "block",
+      completion_state: "completed_with_access_boundary",
+      synthesis_lock: "pass",
       chain_started_at_first_page: true,
       top_level_pagination_exhausted: false,
       replies_reconciled: false,
       query_bounded_comments_used_as_corpus: false,
-      blockers: [limitation]
+      blockers: []
     }
   });
 }

@@ -163,6 +163,10 @@ export function discussionOutput(
     retryable?: boolean;
     terminal?: boolean;
     restart?: boolean;
+    noProgress?: boolean;
+    terminalAccessStatus?: "comments_disabled" | "partial";
+    terminalOpenFrontier?: boolean;
+    analysisReturned?: number;
     errorCode?: string;
     comments?: YoutubeComment[];
   } = {}
@@ -173,7 +177,9 @@ export function discussionOutput(
   );
   const terminal = options.terminal ?? false;
   const retryable = options.retryable ?? false;
+  const noProgress = options.noProgress ?? false;
   const cumulative = options.cumulative ?? 1;
+  const analysisReturned = options.analysisReturned ?? Math.min(cumulative, 500);
   const segmentIndex = options.segmentIndex ?? 0;
   const fixtureIndex = videoId === "XpZHKGGCK-o"
     ? 0
@@ -193,7 +199,7 @@ export function discussionOutput(
     access_status: retryable
       ? "rate_limited" as const
       : terminal
-        ? "comments_disabled" as const
+        ? options.terminalAccessStatus ?? "comments_disabled" as const
         : complete
           ? "api_visible_complete" as const
           : "partial" as const,
@@ -212,18 +218,18 @@ export function discussionOutput(
           retryable
         }
       }),
-    top_level_comments_retrieved_this_call: retryable || restart ? 0 : 1,
+    top_level_comments_retrieved_this_call: retryable || restart || noProgress ? 0 : 1,
     replies_retrieved_this_call: 0,
-    records_retrieved_this_call: retryable || restart ? 0 : 1,
-    comment_thread_pages_this_call: retryable || restart ? 0 : 1,
+    records_retrieved_this_call: retryable || restart || noProgress ? 0 : 1,
+    comment_thread_pages_this_call: retryable || restart || noProgress ? 0 : 1,
     reply_pages_this_call: 0,
     top_level_comments_retrieved_cumulative: cumulative,
     replies_retrieved_cumulative: 0,
     records_retrieved_cumulative: cumulative,
     comment_thread_pages_cumulative: Math.max(1, segmentIndex + 1),
     reply_pages_cumulative: 0,
-    records_returned_for_analysis: Math.min(cumulative, 500),
-    top_level_records_returned_for_analysis: Math.min(cumulative, 500),
+    records_returned_for_analysis: analysisReturned,
+    top_level_records_returned_for_analysis: analysisReturned,
     reply_records_returned_for_analysis: 0,
     reply_count_mismatches: [],
     corpus_rolling_sha256: segmentIndex.toString(16).padStart(64, "b").slice(-64),
@@ -240,8 +246,10 @@ export function discussionOutput(
           : "incomplete" as const,
       synthesis_lock: complete || terminal ? "pass" as const : "block" as const,
       chain_started_at_first_page: true,
-      top_level_pagination_exhausted: complete || terminal,
-      replies_reconciled: complete || terminal,
+      top_level_pagination_exhausted:
+        (complete || terminal) && !options.terminalOpenFrontier,
+      replies_reconciled:
+        (complete || terminal) && !options.terminalOpenFrontier,
       query_bounded_comments_used_as_corpus: false as const,
       blockers: complete || terminal
         ? []

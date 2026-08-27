@@ -185,6 +185,18 @@ export class YoutubeAuditRestartRequiredError extends Error {
   }
 }
 
+export class YoutubeAuditIdentifierMembershipBoundaryError extends Error {
+  public readonly code = "youtube_video_audit_identifier_membership_boundary";
+
+  constructor(
+    message: string,
+    public readonly snapshot: YoutubeAuditRestartSnapshot
+  ) {
+    super(message);
+    this.name = "YoutubeAuditIdentifierMembershipBoundaryError";
+  }
+}
+
 export interface YoutubeVideoAuditContinuationState {
   version: 1;
   video_id: string;
@@ -364,9 +376,8 @@ export function advanceYoutubeAuditState(
       identifierMembershipPossiblyContains(membership, comment_id) &&
       !exactIdentifiersCoverPriorCorpus
     ) {
-      throw new YoutubeAuditRestartRequiredError(
-        "youtube_video_audit_identifier_membership_restart_required",
-        "Possible duplicate YouTube comment identifier at a non-adjacent membership boundary; restart the audit from the video ID",
+      throw new YoutubeAuditIdentifierMembershipBoundaryError(
+        "Possible YouTube comment identifier match at a non-adjacent membership boundary; stop at the last verified corpus frontier",
         createRestartSnapshot(state)
       );
     }

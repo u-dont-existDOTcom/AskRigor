@@ -56,6 +56,7 @@ import {
 } from "./youtube-video-community-audit.js";
 import {
   YoutubeAuditContinuationError,
+  YoutubeAuditIdentifierMembershipBoundaryError,
   YoutubeAuditRestartRequiredError
 } from "./youtube-audit-continuation.js";
 import type {
@@ -1423,26 +1424,31 @@ function youtubeVideoCommunityAuditFailure(
   const videoId = parsed.video_id_or_url === undefined
     ? cause instanceof YoutubeAuditRestartRequiredError
       ? cause.snapshot.video_id
+      : cause instanceof YoutubeAuditIdentifierMembershipBoundaryError
+        ? cause.snapshot.video_id
       : "unknown0000"
     : parseYoutubeVideoId(parsed.video_id_or_url) ?? "unknown0000";
   const continuationError = cause instanceof YoutubeAuditContinuationError ? cause : undefined;
   const restartError = cause instanceof YoutubeAuditRestartRequiredError ? cause : undefined;
-  const snapshot = restartError?.snapshot;
+  const identifierBoundary = cause instanceof YoutubeAuditIdentifierMembershipBoundaryError
+    ? cause
+    : undefined;
+  const snapshot = restartError?.snapshot ?? identifierBoundary?.snapshot;
   const limitation = restartError?.code ===
     "youtube_video_audit_continuation_migration_restart_required"
     ? "This continuation predates the full-corpus identifier-membership upgrade and cannot be resumed safely; restart the audit from the video ID."
-    : restartError?.code ===
-        "youtube_video_audit_identifier_membership_restart_required"
-      ? "A possible non-adjacent identifier match was detected after the exact identifier sample became bounded; restart the audit from the video ID. No rejected record was added to cumulative counts."
+    : identifierBoundary !== undefined
+      ? "A possible identifier-membership match was detected after the exact sample became bounded, so the server cannot prove whether the record was already accepted. The affected audit stopped at the last verified frontier and did not count the rejected record."
       : continuationError?.code === "youtube_video_audit_continuation_expired"
         ? "The YouTube video audit continuation expired; restart the audit from the video ID."
         : continuationError === undefined
           ? "YouTube video community audit failed before reaching a valid completion state."
           : "The YouTube video audit continuation is invalid; restart the audit from the video ID.";
   const error: ProviderErrorShape = {
-    code: restartError?.code ?? continuationError?.code ??
+    code: identifierBoundary?.code ?? restartError?.code ?? continuationError?.code ??
       "youtube_video_community_audit_failed",
-    message: continuationError === undefined && restartError === undefined
+    message: continuationError === undefined && restartError === undefined &&
+        identifierBoundary === undefined
       ? "YouTube video community audit failed"
       : limitation,
     retryable: false
@@ -1460,8 +1466,10 @@ function youtubeVideoCommunityAuditFailure(
     ...(snapshot?.provider_reported_comments === undefined
       ? {}
       : { provider_reported_comments: snapshot.provider_reported_comments }),
-    access_status: "error",
-    extraction_coverage: "partial",
+    access_status: identifierBoundary === undefined ? "error" : "partial",
+    extraction_coverage: identifierBoundary === undefined
+      ? "partial"
+      : "completed_with_access_boundary",
     limitations: [limitation],
     error,
     top_level_comments_retrieved_this_call: 0,
@@ -1483,14 +1491,16 @@ function youtubeVideoCommunityAuditFailure(
     insufficient_depth: false,
     continuation_recommended: false,
     receipt: {
-      completion_state: "incomplete",
-      synthesis_lock: "block",
+      completion_state: identifierBoundary === undefined
+        ? "incomplete"
+        : "completed_with_access_boundary",
+      synthesis_lock: identifierBoundary === undefined ? "block" : "pass",
       chain_started_at_first_page:
         snapshot !== undefined || parsed.video_id_or_url !== undefined,
       top_level_pagination_exhausted: false,
       replies_reconciled: false,
       query_bounded_comments_used_as_corpus: false,
-      blockers: [limitation]
+      blockers: identifierBoundary === undefined ? [limitation] : []
     }
   });
 }

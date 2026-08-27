@@ -132,6 +132,9 @@ complete XML protocol.
 ## Plans
 
 - `superpowers/plans/`: implementation plans
+- `superpowers/plans/2026-08-27-youtube-identifier-terminal-boundary.md`:
+  production restart-loop evidence, exact no-progress terminal-boundary
+  contract, independent-work liveness regression, and release gates
 - `superpowers/plans/2026-08-23-executable-research-orchestrator-and-study-audit.md`:
   owner-approved plan to replace prompt-only compliance with server-owned
   research state, automated high-recall scouting, accessible full-text study
