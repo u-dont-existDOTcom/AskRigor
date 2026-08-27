@@ -1,7 +1,8 @@
 # YouTube identifier-membership terminal-boundary repair
 
-Status: local implementation and deterministic verification pass from release
-baseline `94962e3`; pull request and release pending
+Status: PR #111 merged and exact production/site release verified; preserved
+product continuation advanced through the repaired boundary and is now blocked
+by observed daily YouTube quota exhaustion
 
 ## Observed failure
 
@@ -72,7 +73,9 @@ link YouTube's Terms of Service or state the required agreement. Before release:
 
 ## Non-goals
 
-- No quota-increase application or provider-account change.
+- No quota-increase application or provider-account change inside the code
+  repair. Postrelease production acceptance separately established a real quota
+  need; the external application remains its own reviewed transaction.
 - No acceptance of an identifier that may be a duplicate.
 - No complete-corpus, effectiveness, ranking, or medical claim from the
   bounded video.
@@ -84,13 +87,35 @@ link YouTube's Terms of Service or state the required agreement. Before release:
 - [x] Fail-first continuation, MCP, Action-handle, controller, and independent-
   scheduling regressions added.
 - [x] Four affected files pass 106/106 tests together.
-- [x] Full deterministic suite accounts for 1,410 runnable tests: 1,409 passed
-  in the complete serial run and its sole 15-second child-process timeout
-  passed immediately in isolation; six declared tests remain skipped.
+- [x] Final complete serial gate passes 106 files and all 1,411 runnable tests;
+  six declared live tests remain skipped.
 - [x] Typecheck, build, and whitespace/error diff checks pass.
 - [x] Public-site validator, 22 page tests, and 28 deployment tests pass with
   the Google Privacy Policy, YouTube Terms, no-OAuth, and agreement disclosures.
 - [x] Protocol XML, public Action count, MCP tool count, credentials, privacy
   data classes, and generated product artifacts remain unchanged.
-- [ ] Pull request, hosted checks, exact merge, deployment, plugin audit, and
-  fresh product continuation.
+- [x] PR #111 passed hosted checks and merged as `4cf17ae73ad2c2ffcfb55ab7ad8160fd83c86742`.
+- [x] Exact backend and site releases pass health, schema, auth, catalog,
+  protocol, legal-page, hardening, rollback, and installed-plugin verification.
+- [x] The preserved product session crosses the repaired identifier boundary
+  and advances 73 consecutive discussion transitions without a restart loop.
+- [ ] Finalization remains pending at a genuine daily-quota boundary observed
+  at 9,398/10,000 units; no product-acceptance receipt is claimed.
+
+## Production release receipt
+
+- Exact source archive: 549 members, 1,685,909 bytes, SHA-256
+  `40f09379e7dfafca94d166fdf468c4a2ca8c2a9f953da86e1082729953182be9`.
+- Active image ID:
+  `sha256:2a6ac954f85bf3529187bdf7e690f59864e954854597f04bc4a68d7d26fb5945`;
+  rollback image ID:
+  `sha256:b5d90dd0e4dd96a620e7a92614d8e79214c264de7a37869bd1dd0f738ab9495b`.
+- Public-site release:
+  `/opt/askrigor/site/releases/4cf17ae-20260827-youtube-api-disclosures/site`;
+  archive SHA-256
+  `8f2eda1b1e73564b32d4ba45a09caaf805a1acb5a60487f99f8f178cb3a151e7`.
+- Live catalog: exact 21 tools; Action schema: exact five operations; HRP:
+  20.5.23; Universal: 20.5.15.
+- Plugin: complete eight-member source and installed receipts pass; seven
+  non-manifest members are byte-identical and the installed manifest differs
+  only by its intentional cache-buster version.
