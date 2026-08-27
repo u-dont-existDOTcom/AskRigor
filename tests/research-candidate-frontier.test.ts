@@ -18,6 +18,7 @@ import {
 import {
   NATIVE_ONLY_VIDEO_ID,
   RESEARCH_FIXTURE_VIDEO_IDS,
+  nativeSearchQuotaSurvey,
   nativeSurvey,
   rejectedResearchReceipt,
   researchPacket,
@@ -271,5 +272,40 @@ describe("server-owned research candidate frontier", () => {
     expect(recovered.candidates.filter(({ video_id }) =>
       video_id === NATIVE_ONLY_VIDEO_ID
     )).toHaveLength(1);
+  });
+
+  it("uses the validated external frontier after exact daily native-search exhaustion", () => {
+    const external = externalDiscovery();
+
+    const bounded = ingestNativeYoutubeSurvey(external, nativeSearchQuotaSurvey());
+
+    expect(bounded.native_youtube).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      source_candidate_video_ids: [],
+      validated_candidate_video_ids: [],
+      unresolved_candidate_video_ids: [],
+      searches: [{
+        access_status: "rate_limited",
+        exhausted: false,
+        candidate_video_ids: []
+      }]
+    });
+    expect(bounded.candidates.map(({ video_id }) => video_id)).toEqual(
+      RESEARCH_FIXTURE_VIDEO_IDS
+    );
+    expect(candidateDiscoveryReadyForScreening(bounded)).toBe(true);
+  });
+
+  it("does not use daily native-search exhaustion to bypass a missing external frontier", () => {
+    const terminal = markExternalScoutFrontierBoundary(
+      initialResearchCandidateDiscoveryState(),
+      "BLOCKED_TERMINAL",
+      "AUTOMATED_SCOUT_INVALID_PACKET"
+    );
+
+    const blocked = ingestNativeYoutubeSurvey(terminal, nativeSearchQuotaSurvey());
+
+    expect(blocked.native_youtube.status).toBe("BLOCKED_RETRYABLE");
+    expect(candidateDiscoveryReadyForScreening(blocked)).toBe(false);
   });
 });

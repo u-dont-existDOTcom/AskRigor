@@ -52,6 +52,7 @@ import {
 import { deriveGeminiYoutubeCandidateFrontier } from "../packages/sources/src/index.js";
 import {
   RESEARCH_FIXTURE_VIDEO_IDS,
+  nativeSearchQuotaSurvey,
   nativeSurvey,
   rejectedResearchReceipt,
   researchPacket,
@@ -906,6 +907,32 @@ describe("research session controller core", () => {
       output_boundary: "CONTINUE_RESEARCH",
       required_next_capabilities: []
     });
+  });
+
+  it("continues to candidate screening after exact daily native-search exhaustion", () => {
+    const discovered = recordNativeYoutubeDiscovery(
+      scoutComplete(),
+      nativeSearchQuotaSurvey()
+    );
+
+    expect(discovered.operations.native_video_discovery).toEqual({
+      status: "BLOCKED_TERMINAL",
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "NATIVE_SEARCH_DAILY_QUOTA_EXHAUSTED",
+        summary: expect.stringMatching(/current research execution.*validated.*frontier/iu)
+      }
+    });
+    expect(deriveRequiredNextCapabilities(discovered)).toContain(
+      "candidate_screening"
+    );
+    expect(deriveRequiredNextCapabilities(discovered)).not.toContain(
+      "native_video_discovery"
+    );
+    expect(projectResearchSessionView(SESSION_ID, discovered)
+      .candidate_screening_work_package?.candidates).toHaveLength(
+        RESEARCH_FIXTURE_VIDEO_IDS.length
+      );
   });
 
   it("issues a signed permit only for a controller-complete execution", () => {

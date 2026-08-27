@@ -292,7 +292,7 @@ describe("adaptive per-video YouTube community audit", () => {
       { max_elapsed_ms: 15_000 }
     );
     expect(getSegment).toHaveBeenCalledWith(
-      { video: VIDEO_ID, page_size: 20 },
+      { video: VIDEO_ID, page_size: 100 },
       CONFIG.youtube,
       expect.objectContaining({ max_elapsed_ms: 11_000, now: expect.any(Function) })
     );
@@ -384,7 +384,7 @@ describe("adaptive per-video YouTube community audit", () => {
       2,
       {
         video: VIDEO_ID,
-        page_size: 20,
+        page_size: 100,
         cursor: { top_level_page_token: "page-11", thread_offset: 0, top_level_emitted: false }
       },
       CONFIG.youtube,
