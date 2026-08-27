@@ -1,5 +1,44 @@
 # AskRigor Codex Current State
 
+## 2026-08-27 candidate-screening semantic-contract repair candidate
+
+A genuinely fresh signed-in fixed product-acceptance challenge started session
+`ars1_1ayCoOm109wGXk4aBcBn-Lhu20weNUeZ` after the prior, postdeployment session
+was correctly classified as resumability evidence rather than acceptance
+evidence. The fresh session completed module applicability, recovered one
+retryable automated-scout boundary, completed automated scouting with six
+candidates, completed native discovery with 45 reconciled candidates, and
+reached candidate screening.
+
+The first candidate-screening semantic submission returned nonretryable
+`research_semantic_work_mismatch`; a status read confirmed the authoritative
+digest remained
+`c1f38c29be0308426f2554073a4a4a4b26bf029c3f2d9977ebc3801220ba4272`.
+The exact rejected result had 45 decisions for 45 unique packaged identities
+and satisfied its public duplicate/selection shape, but its rationales showed
+that it inferred duplicates from similar channels and treatment themes. The
+server requires described-program redundancy to use the package's exact
+`program_signature` groups. A single corrected package-bound submission using
+that rule was accepted and advanced to digest
+`5350b8fecb55461b8ffd9ffe7dd5d22d0c7f4e287c20baacafad9a1ee1a68641`,
+`formal_evidence_search`, with 35 selected videos. No replacement session was
+created.
+
+The isolated candidate adds that exact all-identity and program-signature rule
+to both the worker instruction and internal response-contract description;
+server validation, Action/OpenAPI bytes, protocol bytes, and completion
+authority are unchanged. Focused tests pass 13/13 and typechecking passes. The
+complete deterministic gate passes 106 test files with one declared live file
+skipped, 1,403 tests with six declared live tests skipped, and the production
+build. Review, protected CI, exact deployment with rollback, and a new fresh
+signed-in challenge are still required because deployment invalidates the
+process-local acceptance trace.
+
+The required lesson checkpoint is available: one open candidate, one needs
+review, zero accepted but not incorporated, three incorporated/closed, and
+zero deletion-eligible. The existing unreviewed candidate did not expand this
+repair.
+
 ## 2026-08-26 signed-in product continuation stopped at recovery-call failure
 
 The browser is now connected to the signed-in installed AskRigor GPT. A

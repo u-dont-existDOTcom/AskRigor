@@ -237,7 +237,9 @@ export const candidateScreeningSubmissionSchema = z.object({
     duplicate_of_video_id: youtubeVideoId.optional(),
     selection_status: z.enum(["SELECTED", "NOT_SELECTED"]),
     rationale: boundedText(1_000)
-  }).strict()).min(1).max(76)
+  }).strict()).min(1).max(76).describe(
+    "Exactly one decision for every packaged candidate video_id, including nonmaterial, duplicate, and unselected candidates; preserve each packaged video_id exactly once and never return only selected candidates. For MATERIAL candidates with a described program, program_signature is the exact redundancy key: each shared signature has exactly one DISTINCT decision and every other member is DUPLICATE and names that distinct member's video_id. Similar titles, channels, or treatment themes alone do not establish DUPLICATE."
+  )
 }).strict();
 
 export type CandidateScreeningWorkPackage = z.output<
