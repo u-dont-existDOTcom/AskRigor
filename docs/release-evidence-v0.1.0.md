@@ -1,32 +1,82 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-27 YouTube search-quota resilience candidate
+## 2026-08-27 YouTube search-quota resilience and 100-thread pages deployed
 
-The candidate distinguishes exact HTTP 403 `search.list` quota exhaustion from
-generic YouTube throttling. After a complete independently validated external
-frontier with at least one candidate exists, only that daily search boundary
-may close native discovery for the immutable current execution and expose the
-candidate-screening package. The rate-limited search receipts remain literal,
-native discovery is not marked complete, and the terminal operation prevents a
-full-completion audit from passing; generic 429s, incomplete metadata,
-unresolved identities, and a missing external frontier remain retryable.
+PR #114 passed deterministic verification, workflow policy, and every CodeQL
+analysis on exact head `785270e8a3d363cb51a4b5a587433ae1c92bc887`, then
+merged as `f2b39d637fef95b95b80ef4252a07a739aa5d151`. The release
+distinguishes exact HTTP 403 `search.list` daily-quota exhaustion from generic
+YouTube throttling. After a complete independently validated external frontier
+with at least one candidate exists, only that daily search boundary may close
+native discovery for the immutable current execution and expose candidate
+screening. The rate-limited search receipts remain literal, native discovery
+is not marked complete, and the terminal operation prevents a full-completion
+audit from passing. Generic 429s, incomplete metadata, unresolved identities,
+and a missing external frontier remain retryable.
 
 Controlled discussion audits now request the provider maximum of 100 top-level
 threads per `commentThreads.list` page. The existing 50-request, 15-second,
 within-page continuation, fingerprint, overlap, sampling, and 60 kB Action
 response bounds remain unchanged. A 100-thread regression crosses three
-continuations and preserves every identifier exactly once.
+continuations and preserves every identifier exactly once. Six focused files
+pass 221 tests. One first full-suite rerun had a single unrelated 10-second
+protocol-chunk timeout; that file then passed 4/4 in isolation. The clean
+complete `npm run verify` receipt passes 106 test files with one declared live
+file skipped, 1,417 tests with six declared live tests skipped, typechecking,
+and the production build.
 
-Six focused files pass 221 tests. One first full-suite rerun had a single
-unrelated 10-second protocol-chunk timeout; that file then passed 4/4 in
-isolation. The clean complete `npm run verify` receipt passes 106 test files
-with one declared live file skipped, 1,417 tests with six declared live tests
-skipped, typechecking, and the production build. No protocol bytes, public
-Action/OpenAPI inventory, MCP inventory, site, privacy data map, provider
-credential, generated Custom GPT instruction, or plugin-package byte changes.
-Protected review, merge, exact deployment, rollback capture, live/plugin
-verification, and fresh product acceptance remain pending.
+The exact secret-free merge archive contains 550 members, measures 1,695,059
+bytes, and has SHA-256
+`79156c9d5fd1af1c54c9bdd824d92c646d8fe4226068505d4bb0ead043ce5c95`.
+Production is healthy on image
+`askrigor-research:f2b39d637fef95b95b80ef4252a07a739aa5d151`, image ID
+`sha256:2f9f9be37cbc75fb2f2e835b09b1b95aa525f321b618917079fdc9e61d69aaf7`,
+and container `9d952deda964`. Immediate rollback retains prior image ID
+`sha256:2a6ac954f85bf3529187bdf7e690f59864e954854597f04bc4a68d7d26fb5945`
+as `askrigor-research:rollback-f2b39d6-predeploy`, plus prior Compose
+SHA-256
+`f8c942fb370a29bcc23121cb594a2d120208b87ccfd408ad4fd2b46b7e9effbc`.
+The active Compose SHA-256 is
+`b716ee0609877e76b60b6b1ce5e27f4f938f683878131778a1631ae22f1bbd84`.
+Caddy remained container `cb061473089c` on its pinned image digest.
+
+Postdeployment verification passes public health, exact semantic equality with
+the unchanged five-operation Action schema, unauthenticated HTTP 401, and the
+exact 21-tool MCP catalog with ordered-name SHA-256
+`eac8422f275e82de0e44aa897ddbd1cc04796355dc6230e96248154965965e3b`.
+The live HRP manifest is 20.5.23 / 2026-08-24 /
+`bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`;
+Universal is 20.5.15 / 2026-08-24 /
+`69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`.
+One read-only installed AskRigor connector call returned that exact Universal
+identity. Source and installed plugin receipts each cover all eight declared
+members; the seven non-manifest members are byte-identical and the manifest
+differs only by the installed cache-buster version. Their package SHA-256
+values remain respectively
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c`
+and `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+No protocol, public Action/OpenAPI inventory, MCP inventory, site, privacy data
+map, provider credential, generated Custom GPT instruction, or plugin-package
+byte changed, so no editor import or plugin reinstall was required.
+
+A postdeployment read-only installed-plugin audit reached one live
+`commentThreads.list` page on a previously accepted public video, processed 18
+top-level comments and 11 replies, then stopped honestly at a generic retryable
+YouTube 403 during reply reconciliation. That receipt neither exercised nor
+claimed the dedicated `search.list` fallback. The exact search-quota path is
+covered by the merged deterministic provider/frontier/controller regressions;
+production cannot truthfully manufacture Google's daily search boundary while
+the separate search allocation is still available. Fresh signed-in product
+acceptance and a server-issued finalization receipt remain unclaimed.
+
+The start and predeployment lesson checkpoints were available with one open
+candidate, one needing review, zero accepted but not incorporated, three
+incorporated/closed, and zero deletion-eligible. Lesson disposition is
+project-specific/no-new-lesson: the dedicated YouTube quota-bucket behavior
+belongs to AskRigor's provider controller, while the general bounded-
+continuation and explicit-access-gap principles already exist in current
+project and universal guidance.
 
 ## 2026-08-27 YouTube identifier boundary and API disclosures deployed
 
