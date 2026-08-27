@@ -33,6 +33,9 @@ const pageRequirements = [
       "ClinicalTrials.gov",
       "Crossref",
       "YouTube Data API v3",
+      "Google Privacy Policy",
+      "does not require Google or YouTube sign-in",
+      "acknowledge and agree to this Privacy Notice before using",
       "During research",
       "does not create user accounts",
       "connected client",
@@ -48,6 +51,7 @@ const pageRequirements = [
       "lawful use",
       "no medical, legal, or financial advice",
       "rate limits",
+      "YouTube Terms of Service",
       "third-party",
       "as available",
       "applicable law"

@@ -463,12 +463,16 @@ export function ingestDiscussionActionOutput(
     throw new Error("Discussion Action output does not match the selected receipt chain");
   }
   const restartCode = output.error?.code;
+  const identifierMembershipBoundary = restartCode ===
+    DISCUSSION_IDENTIFIER_MEMBERSHIP_BOUNDARY_CODE;
   const restartRequiredCode = restartCode !== undefined &&
     DISCUSSION_RESTART_CODES.has(restartCode)
     ? restartCode
     : undefined;
   if (restartRequiredCode !== undefined) {
     assertDiscussionRestartSnapshot(previous, output);
+  } else if (identifierMembershipBoundary) {
+    assertDiscussionIdentifierMembershipBoundarySnapshot(previous, output);
   } else {
     assertDiscussionReceiptAdvance(previous, output);
   }
@@ -524,8 +528,12 @@ export function ingestDiscussionActionOutput(
       receipt,
       boundary: {
         classification: "TERMINAL_NONRETRYABLE",
-        code: "DISCUSSION_TERMINAL_BOUNDARY",
-        summary: "The selected discussion reached a recognized terminal access boundary."
+        code: identifierMembershipBoundary
+          ? "YOUTUBE_VIDEO_AUDIT_IDENTIFIER_MEMBERSHIP_BOUNDARY"
+          : "DISCUSSION_TERMINAL_BOUNDARY",
+        summary: identifierMembershipBoundary
+          ? "The selected discussion stopped at its last verified identifier frontier."
+          : "The selected discussion reached a recognized terminal access boundary."
       }
     };
   } else if (receipt.receipt.synthesis_lock === "pass") {
@@ -837,24 +845,8 @@ function assertDiscussionRestartSnapshot(
   previous: z.output<typeof discussionDepthRecordSchema>,
   output: YoutubeDiscussionActionOutput
 ): void {
-  const prior = previous.receipt;
   if (
-    prior === undefined ||
-    output.segment_index !== previous.segment_index ||
-    output.records_retrieved_cumulative !== prior.records_retrieved_cumulative ||
-    output.top_level_comments_retrieved_cumulative !==
-      prior.top_level_comments_retrieved_cumulative ||
-    output.replies_retrieved_cumulative !== prior.replies_retrieved_cumulative ||
-    output.corpus_rolling_sha256 !== previous.corpus_rolling_sha256 ||
-    JSON.stringify(output.reply_count_mismatches) !==
-      JSON.stringify(prior.reply_count_mismatches) ||
-    output.records_retrieved_this_call !== 0 ||
-    output.top_level_comments_retrieved_this_call !== 0 ||
-    output.replies_retrieved_this_call !== 0 ||
-    output.comment_thread_pages_this_call !== 0 ||
-    output.reply_pages_this_call !== 0 ||
-    output.continuation_recommended ||
-    output.continuation_token !== undefined ||
+    !discussionSnapshotMatchesPrevious(previous, output) ||
     output.receipt.completion_state !== "incomplete" ||
     output.receipt.synthesis_lock !== "block"
   ) {
@@ -862,6 +854,57 @@ function assertDiscussionRestartSnapshot(
       "Discussion restart snapshot does not match the authoritative prior frontier"
     );
   }
+}
+
+function assertDiscussionIdentifierMembershipBoundarySnapshot(
+  previous: z.output<typeof discussionDepthRecordSchema>,
+  output: YoutubeDiscussionActionOutput
+): void {
+  if (
+    !discussionSnapshotMatchesPrevious(previous, output) ||
+    output.error?.code !== DISCUSSION_IDENTIFIER_MEMBERSHIP_BOUNDARY_CODE ||
+    output.error.retryable !== false ||
+    output.access_status !== "partial" ||
+    output.extraction_coverage !== "completed_with_access_boundary" ||
+    output.receipt.completion_state !== "completed_with_access_boundary" ||
+    output.receipt.synthesis_lock !== "pass" ||
+    output.receipt.top_level_pagination_exhausted ||
+    output.receipt.replies_reconciled ||
+    output.receipt.blockers.length !== 0
+  ) {
+    throw new Error(
+      "Discussion identifier-membership terminal snapshot does not match the authoritative prior frontier"
+    );
+  }
+}
+
+function discussionSnapshotMatchesPrevious(
+  previous: z.output<typeof discussionDepthRecordSchema>,
+  output: YoutubeDiscussionActionOutput
+): boolean {
+  const prior = previous.receipt;
+  return prior !== undefined &&
+    output.segment_index === previous.segment_index &&
+    output.records_retrieved_cumulative === prior.records_retrieved_cumulative &&
+    output.top_level_comments_retrieved_cumulative ===
+      prior.top_level_comments_retrieved_cumulative &&
+    output.replies_retrieved_cumulative === prior.replies_retrieved_cumulative &&
+    output.provider_reported_comments === prior.provider_reported_comments &&
+    output.records_returned_for_analysis === prior.records_returned_for_analysis &&
+    output.top_level_records_returned_for_analysis ===
+      prior.top_level_records_returned_for_analysis &&
+    output.reply_records_returned_for_analysis ===
+      prior.reply_records_returned_for_analysis &&
+    output.corpus_rolling_sha256 === previous.corpus_rolling_sha256 &&
+    JSON.stringify(output.reply_count_mismatches) ===
+      JSON.stringify(prior.reply_count_mismatches) &&
+    output.records_retrieved_this_call === 0 &&
+    output.top_level_comments_retrieved_this_call === 0 &&
+    output.replies_retrieved_this_call === 0 &&
+    output.comment_thread_pages_this_call === 0 &&
+    output.reply_pages_this_call === 0 &&
+    !output.continuation_recommended &&
+    output.continuation_token === undefined;
 }
 
 function restartDiscussionRecord(
@@ -997,3 +1040,6 @@ const DISCUSSION_RESTART_CODES = new Set([
   "youtube_video_audit_continuation_invalid",
   "youtube_video_audit_continuation_expired"
 ]);
+
+const DISCUSSION_IDENTIFIER_MEMBERSHIP_BOUNDARY_CODE =
+  "youtube_video_audit_identifier_membership_boundary";

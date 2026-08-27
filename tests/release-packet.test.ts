@@ -240,7 +240,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 26, 2026");
+    expect(privacySite).toContain("Effective August 27, 2026");
     expect(privacySite).toContain("Unpaywall");
     expect(privacySite).toContain("encrypted single-host checkpoint");
     expect(privacySite).toContain("Optional lesson feedback");

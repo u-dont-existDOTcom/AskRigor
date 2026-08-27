@@ -112,10 +112,26 @@ describe("AskRigor public site", () => {
     );
   });
 
+  it("publishes the required YouTube API privacy and terms links", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    expect(privacy).toContain("AskRigor uses YouTube API Services");
+    expect(privacy).toContain("acknowledge and agree to this Privacy Notice before using");
+    expect(privacy).toContain(
+      '<a href="https://policies.google.com/privacy">Google Privacy Policy</a>',
+    );
+    expect(privacy).toContain("does not require Google or YouTube sign-in");
+
+    const terms = await pageHtml("site/terms/index.html");
+    expect(terms).toContain(
+      '<a href="https://www.youtube.com/t/terms">YouTube Terms of Service</a>',
+    );
+    expect(terms).toContain("agree to be bound by the YouTube Terms of Service");
+  });
+
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 26, 2026",
+      "Effective August 27, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",

@@ -9,6 +9,7 @@ import {
   decodeYoutubeAuditContinuation,
   encodeYoutubeAuditContinuation,
   YoutubeAuditContinuationError,
+  YoutubeAuditIdentifierMembershipBoundaryError,
   YoutubeAuditRestartRequiredError,
   type YoutubeVideoAuditContinuationState
 } from "../apps/research-mcp/src/youtube-audit-continuation.js";
@@ -578,11 +579,11 @@ describe("YouTube audit continuation tokens", () => {
         },
         { thread_offset: 2, top_level_emitted: false }
       );
-      throw new Error("Expected the possible duplicate to require a restart");
+      throw new Error("Expected the possible duplicate to stop at a terminal boundary");
     } catch (error) {
-      expect(error).toBeInstanceOf(YoutubeAuditRestartRequiredError);
+      expect(error).toBeInstanceOf(YoutubeAuditIdentifierMembershipBoundaryError);
       expect(error).toMatchObject({
-        code: "youtube_video_audit_identifier_membership_restart_required",
+        code: "youtube_video_audit_identifier_membership_boundary",
         snapshot: {
           video_id: "XpZHKGGCK-o",
           segment_index: 1,

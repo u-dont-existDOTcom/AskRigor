@@ -672,7 +672,102 @@ describe("server-owned selected-video depth", () => {
       });
   });
 
-  it("accepts only an exact no-progress discussion restart snapshot", () => {
+  it("terminalizes an exact no-progress membership boundary and schedules the next video", () => {
+    const initial = initializeResearchVideoDepth(screenedCandidates());
+    const first = ingestDiscussionActionOutput(
+      initial,
+      VIDEO_ONE,
+      undefined,
+      discussionOutput(VIDEO_ONE, {
+        complete: false,
+        analysisReturned: 0,
+        continuationHandle: DISCUSSION_HANDLE
+      })
+    );
+    const boundaryOutput = discussionOutput(VIDEO_ONE, {
+      terminal: true,
+      noProgress: true,
+      terminalAccessStatus: "partial",
+      terminalOpenFrontier: true,
+      analysisReturned: 0,
+      segmentIndex: 0,
+      cumulative: 1,
+      errorCode:
+        "youtube_video_audit_identifier_membership_boundary"
+    });
+
+    const bounded = ingestDiscussionActionOutput(
+      first,
+      VIDEO_ONE,
+      DISCUSSION_HANDLE,
+      boundaryOutput
+    );
+    expect(bounded.discussions[0]).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      attempt: 0,
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "YOUTUBE_VIDEO_AUDIT_IDENTIFIER_MEMBERSHIP_BOUNDARY"
+      }
+    });
+    expect(bounded.discussions[0]).toMatchObject({
+      segment_index: 0,
+      receipt: {
+        records_retrieved_cumulative: 1,
+        receipt: {
+          completion_state: "completed_with_access_boundary",
+          synthesis_lock: "pass"
+        }
+      }
+    });
+    expect(bounded.discussions[0]).not.toHaveProperty("continuation_handle");
+    expect(deriveResearchVideoDepthWorkPackages(bounded)
+      .filter(({ capability }) => capability === "community_discussion_audit"))
+      .toEqual([expect.objectContaining({
+        video_id: VIDEO_TWO,
+        attempt: 0,
+        continuation: false
+      })]);
+    expect(deriveVideoDepthOperationStatus(bounded, "community_discussion_audit"))
+      .toBe("IN_PROGRESS");
+
+    expect(() => ingestDiscussionActionOutput(
+      first,
+      VIDEO_ONE,
+      DISCUSSION_HANDLE,
+      discussionOutput(VIDEO_ONE, {
+        terminal: true,
+        noProgress: true,
+        terminalAccessStatus: "partial",
+        terminalOpenFrontier: true,
+        analysisReturned: 0,
+        segmentIndex: 0,
+        cumulative: 2,
+        errorCode:
+          "youtube_video_audit_identifier_membership_boundary"
+      })
+    )).toThrow(/terminal snapshot/u);
+
+    expect(() => ingestDiscussionActionOutput(
+      first,
+      VIDEO_ONE,
+      DISCUSSION_HANDLE,
+      discussionOutput(VIDEO_ONE, {
+        terminal: true,
+        noProgress: true,
+        terminalAccessStatus: "partial",
+        terminalOpenFrontier: true,
+        analysisReturned: 0,
+        continuationHandle: DISCUSSION_HANDLE,
+        segmentIndex: 0,
+        cumulative: 1,
+        errorCode:
+          "youtube_video_audit_identifier_membership_boundary"
+      })
+    )).toThrow(/terminal snapshot/u);
+  });
+
+  it("keeps continuation migration failures restartable", () => {
     const initial = initializeResearchVideoDepth(screenedCandidates());
     const first = ingestDiscussionActionOutput(
       initial,
@@ -683,43 +778,26 @@ describe("server-owned selected-video depth", () => {
         continuationHandle: DISCUSSION_HANDLE
       })
     );
-    const restartOutput = discussionOutput(VIDEO_ONE, {
-      restart: true,
-      segmentIndex: 0,
-      cumulative: 1,
-      errorCode:
-        "youtube_video_audit_identifier_membership_restart_required"
-    });
-
     const restarted = ingestDiscussionActionOutput(
-      first,
-      VIDEO_ONE,
-      DISCUSSION_HANDLE,
-      restartOutput
-    );
-    expect(restarted.discussions[0]).toMatchObject({
-      status: "RESTART_REQUIRED",
-      attempt: 1,
-      boundary: {
-        classification: "RETRYABLE",
-        code: "YOUTUBE_VIDEO_AUDIT_IDENTIFIER_MEMBERSHIP_RESTART_REQUIRED"
-      }
-    });
-    expect(restarted.discussions[0]).not.toHaveProperty("receipt");
-    expect(restarted.discussions[0]).not.toHaveProperty("continuation_handle");
-
-    expect(() => ingestDiscussionActionOutput(
       first,
       VIDEO_ONE,
       DISCUSSION_HANDLE,
       discussionOutput(VIDEO_ONE, {
         restart: true,
         segmentIndex: 0,
-        cumulative: 2,
+        cumulative: 1,
         errorCode:
-          "youtube_video_audit_identifier_membership_restart_required"
+          "youtube_video_audit_continuation_migration_restart_required"
       })
-    )).toThrow(/restart snapshot/u);
+    );
+    expect(restarted.discussions[0]).toMatchObject({
+      status: "RESTART_REQUIRED",
+      attempt: 1,
+      boundary: {
+        classification: "RETRYABLE",
+        code: "YOUTUBE_VIDEO_AUDIT_CONTINUATION_MIGRATION_RESTART_REQUIRED"
+      }
+    });
   });
 
   it("makes completed per-video evidence immutable in the session store", () => {
