@@ -43,6 +43,13 @@ native YouTube `search.list` is unavailable or its daily quota is exhausted.
    existing signed-in acceptance session.
 5. Make every discovery route use the same resolved-frontier rule so no route
    repeatedly returns the Spark boundary instead of advancing native discovery.
+6. Production acceptance showed that a mixed native survey could retain every
+   returned identity as complete while one search direction remained under a
+   generic retryable access boundary. Bound that native search after its one
+   attempt whenever a usable Spark frontier exists and no returned native
+   identity is unresolved. Preserve a specific access boundary and migrate the
+   retained pre-fix checkpoint. Generic identity or metadata failures remain
+   retryable and cannot unlock screening.
 
 ## Verification
 

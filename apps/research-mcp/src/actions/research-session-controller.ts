@@ -40,6 +40,7 @@ import {
   deriveCandidateDiscoveryDiagnostics,
   ingestCandidateScreeningSubmission,
   ingestNativeYoutubeSurvey,
+  nativeSurveyEndedByBoundedSearchAccess,
   nativeSurveyEndedByDailySearchQuota,
   ingestValidatedGeminiFrontier,
   initialResearchCandidateDiscoveryState,
@@ -1270,25 +1271,29 @@ export function recordNativeYoutubeDiscovery(
   const nativeStatus = discovery.native_youtube.status;
   const dailySearchQuotaBoundary = nativeStatus === "BLOCKED_TERMINAL" &&
     nativeSurveyEndedByDailySearchQuota(survey);
+  const boundedSearchAccessBoundary = nativeStatus === "BLOCKED_TERMINAL" &&
+    nativeSurveyEndedByBoundedSearchAccess(survey);
   const boundary = dailySearchQuotaBoundary
     ? {
       classification: "TERMINAL_NONRETRYABLE" as const,
       code: "NATIVE_SEARCH_DAILY_QUOTA_EXHAUSTED",
       summary: "The dedicated daily YouTube search allocation ended native discovery for the current research execution; candidate screening will continue from the independently validated candidate frontier already present."
     }
-    : nativeStatus === "BLOCKED_RETRYABLE"
-    ? {
-      classification: "RETRYABLE" as const,
-      code: "NATIVE_DISCOVERY_RETRYABLE_BOUNDARY",
-      summary: "Native video discovery has retryable search or identity work remaining."
-    }
-    : nativeStatus === "BLOCKED_TERMINAL"
-      ? {
-        classification: "TERMINAL_NONRETRYABLE" as const,
-        code: "NATIVE_DISCOVERY_TERMINAL_BOUNDARY",
-        summary: "Native video discovery reached a terminal search or identity boundary."
-      }
-      : undefined;
+    : boundedSearchAccessBoundary
+      ? boundedNativeSearchAccessBoundary()
+      : nativeStatus === "BLOCKED_RETRYABLE"
+        ? {
+          classification: "RETRYABLE" as const,
+          code: "NATIVE_DISCOVERY_RETRYABLE_BOUNDARY",
+          summary: "Native video discovery has retryable search or identity work remaining."
+        }
+        : nativeStatus === "BLOCKED_TERMINAL"
+          ? {
+            classification: "TERMINAL_NONRETRYABLE" as const,
+            code: "NATIVE_DISCOVERY_TERMINAL_BOUNDARY",
+            summary: "Native video discovery reached a terminal search or identity boundary."
+          }
+          : undefined;
   const operationStatus = nativeStatus === "COMPLETE"
     ? "COMPLETE" as const
     : nativeStatus === "BLOCKED_RETRYABLE"
@@ -1478,6 +1483,24 @@ export function reconcileRestoredResearchSessionState(
       });
     }
   }
+  if (legacyRetryableNativeSearchIsUsable(state)) {
+    const boundary = boundedNativeSearchAccessBoundary();
+    const candidateDiscovery = researchCandidateDiscoveryStateSchema.parse({
+      ...state.candidate_discovery,
+      native_youtube: {
+        ...state.candidate_discovery.native_youtube,
+        status: "BLOCKED_TERMINAL"
+      }
+    });
+    state = researchSessionStateSchema.parse({
+      ...state,
+      operations: {
+        ...state.operations,
+        native_video_discovery: { status: "BLOCKED_TERMINAL", boundary }
+      },
+      candidate_discovery: candidateDiscovery
+    });
+  }
   const videoDepth = reconcileVideoDepthAfterEphemeralLoss(state.video_depth);
   if (JSON.stringify(videoDepth) !== JSON.stringify(state.video_depth)) {
     state = withVideoDepth(state, videoDepth);
@@ -1512,6 +1535,35 @@ function partialValidatedScoutBoundary() {
     classification: "TERMINAL_NONRETRYABLE" as const,
     code: "AUTOMATED_SCOUT_PARTIAL_VALIDATED_FRONTIER",
     summary: "The external scout produced an independently validated subset for this execution; identities still unresolved after the bounded validation attempt remain excluded and explicit."
+  };
+}
+
+function legacyRetryableNativeSearchIsUsable(
+  state: ResearchSessionState
+): boolean {
+  const operation = state.operations.native_video_discovery;
+  const external = state.candidate_discovery.external_scout;
+  const native = state.candidate_discovery.native_youtube;
+  return operation.status === "BLOCKED_RETRYABLE" &&
+    operation.boundary?.code === "NATIVE_DISCOVERY_RETRYABLE_BOUNDARY" &&
+    (
+      external.status === "COMPLETE" ||
+      external.status === "BLOCKED_TERMINAL"
+    ) &&
+    external.validated_candidate_video_ids.length > 0 &&
+    native.status === "BLOCKED_RETRYABLE" &&
+    native.unresolved_candidate_video_ids.length === 0 &&
+    native.searches.length > 0 &&
+    native.searches.some(({ access_status }) =>
+      access_status !== "complete" && access_status !== "api_visible_complete"
+    );
+}
+
+function boundedNativeSearchAccessBoundary() {
+  return {
+    classification: "TERMINAL_NONRETRYABLE" as const,
+    code: "NATIVE_SEARCH_ACCESS_BOUNDED",
+    summary: "One or more native YouTube search directions were unavailable after the bounded attempt; candidate screening will continue from independently validated Spark and native identities already present, with the missing search coverage explicit."
   };
 }
 

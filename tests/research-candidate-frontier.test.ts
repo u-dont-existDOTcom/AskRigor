@@ -18,6 +18,7 @@ import {
 import {
   NATIVE_ONLY_VIDEO_ID,
   RESEARCH_FIXTURE_VIDEO_IDS,
+  nativeSearchAccessBoundarySurvey,
   nativeSearchQuotaSurvey,
   nativeSurvey,
   rejectedResearchReceipt,
@@ -319,6 +320,24 @@ describe("server-owned research candidate frontier", () => {
     expect(blocked.external_scout.status).toBe("BLOCKED_TERMINAL");
     expect(blocked.native_youtube.status).toBe("BLOCKED_RETRYABLE");
     expect(candidateDiscoveryReadyForScreening(blocked)).toBe(false);
+  });
+
+  it("bounds a blocked native search after retaining every complete returned identity", () => {
+    const external = externalDiscovery(unresolvedReceipt());
+
+    const bounded = ingestNativeYoutubeSurvey(
+      external,
+      nativeSearchAccessBoundarySurvey()
+    );
+
+    expect(bounded.external_scout.status).toBe("BLOCKED_TERMINAL");
+    expect(bounded.native_youtube.status).toBe("BLOCKED_TERMINAL");
+    expect(bounded.native_youtube.unresolved_candidate_video_ids).toEqual([]);
+    expect(bounded.candidates.map(({ video_id }) => video_id)).toEqual([
+      ...RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
+      NATIVE_ONLY_VIDEO_ID
+    ]);
+    expect(candidateDiscoveryReadyForScreening(bounded)).toBe(true);
   });
 
   it("does not use daily native-search exhaustion to bypass a missing external frontier", () => {
