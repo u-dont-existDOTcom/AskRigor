@@ -67,8 +67,18 @@ YouTube 403 during reply reconciliation. That receipt neither exercised nor
 claimed the dedicated `search.list` fallback. The exact search-quota path is
 covered by the merged deterministic provider/frontier/controller regressions;
 production cannot truthfully manufacture Google's daily search boundary while
-the separate search allocation is still available. Fresh signed-in product
-acceptance and a server-issued finalization receipt remain unclaimed.
+the separate search allocation is still available.
+
+A fresh signed-in installed-GPT challenge then created preserved session
+`ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP`. The first run and one immediate
+same-chat retry both stopped honestly at a temporary source dependency and
+withheld synthesis. Server-side sanitized status classified the exact boundary
+as retryable `AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED`: eight external candidate
+entries were observed, six identities validated, and one remained unresolved.
+Native discovery and every downstream operation remained `NOT_STARTED`, so
+this run did not exercise the new native-search fallback. No replacement
+session, reader report, finalization, or server-issued product acceptance
+receipt is claimed.
 
 The start and predeployment lesson checkpoints were available with one open
 candidate, one needing review, zero accepted but not incorporated, three

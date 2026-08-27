@@ -56,7 +56,15 @@ stopped at a generic retryable YouTube 403 during reply reconciliation. It did
 not exercise or claim the separate `search.list` fallback. That exact boundary
 cannot be manufactured while search capacity remains; the merged deterministic
 provider/frontier/controller regressions are the acceptance evidence for it.
-Fresh signed-in product finalization remains required.
+
+Fresh signed-in installed-GPT acceptance created preserved session
+`ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP`. The first run and one immediate retry
+both stopped before native discovery at retryable boundary
+`AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED`: eight external candidate entries had
+been observed, six identities validated, and one remained unresolved. Native
+discovery and every downstream operation remained `NOT_STARTED`. The Custom
+GPT withheld partial synthesis and instructed a later same-session retry. No
+replacement session, finalization, or product-acceptance receipt exists.
 
 The start-of-task lesson checkpoint is available: one open candidate, one
 needs review, zero accepted but not incorporated, three incorporated/closed,

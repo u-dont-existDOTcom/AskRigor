@@ -1,5 +1,37 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-27 search-quota release; fresh product run stopped before native search
+
+After exact merge `f2b39d637fef95b95b80ef4252a07a739aa5d151` was
+deployed and PR #115 recorded its direct production receipts, browser control
+opened a fresh signed-in installed AskRigor conversation and submitted the
+exact fixed synthetic hip-replacement acceptance target. The conversation is
+`/c/6a90b1f9-244c-83ea-a60b-d0746cd22b8e`. The first response worked for
+1 minute 57 seconds, withheld partial synthesis, reported a temporary source
+boundary, and instructed the owner to reply `Retry`. One immediate same-chat
+retry reproduced the boundary and again stated that the research session was
+preserved.
+
+An authenticated server-local status read identified the preserved session as
+`ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP`, state digest
+`911e1bbf650eebd303c649fc6c135615a99df9ce36b04121a2828388f48780bd`,
+execution status `BLOCKED_RETRYABLE`, output boundary `CONTINUE_RESEARCH`, and
+next capability `automated_video_scout`. A narrowly projected read of the
+encrypted synthetic checkpoint identified the exact boundary as
+`AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED`: eight external candidate entries had
+been observed, six identities validated, and one remained unresolved. The
+temporary provider deletion had been requested. Every later operation,
+including `native_video_discovery`, remained `NOT_STARTED`.
+
+This is fresh signed-in negative product evidence, not a failure of browser
+control and not an exercise of the new dedicated `search.list`-quota fallback.
+That fallback intentionally requires a complete independently validated
+external frontier; the run stopped before reaching native search because its
+external frontier remained incomplete. No replacement session, partial reader
+report, finalization permit, or `product_acceptance_receipt` is claimed.
+Immediate retries should not be looped; a later same-session retry may resume
+after the unresolved identity or provider boundary changes.
+
 ## 2026-08-27 candidate-screening contract mismatch reproduced and corrected
 
 A fresh signed-in fixed acceptance challenge started exactly one new server
