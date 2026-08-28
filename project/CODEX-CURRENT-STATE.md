@@ -7,7 +7,8 @@ reasoning quality than the owner's ordinary ChatGPT account and notes OpenAI's
 non-guarantee of equivalent Custom GPT intelligence. Effective immediately,
 use the signed-in regular ChatGPT Pro account with the installed AskRigor
 plugin as the primary live intelligence, research-quality, and end-to-end
-acceptance surface. Use Extra High reasoning for controlled tests. The Custom
+acceptance surface. Use the strongest available reasoning setting for controlled
+tests; the clean plugin chat was verified on GPT-5.6 Sol at Ultra. The Custom
 GPT remains a secondary Action-compatibility and projection-regression surface;
 do not use its output quality as the primary estimate of AskRigor's achievable
 research quality.
@@ -21,6 +22,20 @@ not evidence of current canonical bytes. Every fresh primary acceptance run
 must explicitly retrieve and verify the live HRP and Universal identities
 through AskRigor before substantive research; project uploads, prior thread
 prose, and generated excerpts cannot replace the live canonical protocols.
+
+A clean non-project ChatGPT plugin chat was opened through AskRigor's installed
+`Try in chat` action, avoiding the project's stale uploaded-source confound:
+`https://chatgpt.com/c/6a91b986-ff1c-83ea-a810-d906c950b100`.
+The bounded GPT-5.6 Sol / Ultra smoke test requested only the two live protocol
+manifests. AskRigor returned HRP `20.5.23`, revised `2026-08-24`, SHA-256
+`bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`,
+and Universal `20.5.15`, revised `2026-08-24`, SHA-256
+`69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`.
+Both identities exactly match repository canonical-byte tests, both canonical
+texts were reported available, and the response explicitly reported no
+research session, research operation, or provider operation. This is a current
+primary-surface connectivity/protocol smoke receipt, not a substantive research
+quality acceptance.
 
 The preserved Custom GPT hip-treatment session remains intact as historical
 resumability/compatibility evidence. Minute polling stopped on this owner
