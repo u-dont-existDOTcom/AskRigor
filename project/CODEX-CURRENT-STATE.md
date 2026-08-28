@@ -73,6 +73,41 @@ surface. The receipt is
 submission of the requested supporting material, not quota approval or an
 effective quota change.
 
+## 2026-08-28 fresh regular-Chat Extra High acceptance active
+
+A genuinely fresh regular ChatGPT conversation is preserved at
+`https://chatgpt.com/c/6a9201c8-e3bc-83e9-b5dc-47e47bf258c0`. Before submission,
+the visible controls were verified as Chat mode checked, Extra High selected,
+and the installed AskRigor plugin present as the inline source pill. This is the
+owner-designated primary intelligence and product surface.
+
+The fixed synthetic prompt made both live canonical identities a hard first
+gate and prohibited project uploads or prior-chat memory. The response loaded
+and verified the complete HRP `20.5.23` and Universal `20.5.15` texts with the
+exact expected dates and SHA-256 digests, then started a fresh AskRigor workflow
+for surgery-indicated end-stage hip osteoarthritis. It did not reuse or resume
+the stopped Work/Ultra run.
+
+The live Chat response demonstrated substantive program- and population-level
+reasoning before this checkpoint. It separated a broader
+moderate-to-severe Finnish arthroplasty-versus-exercise trial from the strict
+core population; identified PROHIP as an exact surgical-eligibility population
+match; retained its supervised 12-week progressive-resistance dose, optional
+12-week continuation, 6-month Oxford Hip Score comparison, crossover count,
+and still-pending durability boundary; excluded prehabilitation studies from
+the alternative-to-surgery comparison; and kept cycling plus education,
+mobilization, proprioceptive-neuromuscular facilitation, neuromuscular
+exercise, resistance training, and diet-plus-exercise as distinct
+implementations rather than pooling them.
+
+At the last authoritative inspection the response remained actively acquiring
+evidence and had issued at least 28 live source operations, including PubMed,
+Europe PMC, and clinical-trial search/fetch calls. A PubMed record receipt was
+timestamped `2026-08-28T21:51:24.816Z`. No final verdict, research-completion
+claim, or product-acceptance receipt exists yet. The conversation remains open;
+do not retry, replace, or classify it as stalled merely because the long active
+tool batch temporarily outlasted background page inspection.
+
 ## 2026-08-28 Brave relaunch handoff
 
 The owner is relaunching Codex in the ChatGPT app because that surface can use
