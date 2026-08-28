@@ -182,6 +182,60 @@ links are therefore a context-local instruction/rendering miss in that one
 correction response, not evidence of a platform-wide renderer failure or a
 general AskRigor-plugin citation defect.
 
+## 2026-08-28 PREDIMED publication-integrity benchmark completed
+
+A fresh primary-account AskRigor plugin benchmark is preserved at
+`https://chatgpt.com/c/6a920f65-ca0c-83ea-9d3b-587889789d92`. Submission
+preflight verified Chat checked, Work unchecked, GPT-5.6 Sol selected, maximum
+5-of-5 reasoning effort, and AskRigor attached. The fixed prompt treats every
+PREDIMED claim as potentially false, requires exact atomic verdicts and
+publication-event/method provenance, and prohibits dietary advice, community
+research, and a broad efficacy synthesis.
+
+The complete live protocol gate passed. The final claim ledger completed after
+`Worked for 11m 44s` and correctly separated exact source statements from
+methodological inference. Its decisive falsifications were:
+
+- the trial was not participant-and-interventionist double-blind; only outcome
+  adjudication was blinded;
+- all-cause mortality was not significantly reduced in either arm or the
+  combined comparison;
+- the 2013 article was retracted and corrected/re-published in 2018, with the
+  live sequence also retaining a 2014 erratum;
+- the 1,588-participant exclusion was a sensitivity analysis, while the primary
+  intention-to-treat analysis retained all 7,447 participants;
+- corrected and sensitivity estimates remained broadly similar but were not
+  numerically identical to the 2013 estimates;
+- the republication adjusted for and disclosed allocation uncertainty rather
+  than proving that every participant had been individually randomized; and
+- NCT `00703651` is an unrelated influenza-vaccine study. The PREDIMED
+  publications instead identify ISRCTN `35739639`.
+
+The audit retained uncertainty where appropriate: public records cannot prove
+the exact actual assignment route for every participant, and the 1,588-person
+set included known or suspected deviations rather than participant-by-
+participant proof. It retrieved PMID `19341446`, the exact retraction notice
+PMID `29897867` / DOI `10.1056/NEJMc1806491`, Crossref publication-event
+metadata, the unrelated ClinicalTrials.gov record, and direct official and
+accessible full-text links.
+
+After repeated web-search transitions stopped adding visible evidence, browser
+control invoked the page's `Answer now` once. The UI briefly returned `Failed
+to answer now. Please try again.`, then removed that message, advanced to
+`Synthesized evidence`, continued without another intervention, and rendered
+the completed ledger. No retry or replacement run was submitted.
+
+The official NEJM full-text endpoints returned HTTP 403 in the retrieval
+environment. The answer disclosed that boundary and inspected publisher-
+formatted copies with exact journal/DOI identity. It reported that no research
+session was created or resumed and that AskRigor exposed no separate read-only
+study-method-validation operation; the validator was therefore marked
+unavailable rather than claimed. The final response supplied direct
+decision-relevant links, made no dietary recommendation or community search,
+and ended with `Next step: none — this publication-integrity audit is
+complete.` This is a passing primary-account reasoning and falsification
+receipt with the stated validator/full-text access limits.
+
 ## 2026-08-28 Brave relaunch handoff
 
 The owner is relaunching Codex in the ChatGPT app because that surface can use
