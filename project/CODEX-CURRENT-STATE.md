@@ -1,5 +1,48 @@
 # AskRigor Codex Current State
 
+## 2026-08-28 Spark/native bounded-frontier production state
+
+PRs #117, #118, and #119 implement the owner's correction that AskRigor must
+continue from independently validated Spark video results even when native
+YouTube discovery cannot complete. The final exact merge is
+`fa7f9d0521f192c658924b73b58eb5584e2b21b7` from reviewed head
+`7fbc9d664ea5835c64818c3fe9f4a85943669cf7`. Protected deterministic
+verification passed 106 test files and 1,426 tests, with one declared live file
+and six declared live tests skipped; workflow policy and every CodeQL analysis
+also passed.
+
+Production is healthy in container `15a5968d1d9b` on image
+`askrigor-research:fa7f9d0521f192c658924b73b58eb5584e2b21b7`, image ID
+`sha256:fef899dfacb4bb7505b234bdc2813bc979748e3782e7d74547f284415d31ed10`.
+The exact 551-member, 1,701,391-byte archive SHA-256 is
+`c59a9d3fe391c44eec81b4b0dea56ab93cf87953ac9b2a96337775cbfdcbd430`.
+Active Compose SHA-256 is
+`20d7db364cd06968a4b5312f13214d97e6a324788e296c2dd0355f1e72f59ccc`.
+Immediate rollback is `askrigor-research:rollback-fa7f9d0-predeploy`, restoring
+image ID
+`sha256:0850e840dc1bbef66d54ff5f58713a75b9282638669c83936f8c2fb0b34bb717`,
+plus `/opt/askrigor/compose.yaml.rollback-fa7f9d0`, SHA-256
+`131d4488098a4577c3c75d8cb2cf208a8ce3034513b0515c73e74c63bb457347`.
+
+Public health, the unchanged five-operation Action schema, HTTP 401, exact
+ordered 21-tool MCP catalog, both live protocol manifests, the installed
+connector probe, complete source/installed eight-member plugin receipts, and
+container security/mount checks pass. Caddy remains unchanged in
+`cb061473089c`.
+
+The preserved session `ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP` now migrates to
+`NATIVE_IDENTITY_ACCESS_BOUNDED` and requires `candidate_screening`, not
+`native_video_discovery`. Its authoritative checkpoint retains 6 validated
+Spark identities, 20 validated native identities, 32 explicitly unresolved and
+excluded native identities, and 26 reconciled screening candidates. One
+same-session server continuation returned `perform_semantic_work /
+candidate_screening`. The existing signed-in browser conversation is claimed
+and ready at the old retry response, but no new user-visible message has been
+sent and no final product receipt is claimed.
+
+The predeploy lesson checkpoint was available: open 1, needs review 1,
+accepted-not-incorporated 0, incorporated/closed 3, deletion-eligible 0.
+
 ## 2026-08-27 YouTube search-quota resilience deployed
 
 Owner direction authorizes two related controlled-workflow changes: request
