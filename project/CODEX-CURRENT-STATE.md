@@ -1,5 +1,34 @@
 # AskRigor Codex Current State
 
+## 2026-08-28 owner correction: regular ChatGPT plugin is the primary test surface
+
+The owner reports that the installed Custom GPT has materially lower effective
+reasoning quality than the owner's ordinary ChatGPT account and notes OpenAI's
+non-guarantee of equivalent Custom GPT intelligence. Effective immediately,
+use the signed-in regular ChatGPT Pro account with the installed AskRigor
+plugin as the primary live intelligence, research-quality, and end-to-end
+acceptance surface. Use Extra High reasoning for controlled tests. The Custom
+GPT remains a secondary Action-compatibility and projection-regression surface;
+do not use its output quality as the primary estimate of AskRigor's achievable
+research quality.
+
+Brave inspection confirmed the regular account is signed in, AskRigor appears
+in the account's Installed plugins, and the existing
+`AskRigor.com Plugin-Dependent` project offers new chats at Extra High. Its
+existing `HRP Protocol Verification` thread visibly made three AskRigor tool
+calls. The project's uploaded protocol sources are dated August 7--10 and are
+not evidence of current canonical bytes. Every fresh primary acceptance run
+must explicitly retrieve and verify the live HRP and Universal identities
+through AskRigor before substantive research; project uploads, prior thread
+prose, and generated excerpts cannot replace the live canonical protocols.
+
+The preserved Custom GPT hip-treatment session remains intact as historical
+resumability/compatibility evidence. Minute polling stopped on this owner
+correction after the last verified unchanged check at
+`2026-08-28T16:28:36.635Z`. No additional Retry was sent and no replacement
+research session was created. Do not resume repeated polling or issue another
+Retry unless the owner explicitly reactivates that secondary test.
+
 ## 2026-08-28 Brave relaunch handoff
 
 The owner is relaunching Codex in the ChatGPT app because that surface can use
