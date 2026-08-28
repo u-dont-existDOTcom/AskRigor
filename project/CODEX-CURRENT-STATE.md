@@ -170,6 +170,18 @@ literal `https://doi.org/` URLs; all three DOI labels again rendered with empty
 `href` values. The direct-link presentation failure is therefore reproducible
 after one explicit correction request. Do not loop the same formatting retry.
 
+Two fresh controls localize that defect to the long audit conversation rather
+than the general renderer or plugin attachment. A plain regular Chat control at
+`https://chatgpt.com/c/6a920e07-7ae8-83e9-8bc8-e258ca74e39d` completed in 21
+seconds and rendered all three exact `https://doi.org/` links with nonempty
+targets. A new AskRigor-attached Chat control at
+`https://chatgpt.com/c/6a920eaf-fa18-83ea-a8a3-12c5e5746642` completed in 13
+seconds without tool calls and rendered the same three correct targets. Both
+used GPT-5.6 Sol in Chat at maximum 5-of-5 reasoning effort. The earlier empty
+links are therefore a context-local instruction/rendering miss in that one
+correction response, not evidence of a platform-wide renderer failure or a
+general AskRigor-plugin citation defect.
+
 ## 2026-08-28 Brave relaunch handoff
 
 The owner is relaunching Codex in the ChatGPT app because that surface can use
