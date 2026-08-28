@@ -75,10 +75,25 @@ contains six validated Spark identities, 20 validated native identities, 32
 unresolved native identities, and exactly 26 reconciled screening candidates.
 One authenticated same-session controller continuation then returned HTTP 200,
 `directive: perform_semantic_work`, and `semantic_work_type:
-candidate_screening`. No replacement session, partial synthesis, finalization,
-or server-issued product acceptance receipt is claimed. The signed-in browser
-conversation remains positioned at its predeployment retry response; an
-additional user-visible retry has not yet been transmitted.
+candidate_screening`.
+
+With action-time authorization, browser control sent exactly `Retry` in the
+same signed-in conversation. The installed GPT visibly stated that it was
+retrying the preserved session without restart or scope change and entered
+candidate screening. The authoritative session then completed candidate and
+formal-source screening, accumulated 143 formal source records, selected 17
+videos, and advanced through transcript acquisition. All 17 transcript chains
+ended at explicit terminal access boundaries, then community-discussion work
+began. Its first chain and one later server-owned bounded recovery attempt both
+ended at retryable `DISCUSSION_DEPTH_RETRYABLE`; the final preserved digest is
+`0776fd5990a9c8f87a1c85318c3e16c73834f6fa8d9cd5bc127a4b5a78be9d0d`.
+This is a separate downstream transcript/comment provider boundary, not a
+return to Spark or native-search discovery, and it was not looped. The Browser
+plugin connection reset during later monitoring because its runtime referenced
+a removed prior service version; the supported reconnection retry failed and
+manual host repair is prohibited by that plugin's troubleshooting contract.
+No replacement session, partial synthesis, finalization, or server-issued
+product acceptance receipt is claimed.
 
 The required predeployment lesson checkpoint was available with one open
 candidate, one needing review, zero accepted but not incorporated, three

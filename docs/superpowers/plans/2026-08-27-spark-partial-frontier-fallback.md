@@ -102,5 +102,9 @@ native YouTube `search.list` is unavailable or its daily quota is exhausted.
 - The preserved production session now exposes 26 validated screening
   candidates, excludes 32 unresolved native identities, and emits
   `perform_semantic_work / candidate_screening` instead of retrying native
-  discovery. Final signed-in UI continuation and full product finalization are
-  deliberately not claimed by this receipt.
+  discovery. The authorized signed-in retry then completed candidate and
+  formal-source screening, accumulated 143 formal records, selected 17 videos,
+  and advanced to transcript and discussion work. It ultimately stopped at the
+  distinct retryable `DISCUSSION_DEPTH_RETRYABLE` provider boundary after one
+  additional bounded server-owned recovery. Full product finalization remains
+  deliberately unclaimed.

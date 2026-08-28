@@ -36,9 +36,21 @@ The preserved session `ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP` now migrates to
 Spark identities, 20 validated native identities, 32 explicitly unresolved and
 excluded native identities, and 26 reconciled screening candidates. One
 same-session server continuation returned `perform_semantic_work /
-candidate_screening`. The existing signed-in browser conversation is claimed
-and ready at the old retry response, but no new user-visible message has been
-sent and no final product receipt is claimed.
+candidate_screening`.
+
+Browser control then sent authorized text `Retry` in the exact preserved
+signed-in conversation. The visible GPT entered candidate screening without a
+restart. The checkpoint completed candidate and formal-source screening,
+reached 143 formal records, selected 17 videos, and advanced through all 17
+transcript chains before their explicit terminal access boundaries. The next
+community-discussion chain and one server-owned bounded recovery attempt ended
+at retryable `DISCUSSION_DEPTH_RETRYABLE`; resume from digest
+`0776fd5990a9c8f87a1c85318c3e16c73834f6fa8d9cd5bc127a4b5a78be9d0d`
+when that separate provider boundary is available. Do not create a replacement
+session or loop the retry. The Browser plugin connection reset after message
+submission because its runtime referenced a removed older service version;
+supported reconnection failed and manual host repair is prohibited. No final
+product receipt is claimed.
 
 The predeploy lesson checkpoint was available: open 1, needs review 1,
 accepted-not-incorporated 0, incorporated/closed 3, deletion-eligible 0.
