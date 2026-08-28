@@ -236,6 +236,31 @@ and ended with `Next step: none — this publication-integrity audit is
 complete.` This is a passing primary-account reasoning and falsification
 receipt with the stated validator/full-text access limits.
 
+## 2026-08-28 secondary Custom GPT Action compatibility smoke
+
+A fresh secondary-surface conversation is preserved at
+`https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol/c/6a9212cc-3440-83ea-8e72-c3a9ca2f0b82`.
+This test intentionally assesses only the current five-operation Action
+projection, not research intelligence.
+
+The Custom GPT correctly reported that the Action exposes no standalone
+protocol-manifest operation and therefore refused to claim live Universal/HRP
+identity verification without starting or resuming a research session. This is
+truthful fail-closed behavior and means the Custom GPT surface cannot replace
+the primary installed plugin's manifest smoke.
+
+A first read-only status call with a malformed synthetic ID returned
+`action_input_invalid` and `retryable:false`; because that could be input-layer
+validation, it was not treated as transport proof. A second call used valid-
+format, deliberately nonexistent ID
+`ars1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`. The response reported live execution
+of `get_research_session_status` and returned server-owned boundary
+`research_session_invalid_or_expired`, `retryable:false`. No session was
+created, no provider operation was requested, and no old preserved research
+session was resumed. This is a passing secondary Action transport and
+fail-closed boundary receipt, not manifest, package-currency, or reasoning-
+quality evidence.
+
 ## 2026-08-28 Brave relaunch handoff
 
 The owner is relaunching Codex in the ChatGPT app because that surface can use
