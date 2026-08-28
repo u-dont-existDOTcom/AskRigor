@@ -125,6 +125,51 @@ conversation is a passing primary-surface reasoning/completion-boundary
 receipt, not a server-issued product-acceptance receipt or a final clinical
 ranking.
 
+## 2026-08-28 independent citation-falsification acceptance
+
+A second fresh regular ChatGPT plugin conversation is preserved at
+`https://chatgpt.com/c/6a920843-2b44-83ea-9f81-8126fcfa84dc`. Immediately before
+submission, the live controls showed Chat checked, Work unchecked, GPT-5.6 Sol
+selected, maximum reasoning effort (`4` of `4` on the control, rendered as
+`Pro thinking` / 5 of 5), and the AskRigor plugin attached. The narrow prompt
+prohibited YouTube/community discovery, broad treatment research, a research
+session, and medical synthesis.
+
+The independent audit completed without intervention after `Worked for 8m
+10s`. It reloaded and exactly verified both canonical protocols, used PubMed,
+Europe PMC, ClinicalTrials.gov, and Crossref records, reported that no research
+session was created or resumed, and marked the task complete with no next
+capability. It independently confirmed the pivotal treatment-effect,
+population, dose, crossover, registry-status, and design claims except for the
+following important qualifications:
+
+- PMID `40223676` assessed the waiting group at **at least** three months after
+  waiting-list entry, not necessarily at exactly three months. The prior broad
+  acceptance's shorthand `at 3 months` is therefore corrected.
+- Absence of an indexed long-term PROHIP outcome publication cannot prove
+  universal nonpublication. The exact current bounded statement is that the
+  audit found no such report in its PubMed/Europe PMC trial-ID searches and the
+  live registry returned `has_results:false`.
+- The returned records did not directly cross-reference PMID `42061873` and
+  NCT `05093361`; their exact identity linkage remains unavailable even though
+  the trial characteristics closely match.
+
+The audit verified NCT `04070027` as `ACTIVE_NOT_RECRUITING` with current
+completion field `2026-12`. Direct PubMed and ClinicalTrials.gov hyperlinks
+rendered correctly. The three Crossref DOI rows rendered their exact DOI
+identifiers but exposed empty `href` values, so the requested direct-link
+presentation is only partially satisfied. Treat this as a formatting/citation-
+projection defect, not a contradiction in the underlying DOI identities.
+
+A bounded correction-uptake follow-up in the same conversation prohibited all
+tool use and requested exactly four bullets, including three explicit
+`https://doi.org/` Markdown links. It completed in 37 seconds and correctly
+restated the timing correction, bounded nonpublication wording, and unavailable
+PMID/NCT linkage without new source retrieval. It nevertheless omitted the
+literal `https://doi.org/` URLs; all three DOI labels again rendered with empty
+`href` values. The direct-link presentation failure is therefore reproducible
+after one explicit correction request. Do not loop the same formatting retry.
+
 ## 2026-08-28 Brave relaunch handoff
 
 The owner is relaunching Codex in the ChatGPT app because that surface can use
