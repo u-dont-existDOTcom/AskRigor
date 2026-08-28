@@ -477,13 +477,20 @@ export function ingestNativeYoutubeSurvey(
     ) &&
     state.external_scout.validated_candidate_video_ids.length > 0 &&
     nativeSurveyEndedByBoundedSearchAccess(survey);
+  const boundedIdentityAccessBoundary =
+    (
+      state.external_scout.status === "COMPLETE" ||
+      state.external_scout.status === "BLOCKED_TERMINAL"
+    ) &&
+    state.external_scout.validated_candidate_video_ids.length > 0 &&
+    nativeSurveyEndedByBoundedIdentityAccess(survey);
 
   return researchCandidateDiscoveryStateSchema.parse({
     ...state,
     native_youtube: {
       status: !incomplete
         ? "COMPLETE"
-        : boundedSearchAccessBoundary
+        : boundedSearchAccessBoundary || boundedIdentityAccessBoundary
           ? "BLOCKED_TERMINAL"
           : retryable
           ? "BLOCKED_RETRYABLE"
@@ -516,9 +523,20 @@ export function nativeSurveyEndedByBoundedSearchAccess(
   survey = youtubeCommunitySurveyOutputSchema.parse(survey);
   return survey.searches.some(({ access_status }) =>
     !isCompleteAccess(access_status)
-  ) && survey.candidates.every(({ metadata_access_status }) =>
-    isCompleteAccess(metadata_access_status)
   );
+}
+
+export function nativeSurveyEndedByBoundedIdentityAccess(
+  survey: YoutubeCommunitySurveyOutput
+): boolean {
+  survey = youtubeCommunitySurveyOutputSchema.parse(survey);
+  return survey.searches.length > 0 &&
+    survey.searches.every(({ access_status }) =>
+      isCompleteAccess(access_status)
+    ) &&
+    survey.candidates.some(({ metadata_access_status }) =>
+      !isCompleteAccess(metadata_access_status)
+    );
 }
 
 export function nativeSurveyEndedByDailySearchQuota(

@@ -257,10 +257,10 @@ describe("server-owned research candidate frontier", () => {
     );
   });
 
-  it("replaces retryable native receipts without retaining stale origins", () => {
+  it("refreshes bounded native receipts without retaining stale origins", () => {
     const external = externalDiscovery();
     const blocked = ingestNativeYoutubeSurvey(external, nativeSurvey("rate_limited"));
-    expect(blocked.native_youtube.status).toBe("BLOCKED_RETRYABLE");
+    expect(blocked.native_youtube.status).toBe("BLOCKED_TERMINAL");
     expect(blocked.native_youtube.unresolved_candidate_video_ids).toEqual([
       NATIVE_ONLY_VIDEO_ID
     ]);
@@ -312,14 +312,20 @@ describe("server-owned research candidate frontier", () => {
     expect(candidateDiscoveryReadyForScreening(bounded)).toBe(true);
   });
 
-  it("does not broaden partial-frontier fallback to generic native identity failures", () => {
+  it("uses a validated partial external frontier when native identities remain unresolved", () => {
     const external = externalDiscovery(unresolvedReceipt());
 
     const blocked = ingestNativeYoutubeSurvey(external, nativeSurvey("rate_limited"));
 
     expect(blocked.external_scout.status).toBe("BLOCKED_TERMINAL");
-    expect(blocked.native_youtube.status).toBe("BLOCKED_RETRYABLE");
-    expect(candidateDiscoveryReadyForScreening(blocked)).toBe(false);
+    expect(blocked.native_youtube.status).toBe("BLOCKED_TERMINAL");
+    expect(blocked.native_youtube.unresolved_candidate_video_ids).toEqual([
+      NATIVE_ONLY_VIDEO_ID
+    ]);
+    expect(blocked.candidates.map(({ video_id }) => video_id)).toEqual(
+      RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2)
+    );
+    expect(candidateDiscoveryReadyForScreening(blocked)).toBe(true);
   });
 
   it("bounds a blocked native search after retaining every complete returned identity", () => {
@@ -337,6 +343,33 @@ describe("server-owned research candidate frontier", () => {
       ...RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2),
       NATIVE_ONLY_VIDEO_ID
     ]);
+    expect(candidateDiscoveryReadyForScreening(bounded)).toBe(true);
+  });
+
+  it("bounds a blocked native search while excluding unresolved returned identities", () => {
+    const external = externalDiscovery(unresolvedReceipt());
+    const survey = nativeSearchAccessBoundarySurvey();
+    survey.candidates = survey.candidates.map((candidate, index) => index === 1
+      ? {
+        ...candidate,
+        metadata_access_status: "rate_limited" as const,
+        metadata_error: {
+          code: "youtube_rate_limited",
+          message: "Retry later",
+          retryable: true
+        }
+      }
+      : candidate);
+
+    const bounded = ingestNativeYoutubeSurvey(external, survey);
+
+    expect(bounded.native_youtube.status).toBe("BLOCKED_TERMINAL");
+    expect(bounded.native_youtube.unresolved_candidate_video_ids).toEqual([
+      NATIVE_ONLY_VIDEO_ID
+    ]);
+    expect(bounded.candidates.map(({ video_id }) => video_id)).toEqual(
+      RESEARCH_FIXTURE_VIDEO_IDS.slice(0, 2)
+    );
     expect(candidateDiscoveryReadyForScreening(bounded)).toBe(true);
   });
 
