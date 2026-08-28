@@ -79,3 +79,28 @@ native YouTube `search.list` is unavailable or its daily quota is exhausted.
 - Before deployment, preserve the current exact production image and Compose
   receipt. Roll back by restoring those exact artifacts; do not rewrite shared
   Git history.
+
+## Completion receipt (2026-08-28)
+
+- PR #117 merged as `34c52a23106c025ba4fae8813b49a45249284fce`.
+- PR #118 merged as `0546732106c8cdec712a1ae71eb13552d9c0fe17`.
+- PR #119 merged as `fa7f9d0521f192c658924b73b58eb5584e2b21b7` and is
+  the exact deployed source.
+- Protected verification passed 106 files and 1,426 tests, with one declared
+  live file and six declared live tests skipped; workflow policy and all
+  CodeQL analyses passed.
+- Production image ID is
+  `sha256:fef899dfacb4bb7505b234bdc2813bc979748e3782e7d74547f284415d31ed10`;
+  active Compose SHA-256 is
+  `20d7db364cd06968a4b5312f13214d97e6a324788e296c2dd0355f1e72f59ccc`.
+- Immediate rollback preserves image ID
+  `sha256:0850e840dc1bbef66d54ff5f58713a75b9282638669c83936f8c2fb0b34bb717`
+  and Compose SHA-256
+  `131d4488098a4577c3c75d8cb2cf208a8ce3034513b0515c73e74c63bb457347`.
+- Public health/schema/auth/MCP/manifests, plugin connector and byte receipts,
+  runtime security, and persistent mounts passed.
+- The preserved production session now exposes 26 validated screening
+  candidates, excludes 32 unresolved native identities, and emits
+  `perform_semantic_work / candidate_screening` instead of retrying native
+  discovery. Final signed-in UI continuation and full product finalization are
+  deliberately not claimed by this receipt.

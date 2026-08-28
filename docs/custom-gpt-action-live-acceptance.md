@@ -1,5 +1,31 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-28 preserved Spark/native session reaches candidate screening
+
+After protected PRs #117, #118, and #119, exact merge
+`fa7f9d0521f192c658924b73b58eb5584e2b21b7` is live in healthy container
+`15a5968d1d9b`. The same signed-in conversation and server session from the
+negative evidence below were preserved; no replacement session was created.
+
+A privacy-safe read of the encrypted checkpoint established the production
+shape that the final correction targets: six complete native searches, six
+validated Spark identities, 20 validated native identities, 32 unresolved
+native identities, and 26 reconciled candidates. The first status read after
+deployment migrated the old retryable checkpoint to terminal bounded code
+`NATIVE_IDENTITY_ACCESS_BOUNDED`. Compact controller status became HTTP 200,
+`IN_PROGRESS / CONTINUE_RESEARCH`, with `next_capability:
+candidate_screening`. One authenticated same-session continuation returned
+HTTP 200 with `directive: perform_semantic_work` and `semantic_work_type:
+candidate_screening`.
+
+This directly proves the server no longer loops on native YouTube discovery
+after Spark supplies a usable validated frontier. All 32 unresolved native
+identities remain excluded and explicit; only the 26 validated identities enter
+screening. The claimed signed-in browser tab still visibly ends at the earlier
+temporary-source retry response. No further browser message, candidate
+screening submission, report, finalization permit, or product acceptance
+receipt is claimed here.
+
 ## 2026-08-27 search-quota release; fresh product run stopped before native search
 
 After exact merge `f2b39d637fef95b95b80ef4252a07a739aa5d151` was

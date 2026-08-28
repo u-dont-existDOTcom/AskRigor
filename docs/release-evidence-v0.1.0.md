@@ -1,6 +1,90 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-28 Spark/native bounded-frontier correction deployed
+
+The production correction was completed through three protected pull requests.
+PR #117 merged as `34c52a23106c025ba4fae8813b49a45249284fce` and made a
+nonempty independently validated Spark subset usable while keeping unresolved
+Spark identities excluded and explicit. PR #118 merged as
+`0546732106c8cdec712a1ae71eb13552d9c0fe17` and bounded incomplete native
+search directions after one attempt. Production acceptance then exposed the
+remaining exact checkpoint shape: all six native searches were complete, 20
+native identities were independently validated, and 32 native identities were
+unresolved, but the unresolved optional native additions still kept the whole
+execution retryable.
+
+PR #119 passed workflow policy, all CodeQL analyses, and deterministic
+verification on exact head `7fbc9d664ea5835c64818c3fe9f4a85943669cf7`, then
+merged as `fa7f9d0521f192c658924b73b58eb5584e2b21b7`. The corrected
+controller now bounds native identity access after one attempted survey when a
+usable Spark frontier exists, retains only independently validated Spark/native
+identities for screening, and records every unresolved native identity as an
+excluded access gap. Missing or zero-validated Spark frontiers remain
+fail-closed. Restored `NATIVE_DISCOVERY_RETRYABLE_BOUNDARY` checkpoints migrate
+only when their authoritative stored frontier proves this bounded shape.
+
+Focused frontier/controller verification passed 37/37 tests plus typecheck and
+build. The unrestricted local full run passed 1,421 tests with six declared
+live skips; five unrelated five-second host-contention outliers all passed in
+isolation. Protected deterministic verification provided the clean complete
+receipt: 106 test files passed with one declared live file skipped, 1,426 tests
+passed with six declared live tests skipped, followed by a successful build.
+
+The exact secret-free merge archive contains 551 members, measures 1,701,391
+bytes, and has SHA-256
+`c59a9d3fe391c44eec81b4b0dea56ab93cf87953ac9b2a96337775cbfdcbd430`.
+Production is healthy on
+`askrigor-research:fa7f9d0521f192c658924b73b58eb5584e2b21b7`, image ID
+`sha256:fef899dfacb4bb7505b234bdc2813bc979748e3782e7d74547f284415d31ed10`,
+in container `15a5968d1d9b`. Immediate rollback preserves image ID
+`sha256:0850e840dc1bbef66d54ff5f58713a75b9282638669c83936f8c2fb0b34bb717`
+as `askrigor-research:rollback-fa7f9d0-predeploy` and prior Compose at
+`/opt/askrigor/compose.yaml.rollback-fa7f9d0`, SHA-256
+`131d4488098a4577c3c75d8cb2cf208a8ce3034513b0515c73e74c63bb457347`.
+The active Compose SHA-256 is
+`20d7db364cd06968a4b5312f13214d97e6a324788e296c2dd0355f1e72f59ccc`.
+Caddy remained container `cb061473089c` on `caddy:2.11.4-alpine`; the
+research container remains non-root, read-only, capability-free, and
+`no-new-privileges`, with both persistent state mounts unchanged and writable.
+
+Postdeployment verification passed exact public health, semantic equality with
+the unchanged five-operation Action schema, unauthenticated HTTP 401, and the
+exact ordered 21-tool MCP catalog with name-list SHA-256
+`eac8422f275e82de0e44aa897ddbd1cc04796355dc6230e96248154965965e3b`.
+The live Action bytes remain SHA-256
+`c86c426512099fb89d1e0f7cdf24292874de70a45b7277b5f94cec4d7649c64a`.
+Live manifests remain Universal 20.5.15 / 2026-08-24 /
+`69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`
+and HRP 20.5.23 / 2026-08-24 /
+`bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`.
+After one transient revoked-token response, a retry of the installed AskRigor
+connector returned the exact Universal identity. Complete eight-member source
+and installed plugin receipts passed again. Their package SHA-256 values are
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c`
+and `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`;
+all seven non-manifest members are byte-identical and the manifest difference
+is only the expected installed cache-buster version.
+
+The same preserved product session
+`ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP` survived every deployment. Its first
+postdeployment status read migrated native discovery to terminal bounded code
+`NATIVE_IDENTITY_ACCESS_BOUNDED` and changed the required next capability from
+`native_video_discovery` to `candidate_screening`. The encrypted checkpoint
+contains six validated Spark identities, 20 validated native identities, 32
+unresolved native identities, and exactly 26 reconciled screening candidates.
+One authenticated same-session controller continuation then returned HTTP 200,
+`directive: perform_semantic_work`, and `semantic_work_type:
+candidate_screening`. No replacement session, partial synthesis, finalization,
+or server-issued product acceptance receipt is claimed. The signed-in browser
+conversation remains positioned at its predeployment retry response; an
+additional user-visible retry has not yet been transmitted.
+
+The required predeployment lesson checkpoint was available with one open
+candidate, one needing review, zero accepted but not incorporated, three
+incorporated/closed, and zero deletion-eligible. No unreviewed lesson expanded
+or blocked this correction.
+
 ## 2026-08-27 YouTube search-quota resilience and 100-thread pages deployed
 
 PR #114 passed deterministic verification, workflow policy, and every CodeQL
