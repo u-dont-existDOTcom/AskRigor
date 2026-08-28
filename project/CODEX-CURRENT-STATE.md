@@ -73,7 +73,7 @@ surface. The receipt is
 submission of the requested supporting material, not quota approval or an
 effective quota change.
 
-## 2026-08-28 fresh regular-Chat Extra High acceptance active
+## 2026-08-28 fresh regular-Chat Extra High acceptance reached bounded completion
 
 A genuinely fresh regular ChatGPT conversation is preserved at
 `https://chatgpt.com/c/6a9201c8-e3bc-83e9-b5dc-47e47bf258c0`. Before submission,
@@ -100,13 +100,30 @@ mobilization, proprioceptive-neuromuscular facilitation, neuromuscular
 exercise, resistance training, and diet-plus-exercise as distinct
 implementations rather than pooling them.
 
-At the last authoritative inspection the response remained actively acquiring
-evidence and had issued at least 28 live source operations, including PubMed,
-Europe PMC, and clinical-trial search/fetch calls. A PubMed record receipt was
-timestamped `2026-08-28T21:51:24.816Z`. No final verdict, research-completion
-claim, or product-acceptance receipt exists yet. The conversation remains open;
-do not retry, replace, or classify it as stalled merely because the long active
-tool batch temporarily outlasted background page inspection.
+The response completed after a visible `Worked for 14m 14s` interval with 27
+visible tool-call markers. A clean read-only recovery view showed a completed
+response (`Copy response` present and no `Stop answering` control), proving
+that the earlier structural-read timeouts reflected the very large rendered
+tool trace rather than a stalled research run.
+
+The response correctly labeled itself `Acceptance status: not finalized`. It
+reported ten complete, unfiltered YouTube comment/reply corpora spanning the
+required treatment space and excluded two larger corpora whose providers
+failed after partial retrieval instead of treating those fragments as complete
+samples. It preserved population and implementation distinctions, reported
+benefit, null, worsening, harm, crossover, method, and applicability limits,
+and used an explicit Crossref integrity-screen limitation rather than treating
+absence of a metadata marker as proof of unretracted status.
+
+The completion boundary is genuine future evidence, not a retryable execution
+frontier: PROHIP's strict-core randomized long-term follow-up remains active,
+with registry completion projected for December 2026. The response therefore
+withheld the requested final comparative verdict and supplied only bounded
+facts plus an evidence-gap statement. Do not send `Retry`, reopen discovery, or
+create a replacement research run merely to force finalization. The preserved
+conversation is a passing primary-surface reasoning/completion-boundary
+receipt, not a server-issued product-acceptance receipt or a final clinical
+ranking.
 
 ## 2026-08-28 Brave relaunch handoff
 
