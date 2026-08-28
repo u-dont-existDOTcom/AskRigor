@@ -7,8 +7,9 @@ reasoning quality than the owner's ordinary ChatGPT account and notes OpenAI's
 non-guarantee of equivalent Custom GPT intelligence. Effective immediately,
 use the signed-in regular ChatGPT Pro account with the installed AskRigor
 plugin as the primary live intelligence, research-quality, and end-to-end
-acceptance surface. Use the strongest available reasoning setting for controlled
-tests; the clean plugin chat was verified on GPT-5.6 Sol at Ultra. The Custom
+acceptance surface. Primary controlled research tests use GPT-5.6 Sol in Chat
+mode at Extra High. The initial clean plugin connectivity smoke used Ultra, but
+that is not the primary broad-research configuration. The Custom
 GPT remains a secondary Action-compatibility and projection-regression surface;
 do not use its output quality as the primary estimate of AskRigor's achievable
 research quality.
@@ -37,12 +38,40 @@ research session, research operation, or provider operation. This is a current
 primary-surface connectivity/protocol smoke receipt, not a substantive research
 quality acceptance.
 
+A later broad hip-treatment prompt was accidentally started in Work mode at
+Ultra. It was stopped once the mismatch was recognized and is not an acceptance
+receipt. Do not resume that run. The next primary substantive acceptance must
+use the installed AskRigor plugin in regular ChatGPT with GPT-5.6 Sol, Chat
+mode, and Extra High.
+
 The preserved Custom GPT hip-treatment session remains intact as historical
 resumability/compatibility evidence. Minute polling stopped on this owner
 correction after the last verified unchanged check at
 `2026-08-28T16:28:36.635Z`. No additional Retry was sent and no replacement
 research session was created. Do not resume repeated polling or issue another
 Retry unless the owner explicitly reactivates that secondary test.
+
+## 2026-08-28 YouTube API compliance follow-up sent
+
+The owner approved the completed response to the YouTube API Services Team's
+request for a sample report or visual reference showing both YouTube data flow
+and the end result. No additional owner answers were required. The reply was
+sent in the existing Gmail thread to
+`youtube-disputes+2qf6bi6gn4qyr1n@google.com` at
+`2026-08-28T21:38:35+00:00`. Gmail shows the new sent message in-thread with
+the complete body and `2 Attachments`:
+
+- `AskRigor-YouTube-API-visual-reference.png`, SHA-256
+  `bc07ec33216a3c215c887830732287f8158aaba594cb9a28d21a45d7b5477833`
+- `AskRigor-sample-end-user-report.pdf`, SHA-256
+  `fb6a1a2064c0cefd45199bfae1c5a05cb3fe116353c123b84f28eb7e6d2f2f21`
+
+The sent reply identifies the installed AskRigor plugin in regular ChatGPT as
+the primary client surface and the AskRigor Custom GPT as a supported secondary
+surface. The receipt is
+`deliverables/youtube-api-compliance-2026-08-28/send-receipt.md`. This proves
+submission of the requested supporting material, not quota approval or an
+effective quota change.
 
 ## 2026-08-28 Brave relaunch handoff
 
