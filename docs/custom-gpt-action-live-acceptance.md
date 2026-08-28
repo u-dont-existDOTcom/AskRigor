@@ -21,10 +21,30 @@ candidate_screening`.
 This directly proves the server no longer loops on native YouTube discovery
 after Spark supplies a usable validated frontier. All 32 unresolved native
 identities remain excluded and explicit; only the 26 validated identities enter
-screening. The claimed signed-in browser tab still visibly ends at the earlier
-temporary-source retry response. No further browser message, candidate
-screening submission, report, finalization permit, or product acceptance
-receipt is claimed here.
+screening.
+
+With action-time authorization, browser control then sent exactly `Retry` in
+the same signed-in conversation. The visible installed GPT response stated
+that it was retrying the preserved session without restarting or changing the
+scope, then visibly entered `Screening candidate evidence`. The authoritative
+checkpoint completed candidate screening, accumulated 143 formal source
+records, completed formal-source screening, selected 17 videos for depth work,
+and advanced to transcript acquisition. All 17 transcript attempts ended at an
+explicit terminal access boundary, after which the controller correctly moved
+to community-discussion audit. The first discussion chain and one later
+server-owned bounded recovery attempt both ended at retryable
+`DISCUSSION_DEPTH_RETRYABLE`; final digest
+`0776fd5990a9c8f87a1c85318c3e16c73834f6fa8d9cd5bc127a4b5a78be9d0d`
+remains preserved for later recovery. This downstream transcript/comment
+provider boundary is separate from the corrected Spark/native discovery
+behavior and was not looped.
+
+The browser monitoring connection reset after submission because the Browser
+plugin runtime referenced a removed prior service version; the supported one-
+time reconnection failed, and the plugin's troubleshooting contract forbids
+manual host repair. Server-owned digests and checkpoint reads remained
+authoritative throughout. No replacement session, reader-facing report,
+finalization permit, or product acceptance receipt is claimed.
 
 ## 2026-08-27 search-quota release; fresh product run stopped before native search
 
