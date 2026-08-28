@@ -8,11 +8,12 @@ non-guarantee of equivalent Custom GPT intelligence. Effective immediately,
 use the signed-in regular ChatGPT Pro account with the installed AskRigor
 plugin as the primary live intelligence, research-quality, and end-to-end
 acceptance surface. Primary controlled research tests use GPT-5.6 Sol in Chat
-mode at Extra High. The initial clean plugin connectivity smoke used Ultra, but
-that is not the primary broad-research configuration. The Custom
-GPT remains a secondary Action-compatibility and projection-regression surface;
-do not use its output quality as the primary estimate of AskRigor's achievable
-research quality.
+mode at the maximum available reasoning effort (historically Extra High;
+currently rendered as `Pro` / 5 of 5). The initial clean plugin connectivity
+smoke used Ultra, but that is not the primary broad-research configuration.
+The Custom GPT remains a secondary Action-compatibility and projection-
+regression surface; do not use its output quality as the primary estimate of
+AskRigor's achievable research quality.
 
 Brave inspection confirmed the regular account is signed in, AskRigor appears
 in the account's Installed plugins, and the existing
@@ -260,6 +261,93 @@ created, no provider operation was requested, and no old preserved research
 session was resumed. This is a passing secondary Action transport and
 fail-closed boundary receipt, not manifest, package-currency, or reasoning-
 quality evidence.
+
+## 2026-08-28 primary plugin catalog refresh and validator retest
+
+The PREDIMED benchmark's statement that AskRigor exposed no separate
+study-method validator described the stale catalog presented to that ChatGPT
+conversation, not the reviewed current MCP contract. Repository source, the
+committed inventory, and a fresh direct production `tools/list` call all expose
+exactly 21 operations, including
+`acquire_open_full_text`, `continue_open_full_text`,
+`validate_study_method_audit`, and `validate_review_method_audit`.
+
+A first fresh primary-account composition probe at
+`https://chatgpt.com/c/6a9214e0-3dcc-83e9-91e4-2acb0d33589a`
+completed after `Worked for 3m 3s`. It passed both exact protocol identities
+but stopped before operation 1 because the ChatGPT-attached AskRigor catalog
+presented only 17 operations and omitted all four full-text/audit operations.
+The fail-closed stop was correct for that presented catalog, but the catalog
+was stale relative to production.
+
+ChatGPT's AskRigor management panel preserved the prior registration receipt:
+endpoint `https://mcp.askrigor.com/mcp`, app ID
+`asdk_app_6a7cd2a0156881918ce7dedecb715250`, version ID
+`asdk_app_v_6a7cd2a015748191a410021ac85dc069`, connected 2026-08-12, and these
+17 exact actions: `audit_youtube_community`,
+`audit_youtube_video_community`, `check_retraction_status`,
+`fetch_clinical_trial`, `fetch_pubmed_record`, `get_protocol_manifest`,
+`get_youtube_comments`, `get_youtube_video`, `load_protocol`, `resolve_doi`,
+`search_clinical_trials`, `search_europe_pmc`, `search_pubmed`,
+`search_youtube`, `search_youtube_comments`, `survey_youtube_community`, and
+`verify_protocol_integrity`.
+
+The built-in `Refresh` control updated the same saved development app to 21
+visible actions without changing its app or version IDs. The four additions
+are exactly the production full-text/audit operations named above.
+
+A fresh post-refresh primary run at
+`https://chatgpt.com/c/6a9217b2-0e4c-83ea-8466-80cff33a703c` on GPT-5.6 Sol,
+Chat mode, `Pro` 5 of 5 completed after `Worked for 6m 52s`. One bounded
+`Answer now` activation during its tool-silent startup briefly returned
+`Failed to answer now. Please try again.`, then cleared as execution continued;
+it was not repeated.
+
+The post-refresh execution proves the four operations are now callable from
+the primary product surface. Both complete protocol gates passed. A preliminary
+`acquire_open_full_text` attempt used unsupported `identifier` arguments and
+was rejected before MCP execution. The corrected DOI call acquired
+identity-verified Europe PMC JATS for PMCID `PMC11995426` / PMID `40223676`,
+returned all 37 source blocks and segments, and was already exhausted with
+source SHA-256
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`.
+Therefore zero pre-validation continuation calls were required. A separate
+direct production client reproduced that acquisition in 2.131 seconds with
+the same source identity, count, exhaustion state, and SHA-256.
+
+The model built all 13 required study-method domains from those source blocks.
+The returned validator status was `source_linked_study_audit_validated`, with
+receipt `askrigor_study_method_audit` 1.0, status
+`complete_with_unresolved_fields`, all 37 blocks in scope, 28 cited blocks,
+audit SHA-256
+`33147273c46fec733efedcbd3bd708b424d5190bb3d1feb1eea53d9fb2203adb`,
+`full_text_read_to_exhaustion:true`, `audit_validated:true`, and bounded claim
+capabilities. Its method findings correctly limited this observational
+target-trial emulation for selection, missing controls, unblinded subjective
+outcomes, nonaligned treatment/outcome timing, an underdescribed waiting-list
+comparator, absent harms and long-term outcomes, and unavailable data/code.
+
+The exact single-handle chain did **not** pass. Acquisition reported handle
+`aft1_VgpraP4UVH_zKpBVWFJJ18Q-VF26BYf8`, while the exact validator coverage
+receipt reported `aft1_uWGE24YLZJrq7wm6xW1JApWAX9IYWs7R`. The final response
+claimed the validator input was the first handle and explicitly disclosed the
+mismatch. Current source constructs validation coverage from the parsed input
+handle, and the focused test requires equality. The preserved product output
+therefore implies either an unreported duplicate acquisition/second-handle
+validation or incorrect reporting of the actual validator input; it cannot be
+counted as exact single-chain acceptance. A redundant post-validation
+continuation probe on the already-exhausted first handle correctly failed but
+was unnecessary. Do not retry this same conversation merely to normalize the
+receipt.
+
+Focused source verification passes: `tests/open-full-text-action.test.ts` and
+`tests/mcp-tools.test.ts` passed 61/61 through the required host boundary,
+including exact acquisition-to-validation handle equality and the 21-tool
+catalog. The first sandbox run passed the pure action file but recorded the 15
+HTTP transport cases as unavailable because loopback bind returned `EPERM`;
+the unchanged host-boundary rerun resolved all 15. This further localizes the
+observed handle mismatch to the product/model execution report rather than the
+reviewed backend binding rule.
 
 ## 2026-08-28 Brave relaunch handoff
 
