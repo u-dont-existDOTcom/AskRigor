@@ -51,6 +51,7 @@ import {
 } from "../apps/research-mcp/src/index.js";
 import { deriveGeminiYoutubeCandidateFrontier } from "../packages/sources/src/index.js";
 import {
+  NATIVE_ONLY_VIDEO_ID,
   RESEARCH_FIXTURE_VIDEO_IDS,
   nativeSearchAccessBoundarySurvey,
   nativeSearchQuotaSurvey,
@@ -1018,6 +1019,31 @@ describe("research session controller core", () => {
     );
   });
 
+  it("continues to screening from the Spark frontier when native identities remain unresolved", () => {
+    const discovered = recordNativeYoutubeDiscovery(
+      livePartialScout(),
+      nativeSurvey("rate_limited")
+    );
+
+    expect(discovered.operations.native_video_discovery).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: {
+        classification: "TERMINAL_NONRETRYABLE",
+        code: "NATIVE_IDENTITY_ACCESS_BOUNDED"
+      }
+    });
+    expect(discovered.candidate_discovery.native_youtube
+      .unresolved_candidate_video_ids).toEqual([NATIVE_ONLY_VIDEO_ID]);
+    expect(projectResearchSessionView(SESSION_ID, discovered)
+      .candidate_screening_work_package?.candidates).toHaveLength(7);
+    expect(deriveRequiredNextCapabilities(discovered)).toContain(
+      "candidate_screening"
+    );
+    expect(deriveRequiredNextCapabilities(discovered)).not.toContain(
+      "native_video_discovery"
+    );
+  });
+
   it("migrates a preserved generic native-search retry into the bounded frontier", () => {
     const bounded = recordNativeYoutubeDiscovery(
       livePartialScout(),
@@ -1054,6 +1080,51 @@ describe("research session controller core", () => {
     expect(reconciled.candidate_discovery.native_youtube.status).toBe(
       "BLOCKED_TERMINAL"
     );
+    expect(deriveRequiredNextCapabilities(reconciled)).toContain(
+      "candidate_screening"
+    );
+    expect(deriveRequiredNextCapabilities(reconciled)).not.toContain(
+      "native_video_discovery"
+    );
+  });
+
+  it("migrates preserved unresolved native identities into the bounded Spark frontier", () => {
+    const bounded = recordNativeYoutubeDiscovery(
+      livePartialScout(),
+      nativeSurvey("rate_limited")
+    );
+    const legacy = researchSessionStateSchema.parse({
+      ...bounded,
+      operations: {
+        ...bounded.operations,
+        native_video_discovery: {
+          status: "BLOCKED_RETRYABLE",
+          boundary: {
+            classification: "RETRYABLE",
+            code: "NATIVE_DISCOVERY_RETRYABLE_BOUNDARY",
+            summary: "Native video discovery has retryable search or identity work remaining."
+          }
+        }
+      },
+      candidate_discovery: {
+        ...bounded.candidate_discovery,
+        native_youtube: {
+          ...bounded.candidate_discovery.native_youtube,
+          status: "BLOCKED_RETRYABLE"
+        }
+      }
+    });
+
+    const reconciled = reconcileRestoredResearchSessionState(legacy);
+    expect(reconciled.operations.native_video_discovery).toMatchObject({
+      status: "BLOCKED_TERMINAL",
+      boundary: { code: "NATIVE_IDENTITY_ACCESS_BOUNDED" }
+    });
+    expect(reconciled.candidate_discovery.native_youtube.status).toBe(
+      "BLOCKED_TERMINAL"
+    );
+    expect(reconciled.candidate_discovery.native_youtube
+      .unresolved_candidate_video_ids).toEqual([NATIVE_ONLY_VIDEO_ID]);
     expect(deriveRequiredNextCapabilities(reconciled)).toContain(
       "candidate_screening"
     );

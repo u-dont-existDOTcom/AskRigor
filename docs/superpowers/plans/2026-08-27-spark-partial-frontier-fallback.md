@@ -34,8 +34,10 @@ native YouTube `search.list` is unavailable or its daily quota is exhausted.
    subset. If native `search.list` reaches its exact daily-quota boundary,
    continue to semantic screening from the validated Spark subset.
 3. Keep wholly rejected, zero-validated, missing, and otherwise ungrounded
-   Spark attempts retryable. Do not broaden the native quota exception to
-   generic provider errors or incomplete identity metadata.
+   Spark attempts retryable. Once the Spark frontier contains independently
+   validated identities, a bounded native attempt cannot prevent screening:
+   retain complete native identities and exclude incomplete identities with an
+   explicit access boundary.
 4. Reconcile pre-release durable checkpoints carrying the old
    `AUTOMATED_SCOUT_IDENTITIES_UNRESOLVED` retryable boundary into the new
    bounded-partial projection only when their authoritative state contains a
@@ -46,10 +48,14 @@ native YouTube `search.list` is unavailable or its daily quota is exhausted.
 6. Production acceptance showed that a mixed native survey could retain every
    returned identity as complete while one search direction remained under a
    generic retryable access boundary. Bound that native search after its one
-   attempt whenever a usable Spark frontier exists and no returned native
-   identity is unresolved. Preserve a specific access boundary and migrate the
-   retained pre-fix checkpoint. Generic identity or metadata failures remain
-   retryable and cannot unlock screening.
+   attempt whenever a usable Spark frontier exists. Preserve a specific search
+   access boundary and migrate the retained pre-fix checkpoint.
+7. A second production read showed six complete native searches, 20 validated
+   native identities, and 32 unresolved native identities. Bound that completed
+   native identity attempt too, screen only the 26 independently validated
+   Spark/native identities, and keep all 32 unresolved identities excluded and
+   explicit. Migrate the exact durable retryable checkpoint shape without
+   reopening native discovery.
 
 ## Verification
 
