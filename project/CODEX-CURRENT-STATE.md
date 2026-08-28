@@ -1,5 +1,39 @@
 # AskRigor Codex Current State
 
+## 2026-08-28 Brave relaunch handoff
+
+The owner is relaunching Codex in the ChatGPT app because that surface can use
+the existing signed-in Brave session. Resume the exact installed AskRigor GPT
+conversation and preserved research session
+`ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP`; do not create a replacement session
+or repeat completed discovery, screening, formal-source, or transcript work.
+The authoritative resume digest remains
+`0776fd5990a9c8f87a1c85318c3e16c73834f6fa8d9cd5bc127a4b5a78be9d0d`.
+Its current boundary is the separate retryable community-discussion provider
+dependency `DISCUSSION_DEPTH_RETRYABLE`, not the repaired Spark/native video
+discovery path. Inspect the existing conversation before deciding whether one
+bounded same-session retry is useful; never loop retries.
+
+This terminal's supported Brave reconnection was exhausted before relaunch.
+Diagnostics found Brave installed as the default browser, the ChatGPT browser
+extension installed and enabled in the Default profile, and the native-host
+manifest correct. Brave was initially stopped, so the supported helper opened
+a fresh Default-profile window. Connection still failed because the running
+Codex browser transport imported removed service path version `26.820.60940`
+while the installed Browser/Chrome plugin files are version `26.820.71523`.
+Manual plugin-cache or native-host repair was intentionally not attempted.
+On relaunch, use the Brave/Chrome browser-control surface afresh and claim the
+existing AskRigor conversation tab; do not infer that the provider boundary
+changed merely because browser control reconnects.
+
+Repository baseline at handoff is `origin/main` merge
+`ecf1c955bba1cfe50d96e66d6258729d6bc5d2d1` (PR #121). The original checkout
+contains unrelated untracked local credential material and a module file;
+preserve them and do not add them to Git. The 2026-08-28 lesson checkpoint was
+available: open 1, needs review 1, accepted-not-incorporated 0,
+incorporated/closed 3, deletion-eligible 0. Neither pending item expands this
+browser-resume handoff.
+
 ## 2026-08-28 Spark/native bounded-frontier production state
 
 PRs #117, #118, and #119 implement the owner's correction that AskRigor must
