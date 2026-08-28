@@ -349,6 +349,33 @@ the unchanged host-boundary rerun resolved all 15. This further localizes the
 observed handle mismatch to the product/model execution report rather than the
 reviewed backend binding rule.
 
+A fresh strict control at
+`https://chatgpt.com/c/6a921b89-5990-83ea-84a5-d507174a3929`
+then isolated prompt-level composition. It used the same primary GPT-5.6 Sol /
+Chat / `Pro` 5-of-5 surface but pinned the exact acquire JSON schema, exactly
+one acquisition, zero continuation when already exhausted, no reacquisition,
+exactly one validator call, and byte-equal input/output handle plus source-hash
+invariants. It completed without intervention after `Worked for 8m 36s`.
+
+The strict control passed both complete protocols, called acquisition exactly
+once with only `{"doi":"10.2340/17453674.2025.43332"}`, returned all 37
+segments already exhausted, made zero continuation calls, constructed all 13
+domains, and called the validator once. Acquisition handle, validator input,
+and terminal validator coverage were all exactly
+`aft1_9LKUAbw1r8n_7Qknz2oSQHmhqEARsjCY`; the acquisition and validation source
+hashes were both
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`.
+The terminal coverage also returned `full_text_read_to_exhaustion:true`,
+`audit_validated:true`, and
+`synthesis_use:"bounded_by_validated_claim_capabilities"`, followed by
+`PASS`.
+
+This is a passing strict-composition control. It proves the refreshed primary
+surface can execute the exact single-handle chain when the schema, call counts,
+exhaustion branch, and output equality are explicit. It does not erase the
+earlier default-prompt mismatch or establish that ordinary unpinned model
+composition will preserve those invariants.
+
 ## 2026-08-28 Brave relaunch handoff
 
 The owner is relaunching Codex in the ChatGPT app because that surface can use
