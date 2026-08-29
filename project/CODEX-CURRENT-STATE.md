@@ -1,5 +1,45 @@
 # AskRigor Codex Current State
 
+## 2026-08-29 production living-evidence read-through active task
+
+Task ID: `askrigor-living-evidence-readthrough-v1`
+
+Branch: `agent/living-evidence-readthrough-20260829`
+
+Assurance lane: release
+
+The owner authorized production read-through integration without another
+routine authorization checkpoint. The bounded objective is exact reuse of a
+complete validated study-method audit through the existing full-text validator.
+Reuse must fail closed to a fresh audit on any source hash, identifier,
+protocol, rubric, freshness, access, impact, lineage, receipt, ambiguity, or
+repository-availability mismatch. The current full text must still be read to
+exhaustion and the existing validator must run; canonical protocol XML bytes do
+not change.
+
+The public path remains read-only in this phase. It does not automatically
+persist user requests or tool calls. Raw source bodies, chat/prompts, private
+health material, provider bodies, and all YouTube/community data remain outside
+durable storage. The implementation plan is
+`../docs/superpowers/plans/2026-08-29-production-living-evidence-readthrough.md`.
+
+First command after resume:
+
+```bash
+npm run living-evidence:preflight
+```
+
+Task completion command:
+
+```bash
+npm run living-evidence:acceptance
+```
+
+The baseline is `42cf009028d4b8bad989d9c575067bf1a98959bd`; rollback is
+`rollback/main-pre-living-evidence-readthrough-20260829`. Completed pilot,
+historical browser, unrelated worktree, global queue, and optional-provider
+task sources are suspended by `tasks/ACTIVE-TASK.json` until closeout.
+
 ## 2026-08-29 second-account regular-Chat acceptance and bounded latency failures
 
 The owner-designated `2nd gpt` Brave profile can discover, attach, and invoke

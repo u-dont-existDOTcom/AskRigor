@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const activeTaskSchema = z.object({
   schemaVersion: z.literal(1),
-  taskId: z.literal("askrigor-living-evidence-pilot-v1"),
+  taskId: z.string().regex(/^askrigor-living-evidence-[a-z0-9-]+-v\d+$/u),
   status: z.enum(["active", "ready_for_protected_merge", "complete"]),
   exclusive: z.literal(true),
   requiredBranch: z.string().min(1),
