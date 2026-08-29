@@ -7,8 +7,8 @@ authorize new collection, persistence, publication, or provider spending.
 
 ## Queued: cumulative living evidence repository
 
-Status: owner-approved active implementation on task
-`askrigor-living-evidence-pilot-v1`
+Status: local isolated pilot implemented and merged in PR #128; optional
+Railway hosting and production integration remain separate decisions
 
 Source: Joel, 2026-08-29
 
@@ -34,7 +34,8 @@ active task lock, source-storage policy, privacy threat model, $5 monthly pilot
 ceiling, no-public-endpoint rule, and prohibited-data classes. Production
 integration remains a separate later decision.
 
-Local PostgreSQL implementation and restore acceptance pass. Railway remains
+Local PostgreSQL implementation, protected review, merge, and restore
+acceptance pass. Railway remains
 unprovisioned because its workspace-wide $10 minimum hard limit and minimum
 paid-volume shape cannot enforce the approved $5/1-GiB boundary; relaxing that
 boundary is the remaining owner decision for the optional hosted phase.

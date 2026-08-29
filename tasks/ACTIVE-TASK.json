@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-pilot-v1",
-  "status": "ready_for_protected_merge",
+  "status": "complete",
   "exclusive": true,
-  "requiredBranch": "agent/living-evidence-pilot-20260829",
+  "requiredBranch": "main",
   "pullRequest": 128,
-  "assuranceLane": "decision",
+  "assuranceLane": "release",
   "targetedHardGates": [
     "durable health-research data minimization",
     "append-only migration integrity",
@@ -53,7 +53,7 @@
     "rawSourceContentIncluded": false,
     "hostedChecks": {
       "pullRequest": 128,
-      "verifiedHead": "f15ca1a7dc95df045419b52ee26c7fe284c4ede2",
+      "verifiedHead": "67cd9102fe7936efac764bccf083bee8cb76ea65",
       "deterministicVerification": "pass",
       "workflowPolicy": "pass",
       "codeql": "pass"
@@ -81,6 +81,15 @@
       "resourceProvisioned": false,
       "ownerDecisionRequiredToRelaxBoundary": true
     }
+  },
+  "completion": {
+    "implementationPullRequest": 128,
+    "implementationHead": "67cd9102fe7936efac764bccf083bee8cb76ea65",
+    "mergeCommit": "3915900e5b045899b10ce6e93efb02d3cbf4c62c",
+    "mergedAt": "2026-08-29T19:03:55.000Z",
+    "localMainFastForwarded": true,
+    "rollbackRefVerified": true,
+    "railwayDisposition": "exact documented platform-limit boundary satisfies the optional hosted-pilot completion alternative; no resource was provisioned"
   },
   "suspendedTaskSources": [
     "historical browser and Custom GPT acceptance handoffs",
