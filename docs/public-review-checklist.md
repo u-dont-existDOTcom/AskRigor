@@ -275,9 +275,10 @@ review, the demo recording, the explicit opaque model-receipt release decision,
 final portal review, and submission actions recorded in
 `docs/public-submission-packet-v0.1.0.json` and
 `docs/release-evidence-v0.1.0.md`. The owner now reports that individual
-identity is verified, while business/organization verification is unavailable
-after a signup timeout. The publisher identity remains an owner choice, and no
-independent portal receipt or business retry interval is recorded. The fresh
+identity is verified and that OpenAI approved the organization request on
+2026-08-29. The exact portal approval scope and organization/publisher identity
+selection remain unverified, and no independent non-secret portal receipt is
+recorded. The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
 routine-status regression.
 
@@ -400,20 +401,20 @@ inferred from that deployment.
 
 The complete reviewer inventory is generated directly from
 `createAskRigorServer()` through an in-memory MCP `tools/list` call. It
-contains all 17 exact tool names, **title absence** (no advertised `title`
+contains all 21 exact tool names, **title absence** (no advertised `title`
 property for any tool), descriptions, full advertised JSON-Schema Draft 7 input schemas, full
 advertised JSON-Schema Draft 7 output schemas, and annotations. The committed
 generated artifact is `docs/tool-inventory-v0.1.0.json`; regenerate it with:
 
 ```sh
-npx tsx scripts/generate-tool-inventory.mts
+npx tsx scripts/generate-tool-inventory.mts --write
 ```
 
 The emitted inventory identifies itself as
 `MCP tools/list against createAskRigorServer()`, gives the intended production
 endpoint `https://mcp.askrigor.com/mcp`, and has the canonical compact-JSON
-SHA-256 `dbff1edc405982fb58eac6a5b28840ffcf07fd93cad0e55c349f65b2fffcf5e9`.
-`tests/release-packet.test.ts` regenerates the full inventory, asserts all 17
+SHA-256 `e2ab407b92824d4094986aaf0e108917500546d892c85231772ff0b3c5c60f5e`.
+`tests/release-packet.test.ts` regenerates the full inventory, asserts all 21
 names/order, title absence, schema roots, annotations, exact checksum, and deep
 equality with the committed full JSON artifact. A metadata or schema change
 therefore requires an intentional inventory review, fresh Inspector/ChatGPT
@@ -599,8 +600,9 @@ declared rather than rewritten as exact card-sequence proof.
 The publisher-matching HTTPS legal/support prerequisite was verified on
 2026-08-12 at release `f928b95e29cd`. Remaining execution steps are:
 
-1. Select the verified individual publisher or wait for business verification,
-   then complete the matching HTTPS domain challenge.
+1. Verify the owner-reported organization approval and its scope in the signed-
+   in portal, select the matching organization/publisher identity, retain a
+   non-secret receipt, and complete the matching HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
 3. Record the privacy-safe reviewer demo using

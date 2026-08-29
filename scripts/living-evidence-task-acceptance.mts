@@ -1,5 +1,19 @@
 import { PostgresEvidenceRepository, deterministicUuid, prepareContribution, sha256, stableJson, type LivingEvidenceContribution } from "../packages/evidence-repository/src/index.js";
+import {
+  STUDY_METHOD_AUDIT_DOMAINS,
+  createValidatedStudyAuditContribution,
+  resolveStudyAuditReuse,
+  validateStudyMethodAudit,
+  type StudyMethodAuditSubmission,
+} from "../apps/research-mcp/src/index.js";
+import type { ProtocolManifest } from "../packages/protocol/src/index.js";
+import type { AuditableDocumentIndex } from "../packages/sources/src/index.js";
 import { Pool } from "pg";
+
+const CURRENT_PROTOCOLS: ProtocolManifest[] = [
+  { name: "AskRigor Universal", version: "20.5.15", revisionDate: "2026-08-24", sha256: "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172" },
+  { name: "AskRigor HRP", version: "20.5.23", revisionDate: "2026-08-24", sha256: "bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299" },
+];
 
 function fixture(namespace: string): LivingEvidenceContribution {
   const text = `# Complete performed analysis\n\n${"lossless-analysis-content ".repeat(6_000)}\n`;
@@ -180,6 +194,100 @@ function pendingImpactFixture(namespace: string): LivingEvidenceContribution {
   return contribution;
 }
 
+function reusableStudyAuditFixture(namespace: string): {
+  index: AuditableDocumentIndex;
+  audit: StudyMethodAuditSubmission;
+  contribution: LivingEvidenceContribution;
+} {
+  const doi = `10.1234/reuse.${sha256(namespace).slice(0, 16)}`;
+  const text = "Synthetic source material used transiently for repository read-through acceptance.";
+  const textSha256 = sha256(text);
+  const index: AuditableDocumentIndex = {
+    source: {
+      provider: "unpaywall_open_location",
+      primary_identifier: doi,
+      canonical_url: `https://repository.example.org/${doi}`,
+      doi,
+      title: "Synthetic reusable study audit",
+      version: "acceptedVersion",
+      format: "pdf_text",
+      content_sha256: sha256(`pdf:${text}`),
+      document_completeness: "full_text_with_body",
+      identity_verification: "doi_exact",
+    },
+    section_paths: [["Page 1"]],
+    blocks: [{
+      block_id: `pdf_000001_${textSha256.slice(0, 12)}`,
+      kind: "page_text",
+      section_path: ["Page 1"],
+      page_number: 1,
+      text,
+      text_sha256: textSha256,
+    }],
+  };
+  const audit: StudyMethodAuditSubmission = {
+    source_primary_identifier: doi,
+    source_content_sha256: index.source.content_sha256,
+    design_label: "synthetic parallel comparison",
+    design_capability_statement: "The synthetic label is not a reliability verdict.",
+    population_and_stage: "Synthetic population and stage for persistence acceptance only.",
+    intervention_program: acceptanceProgram("synthetic intervention"),
+    comparator_program: acceptanceProgram("synthetic comparator"),
+    outcome_and_horizon: "Synthetic outcome and horizon.",
+    domain_findings: STUDY_METHOD_AUDIT_DOMAINS.map((domain) => ({
+      domain,
+      status: "limitation_identified" as const,
+      plain_language_finding: `Synthetic bounded ${domain} finding.`,
+      evidence_block_ids: [index.blocks[0]!.block_id],
+      unresolved_fields: [],
+    })),
+    claim_capabilities: [
+      {
+        claim: "The synthetic compared programs can be described.",
+        capability: "can_support",
+        reason: "The transient synthetic source block supplies that description.",
+        evidence_block_ids: [index.blocks[0]!.block_id],
+      },
+      {
+        claim: "The synthetic study proves a real treatment effect.",
+        capability: "cannot_support",
+        reason: "This is an acceptance fixture, not health evidence.",
+        evidence_block_ids: [],
+      },
+    ],
+  };
+  return {
+    index,
+    audit,
+    contribution: createValidatedStudyAuditContribution({
+      index,
+      auditReceipt: validateStudyMethodAudit(index, audit),
+      protocolManifests: CURRENT_PROTOCOLS,
+      startedAt: "2026-08-29T13:00:00.000Z",
+      completedAt: "2026-08-29T13:01:00.000Z",
+      freshness: {
+        checkedAt: "2026-08-29T13:00:00.000Z",
+        nextDueAt: "2099-09-28T13:00:00.000Z",
+        receiptSha256: sha256(`${namespace}:freshness`),
+      },
+    }),
+  };
+}
+
+function acceptanceProgram(name: string) {
+  return {
+    name,
+    components: ["synthetic component"],
+    dose_or_intensity: "synthetic dose",
+    frequency: "synthetic frequency",
+    duration: "synthetic duration",
+    supervision: "synthetic supervision",
+    adherence: "synthetic adherence",
+    co_interventions: [],
+    care_stage: "other" as const,
+  };
+}
+
 function clarification(initial: LivingEvidenceContribution, namespace: string): LivingEvidenceContribution {
   const text = "# Clarification\n\nThe later analysis clarifies the acceptance claim while preserving the initial version unchanged.\n";
   return {
@@ -277,6 +385,31 @@ async function main(): Promise<void> {
   try {
     await repository.migrate();
     checks.push("migration_applied");
+    const reusable = reusableStudyAuditFixture(`${namespace}:reuse`);
+    await repository.contribute(reusable.contribution);
+    const reuseCandidates = await repository.findAnalysisReuseCandidates({
+      identifier: reusable.contribution.source!.identifiers[0]!,
+      sourceContentSha256: reusable.index.source.content_sha256,
+      analysisKind: "study_method_audit",
+      analysisVersionId: reusable.contribution.analysis.versionId,
+    });
+    if (reuseCandidates.length !== 1) throw new Error("REUSABLE_STUDY_AUDIT_LOOKUP_FAILED");
+    const reuseResolution = await resolveStudyAuditReuse({
+      reader: repository,
+      index: reusable.index,
+      requestedDoi: reusable.index.source.doi!,
+      protocolManifests: CURRENT_PROTOCOLS,
+      analysisVersionId: reusable.contribution.analysis.versionId,
+    });
+    if (
+      reuseResolution.projection.status !== "reusable" ||
+      reuseResolution.audit === undefined ||
+      validateStudyMethodAudit(reusable.index, reuseResolution.audit).audit_sha256 !==
+        validateStudyMethodAudit(reusable.index, reusable.audit).audit_sha256
+    ) {
+      throw new Error("REUSABLE_STUDY_AUDIT_REVALIDATION_FAILED");
+    }
+    checks.push("exact_current_study_audit_lookup_and_revalidation");
     const initial = fixture(namespace);
     const prepared = prepareContribution(initial);
     const inserted = await repository.contribute(initial);

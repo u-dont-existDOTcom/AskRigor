@@ -1,26 +1,28 @@
 {
   "schemaVersion": 1,
-  "taskId": "askrigor-living-evidence-pilot-v1",
-  "status": "complete",
+  "taskId": "askrigor-living-evidence-readthrough-v1",
+  "status": "active",
   "exclusive": true,
-  "requiredBranch": "main",
-  "pullRequest": 128,
+  "requiredBranch": "agent/living-evidence-readthrough-20260829",
+  "pullRequest": 130,
   "assuranceLane": "release",
   "targetedHardGates": [
-    "durable health-research data minimization",
-    "append-only migration integrity",
-    "source licensing and quotation boundaries",
-    "export, restore, deletion, and backup accounting",
-    "provider-policy isolation"
+    "exact source hash and identifier binding",
+    "exact protocol and audit-rubric compatibility",
+    "current freshness and completed impact state",
+    "same-validator revalidation after repository lookup",
+    "zero durable YouTube or community data",
+    "read-only production database role and fail-closed fallback"
   ],
   "preflightCommand": "npm run living-evidence:preflight",
   "completionCommand": "npm run living-evidence:acceptance",
-  "integrationCommit": "59ee7846aa3b4d94fa0be2a4e5bc7d8aedb6ab6c",
-  "preservedLocalRollback": "rollback/local-main-pre-living-evidence-20260829",
+  "integrationCommit": "42cf009028d4b8bad989d9c575067bf1a98959bd",
+  "preservedLocalRollback": "rollback/main-pre-living-evidence-readthrough-20260829",
   "ownerApprovals": [
-    "Implement the cumulative living-evidence pilot and use an isolated Railway environment.",
     "Persist the complete study or review analysis to the extent performed, including later clarifying analysis as new versions.",
-    "Preserve the locally added authorization and acceptance instructions while reconciling local and remote history."
+    "Integrate production read-through reuse without another routine authorization checkpoint.",
+    "Keep durable YouTube and community persistence at zero until the separate compliance disposition.",
+    "Treat prior work as a research frontier for further delta discovery, not merely as cached answers; implement that broader frontier after this bounded study-audit slice."
   ],
   "persistentAnalysisBoundary": {
     "allowed": [
@@ -38,64 +40,12 @@
       "raw provider responses, credentials, authorization headers, or secrets"
     ]
   },
-  "localAcceptance": {
-    "status": "pass",
-    "cleanRuns": 2,
-    "database": "PostgreSQL 17.6",
-    "adversarialChecks": 21,
-    "repositoryCanonicalSha256": "8b796f9b16540fcf5408165049f46953ed64cfb26bce6f98b00e615ca069909c",
-    "latestDumpBytes": 139706,
-    "restoreVerified": true,
-    "fullVerifyPassed": true,
-    "fullVerifyTestFilesPassed": 107,
-    "fullVerifyTestsPassed": 1433,
-    "communityDerivedRecords": 0,
-    "rawSourceContentIncluded": false,
-    "hostedChecks": {
-      "pullRequest": 128,
-      "verifiedHead": "67cd9102fe7936efac764bccf083bee8cb76ea65",
-      "deterministicVerification": "pass",
-      "workflowPolicy": "pass",
-      "codeql": "pass"
-    }
-  },
-  "railwayPilot": {
-    "authorized": true,
-    "provisioned": false,
-    "provisioningStatus": "blocked_by_platform_limit_mismatch",
-    "isolatedFromProduction": true,
-    "publicEndpointAllowed": false,
-    "monthlySpendCeilingUsd": 5,
-    "maxVcpu": 0.5,
-    "maxMemoryMb": 512,
-    "maxVolumeGb": 1,
-    "stopIfLimitsCannotBeEnforced": true,
-    "platformLimitReadback": {
-      "checkedAt": "2026-08-29T18:00:00.000Z",
-      "computeHardLimitScope": "workspace_wide",
-      "minimumComputeHardLimitUsd": 10,
-      "paidVolumeDefaultGb": 5,
-      "paidVolumeDownsizeSupported": false,
-      "privateDatabaseByDefault": true,
-      "workspaceLimitChanged": false,
-      "resourceProvisioned": false,
-      "ownerDecisionRequiredToRelaxBoundary": true
-    }
-  },
-  "completion": {
-    "implementationPullRequest": 128,
-    "implementationHead": "67cd9102fe7936efac764bccf083bee8cb76ea65",
-    "mergeCommit": "3915900e5b045899b10ce6e93efb02d3cbf4c62c",
-    "mergedAt": "2026-08-29T19:03:55.000Z",
-    "localMainFastForwarded": true,
-    "rollbackRefVerified": true,
-    "railwayDisposition": "exact documented platform-limit boundary satisfies the optional hosted-pilot completion alternative; no resource was provisioned"
-  },
+  "completion": null,
   "suspendedTaskSources": [
-    "historical browser and Custom GPT acceptance handoffs",
+    "completed cumulative living-evidence pilot task",
+    "historical browser and Custom GPT acceptance handoffs except the measured audit-construction latency evidence",
     "unrelated worktrees and recovery checkpoints",
     "global work-queue selection",
-    "production release and deployment queues",
     "optional plugin and provider experiments"
   ]
 }

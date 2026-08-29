@@ -139,6 +139,8 @@ entities; explicit edge tables hold navigable relationships.
 | `evidence_bindings` | Claim-version to source-version linkage, exact locator/block IDs, polarity, extraction method, capability ceiling, and validating receipt |
 | `rubrics`, `rubric_versions`, `assessments`, `assessment_domains` | Versioned study/review appraisal, evidence, unresolved fields, applicability, and disagreement without a hidden overall score |
 | `runs`, `run_protocols`, `run_sources`, `run_outputs`, `receipts` | Reproducible relationship between a question, exact protocol manifests, inputs, outputs, completion state, and signed/hash-bound receipts |
+| `discovery_passes`, `coverage_windows`, `candidate_decisions` | Provider/strategy identity, normalized query plan, requested and observed date bounds, pagination/sampling/exhaustion state, candidates found, first/last-seen state, and inclusion/exclusion/defer reasons |
+| `research_trails`, `trail_attempts` | Unresolved questions and promising next searches, sources, channels, ancestry checks, or analyses; priority, rationale, prerequisites, attempted/exhausted/blocked state, and the run that resolved or superseded each trail |
 | `freshness_policies`, `freshness_checks`, `repository_events`, `impact_jobs` | Per-source-class cadence, triggered checks, append-only changes, dependency traversal, and fail-closed projection status |
 | `artifacts` | Minimized descriptors, hashes, media type, retention class, and storage pointer only for separately authorized artifacts |
 
@@ -380,17 +382,29 @@ findings, fixtures, hashes, and locators only; it has no object store.
 ### 12. Runs reuse knowledge through a governed read/write loop
 
 A new run begins by querying current repository records for the exact topic and
-question dimensions. Returned records are evidence candidates, not inherited
-conclusions. The runner must still:
+question dimensions. It also loads the prior research frontier: completed and
+partial discovery passes, exact coverage windows, candidate decisions, open or
+blocked trails, and the last checked time for each source/provider strategy.
+Returned records are evidence candidates, not inherited conclusions, and a
+rendered prior answer is only a derived projection. The runner must still:
 
 1. load and verify the current canonical protocols;
 2. compare the new question's population, program/exposure, comparator,
    outcome, horizon, and decision context with each prior record;
 3. verify that the required source version, assessment, access state, and
    freshness policy remain usable;
-4. reopen discovery for material gaps, contradictions, changed sources, or
-   insufficiently applicable evidence; and
-5. bind every reused claim to the new run and record why it was reused,
+4. revalidate the prior frontier and search the delta since each last complete
+   pass, including newly relevant studies and—only when separately authorized—
+   videos/comments, without assuming the old date range or candidate list is
+   complete now;
+5. prioritize unresolved questions and unattempted promising trails, preserve
+   an explicit reason when a trail remains deferred/blocked, and distinguish a
+   genuinely exhausted direction from a run that merely stopped;
+6. record the new requested and observed coverage bounds, pagination,
+   sampling/exhaustion state, candidates and decision reasons, including
+   evidence that changed an earlier inclusion/exclusion or quality judgment;
+   and
+7. bind every reused claim to the new run and record why it was reused,
    narrowed, challenged, or rejected.
 
 The run classifies material inputs and outputs as `development_discovery` or
@@ -409,8 +423,19 @@ artifacts only under the existing bounded retention contract and do not become
 repository knowledge.
 
 This loop is how AskRigor becomes more capable with use: it reuses exact current
-work and known gaps, not prose memory. It also prevents a frequently repeated
-claim or embedding from gaining evidentiary authority merely through reuse.
+work, prior search coverage, candidate history, and known gaps as a launchpad
+for additional discovery—not merely as a cached answer. It also prevents a
+frequently repeated claim or embedding from gaining evidentiary authority
+merely through reuse.
+
+For a future authorized YouTube frontier, a pass must distinguish the requested
+comment date interval from the observed oldest/newest API-visible records;
+provider-reported comment counts from retrieved, refetchable, sampled, and
+analyzed counts; and fully exhausted pagination from access-, time-, or
+quota-bounded stopping. It must retain which videos were found, selected,
+excluded, or deferred and why, plus unsearched query/channel/video trails.
+Until the separate Google and owner field gate passes, none of those YouTube
+frontier records become durable repository data.
 
 ### 13. Complete performed analysis is a first-class versioned record
 

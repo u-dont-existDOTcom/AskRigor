@@ -179,6 +179,23 @@ runtime. Replacing a valid protocol file therefore updates its manifest without
 source-code changes, but a protocol change remains a substantive owner-reviewed
 change and must pass the protocol integrity and semantic regressions.
 
+### Living-evidence read-through
+
+When explicitly enabled, the full-text acquisition path can advertise one
+previously validated study-method audit from AskRigor's private PostgreSQL
+repository. Reuse still requires the current full text to be read to exhaustion
+and the existing validator to run. The server repeats exact source hash,
+identifier, protocol, rubric, access, freshness, impact, lineage, and receipt
+checks at validation time; a miss, timeout, or mismatch returns
+`fresh_study_audit_required` on the same handle. Repository access is bounded
+to 1.5 seconds, never runs on continuation pages, and cannot prevent a normal
+fresh audit.
+
+The public operations remain read-only. They do not store public-user work or
+raw article/community content. A separate one-shot administrator import may
+store a reviewed, source-free validated audit. Deployment and rollback details
+are in `infra/living-evidence-production/README.md`.
+
 ## ChatGPT Developer Mode connection
 
 The production MCP endpoint is `https://mcp.askrigor.com/mcp`. In ChatGPT,

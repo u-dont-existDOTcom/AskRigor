@@ -1,5 +1,117 @@
 # AskRigor Codex Current State
 
+## 2026-08-29 production living-evidence read-through active task
+
+Task ID: `askrigor-living-evidence-readthrough-v1`
+
+Branch: `agent/living-evidence-readthrough-20260829`
+
+Assurance lane: release
+
+The owner authorized production read-through integration without another
+routine authorization checkpoint. The bounded objective is exact reuse of a
+complete validated study-method audit through the existing full-text validator.
+Reuse must fail closed to a fresh audit on any source hash, identifier,
+protocol, rubric, freshness, access, impact, lineage, receipt, ambiguity, or
+repository-availability mismatch. The current full text must still be read to
+exhaustion and the existing validator must run; canonical protocol XML bytes do
+not change.
+
+The public path remains read-only in this phase. It does not automatically
+persist user requests or tool calls. Raw source bodies, chat/prompts, private
+health material, provider bodies, and all YouTube/community data remain outside
+durable storage. The implementation plan is
+`../docs/superpowers/plans/2026-08-29-production-living-evidence-readthrough.md`.
+
+Owner clarification: cumulative intelligence means retaining a governed
+research frontier, not merely caching prior answers. The durable future model
+must include discovery passes, searched date/coverage windows, videos/studies
+found and their decisions, comment coverage/count/exhaustion receipts when
+policy permits, unresolved questions, unattempted or blocked trails, and
+delta-oriented searches for newly relevant evidence. The cumulative design,
+map, and work queue record this as the required next layer. The active task
+remains the first bounded study-audit reuse slice and must not be represented as
+the completed repository system.
+
+The owner reports that OpenAI approved the organization request on 2026-08-29.
+This clears the previously reported signup-timeout state, but its exact portal
+scope is not inferred: organization/publisher identity selection and an
+independent non-secret portal receipt remain open public-submission checks.
+
+Release-candidate verification is recorded in
+`../docs/audits/2026-08-29-production-living-evidence-readthrough.md`. The
+complete gate passed 109 test files with one declared skip and 1,455 tests with
+six declared skips, plus typecheck/build; the four-page site check and 28/28
+deployment-policy tests pass. Real PostgreSQL acceptance passes 22/22 and
+reproduces current canonical repository SHA-256
+`5cb8e53daf012dd8ac430fc3a3401578d8e326e9342bda83be318c1487edf2c0`.
+The older pilot record's `8b796f...` hash is retained as a non-reproducible
+historical receipt; no cause is invented. Release lesson status is available
+with 0 open, 0 needs review, 0 accepted-not-incorporated, 4
+incorporated/closed, and 0 deletion eligible. Merge, exact deployment, curated
+seed import, direct production acceptance, plugin receipt, and fresh ordinary
+ChatGPT acceptance remain.
+
+First command after resume:
+
+```bash
+npm run living-evidence:preflight
+```
+
+Task completion command:
+
+```bash
+npm run living-evidence:acceptance
+```
+
+The baseline is `42cf009028d4b8bad989d9c575067bf1a98959bd`; rollback is
+`rollback/main-pre-living-evidence-readthrough-20260829`. Completed pilot,
+historical browser, unrelated worktree, global queue, and optional-provider
+task sources are suspended by `tasks/ACTIVE-TASK.json` until closeout.
+
+## 2026-08-29 second-account regular-Chat acceptance and bounded latency failures
+
+The owner-designated `2nd gpt` Brave profile can discover, attach, and invoke
+the replacement **AskRigor Research** plugin in ordinary ChatGPT Pro / Chat
+mode. Three fresh product cases are recorded in
+`../docs/audits/2026-08-29-second-account-plugin-acceptance.md`.
+
+The bounded connectivity case completed in 2m57s and correctly returned HRP
+`20.5.23` plus PMID `40223676`, but mislabeled Universal as `1.7` while
+rendering the exact canonical `20.5.15` revision date and SHA-256. A second
+ordinary substantive case independently repeated the `1.7` label and was
+stopped without a final answer after 15m03s. Direct live manifest output and
+canonical bytes both remain correct at Universal `20.5.15`; this is a
+ChatGPT composition/presentation defect, not a backend manifest defect.
+
+The isolated full-text case copied manifest fields verbatim and therefore
+rendered Universal `20.5.15` and HRP `20.5.23` correctly. It acquired the
+known DOI `10.2340/17453674.2025.43332` Europe PMC JATS body as 37/37 blocks,
+already exhausted, with zero continuation calls. The bound validator then
+showed no new visible checkpoint for more than four minutes and produced no
+receipt by the eight-minute cutoff. It was stopped without retry, reacquisition,
+`Answer now`, or receipt inference. The three preserved conversations are:
+
+- `https://chatgpt.com/c/6a9346d8-a094-83ea-9ad7-6ac683f7a4dd`
+- `https://chatgpt.com/c/6a934852-1e3c-83ea-91c4-0e6f97b47856`
+- `https://chatgpt.com/c/6a934be2-7924-83ea-a815-a3774968d2bb`
+
+A direct read-only production timing probe then acquired the same 37-block
+Europe PMC JATS document in 707 ms and validated a deliberately unresolved,
+timing-only 13-domain payload in 94 ms after a 1,150 ms MCP connection. The
+validator returned the exact same-handle/same-source-hash, exhausted,
+audit-validated receipt. No source text or handle was printed or retained, and
+the temporary probe was deleted. The product stall is therefore in ChatGPT's
+audit construction/composition phase, not live acquisition or server-side
+validator execution.
+
+The YouTube field-by-field storage-policy clarification was sent in the
+existing quota-review Gmail thread. Until Google answers, the living-evidence
+pilot continues to persist zero YouTube/community records. Lesson issue #9 was
+closed as incorporated with exact evidence receipts. The refreshed lesson
+checkpoint is available with 0 open candidates, 0 needs review, 0 accepted but
+not incorporated, 4 incorporated or closed, and 0 deletion eligible.
+
 ## 2026-08-29 cumulative living evidence pilot completed
 
 Task ID: `askrigor-living-evidence-pilot-v1`

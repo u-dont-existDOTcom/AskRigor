@@ -1,7 +1,8 @@
 # Living evidence source and analysis storage policy
 
 Date: 2026-08-29
-Status: approved for isolated pilot
+Status: approved for isolated pilot and curated production study-audit
+read-through
 Owner decision: store the complete analysis actually performed for each study
 or review, including later clarifying analysis as new versions
 
@@ -42,6 +43,25 @@ report.
 | Raw transcript, video description, comment, reply, creator/commenter identity, or person-linked episode | Prohibited | Zero durable YouTube/community records in this pilot |
 | Raw chat, prompt, private research material, or personal health narrative | Prohibited | The pilot accepts public formal-evidence fixtures only |
 | Raw model/provider response, credential, authorization header, secret, or private session handle | Prohibited | Reject before storage and exclude from logs, exports, and backups |
+
+## Curated production read-through
+
+The first production integration may retain a complete validated
+AskRigor-authored study-method audit only through the one-shot administrator
+import. The importer receives the exact full-text document index transiently
+over stdin, reruns the existing source-linked validator, loads the current
+canonical protocol manifests itself, and persists only the structured audit,
+source identifiers/hashes/locators, freshness and impact state, and receipts.
+It does not persist the source blocks or any public user's request, chat, tool
+call, or health narrative.
+
+The public MCP and Action paths remain read-only and perform no automatic
+write-through. Curated production records are retained as append-only analysis
+history until a reviewed deletion or retention action explicitly targets them;
+source, protocol, freshness, and impact changes can block their current
+projection without erasing history. This authorization does not extend to
+private/user-derived analysis, review-audit reuse, external-evidence audit
+reuse, or YouTube/community data.
 
 ## Analysis completeness and losslessness
 
@@ -128,8 +148,10 @@ the actual check completion, result, exact source/version, and impact status.
 - Deleting a source body is not applicable because the pilot stores none.
   Removing a conditional quotation leaves a provenance tombstone and marks
   dependent analysis for review.
-- Production retention, multi-user access, user export/deletion, and backup
-  schedules require a separate approved production design.
+- Private/user-derived production retention, multi-user write access, user
+  export/deletion, and automatic backup schedules require a separate approved
+  production design. The curated source-free study-audit phase has no automatic
+  off-host backup and declares host loss as a durability limitation.
 
 ## Provider-specific boundary
 

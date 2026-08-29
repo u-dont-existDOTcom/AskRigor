@@ -8,6 +8,7 @@
   },
   "references": [
     { "path": "../../packages/contracts" },
+    { "path": "../../packages/evidence-repository" },
     { "path": "../../packages/protocol" },
     { "path": "../../packages/sources" }
   ]

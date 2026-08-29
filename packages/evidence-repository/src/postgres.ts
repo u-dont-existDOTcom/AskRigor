@@ -10,6 +10,9 @@ export interface EvidenceRepositoryOptions {
   connectionString: string;
   schema?: string;
   ssl?: PoolConfig["ssl"];
+  connectionTimeoutMillis?: number;
+  queryTimeoutMillis?: number;
+  statementTimeoutMillis?: number;
 }
 
 export type FailureInjection = "after_version" | "after_sections";
@@ -35,6 +38,38 @@ export interface KnowledgeSearchInput {
   capabilityState?: "can_support" | "cannot_support" | "uncertain";
   includeHistorical?: boolean;
   limit?: number;
+}
+
+export interface AnalysisReuseLookupInput {
+  identifier: {
+    scheme: "doi" | "pmid" | "pmcid" | "arxiv" | "nct" | "url" | "other";
+    value: string;
+  };
+  sourceContentSha256: string;
+  analysisKind: "study_method_audit" | "review_method_audit";
+  analysisVersionId?: string;
+  limit?: number;
+}
+
+export interface AnalysisReuseCandidate {
+  analysisId: string;
+  analysisVersionId: string;
+  analysisKind: string;
+  captureStatus: string;
+  relationship: string;
+  authoredAt: string;
+  analysisUsable: boolean;
+  sourceFamilyId: string;
+  sourceVersionId: string;
+  sourceContentSha256: string | null;
+  sourceAccessStatus: string;
+  sourceIdentifiers: Array<{ scheme: string; value: string }>;
+  protocolManifestSha256s: string[];
+  freshnessState: string | null;
+  freshnessCheckedAt: string | null;
+  completedImpactJobs: number;
+  pendingImpactJobs: number;
+  payload: LivingEvidenceContribution;
 }
 
 interface ExportedVersion {
@@ -76,7 +111,13 @@ export class PostgresEvidenceRepository {
 
   constructor(options: EvidenceRepositoryOptions) {
     this.schema = assertSafeSchema(options.schema ?? "living_evidence");
-    this.pool = new Pool({ connectionString: options.connectionString, ssl: options.ssl });
+    this.pool = new Pool({
+      connectionString: options.connectionString,
+      ssl: options.ssl,
+      connectionTimeoutMillis: options.connectionTimeoutMillis,
+      query_timeout: options.queryTimeoutMillis,
+      statement_timeout: options.statementTimeoutMillis,
+    });
   }
 
   async migrate(): Promise<void> {
@@ -352,6 +393,123 @@ export class PostgresEvidenceRepository {
         request: input,
       };
       return { ...queryReceipt, query_sha256: sha256(stableJson(queryReceipt)), results: result.rows };
+    } finally {
+      client.release();
+    }
+  }
+
+  async findAnalysisReuseCandidates(
+    input: AnalysisReuseLookupInput,
+  ): Promise<AnalysisReuseCandidate[]> {
+    const parsed = analysisReuseLookup(input);
+    const values: unknown[] = [
+      parsed.identifier.scheme,
+      parsed.identifier.value,
+      parsed.sourceContentSha256,
+      parsed.analysisKind,
+    ];
+    const versionFilter = parsed.analysisVersionId === undefined
+      ? ""
+      : `AND av.version_id = $${values.push(parsed.analysisVersionId)}`;
+    values.push(parsed.limit);
+    const client = await this.pool.connect();
+    try {
+      await this.setSearchPath(client);
+      const result = await client.query<{
+        analysis_id: string;
+        analysis_version_id: string;
+        analysis_kind: string;
+        capture_status: string;
+        relationship: string;
+        authored_at: string;
+        analysis_usable: boolean;
+        source_family_id: string;
+        source_version_id: string;
+        source_content_sha256: string | null;
+        source_access_status: string;
+        source_identifiers: Array<{ scheme: string; value: string }>;
+        protocol_manifest_sha256s: string[];
+        freshness_state: string | null;
+        freshness_checked_at: string | null;
+        completed_impact_jobs: number;
+        pending_impact_jobs: number;
+        payload_json: LivingEvidenceContribution;
+      }>(
+        `SELECT
+           a.analysis_id,
+           av.version_id AS analysis_version_id,
+           a.analysis_kind,
+           av.capture_status,
+           av.relationship,
+           av.authored_at::text,
+           acp.usable AS analysis_usable,
+           sf.family_id AS source_family_id,
+           sv.version_id AS source_version_id,
+           sv.source_content_sha256,
+           sv.access_status AS source_access_status,
+           COALESCE((
+             SELECT jsonb_agg(
+               jsonb_build_object('scheme', all_identifiers.scheme, 'value', all_identifiers.canonical_value)
+               ORDER BY all_identifiers.scheme, all_identifiers.canonical_value
+             )
+             FROM source_identifiers all_identifiers
+             WHERE all_identifiers.family_id = sf.family_id
+           ), '[]'::jsonb) AS source_identifiers,
+           rr.protocol_manifest_sha256s,
+           scf.projection_state AS freshness_state,
+           scf.checked_at::text AS freshness_checked_at,
+           (
+             SELECT count(*)::integer
+             FROM impact_jobs completed_source_impact
+             WHERE completed_source_impact.source_version_id = sv.version_id
+               AND completed_source_impact.status = 'complete'
+           ) AS completed_impact_jobs,
+           (
+             SELECT count(*)::integer
+             FROM impact_jobs source_impact
+             WHERE source_impact.source_version_id = sv.version_id
+               AND source_impact.status <> 'complete'
+           ) AS pending_impact_jobs,
+           av.payload_json
+         FROM source_identifiers matched_identifier
+         JOIN source_families sf ON sf.family_id = matched_identifier.family_id
+         JOIN source_versions sv ON sv.family_id = sf.family_id
+         JOIN analyses a ON a.source_family_id = sf.family_id
+         JOIN analysis_versions av
+           ON av.analysis_id = a.analysis_id
+          AND av.source_version_id = sv.version_id
+         JOIN analysis_current_projection acp ON acp.version_id = av.version_id
+         JOIN research_runs rr ON rr.run_id = av.run_id
+         LEFT JOIN source_current_freshness scf ON scf.family_id = sf.family_id
+         WHERE matched_identifier.scheme = $1
+           AND matched_identifier.canonical_value = $2
+           AND sv.source_content_sha256 = $3
+           AND a.analysis_kind = $4
+           ${versionFilter}
+         ORDER BY av.authored_at DESC, av.inserted_at DESC, av.version_id DESC
+         LIMIT $${values.length}`,
+        values,
+      );
+      return result.rows.map((row) => ({
+        analysisId: row.analysis_id,
+        analysisVersionId: row.analysis_version_id,
+        analysisKind: row.analysis_kind,
+        captureStatus: row.capture_status,
+        relationship: row.relationship,
+        authoredAt: row.authored_at,
+        analysisUsable: row.analysis_usable,
+        sourceFamilyId: row.source_family_id,
+        sourceVersionId: row.source_version_id,
+        sourceContentSha256: row.source_content_sha256,
+        sourceAccessStatus: row.source_access_status,
+        sourceIdentifiers: row.source_identifiers,
+        protocolManifestSha256s: row.protocol_manifest_sha256s,
+        freshnessState: row.freshness_state,
+        freshnessCheckedAt: row.freshness_checked_at,
+        completedImpactJobs: row.completed_impact_jobs,
+        pendingImpactJobs: row.pending_impact_jobs,
+        payload: row.payload_json,
+      }));
     } finally {
       client.release();
     }
@@ -936,4 +1094,19 @@ export class PostgresEvidenceRepository {
       );
     }
   }
+}
+
+function analysisReuseLookup(input: AnalysisReuseLookupInput): Required<Omit<AnalysisReuseLookupInput, "analysisVersionId">> & Pick<AnalysisReuseLookupInput, "analysisVersionId"> {
+  if (!/^[a-f0-9]{64}$/u.test(input.sourceContentSha256)) {
+    throw new Error("INVALID_REUSE_SOURCE_SHA256");
+  }
+  const value = input.identifier.value.trim();
+  if (value.length === 0 || value.length > 2_048) {
+    throw new Error("INVALID_REUSE_SOURCE_IDENTIFIER");
+  }
+  if (input.analysisVersionId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(input.analysisVersionId)) {
+    throw new Error("INVALID_REUSE_ANALYSIS_VERSION_ID");
+  }
+  const limit = Math.min(Math.max(input.limit ?? 4, 1), 10);
+  return { ...input, identifier: { ...input.identifier, value }, limit };
 }
