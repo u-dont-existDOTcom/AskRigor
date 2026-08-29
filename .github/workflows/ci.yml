@@ -13,6 +13,20 @@ jobs:
     name: Deterministic verification
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17.6-alpine@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be
+        env:
+          POSTGRES_DB: askrigor_living_evidence
+          POSTGRES_USER: askrigor_ci
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U askrigor_ci -d askrigor_living_evidence"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     steps:
       - name: Check out repository
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -30,3 +44,9 @@ jobs:
 
       - name: Run deterministic verification
         run: npm run verify
+
+      - name: Run PostgreSQL living-evidence acceptance and fixture pilot
+        env:
+          DATABASE_URL: postgresql://askrigor_ci:ci-only-password@127.0.0.1:5432/askrigor_living_evidence
+          ASKRIGOR_LIVING_EVIDENCE_OUTPUT: /tmp/askrigor-living-evidence-ci
+        run: npm run living-evidence:acceptance && npm run living-evidence:pilot

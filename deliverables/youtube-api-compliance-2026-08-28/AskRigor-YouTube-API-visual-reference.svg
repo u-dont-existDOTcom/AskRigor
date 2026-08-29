@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1900" viewBox="0 0 1600 1900" role="img" aria-labelledby="title desc">
+  <title id="title">AskRigor YouTube Data API v3 read-only workflow and sample end-user report</title>
+  <desc id="desc">A de-identified visual showing four YouTube Data API list methods, server validation and minimization, and the plain-language report presented in the AskRigor Custom GPT.</desc>
+  <defs>
+    <style>
+      .bg{fill:#f7f8fc}.ink{fill:#172033}.muted{fill:#526079}.blue{fill:#2459d3}.blue2{fill:#eaf0ff}.green{fill:#107c5b}.green2{fill:#e7f6f0}.amber{fill:#9a5d00}.amber2{fill:#fff4dd}.red{fill:#b42318}.red2{fill:#fff0ee}.card{fill:#fff;stroke:#d9dfeb;stroke-width:2}.line{stroke:#8ba0c7;stroke-width:4;fill:none}.dash{stroke:#8ba0c7;stroke-width:3;stroke-dasharray:10 10;fill:none}.h1{font:700 48px Arial,sans-serif}.h2{font:700 30px Arial,sans-serif}.h3{font:700 24px Arial,sans-serif}.body{font:400 20px Arial,sans-serif}.small{font:400 17px Arial,sans-serif}.mono{font:400 17px ui-monospace,SFMono-Regular,Consolas,monospace}.bold{font-weight:700}.white{fill:#fff}.rule{stroke:#e2e6ef;stroke-width:2}.pill{rx:18;ry:18}.round{rx:24;ry:24}.arrow{fill:#8ba0c7}.link{fill:#2459d3;text-decoration:underline}
+    </style>
+  </defs>
+  <rect class="bg" width="1600" height="1900"/>
+  <rect class="blue" x="0" y="0" width="1600" height="168"/>
+  <text class="h1 white" x="72" y="75">AskRigor — YouTube Data API v3</text>
+  <text class="body white" x="72" y="116">Read-only public-data retrieval → validation and minimization → plain-language research report</text>
+  <rect x="1255" y="46" width="270" height="50" class="green pill"/>
+  <text class="small white bold" x="1390" y="78" text-anchor="middle">DE-IDENTIFIED SAMPLE</text>
+
+  <text class="h2 ink" x="72" y="228">1. Data fetched from YouTube</text>
+  <text class="small muted" x="72" y="260">HTTPS GET requests from the AskRigor backend with a server-side API key; no end-user Google/YouTube sign-in or OAuth.</text>
+
+  <rect class="card round" x="72" y="294" width="334" height="340"/>
+  <rect class="blue2 round" x="92" y="316" width="294" height="58"/>
+  <text class="h3 blue" x="112" y="353">search.list</text>
+  <text class="mono ink" x="98" y="410">GET /youtube/v3/search</text>
+  <text class="small ink" x="98" y="447">part=snippet • type=video</text>
+  <text class="small ink" x="98" y="477">q • maxResults • pageToken</text>
+  <line class="rule" x1="98" y1="504" x2="380" y2="504"/>
+  <text class="small muted" x="98" y="536">Returns public candidate IDs,</text>
+  <text class="small muted" x="98" y="562">titles, channels, dates, and</text>
+  <text class="small muted" x="98" y="588">pagination state.</text>
+
+  <rect class="card round" x="446" y="294" width="334" height="340"/>
+  <rect class="blue2 round" x="466" y="316" width="294" height="58"/>
+  <text class="h3 blue" x="486" y="353">videos.list</text>
+  <text class="mono ink" x="472" y="410">GET /youtube/v3/videos</text>
+  <text class="small ink" x="472" y="447">part=snippet, contentDetails,</text>
+  <text class="small ink" x="472" y="477">statistics, status • id</text>
+  <line class="rule" x1="472" y1="504" x2="754" y2="504"/>
+  <text class="small muted" x="472" y="536">Validates identity and gets title,</text>
+  <text class="small muted" x="472" y="562">channel, date, duration, status,</text>
+  <text class="small muted" x="472" y="588">and API-visible counts.</text>
+
+  <rect class="card round" x="820" y="294" width="334" height="340"/>
+  <rect class="blue2 round" x="840" y="316" width="294" height="58"/>
+  <text class="h3 blue" x="860" y="353">commentThreads.list</text>
+  <text class="mono ink" x="846" y="410" style="font-size:15px">GET /youtube/v3/commentThreads</text>
+  <text class="small ink" x="846" y="447">part=snippet,replies • videoId</text>
+  <text class="small ink" x="846" y="477">maxResults=100 • plainText</text>
+  <line class="rule" x1="846" y1="504" x2="1128" y2="504"/>
+  <text class="small muted" x="846" y="536">Fetches published public top-level</text>
+  <text class="small muted" x="846" y="562">comments, embedded replies, counts,</text>
+  <text class="small muted" x="846" y="588">and next-page state.</text>
+
+  <rect class="card round" x="1194" y="294" width="334" height="340"/>
+  <rect class="blue2 round" x="1214" y="316" width="294" height="58"/>
+  <text class="h3 blue" x="1234" y="353">comments.list</text>
+  <text class="mono ink" x="1220" y="410">GET /youtube/v3/comments</text>
+  <text class="small ink" x="1220" y="447">part=snippet • parentId</text>
+  <text class="small ink" x="1220" y="477">maxResults=100 • pageToken</text>
+  <line class="rule" x1="1220" y1="504" x2="1502" y2="504"/>
+  <text class="small muted" x="1220" y="536">Completes replies not embedded in</text>
+  <text class="small muted" x="1220" y="562">the thread response and reconciles</text>
+  <text class="small muted" x="1220" y="588">parent and reply counts.</text>
+
+  <path class="line" d="M800 660 V702"/>
+  <polygon class="arrow" points="788,696 812,696 800,716"/>
+  <text class="h2 ink" x="72" y="758">2. Backend validation and minimization</text>
+  <rect class="card round" x="72" y="790" width="1456" height="218"/>
+  <rect x="102" y="824" width="318" height="150" class="green2 round"/>
+  <text class="h3 green" x="124" y="862">Validate</text>
+  <text class="small ink" x="124" y="897">Response schema • video/parent match</text>
+  <text class="small ink" x="124" y="927">pagination • duplicate identifiers</text>
+  <text class="small ink" x="124" y="957">provider count reconciliation</text>
+  <path class="line" d="M430 900 H466"/>
+  <polygon class="arrow" points="460,888 460,912 480,900"/>
+  <rect x="482" y="824" width="318" height="150" class="blue2 round"/>
+  <text class="h3 blue" x="504" y="862">Bound</text>
+  <text class="small ink" x="504" y="897">Page • record • byte • request</text>
+  <text class="small ink" x="504" y="927">attempt • elapsed-time limits</text>
+  <text class="small ink" x="504" y="957">explicit complete/partial states</text>
+  <path class="line" d="M810 900 H846"/>
+  <polygon class="arrow" points="840,888 840,912 860,900"/>
+  <rect x="862" y="824" width="318" height="150" class="amber2 round"/>
+  <text class="h3 amber" x="884" y="862">Minimize</text>
+  <text class="small ink" x="884" y="897">Normalize public metadata and counts</text>
+  <text class="small ink" x="884" y="927">discard raw provider bodies</text>
+  <text class="small ink" x="884" y="957">no credentials in client output</text>
+  <path class="line" d="M1190 900 H1226"/>
+  <polygon class="arrow" points="1220,888 1220,912 1240,900"/>
+  <rect x="1242" y="824" width="256" height="150" class="red2 round"/>
+  <text class="h3 red" x="1264" y="862">Fail honestly</text>
+  <text class="small ink" x="1264" y="897">Unavailable or disabled</text>
+  <text class="small ink" x="1264" y="927">data stays a limitation,</text>
+  <text class="small ink" x="1264" y="957">never negative evidence.</text>
+
+  <path class="line" d="M800 1034 V1076"/>
+  <polygon class="arrow" points="788,1070 812,1070 800,1090"/>
+  <text class="h2 ink" x="72" y="1132">3. API Client location and end result</text>
+  <text class="small muted" x="72" y="1164">Presented in the AskRigor Custom GPT conversation in ChatGPT as a plain-language, source-linked research report.</text>
+
+  <rect class="card round" x="72" y="1196" width="1456" height="620"/>
+  <rect x="72" y="1196" width="1456" height="80" rx="24" ry="24" fill="#172033"/>
+  <circle cx="116" cy="1236" r="10" fill="#ff6b6b"/><circle cx="148" cy="1236" r="10" fill="#ffd166"/><circle cx="180" cy="1236" r="10" fill="#4ecb71"/>
+  <text class="h3 white" x="226" y="1245">AskRigor Custom GPT — synthetic report preview</text>
+  <rect x="1260" y="1219" width="230" height="36" class="green pill"/>
+  <text class="small white bold" x="1375" y="1244" text-anchor="middle">END-USER VIEW</text>
+
+  <text class="h2 ink" x="116" y="1330">Structured rehabilitation options — example research summary</text>
+  <text class="h3 blue" x="116" y="1380">Bottom line</text>
+  <text class="body ink" x="146" y="1420">• Two materially different programs were inspected separately; this example does not recommend one for an individual.</text>
+  <text class="body ink" x="146" y="1455">• Public discussion is used to find implementation details, failures, harms, and durability questions—not to estimate efficacy.</text>
+
+  <text class="h3 blue" x="116" y="1512">Public discussions checked</text>
+  <rect x="116" y="1536" width="1338" height="104" class="blue2 round"/>
+  <text class="body ink bold" x="142" y="1572">Example progressive program walkthrough — Synthetic Rehabilitation Channel, 2 Jan 2025</text>
+  <text class="small ink" x="142" y="1605">YouTube reported 7 public comments • 7 public comments/replies checked • 2 records contributed structured findings</text>
+  <rect x="116" y="1656" width="1338" height="104" class="amber2 round"/>
+  <text class="body ink bold" x="142" y="1692">Example aquatic program session — Synthetic Mobility Channel, 14 Feb 2025</text>
+  <text class="small ink" x="142" y="1725">Comments disabled • no community finding inferred • absence is an access boundary, not evidence of no benefit or harm</text>
+
+  <text class="h3 blue" x="116" y="1792">Report also includes</text>
+  <text class="small ink" x="116" y="1826">Approaches compared • Videos actually audited • Videos worth watching (only if creator content verified) • Uncertainty</text>
+
+  <text class="small muted" x="72" y="1872">Privacy boundary: no real user or patient data in this visual; no raw comment text or commenter identity shown; API key omitted; synthetic values only.</text>
+</svg>

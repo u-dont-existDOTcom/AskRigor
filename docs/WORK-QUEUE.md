@@ -7,8 +7,8 @@ authorize new collection, persistence, publication, or provider spending.
 
 ## Queued: cumulative living evidence repository
 
-Status: architecture proposal complete; owner implementation/persistence
-decision and required gates remain
+Status: owner-approved active implementation on task
+`askrigor-living-evidence-pilot-v1`
 
 Source: Joel, 2026-08-29
 
@@ -27,9 +27,17 @@ Design artifacts:
   reversible single-topic pilot and keeps local implementation, Railway
   provisioning, and production integration behind separate gates.
 
-The proposal selects a canonical architecture for review but does not authorize
-collection, persistence, provisioning, provider spending, deployment, or
-production integration.
+The owner approved the isolated pilot, Railway use, and durable storage of the
+complete AskRigor-authored study/review analysis to the extent performed,
+including later clarifying versions. This approval remains bounded by the
+active task lock, source-storage policy, privacy threat model, $5 monthly pilot
+ceiling, no-public-endpoint rule, and prohibited-data classes. Production
+integration remains a separate later decision.
+
+Local PostgreSQL implementation and restore acceptance pass. Railway remains
+unprovisioned because its workspace-wide $10 minimum hard limit and minimum
+paid-volume shape cannot enforce the approved $5/1-GiB boundary; relaxing that
+boundary is the remaining owner decision for the optional hosted phase.
 
 ### Desired outcome
 
@@ -94,8 +102,9 @@ service.
   states that never present stale data as current;
 - rollback, export, portability, and deletion acceptance criteria.
 
-The current product intentionally has no durable full-text, transcript,
-candidate-packet, treatment-landscape, or server-side comment corpus. The
-design artifacts and queue update do not change that boundary. Until the active
-YouTube compliance review and the exact durable-field decision are complete,
-the proposed pilot stores zero YouTube/community records.
+The current product intentionally has no durable raw full-text, transcript,
+candidate-packet, treatment-landscape, or server-side comment corpus. The pilot
+adds durable AskRigor-authored analyses and their exact provenance; it does not
+add a raw source corpus. Until the active YouTube compliance review and the
+exact durable-field decision are complete, the pilot stores zero
+YouTube/community records.

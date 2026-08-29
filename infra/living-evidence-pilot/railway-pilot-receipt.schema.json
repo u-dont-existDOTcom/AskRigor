@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://askrigor.com/schemas/railway-living-evidence-pilot-receipt-v1.json",
+  "title": "AskRigor Railway living-evidence pilot receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "receipt_schema",
+    "checked_at",
+    "project",
+    "environment",
+    "service",
+    "limits",
+    "networking",
+    "storage",
+    "deployment",
+    "database_acceptance",
+    "retention"
+  ],
+  "properties": {
+    "receipt_schema": { "const": "askrigor.railway-living-evidence-pilot-receipt.v1" },
+    "checked_at": { "type": "string", "format": "date-time" },
+    "project": { "$ref": "#/$defs/namedResource" },
+    "environment": { "$ref": "#/$defs/namedResource" },
+    "service": { "$ref": "#/$defs/namedResource" },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enforcement_status", "monthly_spend_usd", "vcpu", "memory_mb", "volume_gb", "workspace_limit_unchanged"],
+      "properties": {
+        "enforcement_status": { "const": "enforced" },
+        "monthly_spend_usd": { "type": "number", "maximum": 5 },
+        "vcpu": { "type": "number", "maximum": 0.5 },
+        "memory_mb": { "type": "integer", "maximum": 512 },
+        "volume_gb": { "type": "number", "maximum": 1 },
+        "workspace_limit_unchanged": { "const": true }
+      }
+    },
+    "networking": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["private_network_enabled", "public_domain_absent", "tcp_proxy_absent"],
+      "properties": {
+        "private_network_enabled": { "const": true },
+        "public_domain_absent": { "const": true },
+        "tcp_proxy_absent": { "const": true }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mount_path", "used_bytes", "backups_enabled"],
+      "properties": {
+        "mount_path": { "const": "/var/lib/postgresql/data" },
+        "used_bytes": { "type": "integer", "minimum": 0 },
+        "backups_enabled": { "const": false }
+      }
+    },
+    "deployment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["deployment_id", "image", "state", "migration_sha256"],
+      "properties": {
+        "deployment_id": { "type": "string", "minLength": 1 },
+        "image": { "type": "string", "minLength": 1 },
+        "state": { "const": "SUCCESS" },
+        "migration_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "database_acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "check_count", "artifact_sha256", "raw_source_content_included"],
+      "properties": {
+        "status": { "const": "PASS" },
+        "check_count": { "type": "integer", "minimum": 14 },
+        "artifact_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "raw_source_content_included": { "const": false }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["delete_by", "logical_export_required", "deletion_recovery_window_recorded"],
+      "properties": {
+        "delete_by": { "type": "string", "format": "date-time" },
+        "logical_export_required": { "const": true },
+        "deletion_recovery_window_recorded": { "const": true }
+      }
+    }
+  },
+  "$defs": {
+    "namedResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

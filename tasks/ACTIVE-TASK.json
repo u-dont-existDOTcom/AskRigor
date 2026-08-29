@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-living-evidence-pilot-v1",
+  "status": "ready_for_protected_merge",
+  "exclusive": true,
+  "requiredBranch": "agent/living-evidence-pilot-20260829",
+  "pullRequest": 128,
+  "assuranceLane": "decision",
+  "targetedHardGates": [
+    "durable health-research data minimization",
+    "append-only migration integrity",
+    "source licensing and quotation boundaries",
+    "export, restore, deletion, and backup accounting",
+    "provider-policy isolation"
+  ],
+  "preflightCommand": "npm run living-evidence:preflight",
+  "completionCommand": "npm run living-evidence:acceptance",
+  "integrationCommit": "59ee7846aa3b4d94fa0be2a4e5bc7d8aedb6ab6c",
+  "preservedLocalRollback": "rollback/local-main-pre-living-evidence-20260829",
+  "ownerApprovals": [
+    "Implement the cumulative living-evidence pilot and use an isolated Railway environment.",
+    "Persist the complete study or review analysis to the extent performed, including later clarifying analysis as new versions.",
+    "Preserve the locally added authorization and acceptance instructions while reconciling local and remote history."
+  ],
+  "persistentAnalysisBoundary": {
+    "allowed": [
+      "complete AskRigor-authored analysis sections",
+      "structured study and review method-domain findings",
+      "claim-capability judgments and their reasons",
+      "unresolved fields, limitations, disagreement, and future-analysis items",
+      "exact source identifiers, source-version hashes, evidence locators, and validation receipts",
+      "later clarifying, correcting, superseding, or invalidating analysis versions"
+    ],
+    "prohibitedByDefault": [
+      "raw article or book bodies",
+      "raw transcripts, comments, replies, or creator and commenter identities",
+      "raw chat, prompts, private research content, or personal health narratives",
+      "raw provider responses, credentials, authorization headers, or secrets"
+    ]
+  },
+  "localAcceptance": {
+    "status": "pass",
+    "cleanRuns": 2,
+    "database": "PostgreSQL 17.6",
+    "adversarialChecks": 21,
+    "repositoryCanonicalSha256": "8b796f9b16540fcf5408165049f46953ed64cfb26bce6f98b00e615ca069909c",
+    "latestDumpBytes": 139706,
+    "restoreVerified": true,
+    "fullVerifyPassed": true,
+    "fullVerifyTestFilesPassed": 107,
+    "fullVerifyTestsPassed": 1433,
+    "communityDerivedRecords": 0,
+    "rawSourceContentIncluded": false,
+    "hostedChecks": {
+      "pullRequest": 128,
+      "verifiedHead": "f15ca1a7dc95df045419b52ee26c7fe284c4ede2",
+      "deterministicVerification": "pass",
+      "workflowPolicy": "pass",
+      "codeql": "pass"
+    }
+  },
+  "railwayPilot": {
+    "authorized": true,
+    "provisioned": false,
+    "provisioningStatus": "blocked_by_platform_limit_mismatch",
+    "isolatedFromProduction": true,
+    "publicEndpointAllowed": false,
+    "monthlySpendCeilingUsd": 5,
+    "maxVcpu": 0.5,
+    "maxMemoryMb": 512,
+    "maxVolumeGb": 1,
+    "stopIfLimitsCannotBeEnforced": true,
+    "platformLimitReadback": {
+      "checkedAt": "2026-08-29T18:00:00.000Z",
+      "computeHardLimitScope": "workspace_wide",
+      "minimumComputeHardLimitUsd": 10,
+      "paidVolumeDefaultGb": 5,
+      "paidVolumeDownsizeSupported": false,
+      "privateDatabaseByDefault": true,
+      "workspaceLimitChanged": false,
+      "resourceProvisioned": false,
+      "ownerDecisionRequiredToRelaxBoundary": true
+    }
+  },
+  "suspendedTaskSources": [
+    "historical browser and Custom GPT acceptance handoffs",
+    "unrelated worktrees and recovery checkpoints",
+    "global work-queue selection",
+    "production release and deployment queues",
+    "optional plugin and provider experiments"
+  ]
+}

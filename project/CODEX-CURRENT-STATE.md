@@ -1,5 +1,509 @@
 # AskRigor Codex Current State
 
+## 2026-08-29 exclusive active task: cumulative living evidence pilot
+
+Task ID: `askrigor-living-evidence-pilot-v1`
+
+The owner approved implementation of the cumulative living-evidence repository
+pilot and an isolated Railway environment. The owner also explicitly requires
+AskRigor to store the complete study or review analysis to the extent actually
+performed, including future clarifying analysis when more work is warranted.
+Analysis versions must retain their full sections, domain findings, claim-
+capability judgments, evidence bindings, uncertainty, unresolved fields,
+limitations, disagreements, and follow-up questions. Later work appends a new
+clarifying, correcting, superseding, or invalidating version; it never silently
+rewrites the earlier analysis.
+
+This approval does not authorize raw article/book bodies, transcripts,
+comments/replies, creator/commenter identities, raw chat or prompts, private
+health material, provider bodies, or credentials as default durable data. The
+initial pilot uses public formal-evidence identifiers and AskRigor-authored
+analysis only. YouTube/community persistence remains disabled until its exact
+fields pass the separate compliance and owner gate.
+
+The active branch is `agent/living-evidence-pilot-20260829`. Its integration
+commit `59ee7846aa3b4d94fa0be2a4e5bc7d8aedb6ab6c` has local acceptance history
+`78960d4f224abd45756817a9f9b358bea832d1bb` and remote main
+`26bad64db4b3df7a9158d06c160d2b2c909d4ce2` as parents. Local pre-integration
+history is additionally preserved by
+`rollback/local-main-pre-living-evidence-20260829`. The checkpoint merge kept
+all locally added owner authorization and acceptance sections; none was
+discarded.
+
+Implementation commit `864b767115ff17dd4a9464864dd7789157de9b72` is under
+protected review in PR #128. The task lock is `ready_for_protected_merge`;
+hosted checks and final diff review control the local merge decision.
+
+First command after resume:
+
+```bash
+npm run living-evidence:preflight
+```
+
+Task completion command:
+
+```bash
+npm run living-evidence:acceptance
+```
+
+The machine-readable authority is `tasks/ACTIVE-TASK.json`. Historical browser,
+Custom GPT, provider, deployment, work-queue, and unrelated-worktree handoffs
+remain valid evidence but are suspended as task selectors until this lock is
+closed. Ordinary green tests are prerequisites, not completion; the task ends
+only after its artifact-based acceptance, protected merge, Railway pilot
+receipt or exact documented access boundary, and durable closeout.
+
+Local implementation acceptance now passes against digest-pinned PostgreSQL
+17.6. The pilot persists the exact formal-evidence full-text-audit section of
+the surviving committed hip synthesis as a partial historical capture; it does
+not import the report's community-derived sections. It also preserves exact
+partial historical analysis for six source families without reconstructing
+missing domain text. The schema and real-PostgreSQL acceptance prove lossless
+complete-analysis storage for every analysis actually performed prospectively.
+It has three linked topics, one structured question, seven claim
+versions, exact evidence bindings, six transparent assessments, freshness
+policies/checks, and one explicitly synthetic invalidation with a completed
+impact job. Fixed exact, structured, full-text, current/history, topic-graph,
+and transparent-ranking queries pass. Current-mode retrieval returns zero
+because all surviving historical source checks are stale; seven claim versions
+remain inspectable in historical mode with their access/freshness boundaries.
+Generated JSON, Obsidian, Mermaid, and RO-Crate views contain no raw source or
+community-derived analysis. Two independent clean imports produced the same
+canonical repository SHA-256
+`8b796f9b16540fcf5408165049f46953ed64cfb26bce6f98b00e615ca069909c`.
+The latest logical dump is 139,706 bytes; the exact named schema was wiped and
+restored with that same canonical hash. The pre-PR deterministic gate passed:
+107 test files passed with one declared skip, 1,433 tests passed with six
+declared skips, and typecheck/build completed against the final impact/cycle
+hardening. The real-PostgreSQL acceptance passes 21 adversarial checks. Hosted
+review remains required.
+
+PR #128's first CodeQL pass found one high-severity polynomial-regex path in
+the Markdown analysis splitter. The regex was replaced with a bounded
+single-pass line scanner and focused CRLF/multi-space-heading coverage. The
+focused test and typecheck passed. Exact repaired head
+`f15ca1a7dc95df045419b52ee26c7fe284c4ede2` then passed hosted deterministic
+verification, workflow policy, the CodeQL aggregate, and all Actions,
+JavaScript/TypeScript, and Python analyses. PR #128 is clean and mergeable.
+
+Railway remains deliberately unprovisioned. Current Railway controls make
+compute hard limits workspace-wide with a $10 minimum, while paid volumes
+default to at least 5 GB and cannot be downsized. Those controls cannot enforce
+the approved $5/1-GB pilot boundary, and changing a workspace-wide limit could
+affect unrelated services. No Railway resource, public endpoint, or workspace
+billing control was created or changed. `infra/living-evidence-pilot/README.md`
+records the exact platform boundary and the receipt required if the owner later
+approves a relaxed limit.
+
+## 2026-08-28 owner correction: regular ChatGPT plugin is the primary test surface
+
+The owner reports that the installed Custom GPT has materially lower effective
+reasoning quality than the owner's ordinary ChatGPT account and notes OpenAI's
+non-guarantee of equivalent Custom GPT intelligence. Effective immediately,
+use the signed-in regular ChatGPT Pro account with the installed AskRigor
+plugin as the primary live intelligence, research-quality, and end-to-end
+acceptance surface. Primary controlled research tests use GPT-5.6 Sol in Chat
+mode at the maximum available reasoning effort (historically Extra High;
+currently rendered as `Pro` / 5 of 5). The initial clean plugin connectivity
+smoke used Ultra, but that is not the primary broad-research configuration.
+The Custom GPT remains a secondary Action-compatibility and projection-
+regression surface; do not use its output quality as the primary estimate of
+AskRigor's achievable research quality.
+
+Brave inspection confirmed the regular account is signed in, AskRigor appears
+in the account's Installed plugins, and the existing
+`AskRigor.com Plugin-Dependent` project offers new chats at Extra High. Its
+existing `HRP Protocol Verification` thread visibly made three AskRigor tool
+calls. The project's uploaded protocol sources are dated August 7--10 and are
+not evidence of current canonical bytes. Every fresh primary acceptance run
+must explicitly retrieve and verify the live HRP and Universal identities
+through AskRigor before substantive research; project uploads, prior thread
+prose, and generated excerpts cannot replace the live canonical protocols.
+
+A clean non-project ChatGPT plugin chat was opened through AskRigor's installed
+`Try in chat` action, avoiding the project's stale uploaded-source confound:
+`https://chatgpt.com/c/6a91b986-ff1c-83ea-a810-d906c950b100`.
+The bounded GPT-5.6 Sol / Ultra smoke test requested only the two live protocol
+manifests. AskRigor returned HRP `20.5.23`, revised `2026-08-24`, SHA-256
+`bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`,
+and Universal `20.5.15`, revised `2026-08-24`, SHA-256
+`69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`.
+Both identities exactly match repository canonical-byte tests, both canonical
+texts were reported available, and the response explicitly reported no
+research session, research operation, or provider operation. This is a current
+primary-surface connectivity/protocol smoke receipt, not a substantive research
+quality acceptance.
+
+A later broad hip-treatment prompt was accidentally started in Work mode at
+Ultra. It was stopped once the mismatch was recognized and is not an acceptance
+receipt. Do not resume that run. The next primary substantive acceptance must
+use the installed AskRigor plugin in regular ChatGPT with GPT-5.6 Sol, Chat
+mode, and Extra High.
+
+The preserved Custom GPT hip-treatment session remains intact as historical
+resumability/compatibility evidence. Minute polling stopped on this owner
+correction after the last verified unchanged check at
+`2026-08-28T16:28:36.635Z`. No additional Retry was sent and no replacement
+research session was created. Do not resume repeated polling or issue another
+Retry unless the owner explicitly reactivates that secondary test.
+
+## 2026-08-28 YouTube API compliance follow-up sent
+
+The owner approved the completed response to the YouTube API Services Team's
+request for a sample report or visual reference showing both YouTube data flow
+and the end result. No additional owner answers were required. The reply was
+sent in the existing Gmail thread to
+`youtube-disputes+2qf6bi6gn4qyr1n@google.com` at
+`2026-08-28T21:38:35+00:00`. Gmail shows the new sent message in-thread with
+the complete body and `2 Attachments`:
+
+- `AskRigor-YouTube-API-visual-reference.png`, SHA-256
+  `bc07ec33216a3c215c887830732287f8158aaba594cb9a28d21a45d7b5477833`
+- `AskRigor-sample-end-user-report.pdf`, SHA-256
+  `fb6a1a2064c0cefd45199bfae1c5a05cb3fe116353c123b84f28eb7e6d2f2f21`
+
+The sent reply identifies the installed AskRigor plugin in regular ChatGPT as
+the primary client surface and the AskRigor Custom GPT as a supported secondary
+surface. The receipt is
+`deliverables/youtube-api-compliance-2026-08-28/send-receipt.md`. This proves
+submission of the requested supporting material, not quota approval or an
+effective quota change.
+
+## 2026-08-28 fresh regular-Chat Extra High acceptance reached bounded completion
+
+A genuinely fresh regular ChatGPT conversation is preserved at
+`https://chatgpt.com/c/6a9201c8-e3bc-83e9-b5dc-47e47bf258c0`. Before submission,
+the visible controls were verified as Chat mode checked, Extra High selected,
+and the installed AskRigor plugin present as the inline source pill. This is the
+owner-designated primary intelligence and product surface.
+
+The fixed synthetic prompt made both live canonical identities a hard first
+gate and prohibited project uploads or prior-chat memory. The response loaded
+and verified the complete HRP `20.5.23` and Universal `20.5.15` texts with the
+exact expected dates and SHA-256 digests, then started a fresh AskRigor workflow
+for surgery-indicated end-stage hip osteoarthritis. It did not reuse or resume
+the stopped Work/Ultra run.
+
+The live Chat response demonstrated substantive program- and population-level
+reasoning before this checkpoint. It separated a broader
+moderate-to-severe Finnish arthroplasty-versus-exercise trial from the strict
+core population; identified PROHIP as an exact surgical-eligibility population
+match; retained its supervised 12-week progressive-resistance dose, optional
+12-week continuation, 6-month Oxford Hip Score comparison, crossover count,
+and still-pending durability boundary; excluded prehabilitation studies from
+the alternative-to-surgery comparison; and kept cycling plus education,
+mobilization, proprioceptive-neuromuscular facilitation, neuromuscular
+exercise, resistance training, and diet-plus-exercise as distinct
+implementations rather than pooling them.
+
+The response completed after a visible `Worked for 14m 14s` interval with 27
+visible tool-call markers. A clean read-only recovery view showed a completed
+response (`Copy response` present and no `Stop answering` control), proving
+that the earlier structural-read timeouts reflected the very large rendered
+tool trace rather than a stalled research run.
+
+The response correctly labeled itself `Acceptance status: not finalized`. It
+reported ten complete, unfiltered YouTube comment/reply corpora spanning the
+required treatment space and excluded two larger corpora whose providers
+failed after partial retrieval instead of treating those fragments as complete
+samples. It preserved population and implementation distinctions, reported
+benefit, null, worsening, harm, crossover, method, and applicability limits,
+and used an explicit Crossref integrity-screen limitation rather than treating
+absence of a metadata marker as proof of unretracted status.
+
+The completion boundary is genuine future evidence, not a retryable execution
+frontier: PROHIP's strict-core randomized long-term follow-up remains active,
+with registry completion projected for December 2026. The response therefore
+withheld the requested final comparative verdict and supplied only bounded
+facts plus an evidence-gap statement. Do not send `Retry`, reopen discovery, or
+create a replacement research run merely to force finalization. The preserved
+conversation is a passing primary-surface reasoning/completion-boundary
+receipt, not a server-issued product-acceptance receipt or a final clinical
+ranking.
+
+## 2026-08-28 independent citation-falsification acceptance
+
+A second fresh regular ChatGPT plugin conversation is preserved at
+`https://chatgpt.com/c/6a920843-2b44-83ea-9f81-8126fcfa84dc`. Immediately before
+submission, the live controls showed Chat checked, Work unchecked, GPT-5.6 Sol
+selected, maximum reasoning effort (`4` of `4` on the control, rendered as
+`Pro thinking` / 5 of 5), and the AskRigor plugin attached. The narrow prompt
+prohibited YouTube/community discovery, broad treatment research, a research
+session, and medical synthesis.
+
+The independent audit completed without intervention after `Worked for 8m
+10s`. It reloaded and exactly verified both canonical protocols, used PubMed,
+Europe PMC, ClinicalTrials.gov, and Crossref records, reported that no research
+session was created or resumed, and marked the task complete with no next
+capability. It independently confirmed the pivotal treatment-effect,
+population, dose, crossover, registry-status, and design claims except for the
+following important qualifications:
+
+- PMID `40223676` assessed the waiting group at **at least** three months after
+  waiting-list entry, not necessarily at exactly three months. The prior broad
+  acceptance's shorthand `at 3 months` is therefore corrected.
+- Absence of an indexed long-term PROHIP outcome publication cannot prove
+  universal nonpublication. The exact current bounded statement is that the
+  audit found no such report in its PubMed/Europe PMC trial-ID searches and the
+  live registry returned `has_results:false`.
+- The returned records did not directly cross-reference PMID `42061873` and
+  NCT `05093361`; their exact identity linkage remains unavailable even though
+  the trial characteristics closely match.
+
+The audit verified NCT `04070027` as `ACTIVE_NOT_RECRUITING` with current
+completion field `2026-12`. Direct PubMed and ClinicalTrials.gov hyperlinks
+rendered correctly. The three Crossref DOI rows rendered their exact DOI
+identifiers but exposed empty `href` values, so the requested direct-link
+presentation is only partially satisfied. Treat this as a formatting/citation-
+projection defect, not a contradiction in the underlying DOI identities.
+
+A bounded correction-uptake follow-up in the same conversation prohibited all
+tool use and requested exactly four bullets, including three explicit
+`https://doi.org/` Markdown links. It completed in 37 seconds and correctly
+restated the timing correction, bounded nonpublication wording, and unavailable
+PMID/NCT linkage without new source retrieval. It nevertheless omitted the
+literal `https://doi.org/` URLs; all three DOI labels again rendered with empty
+`href` values. The direct-link presentation failure is therefore reproducible
+after one explicit correction request. Do not loop the same formatting retry.
+
+Two fresh controls localize that defect to the long audit conversation rather
+than the general renderer or plugin attachment. A plain regular Chat control at
+`https://chatgpt.com/c/6a920e07-7ae8-83e9-8bc8-e258ca74e39d` completed in 21
+seconds and rendered all three exact `https://doi.org/` links with nonempty
+targets. A new AskRigor-attached Chat control at
+`https://chatgpt.com/c/6a920eaf-fa18-83ea-a8a3-12c5e5746642` completed in 13
+seconds without tool calls and rendered the same three correct targets. Both
+used GPT-5.6 Sol in Chat at maximum 5-of-5 reasoning effort. The earlier empty
+links are therefore a context-local instruction/rendering miss in that one
+correction response, not evidence of a platform-wide renderer failure or a
+general AskRigor-plugin citation defect.
+
+## 2026-08-28 PREDIMED publication-integrity benchmark completed
+
+A fresh primary-account AskRigor plugin benchmark is preserved at
+`https://chatgpt.com/c/6a920f65-ca0c-83ea-9d3b-587889789d92`. Submission
+preflight verified Chat checked, Work unchecked, GPT-5.6 Sol selected, maximum
+5-of-5 reasoning effort, and AskRigor attached. The fixed prompt treats every
+PREDIMED claim as potentially false, requires exact atomic verdicts and
+publication-event/method provenance, and prohibits dietary advice, community
+research, and a broad efficacy synthesis.
+
+The complete live protocol gate passed. The final claim ledger completed after
+`Worked for 11m 44s` and correctly separated exact source statements from
+methodological inference. Its decisive falsifications were:
+
+- the trial was not participant-and-interventionist double-blind; only outcome
+  adjudication was blinded;
+- all-cause mortality was not significantly reduced in either arm or the
+  combined comparison;
+- the 2013 article was retracted and corrected/re-published in 2018, with the
+  live sequence also retaining a 2014 erratum;
+- the 1,588-participant exclusion was a sensitivity analysis, while the primary
+  intention-to-treat analysis retained all 7,447 participants;
+- corrected and sensitivity estimates remained broadly similar but were not
+  numerically identical to the 2013 estimates;
+- the republication adjusted for and disclosed allocation uncertainty rather
+  than proving that every participant had been individually randomized; and
+- NCT `00703651` is an unrelated influenza-vaccine study. The PREDIMED
+  publications instead identify ISRCTN `35739639`.
+
+The audit retained uncertainty where appropriate: public records cannot prove
+the exact actual assignment route for every participant, and the 1,588-person
+set included known or suspected deviations rather than participant-by-
+participant proof. It retrieved PMID `19341446`, the exact retraction notice
+PMID `29897867` / DOI `10.1056/NEJMc1806491`, Crossref publication-event
+metadata, the unrelated ClinicalTrials.gov record, and direct official and
+accessible full-text links.
+
+After repeated web-search transitions stopped adding visible evidence, browser
+control invoked the page's `Answer now` once. The UI briefly returned `Failed
+to answer now. Please try again.`, then removed that message, advanced to
+`Synthesized evidence`, continued without another intervention, and rendered
+the completed ledger. No retry or replacement run was submitted.
+
+The official NEJM full-text endpoints returned HTTP 403 in the retrieval
+environment. The answer disclosed that boundary and inspected publisher-
+formatted copies with exact journal/DOI identity. It reported that no research
+session was created or resumed and that AskRigor exposed no separate read-only
+study-method-validation operation; the validator was therefore marked
+unavailable rather than claimed. The final response supplied direct
+decision-relevant links, made no dietary recommendation or community search,
+and ended with `Next step: none — this publication-integrity audit is
+complete.` This is a passing primary-account reasoning and falsification
+receipt with the stated validator/full-text access limits.
+
+## 2026-08-28 secondary Custom GPT Action compatibility smoke
+
+A fresh secondary-surface conversation is preserved at
+`https://chatgpt.com/g/g-6a64103633d8819187f57c7b2986e505-askrigor-com-heterodox-research-protocol/c/6a9212cc-3440-83ea-8e72-c3a9ca2f0b82`.
+This test intentionally assesses only the current five-operation Action
+projection, not research intelligence.
+
+The Custom GPT correctly reported that the Action exposes no standalone
+protocol-manifest operation and therefore refused to claim live Universal/HRP
+identity verification without starting or resuming a research session. This is
+truthful fail-closed behavior and means the Custom GPT surface cannot replace
+the primary installed plugin's manifest smoke.
+
+A first read-only status call with a malformed synthetic ID returned
+`action_input_invalid` and `retryable:false`; because that could be input-layer
+validation, it was not treated as transport proof. A second call used valid-
+format, deliberately nonexistent ID
+`ars1_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA`. The response reported live execution
+of `get_research_session_status` and returned server-owned boundary
+`research_session_invalid_or_expired`, `retryable:false`. No session was
+created, no provider operation was requested, and no old preserved research
+session was resumed. This is a passing secondary Action transport and
+fail-closed boundary receipt, not manifest, package-currency, or reasoning-
+quality evidence.
+
+## 2026-08-28 primary plugin catalog refresh and validator retest
+
+The PREDIMED benchmark's statement that AskRigor exposed no separate
+study-method validator described the stale catalog presented to that ChatGPT
+conversation, not the reviewed current MCP contract. Repository source, the
+committed inventory, and a fresh direct production `tools/list` call all expose
+exactly 21 operations, including
+`acquire_open_full_text`, `continue_open_full_text`,
+`validate_study_method_audit`, and `validate_review_method_audit`.
+
+A first fresh primary-account composition probe at
+`https://chatgpt.com/c/6a9214e0-3dcc-83e9-91e4-2acb0d33589a`
+completed after `Worked for 3m 3s`. It passed both exact protocol identities
+but stopped before operation 1 because the ChatGPT-attached AskRigor catalog
+presented only 17 operations and omitted all four full-text/audit operations.
+The fail-closed stop was correct for that presented catalog, but the catalog
+was stale relative to production.
+
+ChatGPT's AskRigor management panel preserved the prior registration receipt:
+endpoint `https://mcp.askrigor.com/mcp`, app ID
+`asdk_app_6a7cd2a0156881918ce7dedecb715250`, version ID
+`asdk_app_v_6a7cd2a015748191a410021ac85dc069`, connected 2026-08-12, and these
+17 exact actions: `audit_youtube_community`,
+`audit_youtube_video_community`, `check_retraction_status`,
+`fetch_clinical_trial`, `fetch_pubmed_record`, `get_protocol_manifest`,
+`get_youtube_comments`, `get_youtube_video`, `load_protocol`, `resolve_doi`,
+`search_clinical_trials`, `search_europe_pmc`, `search_pubmed`,
+`search_youtube`, `search_youtube_comments`, `survey_youtube_community`, and
+`verify_protocol_integrity`.
+
+The built-in `Refresh` control updated the same saved development app to 21
+visible actions without changing its app or version IDs. The four additions
+are exactly the production full-text/audit operations named above.
+
+A fresh post-refresh primary run at
+`https://chatgpt.com/c/6a9217b2-0e4c-83ea-8466-80cff33a703c` on GPT-5.6 Sol,
+Chat mode, `Pro` 5 of 5 completed after `Worked for 6m 52s`. One bounded
+`Answer now` activation during its tool-silent startup briefly returned
+`Failed to answer now. Please try again.`, then cleared as execution continued;
+it was not repeated.
+
+The post-refresh execution proves the four operations are now callable from
+the primary product surface. Both complete protocol gates passed. A preliminary
+`acquire_open_full_text` attempt used unsupported `identifier` arguments and
+was rejected before MCP execution. The corrected DOI call acquired
+identity-verified Europe PMC JATS for PMCID `PMC11995426` / PMID `40223676`,
+returned all 37 source blocks and segments, and was already exhausted with
+source SHA-256
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`.
+Therefore zero pre-validation continuation calls were required. A separate
+direct production client reproduced that acquisition in 2.131 seconds with
+the same source identity, count, exhaustion state, and SHA-256.
+
+The model built all 13 required study-method domains from those source blocks.
+The returned validator status was `source_linked_study_audit_validated`, with
+receipt `askrigor_study_method_audit` 1.0, status
+`complete_with_unresolved_fields`, all 37 blocks in scope, 28 cited blocks,
+audit SHA-256
+`33147273c46fec733efedcbd3bd708b424d5190bb3d1feb1eea53d9fb2203adb`,
+`full_text_read_to_exhaustion:true`, `audit_validated:true`, and bounded claim
+capabilities. Its method findings correctly limited this observational
+target-trial emulation for selection, missing controls, unblinded subjective
+outcomes, nonaligned treatment/outcome timing, an underdescribed waiting-list
+comparator, absent harms and long-term outcomes, and unavailable data/code.
+
+The exact single-handle chain did **not** pass. Acquisition reported handle
+`aft1_VgpraP4UVH_zKpBVWFJJ18Q-VF26BYf8`, while the exact validator coverage
+receipt reported `aft1_uWGE24YLZJrq7wm6xW1JApWAX9IYWs7R`. The final response
+claimed the validator input was the first handle and explicitly disclosed the
+mismatch. Current source constructs validation coverage from the parsed input
+handle, and the focused test requires equality. The preserved product output
+therefore implies either an unreported duplicate acquisition/second-handle
+validation or incorrect reporting of the actual validator input; it cannot be
+counted as exact single-chain acceptance. A redundant post-validation
+continuation probe on the already-exhausted first handle correctly failed but
+was unnecessary. Do not retry this same conversation merely to normalize the
+receipt.
+
+Focused source verification passes: `tests/open-full-text-action.test.ts` and
+`tests/mcp-tools.test.ts` passed 61/61 through the required host boundary,
+including exact acquisition-to-validation handle equality and the 21-tool
+catalog. The first sandbox run passed the pure action file but recorded the 15
+HTTP transport cases as unavailable because loopback bind returned `EPERM`;
+the unchanged host-boundary rerun resolved all 15. This further localizes the
+observed handle mismatch to the product/model execution report rather than the
+reviewed backend binding rule.
+
+A fresh strict control at
+`https://chatgpt.com/c/6a921b89-5990-83ea-84a5-d507174a3929`
+then isolated prompt-level composition. It used the same primary GPT-5.6 Sol /
+Chat / `Pro` 5-of-5 surface but pinned the exact acquire JSON schema, exactly
+one acquisition, zero continuation when already exhausted, no reacquisition,
+exactly one validator call, and byte-equal input/output handle plus source-hash
+invariants. It completed without intervention after `Worked for 8m 36s`.
+
+The strict control passed both complete protocols, called acquisition exactly
+once with only `{"doi":"10.2340/17453674.2025.43332"}`, returned all 37
+segments already exhausted, made zero continuation calls, constructed all 13
+domains, and called the validator once. Acquisition handle, validator input,
+and terminal validator coverage were all exactly
+`aft1_9LKUAbw1r8n_7Qknz2oSQHmhqEARsjCY`; the acquisition and validation source
+hashes were both
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`.
+The terminal coverage also returned `full_text_read_to_exhaustion:true`,
+`audit_validated:true`, and
+`synthesis_use:"bounded_by_validated_claim_capabilities"`, followed by
+`PASS`.
+
+This is a passing strict-composition control. It proves the refreshed primary
+surface can execute the exact single-handle chain when the schema, call counts,
+exhaustion branch, and output equality are explicit. It does not erase the
+earlier default-prompt mismatch or establish that ordinary unpinned model
+composition will preserve those invariants.
+
+## 2026-08-28 Brave relaunch handoff
+
+The owner is relaunching Codex in the ChatGPT app because that surface can use
+the existing signed-in Brave session. Resume the exact installed AskRigor GPT
+conversation and preserved research session
+`ars1_54j0bi0xyvET_mNRNx7phdriYCVYRgkP`; do not create a replacement session
+or repeat completed discovery, screening, formal-source, or transcript work.
+The authoritative resume digest remains
+`0776fd5990a9c8f87a1c85318c3e16c73834f6fa8d9cd5bc127a4b5a78be9d0d`.
+Its current boundary is the separate retryable community-discussion provider
+dependency `DISCUSSION_DEPTH_RETRYABLE`, not the repaired Spark/native video
+discovery path. Inspect the existing conversation before deciding whether one
+bounded same-session retry is useful; never loop retries.
+
+This terminal's supported Brave reconnection was exhausted before relaunch.
+Diagnostics found Brave installed as the default browser, the ChatGPT browser
+extension installed and enabled in the Default profile, and the native-host
+manifest correct. Brave was initially stopped, so the supported helper opened
+a fresh Default-profile window. Connection still failed because the running
+Codex browser transport imported removed service path version `26.820.60940`
+while the installed Browser/Chrome plugin files are version `26.820.71523`.
+Manual plugin-cache or native-host repair was intentionally not attempted.
+On relaunch, use the Brave/Chrome browser-control surface afresh and claim the
+existing AskRigor conversation tab; do not infer that the provider boundary
+changed merely because browser control reconnects.
+
+Repository baseline at handoff is `origin/main` merge
+`ecf1c955bba1cfe50d96e66d6258729d6bc5d2d1` (PR #121). The original checkout
+contains unrelated untracked local credential material and a module file;
+preserve them and do not add them to Git. The 2026-08-28 lesson checkpoint was
+available: open 1, needs review 1, accepted-not-incorporated 0,
+incorporated/closed 3, deletion-eligible 0. Neither pending item expands this
+browser-resume handoff.
 ## 2026-08-29 public full-text chain guidance production state
 
 PR #123 merged reviewed head

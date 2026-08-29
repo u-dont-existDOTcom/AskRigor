@@ -111,6 +111,13 @@ complete XML protocol.
 
 ## Privacy
 
+- `living-evidence-source-storage-policy.md`: approved isolated-pilot boundary
+  for complete AskRigor-authored study/review analysis, explicit partial
+  historical capture, source licensing, freshness, retention, and zero durable
+  YouTube/community records
+- `living-evidence-repository-threat-model.md`: persistence trust boundaries,
+  append-only/versioning attacks, lossless-analysis controls, private Railway
+  gate, restore equivalence, and residual production requirements
 - `privacy-data-map.md`: data classes, flows, exclusions, and handling
 - `research-session-resumability-threat-model.md`: encrypted bounded
   checkpoint assets, trust boundaries, hostile recovery cases, retention,
@@ -232,10 +239,11 @@ complete XML protocol.
 - `superpowers/specs/`: accepted design specifications and clearly labeled
   proposals
 - `superpowers/specs/2026-08-29-cumulative-living-evidence-repository-design.md`:
-  proposed canonical relational evidence graph, exact claim/source/assessment
+  owner-approved isolated-pilot design for a canonical relational evidence
+  graph, exact claim/source/assessment
   provenance, append-only correction propagation, freshness state machine,
-  community-data minimization, and Railway-portable topology; it is not
-  implementation authorization
+  community-data minimization, and Railway-portable topology; production
+  integration remains separately gated
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail
   Sampling integration, authorized treatment-experience evidence, and an
@@ -247,7 +255,7 @@ complete XML protocol.
 
 ## Architecture maps
 
-- `architecture/living-evidence-repository-map.md`: proposed canonical-store,
+- `architecture/living-evidence-repository-map.md`: implemented local-pilot canonical-store,
   provenance, correction-propagation, freshness, and topic/evidence maps;
   diagrams are derived control surfaces and never replace receipts or protocol
   authority

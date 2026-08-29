@@ -1,7 +1,8 @@
 # Living evidence repository map
 
 Date: 2026-08-29
-Status: proposed derived control surface; not implementation authority
+Status: local isolated pilot implemented; derived control surface, not
+implementation authority
 
 This map is a navigational projection of the proposed design in
 `../superpowers/specs/2026-08-29-cumulative-living-evidence-repository-design.md`.
@@ -62,8 +63,9 @@ flowchart LR
     YT[YouTube API / public community material]
     EP[Ephemeral acquisition and analysis]
     YT --> EP
-    EP -->|default: no raw text or identity| C
-    EP -->|coverage/access hashes and minimized findings| P
+    EP --> Z{Separate compliance,<br/>field, and owner gate}
+    Z -. future approved fields only .-> C
+    Z -. future approved receipts only .-> P
 
     style Canonical fill:#e8f4ff,stroke:#2367a2
     style Derived fill:#f4f4f4,stroke:#666
@@ -74,6 +76,20 @@ The first pilot has no public database endpoint, no raw corpus store, no
 production-run ingestion, and no vector or graph service. Railway is a possible
 private host after the implementation gate, not part of the accepted current
 product.
+
+The implemented local pilot now contains three linked topics, one structured
+question, six public source families, seven source/claim versions including one
+explicit synthetic invalidation, partial historical analysis versions, evidence
+bindings, transparent assessment profiles, freshness checks, and one completed
+impact job. It generates exact JSON, Obsidian, Mermaid, and RO-Crate views,
+then dumps, wipes, restores, and hash-compares the named disposable schema.
+The real-PostgreSQL acceptance schema separately proves complete performed-
+analysis storage without truncation; missing historical analysis is never
+reconstructed. The pilot persists zero YouTube/community records or derived
+community assertions.
+Railway remains unprovisioned because its current workspace-wide $10 minimum
+hard limit and non-downsizeable paid volume cannot enforce the approved $5 and
+1 GiB task-lock boundaries. No workspace billing control was changed.
 
 ## Evidence lineage and correction propagation
 

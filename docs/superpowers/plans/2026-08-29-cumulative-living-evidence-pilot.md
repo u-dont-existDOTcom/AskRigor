@@ -1,7 +1,7 @@
 # Cumulative living evidence repository pilot
 
-Status: proposed — architecture documented; provisioning and persistence are
-not authorized
+Status: active — owner approved implementation, complete performed-analysis
+persistence, and isolated Railway use on 2026-08-29
 
 Assurance lane: private, isolated, reversible product experiment after owner
 and privacy gates
@@ -22,38 +22,57 @@ Design authority:
 
 ## Current state and recovery
 
-- Design branch: `agent/living-evidence-architecture-20260829`
-- Design baseline: AskRigor `main` commit
-  `48553d823f128000dded1d86fdd0ff091a545662`
-- Railway is connected with app-specific “Allow all actions,” but this task
-  deliberately uses no Railway mutation. The available Codex session does not
-  expose Railway project/service actions in any case.
+- Active task: `askrigor-living-evidence-pilot-v1`
+- Active branch: `agent/living-evidence-pilot-20260829`
+- Integrated baseline: merge
+  `59ee7846aa3b4d94fa0be2a4e5bc7d8aedb6ab6c`, preserving local acceptance
+  parent `78960d4f224abd45756817a9f9b358bea832d1bb` and remote-main parent
+  `26bad64db4b3df7a9158d06c160d2b2c909d4ce2`
+- Railway use is owner-authorized for one isolated, private pilot capped at
+  $5/month, 0.5 vCPU, 512 MiB memory, and 1 GiB volume. Stop before provisioning
+  if those limits cannot be enforced. Current Railway documentation confirms
+  that its compute hard limit is workspace-wide with a $10 minimum and paid
+  volumes start at 5 GiB and cannot be downsized. No resource was provisioned
+  and no workspace-wide billing control was changed. The exact readback and
+  required future receipt are in `../../../infra/living-evidence-pilot/README.md`.
 - Existing production, Custom GPT, public 21-tool MCP, canonical protocols,
   and durable privacy boundaries are unchanged.
+- Implementation commit `864b767115ff17dd4a9464864dd7789157de9b72` is under
+  protected review in PR #128.
 - The original checkout contains unrelated owner files and must not be used for
   pilot work. Continue in a dedicated task worktree/branch.
 
 ## Phase 0 — decision and policy gates
 
-Do not begin implementation until the owner approves the optimized brief and
-the following artifacts exist:
+The owner approved the optimized brief. Implementation proceeds only as each
+remaining policy artifact or exact configuration becomes executable:
 
-- [ ] exact pilot topic and fixture inventory;
-- [ ] allowed and prohibited data-class matrix;
-- [ ] updated privacy/data-flow/retention/deletion and backup threat model;
-- [ ] source licensing and quotation policy;
-- [ ] exact study/review rubric profiles and disagreement rules;
-- [ ] freshness cadence/owner/failure table by source class;
-- [ ] YouTube compliance decision for every proposed durable community field;
-- [ ] Railway project/environment, resource/spend limits, access roles, secret
-  boundary, and rollback target; and
-- [ ] explicit authorization to provision the isolated pilot.
+- [x] exact pilot topic and fixture inventory selected: hip osteoarthritis PRP
+  systematic-review evidence and explicit synthetic correction/access events;
+- [x] allowed and prohibited data-class matrix;
+- [x] updated privacy/data-flow/retention/deletion and backup threat model;
+- [x] source licensing and quotation policy;
+- [x] exact study/review rubric profiles and disagreement rules;
+- [x] freshness cadence/owner/failure table by source class;
+- [x] YouTube compliance decision for this pilot: zero durable community or
+  YouTube-derived records;
+- [ ] Railway project/environment provisioned and read back; blocked because
+  current platform controls cannot enforce the approved spend/volume limits;
+- [x] explicit authorization to provision the isolated pilot, subject to the
+  exact enforceable limits above.
 
 If YouTube review is unresolved, the pilot proceeds with **zero YouTube or
 community-derived durable records**. That limitation does not block the formal
 evidence schema experiment.
 
 ## Phase 1 — executable contract and schema fixtures
+
+Status: implemented locally. The migration and strict contribution schema
+cover complete/partial analysis, protocol/run identity, topics/questions,
+source and claim versions/edges, evidence bindings, transparent assessments,
+freshness, impact jobs, append-only triggers, full-text indexes, and
+prohibited-data rejection. The reviewed fixture has six source families and
+one clearly labeled synthetic invalidation; historical gaps remain explicit.
 
 1. Add a versioned schema package outside the public MCP tool surface.
 2. Encode typed tables, enums, foreign keys, uniqueness constraints, immutable
@@ -77,6 +96,16 @@ Verification:
 - current production/public inventories remain byte-identical.
 
 ## Phase 2 — repository service and current projection
+
+Status: implemented for the isolated pilot. Idempotent transactional ingestion,
+leaf-based current projections, exact/structured/full-text search, recursive
+topic traversal, transparent assessment ordering, query receipts, and complete
+logical export execute against PostgreSQL. Contribution writes are serializable
+and transaction-serialized; hierarchy/dependency cycles and invalid future-item
+resolution fail in the database. Current-mode search additionally requires a
+current source-freshness receipt. Public/production surfaces are not connected.
+Separate login roles remain a production concern; the isolated schema revokes
+`PUBLIC` access and exposes no public endpoint.
 
 1. Implement private ingestion and query functions with separate reader,
    writer, refresh-worker, migration, and backup roles.
@@ -104,6 +133,15 @@ Hostile tests:
 
 ## Phase 3 — freshness and correction propagation
 
+Status: implemented as fixture-only acceptance. Six source-specific policies
+and checks are stored. One explicitly synthetic access-loss event appends a
+source version, analysis invalidation, claim supersession/invalidation,
+assessment version, freshness state, graph edges, repository event, and
+completed impact job. Historical queries retain both versions; current queries
+exclude both the invalidated leaf and every surviving claim whose only source
+receipt is stale. Those records remain explicit in historical mode rather than
+being relabeled current.
+
 1. Add per-source-class policy records, leases, retries, and missed-run states.
 2. Use fixture-only refresh workers initially; no live provider calls.
 3. Inject synthetic no-change, changed-content, correction, retraction,
@@ -117,6 +155,12 @@ Acceptance requires every affected current query and generated view to change
 consistently while historical queries preserve the prior state and reason.
 
 ## Phase 4 — generated views and portability
+
+Status: implemented locally. The normal pilot emits mode-0600 canonical JSON,
+an Obsidian analysis bundle, Mermaid map, RO-Crate metadata, exclusion and
+deletion manifests, fixed-query and ranking receipts, and a PostgreSQL custom
+dump. The disposable schema is wiped, restored, and compared by canonical hash
+and inventory before its container is removed.
 
 1. Generate a read-only Obsidian bundle with stable internal links and a clear
    “derived from canonical database” banner.
@@ -140,6 +184,12 @@ The bundle contains no database credential or prohibited source content.
 
 ## Phase 5 — fixed retrieval decision benchmark
 
+Status: local fixed queries pass for exact DOI, full text, structured question
+dimensions, current/history separation, three-level topic traversal, and
+transparent quality ordering. No material query miss currently justifies
+pgvector or a separate graph service. Flat JSON remains the portable/review
+baseline, not the concurrent authority.
+
 Run an owner-reviewed set of queries across:
 
 - flat Markdown/JSON fixture search;
@@ -161,8 +211,10 @@ Decision rules:
 
 ## Phase 6 — optional Railway pilot
 
-This phase requires a fresh explicit provisioning authorization after local
-acceptance.
+The owner has authorized this phase subject to the exact task-lock limits.
+Provisioning is currently stopped because Railway cannot enforce the approved
+$5 workspace-isolated hard limit or 1-GiB paid-volume cap. A relaxed boundary
+requires a new owner decision; local work and protected review continue.
 
 1. Re-run `npm run lessons:status` and policy/provider freshness checks.
 2. Create an isolated Railway project/environment with explicit cost/resource
