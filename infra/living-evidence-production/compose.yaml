@@ -17,7 +17,7 @@ services:
       POSTGRES_USER: askrigor_migrator
       POSTGRES_PASSWORD_FILE: /run/secrets/living_evidence_migrator_password
       ASKRIGOR_READER_PASSWORD_FILE: /run/secrets/living_evidence_reader_password
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
     secrets:
       - living_evidence_migrator_password
       - living_evidence_reader_password
@@ -34,7 +34,12 @@ services:
     cpus: 0.50
     mem_limit: 512m
     healthcheck:
-      test: [CMD-SHELL, pg_isready -U askrigor_migrator -d askrigor_living_evidence]
+      test:
+        - CMD-SHELL
+        - >-
+          PGPASSWORD="$$(tr -d '\r\n' < /run/secrets/living_evidence_migrator_password)"
+          psql -h 127.0.0.1 -U askrigor_migrator -d askrigor_living_evidence
+          -Atqc 'SELECT 1'
       interval: 5s
       timeout: 3s
       retries: 20

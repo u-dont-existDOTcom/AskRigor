@@ -52,6 +52,19 @@ incorporated/closed, and 0 deletion eligible. Merge, exact deployment, curated
 seed import, direct production acceptance, plugin receipt, and fresh ordinary
 ChatGPT acceptance remain.
 
+PR #130 merged as `d63ee0bfd2c179b1133721d67b0d8081cd0234de` after all
+hosted checks passed. The first VPS activation stopped before migration and
+before recreating the public research service: local peer authentication
+compared operating-system user `postgres` with bootstrap database role
+`askrigor_migrator` and rejected the official PostgreSQL entrypoint. The old
+public image remains healthy and no repository data was imported. The bounded
+hotfix changes local bootstrap authentication to SCRAM, makes health require an
+authenticated `SELECT 1` against the exact database, adds regression
+assertions, and passed an isolated exact-digest bootstrap proving database and
+reader creation plus reader `transaction_read_only=on`. Resume only after its
+protected merge; preserve or remove only the failed empty database-bootstrap
+state.
+
 First command after resume:
 
 ```bash

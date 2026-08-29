@@ -4,8 +4,9 @@ Date: 2026-08-29
 
 Task: askrigor-living-evidence-readthrough-v1
 
-Status: PR #130 open; hosted review, merge, deployment, seed import, and
-product acceptance pending
+Status: PR #130 merged as
+`d63ee0bfd2c179b1133721d67b0d8081cd0234de`; production bootstrap hotfix,
+deployment, seed import, and product acceptance pending
 
 ## Outcome under review
 
@@ -68,6 +69,18 @@ of scope.
   not incorporated, 4 incorporated/closed, and 0 deletion eligible.
 - A secret-pattern scan found only the intentional local-pilot credential and
   one explicit dummy-key privacy fixture; neither is a production secret.
+- The first production activation stopped before migration and before the
+  public research service was recreated. PostgreSQL local peer authentication
+  compared operating-system user `postgres` with bootstrap role
+  `askrigor_migrator`, rejected the official entrypoint, and left no imported
+  repository data. The original unauthenticated readiness probe also accepted
+  the server socket before the database existed; the hotfix replaces it with
+  an authenticated `SELECT 1` against the exact database and uses SCRAM for
+  both local and host bootstrap connections. An isolated disposable container
+  with the exact PostgreSQL
+  digest, UID/GID 70, read-only root, current init script, and dummy credentials
+  then created the database and reader role and returned reader
+  `transaction_read_only=on`.
 
 ## Owner clarification: frontier, not cache
 
@@ -83,9 +96,11 @@ Google and owner field gate.
 
 ## Remaining release gates
 
-1. Commit, protected pull request, hosted checks, and reviewed merge.
-2. Reversible exact-merge VPS deployment with privilege and network readback.
-3. One reviewed source-linked audit import without source persistence.
+1. Protect and merge the SCRAM bootstrap hotfix.
+2. Resume the reversible exact-merge VPS deployment after removing only the
+   failed empty bootstrap state, with privilege and network readback.
+3. Import the reviewed LEAP source-linked study audit without source
+   persistence.
 4. Direct production repository miss, hit, forced-fresh drift, 21-tool,
    protocol-manifest, health, and read-only connector checks.
 5. Exact installed AskRigor plugin-package receipt and a fresh ordinary

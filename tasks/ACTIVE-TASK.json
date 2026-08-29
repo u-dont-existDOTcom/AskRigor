@@ -4,7 +4,7 @@
   "status": "active",
   "exclusive": true,
   "requiredBranch": "agent/living-evidence-readthrough-20260829",
-  "pullRequest": 130,
+  "pullRequest": 131,
   "assuranceLane": "release",
   "targetedHardGates": [
     "exact source hash and identifier binding",

@@ -11,6 +11,15 @@ living_evidence_private network and publishes no host port. The research MCP
 keeps its existing public/default network and additionally joins that private
 network. The unrelated annas-postgres-1 service is never used.
 
+Both host and local bootstrap connections use SCRAM password authentication.
+Local peer authentication is intentionally excluded because the digest-pinned
+image runs as operating-system user `postgres` while the bootstrap database
+role is the distinct `askrigor_migrator`; peer authentication would reject the
+official entrypoint before it could create the database or reader role. The
+container health check performs an authenticated `SELECT 1` against the exact
+database rather than treating a socket that merely accepts connections as a
+successful bootstrap.
+
 Persistent database state is
 /opt/askrigor/state/living-evidence-postgres, owned by UID/GID 70 and mode
 0700. The database container runs as that non-root UID/GID with a read-only
