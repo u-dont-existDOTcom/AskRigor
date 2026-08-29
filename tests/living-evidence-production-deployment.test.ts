@@ -16,6 +16,10 @@ describe("production living-evidence deployment", () => {
     expect(compose).toContain("security_opt: [no-new-privileges:true]");
     expect(compose).toContain("cpus: 0.50");
     expect(compose).toContain("mem_limit: 512m");
+    expect(compose).toContain(
+      "POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256",
+    );
+    expect(compose).not.toContain("--auth-local=peer");
     expect(compose).toMatch(/living_evidence_private:\n\s+internal: true/u);
     expect(compose).not.toContain("annas-postgres");
   });

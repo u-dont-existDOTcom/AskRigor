@@ -17,7 +17,7 @@ services:
       POSTGRES_USER: askrigor_migrator
       POSTGRES_PASSWORD_FILE: /run/secrets/living_evidence_migrator_password
       ASKRIGOR_READER_PASSWORD_FILE: /run/secrets/living_evidence_reader_password
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=peer
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
     secrets:
       - living_evidence_migrator_password
       - living_evidence_reader_password
