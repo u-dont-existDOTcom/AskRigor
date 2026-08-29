@@ -61,6 +61,32 @@ app-call cardinality as individually enumerable tool cards, so no hidden call
 count is inferred beyond the single reported exhausted chain and terminal
 matching validator receipt.
 
+A separate primary-account plugin case is preserved at
+`https://chatgpt.com/c/6a92f38b-84e8-83ea-85a0-a9923aeed485`. The owner's
+`u-dont-exist.com` account exposed the personal **AskRigor** app associated with
+`asdk_app_6a7cd2a0156881918ce7dedecb715250`. The test used ordinary GPT-5.6 Sol
+with the app attached, Chat mode, and `Pro` 5/5, not the Custom GPT surface.
+
+The prompt requested a full-text methods audit for systematic-review DOI
+`10.7759/cureus.72057`. One transient tool-call error self-recovered. The
+response then remained active through a long unchanged rendered interval and
+completed without stop, reload, retry, or duplication after 37 minutes 24
+seconds. The terminal artifact reports both exact current protocol identities,
+PMCID `PMC11578636`, PMID `39569300`, all 58/58 full-text blocks exhausted,
+source SHA-256
+`d708fbfe67ebbb411c8937fdc55fc0021fe45a6188c2c503e50e820ce2b41cd3`,
+validated structured audit state with unresolved fields preserved, and audit
+receipt SHA-256
+`66de15115f1b121ecba82298f1e87e93ba615d1e578e446c619e2b1d3c1c919a`.
+
+The final audit stayed on hip osteoarthritis, covered the requested methods,
+bounded claims, and preserved access/validation gaps. A single activity-summary
+label incorrectly said `knee osteoarthritis`; no substantive line did. Record
+this as a product presentation/topic-label defect and the 37-minute runtime as
+a latency concern, not as audit failure. The UI did not render a document
+handle, machine-readable receipt type/completion-state name, or enumerable raw
+app calls, so none is inferred.
+
 The lesson checkpoint remains available: open 1, needs review 1,
 accepted-not-incorporated 0, incorporated/closed 3, deletion-eligible 0. The
 owner's cumulative living-evidence repository discussion is queued in

@@ -113,3 +113,15 @@ an owner product-design queue item, not validated implementation evidence.
   as individually enumerable tool cards, so the evidence does not claim an
   independently observed hidden call count beyond the single reported exhausted
   chain and terminal matching validator receipt.
+- A second ordinary-prompt case used the owner's primary ChatGPT account with
+  the personal AskRigor app attached in GPT-5.6 Sol Chat mode. Its systematic-
+  review audit completed after 37 minutes 24 seconds without a stop, reload,
+  retry, or duplicate conversation. It reports both current protocol identities,
+  the requested DOI/PMCID/PMID, 58/58 source blocks exhausted, exact source and
+  validated-audit receipt hashes, and unresolved fields preserved.
+- The substantive review audit stayed correctly scoped to hip osteoarthritis
+  and preserved every requested methods/access boundary. One activity-summary
+  label incorrectly said `knee osteoarthritis`; the final artifact did not.
+  The UI did not render a document handle, machine-readable receipt type/state,
+  or enumerable raw calls for this run, so the evidence declares those limits
+  rather than inferring them.

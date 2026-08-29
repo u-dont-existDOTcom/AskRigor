@@ -1,5 +1,63 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-29 primary-account Chat plugin review-method audit
+
+The owner's primary `u-dont-exist.com` ChatGPT account still exposed the
+personal **AskRigor** app at
+`/plugins/plugin_asdk_app_6a7cd2a0156881918ce7dedecb715250`, even though that
+app was unavailable in the separate regular account used for the preceding
+replacement-app test. `Try in chat` attached AskRigor to a new ordinary chat.
+The run was explicitly changed from Work to Chat mode before submission and
+used GPT-5.6 Sol with `Pro` 5 of 5. It is preserved at
+`https://chatgpt.com/c/6a92f38b-84e8-83ea-85a0-a9923aeed485`.
+
+The ordinary prompt requested a canonical full-text methods audit of the
+systematic review at DOI `10.7759/cureus.72057`. It named the requested methods
+domains but did not prescribe tool names, call counts, handles, source hashes,
+or validator output. The visible activity loaded both canonical protocols,
+resolved the DOI, checked correction/retraction state, acquired Europe PMC
+full-text XML, traced included trials and conflicts, checked search
+completeness and harms, and ran review-method appraisal. One transient
+tool-call error was diagnosed and recovered within the same run.
+
+The visible activity stopped changing after substantial source work while the
+server still marked the response active. Repeated read-only checks preserved
+the same 1,807-character rendered-state SHA-256
+`9b0a0f495e579f5245db9842203d09a8b5feb880e20933d5ac717563850c4e14`.
+Opening the exact saved URL in a second same-account tab showed an empty body
+with the same active stop control, establishing that the saved server record
+was still running rather than that only the original renderer had hidden a
+finished response. No stop, reload, retry, duplicate prompt, or replacement
+conversation was used. The original run completed after 37 minutes 24 seconds.
+
+The terminal artifact verified Universal `20.5.15` with SHA-256
+`69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172` and HRP
+`20.5.23` with SHA-256
+`bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`.
+It identified PMCID `PMC11578636`, PMID `39569300`, and the requested DOI;
+reported all 58/58 full-text blocks exhausted; reported review-source SHA-256
+`d708fbfe67ebbb411c8937fdc55fc0021fe45a6188c2c503e50e820ce2b41cd3`; and
+reported that the structured review-method audit passed validation with
+unresolved fields preserved. Its audit-receipt SHA-256 was
+`66de15115f1b121ecba82298f1e87e93ba615d1e578e446c619e2b1d3c1c919a`.
+
+The final report remained correctly scoped to hip osteoarthritis, covered all
+requested methods domains, bounded the claims the review could and could not
+support, and explicitly preserved inaccessible trial full texts, incomplete
+registry/protocol checking, bounded post-cutoff searching, non-exhaustive
+correction checking, and unavailable participant-level data/statistical code.
+One generated activity-summary line incorrectly said `knee osteoarthritis`;
+it was the only occurrence of `knee`, while the substantive artifact used
+`hip` throughout. This is a presentation/topic-label defect, not evidence that
+the final audit changed topic.
+
+Product-interface review-method acceptance therefore passes at the terminal
+artifact boundary, with the isolated progress-label defect and unusually long
+37-minute latency declared. ChatGPT did not render a document handle,
+machine-readable receipt type/completion-state name, or individually enumerable
+raw app calls for this run, so those fields and hidden call cardinality are not
+inferred from the UI.
+
 ## 2026-08-28 preserved Spark/native session reaches candidate screening
 
 After protected PRs #117, #118, and #119, exact merge
