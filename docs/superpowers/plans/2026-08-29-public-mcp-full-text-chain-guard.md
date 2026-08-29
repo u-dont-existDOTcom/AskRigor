@@ -1,6 +1,6 @@
 # Public MCP full-text chain guard
 
-Status: implementation merged and deployed; final product receipt interrupted
+Status: complete — implementation deployed and terminal product receipt recovered
 
 Assurance lane: release — the owner approved production deployment, ChatGPT
 app refresh, and fresh product acceptance
@@ -99,7 +99,17 @@ an owner product-design queue item, not validated implementation evidence.
 - A fresh ordinary-prompt GPT-5.6 Sol / Chat / `Pro` 5-of-5 case used the
   replacement app and advanced through protocol loading, full-text acquisition,
   and methodological work. The exact headless Brave session disconnected while
-  the response was still active, before a terminal validator receipt could be
-  inspected. The stable conversation URL is recorded in release evidence; no
-  prompt was resent. Product-level call counts and handle/hash equality remain
-  unverified pending recovery of that exact signed-in profile.
+  the response was still active. The stable conversation was later recovered in
+  the exact signed-in profile without resending the prompt or creating another
+  conversation; it had completed after 23 minutes 25 seconds.
+- The terminal artifact reports both protocol-integrity checks, all 37 JATS
+  blocks read to exhaustion, one product-run document handle, the expected
+  source-content SHA-256, a validated-audit SHA-256, receipt
+  `source_linked_study_audit_validated`, and state
+  `complete_with_unresolved_fields`. Its substantive report preserves access and
+  validation gaps and bounds supported versus unsupported claims.
+- This passes ordinary-prompt product acceptance at the terminal artifact
+  boundary. ChatGPT summarizes the app activity instead of rendering raw calls
+  as individually enumerable tool cards, so the evidence does not claim an
+  independently observed hidden call count beyond the single reported exhausted
+  chain and terminal matching validator receipt.
