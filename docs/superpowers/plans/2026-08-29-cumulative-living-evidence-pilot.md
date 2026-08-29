@@ -37,6 +37,8 @@ Design authority:
   required future receipt are in `../../../infra/living-evidence-pilot/README.md`.
 - Existing production, Custom GPT, public 21-tool MCP, canonical protocols,
   and durable privacy boundaries are unchanged.
+- Implementation commit `864b767115ff17dd4a9464864dd7789157de9b72` is under
+  protected review in PR #128.
 - The original checkout contains unrelated owner files and must not be used for
   pilot work. Continue in a dedicated task worktree/branch.
 

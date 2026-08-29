@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-pilot-v1",
-  "status": "active",
+  "status": "ready_for_protected_merge",
   "exclusive": true,
   "requiredBranch": "agent/living-evidence-pilot-20260829",
-  "pullRequest": null,
-  "assuranceLane": "iteration",
+  "pullRequest": 128,
+  "assuranceLane": "decision",
   "targetedHardGates": [
     "durable health-research data minimization",
     "append-only migration integrity",

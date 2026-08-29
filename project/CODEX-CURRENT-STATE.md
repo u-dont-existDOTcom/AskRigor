@@ -30,6 +30,10 @@ history is additionally preserved by
 all locally added owner authorization and acceptance sections; none was
 discarded.
 
+Implementation commit `864b767115ff17dd4a9464864dd7789157de9b72` is under
+protected review in PR #128. The task lock is `ready_for_protected_merge`;
+hosted checks and final diff review control the local merge decision.
+
 First command after resume:
 
 ```bash
