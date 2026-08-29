@@ -41,10 +41,18 @@ export function prepareContribution(input: unknown): PreparedContribution {
 
 export function splitMarkdownPreservingBytes(markdown: string): LivingEvidenceContribution["analysis"]["sections"] {
   if (markdown.length === 0) throw new Error("EMPTY_ANALYSIS_DOCUMENT");
-  const starts = [...markdown.matchAll(/^#{1,6} +(.+)$/gmu)].map((match) => ({
-    index: match.index,
-    title: match[1]!.trim(),
-  }));
+  const starts: Array<{ index: number; title: string }> = [];
+  let index = 0;
+  for (const line of markdown.split("\n")) {
+    let markerLength = 0;
+    while (markerLength < 6 && line.charCodeAt(markerLength) === 35) markerLength += 1;
+    const separator = line[markerLength];
+    const title = line.slice(markerLength).trim();
+    if (markerLength > 0 && (separator === " " || separator === "\t") && title.length > 0) {
+      starts.push({ index, title });
+    }
+    index += line.length + 1;
+  }
   if (starts.length === 0 || starts[0]!.index !== 0) {
     starts.unshift({ index: 0, title: "Preamble" });
   }

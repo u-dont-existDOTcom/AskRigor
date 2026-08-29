@@ -25,6 +25,13 @@ describe("living-evidence persistence contracts", () => {
     expect(sections.map(({ ordinal }) => ordinal)).toEqual(sections.map((_, index) => index));
   });
 
+  it("recognizes bounded Markdown headings without a backtracking regular expression", () => {
+    const markdown = "# First\r\nbody\r\n##   Second\r\nmore\r\n####### not-a-heading\r\n";
+    const sections = splitMarkdownPreservingBytes(markdown);
+    expect(sections.map(({ title }) => title)).toEqual(["First", "Second"]);
+    expect(sections.map(({ content }) => content).join("")).toBe(markdown);
+  });
+
   it("never silently truncates large authored analysis text", () => {
     const content = `# Full analysis\n${"substantive analysis sentence. ".repeat(50_000)}`;
     const prepared = prepareContribution({

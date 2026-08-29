@@ -78,6 +78,12 @@ declared skips, and typecheck/build completed against the final impact/cycle
 hardening. The real-PostgreSQL acceptance passes 21 adversarial checks. Hosted
 review remains required.
 
+PR #128's first CodeQL pass found one high-severity polynomial-regex path in
+the Markdown analysis splitter. The regex was replaced with a bounded
+single-pass line scanner and focused CRLF/multi-space-heading coverage. The
+focused test and typecheck pass; the exact repaired PR head still requires the
+hosted deterministic and CodeQL reruns before merge.
+
 Railway remains deliberately unprovisioned. Current Railway controls make
 compute hard limits workspace-wide with a $10 minimum, while paid volumes
 default to at least 5 GB and cannot be downsized. Those controls cannot enforce
