@@ -59,7 +59,7 @@ describe("shared research-operation registry", () => {
     expect(inventory.tools.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
     expect(inventory.tools).toHaveLength(21);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "51acc698afe5aafe31c64c3de4abfa97591e7e91f086f20c99be710ac001de1f"
+      "e8c3388befec97f5c2f666122c5605821c3cd7afec92e9aecd540593f5c880c5"
     );
   });
 });

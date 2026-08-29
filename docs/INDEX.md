@@ -131,7 +131,14 @@ complete XML protocol.
 
 ## Plans
 
+- `WORK-QUEUE.md`: durable owner-facing future product and architecture
+  questions; currently includes the cumulative living evidence repository
+  brainstorm and its freshness, provenance, privacy, retention, and
+  source-licensing gates
 - `superpowers/plans/`: implementation plans
+- `superpowers/plans/2026-08-29-public-mcp-full-text-chain-guard.md`:
+  composition-boundary handle/hash continuity, exhaustion, release, ChatGPT
+  refresh, and fresh product-acceptance gates
 - `superpowers/plans/2026-08-27-spark-partial-frontier-fallback.md`:
   owner-corrected use of a nonempty independently validated Spark subset,
   explicit unresolved-identity and native-search gaps, durable-checkpoint

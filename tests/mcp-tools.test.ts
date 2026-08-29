@@ -102,6 +102,56 @@ describe("AskRigor MCP tools", () => {
     );
   });
 
+  it("publishes one-chain full-text handle and source-hash guidance", () => {
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "call acquire_open_full_text once with exactly one doi and an optional pmcid"
+    );
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256"
+    );
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "call continue_open_full_text only while exhausted is false"
+    );
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "same bound document_handle"
+    );
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256"
+    );
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "match the acquisition byte-for-byte; any mismatch blocks synthesis"
+    );
+    expect(SERVER_INSTRUCTIONS).toContain(
+      "discard that chain and reacquire; never combine chains"
+    );
+  });
+
+  it("publishes strict full-text chain rules in each composing tool description", async () => {
+    const { client, server } = await createInMemoryClient();
+
+    try {
+      const { tools } = await client.listTools();
+      const descriptions = Object.fromEntries(
+        tools.map(({ name, description }) => [name, description])
+      );
+
+      expect(descriptions.acquire_open_full_text).toBe(
+        "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation, or preserve the explicit access boundary."
+      );
+      expect(descriptions.continue_open_full_text).toBe(
+        "Continue only the exact bound document_handle while its coverage_receipt.exhausted is false. Never call when exhausted is true; never switch, reacquire, or combine handles within a chain."
+      );
+      expect(descriptions.validate_study_method_audit).toBe(
+        "Validate a full-text, source-linked individual-study audit on the exact bound acquisition document_handle; design and publication labels never substitute for method inspection. Before synthesis, require the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; mismatch blocks synthesis."
+      );
+      expect(descriptions.validate_review_method_audit).toBe(
+        "Validate a full-text, source-linked review or guideline audit on the exact bound acquisition document_handle, including search coverage, study ancestry, heterogeneity, bias, conflicts, and claim scope. Before synthesis, require the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; mismatch blocks synthesis."
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
   it("keeps the compound audit comment phase below the default MCP deadline", () => {
     expect(PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs).toBe(15_000);
     expect(PUBLIC_TOOL_LIMITS.youtubeCommunityAuditElapsedMs)
