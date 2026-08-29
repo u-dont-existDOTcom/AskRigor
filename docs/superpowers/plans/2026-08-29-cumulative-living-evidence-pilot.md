@@ -1,7 +1,7 @@
 # Cumulative living evidence repository pilot
 
-Status: active — owner approved implementation, complete performed-analysis
-persistence, and isolated Railway use on 2026-08-29
+Status: completed locally and merged through PR #128 on 2026-08-29; optional
+Railway phase blocked at the approved platform-limit boundary
 
 Assurance lane: private, isolated, reversible product experiment after owner
 and privacy gates
@@ -22,8 +22,8 @@ Design authority:
 
 ## Current state and recovery
 
-- Active task: `askrigor-living-evidence-pilot-v1`
-- Active branch: `agent/living-evidence-pilot-20260829`
+- Completed task: `askrigor-living-evidence-pilot-v1`
+- Implementation branch: `agent/living-evidence-pilot-20260829`
 - Integrated baseline: merge
   `59ee7846aa3b4d94fa0be2a4e5bc7d8aedb6ab6c`, preserving local acceptance
   parent `78960d4f224abd45756817a9f9b358bea832d1bb` and remote-main parent
@@ -37,8 +37,9 @@ Design authority:
   required future receipt are in `../../../infra/living-evidence-pilot/README.md`.
 - Existing production, Custom GPT, public 21-tool MCP, canonical protocols,
   and durable privacy boundaries are unchanged.
-- Implementation commit `864b767115ff17dd4a9464864dd7789157de9b72` is under
-  protected review in PR #128.
+- PR #128 merged final green head
+  `67cd9102fe7936efac764bccf083bee8cb76ea65` as main commit
+  `3915900e5b045899b10ce6e93efb02d3cbf4c62c`.
 - The original checkout contains unrelated owner files and must not be used for
   pilot work. Continue in a dedicated task worktree/branch.
 

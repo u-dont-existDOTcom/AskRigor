@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-08-29 exclusive active task: cumulative living evidence pilot
+## 2026-08-29 cumulative living evidence pilot completed
 
 Task ID: `askrigor-living-evidence-pilot-v1`
 
@@ -21,7 +21,7 @@ initial pilot uses public formal-evidence identifiers and AskRigor-authored
 analysis only. YouTube/community persistence remains disabled until its exact
 fields pass the separate compliance and owner gate.
 
-The active branch is `agent/living-evidence-pilot-20260829`. Its integration
+The implementation branch was `agent/living-evidence-pilot-20260829`. Its integration
 commit `59ee7846aa3b4d94fa0be2a4e5bc7d8aedb6ab6c` has local acceptance history
 `78960d4f224abd45756817a9f9b358bea832d1bb` and remote main
 `26bad64db4b3df7a9158d06c160d2b2c909d4ce2` as parents. Local pre-integration
@@ -30,9 +30,11 @@ history is additionally preserved by
 all locally added owner authorization and acceptance sections; none was
 discarded.
 
-Implementation commit `864b767115ff17dd4a9464864dd7789157de9b72` is under
-protected review in PR #128. The task lock is `ready_for_protected_merge`;
-hosted checks and final diff review control the local merge decision.
+PR #128 merged exact green head
+`67cd9102fe7936efac764bccf083bee8cb76ea65` as remote/local main commit
+`3915900e5b045899b10ce6e93efb02d3cbf4c62c` on 2026-08-29. The original local
+main checkout was fast-forwarded only after verifying direct ancestry; its
+unrelated private untracked files were preserved. The task lock is complete.
 
 First command after resume:
 
@@ -48,10 +50,9 @@ npm run living-evidence:acceptance
 
 The machine-readable authority is `tasks/ACTIVE-TASK.json`. Historical browser,
 Custom GPT, provider, deployment, work-queue, and unrelated-worktree handoffs
-remain valid evidence but are suspended as task selectors until this lock is
-closed. Ordinary green tests are prerequisites, not completion; the task ends
-only after its artifact-based acceptance, protected merge, Railway pilot
-receipt or exact documented access boundary, and durable closeout.
+remain valid evidence and may again route later work now that this lock is
+closed. The artifact acceptance, protected merge, exact documented Railway
+access boundary, and durable closeout all completed.
 
 Local implementation acceptance now passes against digest-pinned PostgreSQL
 17.6. The pilot persists the exact formal-evidence full-text-audit section of
@@ -75,8 +76,7 @@ The latest logical dump is 139,706 bytes; the exact named schema was wiped and
 restored with that same canonical hash. The pre-PR deterministic gate passed:
 107 test files passed with one declared skip, 1,433 tests passed with six
 declared skips, and typecheck/build completed against the final impact/cycle
-hardening. The real-PostgreSQL acceptance passes 21 adversarial checks. Hosted
-review remains required.
+hardening. The real-PostgreSQL acceptance passes 21 adversarial checks.
 
 PR #128's first CodeQL pass found one high-severity polynomial-regex path in
 the Markdown analysis splitter. The regex was replaced with a bounded
@@ -84,7 +84,9 @@ single-pass line scanner and focused CRLF/multi-space-heading coverage. The
 focused test and typecheck passed. Exact repaired head
 `f15ca1a7dc95df045419b52ee26c7fe284c4ede2` then passed hosted deterministic
 verification, workflow policy, the CodeQL aggregate, and all Actions,
-JavaScript/TypeScript, and Python analyses. PR #128 is clean and mergeable.
+JavaScript/TypeScript, and Python analyses. Final receipt-only head
+`67cd9102fe7936efac764bccf083bee8cb76ea65` repeated all hosted checks green
+before PR #128 merged.
 
 Railway remains deliberately unprovisioned. Current Railway controls make
 compute hard limits workspace-wide with a $10 minimum, while paid volumes
