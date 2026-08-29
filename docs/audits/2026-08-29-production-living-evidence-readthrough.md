@@ -73,8 +73,11 @@ of scope.
   public research service was recreated. PostgreSQL local peer authentication
   compared operating-system user `postgres` with bootstrap role
   `askrigor_migrator`, rejected the official entrypoint, and left no imported
-  repository data. The hotfix uses SCRAM for both local and host bootstrap
-  connections. An isolated disposable container with the exact PostgreSQL
+  repository data. The original unauthenticated readiness probe also accepted
+  the server socket before the database existed; the hotfix replaces it with
+  an authenticated `SELECT 1` against the exact database and uses SCRAM for
+  both local and host bootstrap connections. An isolated disposable container
+  with the exact PostgreSQL
   digest, UID/GID 70, read-only root, current init script, and dummy credentials
   then created the database and reader role and returned reader
   `transaction_read_only=on`.

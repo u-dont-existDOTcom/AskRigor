@@ -20,6 +20,10 @@ describe("production living-evidence deployment", () => {
       "POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256",
     );
     expect(compose).not.toContain("--auth-local=peer");
+    expect(compose).toContain("PGPASSWORD=\"$$(tr -d");
+    expect(compose).toContain("psql -h 127.0.0.1 -U askrigor_migrator");
+    expect(compose).toContain("-Atqc 'SELECT 1'");
+    expect(compose).not.toContain("test: [CMD-SHELL, pg_isready");
     expect(compose).toMatch(/living_evidence_private:\n\s+internal: true/u);
     expect(compose).not.toContain("annas-postgres");
   });

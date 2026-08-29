@@ -58,10 +58,12 @@ before recreating the public research service: local peer authentication
 compared operating-system user `postgres` with bootstrap database role
 `askrigor_migrator` and rejected the official PostgreSQL entrypoint. The old
 public image remains healthy and no repository data was imported. The bounded
-hotfix changes local bootstrap authentication to SCRAM, adds a regression
-assertion, and passed an isolated exact-digest bootstrap proving database and
+hotfix changes local bootstrap authentication to SCRAM, makes health require an
+authenticated `SELECT 1` against the exact database, adds regression
+assertions, and passed an isolated exact-digest bootstrap proving database and
 reader creation plus reader `transaction_read_only=on`. Resume only after its
-protected merge; remove only the failed empty database-bootstrap state.
+protected merge; preserve or remove only the failed empty database-bootstrap
+state.
 
 First command after resume:
 
