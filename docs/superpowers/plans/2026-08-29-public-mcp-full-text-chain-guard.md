@@ -66,3 +66,25 @@ transferable requirement to test the wrapper-plus-worker composition boundary
 and preserve a specialist contract is already current in the Universal
 `executable-frontier-coherence` pattern. The cumulative repository request is
 an owner product-design queue item, not validated implementation evidence.
+
+## Local verification receipt
+
+- The two new composition assertions failed on the previous public guidance as
+  expected.
+- The affected MCP, open-full-text, generated-inventory, release-packet, and
+  shared-registry gate passes 76/76 tests.
+- Typecheck and the production TypeScript build pass.
+- The first canonical `npm run verify` attempt passed 1,419 tests and stopped
+  on nine unrelated fixed-timeout failures while host load averaged 16.9. The
+  same seven files reduced to three timeout-only failures under one worker.
+- The complete load-tolerant rerun with two serialized workers and expanded
+  timeouts passes 106 files with one declared live file skipped and 1,428 tests
+  with six declared live tests skipped. Protected canonical CI remains required
+  before merge.
+- The generated inventory remains exactly 21 read-only tools with unchanged
+  names and schemas; its new source-derived SHA-256 is
+  `e8c3388befec97f5c2f666122c5605821c3cd7afec92e9aecd540593f5c880c5`.
+- HRP, Universal, the five-operation Action schema, generated Custom GPT
+  instructions, and all eight source plugin-package members are unchanged.
+- PR #123 is open from the isolated task branch; merge, exact deployment, app
+  refresh, and fresh product acceptance remain pending.
