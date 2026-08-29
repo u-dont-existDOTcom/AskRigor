@@ -96,15 +96,40 @@ from the exhausted acquisition for more than four minutes. These unrendered
 fields remain unavailable for this product run and are not inferred from prior
 direct acceptance of the same DOI.
 
+## Direct production latency isolation
+
+A separate read-only MCP client acquired the same DOI/PMCID and submitted a
+fixed timing-only source-bound audit payload. The payload intentionally left
+all semantic domains unresolved and cannot support any substantive judgment;
+its only purpose was to measure transport, acquisition, schema validation, and
+receipt binding without model composition time.
+
+Observed wall-clock timings:
+
+- MCP connection: 1,150 ms;
+- identity-verified Europe PMC JATS acquisition: 707 ms; and
+- `validate_study_method_audit`: 94 ms.
+
+The acquisition returned all 37 blocks, already exhausted. The validator
+returned `source_linked_study_audit_validated`, receipt
+`askrigor_study_method_audit`, state `complete_with_unresolved_fields`, and
+confirmed full-text exhaustion, audit validation, exact handle equality, exact
+source-hash equality, and a present 64-character audit hash.
+
+The probe printed no source text or handle, retained no provider payload, and
+its temporary script was deleted after the summarized receipt was captured.
+This isolates the product delay to ChatGPT's construction/composition phase,
+not the live acquisition or validator execution path.
+
 ## Interpretation and next test target
 
 The plugin transport and deterministic retrieval layer are usable from the
 second account. The dominant current product risks are model-layer protocol
-identity transcription and long tool-to-synthesis/validator latency. The next
-implementation benchmark should separate server validator execution time from
-model construction time using non-sensitive timing receipts, then test whether
-a compact server-produced audit draft or progress heartbeat can preserve all
-13 domains without weakening the source-bound validator contract.
+identity transcription and long model construction/tool-to-synthesis latency.
+The server timing is now isolated. The next implementation benchmark should
+test whether a compact server-produced audit draft, schema-guided incremental
+construction, or progress heartbeat can preserve all 13 domains without
+weakening the source-bound validator contract.
 
 Do not normalize either failure by retrying these conversations or by copying
 known direct-backend receipts into their product artifacts.

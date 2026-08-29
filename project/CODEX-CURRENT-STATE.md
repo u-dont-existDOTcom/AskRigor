@@ -27,6 +27,15 @@ receipt by the eight-minute cutoff. It was stopped without retry, reacquisition,
 - `https://chatgpt.com/c/6a934852-1e3c-83ea-91c4-0e6f97b47856`
 - `https://chatgpt.com/c/6a934be2-7924-83ea-a815-a3774968d2bb`
 
+A direct read-only production timing probe then acquired the same 37-block
+Europe PMC JATS document in 707 ms and validated a deliberately unresolved,
+timing-only 13-domain payload in 94 ms after a 1,150 ms MCP connection. The
+validator returned the exact same-handle/same-source-hash, exhausted,
+audit-validated receipt. No source text or handle was printed or retained, and
+the temporary probe was deleted. The product stall is therefore in ChatGPT's
+audit construction/composition phase, not live acquisition or server-side
+validator execution.
+
 The YouTube field-by-field storage-policy clarification was sent in the
 existing quota-review Gmail thread. Until Google answers, the living-evidence
 pilot continues to persist zero YouTube/community records. Lesson issue #9 was
