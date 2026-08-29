@@ -409,6 +409,98 @@ preserve them and do not add them to Git. The 2026-08-28 lesson checkpoint was
 available: open 1, needs review 1, accepted-not-incorporated 0,
 incorporated/closed 3, deletion-eligible 0. Neither pending item expands this
 browser-resume handoff.
+## 2026-08-29 public full-text chain guidance production state
+
+PR #123 merged reviewed head
+`676531ca5ef1c774053452d6f8e0f851d481a6aa` as exact release
+`db21d99447fcde10bc42d162fe03318e793f046d`. The public MCP wrapper and the
+four open-full-text/audit tool descriptions now state the exact one-acquisition,
+same-handle, same-source-hash, exhaustion, expiry, no-chain-combination, and
+mismatch-blocking rules already enforced by the backend. Schemas, canonical
+protocol bytes, the Action surface, providers, and plugin-package bytes are
+unchanged.
+
+Protected deterministic verification, workflow policy, and all CodeQL analyses
+passed. Production is healthy in container `0bed8b9babe5` on image
+`askrigor-research:db21d99447fcde10bc42d162fe03318e793f046d`, image ID
+`sha256:1d7357c5d3cb388e2fe0419092f540d29497357f0635c2a3b9c9ff91dc0f9149`.
+The active Compose SHA-256 is
+`3b937b0c89e6b72c1ecb88b9ffe9d7df5325653cfeb262ae4501c781061d5c5c`.
+Immediate rollback is `askrigor-research:rollback-db21d99-predeploy` plus
+`/opt/askrigor/compose.yaml.rollback-db21d99`, SHA-256
+`20d7db364cd06968a4b5312f13214d97e6a324788e296c2dd0355f1e72f59ccc`.
+Caddy and both expected writable mounts are unchanged; the research container
+remains non-root, read-only, capability-free, and `no-new-privileges`.
+
+Public health, the unchanged five-operation Action schema, unauthenticated 401,
+the exact ordered 21-tool catalog and four repaired descriptions, both live
+protocol manifests, one read-only installed-connector probe, and complete
+source/installed eight-member plugin receipts pass. A direct acquisition for
+DOI `10.2340/17453674.2025.43332` returned all 37 Europe PMC JATS blocks,
+`exhausted:true`, handle `aft1_jFKIlMQfXFEZANzp2P_lt1k1YK4P6Cvq`, and source
+SHA-256
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`.
+
+The old regular-account development app became unavailable as `Plugin not
+found` but retained its exact-name reservation. Replacement app **AskRigor
+Research** is connected to `https://mcp.askrigor.com/mcp` with all 21 exact
+tools. Its app ID is `asdk_app_6a92d3ff450481919a162f8a8885f03c` and version
+ID is `asdk_app_v_6a92d3ff45208191bc4f4e6319708e9d`.
+
+A fresh ordinary-prompt run is preserved at
+`https://chatgpt.com/c/6a92d63f-07ac-83ea-8ff2-186e71a9c0ed` on GPT-5.6 Sol,
+Chat mode, `Pro` 5/5. It visibly completed protocol loading, metadata and
+retraction checks, full-text acquisition, trial retrieval, and several
+methodological/comparative stages. The exact headless Brave session then
+disconnected while the response was still active. A different signed-in Brave
+profile was not used. No prompt was resent and no replacement chat was created.
+The exact profile was later recovered and the preserved run had completed after
+23 minutes 25 seconds. Its terminal response reports both protocol-integrity
+checks, all 37 JATS blocks read to exhaustion, document handle
+`aft1_QvfX_6RdGgh2qYIOpTWJ0Cfb6KP1A0WQ`, source SHA-256
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`,
+validated-audit SHA-256
+`41f5bff78d6dbaf291013c4709f46eaf70627e69a3f031ae12b790fd63cd1c88`,
+receipt `source_linked_study_audit_validated`, and completion state
+`complete_with_unresolved_fields`. The rendered answer preserves methodological,
+access, and validation gaps and bounds supported versus unsupported claims.
+Ordinary-prompt product-interface acceptance is therefore complete at the
+terminal artifact boundary. The ChatGPT activity summary does not expose raw
+app-call cardinality as individually enumerable tool cards, so no hidden call
+count is inferred beyond the single reported exhausted chain and terminal
+matching validator receipt.
+
+A separate primary-account plugin case is preserved at
+`https://chatgpt.com/c/6a92f38b-84e8-83ea-85a0-a9923aeed485`. The owner's
+`u-dont-exist.com` account exposed the personal **AskRigor** app associated with
+`asdk_app_6a7cd2a0156881918ce7dedecb715250`. The test used ordinary GPT-5.6 Sol
+with the app attached, Chat mode, and `Pro` 5/5, not the Custom GPT surface.
+
+The prompt requested a full-text methods audit for systematic-review DOI
+`10.7759/cureus.72057`. One transient tool-call error self-recovered. The
+response then remained active through a long unchanged rendered interval and
+completed without stop, reload, retry, or duplication after 37 minutes 24
+seconds. The terminal artifact reports both exact current protocol identities,
+PMCID `PMC11578636`, PMID `39569300`, all 58/58 full-text blocks exhausted,
+source SHA-256
+`d708fbfe67ebbb411c8937fdc55fc0021fe45a6188c2c503e50e820ce2b41cd3`,
+validated structured audit state with unresolved fields preserved, and audit
+receipt SHA-256
+`66de15115f1b121ecba82298f1e87e93ba615d1e578e446c619e2b1d3c1c919a`.
+
+The final audit stayed on hip osteoarthritis, covered the requested methods,
+bounded claims, and preserved access/validation gaps. A single activity-summary
+label incorrectly said `knee osteoarthritis`; no substantive line did. Record
+this as a product presentation/topic-label defect and the 37-minute runtime as
+a latency concern, not as audit failure. The UI did not render a document
+handle, machine-readable receipt type/completion-state name, or enumerable raw
+app calls, so none is inferred.
+
+The lesson checkpoint remains available: open 1, needs review 1,
+accepted-not-incorporated 0, incorporated/closed 3, deletion-eligible 0. The
+owner's cumulative living-evidence repository discussion is queued in
+`docs/WORK-QUEUE.md`; it does not authorize persistence or change current
+privacy boundaries.
 
 ## 2026-08-28 Spark/native bounded-frontier production state
 
