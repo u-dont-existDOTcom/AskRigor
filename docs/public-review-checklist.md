@@ -275,9 +275,10 @@ review, the demo recording, the explicit opaque model-receipt release decision,
 final portal review, and submission actions recorded in
 `docs/public-submission-packet-v0.1.0.json` and
 `docs/release-evidence-v0.1.0.md`. The owner now reports that individual
-identity is verified, while business/organization verification is unavailable
-after a signup timeout. The publisher identity remains an owner choice, and no
-independent portal receipt or business retry interval is recorded. The fresh
+identity is verified and that OpenAI approved the organization request on
+2026-08-29. The exact portal approval scope and organization/publisher identity
+selection remain unverified, and no independent non-secret portal receipt is
+recorded. The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
 routine-status regression.
 
@@ -599,8 +600,9 @@ declared rather than rewritten as exact card-sequence proof.
 The publisher-matching HTTPS legal/support prerequisite was verified on
 2026-08-12 at release `f928b95e29cd`. Remaining execution steps are:
 
-1. Select the verified individual publisher or wait for business verification,
-   then complete the matching HTTPS domain challenge.
+1. Verify the owner-reported organization approval and its scope in the signed-
+   in portal, select the matching organization/publisher identity, retain a
+   non-secret receipt, and complete the matching HTTPS domain challenge.
 2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
    the discovered data with a freshly generated inventory.
 3. Record the privacy-safe reviewer demo using

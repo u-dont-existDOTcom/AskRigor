@@ -61,7 +61,7 @@
       "status": "in_progress",
       "evidence": null,
       "completedAt": null,
-      "note": "The owner reports that individual identity is verified as of 2026-08-18, while business/organization verification is unavailable after a signup timeout. Publisher identity selection remains pending; no independent portal receipt is recorded."
+      "note": "The owner reports that OpenAI approved the organization request on 2026-08-29. The exact portal approval scope, organization/publisher identity selection, and an independent non-secret receipt remain to be verified before this gate can be marked complete."
     },
     "domainVerification": {
       "status": "pending",

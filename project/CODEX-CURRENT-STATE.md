@@ -33,6 +33,11 @@ map, and work queue record this as the required next layer. The active task
 remains the first bounded study-audit reuse slice and must not be represented as
 the completed repository system.
 
+The owner reports that OpenAI approved the organization request on 2026-08-29.
+This clears the previously reported signup-timeout state, but its exact portal
+scope is not inferred: organization/publisher identity selection and an
+independent non-secret portal receipt remain open public-submission checks.
+
 Release-candidate verification is recorded in
 `../docs/audits/2026-08-29-production-living-evidence-readthrough.md`. The
 complete gate passed 109 test files with one declared skip and 1,455 tests with
