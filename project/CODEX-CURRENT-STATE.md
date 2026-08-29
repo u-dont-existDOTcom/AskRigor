@@ -1,5 +1,88 @@
 # AskRigor Codex Current State
 
+## 2026-08-29 exclusive active task: cumulative living evidence pilot
+
+Task ID: `askrigor-living-evidence-pilot-v1`
+
+The owner approved implementation of the cumulative living-evidence repository
+pilot and an isolated Railway environment. The owner also explicitly requires
+AskRigor to store the complete study or review analysis to the extent actually
+performed, including future clarifying analysis when more work is warranted.
+Analysis versions must retain their full sections, domain findings, claim-
+capability judgments, evidence bindings, uncertainty, unresolved fields,
+limitations, disagreements, and follow-up questions. Later work appends a new
+clarifying, correcting, superseding, or invalidating version; it never silently
+rewrites the earlier analysis.
+
+This approval does not authorize raw article/book bodies, transcripts,
+comments/replies, creator/commenter identities, raw chat or prompts, private
+health material, provider bodies, or credentials as default durable data. The
+initial pilot uses public formal-evidence identifiers and AskRigor-authored
+analysis only. YouTube/community persistence remains disabled until its exact
+fields pass the separate compliance and owner gate.
+
+The active branch is `agent/living-evidence-pilot-20260829`. Its integration
+commit `59ee7846aa3b4d94fa0be2a4e5bc7d8aedb6ab6c` has local acceptance history
+`78960d4f224abd45756817a9f9b358bea832d1bb` and remote main
+`26bad64db4b3df7a9158d06c160d2b2c909d4ce2` as parents. Local pre-integration
+history is additionally preserved by
+`rollback/local-main-pre-living-evidence-20260829`. The checkpoint merge kept
+all locally added owner authorization and acceptance sections; none was
+discarded.
+
+First command after resume:
+
+```bash
+npm run living-evidence:preflight
+```
+
+Task completion command:
+
+```bash
+npm run living-evidence:acceptance
+```
+
+The machine-readable authority is `tasks/ACTIVE-TASK.json`. Historical browser,
+Custom GPT, provider, deployment, work-queue, and unrelated-worktree handoffs
+remain valid evidence but are suspended as task selectors until this lock is
+closed. Ordinary green tests are prerequisites, not completion; the task ends
+only after its artifact-based acceptance, protected merge, Railway pilot
+receipt or exact documented access boundary, and durable closeout.
+
+Local implementation acceptance now passes against digest-pinned PostgreSQL
+17.6. The pilot persists the exact formal-evidence full-text-audit section of
+the surviving committed hip synthesis as a partial historical capture; it does
+not import the report's community-derived sections. It also preserves exact
+partial historical analysis for six source families without reconstructing
+missing domain text. The schema and real-PostgreSQL acceptance prove lossless
+complete-analysis storage for every analysis actually performed prospectively.
+It has three linked topics, one structured question, seven claim
+versions, exact evidence bindings, six transparent assessments, freshness
+policies/checks, and one explicitly synthetic invalidation with a completed
+impact job. Fixed exact, structured, full-text, current/history, topic-graph,
+and transparent-ranking queries pass. Current-mode retrieval returns zero
+because all surviving historical source checks are stale; seven claim versions
+remain inspectable in historical mode with their access/freshness boundaries.
+Generated JSON, Obsidian, Mermaid, and RO-Crate views contain no raw source or
+community-derived analysis. Two independent clean imports produced the same
+canonical repository SHA-256
+`8b796f9b16540fcf5408165049f46953ed64cfb26bce6f98b00e615ca069909c`.
+The latest logical dump is 139,706 bytes; the exact named schema was wiped and
+restored with that same canonical hash. The pre-PR deterministic gate passed:
+107 test files passed with one declared skip, 1,433 tests passed with six
+declared skips, and typecheck/build completed against the final impact/cycle
+hardening. The real-PostgreSQL acceptance passes 21 adversarial checks. Hosted
+review remains required.
+
+Railway remains deliberately unprovisioned. Current Railway controls make
+compute hard limits workspace-wide with a $10 minimum, while paid volumes
+default to at least 5 GB and cannot be downsized. Those controls cannot enforce
+the approved $5/1-GB pilot boundary, and changing a workspace-wide limit could
+affect unrelated services. No Railway resource, public endpoint, or workspace
+billing control was created or changed. `infra/living-evidence-pilot/README.md`
+records the exact platform boundary and the receipt required if the owner later
+approves a relaxed limit.
+
 ## 2026-08-28 owner correction: regular ChatGPT plugin is the primary test surface
 
 The owner reports that the installed Custom GPT has materially lower effective

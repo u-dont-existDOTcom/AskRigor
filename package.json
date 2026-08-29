@@ -6,8 +6,8 @@
   "engines": { "node": ">=24 <25" },
   "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "build": "tsc -b packages/contracts packages/protocol packages/sources apps/research-mcp",
-    "typecheck": "tsc -b --pretty false packages/contracts packages/protocol packages/sources apps/research-mcp",
+    "build": "tsc -b packages/contracts packages/protocol packages/sources packages/evidence-repository apps/research-mcp",
+    "typecheck": "tsc -b --pretty false packages/contracts packages/protocol packages/sources packages/evidence-repository apps/research-mcp",
     "test": "vitest",
     "test:run": "vitest run",
     "test:site": "tsx scripts/validate-public-site.mts",
@@ -26,6 +26,11 @@
     "test:n8n-pilot": "tsx scripts/smoke-n8n-control-plane.mts",
     "plugin:receipt": "node scripts/plugin-package-receipt.mjs",
     "lessons:status": "tsx scripts/lessons-status.mts",
+    "living-evidence:preflight": "tsx scripts/living-evidence-task-preflight.mts",
+    "living-evidence:acceptance": "tsx scripts/living-evidence-task-acceptance.mts",
+    "living-evidence:pilot": "tsx scripts/run-living-evidence-pilot.mts",
+    "living-evidence:restore-verify": "tsx scripts/verify-living-evidence-restore.mts",
+    "living-evidence:local": "bash scripts/run-living-evidence-local-pilot.sh",
     "review:public-live": "tsx scripts/run-public-review-eval.mts",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
     "start:mcp": "node apps/research-mcp/dist/index.js"

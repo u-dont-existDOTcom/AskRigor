@@ -6,6 +6,40 @@ The August 13, 2026 lesson notice is live and was reverified before the lesson A
 
 ## Purpose and boundary
 
+### Approved isolated living-evidence pilot
+
+On 2026-08-29 the owner approved one isolated cumulative living-evidence pilot
+and required complete storage of every study/review analysis to the extent
+AskRigor actually performed it, plus future clarifying analysis as later
+versions. This is a new durable **analysis** class, not a raw-source corpus.
+
+Allowed pilot records are public formal-source identifiers and version hashes;
+complete ordered AskRigor-authored analysis sections with lossless byte/hash
+receipts; structured method-domain findings; claim capabilities and reasons;
+evidence locators and validation receipts; uncertainty, disagreements,
+limitations, unresolved fields, and future-analysis items; and append-only
+clarification/correction/supersession/invalidation/freshness events.
+
+The pilot rejects raw publication/book bodies, transcripts, descriptions,
+comments/replies, creator/commenter identity, person-linked community episodes,
+raw chat/prompts, private research or personal health narratives, model/provider
+bodies, credentials, authorization headers, and secrets. YouTube/community
+persistence is exactly zero while its compliance review remains unresolved.
+Historical work for which only a durable summary survives is labeled
+`partial_historical_capture`; no missing analysis is reconstructed from memory.
+
+The local and conditionally authorized Railway pilot boundaries are defined by
+`docs/living-evidence-source-storage-policy.md` and
+`docs/living-evidence-repository-threat-model.md`. Railway must be isolated,
+private-only, limited to $5/month, 0.5 vCPU, 512 MiB memory, and 1 GiB volume,
+and retained for at most 30 days without a new owner extension or production
+promotion. Current Railway controls cannot enforce that exact $5/1-GiB
+boundary, so no Railway resource has been provisioned and relaxing it requires
+a new owner decision. No automated pilot snapshot is approved. Logical exports
+inherit the same classification and deadline. Production ingestion, user/private
+analysis persistence, raw-source storage, multi-user access, and long-term
+backup remain separately gated.
+
 AskRigor has deliberately separate processing paths:
 
 - **Controlled Custom GPT research path:** four authenticated Actions start,

@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:17.6-alpine@sha256:747d5ed1fdeeb124b880fbe3d7c6557d2c4064ae41d6b6297d417882effce4be
+    environment:
+      POSTGRES_DB: askrigor_living_evidence
+      POSTGRES_USER: askrigor_pilot
+      POSTGRES_PASSWORD: local-pilot-only
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U askrigor_pilot -d askrigor_living_evidence"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: "no"

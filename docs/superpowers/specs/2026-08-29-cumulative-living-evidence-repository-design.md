@@ -1,7 +1,8 @@
 # AskRigor cumulative living evidence repository design
 
 Date: 2026-08-29
-Status: design proposal; implementation and persistence gates remain
+Status: owner approved for the isolated pilot on 2026-08-29; production remains
+separately gated
 Branch: `agent/living-evidence-architecture-20260829`
 
 ## Optimized task specification
@@ -41,8 +42,10 @@ The primary audience is the owner and future AskRigor implementers. Deliver:
 
 ### Constraints and assumptions
 
-- Current AskRigor intentionally has no durable full-text, transcript, comment,
-  candidate-packet, or research-result corpus. This design does not change that.
+- Current AskRigor intentionally has no durable raw full-text, transcript,
+  comment, candidate-packet, or provider-response corpus. The approved pilot
+  adds durable AskRigor-authored study/review analysis and exact provenance,
+  while preserving those raw-corpus exclusions.
 - The active YouTube API compliance review makes durable community-data fields
   an explicit later gate.
 - No provider credential, private user research, personal health data, raw
@@ -409,6 +412,34 @@ This loop is how AskRigor becomes more capable with use: it reuses exact current
 work and known gaps, not prose memory. It also prevents a frequently repeated
 claim or embedding from gaining evidentiary authority merely through reuse.
 
+### 13. Complete performed analysis is a first-class versioned record
+
+For every analyzed study or review, persist the complete analysis that AskRigor
+actually performed—not merely its final score, summary paragraph, or selected
+claims. A complete captured analysis version includes:
+
+- ordered full analysis sections and their reconstruction SHA-256;
+- every applicable study/review method-domain finding and its exact state;
+- claim capabilities, reasons, source locators, and evidence-binding receipts;
+- internal-validity and applicability judgments kept separate;
+- uncertainty, unresolved fields, limitations, disagreements, and alternative
+  interpretations;
+- the exact protocol, rubric, source, run, and validator versions; and
+- every identified future-analysis item that could materially clarify the
+  source, with priority, rationale, and resolution state.
+
+Analysis sections are chunked for transport/storage but must reconstruct
+byte-for-byte to the recorded full-analysis hash. A size boundary may reject an
+entire contribution for review; it may not silently truncate it. Historical
+runs for which only a durable summary survives are stored honestly as
+`partial_historical_capture`, with the missing domain/section detail recorded
+as unresolved rather than reconstructed from memory.
+
+Later analysis appends a version linked as `clarifies`, `corrects`,
+`supersedes`, or `invalidates`. It resolves or adds future-analysis items and
+triggers dependency recalculation. Earlier analysis remains inspectable with
+its original protocol, evidence, and limitations.
+
 ## Railway-compatible pilot topology
 
 After the implementation gates are approved, the reversible pilot may use:
@@ -444,7 +475,11 @@ from the same logical export.
 
 ## Security and access model
 
-Use separate roles:
+The disposable single-process local acceptance may use one database owner and
+migrator credential because it is loopback-only, tmpfs-backed, destroyed after
+restore verification, and revokes every `PUBLIC` schema/object privilege. Any
+hosted, multi-process, multi-user, or production use must instead provision and
+accept separate roles:
 
 - `repository_reader`: current/historical queries only;
 - `repository_writer`: validated ingestion procedures, no schema or backup
