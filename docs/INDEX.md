@@ -54,6 +54,9 @@ complete XML protocol.
 - `audits/2026-08-24-hermes-worker-pilot.md`: pinned official Hermes runtime,
   held-out controller benchmark, repeated no-tools smoke receipt, fail-closed
   final-response guard, secret boundary, and explicit non-production limits
+- `audits/2026-08-29-cumulative-living-evidence-prior-work.md`: bounded
+  provenance, living-review, evidence-map, quality-framework, database, and
+  provider-policy scan; explicit compose decision and external pilot baselines
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
@@ -136,6 +139,10 @@ complete XML protocol.
   brainstorm and its freshness, provenance, privacy, retention, and
   source-licensing gates
 - `superpowers/plans/`: implementation plans
+- `superpowers/plans/2026-08-29-cumulative-living-evidence-pilot.md`: proposed
+  single-topic PostgreSQL evidence-graph pilot with policy gates, fixture-only
+  correction/freshness tests, generated Obsidian/Mermaid/RO-Crate views,
+  export/wipe/restore acceptance, and separately gated Railway provisioning
 - `superpowers/plans/2026-08-29-public-mcp-full-text-chain-guard.md`:
   composition-boundary handle/hash continuity, exhaustion, release, ChatGPT
   refresh, and fresh product-acceptance gates
@@ -222,7 +229,13 @@ complete XML protocol.
 - `superpowers/plans/2026-08-22-spark-candidate-quality-repair.md`: generic
   specific-program discovery gate, high-recall Spark handoff, independent
   validation, release, plugin, and installation ledger
-- `superpowers/specs/`: accepted design specifications
+- `superpowers/specs/`: accepted design specifications and clearly labeled
+  proposals
+- `superpowers/specs/2026-08-29-cumulative-living-evidence-repository-design.md`:
+  proposed canonical relational evidence graph, exact claim/source/assessment
+  provenance, append-only correction propagation, freshness state machine,
+  community-data minimization, and Railway-portable topology; it is not
+  implementation authorization
 - `superpowers/specs/2026-08-16-calibrated-discovery-research-runner-design.md`:
   approved private-v0.2 design for uncertainty calibration, Creative Tail
   Sampling integration, authorized treatment-experience evidence, and an
@@ -231,5 +244,12 @@ complete XML protocol.
   design for a generated, bounded Custom GPT Action compatibility surface that
   preserves the frozen 17-tool MCP, exact protocol loading, community
   completion receipts, and the isolated consequential lesson write
+
+## Architecture maps
+
+- `architecture/living-evidence-repository-map.md`: proposed canonical-store,
+  provenance, correction-propagation, freshness, and topic/evidence maps;
+  diagrams are derived control surfaces and never replace receipts or protocol
+  authority
 
 Current owner requirements and verified code/evidence outrank stale plans or summaries.
