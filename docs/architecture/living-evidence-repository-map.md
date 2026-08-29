@@ -1,8 +1,8 @@
 # Living evidence repository map
 
 Date: 2026-08-29
-Status: local isolated pilot implemented; derived control surface, not
-implementation authority
+Status: local isolated pilot implemented; production study-audit read-through
+release candidate; derived control surface, not implementation authority
 
 This map is a navigational projection of the proposed design in
 `../superpowers/specs/2026-08-29-cumulative-living-evidence-repository-design.md`.
@@ -28,6 +28,8 @@ flowchart LR
         C[(Atomic claims and versions)]
         E[(Evidence bindings and graph edges)]
         M[(Domain assessments)]
+        D[(Discovery passes and coverage windows)]
+        RT[(Candidate decisions and research trails)]
         U[(Freshness and invalidation events)]
         P[(Runs, protocols, and receipts)]
     end
@@ -51,6 +53,10 @@ flowchart LR
     U --- S
     U --- C
     P --- E
+    P --- D
+    D --- S
+    D --- RT
+    RT --- T
 
     Canonical --> X
     Canonical --> V
@@ -90,6 +96,30 @@ community assertions.
 Railway remains unprovisioned because its current workspace-wide $10 minimum
 hard limit and non-downsizeable paid volume cannot enforce the approved $5 and
 1 GiB task-lock boundaries. No workspace billing control was changed.
+
+## Production read-through loop
+
+~~~mermaid
+flowchart LR
+    ACQ[Current lawful full-text acquisition] --> HASH[Exact identifiers + source SHA-256]
+    HASH --> LOOKUP[(Private PostgreSQL reader)]
+    LOOKUP -->|one exact current compatible candidate| AD[Candidate advertisement]
+    LOOKUP -->|miss, timeout, ambiguous, stale, or incompatible| FRESH[Fresh study audit required]
+    ACQ --> EXH[Read current document to exhaustion]
+    AD --> EXH
+    EXH --> RECHECK[Reload exact analysis version and repeat every gate]
+    RECHECK -->|pass| VALIDATE[Existing deterministic 13-domain validator]
+    RECHECK -->|fail| FRESH
+    FRESH --> VALIDATE
+    VALIDATE --> RECEIPT[Source-linked validated audit receipt]
+    RECEIPT -. reviewed one-shot admin import only .-> LOOKUP
+~~~
+
+The candidate lookup runs once at acquisition and again only when reuse is
+requested; continuation pages never wait on PostgreSQL. The dashed import edge
+is not a public write path. It represents a separate administrator-reviewed
+stdin import that persists no source body and is not invoked automatically by
+MCP or Actions.
 
 ## Evidence lineage and correction propagation
 
@@ -189,6 +219,14 @@ Generated views should include:
 
 The topic explorer covers every topic and subtopic represented by accepted
 records. An absent topic means “not yet indexed,” not “no evidence exists.”
+
+The research-frontier view is separate from the current-knowledge projection.
+It shows where discovery actually looked, requested and observed date ranges,
+pagination/sampling/exhaustion, candidates accepted/rejected/deferred and why,
+open questions, and unattempted/blocked/exhausted trails. A later run begins
+from both views: it revalidates current knowledge, searches deltas since prior
+coverage, and pursues high-value open trails. It never treats an old final
+answer as proof that discovery is complete.
 
 ## Map maintenance rule
 

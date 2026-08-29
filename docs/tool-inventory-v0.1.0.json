@@ -1026,7 +1026,7 @@
     },
     {
       "name": "acquire_open_full_text",
-      "description": "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation, or preserve the explicit access boundary.",
+      "description": "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation. If repository_study_audit.status is reusable, also bind its repository_analysis_version_id; otherwise perform a fresh audit.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1268,6 +1268,93 @@
               "synthesis_lock"
             ],
             "additionalProperties": false
+          },
+          "repository_study_audit": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "reusable"
+                  },
+                  "repository_analysis_version_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "source_content_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "audit_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "protocol_sha256s": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "freshness_state": {
+                    "type": "string",
+                    "const": "current"
+                  },
+                  "current_source_revalidation_required": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "status",
+                  "repository_analysis_version_id",
+                  "source_content_sha256",
+                  "audit_sha256",
+                  "protocol_sha256s",
+                  "freshness_state",
+                  "current_source_revalidation_required"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "fresh_audit_required"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "candidate_missing",
+                      "candidate_ambiguous",
+                      "source_incompatible",
+                      "analysis_not_current",
+                      "source_access_not_complete",
+                      "freshness_not_current",
+                      "impact_not_complete",
+                      "protocol_incompatible",
+                      "rubric_incompatible",
+                      "record_invalid",
+                      "repository_unavailable"
+                    ]
+                  },
+                  "current_source_revalidation_required": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "status",
+                  "reason",
+                  "current_source_revalidation_required"
+                ],
+                "additionalProperties": false
+              }
+            ]
           },
           "access_boundary": {
             "type": "string"
@@ -1531,6 +1618,93 @@
               "synthesis_lock"
             ],
             "additionalProperties": false
+          },
+          "repository_study_audit": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "reusable"
+                  },
+                  "repository_analysis_version_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  },
+                  "source_content_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "audit_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "protocol_sha256s": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    }
+                  },
+                  "freshness_state": {
+                    "type": "string",
+                    "const": "current"
+                  },
+                  "current_source_revalidation_required": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "status",
+                  "repository_analysis_version_id",
+                  "source_content_sha256",
+                  "audit_sha256",
+                  "protocol_sha256s",
+                  "freshness_state",
+                  "current_source_revalidation_required"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "const": "fresh_audit_required"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "enum": [
+                      "candidate_missing",
+                      "candidate_ambiguous",
+                      "source_incompatible",
+                      "analysis_not_current",
+                      "source_access_not_complete",
+                      "freshness_not_current",
+                      "impact_not_complete",
+                      "protocol_incompatible",
+                      "rubric_incompatible",
+                      "record_invalid",
+                      "repository_unavailable"
+                    ]
+                  },
+                  "current_source_revalidation_required": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "status",
+                  "reason",
+                  "current_source_revalidation_required"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [
@@ -1555,7 +1729,7 @@
     },
     {
       "name": "validate_study_method_audit",
-      "description": "Validate a full-text, source-linked individual-study audit on the exact bound acquisition document_handle; design and publication labels never substitute for method inspection. Before synthesis, require the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; mismatch blocks synthesis.",
+      "description": "Validate a full-text, source-linked individual-study audit on the exact exhausted document_handle. Supply either a newly performed audit or the repository_analysis_version_id advertised by this same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required means call again with a newly performed audit. Before synthesis, require the returned validated coverage receipt to match the acquisition byte-for-byte.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1873,11 +2047,15 @@
               "claim_capabilities"
             ],
             "additionalProperties": false
+          },
+          "repository_analysis_version_id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
           }
         },
         "required": [
-          "document_handle",
-          "audit"
+          "document_handle"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",
         "additionalProperties": false
@@ -1887,7 +2065,10 @@
         "properties": {
           "status": {
             "type": "string",
-            "const": "source_linked_study_audit_validated"
+            "enum": [
+              "source_linked_study_audit_validated",
+              "fresh_study_audit_required"
+            ]
           },
           "audit_receipt": {
             "type": "object",
@@ -2255,42 +2436,151 @@
             "additionalProperties": false
           },
           "coverage_receipt": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "document_handle": {
+                    "type": "string",
+                    "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                  },
+                  "full_text_read_to_exhaustion": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "source_content_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "audit_validated": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "synthesis_use": {
+                    "type": "string",
+                    "const": "bounded_by_validated_claim_capabilities"
+                  }
+                },
+                "required": [
+                  "document_handle",
+                  "full_text_read_to_exhaustion",
+                  "source_content_sha256",
+                  "audit_validated",
+                  "synthesis_use"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "document_handle": {
+                    "type": "string",
+                    "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
+                  },
+                  "full_text_read_to_exhaustion": {
+                    "type": "boolean",
+                    "const": true
+                  },
+                  "source_content_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "audit_validated": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "synthesis_use": {
+                    "type": "string",
+                    "const": "fresh_study_audit_required"
+                  }
+                },
+                "required": [
+                  "document_handle",
+                  "full_text_read_to_exhaustion",
+                  "source_content_sha256",
+                  "audit_validated",
+                  "synthesis_use"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          },
+          "repository_reuse_receipt": {
             "type": "object",
             "properties": {
-              "document_handle": {
+              "repository_analysis_version_id": {
                 "type": "string",
-                "pattern": "^aft1_[A-Za-z0-9_-]{32}$"
-              },
-              "full_text_read_to_exhaustion": {
-                "type": "boolean",
-                "const": true
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
               },
               "source_content_sha256": {
                 "type": "string",
                 "pattern": "^[a-f0-9]{64}$"
               },
-              "audit_validated": {
+              "audit_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "protocol_sha256s": {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "freshness_state": {
+                "type": "string",
+                "const": "current"
+              },
+              "impact_state": {
+                "type": "string",
+                "const": "complete"
+              },
+              "compatibility_revalidated": {
                 "type": "boolean",
                 "const": true
               },
-              "synthesis_use": {
-                "type": "string",
-                "const": "bounded_by_validated_claim_capabilities"
+              "semantic_truth_not_certified": {
+                "type": "boolean",
+                "const": true
               }
             },
             "required": [
-              "document_handle",
-              "full_text_read_to_exhaustion",
+              "repository_analysis_version_id",
               "source_content_sha256",
-              "audit_validated",
-              "synthesis_use"
+              "audit_sha256",
+              "protocol_sha256s",
+              "freshness_state",
+              "impact_state",
+              "compatibility_revalidated",
+              "semantic_truth_not_certified"
             ],
             "additionalProperties": false
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "candidate_missing",
+              "candidate_ambiguous",
+              "source_incompatible",
+              "analysis_not_current",
+              "source_access_not_complete",
+              "freshness_not_current",
+              "impact_not_complete",
+              "protocol_incompatible",
+              "rubric_incompatible",
+              "record_invalid",
+              "repository_unavailable"
+            ]
+          },
+          "next_capability": {
+            "type": "string",
+            "const": "validate_study_method_audit_with_fresh_audit"
           }
         },
         "required": [
           "status",
-          "audit_receipt",
           "coverage_receipt"
         ],
         "$schema": "http://json-schema.org/draft-07/schema#",

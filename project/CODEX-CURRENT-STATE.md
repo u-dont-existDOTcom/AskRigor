@@ -23,6 +23,30 @@ health material, provider bodies, and all YouTube/community data remain outside
 durable storage. The implementation plan is
 `../docs/superpowers/plans/2026-08-29-production-living-evidence-readthrough.md`.
 
+Owner clarification: cumulative intelligence means retaining a governed
+research frontier, not merely caching prior answers. The durable future model
+must include discovery passes, searched date/coverage windows, videos/studies
+found and their decisions, comment coverage/count/exhaustion receipts when
+policy permits, unresolved questions, unattempted or blocked trails, and
+delta-oriented searches for newly relevant evidence. The cumulative design,
+map, and work queue record this as the required next layer. The active task
+remains the first bounded study-audit reuse slice and must not be represented as
+the completed repository system.
+
+Release-candidate verification is recorded in
+`../docs/audits/2026-08-29-production-living-evidence-readthrough.md`. The
+complete gate passed 109 test files with one declared skip and 1,455 tests with
+six declared skips, plus typecheck/build; the four-page site check and 28/28
+deployment-policy tests pass. Real PostgreSQL acceptance passes 22/22 and
+reproduces current canonical repository SHA-256
+`5cb8e53daf012dd8ac430fc3a3401578d8e326e9342bda83be318c1487edf2c0`.
+The older pilot record's `8b796f...` hash is retained as a non-reproducible
+historical receipt; no cause is invented. Release lesson status is available
+with 0 open, 0 needs review, 0 accepted-not-incorporated, 4
+incorporated/closed, and 0 deletion eligible. Merge, exact deployment, curated
+seed import, direct production acceptance, plugin receipt, and fresh ordinary
+ChatGPT acceptance remain.
+
 First command after resume:
 
 ```bash

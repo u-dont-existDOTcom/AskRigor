@@ -4,6 +4,8 @@ import {
   RESEARCH_SESSION_ABSOLUTE_TTL_MS,
   RESEARCH_SESSION_IDLE_TTL_MS,
   RETRACTION_WATCH_MAX_AGE_MS,
+  livingEvidenceReuseConfigFromEnv,
+  optionalLivingEvidenceReuseConfigFromEnv,
   privateResearchOrchestrationApiKeyFromEnv,
   privateResearchOrchestrationIsEnabled,
   researchFinalizationSigningConfigFromEnv,
@@ -18,6 +20,42 @@ describe("Phase G persistence configuration", () => {
     expect(() => researchSessionCheckpointConfigFromEnv({
       ASKRIGOR_RESEARCH_SESSION_DIRECTORY: "/var/lib/askrigor-research-sessions",
     })).toThrow("Research session checkpoint configuration unavailable");
+  });
+
+  it("keeps living-evidence reuse disabled by default and requires one explicit read-only database configuration", () => {
+    expect(livingEvidenceReuseConfigFromEnv({})).toBeUndefined();
+    expect(livingEvidenceReuseConfigFromEnv({
+      ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL: "postgresql://reader@example.invalid/askrigor",
+    })).toBeUndefined();
+    expect(() => livingEvidenceReuseConfigFromEnv({
+      ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED: "true",
+    })).toThrow("Living-evidence read-only repository configuration unavailable");
+    expect(optionalLivingEvidenceReuseConfigFromEnv({
+      ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED: "true",
+      ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL: "not-a-database-url",
+    })).toBeUndefined();
+    expect(() => livingEvidenceReuseConfigFromEnv({
+      ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED: "true",
+      ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL: "https://example.invalid/not-postgres",
+    })).toThrow("Living-evidence read-only repository configuration unavailable");
+    expect(() => livingEvidenceReuseConfigFromEnv({
+      ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED: "true",
+      ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL: "postgresql://reader@example.invalid/askrigor",
+      ASKRIGOR_LIVING_EVIDENCE_SCHEMA: "unsafe-schema",
+    })).toThrow("Living-evidence read-only repository configuration unavailable");
+    expect(livingEvidenceReuseConfigFromEnv({
+      ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED: "true",
+      ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL: "postgresql://reader@example.invalid/askrigor",
+      ASKRIGOR_LIVING_EVIDENCE_SCHEMA: "living_evidence",
+      ASKRIGOR_LIVING_EVIDENCE_READER_SSLMODE: "require",
+    })).toEqual({
+      connectionString: "postgresql://reader@example.invalid/askrigor",
+      schema: "living_evidence",
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 1_500,
+      queryTimeoutMillis: 1_500,
+      statementTimeoutMillis: 1_500,
+    });
   });
 
   it("accepts only one exact 32-byte base64url key and bounded key identity", () => {

@@ -22,7 +22,8 @@ export const openFullTextCursorSchema = z.object({
 
 export const openFullTextHandleStateSchema = z.object({
   index: auditableDocumentIndexSchema,
-  cursor: openFullTextCursorSchema
+  cursor: openFullTextCursorSchema,
+  repository_analysis_version_id: z.uuid().optional()
 }).strict();
 
 export type OpenFullTextHandleState = z.output<typeof openFullTextHandleStateSchema>;
@@ -35,7 +36,11 @@ interface StoreEntry {
 }
 
 export interface OpenFullTextHandleStore {
-  issue(index: AuditableDocumentIndex, cursor: OpenFullTextHandleState["cursor"]): string;
+  issue(
+    index: AuditableDocumentIndex,
+    cursor: OpenFullTextHandleState["cursor"],
+    repositoryAnalysisVersionId?: string
+  ): string;
   read(handle: string): OpenFullTextHandleState;
   claim(handle: string): OpenFullTextHandleState;
   replace(handle: string, state: OpenFullTextHandleState): void;
@@ -75,11 +80,15 @@ export function createOpenFullTextHandleStore(
   return Object.freeze({
     issue(
       rawIndex: AuditableDocumentIndex,
-      rawCursor: OpenFullTextHandleState["cursor"]
+      rawCursor: OpenFullTextHandleState["cursor"],
+      repositoryAnalysisVersionId?: string
     ) {
       const state = openFullTextHandleStateSchema.parse({
         index: rawIndex,
-        cursor: rawCursor
+        cursor: rawCursor,
+        ...(repositoryAnalysisVersionId === undefined
+          ? {}
+          : { repository_analysis_version_id: repositoryAnalysisVersionId })
       });
       const current = validNow(now);
       prune(current);

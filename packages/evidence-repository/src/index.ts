@@ -12,6 +12,8 @@ export { deterministicUuid, sha256, stableJson } from "./hash.js";
 export { prepareContribution, splitMarkdownPreservingBytes, type PreparedContribution } from "./prepare.js";
 export {
   PostgresEvidenceRepository,
+  type AnalysisReuseCandidate,
+  type AnalysisReuseLookupInput,
   type ContributionReceipt,
   type EvidenceRepositoryOptions,
   type FailureInjection,

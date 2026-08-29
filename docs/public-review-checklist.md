@@ -400,20 +400,20 @@ inferred from that deployment.
 
 The complete reviewer inventory is generated directly from
 `createAskRigorServer()` through an in-memory MCP `tools/list` call. It
-contains all 17 exact tool names, **title absence** (no advertised `title`
+contains all 21 exact tool names, **title absence** (no advertised `title`
 property for any tool), descriptions, full advertised JSON-Schema Draft 7 input schemas, full
 advertised JSON-Schema Draft 7 output schemas, and annotations. The committed
 generated artifact is `docs/tool-inventory-v0.1.0.json`; regenerate it with:
 
 ```sh
-npx tsx scripts/generate-tool-inventory.mts
+npx tsx scripts/generate-tool-inventory.mts --write
 ```
 
 The emitted inventory identifies itself as
 `MCP tools/list against createAskRigorServer()`, gives the intended production
 endpoint `https://mcp.askrigor.com/mcp`, and has the canonical compact-JSON
-SHA-256 `dbff1edc405982fb58eac6a5b28840ffcf07fd93cad0e55c349f65b2fffcf5e9`.
-`tests/release-packet.test.ts` regenerates the full inventory, asserts all 17
+SHA-256 `e2ab407b92824d4094986aaf0e108917500546d892c85231772ff0b3c5c60f5e`.
+`tests/release-packet.test.ts` regenerates the full inventory, asserts all 21
 names/order, title absence, schema roots, annotations, exact checksum, and deep
 equality with the committed full JSON artifact. A metadata or schema change
 therefore requires an intentional inventory review, fresh Inspector/ChatGPT

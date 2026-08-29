@@ -16,6 +16,7 @@ export const PUBLIC_MCP_BROWSER_ORIGINS = [
 export const RESEARCH_SESSION_IDLE_TTL_MS = 72 * 60 * 60 * 1_000;
 export const RESEARCH_SESSION_ABSOLUTE_TTL_MS = 7 * 24 * 60 * 60 * 1_000;
 export const RETRACTION_WATCH_MAX_AGE_MS = 72 * 60 * 60 * 1_000;
+export const LIVING_EVIDENCE_REUSE_TIMEOUT_MS = 1_500;
 
 export interface ResearchSessionCheckpointConfig {
   rootDirectory: string;
@@ -26,6 +27,15 @@ export interface ResearchSessionCheckpointConfig {
 export interface ResearchFinalizationSigningConfig {
   signingSecret: string;
   keyId: string;
+}
+
+export interface LivingEvidenceReuseConfig {
+  connectionString: string;
+  schema: string;
+  ssl: false | { rejectUnauthorized: false };
+  connectionTimeoutMillis: number;
+  queryTimeoutMillis: number;
+  statementTimeoutMillis: number;
 }
 
 export const PUBLIC_RATE_LIMIT = {
@@ -85,6 +95,51 @@ export function privateResearchOrchestrationIsEnabled(
   value = process.env.ASKRIGOR_PRIVATE_ORCHESTRATION_ENABLED
 ): boolean {
   return value === "true";
+}
+
+export function livingEvidenceReuseConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): LivingEvidenceReuseConfig | undefined {
+  if (env.ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED !== "true") return undefined;
+  const connectionString = env.ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL?.trim();
+  const schema = env.ASKRIGOR_LIVING_EVIDENCE_SCHEMA?.trim() || "living_evidence";
+  if (connectionString === undefined || connectionString.length === 0) {
+    throw new Error("Living-evidence read-only repository configuration unavailable");
+  }
+  let url: URL;
+  try {
+    url = new URL(connectionString);
+  } catch {
+    throw new Error("Living-evidence read-only repository configuration unavailable");
+  }
+  if (
+    !["postgres:", "postgresql:"].includes(url.protocol) ||
+    !/^[a-z][a-z0-9_]{0,62}$/u.test(schema)
+  ) {
+    throw new Error("Living-evidence read-only repository configuration unavailable");
+  }
+  const sslMode = env.ASKRIGOR_LIVING_EVIDENCE_READER_SSLMODE?.trim() || "disable";
+  if (sslMode !== "disable" && sslMode !== "require") {
+    throw new Error("Living-evidence read-only repository configuration unavailable");
+  }
+  return {
+    connectionString,
+    schema,
+    ssl: sslMode === "require" ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: LIVING_EVIDENCE_REUSE_TIMEOUT_MS,
+    queryTimeoutMillis: LIVING_EVIDENCE_REUSE_TIMEOUT_MS,
+    statementTimeoutMillis: LIVING_EVIDENCE_REUSE_TIMEOUT_MS,
+  };
+}
+
+export function optionalLivingEvidenceReuseConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): LivingEvidenceReuseConfig | undefined {
+  try {
+    return livingEvidenceReuseConfigFromEnv(env);
+  } catch {
+    return undefined;
+  }
 }
 
 export function privateResearchOrchestrationApiKeyFromEnv(
@@ -195,7 +250,7 @@ export function parseTrustedClientIpHeader(
 }
 
 export const SERVER_INSTRUCTIONS =
-  "Before final synthesis, if firsthand community evidence could plausibly matter, call survey_youtube_community, then audit_youtube_video_community for each material video. Finding an excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true and widen while expected information gain is positive. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only and never satisfies corpus acquisition. Preserve provenance and blocking receipts. For each decision-important full-text chain, call acquire_open_full_text once with exactly one doi and an optional pmcid; bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256; call continue_open_full_text only while exhausted is false; then call one matching method-audit validator with the same bound document_handle. Require its returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; any mismatch blocks synthesis. If the handle expires or is invalidated, discard that chain and reacquire; never combine chains. Read-only retrieval.";
+  "Before final synthesis, if firsthand community evidence could plausibly matter, call survey_youtube_community, then audit_youtube_video_community for each material video. Finding an excellent RCT does not remove this requirement. Automatically continue while continuation_recommended is true and widen while expected information gain is positive. Retrieve unfiltered YouTube comments and replies; search_youtube_comments is query-bounded discovery only and never satisfies corpus acquisition. Preserve provenance and blocking receipts. For each decision-important full-text chain, call acquire_open_full_text once with exactly one doi and an optional pmcid; bind coverage_receipt.document_handle and coverage_receipt.source_content_sha256; call continue_open_full_text only while exhausted is false; then call one matching method-audit validator with the same bound document_handle. When repository_study_audit.status is reusable, pass its repository_analysis_version_id to the study validator instead of constructing a new audit; the server rechecks compatibility and runs the same validator. If reuse returns fresh_study_audit_required, call the same validator again with a newly performed audit on the unchanged exhausted handle. Require its returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; any mismatch blocks synthesis. A fresh_study_audit_required boundary is not validated and also blocks synthesis until the named next capability succeeds. If the handle expires or is invalidated, discard that chain and reacquire; never combine chains. Read-only retrieval.";
 
 export const HEALTH_PAYLOAD = {
   status: "ok",

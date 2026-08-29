@@ -8,6 +8,7 @@ import {
   type OpenFullTextAcquisitionData,
   type UnpaywallConfig
 } from "@askrigor/sources";
+import type { ProtocolManifest } from "@askrigor/protocol";
 import { z } from "zod";
 
 import { RESEARCH_ACTION_RESPONSE_MAX_BYTES } from "../config.js";
@@ -37,6 +38,14 @@ import {
   type OpenFullTextHandleState,
   type OpenFullTextHandleStore
 } from "./open-full-text-handle-store.js";
+import {
+  resolveStudyAuditReuse,
+  studyAuditRepositoryReuseProjectionSchema,
+  studyAuditReuseReasonSchema,
+  type StudyAuditReuseReason,
+  type StudyAuditReuseReader,
+  type StudyAuditReuseResolution
+} from "./study-audit-reuse.js";
 import type { ActionRequestContext, ActionResult, ActionRoute } from "./types.js";
 
 const SEGMENT_CHARACTERS = 10_000;
@@ -98,7 +107,8 @@ export const availableOpenFullTextActionOutputSchema = z.object({
   discovery_attempts: z.array(discoveryAttemptSchema),
   source: sourceSchema,
   blocks: z.array(blockSegmentSchema).min(1),
-  coverage_receipt: coverageSchema
+  coverage_receipt: coverageSchema,
+  repository_study_audit: studyAuditRepositoryReuseProjectionSchema.optional()
 }).strict();
 export const openFullTextLeadActionOutputSchema = z.object({
   status: z.literal("possibly_useful_lead"),
@@ -120,6 +130,7 @@ export const openFullTextMcpOutputSchema = z.object({
   source: sourceSchema.optional(),
   blocks: z.array(blockSegmentSchema).optional(),
   coverage_receipt: coverageSchema.optional(),
+  repository_study_audit: studyAuditRepositoryReuseProjectionSchema.optional(),
   access_boundary: z.string().optional(),
   unseen_content_used_as_evidence: z.literal(false).optional()
 }).strict();
@@ -173,10 +184,26 @@ export const studyMethodExternalAuditOutputSchema = z.object({
   audit_receipt: studyMethodAuditExternalReceiptSchema,
   coverage_receipt: auditCoverageSchema
 }).strict();
-export const studyMethodAuditActionInputSchema = z.object({
+export const freshStudyMethodAuditActionInputSchema = z.object({
   document_handle: handleSchema,
   audit: studyMethodAuditSubmissionSchema
 }).strict();
+export const repositoryStudyMethodAuditActionInputSchema = z.object({
+  document_handle: handleSchema,
+  repository_analysis_version_id: z.uuid()
+}).strict();
+export const studyMethodAuditActionInputSchema = z.object({
+  document_handle: handleSchema,
+  audit: studyMethodAuditSubmissionSchema.optional(),
+  repository_analysis_version_id: z.uuid().optional()
+}).strict().superRefine((value, context) => {
+  if ((value.audit === undefined) === (value.repository_analysis_version_id === undefined)) {
+    context.addIssue({
+      code: "custom",
+      message: "supply exactly one of audit or repository_analysis_version_id"
+    });
+  }
+});
 export const reviewMethodAuditActionInputSchema = z.object({
   document_handle: handleSchema,
   audit: reviewMethodAuditSubmissionSchema
@@ -186,6 +213,57 @@ export const studyMethodAuditActionOutputSchema = z.object({
   audit_receipt: studyMethodAuditReceiptSchema,
   coverage_receipt: auditCoverageSchema
 }).strict();
+const repositoryStudyAuditReuseReceiptSchema = z.object({
+  repository_analysis_version_id: z.uuid(),
+  source_content_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  audit_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  protocol_sha256s: z.array(z.string().regex(/^[a-f0-9]{64}$/u)).min(1),
+  freshness_state: z.literal("current"),
+  impact_state: z.literal("complete"),
+  compatibility_revalidated: z.literal(true),
+  semantic_truth_not_certified: z.literal(true)
+}).strict();
+export const reusedStudyMethodAuditActionOutputSchema = studyMethodAuditActionOutputSchema.extend({
+  repository_reuse_receipt: repositoryStudyAuditReuseReceiptSchema
+}).strict();
+const freshStudyAuditCoverageSchema = z.object({
+  document_handle: handleSchema,
+  full_text_read_to_exhaustion: z.literal(true),
+  source_content_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  audit_validated: z.literal(false),
+  synthesis_use: z.literal("fresh_study_audit_required")
+}).strict();
+export const freshStudyMethodAuditRequiredOutputSchema = z.object({
+  status: z.literal("fresh_study_audit_required"),
+  reason: studyAuditReuseReasonSchema,
+  next_capability: z.literal("validate_study_method_audit_with_fresh_audit"),
+  coverage_receipt: freshStudyAuditCoverageSchema
+}).strict();
+export const studyMethodAuditRouteOutputSchema = z.object({
+  status: z.enum([
+    "source_linked_study_audit_validated",
+    "fresh_study_audit_required"
+  ]),
+  audit_receipt: studyMethodAuditReceiptSchema.optional(),
+  coverage_receipt: z.union([auditCoverageSchema, freshStudyAuditCoverageSchema]),
+  repository_reuse_receipt: repositoryStudyAuditReuseReceiptSchema.optional(),
+  reason: studyAuditReuseReasonSchema.optional(),
+  next_capability: z.literal("validate_study_method_audit_with_fresh_audit").optional()
+}).strict().superRefine((value, context) => {
+  if (value.status === "source_linked_study_audit_validated") {
+    if (value.audit_receipt === undefined || value.reason !== undefined || value.next_capability !== undefined) {
+      context.addIssue({ code: "custom", message: "a validated audit requires its receipt and no fresh-audit boundary" });
+    }
+    return;
+  }
+  if (
+    value.audit_receipt !== undefined || value.repository_reuse_receipt !== undefined ||
+    value.reason === undefined || value.next_capability === undefined ||
+    value.coverage_receipt.audit_validated !== false
+  ) {
+    context.addIssue({ code: "custom", message: "a fresh-audit boundary requires its reason and next capability" });
+  }
+});
 export const reviewMethodAuditActionOutputSchema = z.object({
   status: z.literal("source_linked_review_audit_validated"),
   audit_receipt: reviewMethodAuditReceiptSchema,
@@ -209,6 +287,10 @@ export interface CreateOpenFullTextActionRoutesOptions {
     config: UnpaywallConfig | undefined
   ) => ReturnType<typeof acquireOpenFullText>;
   unpaywallConfig?: UnpaywallConfig;
+  studyAuditReuse?: {
+    reader: StudyAuditReuseReader;
+    currentProtocolManifests: () => Promise<ProtocolManifest[]>;
+  };
 }
 
 export interface OpenFullTextExecutor {
@@ -220,8 +302,12 @@ export interface OpenFullTextExecutor {
     input: z.output<typeof continueOpenFullTextActionInputSchema>
   ): Promise<z.output<typeof availableOpenFullTextActionOutputSchema>>;
   validateStudyAudit(
-    input: z.output<typeof studyMethodAuditActionInputSchema>
+    input: z.output<typeof freshStudyMethodAuditActionInputSchema>
   ): Promise<z.output<typeof studyMethodAuditActionOutputSchema>>;
+  reuseStudyAudit(
+    input: z.output<typeof repositoryStudyMethodAuditActionInputSchema>
+  ): Promise<z.output<typeof reusedStudyMethodAuditActionOutputSchema> |
+    z.output<typeof freshStudyMethodAuditRequiredOutputSchema>>;
   validateReviewAudit(
     input: z.output<typeof reviewMethodAuditActionInputSchema>
   ): Promise<z.output<typeof reviewMethodAuditActionOutputSchema>>;
@@ -280,8 +366,19 @@ export function createOpenFullTextExecutor(
         });
       }
       const page = pageFrom(data.document_index, initialCursor());
-      const handle = store.issue(data.document_index, page.cursor);
-      return availableOutput(data, data.document_index, handle, page);
+      const repositoryStudyAudit = await repositoryStudyAuditFor(
+        data.document_index,
+        parsed.doi
+      );
+      const advertisedVersionId = repositoryStudyAudit?.projection.status === "reusable"
+        ? repositoryStudyAudit.projection.repository_analysis_version_id
+        : undefined;
+      const handle = store.issue(
+        data.document_index,
+        page.cursor,
+        advertisedVersionId
+      );
+      return availableOutput(data, data.document_index, handle, page, repositoryStudyAudit);
     },
     async continue({ document_handle: handle }) {
       const parsedHandle = continueOpenFullTextActionInputSchema.parse({
@@ -294,7 +391,7 @@ export function createOpenFullTextExecutor(
           throw new OpenFullTextAlreadyExhaustedError();
         }
         const page = pageFrom(state.index, state.cursor);
-        store.replace(parsedHandle, { index: state.index, cursor: page.cursor });
+        store.replace(parsedHandle, { ...state, cursor: page.cursor });
         return availableOutput({
           requested_doi: state.index.source.doi ?? state.index.source.primary_identifier,
           ...(state.index.source.pmcid === undefined
@@ -308,7 +405,7 @@ export function createOpenFullTextExecutor(
       }
     },
     async validateStudyAudit({ document_handle: handle, audit }) {
-      const parsed = studyMethodAuditActionInputSchema.parse({
+      const parsed = freshStudyMethodAuditActionInputSchema.parse({
         document_handle: handle,
         audit
       });
@@ -319,6 +416,58 @@ export function createOpenFullTextExecutor(
         status: "source_linked_study_audit_validated",
         audit_receipt: receipt,
         coverage_receipt: auditCoverage(parsed.document_handle, state.index)
+      });
+    },
+    async reuseStudyAudit({ document_handle: handle, repository_analysis_version_id: versionId }) {
+      const parsed = repositoryStudyMethodAuditActionInputSchema.parse({
+        document_handle: handle,
+        repository_analysis_version_id: versionId
+      });
+      const state = store.read(parsed.document_handle);
+      if (!state.cursor.exhausted) throw new OpenFullTextNotReadError();
+      if (
+        state.repository_analysis_version_id === undefined ||
+        state.repository_analysis_version_id !== parsed.repository_analysis_version_id
+      ) {
+        return freshStudyMethodAuditRequiredOutputSchema.parse({
+          status: "fresh_study_audit_required",
+          reason: "candidate_missing",
+          next_capability: "validate_study_method_audit_with_fresh_audit",
+          coverage_receipt: freshAuditCoverage(parsed.document_handle, state.index)
+        });
+      }
+      const resolution = state.index.source.doi === undefined
+        ? unavailableStudyAuditReuse("source_incompatible")
+        : await repositoryStudyAuditFor(
+          state.index,
+          state.index.source.doi,
+          parsed.repository_analysis_version_id
+        ) ?? unavailableStudyAuditReuse("repository_unavailable");
+      if (resolution.projection.status !== "reusable" || resolution.audit === undefined) {
+        return freshStudyMethodAuditRequiredOutputSchema.parse({
+          status: "fresh_study_audit_required",
+          reason: resolution.projection.status === "fresh_audit_required"
+            ? resolution.projection.reason
+            : "record_invalid",
+          next_capability: "validate_study_method_audit_with_fresh_audit",
+          coverage_receipt: freshAuditCoverage(parsed.document_handle, state.index)
+        });
+      }
+      const receipt = validateStudyMethodAudit(state.index, resolution.audit);
+      return reusedStudyMethodAuditActionOutputSchema.parse({
+        status: "source_linked_study_audit_validated",
+        audit_receipt: receipt,
+        coverage_receipt: auditCoverage(parsed.document_handle, state.index),
+        repository_reuse_receipt: {
+          repository_analysis_version_id: resolution.projection.repository_analysis_version_id,
+          source_content_sha256: resolution.projection.source_content_sha256,
+          audit_sha256: receipt.audit_sha256,
+          protocol_sha256s: resolution.projection.protocol_sha256s,
+          freshness_state: "current",
+          impact_state: "complete",
+          compatibility_revalidated: true,
+          semantic_truth_not_certified: true
+        }
       });
     },
     async validateReviewAudit({ document_handle: handle, audit }) {
@@ -392,6 +541,25 @@ export function createOpenFullTextExecutor(
     }
   };
   return Object.freeze(executor);
+
+  async function repositoryStudyAuditFor(
+    index: AuditableDocumentIndex,
+    requestedDoi: string,
+    analysisVersionId?: string
+  ): Promise<StudyAuditReuseResolution | undefined> {
+    if (options.studyAuditReuse === undefined) return undefined;
+    try {
+      return await resolveStudyAuditReuse({
+        reader: options.studyAuditReuse.reader,
+        index,
+        requestedDoi,
+        protocolManifests: await options.studyAuditReuse.currentProtocolManifests(),
+        ...(analysisVersionId === undefined ? {} : { analysisVersionId })
+      });
+    } catch {
+      return unavailableStudyAuditReuse("repository_unavailable");
+    }
+  }
 }
 
 export function createOpenFullTextActionRoutes(
@@ -434,9 +602,17 @@ export function createOpenFullTextActionRoutes(
       operationId: "validate_study_method_audit",
       description: "Validate a source-linked study-method audit only after the exact full text was read to exhaustion. Randomization or publication labels are not reliability verdicts.",
       inputSchema: studyMethodAuditActionInputSchema,
-      outputSchema: studyMethodAuditActionOutputSchema,
+      outputSchema: studyMethodAuditRouteOutputSchema,
       async handle(input) {
-        return executor.validateStudyAudit(input);
+        return input.audit !== undefined
+          ? executor.validateStudyAudit({
+            document_handle: input.document_handle,
+            audit: input.audit
+          })
+          : executor.reuseStudyAudit({
+            document_handle: input.document_handle,
+            repository_analysis_version_id: input.repository_analysis_version_id!
+          });
       }
     });
   }
@@ -516,7 +692,8 @@ function availableOutput(
   data: Pick<OpenFullTextAcquisitionData, "requested_doi" | "requested_pmcid" | "discovery_attempts">,
   index: AuditableDocumentIndex,
   handle: string,
-  page: Page
+  page: Page,
+  repositoryStudyAudit?: StudyAuditReuseResolution
 ): z.output<typeof availableOpenFullTextActionOutputSchema> {
   if (page.blocks.length === 0) throw new Error("Open full-text page was empty");
   return availableOpenFullTextActionOutputSchema.parse({
@@ -526,6 +703,9 @@ function availableOutput(
     discovery_attempts: data.discovery_attempts,
     source: index.source,
     blocks: page.blocks,
+    ...(repositoryStudyAudit === undefined
+      ? {}
+      : { repository_study_audit: repositoryStudyAudit.projection }),
     coverage_receipt: {
       document_handle: handle,
       source_content_sha256: index.source.content_sha256,
@@ -560,6 +740,28 @@ function auditCoverage(handle: string, index: AuditableDocumentIndex) {
     source_content_sha256: index.source.content_sha256,
     audit_validated: true as const,
     synthesis_use: "bounded_by_validated_claim_capabilities" as const
+  };
+}
+
+function freshAuditCoverage(handle: string, index: AuditableDocumentIndex) {
+  return {
+    document_handle: handle,
+    full_text_read_to_exhaustion: true as const,
+    source_content_sha256: index.source.content_sha256,
+    audit_validated: false as const,
+    synthesis_use: "fresh_study_audit_required" as const
+  };
+}
+
+function unavailableStudyAuditReuse(
+  reason: StudyAuditReuseReason
+): StudyAuditReuseResolution {
+  return {
+    projection: studyAuditRepositoryReuseProjectionSchema.parse({
+      status: "fresh_audit_required",
+      reason,
+      current_source_revalidation_required: true
+    })
   };
 }
 

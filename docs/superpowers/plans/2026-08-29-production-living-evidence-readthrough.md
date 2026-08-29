@@ -1,8 +1,10 @@
 # Production living-evidence read-through integration
 
-Date: 2026-08-29  
-Task ID: `askrigor-living-evidence-readthrough-v1`  
-Assurance lane: release  
+Date: 2026-08-29
+
+Task ID: `askrigor-living-evidence-readthrough-v1`
+
+Assurance lane: release
 Status: active
 
 ## Objective
@@ -36,6 +38,15 @@ For an exact compatible repository hit:
 
 This removes the measured ChatGPT audit-construction stall on exact safe hits
 without relaxing HRP or synthesis locks.
+
+This is only the first production read-through slice. It must not be described
+as a final-answer cache or as the complete cumulative-intelligence design. The
+owner's required next layer is a durable research frontier: discovery passes,
+date/coverage windows, candidate decisions, unresolved questions, unattempted
+or blocked trails, and delta searches for new studies and, after the separate
+policy gate, videos/comments. That broader frontier is recorded in the
+cumulative design and work queue but is not silently added to this bounded
+study-audit release.
 
 ## Exact reuse gates
 

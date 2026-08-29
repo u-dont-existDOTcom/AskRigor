@@ -53,6 +53,14 @@ changed source access can update or invalidate what was previously known.
 
 The design conversation should cover:
 
+- a durable research frontier rather than a final-answer cache: exact discovery
+  passes, searched date windows, pagination/exhaustion state, candidates found,
+  inclusion/exclusion/defer reasons, unresolved questions, and promising trails
+  that were not yet attempted or exhausted;
+- delta-oriented continuation in which a later run starts from that frontier,
+  revalidates what may have changed, searches the interval since the last
+  complete pass, looks for newly relevant studies/videos/comments, and then
+  deepens, challenges, or extends prior analysis;
 - a searchable map of topics and subtopics, including relationships among
   questions, claims, interventions, outcomes, populations, sources, and
   unresolved evidence gaps;
@@ -75,6 +83,17 @@ The design conversation should cover:
 - an incremental update model that reuses valid prior work without allowing a
   stale summary, embedding, map, or ranking to overwrite newer canonical
   evidence.
+
+A rendered prior answer is a derived output, not the repository unit that makes
+AskRigor smarter. The canonical reusable base must distinguish what is known,
+what was merely considered, where and when discovery looked, what coverage was
+actually obtained, and what executable work remains. For YouTube specifically,
+the desired frontier includes video identities and selection state, requested
+and observed comment date ranges, provider-reported versus API-visible counts,
+pagination/sampling/exhaustion receipts, interesting-comment leads or extracted
+findings, and unsearched channels/videos/query variants. Those durable fields
+remain inactive while the Google compliance answer and field-by-field owner
+gate are pending.
 
 ### Architecture questions compared
 

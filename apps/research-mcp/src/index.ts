@@ -339,6 +339,8 @@ export {
   continueOpenFullTextActionInputSchema,
   createOpenFullTextExecutor,
   createOpenFullTextActionRoutes,
+  freshStudyMethodAuditActionInputSchema,
+  freshStudyMethodAuditRequiredOutputSchema,
   openFullTextActionOutputSchema,
   openFullTextActionErrorSchema,
   openFullTextLeadActionOutputSchema,
@@ -348,12 +350,25 @@ export {
   noticeMethodAuditSubmissionSchema,
   reviewMethodAuditActionInputSchema,
   reviewMethodAuditActionOutputSchema,
+  repositoryStudyMethodAuditActionInputSchema,
+  reusedStudyMethodAuditActionOutputSchema,
   studyMethodAuditActionInputSchema,
   studyMethodAuditActionOutputSchema,
+  studyMethodAuditRouteOutputSchema,
   studyMethodExternalAuditOutputSchema,
   type CreateOpenFullTextActionRoutesOptions,
   type OpenFullTextExecutor
 } from "./actions/open-full-text-route.js";
+export {
+  createValidatedStudyAuditContribution,
+  resolveStudyAuditReuse,
+  studyAuditRepositoryReuseProjectionSchema,
+  studyAuditReuseReasonSchema,
+  type StudyAuditRepositoryReuseProjection,
+  type StudyAuditReuseReader,
+  type StudyAuditReuseReason,
+  type StudyAuditReuseResolution
+} from "./actions/study-audit-reuse.js";
 export {
   createOpenFullTextHandleStore,
   isOpenFullTextHandle,

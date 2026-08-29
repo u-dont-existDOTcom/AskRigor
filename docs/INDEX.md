@@ -61,6 +61,10 @@ complete XML protocol.
   second-account plugin connectivity, repeated Universal-version rendering
   defect, bounded aspirin benchmark stall, and isolated full-text validator
   latency receipt
+- `audits/2026-08-29-production-living-evidence-readthrough.md`: exact
+  study-audit repository reuse, fail-closed compatibility gates, private VPS
+  deployment boundary, deterministic/real-PostgreSQL evidence, and remaining
+  merge/deployment/product acceptance
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
@@ -115,13 +119,17 @@ complete XML protocol.
 
 ## Privacy
 
-- `living-evidence-source-storage-policy.md`: approved isolated-pilot boundary
-  for complete AskRigor-authored study/review analysis, explicit partial
-  historical capture, source licensing, freshness, retention, and zero durable
-  YouTube/community records
+- `living-evidence-source-storage-policy.md`: approved isolated-pilot and
+  curated production read-through boundary for complete AskRigor-authored
+  analysis, explicit partial capture, source licensing, freshness, retention,
+  and zero durable YouTube/community records
 - `living-evidence-repository-threat-model.md`: persistence trust boundaries,
-  append-only/versioning attacks, lossless-analysis controls, private Railway
-  gate, restore equivalence, and residual production requirements
+  append-only/versioning attacks, lossless-analysis controls, SELECT-only VPS
+  read-through, private Railway gate, restore equivalence, and residual
+  production requirements
+- `../infra/living-evidence-production/README.md`: private VPS PostgreSQL,
+  SELECT-only reader, curated stdin import, activation, acceptance, and rollback
+  runbook for production study-audit read-through
 - `privacy-data-map.md`: data classes, flows, exclusions, and handling
 - `research-session-resumability-threat-model.md`: encrypted bounded
   checkpoint assets, trust boundaries, hostile recovery cases, retention,

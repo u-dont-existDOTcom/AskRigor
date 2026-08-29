@@ -52,6 +52,11 @@ Trust boundaries:
 | Restore is accepted without equivalence | Compare schema version, stable IDs, counts, analysis/source/receipt hashes, event-chain head, and fixed query results | Restore rejected and target deleted |
 | Concurrent writers create split current state | Serializable contribution transactions, one transaction-scoped repository-writer advisory lock, unique lineage constraints, and deterministic idempotency keys | One writer waits; no partial generation or sibling current leaf |
 | Future schema cannot interpret old analysis | Versioned contribution and rubric schemas; forward migration; preserved raw structured analysis JSON within the allowed analysis class | Old version remains readable or migration fails before commit |
+| Public request silently becomes durable repository data | The public MCP/Action validator has no writer and retains read-only annotations; only the one-shot admin profile can contribute a reviewed payload from stdin | Public work remains ephemeral; a later write-through design requires a new privacy/consent gate |
+| Repository outage stalls every full-text page | One 1.5-second bounded candidate lookup occurs at acquisition, no lookup occurs on continuation pages, and one bounded lookup repeats at requested reuse | The same exhausted handle remains usable for a fresh audit |
+| Candidate changes after it is advertised | Validation reloads the requested analysis version and repeats source, lineage, freshness, impact, protocol, rubric, receipt, and payload checks | Return fresh_study_audit_required; never reuse the cached advertisement |
+| Database reader can mutate evidence | Separate fixed reader role has CONNECT/USAGE/SELECT only plus default_transaction_read_only; the public container receives no migrator URL; catalog privileges are checked during deployment | Startup/release acceptance fails; reuse stays disabled |
+| Database is exposed beyond AskRigor | Dedicated internal Docker network, no published PostgreSQL port, unrelated VPS databases excluded, root-owned secret files, and no connection string in receipts/logs | Deployment is rejected or rolled back before import |
 
 ## Full-analysis privacy boundary
 
@@ -75,9 +80,10 @@ Provisioning is allowed only when all of these can be read back before import:
 - logical export and restore capability; and
 - exact deletion target and backup inventory.
 
-The current Codex session exposes no Railway actions and no Railway CLI
-credential. That is an access boundary, not permission to use production or an
-unbounded fallback.
+Railway remains an optional later host. The current production read-through
+uses the existing AskRigor VPS because its private Docker topology and bounded
+resources are already verifiable; it never reuses another application's
+PostgreSQL service.
 
 ## Acceptance attacks
 
@@ -103,8 +109,9 @@ The task-specific acceptance suite must include deliberate attempts to:
   correct, current, or independently validated.
 - A private network reduces exposure but does not replace least privilege,
   credential rotation, backups, monitoring, or provider account security.
-- The pilot does not settle production multi-user privacy, copyright,
-  jurisdiction, disaster recovery, or long-term operating cost.
-- The local pilot uses one database owner/migrator credential. Separate
-  reader, writer, refresh, migrator, and backup roles are a production gate and
-  must be provisioned and accepted before any multi-process or multi-user use.
+- The curated read-through phase does not settle production multi-user writes,
+  private-data privacy, copyright, jurisdiction, off-host disaster recovery,
+  or long-term operating cost.
+- Production read-through separates a fixed SELECT-only reader from the
+  one-shot migrator/importer credential. Dedicated refresh, backup, and
+  multi-writer roles remain future gates before scheduled or multi-user writes.

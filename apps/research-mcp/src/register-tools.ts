@@ -4,6 +4,7 @@ import type {
   ToolAnnotations
 } from "@modelcontextprotocol/sdk/types.js";
 import { ACCESS_STATUSES, errorEnvelope } from "@askrigor/contracts";
+import { PostgresEvidenceRepository } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
   loadProtocol,
@@ -31,7 +32,10 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
-import { PUBLIC_TOOL_LIMITS } from "./config.js";
+import {
+  PUBLIC_TOOL_LIMITS,
+  optionalLivingEvidenceReuseConfigFromEnv
+} from "./config.js";
 import { protocolErrorResult, successfulToolResult } from "./tool-result.js";
 import {
   auditYoutubeCommunity,
@@ -72,10 +76,12 @@ import {
   reviewMethodAuditActionInputSchema,
   reviewMethodAuditActionOutputSchema,
   studyMethodAuditActionInputSchema,
-  studyMethodAuditActionOutputSchema
+  studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
 
-const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes();
+const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes(
+  configuredOpenFullTextOptions()
+);
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -923,7 +929,7 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "acquire_open_full_text",
     {
-      description: "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation, or preserve the explicit access boundary.",
+      description: "Start one lawful full-text chain. Input is exactly one doi string plus an optional pmcid string, never an identifier array. Bind the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 for every continuation and validation. If repository_study_audit.status is reusable, also bind its repository_analysis_version_id; otherwise perform a fresh audit.",
       inputSchema: acquireOpenFullTextActionInputSchema,
       outputSchema: openFullTextMcpOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
@@ -943,9 +949,9 @@ function registerOpenFullTextMcpTools(
   registrar.registerTool(
     "validate_study_method_audit",
     {
-      description: "Validate a full-text, source-linked individual-study audit on the exact bound acquisition document_handle; design and publication labels never substitute for method inspection. Before synthesis, require the returned coverage_receipt.document_handle and coverage_receipt.source_content_sha256 to match the acquisition byte-for-byte; mismatch blocks synthesis.",
+      description: "Validate a full-text, source-linked individual-study audit on the exact exhausted document_handle. Supply either a newly performed audit or the repository_analysis_version_id advertised by this same acquisition. Repository reuse repeats exact source/protocol/rubric/freshness/impact checks and runs the same validator; fresh_study_audit_required means call again with a newly performed audit. Before synthesis, require the returned validated coverage receipt to match the acquisition byte-for-byte.",
       inputSchema: studyMethodAuditActionInputSchema,
-      outputSchema: studyMethodAuditActionOutputSchema,
+      outputSchema: studyMethodAuditRouteOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
     },
     async (input) => invokeOpenFullTextMcp("validate_study_method_audit", input)
@@ -960,6 +966,28 @@ function registerOpenFullTextMcpTools(
     },
     async (input) => invokeOpenFullTextMcp("validate_review_method_audit", input)
   );
+}
+
+function configuredOpenFullTextOptions() {
+  const config = optionalLivingEvidenceReuseConfigFromEnv();
+  if (config === undefined) return {};
+  const repository = new PostgresEvidenceRepository({
+    connectionString: config.connectionString,
+    schema: config.schema,
+    ssl: config.ssl,
+    connectionTimeoutMillis: config.connectionTimeoutMillis,
+    queryTimeoutMillis: config.queryTimeoutMillis,
+    statementTimeoutMillis: config.statementTimeoutMillis
+  });
+  return {
+    studyAuditReuse: {
+      reader: repository,
+      currentProtocolManifests: async () => Promise.all([
+        getProtocolManifest("universal"),
+        getProtocolManifest("hrp")
+      ])
+    }
+  };
 }
 
 async function invokeOpenFullTextMcp(
