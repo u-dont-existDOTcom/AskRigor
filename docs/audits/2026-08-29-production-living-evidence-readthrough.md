@@ -4,8 +4,8 @@ Date: 2026-08-29
 
 Task: askrigor-living-evidence-readthrough-v1
 
-Status: release candidate verified; merge, deployment, seed import, and product
-acceptance pending
+Status: PR #130 open; hosted review, merge, deployment, seed import, and
+product acceptance pending
 
 ## Outcome under review
 
