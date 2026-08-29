@@ -81,8 +81,10 @@ review remains required.
 PR #128's first CodeQL pass found one high-severity polynomial-regex path in
 the Markdown analysis splitter. The regex was replaced with a bounded
 single-pass line scanner and focused CRLF/multi-space-heading coverage. The
-focused test and typecheck pass; the exact repaired PR head still requires the
-hosted deterministic and CodeQL reruns before merge.
+focused test and typecheck passed. Exact repaired head
+`f15ca1a7dc95df045419b52ee26c7fe284c4ede2` then passed hosted deterministic
+verification, workflow policy, the CodeQL aggregate, and all Actions,
+JavaScript/TypeScript, and Python analyses. PR #128 is clean and mergeable.
 
 Railway remains deliberately unprovisioned. Current Railway controls make
 compute hard limits workspace-wide with a $10 minimum, while paid volumes

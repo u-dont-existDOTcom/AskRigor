@@ -46,11 +46,18 @@
     "repositoryCanonicalSha256": "8b796f9b16540fcf5408165049f46953ed64cfb26bce6f98b00e615ca069909c",
     "latestDumpBytes": 139706,
     "restoreVerified": true,
-    "fullVerifyPassed": false,
+    "fullVerifyPassed": true,
     "fullVerifyTestFilesPassed": 107,
     "fullVerifyTestsPassed": 1433,
     "communityDerivedRecords": 0,
-    "rawSourceContentIncluded": false
+    "rawSourceContentIncluded": false,
+    "hostedChecks": {
+      "pullRequest": 128,
+      "verifiedHead": "f15ca1a7dc95df045419b52ee26c7fe284c4ede2",
+      "deterministicVerification": "pass",
+      "workflowPolicy": "pass",
+      "codeql": "pass"
+    }
   },
   "railwayPilot": {
     "authorized": true,
