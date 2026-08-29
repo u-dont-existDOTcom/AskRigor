@@ -87,10 +87,30 @@ After about 12 minutes, while the response remained active on a Web-search
 step, the exact headless Brave control session disconnected. The only remaining
 Brave connection belonged to a different signed-in profile and was not used.
 The stable conversation URL was preserved, no prompt or tool call was resent,
-and no replacement conversation was created. No terminal validator receipt was
-visible before the disconnect, so one-acquisition, zero-continuation,
-one-validator, and exact handle/hash equality remain **product-interface
-unverified** rather than inferred from the passing direct/backend evidence.
+and no replacement conversation was created.
+
+The exact signed-in profile was recovered later without repeating the prompt or
+creating another conversation. The saved run had completed after 23 minutes 25
+seconds. Its terminal response reported that both canonical protocols passed
+their integrity checks, the complete Europe PMC JATS body was read through all
+37 blocks to exhaustion, and the source-linked study audit completed and
+validated while preserving unresolved fields. The product run reported one
+document handle, `aft1_QvfX_6RdGgh2qYIOpTWJ0Cfb6KP1A0WQ`, the same expected
+source-content SHA-256
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`,
+validated-audit SHA-256
+`41f5bff78d6dbaf291013c4709f46eaf70627e69a3f031ae12b790fd63cd1c88`,
+receipt `source_linked_study_audit_validated`, and completion state
+`complete_with_unresolved_fields`. The rendered audit distinguished supported,
+conditional, uncertain, and unsupported claims and listed the remaining access
+and validation gaps explicitly. This closes the ordinary-prompt
+product-interface acceptance at the terminal artifact boundary.
+
+ChatGPT's rendered activity summary does not expose the underlying app calls as
+individually enumerable tool cards. It therefore supports one reported
+exhausted acquisition chain and one terminal matching validator receipt, but
+does not independently expose raw hidden call cardinality. No exact count of
+unrendered internal app calls is inferred from the UI.
 
 The required lesson checkpoint remained available after deployment: one open
 candidate, one needing review, zero accepted but not incorporated, three

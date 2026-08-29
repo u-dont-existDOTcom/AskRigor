@@ -45,9 +45,21 @@ retraction checks, full-text acquisition, trial retrieval, and several
 methodological/comparative stages. The exact headless Brave session then
 disconnected while the response was still active. A different signed-in Brave
 profile was not used. No prompt was resent and no replacement chat was created.
-Resume the stable conversation when the original profile is accessible and
-inspect the terminal receipt; until then, product-level call counts and exact
-acquisition-to-validation handle/hash equality remain unverified.
+The exact profile was later recovered and the preserved run had completed after
+23 minutes 25 seconds. Its terminal response reports both protocol-integrity
+checks, all 37 JATS blocks read to exhaustion, document handle
+`aft1_QvfX_6RdGgh2qYIOpTWJ0Cfb6KP1A0WQ`, source SHA-256
+`9c0bba5c0c8c940f8e28974943ef5c23edf9f90551def1f647610c020d03e8b0`,
+validated-audit SHA-256
+`41f5bff78d6dbaf291013c4709f46eaf70627e69a3f031ae12b790fd63cd1c88`,
+receipt `source_linked_study_audit_validated`, and completion state
+`complete_with_unresolved_fields`. The rendered answer preserves methodological,
+access, and validation gaps and bounds supported versus unsupported claims.
+Ordinary-prompt product-interface acceptance is therefore complete at the
+terminal artifact boundary. The ChatGPT activity summary does not expose raw
+app-call cardinality as individually enumerable tool cards, so no hidden call
+count is inferred beyond the single reported exhausted chain and terminal
+matching validator receipt.
 
 The lesson checkpoint remains available: open 1, needs review 1,
 accepted-not-incorporated 0, incorporated/closed 3, deletion-eligible 0. The
