@@ -57,6 +57,10 @@ complete XML protocol.
 - `audits/2026-08-29-cumulative-living-evidence-prior-work.md`: bounded
   provenance, living-review, evidence-map, quality-framework, database, and
   provider-policy scan; explicit compose decision and external pilot baselines
+- `audits/2026-08-29-second-account-plugin-acceptance.md`: fresh ordinary-Chat
+  second-account plugin connectivity, repeated Universal-version rendering
+  defect, bounded aspirin benchmark stall, and isolated full-text validator
+  latency receipt
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

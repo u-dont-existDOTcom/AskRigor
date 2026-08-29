@@ -1,5 +1,39 @@
 # AskRigor Codex Current State
 
+## 2026-08-29 second-account regular-Chat acceptance and bounded latency failures
+
+The owner-designated `2nd gpt` Brave profile can discover, attach, and invoke
+the replacement **AskRigor Research** plugin in ordinary ChatGPT Pro / Chat
+mode. Three fresh product cases are recorded in
+`../docs/audits/2026-08-29-second-account-plugin-acceptance.md`.
+
+The bounded connectivity case completed in 2m57s and correctly returned HRP
+`20.5.23` plus PMID `40223676`, but mislabeled Universal as `1.7` while
+rendering the exact canonical `20.5.15` revision date and SHA-256. A second
+ordinary substantive case independently repeated the `1.7` label and was
+stopped without a final answer after 15m03s. Direct live manifest output and
+canonical bytes both remain correct at Universal `20.5.15`; this is a
+ChatGPT composition/presentation defect, not a backend manifest defect.
+
+The isolated full-text case copied manifest fields verbatim and therefore
+rendered Universal `20.5.15` and HRP `20.5.23` correctly. It acquired the
+known DOI `10.2340/17453674.2025.43332` Europe PMC JATS body as 37/37 blocks,
+already exhausted, with zero continuation calls. The bound validator then
+showed no new visible checkpoint for more than four minutes and produced no
+receipt by the eight-minute cutoff. It was stopped without retry, reacquisition,
+`Answer now`, or receipt inference. The three preserved conversations are:
+
+- `https://chatgpt.com/c/6a9346d8-a094-83ea-9ad7-6ac683f7a4dd`
+- `https://chatgpt.com/c/6a934852-1e3c-83ea-91c4-0e6f97b47856`
+- `https://chatgpt.com/c/6a934be2-7924-83ea-a815-a3774968d2bb`
+
+The YouTube field-by-field storage-policy clarification was sent in the
+existing quota-review Gmail thread. Until Google answers, the living-evidence
+pilot continues to persist zero YouTube/community records. Lesson issue #9 was
+closed as incorporated with exact evidence receipts. The refreshed lesson
+checkpoint is available with 0 open candidates, 0 needs review, 0 accepted but
+not incorporated, 4 incorporated or closed, and 0 deletion eligible.
+
 ## 2026-08-29 cumulative living evidence pilot completed
 
 Task ID: `askrigor-living-evidence-pilot-v1`
