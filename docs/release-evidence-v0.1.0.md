@@ -112,6 +112,39 @@ exhausted acquisition chain and one terminal matching validator receipt, but
 does not independently expose raw hidden call cardinality. No exact count of
 unrendered internal app calls is inferred from the UI.
 
+A second fresh ordinary-prompt product case used the owner's primary
+`u-dont-exist.com` ChatGPT account rather than the owner-reported
+lower-intelligence Custom GPT surface. That account still exposed the personal
+**AskRigor** app associated with
+`asdk_app_6a7cd2a0156881918ce7dedecb715250`; its availability is therefore
+account-specific, despite the same app having been unavailable in the separate
+regular account above. `Try in chat` attached it to a new GPT-5.6 Sol chat, and
+the mode was explicitly changed from Work to Chat before submission. The
+preserved conversation is
+`https://chatgpt.com/c/6a92f38b-84e8-83ea-85a0-a9923aeed485`.
+
+The ordinary prompt requested the canonical full-text methods audit of review
+DOI `10.7759/cureus.72057` without prescribing tools, call counts, handles, or
+hashes. The same response remained active through one recovered tool-call error
+and a long unchanged visible interval; it was neither stopped nor retried and
+completed after 37 minutes 24 seconds. Its terminal artifact verified the live
+Universal and HRP identities above, identified PMCID `PMC11578636` and PMID
+`39569300`, reported all 58/58 review blocks exhausted, source SHA-256
+`d708fbfe67ebbb411c8937fdc55fc0021fe45a6188c2c503e50e820ce2b41cd3`, a
+validated structured audit with unresolved fields preserved, and audit-receipt
+SHA-256 `66de15115f1b121ecba82298f1e87e93ba615d1e578e446c619e2b1d3c1c919a`.
+
+The substantive audit stayed correctly scoped to hip osteoarthritis, addressed
+every requested methods domain, bounded supported and unsupported conclusions,
+and explicitly retained its access and validation gaps. One activity-summary
+line said `knee osteoarthritis`; it was the only `knee` occurrence and did not
+propagate into the final audit. The review-method product case passes with that
+presentation/topic-label defect and the unusually long latency declared.
+Unlike the earlier study case, this rendered artifact did not display the
+document handle or machine-readable receipt type/completion-state name, and raw
+app calls were again not individually enumerable; those values are not
+inferred.
+
 The required lesson checkpoint remained available after deployment: one open
 candidate, one needing review, zero accepted but not incorporated, three
 incorporated/closed, and zero deletion-eligible. No pending lesson expanded or
