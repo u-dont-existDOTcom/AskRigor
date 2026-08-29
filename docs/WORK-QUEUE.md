@@ -7,9 +7,29 @@ authorize new collection, persistence, publication, or provider spending.
 
 ## Queued: cumulative living evidence repository
 
-Status: owner brainstorming and architecture decision required
+Status: architecture proposal complete; owner implementation/persistence
+decision and required gates remain
 
 Source: Joel, 2026-08-29
+
+Design artifacts:
+
+- `audits/2026-08-29-cumulative-living-evidence-prior-work.md` records the
+  bounded standards, literature, implementation, and quality-framework scan and
+  the explicit **compose** decision.
+- `superpowers/specs/2026-08-29-cumulative-living-evidence-repository-design.md`
+  proposes PostgreSQL as canonical authority, with explicit graph edges and
+  Obsidian, Mermaid, full-text/search, and RO-Crate as generated views.
+- `architecture/living-evidence-repository-map.md` is the living derived control
+  surface for persistence, provenance, correction, freshness, and topic/evidence
+  relationships.
+- `superpowers/plans/2026-08-29-cumulative-living-evidence-pilot.md` defines the
+  reversible single-topic pilot and keeps local implementation, Railway
+  provisioning, and production integration behind separate gates.
+
+The proposal selects a canonical architecture for review but does not authorize
+collection, persistence, provisioning, provider spending, deployment, or
+production integration.
 
 ### Desired outcome
 
@@ -43,7 +63,7 @@ The design conversation should cover:
   stale summary, embedding, map, or ranking to overwrite newer canonical
   evidence.
 
-### Architecture questions to compare
+### Architecture questions compared
 
 Do not select a platform in advance. Compare at least a repository-native
 knowledge graph, a queryable database/search index, Obsidian as an authoring or
@@ -53,11 +73,14 @@ traceability, full-text and metadata search, graph traversal, incremental
 updates, conflict representation, portability, backup/restore, schema
 migration, privacy boundaries, and operating cost.
 
-Before bespoke design, run the current research-before-reinvention scan across
-evidence graphs, living systematic reviews, evidence surveillance, research
-repositories, and mature knowledge-management tools. Define a small reversible
-pilot only after the scan and owner discussion identify the canonical data
-model and the decision the pilot must resolve.
+The research-before-reinvention scan compared repository-native graphs,
+queryable databases/search, Obsidian, Mermaid, and a hybrid. The proposed
+answer is a hybrid with PostgreSQL structured records and explicit edges as the
+only canonical transactional authority. Obsidian, Mermaid, RO-Crate, full-text
+indexes, and any later embeddings remain rebuildable projections. The proposed
+single-topic pilot tests whether PostgreSQL alone answers the fixed retrieval,
+update, portability, and deletion questions before adding a graph or vector
+service.
 
 ### Required gates before implementation
 
@@ -72,5 +95,7 @@ model and the decision the pilot must resolve.
 - rollback, export, portability, and deletion acceptance criteria.
 
 The current product intentionally has no durable full-text, transcript,
-candidate-packet, treatment-landscape, or server-side comment corpus. This
-queue entry does not change that boundary.
+candidate-packet, treatment-landscape, or server-side comment corpus. The
+design artifacts and queue update do not change that boundary. Until the active
+YouTube compliance review and the exact durable-field decision are complete,
+the proposed pilot stores zero YouTube/community records.
