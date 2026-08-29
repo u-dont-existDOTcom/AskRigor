@@ -1,6 +1,6 @@
 # Public MCP full-text chain guard
 
-Status: implementation and release in progress
+Status: implementation merged and deployed; final product receipt interrupted
 
 Assurance lane: release — the owner approved production deployment, ChatGPT
 app refresh, and fresh product acceptance
@@ -79,12 +79,27 @@ an owner product-design queue item, not validated implementation evidence.
   same seven files reduced to three timeout-only failures under one worker.
 - The complete load-tolerant rerun with two serialized workers and expanded
   timeouts passes 106 files with one declared live file skipped and 1,428 tests
-  with six declared live tests skipped. Protected canonical CI remains required
-  before merge.
+  with six declared live tests skipped. Protected canonical CI subsequently
+  passed cleanly.
 - The generated inventory remains exactly 21 read-only tools with unchanged
   names and schemas; its new source-derived SHA-256 is
   `e8c3388befec97f5c2f666122c5605821c3cd7afec92e9aecd540593f5c880c5`.
 - HRP, Universal, the five-operation Action schema, generated Custom GPT
   instructions, and all eight source plugin-package members are unchanged.
-- PR #123 is open from the isolated task branch; merge, exact deployment, app
-  refresh, and fresh product acceptance remain pending.
+- PR #123 merged reviewed head
+  `676531ca5ef1c774053452d6f8e0f851d481a6aa` as
+  `db21d99447fcde10bc42d162fe03318e793f046d` after all protected checks passed.
+- The exact merge is deployed and healthy with an explicit prior-image and
+  prior-Compose rollback. Public health, the exact 21-tool catalog, both
+  protocol manifests, one installed-connector probe, and complete source and
+  installed plugin receipts pass.
+- Replacement regular-account app **AskRigor Research** is connected to the
+  same production endpoint with all 21 exact tools. Its app and version IDs are
+  recorded in `docs/release-evidence-v0.1.0.md`.
+- A fresh ordinary-prompt GPT-5.6 Sol / Chat / `Pro` 5-of-5 case used the
+  replacement app and advanced through protocol loading, full-text acquisition,
+  and methodological work. The exact headless Brave session disconnected while
+  the response was still active, before a terminal validator receipt could be
+  inspected. The stable conversation URL is recorded in release evidence; no
+  prompt was resent. Product-level call counts and handle/hash equality remain
+  unverified pending recovery of that exact signed-in profile.
