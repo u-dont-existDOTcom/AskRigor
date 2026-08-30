@@ -1,6 +1,53 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-30 durable research-frontier ledger deployed
+
+PR #139 passed deterministic verification, workflow policy, and every CodeQL
+analysis before merging as
+`036c343343ceb5348b0907f81a1333a59d8bace7`. The exact merge archive SHA-256 is
+`3d5ca762ef4c5f8fc745dc9cbc54fde700f1d3d912bb1cda8a78bff7832920a3`.
+Production runs the exact labeled image
+`askrigor-research:036c343343ceb5348b0907f81a1333a59d8bace7`, image ID
+`sha256:ff01d543194d60f771ad15475de2f6ab9c21f27b18872f37748f31f23e5435d6`,
+in healthy container `1a1e8d448f03`. The healthy private PostgreSQL container
+`393070e563f1` and running Caddy container `297c59cfb620` were not recreated.
+
+Migration `0002_research_frontier` is recorded with SHA-256
+`eeeee1872c72bc5b67f1cd71797c6bcb11a4d8aee172763daa7a92a83e845200`.
+The schema increased from 30 to 42 relations while the prior source-family and
+analysis counts remained one. All nine frontier tables are empty. The reader
+has SELECT on every relation, zero write grants, and read-only transactions.
+The predeployment database dump SHA-256 is
+`293e3d430224f98b3faa0b970e7c7e32cf7ad1daae3b9aaa85b046ea2ece41d9`;
+the prior image is preserved as
+`askrigor-research:rollback-frontier-036c343`, image ID
+`sha256:7aa19ebbbddedaaad326e9de9be0a446a31bdffdb171fd3e8e941afab7692e6b`.
+
+Fresh public acceptance passed health, the exact ordered 21-tool catalog, both
+canonical protocol manifests, and a read-only PubMed probe. The LEAP source was
+read to all 58 blocks with one continuation. A wrong analysis version failed
+closed as `fresh_study_audit_required / candidate_missing`; the exact stored
+version returned `source_linked_study_audit_validated`, exact audit SHA-256
+`678a0720b775f9518c753cf6d785b8e9fe6580e537d3ea7a25a13b4d578b4ff6`,
+and compatibility revalidation.
+
+The complete source and installed plugin receipts each cover all eight members.
+Source and installed package SHA-256 values are
+`398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca` and
+`0e4db5e82818bf321a5c9dce50b73357faeaf5c6333183cf99a679fef267329a`;
+all seven non-manifest members are byte-identical, and the manifests differ
+only by the expected installed cachebuster version. No reinstall was needed.
+
+A fresh owner-primary ordinary ChatGPT Chat-mode/Pro run attached the installed
+AskRigor plugin, whose settings exposed all 21 exact actions. It completed in
+57 seconds at
+`https://chatgpt.com/c/6a944152-49b0-83e9-997e-3e84a6c5b614` and returned exact
+Universal `20.5.15`, HRP `20.5.23`, both hashes, and PMID `40223676` as
+`api_visible_complete`. Complete migration, rollback, direct, plugin, product,
+privacy, and remaining-catalog evidence is in
+`docs/audits/2026-08-30-research-frontier-ledger.md`.
+
 ## 2026-08-30 Mayan Roots LLC publisher alignment deployed
 
 The owner selected **Mayan Roots LLC** as AskRigor's business developer identity
