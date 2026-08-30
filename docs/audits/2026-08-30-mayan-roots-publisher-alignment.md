@@ -41,12 +41,23 @@ website, support, privacy, and terms surfaces to match the publisher identity.
 It also warns that an unverified or mismatched publisher identity can be
 rejected.
 
-The signed-in 2026-08-30 observation remains exactly as recorded in
+The initial signed-in 2026-08-30 observation remains exactly as recorded in
 `docs/audits/2026-08-30-openai-plugin-portal-readback.md`: Individual
 verification was `Approved`, Business verification was `Start`, the
 organization notice was `Organization could not be verified`, and no plugin
-draft was created. Selecting Mayan Roots LLC in repository metadata does not
-turn that observation into approval.
+draft was created. Selecting Mayan Roots LLC in repository metadata did not
+turn that historical observation into approval.
+
+After the release, the owner explicitly approved aligning the private OpenAI
+account label as well. The signed-in organization name changed from
+`AskRigor.com` to `Mayan Roots LLC`, the portal reported `Organization updated
+successfully`, and direct field/sidebar readback confirmed the saved name.
+Verification then showed Individual `Approved`, Business `Identity rejected`,
+and `Start`. Retrying `Start` returned `Unable to verify organization` and
+`verification is not available to your organization at this time` before any
+business-information form appeared. No tax identifier, address, document, or
+other private verification value was entered or transmitted, and no plugin
+draft was created. The developer-identity gate therefore remains fail-closed.
 
 ## Released changes
 
@@ -63,7 +74,8 @@ turn that observation into approval.
 
 ## Remaining external gates
 
-OpenAI business verification for Mayan Roots LLC, global data residency, the
+OpenAI business verification for Mayan Roots LLC is currently unavailable in
+the signed-in flow after the rejected prior attempt. Global data residency, the
 askrigor.com domain challenge for that selected identity, Scan Tools, the demo
 recording, final portal review, and submission remain incomplete. No portal
 draft or submission action is authorized by this identity alignment.

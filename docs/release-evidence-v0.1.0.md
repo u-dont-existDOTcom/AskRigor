@@ -26,6 +26,15 @@ observation remain unchanged historical evidence. The owner decision and
 boundary are recorded in
 `docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`.
 
+Post-release signed-in readback adds a later external-state receipt without
+changing that gate. After explicit owner approval, the OpenAI organization
+label was saved as `Mayan Roots LLC` and the portal confirmed the update.
+Individual remained `Approved`; Business showed `Identity rejected` plus
+`Start`. Retrying `Start` stopped at an unavailable-verification dialog before
+any form appeared. No tax identifier, address, document, or other private
+verification value was entered or transmitted, and no plugin draft was
+created.
+
 Test-first execution failed on the old publisher metadata and absent public
 disclosures, then the initial focused suites passed 36/36 tests. The exact-
 legal-name correction subsequently failed the expected 8 no-suffix assertions
