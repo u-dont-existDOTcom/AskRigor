@@ -72,7 +72,8 @@ complete XML protocol.
   data-residency evidence at the time of observation
 - `audits/2026-08-30-mayan-roots-publisher-alignment.md`: owner-selected
   AskRigor-product/Mayan-Roots-LLC-publisher split, official listing boundary,
-  complete public-surface alignment, and still-open business-verification gate
+  deployed public/plugin alignment, exact receipts, rollback, and still-open
+  business-verification gate
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

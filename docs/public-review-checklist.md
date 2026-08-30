@@ -281,8 +281,8 @@ plugin portal, and **Create plugin**. The receipt is
 `docs/audits/2026-08-30-openai-plugin-portal-readback.md`. No developer identity
 or draft was selected during that readback. The owner subsequently selected
 **Mayan Roots LLC** as the business developer identity while retaining **AskRigor**
-as the product name. The aligned candidate and still-open business-verification
-gate are recorded in
+as the product name. The aligned source/site/plugin release and still-open
+business-verification gate are recorded in
 `docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`.
 The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
@@ -605,8 +605,9 @@ declared rather than rewritten as exact card-sequence proof.
 
 The publisher-matching HTTPS legal/support prerequisite was first verified on
 2026-08-12 at release `f928b95e29cd`. On 2026-08-30 the owner selected Mayan
-Roots LLC as the business developer identity and the public candidate was aligned
-to state that AskRigor is a product operated by Mayan Roots LLC. Remaining
+Roots LLC as the business developer identity. Merge
+`4d4bd43303045223394480b13153e7ae3b9149bd` is active on the public site and
+states that AskRigor is a product operated by Mayan Roots LLC. Remaining
 execution steps are:
 
 1. Complete OpenAI business verification for Mayan Roots LLC and retain a non-

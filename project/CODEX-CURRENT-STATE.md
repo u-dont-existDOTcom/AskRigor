@@ -1,14 +1,14 @@
 # AskRigor Codex Current State
 
-## 2026-08-30 Mayan Roots LLC publisher alignment in progress
+## 2026-08-30 Mayan Roots LLC publisher release completed; verification pending
 
-Branch: `agent/mayan-roots-llc-publisher-correction-20260830`
+Closeout branch: `agent/mayan-roots-llc-release-closeout-20260830`
 
-Baseline: `aea17f1500247e65fd83ddd34207d635b778a987`
+Source merge: `4d4bd43303045223394480b13153e7ae3b9149bd` (PR #135)
 
 The owner selected **Mayan Roots LLC** as AskRigor's business publisher/developer
 identity while retaining **AskRigor** as the product and plugin display name.
-The repository candidate aligns the manifest author/developer metadata,
+The released source aligns the manifest author/developer metadata,
 submission packet, and all four public pages to the exact truthful statement
 `AskRigor is a product operated by Mayan Roots LLC.` Privacy and terms are dated
 August 30, 2026. The owner-supplied tax identifier and company/mailing addresses
@@ -16,11 +16,12 @@ are intentionally excluded from the repository and public site and reserved
 for the private verification form if required. No portal-approval claim is
 inferred.
 
-PR #134 merged the initial no-suffix candidate as the baseline above, but the
+PR #134 merged the initial no-suffix candidate as
+`aea17f1500247e65fd83ddd34207d635b778a987`, but the
 owner clarified the exact legal suffix before deployment. Its local site
 archive was never uploaded: the first read-only VPS preflight failed at DNS
 resolution before reaching or changing the server, and the stale archive was
-moved to trash. The correction branch is the only releasable candidate.
+moved to trash. The correction merge above is the released candidate.
 
 The developer-identity gate remains `in_progress`: the direct portal readback
 still says Business verification `Start`. Global residency, the askrigor.com
@@ -36,17 +37,35 @@ validator, and complete deterministic gate passed. The complete gate covered
 declared skips, plus typecheck and build. The pre-cachebuster source receipt
 covers all eight package members with package SHA-256
 `398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca`.
-The corrected pre-release lesson checkpoint at `2026-08-30T01:53:25.860Z` reported 0
+The corrected pre-release lesson checkpoint at `2026-08-30T01:53:25.860Z`
+reported 0 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated
+or closed, and 0 deletion eligible.
+
+The exact merge is deployed as immutable site release `4d4bd4330304`; public
+home/privacy/terms/support/CSS bytes match source and required security headers
+pass. Caddy changed only from `cb061473089c` to `297c59cfb620` on the unchanged
+image. Research remained exact healthy container `e1b912b7c37c`. The prior site
+release `4cf17ae-20260827-youtube-api-disclosures` remains the rollback target.
+
+The personal plugin is reinstalled as `0.1.0+codex.20260830020029`. Exact source
+and installed eight-member package receipts match at SHA-256
+`0e4db5e82818bf321a5c9dce50b73357faeaf5c6333183cf99a679fef267329a`.
+Rollback source preserves prior version `0.1.0+codex.20260825134144`, package
+SHA-256 `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+Production `tools/list` exactly matches all 21 tools; both manifests and one
+read-only PubMed connector probe pass. The current thread retains a stale 17-
+tool pre-refresh snapshot, so fresh-thread acceptance remains the correct client
+reload boundary.
+
+The final lesson checkpoint at `2026-08-30T02:05:30.550Z` again reported 0
 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,
 and 0 deletion eligible.
 
-Release completion still requires the protected merge, immutable static-site
-activation and direct acceptance, exact plugin cachebuster reinstall and eight-
-member installed receipt, final evidence, and lesson closeout. Recover through
+Source/site/plugin release completion is recorded through
 `../docs/superpowers/plans/2026-08-30-mayan-roots-publisher-alignment.md` and
-`../docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`; do not repeat
-the original identity decision or mark portal verification complete without a
-non-secret OpenAI receipt.
+`../docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`. Do not repeat the
+identity decision or mark portal verification complete without a non-secret
+OpenAI receipt.
 
 ## 2026-08-30 OpenAI portal readback packet candidate verified
 

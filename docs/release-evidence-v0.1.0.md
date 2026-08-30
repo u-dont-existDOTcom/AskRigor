@@ -1,7 +1,7 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-30 Mayan Roots LLC publisher-alignment candidate
+## 2026-08-30 Mayan Roots LLC publisher alignment deployed
 
 The owner selected **Mayan Roots LLC** as AskRigor's business developer identity
 while retaining **AskRigor** as the product and plugin display name. The plugin
@@ -29,16 +29,42 @@ boundary are recorded in
 Test-first execution failed on the old publisher metadata and absent public
 disclosures, then the initial focused suites passed 36/36 tests. The exact-
 legal-name correction subsequently failed the expected 8 no-suffix assertions
-and passed all 48 current focused tests. The exact protected merge, immutable site release,
-direct production acceptance, cachebuster reinstall, and complete installed
-package receipt will be appended during release closeout. The four-page site
-validator, 28/28 site-deployment policy tests, official plugin validator, and
+and passed all 48 current focused tests. The exact protected merge, immutable
+site release, direct production acceptance, cachebuster reinstall, and complete
+installed package receipt are recorded below. The four-page site validator,
+28/28 site-deployment policy tests, official plugin validator, and
 complete deterministic gate passed. The gate covered 109 passing test files
 with 1 declared skip and 1,457 passing tests with 6 declared skips, plus
 typecheck and build. The complete pre-cachebuster eight-member source package
 SHA-256 is
 `398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca`.
-The corrected pre-release lesson checkpoint at `2026-08-30T01:53:25.860Z` reported 0
+The corrected pre-release lesson checkpoint at `2026-08-30T01:53:25.860Z`
+reported 0 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated
+or closed, and 0 deletion eligible.
+
+PR #135 passed every protected deterministic, workflow-policy, and CodeQL
+check and merged as `4d4bd43303045223394480b13153e7ae3b9149bd`. Its immutable
+site archive SHA-256 is
+`552a88481b558f92e79a8c1b5e7157fa57fc174746ffe8ca4ffb4042d6e460c1`;
+it is active as release `4d4bd4330304`, with prior release
+`4cf17ae-20260827-youtube-api-disclosures` preserved. Public home, privacy,
+terms, support, and CSS bytes exactly match the merge. Required security headers
+pass. Caddy changed from `cb061473089c` to `297c59cfb620` on the unchanged
+`caddy:2.11.4-alpine` image. Research remained container `e1b912b7c37c`, and
+loopback/public health passed.
+
+The personal plugin was reinstalled as
+`0.1.0+codex.20260830020029`. Complete eight-member source and installed package
+receipts are identical, package SHA-256
+`0e4db5e82818bf321a5c9dce50b73357faeaf5c6333183cf99a679fef267329a`.
+The exact prior package is preserved in rollback source, version
+`0.1.0+codex.20260825134144`, package SHA-256
+`d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
+Live MCP initialization and `tools/list` exactly match all 21 committed tools;
+both protocol manifests and a read-only PubMed connector probe pass. The
+already-open thread still shows its 17-tool pre-refresh snapshot, so a fresh
+thread is required to load the reinstalled package and current connector view.
+The final lesson checkpoint at `2026-08-30T02:05:30.550Z` again reported 0
 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,
 and 0 deletion eligible.
 

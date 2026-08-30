@@ -48,3 +48,12 @@ OpenAI reviewers or users encounter that identity.
 The repository and public site can truthfully select Mayan Roots LLC now. OpenAI
 business verification, global data residency, domain verification, Scan Tools,
 demo upload, final portal review, and submission remain separate external gates.
+
+## Closeout
+
+Source merged through PRs #134 and #135, with exact legal-name merge
+`4d4bd43303045223394480b13153e7ae3b9149bd`. The immutable static site is active
+as release `4d4bd4330304`; direct body/header/MCP acceptance passed. The personal
+plugin was reinstalled as `0.1.0+codex.20260830020029`; complete source and
+installed receipts match, and both site and plugin rollback sources remain
+available. The developer-identity and other portal gates above remain open.
