@@ -63,8 +63,9 @@ complete XML protocol.
   latency receipt
 - `audits/2026-08-29-production-living-evidence-readthrough.md`: exact
   study-audit repository reuse, fail-closed compatibility gates, private VPS
-  deployment boundary, deterministic/real-PostgreSQL evidence, and remaining
-  merge/deployment/product acceptance
+  deployment and curated source-free seed, deterministic/real-PostgreSQL
+  evidence, direct miss/drift/hit checks, installed-package receipt, and fresh
+  primary-account ChatGPT reuse acceptance
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

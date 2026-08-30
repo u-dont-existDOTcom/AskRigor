@@ -8,8 +8,9 @@ authorize new collection, persistence, publication, or provider spending.
 ## Queued: cumulative living evidence repository
 
 Status: local isolated pilot implemented and merged in PR #128; exact
-production study-audit read-through authorized and active under
-`askrigor-living-evidence-readthrough-v1`; Railway hosting remains optional and
+production study-audit read-through deployed through PRs #130 and #131 and
+accepted under `askrigor-living-evidence-readthrough-v1`; broader research-
+frontier continuation remains queued; Railway hosting remains optional and
 unprovisioned
 
 Source: Joel, 2026-08-29
@@ -32,11 +33,11 @@ Design artifacts:
 The owner approved the isolated pilot, Railway use, and durable storage of the
 complete AskRigor-authored study/review analysis to the extent performed,
 including later clarifying versions. This approval remains bounded by the
-active task lock, source-storage policy, privacy threat model, $5 monthly pilot
-ceiling, no-public-endpoint rule, and prohibited-data classes. Production
-study-audit read-through was separately authorized on 2026-08-29. Automatic
-public-run write-through, review/external-audit reuse, and durable
-YouTube/community records remain outside that active phase.
+source-storage policy, privacy threat model, $5 monthly pilot ceiling, no-
+public-endpoint rule, and prohibited-data classes. Production study-audit
+read-through was separately authorized on 2026-08-29 and completed on
+2026-08-30. Automatic public-run write-through, review/external-audit reuse,
+and durable YouTube/community records remain outside that completed slice.
 
 Local PostgreSQL implementation, protected review, merge, and restore
 acceptance pass. Railway remains

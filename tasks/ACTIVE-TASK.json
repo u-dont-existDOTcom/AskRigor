@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-readthrough-v1",
-  "status": "active",
+  "status": "complete",
   "exclusive": true,
-  "requiredBranch": "agent/living-evidence-readthrough-20260829",
-  "pullRequest": 131,
+  "requiredBranch": "main",
+  "pullRequest": 132,
   "assuranceLane": "release",
   "targetedHardGates": [
     "exact source hash and identifier binding",
@@ -40,7 +40,62 @@
       "raw provider responses, credentials, authorization headers, or secrets"
     ]
   },
-  "completion": null,
+  "releaseAcceptance": {
+    "status": "pass",
+    "implementationPullRequests": [130, 131],
+    "deployedMergeCommit": "30d079931ccd4b58f32a9600aae8f660283b9f03",
+    "researchImageSha256": "7aa19ebbbddedaaad326e9de9be0a446a31bdffdb171fd3e8e941afab7692e6b",
+    "researchContainer": "e1b912b7c37c",
+    "databaseContainer": "393070e563f1",
+    "publicHealth": "pass",
+    "toolCount": 21,
+    "repositoryCanonicalSha256": "5cb8e53daf012dd8ac430fc3a3401578d8e326e9342bda83be318c1487edf2c0",
+    "adversarialChecks": 22,
+    "restoreVerified": true,
+    "rawSourceContentIncluded": false,
+    "communityDerivedRecords": 0
+  },
+  "curatedSeed": {
+    "doi": "10.1136/bmj.k1662",
+    "pmcid": "PMC5930290",
+    "sourceContentSha256": "395c3c3fe33ad3c2913be783301947ca5a92c2a0349ff141d168ff4024634f8c",
+    "repositoryAnalysisVersionId": "fa1f2594-c385-46d5-a7ce-bd471c3b1fe0",
+    "auditSha256": "678a0720b775f9518c753cf6d785b8e9fe6580e537d3ea7a25a13b4d578b4ff6",
+    "sourceBlocks": 58,
+    "methodDomains": 13,
+    "futureAnalysisItems": 18,
+    "sourceContentPersisted": false
+  },
+  "productAcceptance": {
+    "status": "pass_with_declared_presentation_defect",
+    "surface": "primary account ordinary ChatGPT Chat mode, Extra High",
+    "conversation": "https://chatgpt.com/c/6a937742-be10-83ea-ae26-977af1e8c15c",
+    "workedFor": "1m44s",
+    "currentSourceExhausted": true,
+    "repositoryReuseRevalidated": true,
+    "freshAuditRerun": false,
+    "clickableSourceAnchors": 0
+  },
+  "pluginReceipt": {
+    "memberCount": 8,
+    "sourcePackageSha256": "afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c",
+    "installedPackageSha256": "d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24",
+    "nonManifestMembersByteIdentical": true,
+    "reinstallRequired": false
+  },
+  "completion": {
+    "implementationPullRequests": [130, 131],
+    "implementationMergeCommit": "d63ee0bfd2c179b1133721d67b0d8081cd0234de",
+    "hotfixMergeCommit": "30d079931ccd4b58f32a9600aae8f660283b9f03",
+    "evidenceCloseoutPullRequest": 132,
+    "evidencePreparedHead": "99be54c554fa49dc092b4c6091dd873a2bd991d3",
+    "productionDeployed": true,
+    "directAcceptancePassed": true,
+    "productAcceptancePassed": true,
+    "rollbackRefsVerified": true,
+    "youtubeCommunityPersistence": "zero pending Google policy disposition",
+    "audit": "docs/audits/2026-08-29-production-living-evidence-readthrough.md"
+  },
   "suspendedTaskSources": [
     "completed cumulative living-evidence pilot task",
     "historical browser and Custom GPT acceptance handoffs except the measured audit-construction latency evidence",
