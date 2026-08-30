@@ -7,11 +7,12 @@ authorize new collection, persistence, publication, or provider spending.
 
 ## Queued: cumulative living evidence repository
 
-Status: local isolated pilot implemented and merged in PR #128; exact
-production study-audit read-through deployed through PRs #130 and #131 and
-accepted under `askrigor-living-evidence-readthrough-v1`; broader research-
-frontier continuation remains queued; Railway hosting remains optional and
-unprovisioned
+Status: local isolated pilot merged in PR #128; exact production study-audit
+read-through deployed through PRs #130 and #131; durable formal research-
+frontier ledger deployed through PRs #139 and #141 and accepted under
+`askrigor-living-evidence-research-frontier-v1`. Ordinary-run frontier access
+and contribution remain queued. Railway hosting remains optional and
+unprovisioned.
 
 Source: Joel, 2026-08-29
 
@@ -29,6 +30,11 @@ Design artifacts:
 - `superpowers/plans/2026-08-29-cumulative-living-evidence-pilot.md` defines the
   reversible single-topic pilot and keeps local implementation, Railway
   provisioning, and production integration behind separate gates.
+- `audits/2026-08-30-public-discovery-atlas-prior-work.md`,
+  `superpowers/specs/2026-08-30-public-discovery-atlas-design.md`, and
+  `superpowers/plans/2026-08-30-public-discovery-atlas.md` propose a separate
+  public projection and private operations surface. They do not authorize or
+  implement ordinary-run frontier capture.
 
 The owner approved the isolated pilot, Railway use, and durable storage of the
 complete AskRigor-authored study/review analysis to the extent performed,

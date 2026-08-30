@@ -25,6 +25,9 @@ The atlas is a public projection of AskRigor's governed evidence repository. It 
 - An unqualified claim that every listed finding was originally discovered by AskRigor.
 - A universal scalar that pretends to combine evidence, importance, surprise, ethics, affordability, and preference into objective truth.
 - Direct public access to worker prompts, private supervision, raw full text, raw user health narratives, or restricted provider material.
+- Automatic capture or canonical write-through from ordinary AskRigor runs.
+  That requires a separate catalog, consent, privacy, retention, and
+  contribution-validation decision.
 - A public social network, comments section, or popularity contest.
 - Autonomous publication from parallel workers.
 - A vector database or graph database before structured filters, full-text search, and explicit PostgreSQL edges fail a fixed benchmark.
@@ -645,9 +648,11 @@ Use the ivermectin/IVMmeta comparison internally as a hard adversarial test. Sel
 - Public projections rebuild deterministically from canonical records.
 - Export, backup, correction, rollback, and deletion tests pass.
 
-## 22. Default decisions adopted for the pilot
+## 22. Recommended reversible defaults for owner review
 
-To avoid blocking on choices that can be reversed:
+These recommendations avoid blocking on choices that can be reversed. They do
+not claim owner approval and become implementation defaults only after the
+owner selects the public-atlas milestone.
 
 - Use the working name **AskRigor Discovery Atlas**.
 - Describe ordinary content as **findings surfaced, tested, or corrected by AskRigor**.

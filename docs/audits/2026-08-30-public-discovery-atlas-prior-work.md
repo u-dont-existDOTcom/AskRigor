@@ -137,6 +137,9 @@ Questions, corrections, source leads, comprehension failures, importance prefere
 8. The source-by-source licensing manifest for imported IVMmeta-owned material and every linked third-party artifact.
 9. The condition set that best tests generality without making the launch synonymous with one contested treatment dispute.
 10. The supervision and release throughput achievable when parallel workers scale.
+11. The runtime/catalog and consent boundary for letting ordinary AskRigor
+    runs read prior frontier state or propose minimized contributions; the
+    public Atlas projection does not itself solve cumulative write-through.
 
 ## Composition decision
 

@@ -35,6 +35,12 @@ Run two related but distinct products:
 
 Only signed/reviewed release records cross from private research operations to the public atlas.
 
+Ordinary AskRigor runtime integration is a third, separate boundary. The
+current public MCP service remains read-only and exposes 21 tools; this plan
+does not decide whether a dedicated frontier-read tool or minimized staged
+contribution path should be added. Public Atlas Phase 0 can be evaluated
+independently, but it does not make AskRigor learn from ordinary runs.
+
 ## Phase 0 — contract fixtures before UI
 
 ### 0.1 Freeze a public finding fixture schema
@@ -506,4 +512,4 @@ No external provider, real patient data, broad real-evidence import, or public d
 
 ## Codex continuation handoff
 
-> Continue AskRigor from GitHub canonical state on branch `codex/public-discovery-atlas`. Read `AGENTS.md`, `docs/INDEX.md`, `project/CODEX-CURRENT-STATE.md`, the cumulative living-evidence and research-frontier records, then `docs/audits/2026-08-30-public-discovery-atlas-prior-work.md`, `docs/superpowers/specs/2026-08-30-public-discovery-atlas-design.md`, and this plan. Begin Phase 0 only: contracts, rubric versions, synthetic hostile fixture corpus, and tests. Do not implement real health findings, IVMmeta ingestion, public deployment, provider spending, user-health-data retention, or autonomous publication. Save all work to a task branch/PR and report exact test receipts and unresolved design conflicts.
+> After the owner selects the public-atlas milestone, continue AskRigor from GitHub canonical state on branch `codex/public-discovery-atlas`. Read `AGENTS.md`, `docs/INDEX.md`, `project/CODEX-CURRENT-STATE.md`, the cumulative living-evidence and research-frontier records, then `docs/audits/2026-08-30-public-discovery-atlas-prior-work.md`, `docs/superpowers/specs/2026-08-30-public-discovery-atlas-design.md`, and this plan. Begin Phase 0 only: contracts, rubric versions, synthetic hostile fixture corpus, and tests. Do not implement real health findings, IVMmeta ingestion, public deployment, provider spending, user-health-data retention, ordinary-run repository write-through, or autonomous publication. Save all work to a task branch/PR and report exact test receipts and unresolved design conflicts.
