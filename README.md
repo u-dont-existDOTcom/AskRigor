@@ -193,8 +193,17 @@ fresh audit.
 
 The public operations remain read-only. They do not store public-user work or
 raw article/community content. A separate one-shot administrator import may
-store a reviewed, source-free validated audit. Deployment and rollback details
-are in `infra/living-evidence-production/README.md`.
+store a reviewed, source-free validated audit. The repository also has a
+separate append-only formal research-frontier contract: de-identified search
+passes distinguish requested from confirmed half-open date windows, versioned
+candidate decisions preserve why a source was selected/excluded/deferred, and
+research trails retain coverage gaps, unresolved questions, blocked work, and
+the next executable delta. The writer-only `import-frontier` command requires
+the exact current protocols and explicit false persistence markers for raw
+source/provider, personal, and community data. YouTube/community records remain
+unrepresentable. PostgreSQL is authoritative; generated Obsidian and Mermaid
+views are deterministic navigation aids. Deployment and rollback details are in
+`infra/living-evidence-production/README.md`.
 
 ## ChatGPT Developer Mode connection
 

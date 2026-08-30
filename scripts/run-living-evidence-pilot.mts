@@ -1,8 +1,14 @@
 import { chmod, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
-import { PostgresEvidenceRepository, sha256, stableJson } from "../packages/evidence-repository/src/index.js";
+import {
+  PostgresEvidenceRepository,
+  renderResearchFrontierViews,
+  sha256,
+  stableJson,
+} from "../packages/evidence-repository/src/index.js";
 import { HISTORICAL_PILOT_QUESTION_ID, historicalPilotContributions } from "./living-evidence-pilot-fixtures.mts";
+import { researchFrontierFixture } from "./living-evidence-task-acceptance.mts";
 
 interface GeneratedFile {
   relativePath: string;
@@ -32,6 +38,13 @@ async function main(): Promise<void> {
     const contributions = await historicalPilotContributions(root);
     const receipts = [];
     for (const contribution of contributions) receipts.push(await repository.contribute(contribution));
+    const frontierContribution = researchFrontierFixture("pilot-v1");
+    const frontierReceipt = await repository.contributeFrontier(frontierContribution);
+    const frontierEnvelope = await repository.getResearchFrontier({
+      frontierId: frontierContribution.frontier.frontierId,
+    });
+    const frontierSnapshot = (frontierEnvelope.frontiers as Array<Record<string, unknown>>)[0]!;
+    const frontierViews = renderResearchFrontierViews(frontierSnapshot);
     const analyses = [];
     for (const analysisId of new Set(contributions.map(({ analysis }) => analysis.analysisId))) {
       analyses.push(await repository.exportAnalysis(analysisId));
@@ -99,8 +112,12 @@ async function main(): Promise<void> {
         raw_source_content_included: false,
         raw_private_or_provider_data_included: false,
         historical_gaps_reconstructed: false,
+        formal_research_frontier_included: true,
+        youtube_or_community_records: 0,
       },
       receipts,
+      frontier_receipt: frontierReceipt,
+      research_frontier: frontierSnapshot,
       analyses,
       repository: repositoryExport,
       fixed_queries: queryResults,
@@ -111,10 +128,12 @@ async function main(): Promise<void> {
     const artifactText = `${JSON.stringify(artifact, null, 2)}\n`;
     await mkdir(outputDirectory, { recursive: true });
     await mkdir(join(outputDirectory, "obsidian", "Analyses"), { recursive: true });
+    await mkdir(join(outputDirectory, "obsidian", "Frontiers"), { recursive: true });
     await mkdir(join(outputDirectory, "maps"), { recursive: true });
     await chmod(outputDirectory, 0o700);
     await chmod(join(outputDirectory, "obsidian"), 0o700);
     await chmod(join(outputDirectory, "obsidian", "Analyses"), 0o700);
+    await chmod(join(outputDirectory, "obsidian", "Frontiers"), 0o700);
     await chmod(join(outputDirectory, "maps"), 0o700);
     const artifactPath = join(outputDirectory, "living-evidence-pilot-review.json");
     const manifestPath = join(outputDirectory, "living-evidence-pilot-review.manifest.json");
@@ -134,6 +153,14 @@ async function main(): Promise<void> {
           youtube_or_community_records: 0,
           raw_source_content_included: false,
         }, null, 2)}\n`,
+      },
+      {
+        relativePath: `obsidian/Frontiers/${frontierContribution.frontier.frontierId}.md`,
+        content: frontierViews.obsidianMarkdown,
+      },
+      {
+        relativePath: "maps/research-frontier.mmd",
+        content: frontierViews.mermaid,
       },
       {
         relativePath: "deletion-manifest.json",
@@ -201,7 +228,7 @@ async function main(): Promise<void> {
     const roCrateGraph = [
       { "@id": "ro-crate-metadata.json", "@type": "CreativeWork", about: { "@id": "./" }, conformsTo: { "@id": "https://w3id.org/ro/crate/1.3" } },
       { "@id": "./", "@type": "Dataset", name: "AskRigor living-evidence pilot export", hasPart: [
-        { "@id": "repository-export.json" }, { "@id": "fixed-query-results.json" }, { "@id": "transparent-quality-ranking.json" }, { "@id": "retrieval-decision-benchmark.json" }, { "@id": "maps/living-evidence-pilot-map.md" },
+        { "@id": "repository-export.json" }, { "@id": "fixed-query-results.json" }, { "@id": "transparent-quality-ranking.json" }, { "@id": "retrieval-decision-benchmark.json" }, { "@id": "maps/living-evidence-pilot-map.md" }, { "@id": "maps/research-frontier.mmd" }, { "@id": `obsidian/Frontiers/${frontierContribution.frontier.frontierId}.md` },
       ] },
       ...topics.map((topic) => ({ "@id": `urn:askrigor:topic:${topic.topic_id}`, "@type": "DefinedTerm", name: topic.label, identifier: topic.canonical_key })),
       ...sourceFamilies.map((source) => ({ "@id": `urn:askrigor:source-family:${source.family_id}`, "@type": "ScholarlyArticle", name: source.display_title, additionalType: source.source_kind })),
@@ -233,8 +260,12 @@ async function main(): Promise<void> {
       version_count: analyses.reduce((count, analysis) => count + (analysis.versions as unknown[]).length, 0),
       source_family_count: sourceFamilies.length,
       claim_version_count: claims.length,
+      frontier_count: Number((repositoryExport.inventory as Record<string, number>).research_frontiers),
+      frontier_contribution_count: Number((repositoryExport.inventory as Record<string, number>).frontier_contributions),
+      discovery_pass_count: Number((repositoryExport.inventory as Record<string, number>).discovery_passes),
       file_inventory: fileInventory,
       raw_source_content_included: false,
+      community_data_included: false,
     };
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
     process.stdout.write(`${JSON.stringify({ status: "PASS", ...manifest, artifact: artifactPath, manifest: manifestPath })}\n`);

@@ -1,8 +1,8 @@
 # Living evidence source and analysis storage policy
 
 Date: 2026-08-29
-Status: approved for isolated pilot and curated production study-audit
-read-through
+Status: approved for isolated pilot, curated production study-audit
+read-through, and curated formal research-frontier contributions
 Owner decision: store the complete analysis actually performed for each study
 or review, including later clarifying analysis as new versions
 
@@ -37,6 +37,9 @@ report.
 | Complete AskRigor-authored analysis | Allowed and required when performed | Ordered lossless sections plus reconstruction SHA-256; no silent truncation |
 | Structured study/review audit | Allowed and required when performed | Exact rubric version, every domain finding, evidence locators, unresolved fields, claim capabilities, validator/receipt provenance |
 | Future-analysis items | Allowed and required when identified | Question, reason it matters, priority, state, creating analysis version, and resolving analysis version when completed |
+| Formal discovery pass | Allowed | De-identified query/hash, formal source class/provider, requested and confirmed half-open windows, access/exhaustion/count receipt, limitations, and exact run/protocol provenance |
+| Formal candidate decision | Allowed | Public formal identifiers/title/date, relevance summary, selected/excluded/deferred/unresolved decision and reason, observed pass, and append-only correction lineage |
+| Research trail | Allowed and required when work remains | Unresolved/unattempted/blocked/discriminator/coverage-gap/delta kind, priority, state, target lane/window, and either an executable next capability or terminal reason |
 | Later clarification/correction/reassessment | Allowed | Append a new version linked as `clarifies`, `corrects`, `supersedes`, or `invalidates`; retain the earlier version |
 | Short source quotation | Conditional | Only when necessary to audit the exact claim and permitted by license/law; identify source and locator; otherwise paraphrase |
 | Raw article, book, guideline, or database body | Prohibited by default | Requires a separate source-specific license, privacy, retention, deletion, and owner approval |
@@ -62,6 +65,19 @@ source, protocol, freshness, and impact changes can block their current
 projection without erasing history. This authorization does not extend to
 private/user-derived analysis, review-audit reuse, external-evidence audit
 reuse, or YouTube/community data.
+
+The curated formal research-frontier importer is a separate contract from the
+analysis importer. It stores no final-answer cache and cannot turn a candidate
+or search receipt into evidence. It loads only exact current protocol manifests,
+requires explicit false markers for raw source/provider, personal, and
+community persistence, and uses one hashed serializable append-only transaction.
+Requested work and confirmed coverage are separate. Complete passes confirm the
+exact requested interval; partial/retryable work names its next capability;
+terminal blocks cannot claim coverage; and a gapped delta requires an open trail
+for the skipped interval. Every lane keeps one temporal coverage basis.
+Candidate and trail corrections append versions, and a candidate-to-audited-
+source link requires a compatible source class plus one exact shared formal
+identifier.
 
 ## Analysis completeness and losslessness
 
@@ -131,6 +147,7 @@ canonical.
 | Active trial registry | Every 7 days | Refresh worker | `stale`; last known state remains historical |
 | Completed/static registry | Every 30 days | Refresh worker | `stale` |
 | Living-topic literature discovery | Every 30 days for high-priority topics; otherwise 90 days | Repository maintainer and scheduler | Topic visibly `due`/`stale` |
+| Formal research-frontier lane | Resume from the earliest open gap; otherwise from the latest confirmed end at the topic cadence | Repository maintainer and scheduler | Gap, retryable block, or due delta remains actionable; no false continuous coverage |
 | Analysis reassessment | On source, rubric, protocol, correction, retraction, or material contradictory-evidence event | Impact worker | `stale_pending_impact` blocks a new current projection |
 
 No successful scheduler start is a freshness receipt. The repository records

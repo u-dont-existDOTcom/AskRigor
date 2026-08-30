@@ -1,5 +1,51 @@
 # AskRigor Codex Current State
 
+## 2026-08-30 durable research-frontier ledger ready for protected merge
+
+Task ID: `askrigor-living-evidence-research-frontier-v1`
+
+Branch: `agent/research-frontier-ledger-20260830`
+
+Assurance lane: release, with targeted privacy and frontier-truth gates
+
+The owner-approved next living-evidence layer is active. It must persist a
+governed formal research frontier rather than another final-answer cache:
+discovery passes, requested versus confirmed date windows, screened source
+candidates and their versioned decisions, unresolved questions, unattempted or
+blocked trails, explicit coverage gaps, and lane-specific delta state. The
+stable study-analysis contribution remains unchanged; frontier-only work uses a
+separate idempotent append-only transaction.
+
+PostgreSQL remains canonical. Obsidian and Mermaid are deterministic derived
+views. Raw source/provider content, chat/prompts, private health material,
+credentials, and opaque continuation state remain prohibited. YouTube,
+comments, replies, channel/user identities, and all other community rows remain
+unrepresentable and zero pending the separate Google policy disposition.
+
+Local release evidence is complete. The real PostgreSQL acceptance passes 35
+checks and the nonempty pilot survives dump, exact-schema wipe, and restore at
+canonical repository SHA-256
+`318edb08597feaae31a6fdb34b5320055bf7eb67f0659f94831ab657ba6d1b6b`.
+The complete `npm run verify` gate passes typecheck, 1,470 tests across 110
+passing files with one declared file skip and six declared test skips, and the
+production build. `npm run test:site` validates all four public pages and
+`npm run test:site-deploy` passes 28/28. The release lesson checkpoint at
+`2026-08-30T14:01:21.897Z` is available: 0 open, 0 needs review, 0 accepted
+but not incorporated, 4 incorporated or closed, and 0 deletion eligible. Final
+diff, whitespace, high-confidence secret, privacy, and exact 21-tool boundary
+reviews pass. Production migration and ordinary-Chat frontier access are not
+claimed before protected merge and direct deployment acceptance.
+
+Recovery authority is
+`../docs/superpowers/plans/2026-08-30-research-frontier-ledger.md` and
+`../tasks/ACTIVE-TASK.json`. Baseline and integration commit are
+`d446db7d1443058c24890d2cbe798cea1bccdba5`; source rollback is
+`rollback/main-pre-research-frontier-20260830`. Run
+`npm run living-evidence:preflight` before implementation and
+`npm run living-evidence:acceptance` at the completion boundary. Do not mutate
+migration `0001`, broaden the public catalog beyond the required 21 tools, or
+claim production migration/product access from local repository tests.
+
 ## 2026-08-30 Mayan Roots LLC publisher release completed; verification pending
 
 Closeout branch: `agent/mayan-roots-llc-release-closeout-20260830`

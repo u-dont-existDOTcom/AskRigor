@@ -94,6 +94,18 @@ create an import file on the VPS, log stdin, or keep a shell history entry that
 contains source text or a database URL. A failed import emits only a bounded
 error code. Automatic public-run write-through is not part of this release.
 
+The separate `import-frontier` command accepts one strict, de-identified formal
+research-frontier contribution. It verifies the exact current HRP and Universal
+manifests, rejects raw/provider/private/community keys, and writes one hashed
+append-only transaction. Its formal source classes cannot represent YouTube,
+comments, replies, channels, users, or person profiles. Requested and confirmed
+date windows remain separate, and gapped deltas require an open coverage-gap
+trail. Every lane keeps one temporal coverage basis. A candidate can link to an
+audited source family only when the source classes are compatible and the two
+records share an exact formal identifier. Stream the JSON object over stdin
+using the same one-shot admin profile; do not create a VPS import file or log
+the payload.
+
 ## Failure and rollback
 
 - Reader timeout, database unavailability, corrupt record, stale freshness,

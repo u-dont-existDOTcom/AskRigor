@@ -1,8 +1,9 @@
 # Living evidence repository map
 
-Date: 2026-08-29
-Status: local isolated pilot implemented; production study-audit read-through
-release candidate; derived control surface, not implementation authority
+Date: 2026-08-30
+Status: production study-audit read-through deployed; formal research-frontier
+ledger implemented and locally verified; derived control surface, not
+implementation authority
 
 This map is a navigational projection of the proposed design in
 `../superpowers/specs/2026-08-29-cumulative-living-evidence-repository-design.md`.
@@ -78,10 +79,10 @@ flowchart LR
     style EP fill:#fff1d6,stroke:#b36b00
 ```
 
-The first pilot has no public database endpoint, no raw corpus store, no
-production-run ingestion, and no vector or graph service. Railway is a possible
-private host after the implementation gate, not part of the accepted current
-product.
+The database has no public endpoint or raw corpus store, and the public service
+has no writer. The one-shot administrator can import a reviewed source-free
+study audit or a reviewed de-identified formal research frontier. There is no
+automatic public-run ingestion and no vector or graph service.
 
 The implemented local pilot now contains three linked topics, one structured
 question, six public source families, seven source/claim versions including one
@@ -93,6 +94,13 @@ The real-PostgreSQL acceptance schema separately proves complete performed-
 analysis storage without truncation; missing historical analysis is never
 reconstructed. The pilot persists zero YouTube/community records or derived
 community assertions.
+The current pilot additionally contains one nonempty formal frontier with one
+lane, two complete passes, one deliberately open coverage gap, one versioned
+candidate decision, and two executable trails. Its canonical export, Obsidian
+note, Mermaid map, logical dump, destructive disposable-schema wipe, restore,
+inventory, and canonical SHA-256 equivalence all pass. The separate acceptance
+schema verifies initial/corrected current projections, full history, stale-
+branch rollback, external gap enforcement, and cross-layer scope checks.
 Railway remains unprovisioned because its current workspace-wide $10 minimum
 hard limit and non-downsizeable paid volume cannot enforce the approved $5 and
 1 GiB task-lock boundaries. No workspace billing control was changed.
@@ -120,6 +128,30 @@ requested; continuation pages never wait on PostgreSQL. The dashed import edge
 is not a public write path. It represents a separate administrator-reviewed
 stdin import that persists no source body and is not invoked automatically by
 MCP or Actions.
+
+## Formal research-frontier loop
+
+```mermaid
+flowchart LR
+    PR[Prior formal frontier] --> GAP{Open coverage gap?}
+    GAP -->|yes| EARLY[Earliest missing half-open window]
+    GAP -->|no| DELTA[Latest confirmed end]
+    EARLY --> PASS[Next de-identified discovery pass]
+    DELTA --> PASS
+    PASS --> CAND[Versioned candidate decisions]
+    PASS --> TRAIL[Unresolved / blocked / discriminator trails]
+    CAND --> AUDIT[Existing source-bound inspection and audit]
+    TRAIL --> PASS
+    AUDIT --> KNOW[Current knowledge projection]
+    PASS -. receipt is control state, not evidence .-> PR
+```
+
+Requested and confirmed windows are distinct. A complete pass is exhausted and
+confirms its exact request. Partial or retryable work exposes the next
+capability. A terminal block exposes a reason and no false coverage. Candidate
+and trail corrections append versions; a stale sibling is rejected. The loop is
+formal-only until a separate policy decision changes the current zero-storage
+YouTube/community boundary.
 
 ## Evidence lineage and correction propagation
 

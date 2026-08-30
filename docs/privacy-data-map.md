@@ -33,6 +33,24 @@ persistence is exactly zero while its compliance review remains unresolved.
 Historical work for which only a durable summary survives is labeled
 `partial_historical_capture`; no missing analysis is reconstructed from memory.
 
+The owner also approved a separate durable **formal research-frontier** class
+so later work can resume discovery instead of merely retrieving a prior answer.
+Its allowlisted records are de-identified formal-source queries; requested and
+confirmed half-open publication/index windows; provider/access/exhaustion
+receipts and counts; formal bibliographic identifiers, titles, dates, and
+versioned candidate decisions; and versioned unresolved, unattempted, blocked,
+coverage-gap, discriminator, and delta-search trails. Every nonterminal record
+names an executable next capability, while terminal blocks name a bounded
+reason. Four required false markers attest that raw source content, raw provider
+responses, personal data, and community data are not persisted.
+
+This frontier cannot represent YouTube/community source classes, video/comment/
+reply/channel/user/person identifiers, or common community-provider locators.
+It writes only through the one-shot administrator profile; automatic public-run
+write-through remains absent. Its PostgreSQL rows and hashes are canonical.
+Obsidian and Mermaid renderings are deterministic derived views and cannot
+establish search completion, source quality, or a health claim.
+
 The local and conditionally authorized Railway pilot boundaries are defined by
 `docs/living-evidence-source-storage-policy.md` and
 `docs/living-evidence-repository-threat-model.md`. Railway must be isolated,
@@ -339,6 +357,7 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Non-production external-evidence artifact store | Strict normalized Crossref/FORRT envelopes and, only when a server executor is supplied, Retraction Watch/PubPeer/Epistemonikos envelopes for one public DOI; content-derived artifact ID; provider/source identity; media type; byte count; content and descriptor hashes | Phase G deliberately keeps this store in process memory only, with default bounds of 128 entries, 10 MiB per artifact, and 32 MiB total. Bytes are cloned, exact artifacts deduplicated, and entries explicitly revocable; process loss discards them. There is no disk, database, object store, backup, production singleton, or public route. An interrupted audit reruns rather than retaining raw artifacts. |
 | Retraction Watch public snapshot mirror | Fixed official source commit/path/file hash; normalized public publication-integrity fields; DOI/PMID indexes; manifest/file hashes; source-check and activation timestamps; current/previous pointer | Separate mode-`0700` host directory. A fixed daily one-shot container writes the mirror without receiving AskRigor runtime secrets; the application mount is read-only. Only active and previous verified generations are retained; abandoned staging and older generations are removed after verified activation. No backup. A pre-activation sync failure preserves the prior active pointer; post-activation cleanup failure remains visible and may temporarily leave an extra immutable generation. Older than 72 hours is stale/partial. The source-only implementation and deployment template are approved in Phase G, with final live activation evidence deferred to the release phase. |
 | Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP/Action process has a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity. No database port is published and no automatic off-host backup is added in this phase. |
+| Curated formal research frontier | Exact current protocol manifests; de-identified formal-source query/hash; provider and formal source class; requested and confirmed half-open date windows; access/exhaustion/count receipt; public formal identifiers/title/date; append-only candidate decision/reason; unresolved, blocked, coverage-gap, discriminator, and delta trails with next capability or terminal reason | One strict writer-only `import-frontier` transaction in the same private PostgreSQL service. The contribution requires explicit false raw-source/raw-provider/personal/community persistence markers. Source/provider/candidate/trail scope and lineage are database-checked; update/delete fails. The public service remains SELECT-only and no public request is automatically written. YouTube/community classes and locators are rejected. Deterministic Obsidian/Mermaid exports are derived, non-authoritative views. |
 
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
