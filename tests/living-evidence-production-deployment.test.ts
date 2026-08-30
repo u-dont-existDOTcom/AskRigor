@@ -55,6 +55,42 @@ describe("production living-evidence deployment", () => {
     expect(runbook).toContain("The unrelated annas-postgres-1 service is never used.");
     expect(runbook).toContain("root-owned, group 70, mode 0440");
   });
+
+  it("ships the append-only formal frontier migration and writer-only import without changing the public catalog", async () => {
+    const migration = await read("packages/evidence-repository/migrations/0002_research_frontier.sql");
+    const repository = await read("packages/evidence-repository/src/postgres.ts");
+    const admin = await read("apps/research-mcp/src/living-evidence-admin.ts");
+    const registry = await read("apps/research-mcp/src/register-tools.ts");
+    const runbook = await read("infra/living-evidence-production/README.md");
+
+    for (const table of [
+      "research_frontiers",
+      "frontier_lanes",
+      "frontier_contributions",
+      "discovery_passes",
+      "frontier_candidates",
+      "frontier_candidate_versions",
+      "frontier_trails",
+      "frontier_trail_versions",
+    ]) {
+      expect(migration).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
+      expect(migration).toContain(`'${table}'`);
+    }
+    expect(migration).toContain("FRONTIER_GAP_TRAIL_REQUIRED");
+    expect(migration).toContain("FRONTIER_LANE_COVERAGE_BASIS_MISMATCH");
+    expect(migration).toContain("FRONTIER_CANDIDATE_SCOPE_MISMATCH");
+    expect(migration).toContain("FRONTIER_CANDIDATE_SOURCE_IDENTITY_MISMATCH");
+    expect(migration).toContain("FRONTIER_TRAIL_SCOPE_MISMATCH");
+    expect(migration).toContain("CREATE CONSTRAINT TRIGGER frontier_contribution_integrity_guard");
+    expect(repository).toContain('"0002_research_frontier"');
+    expect(repository).toContain('askrigor.living-evidence.repository-export.v2');
+    expect(repository).toContain("community_data_included: false");
+    expect(admin).toContain('command === "import-frontier"');
+    expect(admin).toContain("prepareResearchFrontierImport");
+    expect(runbook).toContain("Requested and confirmed");
+    expect(registry).toContain("Expected 21 research operations");
+    expect(registry).not.toContain('registerTool(\n    "get_research_frontier"');
+  });
 });
 
 async function read(relativePath: string): Promise<string> {

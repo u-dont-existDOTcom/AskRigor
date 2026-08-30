@@ -17,6 +17,9 @@ async function main(): Promise<void> {
     source_family_count: number;
     claim_version_count: number;
     analysis_count: number;
+    frontier_count: number;
+    frontier_contribution_count: number;
+    discovery_pass_count: number;
   };
   const dumpBytes = await readFile(dumpPath);
   const repository = new PostgresEvidenceRepository({ connectionString, schema: "living_evidence" });
@@ -29,7 +32,10 @@ async function main(): Promise<void> {
     if (
       inventory.source_families !== expected.source_family_count ||
       inventory.claim_versions !== expected.claim_version_count ||
-      inventory.analyses !== expected.analysis_count
+      inventory.analyses !== expected.analysis_count ||
+      inventory.research_frontiers !== expected.frontier_count ||
+      inventory.frontier_contributions !== expected.frontier_contribution_count ||
+      inventory.discovery_passes !== expected.discovery_pass_count
     ) {
       throw new Error("RESTORE_INVENTORY_MISMATCH");
     }
@@ -43,6 +49,7 @@ async function main(): Promise<void> {
       inventory,
       source_schema_wiped_before_restore: true,
       raw_source_content_included: false,
+      community_data_included: false,
       target: "disposable local PostgreSQL pilot schema",
     };
     const receiptPath = join(outputDirectory, "living-evidence-pilot-restore-receipt.json");

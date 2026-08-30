@@ -15,6 +15,8 @@ Protected assets:
 - source/version identities, locators, access states, and receipt hashes;
 - append-only correction, clarification, supersession, invalidation, and
   freshness events;
+- discovery passes with separate requested/confirmed windows, formal candidate
+  decisions, research trails, coverage gaps, and executable delta state;
 - database credentials, Railway project/resource identities, and logical
   exports; and
 - current versus historical knowledge projections.
@@ -53,6 +55,12 @@ Trust boundaries:
 | Concurrent writers create split current state | Serializable contribution transactions, one transaction-scoped repository-writer advisory lock, unique lineage constraints, and deterministic idempotency keys | One writer waits; no partial generation or sibling current leaf |
 | Future schema cannot interpret old analysis | Versioned contribution and rubric schemas; forward migration; preserved raw structured analysis JSON within the allowed analysis class | Old version remains readable or migration fails before commit |
 | Public request silently becomes durable repository data | The public MCP/Action validator has no writer and retains read-only annotations; only the one-shot admin profile can contribute a reviewed payload from stdin | Public work remains ephemeral; a later write-through design requires a new privacy/consent gate |
+| Requested date range is misreported as searched coverage | Separate requested and confirmed half-open windows; complete requires exact equality and exhaustion; blocked work cannot carry confirmed coverage | Reject the contribution or expose partial/retryable state with a next capability |
+| One lane mixes publication-date, index-date, or unscoped coverage and produces an incomparable delta | Contract and database trigger require one temporal coverage basis for every pass in a lane, including later contributions | Reject the entire contribution; use a separate lane for the other basis |
+| Delta search jumps over an interval and advances the apparent frontier | Same-lane prior-pass relation is database-validated; a gapped delta requires a current nonterminal coverage-gap trail; lane projection resumes from the earliest open gap | Transaction rollback or visible actionable gap; never silently advance through it |
+| Candidate or trail correction overwrites history or forks from a stale leaf | Separate stable entity and append-only version tables, one initial version, unique predecessor, scope/lineage triggers, serializable writer lock | Stale sibling transaction fails; current projection selects one leaf while history remains exportable |
+| A candidate is linked to the wrong audited source family | Database trigger requires a compatible formal source class and at least one exact shared identifier before storing the link | Transaction rollback; the candidate remains unlinked control state |
+| Community data is disguised as a generic formal candidate | Formal-only source-class enums, prohibited-key scan, explicit false community marker, community-provider/locator rejection in both contract and database | Entire contribution rejected without logging the payload |
 | Repository outage stalls every full-text page | One 1.5-second bounded candidate lookup occurs at acquisition, no lookup occurs on continuation pages, and one bounded lookup repeats at requested reuse | The same exhausted handle remains usable for a fresh audit |
 | Candidate changes after it is advertised | Validation reloads the requested analysis version and repeats source, lineage, freshness, impact, protocol, rubric, receipt, and payload checks | Return fresh_study_audit_required; never reuse the cached advertisement |
 | Database reader can mutate evidence | Separate fixed reader role has CONNECT/USAGE/SELECT only plus default_transaction_read_only; the public container receives no migrator URL; catalog privileges are checked during deployment | Startup/release acceptance fails; reuse stays disabled |
@@ -99,7 +107,11 @@ The task-specific acceptance suite must include deliberate attempts to:
 - resolve an unknown future-analysis item;
 - use invalidated/stale analysis in the current projection;
 - create a topic/source cycle where the edge class is acyclic;
-- emit a generated view containing prohibited or superseded content; and
+- emit a generated view containing prohibited or superseded content;
+- claim complete search coverage for only part of a requested window;
+- create a gapped external delta without an open coverage-gap trail;
+- relabel an external delta relation or bind a pass/candidate/trail across frontiers;
+- fork a candidate/trail correction from a stale predecessor; and
 - restore a dump whose event-chain or analysis hash differs.
 
 ## Residual limits

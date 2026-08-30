@@ -1,7 +1,9 @@
 import {
   assertNoProhibitedPersistentKeys,
   livingEvidenceContributionSchema,
+  researchFrontierContributionSchema,
   type LivingEvidenceContribution,
+  type ResearchFrontierContribution,
 } from "./contracts.js";
 import { sha256, stableJson } from "./hash.js";
 
@@ -36,6 +38,32 @@ export function prepareContribution(input: unknown): PreparedContribution {
       sha256: sha256(content),
       bytes: Buffer.byteLength(content, "utf8"),
     })),
+  };
+}
+
+export interface PreparedFrontierContribution {
+  contribution: ResearchFrontierContribution;
+  payloadSha256: string;
+  queryDigests: Array<{ passId: string; sha256: string; bytes: number }>;
+}
+
+export function prepareFrontierContribution(input: unknown): PreparedFrontierContribution {
+  assertNoProhibitedPersistentKeys(input);
+  const contribution = researchFrontierContributionSchema.parse(input);
+  const queryDigests = contribution.frontier.passes.map((pass) => ({
+    passId: pass.passId,
+    sha256: sha256(pass.deidentifiedQuery),
+    bytes: Buffer.byteLength(pass.deidentifiedQuery, "utf8"),
+  }));
+  for (const [index, digest] of queryDigests.entries()) {
+    if (digest.sha256 !== contribution.frontier.passes[index]!.declaredQuerySha256) {
+      throw new Error("FRONTIER_QUERY_SHA256_MISMATCH");
+    }
+  }
+  return {
+    contribution,
+    payloadSha256: sha256(stableJson(contribution)),
+    queryDigests,
   };
 }
 

@@ -2,9 +2,14 @@ import { readFile } from "node:fs/promises";
 
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 
-import type { LivingEvidenceContribution } from "./contracts.js";
+import type { LivingEvidenceContribution, ResearchFrontierContribution } from "./contracts.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
-import { prepareContribution, type PreparedContribution } from "./prepare.js";
+import {
+  prepareContribution,
+  prepareFrontierContribution,
+  type PreparedContribution,
+  type PreparedFrontierContribution,
+} from "./prepare.js";
 
 export interface EvidenceRepositoryOptions {
   connectionString: string;
@@ -16,6 +21,7 @@ export interface EvidenceRepositoryOptions {
 }
 
 export type FailureInjection = "after_version" | "after_sections";
+export type FrontierFailureInjection = "after_frontier_passes" | "after_frontier_candidates";
 
 export interface ContributionReceipt {
   status: "inserted" | "idempotent_replay";
@@ -25,6 +31,23 @@ export interface ContributionReceipt {
   wholeTextSha256: string;
   wholeTextBytes: number;
   sectionCount: number;
+}
+
+export interface FrontierContributionReceipt {
+  status: "inserted" | "idempotent_replay";
+  frontierId: string;
+  contributionId: string;
+  payloadSha256: string;
+  passCount: number;
+  candidateVersionCount: number;
+  trailVersionCount: number;
+}
+
+export interface ResearchFrontierLookupInput {
+  frontierId?: string;
+  questionId?: string;
+  topicKey?: string;
+  includeHistory?: boolean;
 }
 
 export interface KnowledgeSearchInput {
@@ -121,24 +144,31 @@ export class PostgresEvidenceRepository {
   }
 
   async migrate(): Promise<void> {
-    const migrationUrl = new URL("../migrations/0001_living_evidence.sql", import.meta.url);
-    const migration = await readFile(migrationUrl, "utf8");
-    const migrationSha256 = sha256(migration);
+    const migrations = await Promise.all([
+      "0001_living_evidence",
+      "0002_research_frontier",
+    ].map(async (migrationId) => ({
+      migrationId,
+      sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),
+    })));
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
-      await client.query(migration.replaceAll("__SCHEMA__", this.schema));
-      const prior = await client.query<{ migration_sha256: string }>(
-        "SELECT migration_sha256 FROM schema_migrations WHERE migration_id = $1",
-        ["0001_living_evidence"],
-      );
-      if (prior.rowCount === 0) {
-        await client.query(
-          "INSERT INTO schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)",
-          ["0001_living_evidence", migrationSha256],
+      for (const migration of migrations) {
+        const migrationSha256 = sha256(migration.sql);
+        await client.query(migration.sql.replaceAll("__SCHEMA__", this.schema));
+        const prior = await client.query<{ migration_sha256: string }>(
+          "SELECT migration_sha256 FROM schema_migrations WHERE migration_id = $1",
+          [migration.migrationId],
         );
-      } else if (prior.rows[0]!.migration_sha256 !== migrationSha256) {
-        throw new Error("MIGRATION_SHA256_MISMATCH");
+        if (prior.rowCount === 0) {
+          await client.query(
+            "INSERT INTO schema_migrations (migration_id, migration_sha256) VALUES ($1, $2)",
+            [migration.migrationId, migrationSha256],
+          );
+        } else if (prior.rows[0]!.migration_sha256 !== migrationSha256) {
+          throw new Error(`MIGRATION_SHA256_MISMATCH migration=${migration.migrationId}`);
+        }
       }
       await client.query("COMMIT");
     } catch (error) {
@@ -214,6 +244,260 @@ export class PostgresEvidenceRepository {
       }
       await client.query("COMMIT");
       return this.receipt("inserted", prepared);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async contributeFrontier(
+    input: unknown,
+    failureInjection?: FrontierFailureInjection,
+  ): Promise<FrontierContributionReceipt> {
+    const prepared = prepareFrontierContribution(input);
+    const contribution = prepared.contribution;
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+      await this.setSearchPath(client);
+      await client.query("SELECT pg_advisory_xact_lock(hashtextextended('askrigor:living-evidence-writer', 0))");
+      const replay = await client.query<{ contribution_id: string; payload_sha256: string }>(
+        "SELECT contribution_id, payload_sha256 FROM frontier_contributions WHERE idempotency_key = $1",
+        [contribution.idempotencyKey],
+      );
+      if (replay.rowCount !== 0) {
+        const row = replay.rows[0]!;
+        if (row.payload_sha256 !== prepared.payloadSha256 || row.contribution_id !== contribution.contributionId) {
+          throw new Error("FRONTIER_IDEMPOTENCY_KEY_PAYLOAD_MISMATCH");
+        }
+        await client.query("COMMIT");
+        return this.frontierReceipt("idempotent_replay", prepared);
+      }
+
+      await this.insertProtocolsAndRun(client, contribution);
+      await this.insertFrontierTopicAndQuestion(client, contribution);
+      await this.insertFrontierAndLanes(client, contribution);
+      await client.query(
+        `INSERT INTO frontier_contributions
+          (contribution_id, frontier_id, run_id, payload_sha256, idempotency_key, payload_json)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+        [
+          contribution.contributionId,
+          contribution.frontier.frontierId,
+          contribution.run.runId,
+          prepared.payloadSha256,
+          contribution.idempotencyKey,
+          JSON.stringify(contribution),
+        ],
+      );
+      await this.insertFrontierPasses(client, prepared);
+      if (failureInjection === "after_frontier_passes") throw new Error("INJECTED_FAILURE_AFTER_FRONTIER_PASSES");
+      await this.insertFrontierCandidates(client, contribution);
+      if (failureInjection === "after_frontier_candidates") throw new Error("INJECTED_FAILURE_AFTER_FRONTIER_CANDIDATES");
+      await this.insertFrontierTrails(client, contribution);
+      await client.query(
+        `INSERT INTO repository_events
+          (event_id, event_kind, run_id, analysis_id, version_id, payload_sha256, event_at, details)
+         VALUES ($1, 'research_frontier_contributed', $2, NULL, NULL, $3, $4, $5::jsonb)`,
+        [
+          deterministicUuid(`askrigor:frontier-event:${prepared.payloadSha256}`),
+          contribution.run.runId,
+          prepared.payloadSha256,
+          contribution.run.completedAt,
+          JSON.stringify({
+            frontier_id: contribution.frontier.frontierId,
+            contribution_id: contribution.contributionId,
+            raw_content_persisted: false,
+            community_data_persisted: false,
+          }),
+        ],
+      );
+      await client.query("COMMIT");
+      return this.frontierReceipt("inserted", prepared);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async getResearchFrontier(input: ResearchFrontierLookupInput): Promise<Record<string, unknown>> {
+    const parsed = researchFrontierLookup(input);
+    const selectors: string[] = [];
+    const values: unknown[] = [];
+    if (parsed.frontierId !== undefined) selectors.push(`frontier.frontier_id = $${values.push(parsed.frontierId)}`);
+    if (parsed.questionId !== undefined) selectors.push(`question.question_id = $${values.push(parsed.questionId)}`);
+    if (parsed.topicKey !== undefined) selectors.push(`topic.canonical_key = $${values.push(parsed.topicKey)}`);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await this.setSearchPath(client);
+      const frontiers = await client.query<Record<string, unknown>>(
+        `SELECT frontier.frontier_id, question.question_id, question.normalized_question,
+                question.population, question.program_or_exposure, question.comparator,
+                question.outcome, question.horizon, question.setting,
+                topic.topic_id, topic.canonical_key AS topic_key, topic.label AS topic_label
+         FROM research_frontiers frontier
+         JOIN questions question ON question.question_id = frontier.question_id
+         JOIN topics topic ON topic.topic_id = question.topic_id
+         WHERE ${selectors.join(" AND ")}
+         ORDER BY topic.canonical_key, question.normalized_question, frontier.frontier_id`,
+        values,
+      );
+      if (frontiers.rowCount === 0) throw new Error("RESEARCH_FRONTIER_NOT_FOUND");
+      const snapshots: Array<Record<string, unknown>> = [];
+      for (const frontier of frontiers.rows) {
+        const frontierId = frontier.frontier_id as string;
+        const [lanes, passes, candidates, trails, contributions] = await Promise.all([
+          client.query<Record<string, unknown>>(
+            `SELECT lane.lane_id, lane.canonical_key, lane.source_class, lane.provider, lane.label,
+                    delta.latest_confirmed_end_exclusive::text,
+                    delta.open_gap_count, delta.next_delta_start::text
+             FROM frontier_lanes lane
+             LEFT JOIN frontier_lane_delta_state delta ON delta.lane_id = lane.lane_id
+             WHERE lane.frontier_id = $1
+             ORDER BY lane.canonical_key, lane.lane_id`,
+            [frontierId],
+          ),
+          client.query<Record<string, unknown>>(
+            `SELECT pass.pass_id, pass.contribution_id, pass.lane_id, pass.executed_at::text,
+                    pass.deidentified_query, pass.query_sha256, pass.query_bytes::text,
+                    pass.coverage_basis, pass.requested_start::text, pass.requested_end_exclusive::text,
+                    pass.confirmed_start::text, pass.confirmed_end_exclusive::text,
+                    pass.coverage_relation, pass.delta_from_pass_id, pass.status, pass.access_status,
+                    pass.exhausted, pass.retrieved_candidate_count, pass.screened_candidate_count,
+                    pass.selected_candidate_count, pass.next_capability, pass.blocked_reason_code,
+                    pass.receipt_sha256, pass.limitations
+             FROM discovery_passes pass
+             JOIN frontier_lanes lane ON lane.lane_id = pass.lane_id
+             WHERE lane.frontier_id = $1
+             ORDER BY pass.executed_at, pass.pass_id`,
+            [frontierId],
+          ),
+          client.query<Record<string, unknown>>(
+            `SELECT current_candidate.*,
+                    COALESCE((
+                      SELECT jsonb_agg(jsonb_build_object('scheme', identifier.scheme, 'value', identifier.canonical_value)
+                        ORDER BY identifier.scheme, identifier.canonical_value)
+                      FROM frontier_candidate_identifiers identifier
+                      WHERE identifier.candidate_id = current_candidate.candidate_id
+                    ), '[]'::jsonb) AS identifiers
+             FROM frontier_candidate_current_projection current_candidate
+             WHERE current_candidate.frontier_id = $1
+             ORDER BY current_candidate.decision, current_candidate.display_title, current_candidate.candidate_id`,
+            [frontierId],
+          ),
+          client.query<Record<string, unknown>>(
+            `SELECT * FROM frontier_trail_current_projection
+             WHERE frontier_id = $1
+             ORDER BY
+               CASE priority WHEN 'decision_critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+               state, trail_kind, trail_id`,
+            [frontierId],
+          ),
+          client.query<Record<string, unknown>>(
+            `SELECT contribution_id, run_id, payload_sha256, idempotency_key
+             FROM frontier_contributions WHERE frontier_id = $1
+             ORDER BY inserted_at, contribution_id`,
+            [frontierId],
+          ),
+        ]);
+        const history = parsed.includeHistory
+          ? await Promise.all([
+            client.query<Record<string, unknown>>(
+              `SELECT version.version_id, version.candidate_id, candidate.candidate_kind,
+                      candidate.identity_hash, version.contribution_id, version.observed_in_pass_id,
+                      version.display_title, version.publication_date::text, version.decision,
+                      version.decision_reason, version.relevance_summary, version.source_family_id,
+                      version.previous_version_id,
+                      COALESCE((
+                        SELECT jsonb_agg(jsonb_build_object('scheme', identifier.scheme, 'value', identifier.canonical_value)
+                          ORDER BY identifier.scheme, identifier.canonical_value)
+                        FROM frontier_candidate_identifiers identifier
+                        WHERE identifier.candidate_id = candidate.candidate_id
+                      ), '[]'::jsonb) AS identifiers
+               FROM frontier_candidate_versions version
+               JOIN frontier_candidates candidate ON candidate.candidate_id = version.candidate_id
+               WHERE candidate.frontier_id = $1
+               ORDER BY version.inserted_at, version.version_id`,
+              [frontierId],
+            ),
+            client.query<Record<string, unknown>>(
+              `SELECT version.version_id, version.trail_id, trail.trail_kind,
+                      version.contribution_id, version.lane_id, version.target_start::text,
+                      version.target_end_exclusive::text, version.description, version.rationale,
+                      version.priority, version.state, version.next_capability,
+                      version.blocked_reason_code, version.resolution_note, version.previous_version_id
+               FROM frontier_trail_versions version
+               JOIN frontier_trails trail ON trail.trail_id = version.trail_id
+               WHERE trail.frontier_id = $1
+               ORDER BY version.inserted_at, version.version_id`,
+              [frontierId],
+            ),
+          ])
+          : undefined;
+        const actionableTrails = trails.rows.filter(({ state }) => ["open", "ready", "blocked_retryable"].includes(state as string));
+        const terminalBlocks = trails.rows.filter(({ state }) => state === "blocked_terminal");
+        const snapshot = {
+          frontier_id: frontierId,
+          topic: {
+            topic_id: frontier.topic_id,
+            canonical_key: frontier.topic_key,
+            label: frontier.topic_label,
+          },
+          question: {
+            question_id: frontier.question_id,
+            normalized_question: frontier.normalized_question,
+            dimensions: {
+              population: frontier.population,
+              program_or_exposure: frontier.program_or_exposure,
+              comparator: frontier.comparator,
+              outcome: frontier.outcome,
+              horizon: frontier.horizon,
+              setting: frontier.setting,
+            },
+          },
+          lanes: lanes.rows,
+          passes: passes.rows,
+          current_candidates: candidates.rows,
+          current_trails: trails.rows,
+          contribution_receipts: contributions.rows,
+          frontier_state: actionableTrails.length > 0
+            ? "actionable"
+            : terminalBlocks.length > 0
+              ? "blocked_terminal"
+              : "complete",
+          next_capabilities: actionableTrails.map(({ trail_id, next_capability, state, priority }) => ({
+            trail_id,
+            next_capability,
+            state,
+            priority,
+          })),
+          terminal_boundaries: terminalBlocks.map(({ trail_id, blocked_reason_code, description }) => ({
+            trail_id,
+            blocked_reason_code,
+            description,
+          })),
+          ...(history === undefined
+            ? {}
+            : {
+              history: {
+                candidate_versions: history[0].rows,
+                trail_versions: history[1].rows,
+              },
+            }),
+        };
+        snapshots.push({ ...snapshot, canonical_sha256: sha256(stableJson(snapshot)) });
+      }
+      await client.query("COMMIT");
+      return {
+        frontier_schema: "askrigor.living-evidence.research-frontier.v1",
+        result_count: snapshots.length,
+        frontiers: snapshots,
+      };
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -616,6 +900,9 @@ export class PostgresEvidenceRepository {
       "claim_edges", "analyses", "analysis_versions", "analysis_sections", "analysis_domain_findings",
       "analysis_claim_capabilities", "future_analysis_items", "analysis_receipts", "assessments",
       "evidence_bindings", "freshness_policies", "freshness_checks", "repository_events", "impact_jobs",
+      "research_frontiers", "frontier_lanes", "frontier_contributions", "discovery_passes",
+      "frontier_candidates", "frontier_candidate_identifiers", "frontier_candidate_versions",
+      "frontier_trails", "frontier_trail_versions",
     ] as const;
     const client = await this.pool.connect();
     try {
@@ -633,8 +920,9 @@ export class PostgresEvidenceRepository {
           .sort((left, right) => stableJson(left).localeCompare(stableJson(right))),
       ]));
       const canonical = {
-        export_schema: "askrigor.living-evidence.repository-export.v1",
+        export_schema: "askrigor.living-evidence.repository-export.v2",
         raw_source_content_included: false,
+        community_data_included: false,
         inventory,
         records: canonicalRecords,
       };
@@ -692,6 +980,7 @@ export class PostgresEvidenceRepository {
 
   private async setSearchPath(client: PoolClient): Promise<void> {
     await client.query(`SET search_path TO ${this.schema}, public`);
+    await client.query("SET TIME ZONE 'UTC'");
   }
 
   private receipt(status: ContributionReceipt["status"], prepared: PreparedContribution): ContributionReceipt {
@@ -706,7 +995,25 @@ export class PostgresEvidenceRepository {
     };
   }
 
-  private async insertProtocolsAndRun(client: PoolClient, contribution: LivingEvidenceContribution): Promise<void> {
+  private frontierReceipt(
+    status: FrontierContributionReceipt["status"],
+    prepared: PreparedFrontierContribution,
+  ): FrontierContributionReceipt {
+    return {
+      status,
+      frontierId: prepared.contribution.frontier.frontierId,
+      contributionId: prepared.contribution.contributionId,
+      payloadSha256: prepared.payloadSha256,
+      passCount: prepared.contribution.frontier.passes.length,
+      candidateVersionCount: prepared.contribution.frontier.candidateVersions.length,
+      trailVersionCount: prepared.contribution.frontier.trailVersions.length,
+    };
+  }
+
+  private async insertProtocolsAndRun(
+    client: PoolClient,
+    contribution: Pick<LivingEvidenceContribution, "run"> | Pick<ResearchFrontierContribution, "run">,
+  ): Promise<void> {
     for (const manifest of contribution.run.protocolManifests) {
       await client.query(
         `INSERT INTO protocol_manifests (sha256, name, version, revision_date)
@@ -756,6 +1063,241 @@ export class PostgresEvidenceRepository {
       run.provenance_note !== contribution.run.provenanceNote
     ) {
       throw new Error("RESEARCH_RUN_CONFLICT");
+    }
+  }
+
+  private async insertFrontierTopicAndQuestion(
+    client: PoolClient,
+    contribution: ResearchFrontierContribution,
+  ): Promise<void> {
+    await client.query(
+      "INSERT INTO topics (topic_id, canonical_key, label) VALUES ($1, $2, $3) ON CONFLICT (topic_id) DO NOTHING",
+      [contribution.topic.topicId, contribution.topic.canonicalKey, contribution.topic.label],
+    );
+    const storedTopic = await client.query<{ canonical_key: string; label: string }>(
+      "SELECT canonical_key, label FROM topics WHERE topic_id = $1",
+      [contribution.topic.topicId],
+    );
+    if (
+      storedTopic.rows[0]?.canonical_key !== contribution.topic.canonicalKey ||
+      storedTopic.rows[0]?.label !== contribution.topic.label
+    ) {
+      throw new Error("TOPIC_ID_CONFLICT");
+    }
+    const dimensions = contribution.question.dimensions;
+    await client.query(
+      `INSERT INTO questions
+        (question_id, topic_id, normalized_question, population, program_or_exposure,
+         comparator, outcome, horizon, setting, created_by_run_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (question_id) DO NOTHING`,
+      [
+        contribution.question.questionId,
+        contribution.topic.topicId,
+        contribution.question.normalizedQuestion,
+        dimensions.population,
+        dimensions.programOrExposure,
+        dimensions.comparator,
+        dimensions.outcome,
+        dimensions.horizon,
+        dimensions.setting,
+        contribution.run.runId,
+      ],
+    );
+    const storedQuestion = await client.query<{
+      topic_id: string;
+      normalized_question: string;
+      population: string | null;
+      program_or_exposure: string | null;
+      comparator: string | null;
+      outcome: string | null;
+      horizon: string | null;
+      setting: string | null;
+    }>(
+      `SELECT topic_id, normalized_question, population, program_or_exposure,
+              comparator, outcome, horizon, setting
+       FROM questions WHERE question_id = $1`,
+      [contribution.question.questionId],
+    );
+    const row = storedQuestion.rows[0];
+    if (
+      row?.topic_id !== contribution.topic.topicId ||
+      row.normalized_question !== contribution.question.normalizedQuestion ||
+      row.population !== dimensions.population ||
+      row.program_or_exposure !== dimensions.programOrExposure ||
+      row.comparator !== dimensions.comparator ||
+      row.outcome !== dimensions.outcome ||
+      row.horizon !== dimensions.horizon ||
+      row.setting !== dimensions.setting
+    ) {
+      throw new Error("QUESTION_ID_CONFLICT");
+    }
+  }
+
+  private async insertFrontierAndLanes(
+    client: PoolClient,
+    contribution: ResearchFrontierContribution,
+  ): Promise<void> {
+    await client.query(
+      `INSERT INTO research_frontiers (frontier_id, question_id, created_by_run_id)
+       VALUES ($1, $2, $3) ON CONFLICT (frontier_id) DO NOTHING`,
+      [contribution.frontier.frontierId, contribution.question.questionId, contribution.run.runId],
+    );
+    const storedFrontier = await client.query<{ question_id: string }>(
+      "SELECT question_id FROM research_frontiers WHERE frontier_id = $1",
+      [contribution.frontier.frontierId],
+    );
+    if (storedFrontier.rows[0]?.question_id !== contribution.question.questionId) {
+      throw new Error("RESEARCH_FRONTIER_ID_CONFLICT");
+    }
+    for (const lane of contribution.frontier.lanes) {
+      await client.query(
+        `INSERT INTO frontier_lanes
+          (lane_id, frontier_id, canonical_key, source_class, provider, label, created_by_run_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (lane_id) DO NOTHING`,
+        [lane.laneId, contribution.frontier.frontierId, lane.canonicalKey, lane.sourceClass, lane.provider, lane.label, contribution.run.runId],
+      );
+      const stored = await client.query<{
+        frontier_id: string;
+        canonical_key: string;
+        source_class: string;
+        provider: string;
+        label: string;
+      }>(
+        "SELECT frontier_id, canonical_key, source_class, provider, label FROM frontier_lanes WHERE lane_id = $1",
+        [lane.laneId],
+      );
+      const row = stored.rows[0];
+      if (
+        row?.frontier_id !== contribution.frontier.frontierId ||
+        row.canonical_key !== lane.canonicalKey || row.source_class !== lane.sourceClass ||
+        row.provider !== lane.provider || row.label !== lane.label
+      ) {
+        throw new Error("FRONTIER_LANE_ID_CONFLICT");
+      }
+    }
+  }
+
+  private async insertFrontierPasses(
+    client: PoolClient,
+    prepared: PreparedFrontierContribution,
+  ): Promise<void> {
+    for (const [index, pass] of prepared.contribution.frontier.passes.entries()) {
+      const digest = prepared.queryDigests[index]!;
+      await client.query(
+        `INSERT INTO discovery_passes
+          (pass_id, contribution_id, lane_id, executed_at, deidentified_query, query_sha256,
+           query_bytes, coverage_basis, requested_start, requested_end_exclusive,
+           confirmed_start, confirmed_end_exclusive, coverage_relation, delta_from_pass_id,
+           status, access_status, exhausted, retrieved_candidate_count, screened_candidate_count,
+           selected_candidate_count, next_capability, blocked_reason_code, receipt_sha256, limitations)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,
+                 $15, $16, $17, $18, $19, $20, $21, $22, $23, $24::jsonb)`,
+        [
+          pass.passId, prepared.contribution.contributionId, pass.laneId, pass.executedAt,
+          pass.deidentifiedQuery, digest.sha256, digest.bytes, pass.coverageBasis,
+          pass.requestedWindow?.start ?? null, pass.requestedWindow?.endExclusive ?? null,
+          pass.confirmedWindow?.start ?? null, pass.confirmedWindow?.endExclusive ?? null,
+          pass.coverageRelation, pass.deltaFromPassId, pass.status, pass.accessStatus,
+          pass.exhausted, pass.retrievedCandidateCount, pass.screenedCandidateCount,
+          pass.selectedCandidateCount, pass.nextCapability, pass.blockedReasonCode,
+          pass.receiptSha256, JSON.stringify(pass.limitations),
+        ],
+      );
+    }
+  }
+
+  private async insertFrontierCandidates(
+    client: PoolClient,
+    contribution: ResearchFrontierContribution,
+  ): Promise<void> {
+    for (const candidate of contribution.frontier.candidateVersions) {
+      const identifiers = [...candidate.identifiers]
+        .map(({ scheme, value }) => ({ scheme, value }))
+        .sort((left, right) => stableJson(left).localeCompare(stableJson(right)));
+      const identityHash = sha256(stableJson(identifiers));
+      const existing = await client.query<{ frontier_id: string; candidate_kind: string; identity_hash: string }>(
+        "SELECT frontier_id, candidate_kind, identity_hash FROM frontier_candidates WHERE candidate_id = $1",
+        [candidate.candidateId],
+      );
+      if (existing.rowCount === 0) {
+        if (candidate.previousVersionId !== null) throw new Error("FRONTIER_CANDIDATE_INITIAL_VERSION_REQUIRED");
+        await client.query(
+          `INSERT INTO frontier_candidates
+            (candidate_id, frontier_id, candidate_kind, identity_hash, created_by_run_id)
+           VALUES ($1, $2, $3, $4, $5)`,
+          [candidate.candidateId, contribution.frontier.frontierId, candidate.candidateKind, identityHash, contribution.run.runId],
+        );
+      } else {
+        const row = existing.rows[0]!;
+        if (candidate.previousVersionId === null) throw new Error("FRONTIER_CANDIDATE_ALREADY_HAS_INITIAL_VERSION");
+        if (
+          row.frontier_id !== contribution.frontier.frontierId ||
+          row.candidate_kind !== candidate.candidateKind || row.identity_hash !== identityHash
+        ) {
+          throw new Error("FRONTIER_CANDIDATE_ID_CONFLICT");
+        }
+      }
+      for (const identifier of identifiers) {
+        await client.query(
+          `INSERT INTO frontier_candidate_identifiers (candidate_id, scheme, canonical_value)
+           VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          [candidate.candidateId, identifier.scheme, identifier.value],
+        );
+      }
+      await client.query(
+        `INSERT INTO frontier_candidate_versions
+          (version_id, candidate_id, contribution_id, observed_in_pass_id, display_title,
+           publication_date, decision, decision_reason, relevance_summary, source_family_id,
+           previous_version_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+        [
+          candidate.versionId, candidate.candidateId, contribution.contributionId,
+          candidate.observedInPassId, candidate.displayTitle, candidate.publicationDate,
+          candidate.decision, candidate.decisionReason, candidate.relevanceSummary,
+          candidate.sourceFamilyId, candidate.previousVersionId,
+        ],
+      );
+    }
+  }
+
+  private async insertFrontierTrails(
+    client: PoolClient,
+    contribution: ResearchFrontierContribution,
+  ): Promise<void> {
+    for (const trail of contribution.frontier.trailVersions) {
+      const existing = await client.query<{ frontier_id: string; trail_kind: string }>(
+        "SELECT frontier_id, trail_kind FROM frontier_trails WHERE trail_id = $1",
+        [trail.trailId],
+      );
+      if (existing.rowCount === 0) {
+        if (trail.previousVersionId !== null) throw new Error("FRONTIER_TRAIL_INITIAL_VERSION_REQUIRED");
+        await client.query(
+          `INSERT INTO frontier_trails (trail_id, frontier_id, trail_kind, created_by_run_id)
+           VALUES ($1, $2, $3, $4)`,
+          [trail.trailId, contribution.frontier.frontierId, trail.trailKind, contribution.run.runId],
+        );
+      } else {
+        const row = existing.rows[0]!;
+        if (trail.previousVersionId === null) throw new Error("FRONTIER_TRAIL_ALREADY_HAS_INITIAL_VERSION");
+        if (row.frontier_id !== contribution.frontier.frontierId || row.trail_kind !== trail.trailKind) {
+          throw new Error("FRONTIER_TRAIL_ID_CONFLICT");
+        }
+      }
+      await client.query(
+        `INSERT INTO frontier_trail_versions
+          (version_id, trail_id, contribution_id, lane_id, target_start, target_end_exclusive,
+           description, rationale, priority, state, next_capability, blocked_reason_code,
+           resolution_note, previous_version_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [
+          trail.versionId, trail.trailId, contribution.contributionId, trail.laneId,
+          trail.targetWindow?.start ?? null, trail.targetWindow?.endExclusive ?? null,
+          trail.description, trail.rationale, trail.priority, trail.state,
+          trail.nextCapability, trail.blockedReasonCode, trail.resolutionNote,
+          trail.previousVersionId,
+        ],
+      );
     }
   }
 
@@ -1109,4 +1651,20 @@ function analysisReuseLookup(input: AnalysisReuseLookupInput): Required<Omit<Ana
   }
   const limit = Math.min(Math.max(input.limit ?? 4, 1), 10);
   return { ...input, identifier: { ...input.identifier, value }, limit };
+}
+
+function researchFrontierLookup(input: ResearchFrontierLookupInput): ResearchFrontierLookupInput {
+  const selectors = [input.frontierId, input.questionId, input.topicKey]
+    .filter((value): value is string => value !== undefined);
+  if (selectors.length !== 1) throw new Error("RESEARCH_FRONTIER_SELECTOR_REQUIRED");
+  if (input.frontierId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(input.frontierId)) {
+    throw new Error("INVALID_RESEARCH_FRONTIER_ID");
+  }
+  if (input.questionId !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(input.questionId)) {
+    throw new Error("INVALID_RESEARCH_FRONTIER_QUESTION_ID");
+  }
+  if (input.topicKey !== undefined && !/^[a-z0-9][a-z0-9._-]{0,199}$/u.test(input.topicKey)) {
+    throw new Error("INVALID_RESEARCH_FRONTIER_TOPIC_KEY");
+  }
+  return { ...input, includeHistory: input.includeHistory ?? false };
 }

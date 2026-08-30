@@ -4,6 +4,8 @@ import { pathToFileURL } from "node:url";
 import {
   PostgresEvidenceRepository,
   assertNoProhibitedPersistentKeys,
+  researchFrontierContributionSchema,
+  stableJson,
 } from "@askrigor/evidence-repository";
 import { getProtocolManifest } from "@askrigor/protocol";
 import { auditableDocumentIndexSchema } from "@askrigor/sources";
@@ -60,10 +62,29 @@ export async function prepareValidatedStudyAuditImport(raw: unknown) {
   return contribution;
 }
 
+export async function prepareResearchFrontierImport(raw: unknown) {
+  const contribution = researchFrontierContributionSchema.parse(raw);
+  const current = await Promise.all([
+    getProtocolManifest("universal"),
+    getProtocolManifest("hrp"),
+  ]);
+  const expected = current
+    .map(({ name, version, revisionDate, sha256 }) => ({ name, version, revisionDate, sha256 }))
+    .sort((left, right) => left.sha256.localeCompare(right.sha256));
+  const supplied = [...contribution.run.protocolManifests]
+    .map(({ name, version, revisionDate, sha256 }) => ({ name, version, revisionDate, sha256 }))
+    .sort((left, right) => left.sha256.localeCompare(right.sha256));
+  if (stableJson(supplied) !== stableJson(expected)) {
+    throw new Error("FRONTIER_PROTOCOL_MANIFEST_MISMATCH");
+  }
+  assertNoProhibitedPersistentKeys(contribution);
+  return contribution;
+}
+
 async function main(): Promise<void> {
   const command = process.argv[2];
-  if (command !== "migrate" && command !== "import-study-audit") {
-    throw new Error("usage: living-evidence-admin <migrate|import-study-audit>");
+  if (command !== "migrate" && command !== "import-study-audit" && command !== "import-frontier") {
+    throw new Error("usage: living-evidence-admin <migrate|import-study-audit|import-frontier>");
   }
   const config = adminConfig(process.env);
   const repository = new PostgresEvidenceRepository(config);
@@ -79,6 +100,20 @@ async function main(): Promise<void> {
       return;
     }
     const raw = JSON.parse(await readBoundedStdin());
+    if (command === "import-frontier") {
+      const contribution = await prepareResearchFrontierImport(raw);
+      const receipt = await repository.contributeFrontier(contribution);
+      writeReceipt({
+        receipt_schema: "askrigor.living-evidence.admin-receipt.v1",
+        operation: "import-frontier",
+        status: "complete",
+        schema: config.schema,
+        contribution: receipt,
+        source_content_persisted: false,
+        community_data_persisted: false,
+      });
+      return;
+    }
     const contribution = await prepareValidatedStudyAuditImport(raw);
     const receipt = await repository.contribute(contribution);
     writeReceipt({

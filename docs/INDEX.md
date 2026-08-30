@@ -66,6 +66,10 @@ complete XML protocol.
   deployment and curated source-free seed, deterministic/real-PostgreSQL
   evidence, direct miss/drift/hit checks, installed-package receipt, and fresh
   primary-account ChatGPT reuse acceptance
+- `audits/2026-08-30-research-frontier-ledger.md`: requested-versus-confirmed
+  formal discovery coverage, append-only candidate/trail decisions, gap-aware
+  delta state, zero-community persistence, deterministic derived views, and
+  real-PostgreSQL dump/wipe/restore evidence
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/
@@ -175,6 +179,9 @@ complete XML protocol.
   single-topic PostgreSQL evidence-graph pilot with policy gates, fixture-only
   correction/freshness tests, generated Obsidian/Mermaid/RO-Crate views,
   export/wipe/restore acceptance, and separately gated Railway provisioning
+- `superpowers/plans/2026-08-30-research-frontier-ledger.md`: owner-approved
+  formal discovery-pass, candidate-decision, unresolved-trail, coverage-gap,
+  delta-state, privacy, migration, derived-view, and release boundary
 - `superpowers/plans/2026-08-29-public-mcp-full-text-chain-guard.md`:
   composition-boundary handle/hash continuity, exhaustion, release, ChatGPT
   refresh, and fresh product-acceptance gates
@@ -280,8 +287,9 @@ complete XML protocol.
 
 ## Architecture maps
 
-- `architecture/living-evidence-repository-map.md`: implemented local-pilot canonical-store,
-  provenance, correction-propagation, freshness, and topic/evidence maps;
+- `architecture/living-evidence-repository-map.md`: canonical store, deployed
+  study-audit read-through, implemented formal research-frontier loop,
+  provenance, correction propagation, freshness, and topic/evidence maps;
   diagrams are derived control surfaces and never replace receipts or protocol
   authority
 

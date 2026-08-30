@@ -1,4 +1,15 @@
-import { PostgresEvidenceRepository, deterministicUuid, prepareContribution, sha256, stableJson, type LivingEvidenceContribution } from "../packages/evidence-repository/src/index.js";
+import {
+  PostgresEvidenceRepository,
+  deterministicUuid,
+  prepareContribution,
+  renderResearchFrontierViews,
+  sha256,
+  stableJson,
+  type LivingEvidenceContribution,
+  type ResearchFrontierContribution,
+} from "../packages/evidence-repository/src/index.js";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import {
   STUDY_METHOD_AUDIT_DOMAINS,
   createValidatedStudyAuditContribution,
@@ -194,6 +205,210 @@ function pendingImpactFixture(namespace: string): LivingEvidenceContribution {
   return contribution;
 }
 
+export function researchFrontierFixture(namespace: string): ResearchFrontierContribution {
+  const query = "synthetic formal evidence query";
+  const runId = deterministicUuid(`${namespace}:frontier:run:initial`);
+  const topicId = deterministicUuid(`${namespace}:frontier:topic`);
+  const questionId = deterministicUuid(`${namespace}:frontier:question`);
+  const frontierId = deterministicUuid(`${namespace}:frontier`);
+  const laneId = deterministicUuid(`${namespace}:frontier:lane`);
+  const firstPassId = deterministicUuid(`${namespace}:frontier:pass:first`);
+  const gappedPassId = deterministicUuid(`${namespace}:frontier:pass:gapped`);
+  return {
+    schemaVersion: 1,
+    idempotencyKey: `acceptance:${namespace}:frontier:initial`,
+    contributionId: deterministicUuid(`${namespace}:frontier:contribution:initial`),
+    persistenceBoundary: {
+      rawSourceContentPersisted: false,
+      rawProviderResponsePersisted: false,
+      personalDataPersisted: false,
+      communityDataPersisted: false,
+    },
+    run: {
+      runId,
+      runKind: "synthetic_fixture",
+      startedAt: "2026-08-30T14:00:00.000Z",
+      completedAt: "2026-08-30T14:02:00.000Z",
+      protocolManifests: CURRENT_PROTOCOLS,
+      provenanceNote: "Synthetic formal-source frontier acceptance fixture without raw source or community data.",
+    },
+    topic: {
+      topicId,
+      canonicalKey: `acceptance.${namespace.replaceAll(":", ".")}.frontier`,
+      label: "Research-frontier acceptance fixture",
+    },
+    question: {
+      questionId,
+      normalizedQuestion: "Which synthetic formal evidence should be investigated next?",
+      dimensions: {
+        population: "synthetic population",
+        programOrExposure: "synthetic exposure",
+        comparator: "synthetic comparator",
+        outcome: "synthetic outcome",
+        horizon: "synthetic horizon",
+        setting: null,
+      },
+    },
+    frontier: {
+      frontierId,
+      lanes: [{
+        laneId,
+        canonicalKey: "pubmed.primary",
+        sourceClass: "study",
+        provider: "pubmed",
+        label: "PubMed primary studies",
+      }],
+      passes: [
+        {
+          passId: firstPassId,
+          laneId,
+          deidentifiedQuery: query,
+          declaredQuerySha256: sha256(query),
+          executedAt: "2026-08-30T14:00:30.000Z",
+          coverageBasis: "publication_date",
+          requestedWindow: { start: "2026-01-01", endExclusive: "2026-02-01" },
+          confirmedWindow: { start: "2026-01-01", endExclusive: "2026-02-01" },
+          coverageRelation: "initial",
+          deltaFromPassId: null,
+          status: "complete",
+          accessStatus: "api_visible_complete",
+          exhausted: true,
+          retrievedCandidateCount: 1,
+          screenedCandidateCount: 1,
+          selectedCandidateCount: 1,
+          nextCapability: null,
+          blockedReasonCode: null,
+          receiptSha256: sha256(`${namespace}:frontier:pass:first:receipt`),
+          limitations: ["Synthetic acceptance fixture."],
+        },
+        {
+          passId: gappedPassId,
+          laneId,
+          deidentifiedQuery: query,
+          declaredQuerySha256: sha256(query),
+          executedAt: "2026-08-30T14:01:00.000Z",
+          coverageBasis: "publication_date",
+          requestedWindow: { start: "2026-03-01", endExclusive: "2026-04-01" },
+          confirmedWindow: { start: "2026-03-01", endExclusive: "2026-04-01" },
+          coverageRelation: "gap_delta",
+          deltaFromPassId: firstPassId,
+          status: "complete",
+          accessStatus: "api_visible_complete",
+          exhausted: true,
+          retrievedCandidateCount: 0,
+          screenedCandidateCount: 0,
+          selectedCandidateCount: 0,
+          nextCapability: null,
+          blockedReasonCode: null,
+          receiptSha256: sha256(`${namespace}:frontier:pass:gapped:receipt`),
+          limitations: ["Synthetic acceptance fixture."],
+        },
+      ],
+      candidateVersions: [{
+        candidateId: deterministicUuid(`${namespace}:frontier:candidate`),
+        versionId: deterministicUuid(`${namespace}:frontier:candidate:version:initial`),
+        observedInPassId: firstPassId,
+        candidateKind: "study",
+        identifiers: [{ scheme: "pmid", value: "40223676" }],
+        displayTitle: "Synthetic frontier candidate",
+        publicationDate: "2026-01-15",
+        decision: "selected",
+        decisionReason: "Initially selected for exact source inspection.",
+        relevanceSummary: "Synthetic candidate used only for repository acceptance.",
+        sourceFamilyId: null,
+        previousVersionId: null,
+      }],
+      trailVersions: [
+        {
+          trailId: deterministicUuid(`${namespace}:frontier:trail:gap`),
+          versionId: deterministicUuid(`${namespace}:frontier:trail:gap:version:initial`),
+          trailKind: "coverage_gap",
+          laneId,
+          targetWindow: { start: "2026-02-01", endExclusive: "2026-03-01" },
+          description: "Search the missing formal-evidence interval.",
+          rationale: "The later pass began after the first confirmed interval ended.",
+          priority: "decision_critical",
+          state: "ready",
+          nextCapability: "Run the missing PubMed date-window search.",
+          blockedReasonCode: null,
+          resolutionNote: null,
+          previousVersionId: null,
+        },
+        {
+          trailId: deterministicUuid(`${namespace}:frontier:trail:delta`),
+          versionId: deterministicUuid(`${namespace}:frontier:trail:delta:version:initial`),
+          trailKind: "delta_search",
+          laneId,
+          targetWindow: { start: "2026-04-01", endExclusive: "2026-09-01" },
+          description: "Search for newly indexed formal evidence.",
+          rationale: "The last confirmed formal window ends before the current date.",
+          priority: "high",
+          state: "ready",
+          nextCapability: "Run the next PubMed delta search.",
+          blockedReasonCode: null,
+          resolutionNote: null,
+          previousVersionId: null,
+        },
+      ],
+    },
+  };
+}
+
+function resolveResearchFrontierGap(
+  initial: ResearchFrontierContribution,
+  namespace: string,
+): ResearchFrontierContribution {
+  const lane = initial.frontier.lanes[0]!;
+  const candidate = initial.frontier.candidateVersions[0]!;
+  const gap = initial.frontier.trailVersions[0]!;
+  const pass = {
+    ...structuredClone(initial.frontier.passes[0]!),
+    passId: deterministicUuid(`${namespace}:frontier:pass:gap-fill`),
+    executedAt: "2026-08-30T14:03:00.000Z",
+    requestedWindow: { start: "2026-02-01", endExclusive: "2026-03-01" },
+    confirmedWindow: { start: "2026-02-01", endExclusive: "2026-03-01" },
+    coverageRelation: "contiguous_delta" as const,
+    deltaFromPassId: initial.frontier.passes[0]!.passId,
+    retrievedCandidateCount: 1,
+    screenedCandidateCount: 1,
+    selectedCandidateCount: 0,
+    receiptSha256: sha256(`${namespace}:frontier:pass:gap-fill:receipt`),
+  };
+  return {
+    ...structuredClone(initial),
+    idempotencyKey: `acceptance:${namespace}:frontier:gap-fill`,
+    contributionId: deterministicUuid(`${namespace}:frontier:contribution:gap-fill`),
+    run: {
+      ...initial.run,
+      runId: deterministicUuid(`${namespace}:frontier:run:gap-fill`),
+      startedAt: "2026-08-30T14:02:30.000Z",
+      completedAt: "2026-08-30T14:04:00.000Z",
+      provenanceNote: "Synthetic gap resolution with an appended candidate decision and trail version.",
+    },
+    frontier: {
+      frontierId: initial.frontier.frontierId,
+      lanes: [lane],
+      passes: [pass],
+      candidateVersions: [{
+        ...candidate,
+        versionId: deterministicUuid(`${namespace}:frontier:candidate:version:deferred`),
+        observedInPassId: pass.passId,
+        decision: "deferred",
+        decisionReason: "Deferred after the later synthetic screening pass.",
+        previousVersionId: candidate.versionId,
+      }],
+      trailVersions: [{
+        ...gap,
+        versionId: deterministicUuid(`${namespace}:frontier:trail:gap:version:resolved`),
+        state: "resolved",
+        nextCapability: null,
+        resolutionNote: "The missing half-open interval was searched to exhaustion.",
+        previousVersionId: gap.versionId,
+      }],
+    },
+  };
+}
+
 function reusableStudyAuditFixture(namespace: string): {
   index: AuditableDocumentIndex;
   audit: StudyMethodAuditSubmission;
@@ -385,8 +600,218 @@ async function main(): Promise<void> {
   try {
     await repository.migrate();
     checks.push("migration_applied");
+    const migrationClient = await acceptancePool.connect();
+    try {
+      await migrationClient.query(`SET search_path TO ${schema}, public`);
+      const migrations = await migrationClient.query<{ migration_id: string }>(
+        "SELECT migration_id FROM schema_migrations ORDER BY migration_id",
+      );
+      if (migrations.rows.map(({ migration_id: id }) => id).join(",") !== "0001_living_evidence,0002_research_frontier") {
+        throw new Error("FRONTIER_MIGRATION_CHAIN_MISMATCH");
+      }
+    } finally {
+      migrationClient.release();
+    }
+    checks.push("immutable_two_migration_chain_applied");
+
+    const frontierInitial = researchFrontierFixture(namespace);
+    const frontierInserted = await repository.contributeFrontier(frontierInitial);
+    if (
+      frontierInserted.status !== "inserted" || frontierInserted.passCount !== 2 ||
+      frontierInserted.candidateVersionCount !== 1 || frontierInserted.trailVersionCount !== 2
+    ) {
+      throw new Error("FRONTIER_INSERT_RECEIPT_MISMATCH");
+    }
+    const frontierReplay = await repository.contributeFrontier(frontierInitial);
+    if (frontierReplay.status !== "idempotent_replay") throw new Error("FRONTIER_IDEMPOTENT_REPLAY_FAILED");
+    checks.push("frontier_transaction_and_idempotent_replay");
+
+    const mixedCoverageBasis = structuredClone(frontierInitial);
+    mixedCoverageBasis.idempotencyKey = `acceptance:${namespace}:frontier:mixed-coverage-basis`;
+    mixedCoverageBasis.contributionId = deterministicUuid(`${namespace}:frontier:contribution:mixed-coverage-basis`);
+    mixedCoverageBasis.run.runId = deterministicUuid(`${namespace}:frontier:run:mixed-coverage-basis`);
+    mixedCoverageBasis.run.startedAt = "2026-08-30T14:02:05.000Z";
+    mixedCoverageBasis.run.completedAt = "2026-08-30T14:02:20.000Z";
+    mixedCoverageBasis.frontier.passes = [{
+      ...mixedCoverageBasis.frontier.passes[0]!,
+      passId: deterministicUuid(`${namespace}:frontier:pass:mixed-coverage-basis`),
+      executedAt: "2026-08-30T14:02:10.000Z",
+      coverageBasis: "index_date",
+      coverageRelation: "full_refresh",
+      deltaFromPassId: null,
+      retrievedCandidateCount: 0,
+      screenedCandidateCount: 0,
+      selectedCandidateCount: 0,
+    }];
+    mixedCoverageBasis.frontier.candidateVersions = [];
+    mixedCoverageBasis.frontier.trailVersions = [];
+    const frontierCountBeforeMixedBasis = await frontierContributionCount(acceptancePool, schema);
+    await expectReject(
+      () => repository.contributeFrontier(mixedCoverageBasis),
+      "FRONTIER_LANE_COVERAGE_BASIS_MISMATCH",
+    );
+    if (await frontierContributionCount(acceptancePool, schema) !== frontierCountBeforeMixedBasis) {
+      throw new Error("FRONTIER_MIXED_COVERAGE_BASIS_ROLLBACK_FAILED");
+    }
+    checks.push("frontier_lane_temporal_basis_is_database_coherent");
+
+    const initialFrontierEnvelope = await repository.getResearchFrontier({
+      questionId: frontierInitial.question.questionId,
+    });
+    const initialFrontier = (initialFrontierEnvelope.frontiers as Array<Record<string, unknown>>)[0]!;
+    const initialLanes = initialFrontier.lanes as Array<Record<string, unknown>>;
+    if (
+      initialFrontier.frontier_state !== "actionable" ||
+      initialLanes[0]?.open_gap_count !== 1 ||
+      initialLanes[0]?.next_delta_start !== "2026-02-01"
+    ) {
+      throw new Error("FRONTIER_GAP_PROJECTION_MISMATCH");
+    }
+    const initialViews = renderResearchFrontierViews(initialFrontier);
+    if (
+      initialViews.obsidianMarkdown !== renderResearchFrontierViews(structuredClone(initialFrontier)).obsidianMarkdown ||
+      !initialViews.obsidianMarkdown.includes("not_evidence_authority: true") ||
+      !initialViews.mermaid.includes("flowchart LR")
+    ) {
+      throw new Error("FRONTIER_DERIVED_VIEW_MISMATCH");
+    }
+    checks.push("gap_aware_frontier_and_deterministic_views");
+
+    const frontierCorrection = resolveResearchFrontierGap(frontierInitial, namespace);
+    await repository.contributeFrontier(frontierCorrection);
+    const correctedEnvelope = await repository.getResearchFrontier({
+      frontierId: frontierInitial.frontier.frontierId,
+      includeHistory: true,
+    });
+    const correctedFrontier = (correctedEnvelope.frontiers as Array<Record<string, unknown>>)[0]!;
+    const correctedLanes = correctedFrontier.lanes as Array<Record<string, unknown>>;
+    const correctedCandidates = correctedFrontier.current_candidates as Array<Record<string, unknown>>;
+    const correctedTrails = correctedFrontier.current_trails as Array<Record<string, unknown>>;
+    const correctedHistory = correctedFrontier.history as {
+      candidate_versions: Array<Record<string, unknown>>;
+      trail_versions: Array<Record<string, unknown>>;
+    };
+    if (
+      correctedLanes[0]?.open_gap_count !== 0 || correctedLanes[0]?.next_delta_start !== "2026-04-01" ||
+      correctedCandidates[0]?.decision !== "deferred" ||
+      !correctedTrails.some(({ trail_kind, state }) => trail_kind === "coverage_gap" && state === "resolved") ||
+      correctedHistory.candidate_versions.length !== 2 ||
+      correctedHistory.trail_versions.length !== 3
+    ) {
+      throw new Error("FRONTIER_APPEND_ONLY_CORRECTION_PROJECTION_FAILED");
+    }
+    checks.push("frontier_candidate_and_trail_corrections_project_current_state");
+
+    const staleFrontier = structuredClone(frontierCorrection);
+    staleFrontier.idempotencyKey = `acceptance:${namespace}:frontier:stale-branch`;
+    staleFrontier.contributionId = deterministicUuid(`${namespace}:frontier:contribution:stale-branch`);
+    staleFrontier.run.runId = deterministicUuid(`${namespace}:frontier:run:stale-branch`);
+    staleFrontier.run.startedAt = "2026-08-30T14:05:00.000Z";
+    staleFrontier.run.completedAt = "2026-08-30T14:06:00.000Z";
+    staleFrontier.frontier.passes[0]!.passId = deterministicUuid(`${namespace}:frontier:pass:stale-branch`);
+    staleFrontier.frontier.passes[0]!.executedAt = "2026-08-30T14:05:30.000Z";
+    staleFrontier.frontier.passes[0]!.requestedWindow = { start: "2026-04-01", endExclusive: "2026-05-01" };
+    staleFrontier.frontier.passes[0]!.confirmedWindow = { start: "2026-04-01", endExclusive: "2026-05-01" };
+    staleFrontier.frontier.passes[0]!.deltaFromPassId = frontierInitial.frontier.passes[1]!.passId;
+    staleFrontier.frontier.candidateVersions[0]!.versionId = deterministicUuid(`${namespace}:frontier:candidate:version:stale-branch`);
+    staleFrontier.frontier.candidateVersions[0]!.observedInPassId = staleFrontier.frontier.passes[0]!.passId;
+    staleFrontier.frontier.candidateVersions[0]!.previousVersionId = frontierInitial.frontier.candidateVersions[0]!.versionId;
+    staleFrontier.frontier.trailVersions = [];
+    const frontierCountBeforeStale = await frontierContributionCount(acceptancePool, schema);
+    await expectReject(() => repository.contributeFrontier(staleFrontier), "duplicate key");
+    if (await frontierContributionCount(acceptancePool, schema) !== frontierCountBeforeStale) {
+      throw new Error("FRONTIER_STALE_BRANCH_ROLLBACK_FAILED");
+    }
+    checks.push("frontier_stale_branch_rejected_transactionally");
+
+    const missingGapTrail = structuredClone(frontierCorrection);
+    missingGapTrail.idempotencyKey = `acceptance:${namespace}:frontier:missing-gap-trail`;
+    missingGapTrail.contributionId = deterministicUuid(`${namespace}:frontier:contribution:missing-gap-trail`);
+    missingGapTrail.run.runId = deterministicUuid(`${namespace}:frontier:run:missing-gap-trail`);
+    missingGapTrail.run.startedAt = "2026-08-30T14:07:00.000Z";
+    missingGapTrail.run.completedAt = "2026-08-30T14:08:00.000Z";
+    missingGapTrail.frontier.passes = [{
+      ...missingGapTrail.frontier.passes[0]!,
+      passId: deterministicUuid(`${namespace}:frontier:pass:missing-gap-trail`),
+      executedAt: "2026-08-30T14:07:30.000Z",
+      requestedWindow: { start: "2026-06-01", endExclusive: "2026-07-01" },
+      confirmedWindow: { start: "2026-06-01", endExclusive: "2026-07-01" },
+      coverageRelation: "gap_delta",
+      deltaFromPassId: frontierInitial.frontier.passes[1]!.passId,
+      retrievedCandidateCount: 0,
+      screenedCandidateCount: 0,
+      selectedCandidateCount: 0,
+    }];
+    missingGapTrail.frontier.candidateVersions = [];
+    missingGapTrail.frontier.trailVersions = [];
+    await expectReject(
+      () => repository.contributeFrontier(missingGapTrail),
+      "FRONTIER_GAP_TRAIL_REQUIRED",
+    );
+    if (await frontierContributionCount(acceptancePool, schema) !== frontierCountBeforeStale) {
+      throw new Error("FRONTIER_MISSING_GAP_TRAIL_ROLLBACK_FAILED");
+    }
+    checks.push("frontier_external_delta_gap_requires_open_trail");
+
+    const mislabeledDelta = structuredClone(missingGapTrail);
+    mislabeledDelta.idempotencyKey = `acceptance:${namespace}:frontier:mislabeled-delta`;
+    mislabeledDelta.contributionId = deterministicUuid(`${namespace}:frontier:contribution:mislabeled-delta`);
+    mislabeledDelta.run.runId = deterministicUuid(`${namespace}:frontier:run:mislabeled-delta`);
+    mislabeledDelta.frontier.passes[0]!.passId = deterministicUuid(`${namespace}:frontier:pass:mislabeled-delta`);
+    mislabeledDelta.frontier.passes[0]!.coverageRelation = "contiguous_delta";
+    await expectReject(
+      () => repository.contributeFrontier(mislabeledDelta),
+      "FRONTIER_DELTA_RELATION_MISMATCH",
+    );
+    checks.push("frontier_external_delta_relation_checked_by_database");
+
+    const frontierRollback = structuredClone(staleFrontier);
+    frontierRollback.idempotencyKey = `acceptance:${namespace}:frontier:injected-rollback`;
+    frontierRollback.contributionId = deterministicUuid(`${namespace}:frontier:contribution:injected-rollback`);
+    frontierRollback.run.runId = deterministicUuid(`${namespace}:frontier:run:injected-rollback`);
+    frontierRollback.frontier.candidateVersions[0]!.previousVersionId = frontierCorrection.frontier.candidateVersions[0]!.versionId;
+    await expectReject(
+      () => repository.contributeFrontier(frontierRollback, "after_frontier_passes"),
+      "INJECTED_FAILURE_AFTER_FRONTIER_PASSES",
+    );
+    if (await frontierContributionCount(acceptancePool, schema) !== frontierCountBeforeStale) {
+      throw new Error("FRONTIER_INJECTED_ROLLBACK_FAILED");
+    }
+    checks.push("frontier_injected_failure_rolled_back");
+
+    const prohibitedFrontier = { ...structuredClone(frontierInitial), raw_comments: ["must not persist"] };
+    await expectReject(() => repository.contributeFrontier(prohibitedFrontier), "PROHIBITED_PERSISTENT_KEY");
+    checks.push("frontier_community_data_rejected");
     const reusable = reusableStudyAuditFixture(`${namespace}:reuse`);
     await repository.contribute(reusable.contribution);
+
+    const mismatchedSourceBinding = structuredClone(frontierCorrection);
+    mismatchedSourceBinding.idempotencyKey = `acceptance:${namespace}:frontier:source-binding-mismatch`;
+    mismatchedSourceBinding.contributionId = deterministicUuid(`${namespace}:frontier:contribution:source-binding-mismatch`);
+    mismatchedSourceBinding.run.runId = deterministicUuid(`${namespace}:frontier:run:source-binding-mismatch`);
+    mismatchedSourceBinding.run.startedAt = "2026-08-30T14:09:00.000Z";
+    mismatchedSourceBinding.run.completedAt = "2026-08-30T14:10:00.000Z";
+    const mismatchedPass = mismatchedSourceBinding.frontier.passes[0]!;
+    mismatchedPass.passId = deterministicUuid(`${namespace}:frontier:pass:source-binding-mismatch`);
+    mismatchedPass.executedAt = "2026-08-30T14:09:30.000Z";
+    mismatchedPass.coverageRelation = "full_refresh";
+    mismatchedPass.deltaFromPassId = null;
+    const mismatchedCandidate = mismatchedSourceBinding.frontier.candidateVersions[0]!;
+    mismatchedCandidate.versionId = deterministicUuid(`${namespace}:frontier:candidate:version:source-binding-mismatch`);
+    mismatchedCandidate.observedInPassId = mismatchedPass.passId;
+    mismatchedCandidate.previousVersionId = frontierCorrection.frontier.candidateVersions[0]!.versionId;
+    mismatchedCandidate.sourceFamilyId = reusable.contribution.source!.familyId;
+    mismatchedSourceBinding.frontier.trailVersions = [];
+    const frontierCountBeforeSourceMismatch = await frontierContributionCount(acceptancePool, schema);
+    await expectReject(
+      () => repository.contributeFrontier(mismatchedSourceBinding),
+      "FRONTIER_CANDIDATE_SOURCE_IDENTITY_MISMATCH",
+    );
+    if (await frontierContributionCount(acceptancePool, schema) !== frontierCountBeforeSourceMismatch) {
+      throw new Error("FRONTIER_SOURCE_BINDING_MISMATCH_ROLLBACK_FAILED");
+    }
+    checks.push("frontier_candidate_source_binding_requires_shared_identity");
+
     const reuseCandidates = await repository.findAnalysisReuseCandidates({
       identifier: reusable.contribution.source!.identifiers[0]!,
       sourceContentSha256: reusable.index.source.content_sha256,
@@ -618,6 +1043,36 @@ async function main(): Promise<void> {
     );
     checks.push("update_and_delete_rejected_by_database");
 
+    await expectReject(
+      async () => {
+        const client = await acceptancePool.connect();
+        try {
+          await client.query(`SET search_path TO ${schema}, public`);
+          await client.query(
+            "UPDATE frontier_trail_versions SET description = 'tampered' WHERE version_id = $1",
+            [frontierInitial.frontier.trailVersions[0]!.versionId],
+          );
+        } finally {
+          client.release();
+        }
+      },
+      "APPEND_ONLY_TABLE",
+    );
+    checks.push("frontier_update_rejected_by_database");
+
+    const repositoryExport = await repository.exportRepository();
+    const exportInventory = repositoryExport.inventory as Record<string, number>;
+    if (
+      repositoryExport.export_schema !== "askrigor.living-evidence.repository-export.v2" ||
+      exportInventory.frontier_contributions !== 2 ||
+      exportInventory.discovery_passes !== 3 ||
+      repositoryExport.raw_source_content_included !== false ||
+      repositoryExport.community_data_included !== false
+    ) {
+      throw new Error("FRONTIER_CANONICAL_EXPORT_MISMATCH");
+    }
+    checks.push("frontier_canonical_export_v2");
+
     process.stdout.write(`${JSON.stringify({ status: "PASS", schema, checks, check_count: checks.length, analysis_id: initial.analysis.analysisId, initial_sha256: prepared.wholeTextSha256 })}\n`);
   } finally {
     await acceptancePool.end();
@@ -625,8 +1080,26 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "unknown acceptance failure";
-  process.stderr.write(`Living-evidence acceptance failed: ${message}\n`);
-  process.exitCode = 1;
-});
+async function frontierContributionCount(pool: Pool, schema: string): Promise<number> {
+  const client = await pool.connect();
+  try {
+    await client.query(`SET search_path TO ${schema}, public`);
+    const result = await client.query<{ count: string }>(
+      "SELECT count(*)::text AS count FROM frontier_contributions",
+    );
+    return Number(result.rows[0]!.count);
+  } finally {
+    client.release();
+  }
+}
+
+const invokedPath = process.argv[1] === undefined
+  ? undefined
+  : pathToFileURL(resolve(process.argv[1])).href;
+if (invokedPath === import.meta.url) {
+  main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : "unknown acceptance failure";
+    process.stderr.write(`Living-evidence acceptance failed: ${message}\n`);
+    process.exitCode = 1;
+  });
+}
