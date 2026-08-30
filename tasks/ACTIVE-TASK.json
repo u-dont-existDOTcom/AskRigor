@@ -4,7 +4,7 @@
   "status": "ready_for_protected_merge",
   "exclusive": true,
   "requiredBranch": "agent/research-frontier-release-closeout-20260830",
-  "pullRequest": null,
+  "pullRequest": 141,
   "assuranceLane": "release",
   "targetedHardGates": [
     "requested search windows never masquerade as confirmed coverage",

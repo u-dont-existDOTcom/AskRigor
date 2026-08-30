@@ -11,6 +11,8 @@ Protected implementation review: PR #139, merged as
 
 Release closeout branch: `agent/research-frontier-release-closeout-20260830`
 
+Release closeout review: PR #141
+
 Assurance lane: release, with targeted privacy and frontier-truth gates
 
 The owner-approved next living-evidence layer is deployed. It persists a
