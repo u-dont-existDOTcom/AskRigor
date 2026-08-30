@@ -12,7 +12,7 @@
     "displayName": "AskRigor",
     "shortDescription": "Auditable research retrieval",
     "longDescription": "Rigorous health and research workflows with deterministic, auditable source retrieval and explicit access boundaries.",
-    "developerName": "Mayan Roots",
+    "developerName": "Mayan Roots LLC",
     "category": "Productivity",
     "capabilities": [
       "Read"
@@ -74,7 +74,7 @@
       "status": "in_progress",
       "evidence": null,
       "completedAt": null,
-      "note": "The owner selected Mayan Roots as AskRigor's business developer identity on 2026-08-30. The signed-in portal readback that day showed Individual verification as Approved, Business verification as Start, and the organization notice as Organization could not be verified; no plugin draft was created. This gate must not be marked complete until the portal approves Mayan Roots and a non-secret approval receipt is retained; see docs/audits/2026-08-30-mayan-roots-publisher-alignment.md."
+      "note": "The owner selected Mayan Roots LLC as AskRigor's business developer identity on 2026-08-30. The signed-in portal readback that day showed Individual verification as Approved, Business verification as Start, and the organization notice as Organization could not be verified; no plugin draft was created. This gate must not be marked complete until the portal approves Mayan Roots LLC and a non-secret approval receipt is retained; see docs/audits/2026-08-30-mayan-roots-publisher-alignment.md."
     },
     "globalDataResidency": {
       "status": "pending",
@@ -86,7 +86,7 @@
       "status": "pending",
       "evidence": null,
       "completedAt": null,
-      "note": "Complete the askrigor.com publisher-domain challenge for the selected Mayan Roots developer identity in the signed-in OpenAI portal and retain a non-secret receipt."
+      "note": "Complete the askrigor.com publisher-domain challenge for the selected Mayan Roots LLC developer identity in the signed-in OpenAI portal and retain a non-secret receipt."
     },
     "scanTools": {
       "status": "pending",

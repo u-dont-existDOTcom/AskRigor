@@ -1,32 +1,42 @@
 # AskRigor Codex Current State
 
-## 2026-08-30 Mayan Roots publisher alignment in progress
+## 2026-08-30 Mayan Roots LLC publisher alignment in progress
 
-Branch: `agent/mayan-roots-publisher-alignment-20260830`
+Branch: `agent/mayan-roots-llc-publisher-correction-20260830`
 
-Baseline: `a3223f9acae8742d1b3f1f12f29afb578201ee95`
+Baseline: `aea17f1500247e65fd83ddd34207d635b778a987`
 
-The owner selected **Mayan Roots** as AskRigor's business publisher/developer
+The owner selected **Mayan Roots LLC** as AskRigor's business publisher/developer
 identity while retaining **AskRigor** as the product and plugin display name.
 The repository candidate aligns the manifest author/developer metadata,
 submission packet, and all four public pages to the exact truthful statement
-`AskRigor is a product operated by Mayan Roots.` Privacy and terms are dated
-August 30, 2026. No legal suffix, registration, address, jurisdiction, or
-portal-approval claim is inferred.
+`AskRigor is a product operated by Mayan Roots LLC.` Privacy and terms are dated
+August 30, 2026. The owner-supplied tax identifier and company/mailing addresses
+are intentionally excluded from the repository and public site and reserved
+for the private verification form if required. No portal-approval claim is
+inferred.
+
+PR #134 merged the initial no-suffix candidate as the baseline above, but the
+owner clarified the exact legal suffix before deployment. Its local site
+archive was never uploaded: the first read-only VPS preflight failed at DNS
+resolution before reaching or changing the server, and the stale archive was
+moved to trash. The correction branch is the only releasable candidate.
 
 The developer-identity gate remains `in_progress`: the direct portal readback
 still says Business verification `Start`. Global residency, the askrigor.com
-domain challenge for Mayan Roots, Scan Tools, demo recording, final review, and
-submission remain separate external gates. No portal draft was created.
+domain challenge for Mayan Roots LLC, Scan Tools, demo recording, final review,
+and submission remain separate external gates. No portal draft was created.
 
-Focused TDD passed 36/36 after initially failing against the old identity. The
+The initial identity TDD passed 36/36 after failing against the old identity.
+The exact-legal-name correction then failed the expected 8 no-suffix
+assertions and passed all 48 current focused tests. The
 four-page site validator, 28/28 site-deployment policy tests, official plugin
 validator, and complete deterministic gate passed. The complete gate covered
 109 passing test files with 1 declared skip and 1,457 passing tests with 6
 declared skips, plus typecheck and build. The pre-cachebuster source receipt
 covers all eight package members with package SHA-256
-`61d4b7882111ee32b379e0253c5b7348ceafa9bb976f20f2436ae8dc05cd371e`.
-The pre-release lesson checkpoint at `2026-08-30T01:41:08.971Z` reported 0
+`398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca`.
+The corrected pre-release lesson checkpoint at `2026-08-30T01:53:25.860Z` reported 0
 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,
 and 0 deletion eligible.
 

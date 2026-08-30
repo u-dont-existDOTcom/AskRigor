@@ -4,7 +4,7 @@ Status at 2026-08-30: this remains the detailed engineering inventory.
 The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.
 The August 13, 2026 lesson notice is live and was reverified before the lesson Action was enabled.
 The current publisher-alignment candidate states that AskRigor is a product
-operated by Mayan Roots and updates the public privacy-notice effective date to
+operated by Mayan Roots LLC and updates the public privacy-notice effective date to
 August 30, 2026. This identity clarification changes no processing, collection,
 retention, recipient, or access boundary in this data map.
 

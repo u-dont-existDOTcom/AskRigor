@@ -280,7 +280,7 @@ organization notice `Organization could not be verified`, an accessible empty
 plugin portal, and **Create plugin**. The receipt is
 `docs/audits/2026-08-30-openai-plugin-portal-readback.md`. No developer identity
 or draft was selected during that readback. The owner subsequently selected
-**Mayan Roots** as the business developer identity while retaining **AskRigor**
+**Mayan Roots LLC** as the business developer identity while retaining **AskRigor**
 as the product name. The aligned candidate and still-open business-verification
 gate are recorded in
 `docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`.
@@ -605,14 +605,14 @@ declared rather than rewritten as exact card-sequence proof.
 
 The publisher-matching HTTPS legal/support prerequisite was first verified on
 2026-08-12 at release `f928b95e29cd`. On 2026-08-30 the owner selected Mayan
-Roots as the business developer identity and the public candidate was aligned
-to state that AskRigor is a product operated by Mayan Roots. Remaining
+Roots LLC as the business developer identity and the public candidate was aligned
+to state that AskRigor is a product operated by Mayan Roots LLC. Remaining
 execution steps are:
 
-1. Complete OpenAI business verification for Mayan Roots and retain a non-
+1. Complete OpenAI business verification for Mayan Roots LLC and retain a non-
    secret approval receipt. Do not treat the portal label `Start` as approval.
 2. Verify that the selected submission project uses global data residency, then
-   complete the askrigor.com domain challenge for the Mayan Roots identity.
+   complete the askrigor.com domain challenge for the Mayan Roots LLC identity.
 3. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare the
    discovered 21-tool metadata with the committed inventory.
 4. Record the privacy-safe reviewer demo using

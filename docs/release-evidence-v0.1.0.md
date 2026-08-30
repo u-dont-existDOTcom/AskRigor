@@ -1,15 +1,23 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-30 Mayan Roots publisher-alignment candidate
+## 2026-08-30 Mayan Roots LLC publisher-alignment candidate
 
-The owner selected **Mayan Roots** as AskRigor's business developer identity
+The owner selected **Mayan Roots LLC** as AskRigor's business developer identity
 while retaining **AskRigor** as the product and plugin display name. The plugin
 manifest author/developer fields and public-submission listing now say Mayan
-Roots. All four public pages state `AskRigor is a product operated by Mayan
-Roots.` Privacy and terms use an August 30, 2026 effective date. No legal
-suffix, registration, address, jurisdiction, or completed-verification claim
-was invented.
+Roots LLC. All four public pages state `AskRigor is a product operated by Mayan
+Roots LLC.` Privacy and terms use an August 30, 2026 effective date. The owner-
+provided tax identifier and street/mailing addresses are intentionally absent
+from public repository and site content; they are reserved for the private
+business-verification form if the portal requests them.
+
+PR #134 merged the first no-suffix identity candidate as
+`aea17f1500247e65fd83ddd34207d635b778a987`, but it was superseded before
+deployment when the owner supplied the exact legal name. Its local static-site
+archive was never uploaded; the initial read-only VPS preflight failed at DNS
+resolution before reaching or changing the server. The stale local archive was
+moved to trash. This corrected candidate is the only releasable one.
 
 The machine-readable developer-identity gate remains `in_progress`, with null
 evidence and completion time, because direct portal readback showed Business
@@ -19,8 +27,9 @@ boundary are recorded in
 `docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`.
 
 Test-first execution failed on the old publisher metadata and absent public
-disclosures, then the focused plugin-package, submission-packet, and public-site
-suites passed 36/36 tests. The exact protected merge, immutable site release,
+disclosures, then the initial focused suites passed 36/36 tests. The exact-
+legal-name correction subsequently failed the expected 8 no-suffix assertions
+and passed all 48 current focused tests. The exact protected merge, immutable site release,
 direct production acceptance, cachebuster reinstall, and complete installed
 package receipt will be appended during release closeout. The four-page site
 validator, 28/28 site-deployment policy tests, official plugin validator, and
@@ -28,8 +37,8 @@ complete deterministic gate passed. The gate covered 109 passing test files
 with 1 declared skip and 1,457 passing tests with 6 declared skips, plus
 typecheck and build. The complete pre-cachebuster eight-member source package
 SHA-256 is
-`61d4b7882111ee32b379e0253c5b7348ceafa9bb976f20f2436ae8dc05cd371e`.
-The pre-release lesson checkpoint at `2026-08-30T01:41:08.971Z` reported 0
+`398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca`.
+The corrected pre-release lesson checkpoint at `2026-08-30T01:53:25.860Z` reported 0
 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,
 and 0 deletion eligible.
 
