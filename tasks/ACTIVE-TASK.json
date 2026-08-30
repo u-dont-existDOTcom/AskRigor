@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-readthrough-v1",
-  "status": "ready_for_protected_merge",
+  "status": "complete",
   "exclusive": true,
-  "requiredBranch": "agent/living-evidence-readthrough-20260829",
+  "requiredBranch": "main",
   "pullRequest": 132,
   "assuranceLane": "release",
   "targetedHardGates": [
@@ -83,7 +83,19 @@
     "nonManifestMembersByteIdentical": true,
     "reinstallRequired": false
   },
-  "completion": null,
+  "completion": {
+    "implementationPullRequests": [130, 131],
+    "implementationMergeCommit": "d63ee0bfd2c179b1133721d67b0d8081cd0234de",
+    "hotfixMergeCommit": "30d079931ccd4b58f32a9600aae8f660283b9f03",
+    "evidenceCloseoutPullRequest": 132,
+    "evidencePreparedHead": "99be54c554fa49dc092b4c6091dd873a2bd991d3",
+    "productionDeployed": true,
+    "directAcceptancePassed": true,
+    "productAcceptancePassed": true,
+    "rollbackRefsVerified": true,
+    "youtubeCommunityPersistence": "zero pending Google policy disposition",
+    "audit": "docs/audits/2026-08-29-production-living-evidence-readthrough.md"
+  },
   "suspendedTaskSources": [
     "completed cumulative living-evidence pilot task",
     "historical browser and Custom GPT acceptance handoffs except the measured audit-construction latency evidence",

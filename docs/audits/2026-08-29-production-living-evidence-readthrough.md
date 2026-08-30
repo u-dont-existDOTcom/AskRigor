@@ -8,7 +8,7 @@ Status: PR #130 merged as
 `d63ee0bfd2c179b1133721d67b0d8081cd0234de`; bootstrap hotfix PR #131 merged
 as `30d079931ccd4b58f32a9600aae8f660283b9f03`; exact production deployment,
 curated LEAP import, direct acceptance, installed-package receipt, and fresh
-primary-account ChatGPT reuse acceptance complete; evidence closeout pending
+primary-account ChatGPT reuse acceptance complete; evidence closeout PR #132
 
 ## Outcome under review
 
@@ -276,10 +276,12 @@ links. Repository reuse acceptance therefore passes, while clickable
 source-citation rendering remains a declared presentation defect for later
 correction.
 
-## Remaining closeout
+## Closeout disposition
 
 No production, import, direct-acceptance, installed-package, or fresh product
-gate remains. Commit this evidence, rerun the release lesson checkpoint and
-task acceptance, pass protected review, merge the closeout, and mark the active
-task complete. OpenAI organization approval remains an independent public-
-submission scope/receipt check and does not block this release closeout.
+gate remains. PR #132 carries this evidence and passed deterministic
+verification, workflow policy, the CodeQL aggregate, and the Actions,
+JavaScript/TypeScript, and Python analyses before protected merge. The exclusive
+task is complete when this record is on `main`. OpenAI organization approval
+remains an independent public-submission scope/receipt check and does not block
+this release closeout.
