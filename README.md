@@ -436,9 +436,11 @@ instructions. Its merge, server/privacy deployment, editor installation, and
 fresh product acceptance remain pending. The
 associated lesson attempt returned non-retryable `privacy_rejected` and was not
 resubmitted. After that
-gate closes, remaining work includes the publisher-identity/domain path, Scan
-Tools, demo recording, opaque model-receipt release decision, final portal
-review, and public submission. The fresh post-deployment ChatGPT interface check no longer
+gate closes, remaining work includes OpenAI business verification for the
+owner-selected Mayan Roots developer identity, the matching askrigor.com domain
+path, Scan Tools, demo recording, opaque model-receipt release decision, final
+portal review, and public submission. The fresh post-deployment ChatGPT
+interface check no longer
 reproduced the earlier routine-status regression; its bounded evidence and
 presentation limitation are recorded in the release packet. See
 `docs/privacy-data-map.md`, `docs/public-review-checklist.md`,

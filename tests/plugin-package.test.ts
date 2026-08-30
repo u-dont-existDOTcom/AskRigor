@@ -49,13 +49,13 @@ describe("AskRigor plugin package", () => {
       repository: "https://github.com/u-dont-existDOTcom/AskRigor",
       keywords: ["research", "health", "evidence", "pubmed", "youtube"],
       skills: "./skills/",
-      author: { name: "AskRigor" },
+      author: { name: "Mayan Roots" },
       interface: {
         displayName: "AskRigor",
         shortDescription: "Auditable research retrieval",
         longDescription:
           "Rigorous health and research workflows with deterministic, auditable source retrieval and explicit access boundaries.",
-        developerName: "AskRigor",
+        developerName: "Mayan Roots",
         category: "Productivity",
         capabilities: ["Read"],
         websiteURL: "https://askrigor.com",

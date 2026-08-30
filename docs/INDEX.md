@@ -68,8 +68,11 @@ complete XML protocol.
   primary-account ChatGPT reuse acceptance
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
-  accessible empty plugin portal, no-action boundary, and unresolved publisher-
-  identity/data-residency gates
+  accessible empty plugin portal, no-action boundary, and publisher-identity/
+  data-residency evidence at the time of observation
+- `audits/2026-08-30-mayan-roots-publisher-alignment.md`: owner-selected
+  AskRigor-product/Mayan-Roots-publisher split, official listing boundary,
+  complete public-surface alignment, and still-open business-verification gate
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

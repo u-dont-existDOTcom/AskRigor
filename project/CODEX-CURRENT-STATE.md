@@ -1,5 +1,43 @@
 # AskRigor Codex Current State
 
+## 2026-08-30 Mayan Roots publisher alignment in progress
+
+Branch: `agent/mayan-roots-publisher-alignment-20260830`
+
+Baseline: `a3223f9acae8742d1b3f1f12f29afb578201ee95`
+
+The owner selected **Mayan Roots** as AskRigor's business publisher/developer
+identity while retaining **AskRigor** as the product and plugin display name.
+The repository candidate aligns the manifest author/developer metadata,
+submission packet, and all four public pages to the exact truthful statement
+`AskRigor is a product operated by Mayan Roots.` Privacy and terms are dated
+August 30, 2026. No legal suffix, registration, address, jurisdiction, or
+portal-approval claim is inferred.
+
+The developer-identity gate remains `in_progress`: the direct portal readback
+still says Business verification `Start`. Global residency, the askrigor.com
+domain challenge for Mayan Roots, Scan Tools, demo recording, final review, and
+submission remain separate external gates. No portal draft was created.
+
+Focused TDD passed 36/36 after initially failing against the old identity. The
+four-page site validator, 28/28 site-deployment policy tests, official plugin
+validator, and complete deterministic gate passed. The complete gate covered
+109 passing test files with 1 declared skip and 1,457 passing tests with 6
+declared skips, plus typecheck and build. The pre-cachebuster source receipt
+covers all eight package members with package SHA-256
+`61d4b7882111ee32b379e0253c5b7348ceafa9bb976f20f2436ae8dc05cd371e`.
+The pre-release lesson checkpoint at `2026-08-30T01:41:08.971Z` reported 0
+open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,
+and 0 deletion eligible.
+
+Release completion still requires the protected merge, immutable static-site
+activation and direct acceptance, exact plugin cachebuster reinstall and eight-
+member installed receipt, final evidence, and lesson closeout. Recover through
+`../docs/superpowers/plans/2026-08-30-mayan-roots-publisher-alignment.md` and
+`../docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`; do not repeat
+the original identity decision or mark portal verification complete without a
+non-secret OpenAI receipt.
+
 ## 2026-08-30 OpenAI portal readback packet candidate verified
 
 Branch: `agent/public-submission-readback-20260830`
