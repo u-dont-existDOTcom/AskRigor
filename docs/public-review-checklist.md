@@ -279,7 +279,11 @@ Individual verification `Approved`, Business verification `Start`, the
 organization notice `Organization could not be verified`, an accessible empty
 plugin portal, and **Create plugin**. The receipt is
 `docs/audits/2026-08-30-openai-plugin-portal-readback.md`. No developer identity
-was selected and no draft was created; the publisher path remains unresolved.
+or draft was selected during that readback. The owner subsequently selected
+**Mayan Roots** as the business developer identity while retaining **AskRigor**
+as the product name. The aligned candidate and still-open business-verification
+gate are recorded in
+`docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`.
 The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
 routine-status regression.
@@ -599,14 +603,16 @@ declared rather than rewritten as exact card-sequence proof.
 
 ## Submission execution gate
 
-The publisher-matching HTTPS legal/support prerequisite was verified on
-2026-08-12 at release `f928b95e29cd`. Remaining execution steps are:
+The publisher-matching HTTPS legal/support prerequisite was first verified on
+2026-08-12 at release `f928b95e29cd`. On 2026-08-30 the owner selected Mayan
+Roots as the business developer identity and the public candidate was aligned
+to state that AskRigor is a product operated by Mayan Roots. Remaining
+execution steps are:
 
-1. Choose between the verified individual publisher identity and completing
-   business verification for the AskRigor publisher name. Reconcile all listing
-   fields to that choice before creating a draft.
+1. Complete OpenAI business verification for Mayan Roots and retain a non-
+   secret approval receipt. Do not treat the portal label `Start` as approval.
 2. Verify that the selected submission project uses global data residency, then
-   complete the matching HTTPS domain challenge.
+   complete the askrigor.com domain challenge for the Mayan Roots identity.
 3. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare the
    discovered 21-tool metadata with the committed inventory.
 4. Record the privacy-safe reviewer demo using

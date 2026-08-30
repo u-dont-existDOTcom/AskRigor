@@ -1,6 +1,38 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-30 Mayan Roots publisher-alignment candidate
+
+The owner selected **Mayan Roots** as AskRigor's business developer identity
+while retaining **AskRigor** as the product and plugin display name. The plugin
+manifest author/developer fields and public-submission listing now say Mayan
+Roots. All four public pages state `AskRigor is a product operated by Mayan
+Roots.` Privacy and terms use an August 30, 2026 effective date. No legal
+suffix, registration, address, jurisdiction, or completed-verification claim
+was invented.
+
+The machine-readable developer-identity gate remains `in_progress`, with null
+evidence and completion time, because direct portal readback showed Business
+verification as `Start`. The original individual/business labels and no-draft
+observation remain unchanged historical evidence. The owner decision and
+boundary are recorded in
+`docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`.
+
+Test-first execution failed on the old publisher metadata and absent public
+disclosures, then the focused plugin-package, submission-packet, and public-site
+suites passed 36/36 tests. The exact protected merge, immutable site release,
+direct production acceptance, cachebuster reinstall, and complete installed
+package receipt will be appended during release closeout. The four-page site
+validator, 28/28 site-deployment policy tests, official plugin validator, and
+complete deterministic gate passed. The gate covered 109 passing test files
+with 1 declared skip and 1,457 passing tests with 6 declared skips, plus
+typecheck and build. The complete pre-cachebuster eight-member source package
+SHA-256 is
+`61d4b7882111ee32b379e0253c5b7348ceafa9bb976f20f2436ae8dc05cd371e`.
+The pre-release lesson checkpoint at `2026-08-30T01:41:08.971Z` reported 0
+open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,
+and 0 deletion eligible.
+
 ## 2026-08-30 production living-evidence study-audit read-through deployed
 
 PR #130 passed deterministic verification, workflow policy, and every CodeQL

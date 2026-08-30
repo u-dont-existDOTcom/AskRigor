@@ -140,7 +140,7 @@ describe("AskRigor public submission packet", () => {
     expect(packet.listing).toMatchObject({
       displayName: "AskRigor",
       shortDescription: "Auditable research retrieval",
-      developerName: "AskRigor",
+      developerName: "Mayan Roots",
       category: "Productivity",
       capabilities: ["Read"],
       websiteURL: "https://askrigor.com",
@@ -171,6 +171,9 @@ describe("AskRigor public submission packet", () => {
       logo: packet.listing.logo,
       composerIcon: packet.listing.composerIcon
     });
+    expect(manifest).toMatchObject({ author: { name: "Mayan Roots" } });
+    expect(packet.listing.displayName).toBe("AskRigor");
+    expect(packet.listing.developerName).toBe("Mayan Roots");
   });
 
   it("selects exactly five positive and three negative portal cases without deleting extended evidence", async () => {
@@ -258,6 +261,24 @@ describe("AskRigor public submission packet", () => {
         expect(gate.completedAt).toBeNull();
       }
     }
+
+    expect(packet.externalGates.developerIdentity).toMatchObject({
+      status: "in_progress",
+      evidence: null,
+      completedAt: null
+    });
+    expect(packet.externalGates.developerIdentity?.note).toContain(
+      "Mayan Roots"
+    );
+    expect(packet.externalGates.developerIdentity?.note).toContain(
+      "selected"
+    );
+    expect(packet.externalGates.developerIdentity?.note).toContain(
+      "Business verification as Start"
+    );
+    expect(packet.externalGates.developerIdentity?.note).toContain(
+      "must not be marked complete"
+    );
   });
 
   it.each([
