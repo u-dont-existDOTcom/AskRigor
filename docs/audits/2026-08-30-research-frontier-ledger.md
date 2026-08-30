@@ -8,6 +8,8 @@ Status: release candidate verified locally and ready for protected review;
 production migration and ordinary-Chat frontier access are not claimed by this
 receipt
 
+Protected review: PR #139
+
 ## Outcome
 
 The living-evidence repository now has a separate, append-only formal research

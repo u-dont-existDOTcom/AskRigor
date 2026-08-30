@@ -6,6 +6,8 @@ Task ID: `askrigor-living-evidence-research-frontier-v1`
 
 Branch: `agent/research-frontier-ledger-20260830`
 
+Protected review: PR #139
+
 Assurance lane: release, with targeted privacy and frontier-truth gates
 
 The owner-approved next living-evidence layer is active. It must persist a
