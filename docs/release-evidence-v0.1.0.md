@@ -1,6 +1,80 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-30 production living-evidence study-audit read-through deployed
+
+PR #130 passed deterministic verification, workflow policy, and every CodeQL
+analysis, then merged as `d63ee0bfd2c179b1133721d67b0d8081cd0234de`.
+The first database activation failed before migration because local PostgreSQL
+peer authentication compared OS user `postgres` with bootstrap role
+`askrigor_migrator`; the old public service remained healthy and no repository
+record existed. The empty failed state was preserved. Hotfix PR #131 changed
+local bootstrap to SCRAM and made health an authenticated `SELECT 1`; it passed
+protected checks and merged as
+`30d079931ccd4b58f32a9600aae8f660283b9f03`.
+
+Production now runs exact image
+`askrigor-research:30d079931ccd4b58f32a9600aae8f660283b9f03`, image ID
+`sha256:7aa19ebbbddedaaad326e9de9be0a446a31bdffdb171fd3e8e941afab7692e6b`,
+in healthy container `e1b912b7c37c`. Private PostgreSQL 17.6 runs in healthy
+container `393070e563f1` with no published port and an internal-only network.
+Both services retain read-only roots, dropped capabilities, and
+no-new-privileges; the public database role has `SELECT` on all 30 relations,
+no mutation privilege, and `transaction_read_only=on`. Caddy remained
+`cb061473089c` and unrelated database services were not changed. Public HTTPS
+health passed after all acceptance work.
+
+The first curated record is the LEAP trial, DOI `10.1136/bmj.k1662`, PMID
+`29720374`, PMCID `PMC5930290`. Current Europe PMC JATS has 58 blocks and exact
+source SHA-256
+`395c3c3fe33ad3c2913be783301947ca5a92c2a0349ff141d168ff4024634f8c`.
+The stored 13-domain audit retains 32 cited blocks and 18 future-analysis items,
+with analysis-version ID `fa1f2594-c385-46d5-a7ce-bd471c3b1fe0` and audit
+SHA-256
+`678a0720b775f9518c753cf6d785b8e9fe6580e537d3ea7a25a13b4d578b4ff6`.
+SELECT-only readback found exactly one source family/version/analysis version,
+13 findings, 18 future-analysis items, and one receipt. No source body was
+persisted or sent to the VPS import path.
+
+Direct production acceptance passed exact 21-tool inventory, both exact
+protocol manifests, a read-only PubMed probe, pre-import miss, two-page current
+source exhaustion, deliberately wrong-version forced-fresh behavior, and
+post-import exact reuse through the unchanged validator. The successful reuse
+receipt reports current freshness, complete impact, and compatibility
+revalidation. Total direct post-import time was 5,154 ms. A metadata-advertised
+full text that returned 404 was not imported, and a brief LEAP provider
+interruption withheld reuse until access recovered, preserving fail-closed
+behavior.
+
+A fresh primary-account ordinary ChatGPT case used personal **AskRigor** in
+Chat mode with Extra High reasoning, not the Custom GPT. It is preserved at
+`https://chatgpt.com/c/6a937742-be10-83ea-ae26-977af1e8c15c` and completed after
+1m44s. The 7,042-character terminal audit reports both exact protocols, all
+58/58 current blocks exhausted, the exact source/version/audit identities,
+compatibility/freshness/impact revalidation, and that no fresh audit was rerun.
+This passes the product repository-reuse objective and materially improves on
+the earlier 8-minute no-validator and 37m24s audit-construction cases. Its
+current-source block locators rendered without clickable anchors; that isolated
+citation-presentation defect remains declared.
+
+The complete installed AskRigor package still covers all eight required
+members. Source and installed package SHA-256 values are
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c`
+and `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`;
+all seven non-manifest members are byte-identical. No package reinstall was
+needed because no packaged bytes changed. The closeout lesson checkpoint
+reported 0 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated
+or closed, and 0 deletion-eligible. The disposable closeout acceptance passed
+22/22, reproduced canonical repository SHA-256
+`5cb8e53daf012dd8ac430fc3a3401578d8e326e9342bda83be318c1487edf2c0`,
+and passed dump/wipe/restore before removing its temporary container.
+
+The full deployment, seed, direct, product, privacy, rollback, and package
+receipts are in
+`docs/audits/2026-08-29-production-living-evidence-readthrough.md`. The owner-
+reported OpenAI organization approval is tracked separately as a public-
+submission portal scope/receipt check; it is not inferred from this release.
+
 ## 2026-08-29 public full-text chain guidance deployed
 
 PR #123 passed deterministic verification, workflow policy, and every CodeQL

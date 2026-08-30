@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-08-29 production living-evidence read-through active task
+## 2026-08-30 production living-evidence read-through release completed
 
 Task ID: `askrigor-living-evidence-readthrough-v1`
 
@@ -8,14 +8,12 @@ Branch: `agent/living-evidence-readthrough-20260829`
 
 Assurance lane: release
 
-The owner authorized production read-through integration without another
-routine authorization checkpoint. The bounded objective is exact reuse of a
-complete validated study-method audit through the existing full-text validator.
-Reuse must fail closed to a fresh audit on any source hash, identifier,
-protocol, rubric, freshness, access, impact, lineage, receipt, ambiguity, or
-repository-availability mismatch. The current full text must still be read to
-exhaustion and the existing validator must run; canonical protocol XML bytes do
-not change.
+The bounded objective is deployed: production can reuse one exact complete
+validated study-method audit through the existing full-text validator. Reuse
+fails closed to a fresh audit on source hash, identifier, protocol, rubric,
+freshness, access, impact, lineage, receipt, ambiguity, or repository-
+availability mismatch. The current full text still has to be read to exhaustion
+and the unchanged validator still runs. No canonical protocol XML byte changed.
 
 The public path remains read-only in this phase. It does not automatically
 persist user requests or tool calls. Raw source bodies, chat/prompts, private
@@ -29,8 +27,8 @@ must include discovery passes, searched date/coverage windows, videos/studies
 found and their decisions, comment coverage/count/exhaustion receipts when
 policy permits, unresolved questions, unattempted or blocked trails, and
 delta-oriented searches for newly relevant evidence. The cumulative design,
-map, and work queue record this as the required next layer. The active task
-remains the first bounded study-audit reuse slice and must not be represented as
+map, and work queue record this as the required next layer. This completed task
+is only the first bounded study-audit reuse slice and must not be represented as
 the completed repository system.
 
 The owner reports that OpenAI approved the organization request on 2026-08-29.
@@ -38,49 +36,66 @@ This clears the previously reported signup-timeout state, but its exact portal
 scope is not inferred: organization/publisher identity selection and an
 independent non-secret portal receipt remain open public-submission checks.
 
-Release-candidate verification is recorded in
+Complete verification is recorded in
 `../docs/audits/2026-08-29-production-living-evidence-readthrough.md`. The
 complete gate passed 109 test files with one declared skip and 1,455 tests with
 six declared skips, plus typecheck/build; the four-page site check and 28/28
-deployment-policy tests pass. Real PostgreSQL acceptance passes 22/22 and
-reproduces current canonical repository SHA-256
-`5cb8e53daf012dd8ac430fc3a3401578d8e326e9342bda83be318c1487edf2c0`.
-The older pilot record's `8b796f...` hash is retained as a non-reproducible
-historical receipt; no cause is invented. Release lesson status is available
-with 0 open, 0 needs review, 0 accepted-not-incorporated, 4
-incorporated/closed, and 0 deletion eligible. Merge, exact deployment, curated
-seed import, direct production acceptance, plugin receipt, and fresh ordinary
-ChatGPT acceptance remain.
+deployment-policy tests pass. The final lesson checkpoint at
+`2026-08-30T00:32:53.087Z` reports 0 open, 0 needs review, 0 accepted-not-
+incorporated, 4 incorporated/closed, and 0 deletion eligible. The disposable
+closeout wrapper again passed 22/22, reproduced canonical repository SHA-256
+`5cb8e53daf012dd8ac430fc3a3401578d8e326e9342bda83be318c1487edf2c0`,
+and verified exact dump/wipe/restore before removing its temporary container.
+The older pilot record's `8b796f...` hash remains a non-reproducible historical
+receipt; no cause is invented.
 
-PR #130 merged as `d63ee0bfd2c179b1133721d67b0d8081cd0234de` after all
-hosted checks passed. The first VPS activation stopped before migration and
-before recreating the public research service: local peer authentication
-compared operating-system user `postgres` with bootstrap database role
-`askrigor_migrator` and rejected the official PostgreSQL entrypoint. The old
-public image remains healthy and no repository data was imported. The bounded
-hotfix changes local bootstrap authentication to SCRAM, makes health require an
-authenticated `SELECT 1` against the exact database, adds regression
-assertions, and passed an isolated exact-digest bootstrap proving database and
-reader creation plus reader `transaction_read_only=on`. Resume only after its
-protected merge; preserve or remove only the failed empty database-bootstrap
-state.
+PR #130 merged as `d63ee0bfd2c179b1133721d67b0d8081cd0234de`. The first
+VPS activation stopped before migration or public-service recreation when
+PostgreSQL peer authentication rejected bootstrap role `askrigor_migrator`.
+The empty failed state was preserved, the old service remained healthy, and no
+repository data was imported. Hotfix PR #131 changed local bootstrap to SCRAM
+and health to an authenticated `SELECT 1`, passed protected checks, and merged
+as `30d079931ccd4b58f32a9600aae8f660283b9f03`.
 
-First command after resume:
+Production now runs healthy research container `e1b912b7c37c`, exact image ID
+`sha256:7aa19ebbbddedaaad326e9de9be0a446a31bdffdb171fd3e8e941afab7692e6b`,
+and healthy private PostgreSQL container `393070e563f1`. PostgreSQL has no
+published port; the public role is SELECT-only across all 30 relations with
+`transaction_read_only=on`. Caddy remains `cb061473089c`. Final public HTTPS
+health passes.
 
-```bash
-npm run living-evidence:preflight
-```
+The curated LEAP record binds DOI `10.1136/bmj.k1662`, PMCID `PMC5930290`, all
+58 source blocks, source SHA-256
+`395c3c3fe33ad3c2913be783301947ca5a92c2a0349ff141d168ff4024634f8c`,
+repository version `fa1f2594-c385-46d5-a7ce-bd471c3b1fe0`, and audit SHA-256
+`678a0720b775f9518c753cf6d785b8e9fe6580e537d3ea7a25a13b4d578b4ff6`.
+It retains all 13 method domains and 18 future-analysis items. No source body is
+persisted.
 
-Task completion command:
+Direct production miss, wrong-version forced-fresh, and exact-hit reuse checks
+pass with 21 tools, both exact manifests, current-source exhaustion, same-
+validator revalidation, current freshness, and complete impact. The primary-
+account ordinary ChatGPT case completed the same repository hit in 1m44s in
+Chat mode with Extra High reasoning at
+`https://chatgpt.com/c/6a937742-be10-83ea-ae26-977af1e8c15c`. It returned the
+exact protocols, source/version/audit identities, 58/58 exhaustion, and no
+fresh rerun. It rendered source-block locators but no clickable anchors; that
+presentation defect is declared without invalidating repository-reuse
+acceptance.
 
-```bash
-npm run living-evidence:acceptance
-```
+The source and installed AskRigor plugin receipts still cover the exact eight-
+member inventory; all seven non-manifest members are byte-identical. No package
+reinstall was needed because no packaged byte changed. Source and installed
+package SHA-256 values remain
+`afe2c48b8fbab020e82f2cd884de7bbcb5abaa66d0ec1cfaaa88dcdd15ddeb6c` and
+`d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
 
-The baseline is `42cf009028d4b8bad989d9c575067bf1a98959bd`; rollback is
-`rollback/main-pre-living-evidence-readthrough-20260829`. Completed pilot,
-historical browser, unrelated worktree, global queue, and optional-provider
-task sources are suspended by `tasks/ACTIVE-TASK.json` until closeout.
+The baseline is `42cf009028d4b8bad989d9c575067bf1a98959bd`; rollback refs
+are `rollback/main-pre-living-evidence-readthrough-20260829` and
+`rollback/living-evidence-hotfix-pre-main-sync-20260829`. After the evidence
+closeout merge, the exclusive task lock is complete and normal queue routing
+may resume. YouTube/community persistence remains zero pending Google's policy
+reply and a later exact owner field gate.
 
 ## 2026-08-29 second-account regular-Chat acceptance and bounded latency failures
 
