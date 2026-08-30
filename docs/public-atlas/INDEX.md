@@ -65,21 +65,33 @@ Status: branch-local architecture and Phase-0 implementation index
     - SSO/webhook, contracts, migrations, service, UI, moderation, safety, proposal, and bounded-pilot phases;
     - exact Codex continuation instruction and no-real-data boundary.
 
-12. `../audits/2026-08-30-universal-supervision-bootstrap-critique.md`
+12. `../work-queue/2026-08-30-community-health-forum-and-public-lead-frontier.md`
+    - durable owner outcome and controlling read order;
+    - immediate synthetic implementation slice;
+    - explicit non-authorizations and real-pilot gates;
+    - nonterminal `READY_FOR_SYNTHETIC_IMPLEMENTATION` state.
+
+13. `COMMUNITY-FORUM-ARCHITECTURE-RECEIPT.md`
+    - final architecture closure and artifact identities;
+    - machine validation receipt;
+    - PR-stack reconciliation boundary;
+    - exact Codex handoff.
+
+14. `../audits/2026-08-30-universal-supervision-bootstrap-critique.md`
     - application of the updated shared Codex/Pro supervision bootstrap;
     - objective-contract reconciliation;
     - independent supervisor owner-source receipt;
     - typed completion and separate operational/scientific/release verdicts.
 
-13. `../superpowers/plans/2026-08-30-public-atlas-phase0-prediction-stories.md`
+15. `../superpowers/plans/2026-08-30-public-atlas-phase0-prediction-stories.md`
     - implemented prediction/story/study/job contracts and tests;
     - next database/service fixture slice;
     - bounded Codex continuation handoff.
 
-14. `../../packages/evidence-repository/src/public-atlas-phase0.ts`
+16. `../../packages/evidence-repository/src/public-atlas-phase0.ts`
     - Phase-0 pure TypeScript contracts and deterministic validators.
 
-15. `../../tests/public-atlas-phase0.test.ts`
+17. `../../tests/public-atlas-phase0.test.ts`
     - prediction lock/reveal/scoring;
     - small-aggregate suppression;
     - incomplete-story acceptance;
@@ -91,7 +103,7 @@ Status: branch-local architecture and Phase-0 implementation index
 
 ## Supersession note
 
-The Community Health Forum and Public Lead Frontier prior-work scan, spec, machine contract, and fixtures are the controlling architecture for public secondhand leads.
+The Community Health Forum and Public Lead Frontier prior-work scan, spec, machine contract, fixtures, plan, queue entry, and receipt are the controlling architecture for public secondhand leads.
 
 They supersede any earlier downstream clause that can be read to require affected-person exact-version approval before **every** deidentified secondhand lead may be public. Earlier exact-version approval requirements remain controlling for `PUBLIC_NARRATIVE`, direct subject quotations, identifiable or reasonably reidentifiable subject presentation, subject documents/media, and other explicitly consent-gated uses.
 
