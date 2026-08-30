@@ -104,11 +104,15 @@ open candidates, 0 needing review, 0 accepted but not incorporated, 4
 incorporated or closed, and 0 deletion eligible. This project-specific storage
 implementation adds no new transferable lesson candidate.
 
-The first protected CodeQL aggregation flagged an incomplete backslash escape
-in the Mermaid label encoder. A new hostile-label regression reproduced the
-failure, the encoder now emits backslashes as numeric entities, and the focused
-16-test set, typecheck, and complete 1,470-test gate all pass after the repair.
-Protected CodeQL reanalysis remains mandatory before merge.
+Protected CodeQL flagged incomplete backslash handling in the generated-view
+encoders. The first repair made Mermaid backslash handling explicit; reanalysis
+correctly retained the alert for the Markdown encoder because it still
+introduced punctuation escapes after doubling input backslashes. A hostile-
+label regression reproduces both boundaries. Both encoders now emit backslashes
+and Markdown control characters as numeric entities, with no ambiguous escape
+ordering. The focused 16-test set, typecheck, and complete 1,470-test gate pass
+after the final repair. Protected CodeQL reanalysis remains mandatory before
+merge.
 
 ## Remaining release boundaries
 

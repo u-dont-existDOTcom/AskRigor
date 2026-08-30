@@ -416,7 +416,8 @@ describe("research-frontier persistence contracts", () => {
     expect(rendered.obsidianMarkdown).not.toContain("[linked title](https://example.invalid)");
     expect(rendered.obsidianMarkdown).not.toContain("\n# injected heading");
     expect(rendered.obsidianMarkdown).toContain("&lt;script&gt;");
-    expect(rendered.obsidianMarkdown).toContain("\\[linked title\\](https://example.invalid)");
+    expect(rendered.obsidianMarkdown).not.toContain("\\");
+    expect(rendered.obsidianMarkdown).toContain("&#91;linked title&#93;&#40;https://example.invalid&#41;");
     expect(rendered.mermaid).not.toContain("\\");
     expect(rendered.mermaid).toContain("&#92;");
   });

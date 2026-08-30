@@ -174,10 +174,18 @@ function markdownInline(value: string): string {
   return value
     .replace(/[\r\n]+/gu, " ")
     .replaceAll("&", "&amp;")
+    .replaceAll("\\", "&#92;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
-    .replaceAll("\\", "\\\\")
-    .replace(/([`*_\[\]!|])/gu, "\\$1");
+    .replaceAll("`", "&#96;")
+    .replaceAll("*", "&#42;")
+    .replaceAll("_", "&#95;")
+    .replaceAll("[", "&#91;")
+    .replaceAll("]", "&#93;")
+    .replaceAll("(", "&#40;")
+    .replaceAll(")", "&#41;")
+    .replaceAll("!", "&#33;")
+    .replaceAll("|", "&#124;");
 }
 
 function nullableText(value: unknown): string {
