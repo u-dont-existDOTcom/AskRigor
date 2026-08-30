@@ -1,0 +1,281 @@
+{
+  "schema_version": "0.1.0",
+  "record_type": "COMMUNITY_LEAD",
+  "record_id": "ARLEAD-ANDYLIKE20260830",
+  "payload": {
+    "lead_id": "ARLEAD-ANDYLIKE20260830",
+    "lead_version": 1,
+    "source_references": [
+      {
+        "forum_service": "DISCOURSE",
+        "forum_instance_id": "ASKRIGOR-SYNTHETIC-LAB",
+        "topic_id": "SYNTHETIC-TOPIC-001",
+        "post_id": "SYNTHETIC-POST-001",
+        "source_version": 1,
+        "source_visibility": "PUBLIC",
+        "source_url": null,
+        "author_pseudonymous_id": "ARREP-SYNTHFRIEND01",
+        "occurred_at": "2026-08-30T16:30:00Z",
+        "received_at": "2026-08-30T16:30:01Z",
+        "content_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "approved_excerpt": null,
+        "excerpt_publication_consent_id": null,
+        "deleted_at": null
+      }
+    ],
+    "reporter": {
+      "reporter_id": "ARREP-SYNTHFRIEND01",
+      "reporter_role": "FRIEND",
+      "relationship_description": "Friend of the affected adult",
+      "information_origin": "SUBJECT_RELAYED_TO_REPORTER",
+      "source_distance": "ONE_HOP_SUBJECT_RELAY",
+      "verification_state": "UNVERIFIED",
+      "public_attribution": "ANONYMOUS",
+      "conflict_disclosures": []
+    },
+    "subject_boundary": {
+      "subject_private_ref_present": false,
+      "subject_identifiability_in_source": "LOW",
+      "subject_identifiability_in_public_version": "NONE",
+      "direct_subject_quote_present": false,
+      "subject_documents_or_media_present": false,
+      "minor_status": "ADULT",
+      "subject_acknowledgement_state": "NOT_REQUESTED",
+      "subject_exact_version_approval": null
+    },
+    "conditions": [
+      {
+        "condition_episode_id": "ARC-MCAS01",
+        "condition_id": null,
+        "condition_name": "Mast cell activation syndrome (reported)",
+        "diagnostic_certainty": "REPORTED_BY_PROXY",
+        "diagnosis_source_summary": "The reporter says the friend had MCAS; the diagnostic method and records were not provided.",
+        "population_stage": null,
+        "baseline_summary": "The reporter described the condition as severe enough that the later change felt substantial; baseline symptoms and functioning were not specified."
+      }
+    ],
+    "intervention_episodes": [
+      {
+        "intervention_episode_id": "ARI-COMBO01",
+        "episode_type": "COMBINATION",
+        "components": [
+          {
+            "component_id": "ARIC-LDN01",
+            "normalized_intervention_id": null,
+            "name": "Low-dose naltrexone (LDN)",
+            "formulation": null,
+            "route": null,
+            "dose_known": false,
+            "dose_value": null,
+            "dose_unit": null,
+            "frequency": null,
+            "start_known": false,
+            "start_description": null,
+            "end_description": null,
+            "adherence_summary": null,
+            "dechallenge_summary": null,
+            "rechallenge_summary": null
+          },
+          {
+            "component_id": "ARIC-NADINJ01",
+            "normalized_intervention_id": null,
+            "name": "Low-dose NAD+ injections",
+            "formulation": null,
+            "route": "Injection",
+            "dose_known": false,
+            "dose_value": null,
+            "dose_unit": null,
+            "frequency": null,
+            "start_known": false,
+            "start_description": null,
+            "end_description": null,
+            "adherence_summary": null,
+            "dechallenge_summary": null,
+            "rechallenge_summary": null
+          },
+          {
+            "component_id": "ARIC-TIRZ01",
+            "normalized_intervention_id": null,
+            "name": "Low-dose tirzepatide",
+            "formulation": null,
+            "route": null,
+            "dose_known": false,
+            "dose_value": null,
+            "dose_unit": null,
+            "frequency": null,
+            "start_known": false,
+            "start_description": null,
+            "end_description": null,
+            "adherence_summary": null,
+            "dechallenge_summary": null,
+            "rechallenge_summary": null
+          }
+        ],
+        "sequence_known": false,
+        "sequence_summary": "The order, spacing, and overlap of the three components are unknown.",
+        "cointerventions_summary": "Other medications, diet, environmental changes, infections, and life changes are unknown.",
+        "program_fingerprint": null
+      }
+    ],
+    "outcomes": [
+      {
+        "outcome_id": "ARO-MCASGLOBAL01",
+        "name": "Overall MCAS symptoms and functioning",
+        "reported_direction": "IMPROVED",
+        "reported_magnitude": "VERY_LARGE",
+        "measurement_type": "SUBJECTIVE_GLOBAL",
+        "baseline_value": null,
+        "follow_up_value": null,
+        "unit_or_scale": null,
+        "onset_after_intervention": null,
+        "duration_or_persistence": null,
+        "current_status": "ONGOING_UNKNOWN",
+        "reporter_wording": "The reporter said the combination helped the friend tremendously and described the friend as healing from MCAS."
+      }
+    ],
+    "adverse_event_summaries": [],
+    "alternative_explanations": [
+      "The components may have started at different times.",
+      "One component, the combination, or an unrelated concurrent change may explain the reported improvement.",
+      "Natural fluctuation, regression to the mean, diagnosis uncertainty, and recall effects cannot be assessed from the current report."
+    ],
+    "verification_state": "UNVERIFIED",
+    "evidence_capability": "COMBINATION_ASSOCIATION_ONLY",
+    "formal_evidence_relationship": "NOT_CHECKED",
+    "completeness": {
+      "overall_band": "PARTIAL",
+      "field_status": {
+        "condition_name": "KNOWN",
+        "diagnostic_basis": "UNKNOWN",
+        "baseline": "PARTIAL",
+        "intervention_components": "KNOWN",
+        "dose_route_frequency": "PARTIAL",
+        "sequencing": "UNKNOWN",
+        "cointerventions": "UNKNOWN",
+        "outcome_direction": "KNOWN",
+        "outcome_measurement": "PARTIAL",
+        "timing": "UNKNOWN",
+        "persistence": "UNKNOWN",
+        "adverse_events": "UNKNOWN",
+        "dechallenge_rechallenge": "UNKNOWN",
+        "objective_corroboration": "UNKNOWN"
+      },
+      "missing_material_fields": [
+        "diagnostic basis",
+        "baseline symptoms and function",
+        "exact doses and frequencies",
+        "start dates and sequencing",
+        "co-interventions",
+        "time to improvement",
+        "duration and current status",
+        "adverse effects",
+        "dechallenge or rechallenge",
+        "objective measurements"
+      ],
+      "follow_up_questions": [
+        "Would the affected person be willing to verify or expand the report?",
+        "How was MCAS diagnosed?",
+        "Which component began first, and how far apart were the starts?",
+        "What exact doses, routes, and frequencies were used?",
+        "What symptoms and functional limitations were present before treatment?",
+        "When did each improvement begin and how long has it lasted?",
+        "What else changed at the same time?",
+        "Were there adverse effects, interruptions, stopping, or restarting?"
+      ]
+    },
+    "discovery_value_components": {
+      "novelty": 3,
+      "intervention_specificity": 3,
+      "reported_outcome_magnitude": 4,
+      "harm_urgency": 0,
+      "independent_replication": 0,
+      "formal_evidence_gap": 4,
+      "follow_up_tractability": 3,
+      "decision_importance": 3,
+      "equity_or_neglect_importance": 2,
+      "rationales": {
+        "novelty": "The reported three-component combination is a potentially distinctive treatment hypothesis.",
+        "intervention_specificity": "The three named components are known, but dose, sequence, and formulation details are incomplete.",
+        "reported_outcome_magnitude": "The reporter described a very large improvement.",
+        "independent_replication": "Only one secondhand report is represented in this fixture.",
+        "formal_evidence_gap": "No matched formal evidence check has yet been performed.",
+        "follow_up_tractability": "The reporter may be able to invite the affected person to provide direct follow-up.",
+        "decision_importance": "A large improvement in a difficult chronic condition would be important if the signal can be clarified."
+      },
+      "composite_display_prohibited": true
+    },
+    "consents": {
+      "public_lead": {
+        "decision": "YES",
+        "notice_version": "community-public-lead-notice-0.1.0",
+        "consent_text_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      },
+      "aggregate_research": {
+        "decision": "YES",
+        "notice_version": "community-aggregate-research-notice-0.1.0",
+        "consent_text_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      },
+      "recontact": {
+        "decision": "YES",
+        "notice_version": "community-recontact-notice-0.1.0",
+        "consent_text_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      },
+      "direct_quote": {
+        "decision": "NO",
+        "notice_version": "community-quotation-notice-0.1.0",
+        "consent_text_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      },
+      "documents_or_media": {
+        "decision": "NO",
+        "notice_version": "community-media-notice-0.1.0",
+        "consent_text_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      },
+      "exact_regimen_publication": {
+        "decision": "YES",
+        "notice_version": "community-regimen-notice-0.1.0",
+        "consent_text_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      },
+      "future_research": {
+        "decision": "YES",
+        "notice_version": "community-future-research-notice-0.1.0",
+        "consent_text_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      },
+      "model_training": {
+        "decision": "NO",
+        "notice_version": "community-model-training-notice-0.1.0",
+        "consent_text_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "decided_at": "2026-08-30T16:31:00Z",
+        "actor_type": "REPORTER",
+        "channel": "FORUM"
+      }
+    },
+    "duplicate_or_linked_lead_ids": [],
+    "status": "STRUCTURED",
+    "created_at": "2026-08-30T16:31:00Z",
+    "updated_at": null,
+    "canonical_payload_sha256": null
+  },
+  "created_at": "2026-08-30T16:31:00Z",
+  "record_payload_sha256": null
+}
