@@ -2,13 +2,23 @@ import { Pool, type PoolClient, type PoolConfig } from "pg";
 
 import {
   assertCommunityPublicationPreservesEvidence,
+  communityComposerDraftSchema,
   communityForumEventSchema,
+  communityFrontierViewSchema,
   communityLeadSchema,
+  communityOperationalActionSchema,
+  communityOperationalQueueItemSchema,
+  communityOperationalRoleAssignmentSchema,
   communityPublicVersionSchema,
   communitySignalClusterSchema,
   syntheticForumAccountSchema,
+  type CommunityComposerDraft,
   type CommunityForumEvent,
+  type CommunityFrontierView,
   type CommunityLead,
+  type CommunityOperationalAction,
+  type CommunityOperationalQueueItem,
+  type CommunityOperationalRoleAssignment,
   type CommunityPublicVersion,
   type CommunitySignalCluster,
   type SyntheticForumAccount,
@@ -23,6 +33,7 @@ import {
   type CommunityBridgeEventReceipt,
   type SyntheticPublicLeadProjection,
 } from "./community-forum-service.js";
+import { SyntheticCommunityOperationsService } from "./community-forum-operations.js";
 import { deterministicUuid, sha256, stableJson } from "./hash.js";
 
 export interface CommunityPostgresOptions {
@@ -649,6 +660,280 @@ export class PostgresSyntheticCommunityRepository {
         [publicVersionId],
       );
       return result.rows[0]?.public_payload_json ?? null;
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveComposerDraft(input: unknown): Promise<CommunityComposerDraft> {
+    const draft = communityComposerDraftSchema.parse(input);
+    const payloadSha256 = sha256(stableJson(draft));
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+      await this.setSearchPath(client);
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+        [`askrigor:community-composer:${draft.draftId}`],
+      );
+      const exact = await client.query<{ payload_sha256: string }>(
+        "SELECT payload_sha256 FROM community_composer_draft_versions WHERE draft_id = $1 AND draft_version = $2",
+        [draft.draftId, draft.draftVersion],
+      );
+      if (exact.rows[0] !== undefined) {
+        if (exact.rows[0].payload_sha256 !== payloadSha256)
+          throw new Error("COMMUNITY_COMPOSER_DRAFT_VERSION_COLLISION");
+        await client.query("COMMIT");
+        return structuredClone(draft);
+      }
+      const latest = await client.query<{ draft_version: number }>(
+        "SELECT draft_version FROM community_composer_draft_versions WHERE draft_id = $1 ORDER BY draft_version DESC LIMIT 1",
+        [draft.draftId],
+      );
+      const latestVersion = latest.rows[0]?.draft_version;
+      if (latestVersion === undefined && draft.draftVersion !== 1)
+        throw new Error("COMMUNITY_COMPOSER_DRAFT_VERSION_GAP");
+      if (latestVersion !== undefined) {
+        if (draft.draftVersion <= latestVersion)
+          throw new Error("COMMUNITY_COMPOSER_DRAFT_STALE_VERSION");
+        if (draft.draftVersion !== latestVersion + 1)
+          throw new Error("COMMUNITY_COMPOSER_DRAFT_VERSION_GAP");
+      }
+      await client.query(
+        `INSERT INTO community_composer_draft_versions
+          (draft_id, draft_version, reporter_account_id, entry_point, source_post_id,
+           source_post_disposition, status, public_lead_permission,
+           preview_acknowledged, payload_sha256, payload_json, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12)`,
+        [
+          draft.draftId,
+          draft.draftVersion,
+          draft.reporterAccountId,
+          draft.entryPoint,
+          draft.sourcePostId,
+          draft.sourcePostDisposition,
+          draft.status,
+          draft.permissions.publicLead,
+          draft.preview?.acknowledgedAt != null,
+          payloadSha256,
+          JSON.stringify(draft),
+          draft.updatedAt,
+        ],
+      );
+      await client.query("COMMIT");
+      return structuredClone(draft);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async saveFrontierSnapshot(
+    snapshotId: string,
+    input: unknown,
+  ): Promise<CommunityFrontierView> {
+    if (!/^ARFRONTIER-[A-Z0-9_-]{8,64}$/u.test(snapshotId))
+      throw new Error("COMMUNITY_FRONTIER_SNAPSHOT_ID_INVALID");
+    const view = communityFrontierViewSchema.parse(input);
+    const payloadSha256 = sha256(stableJson(view));
+    const client = await this.pool.connect();
+    try {
+      await this.setSearchPath(client);
+      const prior = await client.query<{ payload_sha256: string }>(
+        "SELECT payload_sha256 FROM community_frontier_snapshots WHERE snapshot_id = $1",
+        [snapshotId],
+      );
+      if (prior.rows[0] !== undefined) {
+        if (prior.rows[0].payload_sha256 !== payloadSha256)
+          throw new Error("COMMUNITY_FRONTIER_SNAPSHOT_COLLISION");
+        return structuredClone(view);
+      }
+      await client.query(
+        `INSERT INTO community_frontier_snapshots
+          (snapshot_id, default_order, reported_lead_count, independent_source_count,
+           direction_counts, denominator_available, effectiveness_percentage_display_permitted,
+           discussion_activity_affects_evidence_state, payload_sha256, payload_json, generated_at)
+         VALUES ($1, $2, $3, $4, $5::jsonb, false, false, false, $6, $7::jsonb, $8)`,
+        [
+          snapshotId,
+          view.defaultOrder,
+          view.reportedLeadCount,
+          view.independentSourceCount,
+          JSON.stringify(view.directionCounts),
+          payloadSha256,
+          JSON.stringify(view),
+          view.generatedAt,
+        ],
+      );
+      return structuredClone(view);
+    } finally {
+      client.release();
+    }
+  }
+
+  async enqueueOperation(
+    input: unknown,
+  ): Promise<CommunityOperationalQueueItem> {
+    const service = new SyntheticCommunityOperationsService();
+    const item = service.enqueue(input);
+    const payloadSha256 = sha256(stableJson(item));
+    const client = await this.pool.connect();
+    try {
+      await this.setSearchPath(client);
+      const prior = await client.query<{ payload_sha256: string }>(
+        "SELECT payload_sha256 FROM community_operational_queue_items WHERE queue_item_id = $1",
+        [item.queueItemId],
+      );
+      if (prior.rows[0] !== undefined) {
+        if (prior.rows[0].payload_sha256 !== payloadSha256)
+          throw new Error("COMMUNITY_OPERATION_QUEUE_ITEM_COLLISION");
+        return structuredClone(item);
+      }
+      await client.query(
+        `INSERT INTO community_operational_queue_items
+          (queue_item_id, queue_type, required_capability, target_type, target_id,
+           originator_actor_id, independent_review_required, source_meaning_sha256,
+           seriousness, automated_regulatory_reporting, status, payload_sha256,
+           payload_json, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false, $10, $11, $12::jsonb, $13)`,
+        [
+          item.queueItemId,
+          item.queueType,
+          item.requiredCapability,
+          item.targetType,
+          item.targetId,
+          item.originatorActorId,
+          item.independentReviewRequired,
+          item.sourceMeaningSha256,
+          item.seriousness,
+          item.status,
+          payloadSha256,
+          JSON.stringify(item),
+          item.createdAt,
+        ],
+      );
+      return structuredClone(item);
+    } finally {
+      client.release();
+    }
+  }
+
+  async assignOperationRole(
+    input: unknown,
+  ): Promise<CommunityOperationalRoleAssignment> {
+    const service = new SyntheticCommunityOperationsService();
+    const assignment = service.assignRole(input);
+    const payloadSha256 = sha256(stableJson(assignment));
+    const client = await this.pool.connect();
+    try {
+      await this.setSearchPath(client);
+      const prior = await client.query<{ payload_sha256: string }>(
+        "SELECT payload_sha256 FROM community_operational_actor_roles WHERE actor_id = $1 AND role = $2",
+        [assignment.actorId, assignment.role],
+      );
+      if (prior.rows[0] !== undefined) {
+        if (prior.rows[0].payload_sha256 !== payloadSha256)
+          throw new Error("COMMUNITY_OPERATION_ROLE_ASSIGNMENT_COLLISION");
+        return structuredClone(assignment);
+      }
+      await client.query(
+        `INSERT INTO community_operational_actor_roles
+          (assignment_id, actor_id, role, assigned_by_actor_id, active,
+           assigned_at, payload_sha256, payload_json)
+         VALUES ($1, $2, $3, $4, true, $5, $6, $7::jsonb)`,
+        [
+          assignment.assignmentId,
+          assignment.actorId,
+          assignment.role,
+          assignment.assignedByActorId,
+          assignment.assignedAt,
+          payloadSha256,
+          JSON.stringify(assignment),
+        ],
+      );
+      return structuredClone(assignment);
+    } finally {
+      client.release();
+    }
+  }
+
+  async recordOperationAction(
+    input: unknown,
+  ): Promise<CommunityOperationalAction> {
+    const parsed = communityOperationalActionSchema.parse(input);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL SERIALIZABLE");
+      await this.setSearchPath(client);
+      const queueResult = await client.query<{
+        payload_json: CommunityOperationalQueueItem;
+      }>(
+        "SELECT payload_json FROM community_operational_queue_items WHERE queue_item_id = $1 FOR SHARE",
+        [parsed.queueItemId],
+      );
+      const queueItem = communityOperationalQueueItemSchema.parse(
+        queueResult.rows[0]?.payload_json,
+      );
+      const roleResult = await client.query<{
+        payload_json: CommunityOperationalRoleAssignment;
+      }>(
+        "SELECT payload_json FROM community_operational_actor_roles WHERE actor_id = $1 AND role = $2",
+        [parsed.actorId, parsed.activeRole],
+      );
+      if (roleResult.rows[0] === undefined) {
+        throw new Error("COMMUNITY_OPERATION_ACTIVE_ROLE_NOT_ASSIGNED");
+      }
+      const roleAssignment = communityOperationalRoleAssignmentSchema.parse(
+        roleResult.rows[0].payload_json,
+      );
+      const service = new SyntheticCommunityOperationsService();
+      service.assignRole(roleAssignment);
+      service.enqueue(queueItem);
+      const action = service.act(parsed);
+      const payloadSha256 = sha256(stableJson(action));
+      const prior = await client.query<{ payload_sha256: string }>(
+        "SELECT payload_sha256 FROM community_operational_actions WHERE action_id = $1",
+        [action.actionId],
+      );
+      if (prior.rows[0] !== undefined) {
+        if (prior.rows[0].payload_sha256 !== payloadSha256)
+          throw new Error("COMMUNITY_OPERATION_ACTION_COLLISION");
+        await client.query("COMMIT");
+        return structuredClone(action);
+      }
+      await client.query(
+        `INSERT INTO community_operational_actions
+          (action_id, queue_item_id, actor_id, originator_actor_id,
+           independent_review_required, active_role, capability, action,
+           source_meaning_sha256_before, source_meaning_sha256_after,
+           annotation_text, automated_regulatory_reporting, resulting_status,
+           payload_sha256, payload_json, occurred_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, false, $12, $13, $14::jsonb, $15)`,
+        [
+          action.actionId,
+          action.queueItemId,
+          action.actorId,
+          queueItem.originatorActorId,
+          queueItem.independentReviewRequired,
+          action.activeRole,
+          action.capability,
+          action.action,
+          action.sourceMeaningSha256Before,
+          action.sourceMeaningSha256After,
+          action.annotationText,
+          action.resultingStatus,
+          payloadSha256,
+          JSON.stringify(action),
+          action.occurredAt,
+        ],
+      );
+      await client.query("COMMIT");
+      return structuredClone(action);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
     } finally {
       client.release();
     }

@@ -4,19 +4,23 @@ import { resolve } from "node:path";
 import { Pool } from "pg";
 
 import {
+  communityFrontierCardSchema,
   communityLeadSchema,
   communityPublicVersionSchema,
   communitySignalClusterSchema,
   type CommunityForumEvent,
+  type CommunityFrontierCard,
   type CommunityLead,
 } from "../packages/contracts/src/index.js";
 import {
+  buildSyntheticCommunityFrontierView,
   PostgresEvidenceRepository,
   PostgresSyntheticCommunityRepository,
   sha256,
   signDiscourseWebhook,
   stableJson,
   syntheticPublicLeadProjectionSha256,
+  SyntheticCommunityComposerService,
 } from "../packages/evidence-repository/src/index.js";
 
 const SECRET = "synthetic-community-acceptance-secret";
@@ -184,6 +188,46 @@ function publicVersion(source: CommunityLead) {
   });
 }
 
+function frontierCard(
+  suffix: string,
+  reportedDirection: CommunityFrontierCard["reportedDirection"],
+  views: number,
+): CommunityFrontierCard {
+  return communityFrontierCardSchema.parse({
+    schemaVersion: "0.1.0",
+    synthetic: true,
+    labOnly: true,
+    cardId: `ARCARD-ACCEPT${suffix}`,
+    publicVersionId: `ARPUB-ACCEPT${suffix}`,
+    leadId: `ARLEAD-ACCEPT${suffix}`,
+    leadVersion: 1,
+    sourceIndependenceKey: sha256(`acceptance-source-${suffix}`),
+    publicTitle: `Synthetic ${reportedDirection.toLowerCase()} acceptance card`,
+    condition: "Synthetic reported condition",
+    diagnosticCertainty: "SELF_IDENTIFIED",
+    exactInterventionCombination: ["Synthetic component"],
+    reportedDirection,
+    timingAndPersistence: "Synthetic timing and persistence remain unknown.",
+    reporterRole: "SELF",
+    sourceDistance: "FIRSTHAND_SUBJECT",
+    sourceDistanceLabel: "Synthetic firsthand subject report",
+    verificationState: "UNVERIFIED",
+    completenessBand: "PARTIAL",
+    evidenceCapability: "DESCRIPTIVE_REPORT_ONLY",
+    formalEvidenceRelationship: "NOT_CHECKED",
+    harmsReported: reportedDirection === "WORSENED",
+    noEffectReported: reportedDirection === "NO_CLEAR_CHANGE",
+    cointerventionsAndConfounders: ["Synthetic confounders remain unknown"],
+    clusterIds: [],
+    challengeCount: 0,
+    latestCorrectionLeadVersion: null,
+    withdrawn: false,
+    researchStatus: "LEAD_ONLY",
+    discussionActivity: { views, replies: 0 },
+    discussionActivityAffectsEvidenceState: false,
+  });
+}
+
 async function expectReject(
   action: () => Promise<unknown>,
   expected: string,
@@ -218,7 +262,7 @@ async function main(): Promise<void> {
   const checks: string[] = [];
   try {
     await evidence.migrate();
-    checks.push("three_migration_chain_applied");
+    checks.push("four_migration_chain_applied");
 
     await community.registerAccount({
       synthetic: true,
@@ -232,6 +276,140 @@ async function main(): Promise<void> {
       nonForumProductAccess: true,
     });
     checks.push("synthetic_account_registered_without_raw_email_projection");
+
+    const composer = new SyntheticCommunityComposerService();
+    const composerVersions = [];
+    const composerDraft = composer.startDraft({
+      draftId: "ARDRAFT-ACCEPTCOMPOSER01",
+      reporterAccountId: "ARSYN-ACCEPTACCOUNT01",
+      sourcePostId: "SYNTHETIC-POST-9010",
+      updatedAt: AT,
+    });
+    composerVersions.push(composerDraft);
+    composerVersions.push(composer.offerLeadConversion(composerDraft.draftId, AT));
+    composerVersions.push(
+      composer.respondToLeadConversion(
+        composerDraft.draftId,
+        "ARSYN-ACCEPTACCOUNT01",
+        "ACCEPTED",
+        AT,
+      ),
+    );
+    composerVersions.push(
+      composer.recordDetails(
+        composerDraft.draftId,
+        "ARSYN-ACCEPTACCOUNT01",
+        {
+          reporter: {
+            role: "FRIEND",
+            informationOrigin: "SUBJECT_RELAYED_TO_REPORTER",
+            sourceDistance: "ONE_HOP_SUBJECT_RELAY",
+          },
+          condition: {
+            name: "Synthetic reported condition",
+            diagnosticCertainty: "REPORTED_BY_PROXY",
+          },
+          interventionEpisode: {
+            components: ["Synthetic component A", "Synthetic component B"],
+            exactCombinationKnown: true,
+          },
+          outcome: {
+            name: "Synthetic overall symptoms",
+            reportedDirection: "MIXED",
+            timing: null,
+            persistence: null,
+          },
+          cointerventions: [],
+          harms: ["Synthetic transient worsening"],
+          unknowns: ["Timing", "Persistence"],
+        },
+        AT,
+      ),
+    );
+    composerVersions.push(
+      composer.preparePreview(
+        composerDraft.draftId,
+        "ARSYN-ACCEPTACCOUNT01",
+        {
+          publicTitle: "Synthetic secondhand report preview",
+          publicParaphrase:
+            "A synthetic reporter says a synthetic friend described a mixed outcome.",
+          sourceDistanceLabel:
+            "One-hop report from a friend; not a firsthand subject account",
+          limitations: ["Synthetic, secondhand, incomplete, and noncausal."],
+        },
+        AT,
+      ),
+    );
+    composerVersions.push(
+      composer.recordPermission(
+        composerDraft.draftId,
+        "ARSYN-ACCEPTACCOUNT01",
+        "PUBLIC_LEAD",
+        "YES",
+        AT,
+      ),
+    );
+    composerVersions.push(
+      composer.acknowledgePreview(
+        composerDraft.draftId,
+        "ARSYN-ACCEPTACCOUNT01",
+        AT,
+      ),
+    );
+    composerVersions.push(
+      composer.requestSyntheticPublication(
+        composerDraft.draftId,
+        "ARSYN-ACCEPTACCOUNT01",
+        AT,
+      ),
+    );
+    for (const version of composerVersions) {
+      await community.saveComposerDraft(version);
+    }
+    checks.push("member_controlled_composer_versions_are_append_only");
+
+    const sourceMeaningSha256 = sha256("synthetic acceptance source meaning");
+    await community.assignOperationRole({
+      synthetic: true,
+      assignmentId: "ARROLE-ACCEPTSAFETY01",
+      actorId: "ARSYN-ACCEPTSAFETYREVIEWER01",
+      role: "SAFETY_REVIEWER",
+      assignedByActorId: "ARSYN-ACCEPTADMINISTRATOR01",
+      active: true,
+      assignedAt: AT,
+    });
+    const safetyQueue = await community.enqueueOperation({
+      synthetic: true,
+      queueItemId: "ARQUEUE-ACCEPTSAFETY01",
+      queueType: "SAFETY",
+      requiredCapability: "TRIAGE_SAFETY",
+      targetType: "LEAD",
+      targetId: "ARLEAD-ACCEPTSAFETY01",
+      originatorActorId: "ARSYN-ACCEPTORIGINATOR01",
+      independentReviewRequired: true,
+      sourceMeaningSha256,
+      seriousness: "SERIOUS",
+      automatedRegulatoryReporting: false,
+      status: "QUEUED",
+      createdAt: AT,
+    });
+    await community.recordOperationAction({
+      synthetic: true,
+      actionId: "ARACTION-ACCEPTSAFETY01",
+      queueItemId: safetyQueue.queueItemId,
+      actorId: "ARSYN-ACCEPTSAFETYREVIEWER01",
+      activeRole: "SAFETY_REVIEWER",
+      capability: "TRIAGE_SAFETY",
+      action: "TRIAGE_FOR_HUMAN_REVIEW",
+      sourceMeaningSha256Before: sourceMeaningSha256,
+      sourceMeaningSha256After: sourceMeaningSha256,
+      annotationText: "Synthetic serious-harm candidate for human review.",
+      automatedRegulatoryReporting: false,
+      resultingStatus: "IN_REVIEW",
+      occurredAt: AT,
+    });
+    checks.push("safety_queue_requires_explicit_role_without_auto_reporting");
 
     const first = event(1, 9001, "forum.post.created.v1");
     const firstRaw = JSON.stringify(first);
@@ -394,6 +572,27 @@ async function main(): Promise<void> {
     }
     checks.push("deidentified_secondhand_projection_without_subject_approval");
 
+    const frontier = buildSyntheticCommunityFrontierView({
+      cards: [
+        frontierCard("POPULARBENEFIT01", "IMPROVED", 1_000_000),
+        frontierCard("HARM000000001", "WORSENED", 1),
+        frontierCard("NOEFFECT00001", "NO_CLEAR_CHANGE", 1),
+      ],
+      generatedAt: AT,
+    });
+    if (
+      frontier.cards[0]?.reportedDirection !== "NO_CLEAR_CHANGE" ||
+      frontier.cards[1]?.reportedDirection !== "WORSENED" ||
+      frontier.effectivenessPercentageDisplayPermitted !== false
+    ) {
+      throw new Error("COMMUNITY_FRONTIER_BALANCED_ORDER_FAILED");
+    }
+    await community.saveFrontierSnapshot(
+      "ARFRONTIER-ACCEPTBALANCED01",
+      frontier,
+    );
+    checks.push("balanced_frontier_snapshot_is_denominator_bounded");
+
     const cluster = communitySignalClusterSchema.parse({
       schemaVersion: "0.1.0",
       synthetic: true,
@@ -481,6 +680,37 @@ async function main(): Promise<void> {
           ),
         "community_safety_no_auto_reporting",
       );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_composer_draft_versions
+              (draft_id, draft_version, reporter_account_id, entry_point, source_post_id,
+               source_post_disposition, status, public_lead_permission,
+               preview_acknowledged, payload_sha256, payload_json, updated_at)
+             VALUES ('ARDRAFT-INVALIDREQUEST01', 1, 'ARSYN-ACCEPTACCOUNT01', 'FORUM_POST',
+               'SYNTHETIC-POST-9998', 'CONVERSION_ACCEPTED',
+               'SYNTHETIC_PUBLICATION_REQUESTED', 'NO', false, $1, '{}'::jsonb, $2)`,
+            ["6".repeat(64), AT],
+          ),
+        "community_composer_publication_request_gate",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_operational_actions
+              (action_id, queue_item_id, actor_id, originator_actor_id,
+               independent_review_required, active_role, capability, action,
+               source_meaning_sha256_before, source_meaning_sha256_after,
+               annotation_text, automated_regulatory_reporting, resulting_status,
+               payload_sha256, payload_json, occurred_at)
+             VALUES ('ARACTION-INVALIDCOLLISION01', $1, 'ARSYN-ACCEPTORIGINATOR01',
+               'ARSYN-ACCEPTORIGINATOR01', true, 'SAFETY_REVIEWER', 'TRIAGE_SAFETY',
+               'TRIAGE_FOR_HUMAN_REVIEW', $2, $2, null, false, 'IN_REVIEW',
+               $3, '{}'::jsonb, $4)`,
+            [safetyQueue.queueItemId, sourceMeaningSha256, "5".repeat(64), AT],
+          ),
+        "community_operational_action_independent_review_gate",
+      );
       const prohibitedColumns = await sqlClient.query<{
         table_name: string;
         column_name: string;
@@ -505,7 +735,7 @@ async function main(): Promise<void> {
     } finally {
       sqlClient.release();
     }
-    checks.push("database_privacy_and_nonautomation_constraints_enforced");
+    checks.push("database_privacy_role_consent_and_nonautomation_constraints_enforced");
 
     await community.withdraw(
       version.publicVersionId,

@@ -1,6 +1,18 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-30 Community Forum composer/frontier/queue fixtures — unreleased
+
+The stacked Community Forum task adds synthetic-only progressive composer,
+balanced frontier-view, explicit actor-role/capability queue, PostgreSQL
+migration, and hostile acceptance fixtures. It does not modify the public MCP,
+site, plugin, Custom GPT, VPS, or Railway deployment. No real account, health
+report, public lead, forum, search index, recruitment flow, or regulatory
+report is activated. Exact verification and GitHub identities are recorded in
+`docs/public-atlas/COMMUNITY-FORUM-COMPOSER-FRONTIER-QUEUES-RECEIPT.md`; until
+that receipt is complete and a separately authorized release passes its own
+gates, release adequacy remains fail-closed.
+
 ## 2026-08-30 durable research-frontier ledger deployed
 
 PR #139 passed deterministic verification, workflow policy, and every CodeQL

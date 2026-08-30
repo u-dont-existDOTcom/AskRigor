@@ -946,6 +946,562 @@ export const communityWithdrawalEventSchema = z
   })
   .strict();
 
+const communityComposerStepSchema = z.enum([
+  "REPORTER_RELATIONSHIP",
+  "INFORMATION_ORIGIN",
+  "CONDITION",
+  "INTERVENTION_COMBINATION",
+  "OUTCOME",
+  "TIMING_AND_PERSISTENCE",
+  "COINTERVENTIONS",
+  "HARMS",
+  "UNKNOWNS",
+  "PERMISSIONS",
+  "PUBLIC_PREVIEW",
+]);
+
+const communityPermissionStateSchema = z.enum([
+  "NOT_ASKED",
+  "YES",
+  "NO",
+  "WITHDRAWN",
+]);
+
+export const communityComposerDetailsSchema = z
+  .object({
+    reporter: z
+      .object({
+        role: communityReporterRoleSchema,
+        informationOrigin: communityInformationOriginSchema,
+        sourceDistance: communitySourceDistanceSchema,
+      })
+      .strict(),
+    condition: z
+      .object({
+        name: shortTextSchema,
+        diagnosticCertainty: z.enum([
+          "CLINICIAN_CONFIRMED",
+          "LAB_OR_CRITERIA_SUPPORTED",
+          "SELF_IDENTIFIED",
+          "REPORTED_BY_PROXY",
+          "SUSPECTED",
+          "UNKNOWN",
+        ]),
+      })
+      .strict(),
+    interventionEpisode: z
+      .object({
+        components: z.array(shortTextSchema).min(1).max(50),
+        exactCombinationKnown: z.boolean(),
+      })
+      .strict(),
+    outcome: z
+      .object({
+        name: shortTextSchema,
+        reportedDirection: z.enum([
+          "IMPROVED",
+          "WORSENED",
+          "NO_CLEAR_CHANGE",
+          "MIXED",
+          "UNKNOWN",
+        ]),
+        timing: z.string().trim().min(1).max(1_000).nullable(),
+        persistence: z.string().trim().min(1).max(1_000).nullable(),
+      })
+      .strict(),
+    cointerventions: z.array(shortTextSchema).max(100),
+    harms: z.array(shortTextSchema).max(100),
+    unknowns: z.array(shortTextSchema).max(100),
+  })
+  .strict();
+
+const communityComposerPreviewSchema = z
+  .object({
+    publicTitle: shortTextSchema,
+    publicParaphrase: z.string().trim().min(1).max(20_000),
+    sourceDistanceLabel: shortTextSchema,
+    limitations: z.array(mediumTextSchema).min(1).max(50),
+    previewPayloadSha256: sha256Schema,
+    preparedAt: timestampSchema,
+    acknowledgedAt: timestampSchema.nullable(),
+  })
+  .strict();
+
+export const communityComposerDraftSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    draftId: z.string().regex(/^ARDRAFT-[A-Z0-9_-]{8,64}$/u),
+    draftVersion: z.number().int().positive(),
+    reporterAccountId: syntheticIdSchema,
+    entryPoint: z.enum(["FORUM_POST", "DIRECT_STRUCTURED_INTAKE"]),
+    sourcePostId: z
+      .string()
+      .regex(/^SYNTHETIC-POST-[0-9]{1,12}$/u)
+      .nullable(),
+    sourcePostDisposition: z.enum([
+      "ORDINARY_CONVERSATION",
+      "CONVERSION_OFFERED",
+      "CONVERSION_ACCEPTED",
+      "CONVERSION_DECLINED",
+      "NOT_APPLICABLE_DIRECT_INTAKE",
+    ]),
+    status: z.enum([
+      "DRAFT",
+      "STOPPED",
+      "PREVIEW_READY",
+      "SYNTHETIC_PUBLICATION_REQUESTED",
+      "WITHDRAWN",
+    ]),
+    completedSteps: z.array(communityComposerStepSchema).max(20),
+    reporter: communityComposerDetailsSchema.shape.reporter.nullable(),
+    condition: communityComposerDetailsSchema.shape.condition.nullable(),
+    interventionEpisode:
+      communityComposerDetailsSchema.shape.interventionEpisode.nullable(),
+    outcome: communityComposerDetailsSchema.shape.outcome.nullable(),
+    cointerventions: z.array(shortTextSchema).max(100),
+    harms: z.array(shortTextSchema).max(100),
+    unknowns: z.array(shortTextSchema).max(100),
+    permissions: z
+      .object({
+        publicLead: communityPermissionStateSchema,
+        directQuotation: communityPermissionStateSchema,
+        exactRegimenPublication: communityPermissionStateSchema,
+        recontact: communityPermissionStateSchema,
+      })
+      .strict(),
+    preview: communityComposerPreviewSchema.nullable(),
+    missingMaterialFields: z.array(shortTextSchema).max(100),
+    updatedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.entryPoint === "FORUM_POST" && value.sourcePostId === null) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourcePostId"],
+        message: "Forum-post composer entry requires a synthetic source post",
+      });
+    }
+    if (
+      value.entryPoint === "FORUM_POST" &&
+      value.sourcePostDisposition === "NOT_APPLICABLE_DIRECT_INTAKE"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourcePostDisposition"],
+        message: "Forum-post intake must preserve an explicit conversion state",
+      });
+    }
+    if (
+      value.entryPoint === "DIRECT_STRUCTURED_INTAKE" &&
+      (value.sourcePostId !== null ||
+        value.sourcePostDisposition !== "NOT_APPLICABLE_DIRECT_INTAKE")
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["entryPoint"],
+        message: "Direct structured intake cannot masquerade as post conversion",
+      });
+    }
+    if (
+      value.preview !== null &&
+      !["CONVERSION_ACCEPTED", "NOT_APPLICABLE_DIRECT_INTAKE"].includes(
+        value.sourcePostDisposition,
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["preview"],
+        message: "A public preview requires accepted lead conversion",
+      });
+    }
+    if (value.status === "SYNTHETIC_PUBLICATION_REQUESTED") {
+      if (
+        !["CONVERSION_ACCEPTED", "NOT_APPLICABLE_DIRECT_INTAKE"].includes(
+          value.sourcePostDisposition,
+        ) ||
+        value.permissions.publicLead !== "YES"
+      ) {
+        context.addIssue({
+          code: "custom",
+          path: ["permissions", "publicLead"],
+          message: "Publication requests require affirmative public-lead opt-in",
+        });
+      }
+      if (value.preview?.acknowledgedAt == null) {
+        context.addIssue({
+          code: "custom",
+          path: ["preview", "acknowledgedAt"],
+          message: "Publication requests require preview acknowledgement",
+        });
+      }
+    }
+  });
+
+const communityReportedDirectionSchema = z.enum([
+  "IMPROVED",
+  "WORSENED",
+  "NO_CLEAR_CHANGE",
+  "MIXED",
+  "UNKNOWN",
+]);
+
+export const communityFrontierCardSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    cardId: z.string().regex(/^ARCARD-[A-Z0-9_-]{8,64}$/u),
+    publicVersionId: z.string().regex(/^ARPUB-[A-Z0-9_-]{8,64}$/u),
+    leadId: z.string().regex(/^ARLEAD-[A-Z0-9_-]{8,64}$/u),
+    leadVersion: z.number().int().positive(),
+    sourceIndependenceKey: sha256Schema,
+    publicTitle: shortTextSchema,
+    condition: shortTextSchema,
+    diagnosticCertainty: z.enum([
+      "CLINICIAN_CONFIRMED",
+      "LAB_OR_CRITERIA_SUPPORTED",
+      "SELF_IDENTIFIED",
+      "REPORTED_BY_PROXY",
+      "SUSPECTED",
+      "UNKNOWN",
+    ]),
+    exactInterventionCombination: z.array(shortTextSchema).min(1).max(50),
+    reportedDirection: communityReportedDirectionSchema,
+    timingAndPersistence: mediumTextSchema,
+    reporterRole: communityReporterRoleSchema,
+    sourceDistance: communitySourceDistanceSchema,
+    sourceDistanceLabel: shortTextSchema,
+    verificationState: communityVerificationStateSchema,
+    completenessBand: z.enum(["MINIMAL", "PARTIAL", "MODERATE", "HIGH_DETAIL"]),
+    evidenceCapability: communityEvidenceCapabilitySchema,
+    formalEvidenceRelationship: communityFormalEvidenceRelationshipSchema,
+    harmsReported: z.boolean(),
+    noEffectReported: z.boolean(),
+    cointerventionsAndConfounders: z.array(shortTextSchema).max(100),
+    clusterIds: z
+      .array(z.string().regex(/^ARCL-[A-Z0-9_-]{8,64}$/u))
+      .max(1_000),
+    challengeCount: z.number().int().nonnegative(),
+    latestCorrectionLeadVersion: z.number().int().positive().nullable(),
+    withdrawn: z.boolean(),
+    researchStatus: z.enum([
+      "LEAD_ONLY",
+      "QUESTION_CANDIDATE",
+      "EVIDENCE_CHECK_PENDING",
+      "FORMAL_EVIDENCE_ADJACENT",
+      "FORMAL_EVIDENCE_CORROBORATED",
+      "FORMAL_EVIDENCE_CONFLICTED",
+      "CLOSED",
+    ]),
+    discussionActivity: z
+      .object({
+        views: z.number().int().nonnegative(),
+        replies: z.number().int().nonnegative(),
+      })
+      .strict(),
+    discussionActivityAffectsEvidenceState: z.literal(false),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.noEffectReported !== (value.reportedDirection === "NO_CLEAR_CHANGE")) {
+      context.addIssue({
+        code: "custom",
+        path: ["noEffectReported"],
+        message: "No-effect flag must match the reported direction",
+      });
+    }
+  });
+
+export const communityFrontierFiltersSchema = z
+  .object({
+    directions: z.array(communityReportedDirectionSchema).min(1).max(5).optional(),
+    condition: shortTextSchema.optional(),
+    verificationStates: z
+      .array(communityVerificationStateSchema)
+      .min(1)
+      .max(20)
+      .optional(),
+    evidenceCapabilities: z
+      .array(communityEvidenceCapabilitySchema)
+      .min(1)
+      .max(20)
+      .optional(),
+    includeWithdrawn: z.boolean().default(false),
+  })
+  .strict();
+
+export const communityFrontierViewSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    defaultOrder: z.literal("DIRECTION_BALANCED_STABLE"),
+    cards: z.array(communityFrontierCardSchema).max(10_000),
+    directionCounts: directionCountsSchema,
+    reportedLeadCount: z.number().int().nonnegative(),
+    independentSourceCount: z.number().int().nonnegative(),
+    denominatorAvailable: z.literal(false),
+    effectivenessPercentageDisplayPermitted: z.literal(false),
+    denominatorBoundary: mediumTextSchema,
+    discussionActivityAffectsEvidenceState: z.literal(false),
+    appliedFilters: communityFrontierFiltersSchema,
+    generatedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.reportedLeadCount !== value.cards.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["reportedLeadCount"],
+        message: "Reported lead count must match visible cards",
+      });
+    }
+    const independentSourceCount = new Set(
+      value.cards.map((card) => card.sourceIndependenceKey),
+    ).size;
+    if (value.independentSourceCount !== independentSourceCount) {
+      context.addIssue({
+        code: "custom",
+        path: ["independentSourceCount"],
+        message: "Independent-source count must be duplicate aware",
+      });
+    }
+    const expectedCounts = {
+      improved: value.cards.filter(
+        (card) => card.reportedDirection === "IMPROVED",
+      ).length,
+      worsened: value.cards.filter(
+        (card) => card.reportedDirection === "WORSENED",
+      ).length,
+      noClearChange: value.cards.filter(
+        (card) => card.reportedDirection === "NO_CLEAR_CHANGE",
+      ).length,
+      mixed: value.cards.filter((card) => card.reportedDirection === "MIXED")
+        .length,
+      unknown: value.cards.filter(
+        (card) => card.reportedDirection === "UNKNOWN",
+      ).length,
+    };
+    if (JSON.stringify(value.directionCounts) !== JSON.stringify(expectedCounts)) {
+      context.addIssue({
+        code: "custom",
+        path: ["directionCounts"],
+        message: "Direction counts must match visible cards",
+      });
+    }
+  });
+
+export const communityOperationalCapabilitySchema = z.enum([
+  "MODERATE_CONDUCT",
+  "REVIEW_PRIVACY",
+  "ANNOTATE_SCIENCE",
+  "TRIAGE_SAFETY",
+  "STEWARD_RESEARCH",
+  "REVIEW_METHODS_ETHICS",
+  "ADMINISTER_SYSTEM",
+]);
+
+export const communityOperationalRoleSchema = z.enum([
+  "CATEGORY_MODERATOR",
+  "GLOBAL_MODERATOR",
+  "PRIVACY_REVIEWER",
+  "SCIENTIFIC_ANNOTATOR",
+  "SAFETY_REVIEWER",
+  "RESEARCH_STEWARD",
+  "METHODS_REVIEWER",
+  "ETHICS_REVIEWER",
+  "ADMINISTRATOR",
+]);
+
+export const communityOperationalRoleCapabilities = {
+  CATEGORY_MODERATOR: ["MODERATE_CONDUCT"],
+  GLOBAL_MODERATOR: ["MODERATE_CONDUCT"],
+  PRIVACY_REVIEWER: ["REVIEW_PRIVACY"],
+  SCIENTIFIC_ANNOTATOR: ["ANNOTATE_SCIENCE"],
+  SAFETY_REVIEWER: ["TRIAGE_SAFETY"],
+  RESEARCH_STEWARD: ["STEWARD_RESEARCH"],
+  METHODS_REVIEWER: ["REVIEW_METHODS_ETHICS"],
+  ETHICS_REVIEWER: ["REVIEW_METHODS_ETHICS"],
+  ADMINISTRATOR: ["ADMINISTER_SYSTEM"],
+} as const;
+
+export const communityOperationalRoleAssignmentSchema = z
+  .object({
+    synthetic: z.literal(true),
+    assignmentId: z.string().regex(/^ARROLE-[A-Z0-9_-]{8,64}$/u),
+    actorId: syntheticIdSchema,
+    role: communityOperationalRoleSchema,
+    assignedByActorId: syntheticIdSchema,
+    active: z.literal(true),
+    assignedAt: timestampSchema,
+  })
+  .strict();
+
+const communityQueueTypeSchema = z.enum([
+  "MODERATION",
+  "PRIVACY",
+  "SCIENTIFIC",
+  "SAFETY",
+  "RESEARCH_STEWARDSHIP",
+  "METHODS_ETHICS",
+  "SYSTEM_ADMINISTRATION",
+]);
+
+const queueCapabilityByType = {
+  MODERATION: "MODERATE_CONDUCT",
+  PRIVACY: "REVIEW_PRIVACY",
+  SCIENTIFIC: "ANNOTATE_SCIENCE",
+  SAFETY: "TRIAGE_SAFETY",
+  RESEARCH_STEWARDSHIP: "STEWARD_RESEARCH",
+  METHODS_ETHICS: "REVIEW_METHODS_ETHICS",
+  SYSTEM_ADMINISTRATION: "ADMINISTER_SYSTEM",
+} as const;
+
+export const communityOperationalQueueItemSchema = z
+  .object({
+    synthetic: z.literal(true),
+    queueItemId: z.string().regex(/^ARQUEUE-[A-Z0-9_-]{8,64}$/u),
+    queueType: communityQueueTypeSchema,
+    requiredCapability: communityOperationalCapabilitySchema,
+    targetType: z.enum([
+      "TOPIC",
+      "POST",
+      "LEAD",
+      "PUBLIC_VERSION",
+      "CLUSTER",
+      "QUESTION",
+      "PROPOSAL",
+      "USER",
+    ]),
+    targetId: shortTextSchema,
+    originatorActorId: syntheticIdSchema,
+    independentReviewRequired: z.boolean(),
+    sourceMeaningSha256: sha256Schema,
+    seriousness: z.enum([
+      "NOT_APPLICABLE",
+      "NON_SERIOUS",
+      "SERIOUS",
+      "POTENTIALLY_SERIOUS",
+      "IMMEDIATE_CRISIS",
+      "UNKNOWN",
+    ]),
+    automatedRegulatoryReporting: z.literal(false),
+    status: z.enum(["QUEUED", "IN_REVIEW", "RESOLVED", "SUPERSEDED"]),
+    createdAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (queueCapabilityByType[value.queueType] !== value.requiredCapability) {
+      context.addIssue({
+        code: "custom",
+        path: ["requiredCapability"],
+        message: "Queue type and required capability must match",
+      });
+    }
+    if (
+      value.queueType !== "SAFETY" &&
+      value.seriousness !== "NOT_APPLICABLE"
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["seriousness"],
+        message: "Seriousness is only classified in the safety queue",
+      });
+    }
+  });
+
+const communityOperationalActionTypeSchema = z.enum([
+  "LABEL_CONDUCT",
+  "HIDE_CONDUCT_VIOLATION",
+  "REMOVE_CONDUCT_VIOLATION",
+  "ESCALATE",
+  "PRIVACY_PASS",
+  "PRIVACY_FAIL",
+  "ANNOTATE_SEPARATELY",
+  "TRIAGE_FOR_HUMAN_REVIEW",
+  "REQUEST_FOLLOW_UP",
+  "CLOSE_NO_ACTION",
+  "STEWARDSHIP_REVIEW",
+  "METHODS_ETHICS_REVIEW",
+  "ADMINISTRATIVE_ACTION",
+]);
+
+const actionCapabilityByType = {
+  LABEL_CONDUCT: "MODERATE_CONDUCT",
+  HIDE_CONDUCT_VIOLATION: "MODERATE_CONDUCT",
+  REMOVE_CONDUCT_VIOLATION: "MODERATE_CONDUCT",
+  ESCALATE: "MODERATE_CONDUCT",
+  PRIVACY_PASS: "REVIEW_PRIVACY",
+  PRIVACY_FAIL: "REVIEW_PRIVACY",
+  ANNOTATE_SEPARATELY: "ANNOTATE_SCIENCE",
+  TRIAGE_FOR_HUMAN_REVIEW: "TRIAGE_SAFETY",
+  REQUEST_FOLLOW_UP: "TRIAGE_SAFETY",
+  CLOSE_NO_ACTION: "TRIAGE_SAFETY",
+  STEWARDSHIP_REVIEW: "STEWARD_RESEARCH",
+  METHODS_ETHICS_REVIEW: "REVIEW_METHODS_ETHICS",
+  ADMINISTRATIVE_ACTION: "ADMINISTER_SYSTEM",
+} as const;
+
+const actionResultingStatusByType = {
+  LABEL_CONDUCT: "RESOLVED",
+  HIDE_CONDUCT_VIOLATION: "RESOLVED",
+  REMOVE_CONDUCT_VIOLATION: "RESOLVED",
+  ESCALATE: "IN_REVIEW",
+  PRIVACY_PASS: "RESOLVED",
+  PRIVACY_FAIL: "RESOLVED",
+  ANNOTATE_SEPARATELY: "RESOLVED",
+  TRIAGE_FOR_HUMAN_REVIEW: "IN_REVIEW",
+  REQUEST_FOLLOW_UP: "IN_REVIEW",
+  CLOSE_NO_ACTION: "RESOLVED",
+  STEWARDSHIP_REVIEW: "RESOLVED",
+  METHODS_ETHICS_REVIEW: "RESOLVED",
+  ADMINISTRATIVE_ACTION: "RESOLVED",
+} as const;
+
+export const communityOperationalActionSchema = z
+  .object({
+    synthetic: z.literal(true),
+    actionId: z.string().regex(/^ARACTION-[A-Z0-9_-]{8,64}$/u),
+    queueItemId: z.string().regex(/^ARQUEUE-[A-Z0-9_-]{8,64}$/u),
+    actorId: syntheticIdSchema,
+    activeRole: communityOperationalRoleSchema,
+    capability: communityOperationalCapabilitySchema,
+    action: communityOperationalActionTypeSchema,
+    sourceMeaningSha256Before: sha256Schema,
+    sourceMeaningSha256After: sha256Schema,
+    annotationText: z.string().trim().min(1).max(4_000).nullable(),
+    automatedRegulatoryReporting: z.literal(false),
+    resultingStatus: z.enum(["QUEUED", "IN_REVIEW", "RESOLVED", "SUPERSEDED"]),
+    occurredAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (actionCapabilityByType[value.action] !== value.capability) {
+      context.addIssue({
+        code: "custom",
+        path: ["capability"],
+        message: "Operational action and capability must match",
+      });
+    }
+    if (value.sourceMeaningSha256Before !== value.sourceMeaningSha256After) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceMeaningSha256After"],
+        message: "Operational actions cannot silently rewrite source meaning",
+      });
+    }
+    if (actionResultingStatusByType[value.action] !== value.resultingStatus) {
+      context.addIssue({
+        code: "custom",
+        path: ["resultingStatus"],
+        message: "Operational action and resulting queue status must match",
+      });
+    }
+  });
+
 export type SyntheticForumAccount = z.infer<typeof syntheticForumAccountSchema>;
 export type CommunityForumEvent = z.infer<typeof communityForumEventSchema>;
 export type CommunityForumSourceReference = z.infer<
@@ -969,6 +1525,30 @@ export type CommunityLeadCorrection = z.infer<
 >;
 export type CommunitySignalCluster = z.infer<
   typeof communitySignalClusterSchema
+>;
+export type CommunityComposerDetails = z.infer<
+  typeof communityComposerDetailsSchema
+>;
+export type CommunityComposerDraft = z.infer<
+  typeof communityComposerDraftSchema
+>;
+export type CommunityFrontierCard = z.infer<
+  typeof communityFrontierCardSchema
+>;
+export type CommunityFrontierFilters = z.infer<
+  typeof communityFrontierFiltersSchema
+>;
+export type CommunityFrontierView = z.infer<
+  typeof communityFrontierViewSchema
+>;
+export type CommunityOperationalQueueItem = z.infer<
+  typeof communityOperationalQueueItemSchema
+>;
+export type CommunityOperationalRoleAssignment = z.infer<
+  typeof communityOperationalRoleAssignmentSchema
+>;
+export type CommunityOperationalAction = z.infer<
+  typeof communityOperationalActionSchema
 >;
 
 export function assertCommunityPublicationPreservesEvidence(
