@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-research-frontier-v1",
-  "status": "ready_for_protected_merge",
+  "status": "complete",
   "exclusive": true,
-  "requiredBranch": "agent/research-frontier-release-closeout-20260830",
+  "requiredBranch": "main",
   "pullRequest": 141,
   "assuranceLane": "release",
   "targetedHardGates": [
@@ -88,7 +88,20 @@
     "sourcePath": "templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md",
     "materialEffect": "Preserved the existing release-closeout task, branch, worktree, and authority; continued exact-tool verification and headless-browser hygiene without activating Mission Control."
   },
-  "completion": null,
+  "completion": {
+    "implementationPullRequest": 139,
+    "implementationMergeCommit": "036c343343ceb5348b0907f81a1333a59d8bace7",
+    "evidenceCloseoutPullRequest": 141,
+    "evidencePreparedHead": "0c3c53bee210dd481ccd00ca8d60e3520d5b49ba",
+    "productionDeployed": true,
+    "directAcceptancePassed": true,
+    "productAcceptancePassed": true,
+    "rollbackRefsVerified": true,
+    "pluginReceiptVerified": true,
+    "currentWorkerSupervisionBootstrapAdopted": true,
+    "youtubeCommunityPersistence": "zero pending Google policy disposition",
+    "audit": "docs/audits/2026-08-30-research-frontier-ledger.md"
+  },
   "suspendedTaskSources": [
     "completed living-evidence read-through release and its historical acceptance artifacts",
     "YouTube or community persistence pending the separate Google policy disposition",

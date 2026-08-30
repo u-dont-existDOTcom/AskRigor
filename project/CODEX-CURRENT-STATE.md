@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-08-30 durable research-frontier ledger deployed
+## 2026-08-30 durable research-frontier ledger release completed
 
 Task ID: `askrigor-living-evidence-research-frontier-v1`
 
@@ -11,7 +11,8 @@ Protected implementation review: PR #139, merged as
 
 Release closeout branch: `agent/research-frontier-release-closeout-20260830`
 
-Release closeout review: PR #141
+Release closeout review: PR #141; evidence-prepared head
+`0c3c53bee210dd481ccd00ca8d60e3520d5b49ba` passed every protected check
 
 Assurance lane: release, with targeted privacy and frontier-truth gates
 
@@ -97,6 +98,13 @@ installed AskRigor plugin and returned exact Universal `20.5.15`, HRP `20.5.23`,
 both SHA-256 values, and PMID `40223676` as `api_visible_complete`. The isolated
 temporary Brave profile and screenshots were moved to trash after acceptance;
 the owner's original browser profile and visible window were not changed.
+
+The release task is complete. Its production deployment, direct MCP checks,
+installed-package receipt, fresh primary-account product acceptance, rollback
+receipts, privacy boundary, final lesson checkpoint, and adopted current-worker
+supervision receipt are durable in the audit and active-task record. The final
+task-state marker remains subject to its own protected PR #141 checks before
+merge.
 
 Ordinary ChatGPT still cannot query an arbitrary stored frontier because this
 slice deliberately retained the exact 21-tool public catalog. Adding a

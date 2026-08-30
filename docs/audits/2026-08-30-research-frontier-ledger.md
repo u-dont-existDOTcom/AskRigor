@@ -200,6 +200,12 @@ The final release lesson checkpoint at `2026-08-30T14:54:12.586Z` is available:
 0 open candidates, 0 needing review, 0 accepted but not incorporated, 4
 incorporated or closed, and 0 deletion eligible.
 
+Evidence-closeout PR #141 reached clean mergeability at exact prepared head
+`0c3c53bee210dd481ccd00ca8d60e3520d5b49ba`: deterministic verification,
+real-PostgreSQL acceptance and fixture pilot, workflow policy, and all CodeQL
+analyses passed. The remaining task-state completion marker is metadata-only
+and must pass the same protected review before merge.
+
 ## Remaining product boundary
 
 - No seed based on an actual user frontier is included. A later curated import
