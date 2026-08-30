@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://askrigor.com/schemas/public-prediction-contract-v0.1.0.json",
+  "title": "AskRigor public prediction record",
+  "description": "Immutable pre-reveal prediction, resolution, and scoring record. Crowd expectations are evidence about expectations and calibration, not evidence that a health claim is true.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "prediction_id",
+    "question",
+    "submission",
+    "lock",
+    "consent",
+    "lifecycle_state"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "prediction_id": {"type": "string", "pattern": "^ARP-[A-Z0-9_-]{8,64}$"},
+    "lifecycle_state": {
+      "enum": [
+        "OPEN",
+        "LOCKED",
+        "REVEAL_PENDING",
+        "RESOLVED",
+        "INVALID_RESOLUTION",
+        "CANCELLED",
+        "SUPERSEDED"
+      ]
+    },
+    "question": {"$ref": "#/$defs/question"},
+    "submission": {"$ref": "#/$defs/submission"},
+    "lock": {"$ref": "#/$defs/lock"},
+    "consent": {"$ref": "#/$defs/consent"},
+    "resolution": {
+      "anyOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/resolution"}
+      ]
+    },
+    "score": {
+      "anyOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/score"}
+      ]
+    },
+    "audit_events": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/auditEvent"},
+      "maxItems": 1000
+    }
+  },
+  "$defs": {
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question_id",
+        "question_version",
+        "prediction_type",
+        "prompt",
+        "scope",
+        "opens_at",
+        "closes_at",
+        "resolution_rule",
+        "scoring_rule",
+        "answer_visibility"
+      ],
+      "properties": {
+        "question_id": {"type": "string", "pattern": "^ARQ-[A-Z0-9_-]{8,64}$"},
+        "question_version": {"type": "integer", "minimum": 1},
+        "prediction_type": {
+          "enum": [
+            "STUDY_OUTCOME",
+            "EFFECT_DIRECTION",
+            "EFFECT_MAGNITUDE_RANGE",
+            "REPLICATION_SUCCESS",
+            "FINDING_UPDATE",
+            "METHOD_AUDIT",
+            "TREATMENT_RANKING",
+            "RESEARCH_QUESTION_RESOLUTION"
+          ]
+        },
+        "prompt": {"type": "string", "minLength": 10, "maxLength": 4000},
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "population": {"type": ["string", "null"], "maxLength": 2000},
+            "intervention_or_exposure": {"type": ["string", "null"], "maxLength": 2000},
+            "comparator": {"type": ["string", "null"], "maxLength": 2000},
+            "outcome": {"type": ["string", "null"], "maxLength": 2000},
+            "horizon": {"type": ["string", "null"], "maxLength": 1000},
+            "setting": {"type": ["string", "null"], "maxLength": 1000}
+          }
+        },
+        "hidden_source_ref": {"type": ["string", "null"], "maxLength": 500},
+        "hidden_source_commitment_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "opens_at": {"type": "string", "format": "date-time"},
+        "closes_at": {"type": "string", "format": "date-time"},
+        "scheduled_reveal_at": {"type": ["string", "null"], "format": "date-time"},
+        "answer_visibility": {"enum": ["HIDDEN_UNTIL_SUBMISSION", "HIDDEN_UNTIL_CLOSE", "FUTURE_EVENT"]},
+        "eligible_cohorts": {
+          "type": "array",
+          "items": {"enum": ["PUBLIC", "PATIENT", "CLINICIAN", "RESEARCHER", "METHODS_EXPERT", "MODEL", "ASKRIGOR"]},
+          "uniqueItems": true
+        },
+        "resolution_rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rule_version", "authoritative_source_type", "outcome_mapping", "ambiguity_policy"],
+          "properties": {
+            "rule_version": {"type": "string", "minLength": 1, "maxLength": 100},
+            "authoritative_source_type": {
+              "enum": ["PUBLICATION", "REGISTRY_RESULT", "ASKRIGOR_AUDIT", "ASKRIGOR_FINDING_VERSION", "DEFINED_EVENT", "ADJUDICATED"]
+            },
+            "authoritative_source_identifier": {"type": ["string", "null"], "maxLength": 500},
+            "outcome_mapping": {"type": "string", "minLength": 1, "maxLength": 4000},
+            "ambiguity_policy": {"enum": ["INVALIDATE", "PREDECLARED_ADJUDICATION", "PARTIAL_CREDIT"]}
+          }
+        },
+        "scoring_rule": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rule_version", "primary_metric"],
+          "properties": {
+            "rule_version": {"type": "string", "minLength": 1, "maxLength": 100},
+            "primary_metric": {"enum": ["BRIER", "LOG", "INTERVAL", "RANK", "CALIBRATION_ONLY"]},
+            "secondary_metrics": {
+              "type": "array",
+              "items": {"enum": ["BRIER", "LOG", "INTERVAL", "RANK", "CALIBRATION", "ABSOLUTE_ERROR"]},
+              "uniqueItems": true
+            }
+          }
+        },
+        "question_payload_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "submission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "predictor_id",
+        "predictor_cohort",
+        "submitted_at",
+        "result_exposure_declaration",
+        "forecast"
+      ],
+      "properties": {
+        "predictor_id": {"type": "string", "pattern": "^ARPRED-[A-Z0-9_-]{8,64}$"},
+        "predictor_cohort": {"enum": ["PUBLIC", "PATIENT", "CLINICIAN", "RESEARCHER", "METHODS_EXPERT", "MODEL", "ASKRIGOR"]},
+        "expertise_self_rating": {"type": ["integer", "null"], "minimum": 0, "maximum": 5},
+        "familiarity_with_topic": {"type": ["integer", "null"], "minimum": 0, "maximum": 5},
+        "submitted_at": {"type": "string", "format": "date-time"},
+        "result_exposure_declaration": {
+          "enum": [
+            "CONFIDENT_NOT_SEEN",
+            "POSSIBLY_SEEN_OR_INFERRED",
+            "SEEN_RESULT_INELIGIBLE_FOR_PRIMARY_SCORE",
+            "UNKNOWN"
+          ]
+        },
+        "evidence_consulted_summary": {"type": ["string", "null"], "maxLength": 4000},
+        "rationale": {"type": ["string", "null"], "maxLength": 8000},
+        "forecast": {"$ref": "#/$defs/forecast"},
+        "supersedes_prediction_id": {"type": ["string", "null"], "pattern": "^ARP-[A-Z0-9_-]{8,64}$"},
+        "counts_for_scoring": {"type": "boolean", "default": true}
+      }
+    },
+    "forecast": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["forecast_format"],
+      "properties": {
+        "forecast_format": {"enum": ["CATEGORICAL_PROBABILITIES", "BINARY_PROBABILITY", "NUMERIC_DISTRIBUTION", "INTERVAL", "RANKING"]},
+        "categorical_probabilities": {
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "probability"],
+            "properties": {
+              "label": {"type": "string", "minLength": 1, "maxLength": 200},
+              "probability": {"type": "number", "minimum": 0, "maximum": 1}
+            }
+          },
+          "minItems": 2,
+          "maxItems": 20
+        },
+        "binary_probability_true": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "point_estimate": {"type": ["number", "null"]},
+        "lower_bound": {"type": ["number", "null"]},
+        "upper_bound": {"type": ["number", "null"]},
+        "interval_coverage_probability": {"type": ["number", "null"], "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "unit": {"type": ["string", "null"], "maxLength": 100},
+        "ranking": {
+          "type": ["array", "null"],
+          "items": {"type": "string", "minLength": 1, "maxLength": 200},
+          "minItems": 2,
+          "maxItems": 50,
+          "uniqueItems": true
+        }
+      }
+    },
+    "lock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_payload_sha256", "locked_at", "immutable"],
+      "properties": {
+        "canonical_payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "locked_at": {"type": "string", "format": "date-time"},
+        "immutable": {"const": true},
+        "signing_key_id": {"type": ["string", "null"], "maxLength": 100},
+        "signature": {"type": ["string", "null"], "maxLength": 2000}
+      }
+    },
+    "consent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aggregate_scoring", "public_pseudonymous_display", "research_use", "notice_version"],
+      "properties": {
+        "aggregate_scoring": {"type": "boolean"},
+        "public_pseudonymous_display": {"type": "boolean"},
+        "research_use": {"type": "boolean"},
+        "recontact": {"type": "boolean", "default": false},
+        "notice_version": {"type": "string", "minLength": 1, "maxLength": 100},
+        "consented_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resolved_at", "source_identifier", "source_version_sha256", "resolved_outcome", "resolver_type"],
+      "properties": {
+        "resolved_at": {"type": "string", "format": "date-time"},
+        "source_identifier": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "source_version_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "resolved_outcome": {},
+        "resolver_type": {"enum": ["DETERMINISTIC", "HUMAN_ADJUDICATION", "MIXED"]},
+        "adjudication_rationale": {"type": ["string", "null"], "maxLength": 8000},
+        "resolution_payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "score": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scored_at", "scoring_rule_version", "primary_metric", "primary_value", "eligible_for_primary_analysis"],
+      "properties": {
+        "scored_at": {"type": "string", "format": "date-time"},
+        "scoring_rule_version": {"type": "string", "minLength": 1, "maxLength": 100},
+        "primary_metric": {"enum": ["BRIER", "LOG", "INTERVAL", "RANK", "CALIBRATION_ONLY"]},
+        "primary_value": {"type": ["number", "null"]},
+        "secondary_values": {"type": "object", "additionalProperties": {"type": ["number", "null"]}},
+        "eligible_for_primary_analysis": {"type": "boolean"},
+        "ineligibility_reason": {"type": ["string", "null"], "maxLength": 2000},
+        "score_payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "auditEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "event_type", "occurred_at", "actor_type", "payload_sha256"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 100},
+        "event_type": {"enum": ["QUESTION_CREATED", "QUESTION_AMENDED", "SUBMITTED", "LOCKED", "LEAK_FLAGGED", "RESOLVED", "SCORED", "INVALIDATED", "CANCELLED", "SUPERSEDED"]},
+        "occurred_at": {"type": "string", "format": "date-time"},
+        "actor_type": {"enum": ["USER", "ASKRIGOR", "REVIEWER", "SYSTEM"]},
+        "payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "public_note": {"type": ["string", "null"], "maxLength": 2000}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"lifecycle_state": {"const": "RESOLVED"}}},
+      "then": {"required": ["resolution", "score"]}
+    }
+  ],
+  "x-askrigor-invariants": [
+    "The canonical locked submission payload is immutable.",
+    "A changed prediction creates a new version and preserves the prior version.",
+    "Result-seen or leakage flags remain attached and may exclude a prediction from primary scoring.",
+    "Prediction aggregates measure expectations and calibration, not scientific certainty.",
+    "Question and resolution versions are hash-bound and auditable.",
+    "No financial wagering is supported by this contract."
+  ]
+}
