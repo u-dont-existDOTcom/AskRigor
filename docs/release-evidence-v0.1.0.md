@@ -74,6 +74,12 @@ receipts are in
 `docs/audits/2026-08-29-production-living-evidence-readthrough.md`. The owner-
 reported OpenAI organization approval is tracked separately as a public-
 submission portal scope/receipt check; it is not inferred from this release.
+Direct signed-in readback on 2026-08-30 found Individual verification
+`Approved`, Business verification `Start`, the unresolved organization warning,
+and an accessible empty plugin portal with **Create plugin**. No draft was
+created. The exact non-secret receipt and remaining publisher-choice/global-
+residency boundaries are in
+`docs/audits/2026-08-30-openai-plugin-portal-readback.md`.
 
 ## 2026-08-29 public full-text chain guidance deployed
 
@@ -1737,11 +1743,12 @@ No provider request or lesson write was repeated.
   candidate-selection, intervention-decomposition, comparator-scope,
   heterodox-weighting, and matched-video product cases before
   resuming portal work. Do not retry the rejected lesson candidate.
-- The owner reports individual identity verified and business/organization
-  verification currently unavailable after a signup timeout. Choose the
-  publisher-identity path, then complete matching listing URLs, country
-  availability, and the portal's HTTPS domain-verification challenge. Do not
-  infer the business retry interval.
+- Direct portal readback shows Individual verification `Approved`, Business
+  verification `Start`, and the unresolved organization warning. Choose the
+  verified-individual publisher path or complete business verification for the
+  AskRigor name; then reconcile matching listing URLs and country availability.
+- Verify that the submission project uses global data residency and complete
+  the portal's HTTPS domain-verification challenge.
 - Submit the fixed production URL, select **Scan Tools**, and compare discovered
   tool metadata with `docs/public-review-checklist.md`. Any metadata change
   requires deploy → rescan → review.

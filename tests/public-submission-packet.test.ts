@@ -15,7 +15,7 @@ interface ExternalGate {
 interface SubmissionPacket {
   schemaVersion: "1.0";
   release: "0.1.0";
-  reviewedAt: "2026-08-16";
+  reviewedAt: "2026-08-30";
   officialSources: string[];
   listing: {
     displayName: string;
@@ -36,6 +36,17 @@ interface SubmissionPacket {
   mcp: {
     submissionMode: "with_mcp";
     serverURL: string;
+    expectedToolCount: number;
+  };
+  portalReadback: {
+    observedAt: "2026-08-30";
+    individualVerificationLabel: "Approved";
+    businessVerificationLabel: "Start";
+    organizationNotice: "Organization could not be verified";
+    createPluginAvailable: true;
+    draftsObserved: 0;
+    draftCreated: false;
+    evidence: string;
   };
   testCases: {
     extendedSuite: string;
@@ -67,16 +78,55 @@ describe("AskRigor public submission packet", () => {
     expect(manifest).not.toHaveProperty("apps");
     expect(packet.schemaVersion).toBe("1.0");
     expect(packet.release).toBe("0.1.0");
-    expect(packet.reviewedAt).toBe("2026-08-16");
+    expect(packet.reviewedAt).toBe("2026-08-30");
     expect(packet.officialSources).toEqual([
       "https://developers.openai.com/plugins/build/plugins",
       "https://developers.openai.com/plugins/deploy/submission-errors",
-      "https://developers.openai.com/plugins/deploy/app-review"
+      "https://developers.openai.com/plugins/deploy/app-review",
+      "https://developers.openai.com/plugins/deploy/submission"
     ]);
     expect(packet.mcp).toEqual({
       submissionMode: "with_mcp",
-      serverURL: "https://mcp.askrigor.com/mcp"
+      serverURL: "https://mcp.askrigor.com/mcp",
+      expectedToolCount: 21
     });
+  });
+
+  it("binds submission claims to the committed MCP inventory", async () => {
+    const packet = await loadJson<SubmissionPacket>(
+      "docs/public-submission-packet-v0.1.0.json"
+    );
+    const inventory = await loadJson<{ tools: Array<{ name: string }> }>(
+      "docs/tool-inventory-v0.1.0.json"
+    );
+
+    expect(packet.mcp.expectedToolCount).toBe(inventory.tools.length);
+    expect(packet.releaseNotes.join(" ")).toContain(
+      `${inventory.tools.length} read-only tools`
+    );
+    expect(packet.externalGates.scanTools?.note).toContain(
+      `${inventory.tools.length}-tool inventory`
+    );
+  });
+
+  it("records the non-secret portal readback without claiming a draft", async () => {
+    const packet = await loadJson<SubmissionPacket>(
+      "docs/public-submission-packet-v0.1.0.json"
+    );
+
+    expect(packet.portalReadback).toEqual({
+      observedAt: "2026-08-30",
+      individualVerificationLabel: "Approved",
+      businessVerificationLabel: "Start",
+      organizationNotice: "Organization could not be verified",
+      createPluginAvailable: true,
+      draftsObserved: 0,
+      draftCreated: false,
+      evidence: "docs/audits/2026-08-30-openai-plugin-portal-readback.md"
+    });
+    await expect(
+      stat(rootFile(packet.portalReadback.evidence))
+    ).resolves.toBeDefined();
   });
 
   it("contains directory-safe listing metadata and all four verified HTTPS URLs", async () => {
@@ -188,6 +238,7 @@ describe("AskRigor public submission packet", () => {
     }
     expect(Object.keys(packet.externalGates)).toEqual([
       "developerIdentity",
+      "globalDataResidency",
       "domainVerification",
       "scanTools",
       "demoRecording",

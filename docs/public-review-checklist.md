@@ -270,15 +270,17 @@ The live August 12 policy at release `f928b95e29cd` is the historical pre-lesson
 The August 13 lesson notice is deployed and live-accepted.
 **PUBLIC SUBMISSION BLOCKED** still applies to
 the current universal creator-content verification regression, the publisher-
-identity and domain-verification path, Scan Tools
+identity, global-data-residency, and domain-verification path, Scan Tools
 review, the demo recording, the explicit opaque model-receipt release decision,
 final portal review, and submission actions recorded in
 `docs/public-submission-packet-v0.1.0.json` and
-`docs/release-evidence-v0.1.0.md`. The owner now reports that individual
-identity is verified and that OpenAI approved the organization request on
-2026-08-29. The exact portal approval scope and organization/publisher identity
-selection remain unverified, and no independent non-secret portal receipt is
-recorded. The fresh
+`docs/release-evidence-v0.1.0.md`. Direct signed-in readback on 2026-08-30 found
+Individual verification `Approved`, Business verification `Start`, the
+organization notice `Organization could not be verified`, an accessible empty
+plugin portal, and **Create plugin**. The receipt is
+`docs/audits/2026-08-30-openai-plugin-portal-readback.md`. No developer identity
+was selected and no draft was created; the publisher path remains unresolved.
+The fresh
 post-deployment ChatGPT interface check did not reproduce the earlier
 routine-status regression.
 
@@ -600,19 +602,21 @@ declared rather than rewritten as exact card-sequence proof.
 The publisher-matching HTTPS legal/support prerequisite was verified on
 2026-08-12 at release `f928b95e29cd`. Remaining execution steps are:
 
-1. Verify the owner-reported organization approval and its scope in the signed-
-   in portal, select the matching organization/publisher identity, retain a
-   non-secret receipt, and complete the matching HTTPS domain challenge.
-2. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare
-   the discovered data with a freshly generated inventory.
-3. Record the privacy-safe reviewer demo using
+1. Choose between the verified individual publisher identity and completing
+   business verification for the AskRigor publisher name. Reconcile all listing
+   fields to that choice before creating a draft.
+2. Verify that the selected submission project uses global data residency, then
+   complete the matching HTTPS domain challenge.
+3. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare the
+   discovered 21-tool metadata with the committed inventory.
+4. Record the privacy-safe reviewer demo using
    `docs/public-submission-demo-recording.md`, host it at an accepted HTTPS URL,
    and publish its verified receipt through the protected repository workflow.
-4. Resolve the three opaque remote-MCP model receipts recorded by run
+5. Resolve the three opaque remote-MCP model receipts recorded by run
    `20260815T110708.728Z-baa07445`, or make an explicit release decision to
    accept that limitation. Do not relabel the 9/9 direct pass as model proof.
-5. Confirm no response contains credentials, debug payloads, internal
+6. Confirm no response contains credentials, debug payloads, internal
    identifiers, or data not disclosed in the final privacy notice.
-6. Reconcile each portal-only state in
+7. Reconcile each portal-only state in
    `docs/public-submission-packet-v0.1.0.json` from direct evidence before
    submission; repository files alone do not prove portal completion.
