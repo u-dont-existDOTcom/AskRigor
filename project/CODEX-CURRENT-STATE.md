@@ -1,5 +1,42 @@
 # AskRigor Codex Current State
 
+## 2026-08-30 OpenAI portal readback packet candidate verified
+
+Branch: `agent/public-submission-readback-20260830`
+
+Baseline: `2edc5dde168f344234cdefc432d99820840132e0`
+
+Status: repository candidate verified; this task is complete when this section
+is present on `main`
+
+Current official OpenAI requirements and direct signed-in portal state are now
+captured without creating a draft. The portal showed Individual verification
+`Approved`, Business verification `Start`, the notice `Organization could not
+be verified`, an accessible empty plugin portal, and **Create plugin**. The
+packet remains fail-closed until the owner chooses the verified-individual
+publisher path or completes business verification for the AskRigor name.
+Global project residency, domain verification, Scan Tools, the demo, final
+review, submission, and publication remain separate gates.
+
+The stale packet claim of 17 tools is corrected to the exact current 21-tool
+inventory. `mcp.expectedToolCount`, release prose, and the Scan Tools gate are
+bound by test to `docs/tool-inventory-v0.1.0.json`. The non-secret portal and
+official-source receipt is
+`../docs/audits/2026-08-30-openai-plugin-portal-readback.md`.
+
+Test-first correction passed 8/8 focused packet tests. The complete host-
+boundary `npm run verify` passed 109 test files with 1 declared skip and 1,457
+tests with 6 declared skips, plus typecheck and build. The lesson checkpoint at
+`2026-08-30T00:53:57.971Z` reports 0 open, 0 needs review, 0 accepted-not-
+incorporated, 4 incorporated/closed, and 0 deletion eligible. No protocol,
+runtime, source-adapter, provider, deployment, privacy-collection, or installed-
+plugin byte changed.
+
+Recovery rule: if this section is absent from `main`, finish the protected PR
+workflow and merge only after required checks pass. If it is present on `main`,
+do not repeat this packet repair; route to the next work item. In either state,
+do not create a portal draft before the publisher choice.
+
 ## 2026-08-30 production living-evidence read-through release completed
 
 Task ID: `askrigor-living-evidence-readthrough-v1`
@@ -31,10 +68,22 @@ map, and work queue record this as the required next layer. This completed task
 is only the first bounded study-audit reuse slice and must not be represented as
 the completed repository system.
 
-The owner reports that OpenAI approved the organization request on 2026-08-29.
-This clears the previously reported signup-timeout state, but its exact portal
-scope is not inferred: organization/publisher identity selection and an
-independent non-secret portal receipt remain open public-submission checks.
+Owner browser-control constraint: default every browser-control task to true
+headless mode. If a headed Brave window is genuinely required, place and keep
+one reusable controlled window on a dedicated secondary virtual workspace or
+secondary physical monitor so it never steals focus or covers the owner's
+active screen. Reuse that controlled window when practical instead of opening
+and closing repeated headed sessions.
+
+Direct signed-in OpenAI Platform readback on 2026-08-30 found Individual
+verification `Approved`, Business verification `Start`, the notice
+`Organization could not be verified`, and an accessible empty plugin portal
+with **Create plugin**. No publisher identity was selected and no draft was
+created. The owner must choose the verified-individual publisher path or
+complete business verification for the AskRigor name. Global data residency,
+domain verification, Scan Tools, and the remaining submission gates are open.
+The non-secret receipt is
+`../docs/audits/2026-08-30-openai-plugin-portal-readback.md`.
 
 Complete verification is recorded in
 `../docs/audits/2026-08-29-production-living-evidence-readthrough.md`. The
@@ -4603,16 +4652,17 @@ and completed rollout at the top of this file.
 - Repository-controlled packet repair and bridge implementation are merged and
   verified. V0.1.0 remains
   **PUBLIC SUBMISSION BLOCKED** for
-  portal identity/domain verification, Scan Tools, a real demo-recording URL,
+  portal identity/global-residency/domain verification, Scan Tools, a real
+  demo-recording URL,
   the explicit release decision on three opaque remote-MCP model receipts,
   final portal response/privacy review, and submission.
   The direct production contract is 9/9 green and the ChatGPT interface check is
   complete with the declared card-presentation limitation.
-- The earlier 2026-08-16 `Verifying identity` report is superseded by the
-  owner's 2026-08-18 report that individual identity is verified. Business/
-  organization verification remains unavailable after a signup timeout. The
-  packet keeps the publisher path `in_progress` because the publisher identity
-  has not been selected and no independent portal receipt is recorded.
+- Direct signed-in readback on 2026-08-30 supersedes the older inferred state:
+  Individual verification is `Approved`, Business verification is `Start`, the
+  organization warning remains, and the empty plugin portal exposes **Create
+  plugin**. The packet keeps the publisher path `in_progress` because no
+  publisher identity was selected and no draft was created.
 - The separate Custom GPT compatibility surface is deployed and owner-reported
   as publicly published.
   The corrected schema imported successfully, and protocol/formal-source UI
@@ -4642,11 +4692,10 @@ and completed rollout at the top of this file.
   actually audited**, and the no-padding timestamped watchlist. Direct
   acceptance for the prior 19-operation production surface must not be relabeled
   as this UI proof.
-- The owner reports individual identity verified and business/organization
-  verification currently unavailable after a signup timeout. Choose the
-  publisher-identity path, then complete the portal HTTPS domain challenge; do
-  not infer the business retry interval.
-- Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 17 tools
+- Choose the verified-individual publisher path or complete business
+  verification for the AskRigor name, verify global project residency, and then
+  complete the portal HTTPS domain challenge.
+- Run Scan Tools against `https://mcp.askrigor.com/mcp`, compare all 21 tools
   with the committed inventory, and review the portal's response/privacy output.
 - Record and host the bounded demo from
   `docs/public-submission-demo-recording.md`; publish only its verified HTTPS
@@ -4677,9 +4726,9 @@ and completed rollout at the top of this file.
 - OpenAI's remote-MCP Responses receipts are opaque for conditional successful
   output and the two tested error boundaries. The runner preserves these as
   `model_output` blocks. Direct proof does not establish model-layer semantics.
-- V0.1.0 public submission remains blocked by the publisher-identity/domain
-  path, Scan Tools, a real demo recording, final portal review, and the explicit
-  opaque-receipt release decision.
+- V0.1.0 public submission remains blocked by publisher identity, global data
+  residency, domain verification, Scan Tools, a real demo recording, final
+  portal review, and the explicit opaque-receipt release decision.
 
 ## Evidence / artifacts
 

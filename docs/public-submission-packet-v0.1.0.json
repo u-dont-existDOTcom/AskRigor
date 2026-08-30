@@ -1,11 +1,12 @@
 {
   "schemaVersion": "1.0",
   "release": "0.1.0",
-  "reviewedAt": "2026-08-16",
+  "reviewedAt": "2026-08-30",
   "officialSources": [
     "https://developers.openai.com/plugins/build/plugins",
     "https://developers.openai.com/plugins/deploy/submission-errors",
-    "https://developers.openai.com/plugins/deploy/app-review"
+    "https://developers.openai.com/plugins/deploy/app-review",
+    "https://developers.openai.com/plugins/deploy/submission"
   ],
   "listing": {
     "displayName": "AskRigor",
@@ -29,7 +30,18 @@
   },
   "mcp": {
     "submissionMode": "with_mcp",
-    "serverURL": "https://mcp.askrigor.com/mcp"
+    "serverURL": "https://mcp.askrigor.com/mcp",
+    "expectedToolCount": 21
+  },
+  "portalReadback": {
+    "observedAt": "2026-08-30",
+    "individualVerificationLabel": "Approved",
+    "businessVerificationLabel": "Start",
+    "organizationNotice": "Organization could not be verified",
+    "createPluginAvailable": true,
+    "draftsObserved": 0,
+    "draftCreated": false,
+    "evidence": "docs/audits/2026-08-30-openai-plugin-portal-readback.md"
   },
   "testCases": {
     "extendedSuite": "docs/public-review-cases-v0.1.0.json",
@@ -48,8 +60,9 @@
   },
   "releaseNotes": [
     "Retrieves canonical AskRigor protocol files with byte-derived version and SHA-256 integrity receipts.",
-    "Provides 17 read-only tools for scholarly, trial, DOI, and public YouTube source retrieval with explicit provenance and access states.",
-    "Preserves pagination, reply reconciliation, rate limits, inaccessible sources, and partial evidence without making clinical conclusions or changing provider data."
+    "Provides 21 read-only tools for scholarly, trial, DOI, full-text method-audit, and public YouTube source retrieval with explicit provenance and access states.",
+    "Preserves pagination, reply reconciliation, rate limits, inaccessible sources, and partial evidence without making clinical conclusions or changing provider data.",
+    "Reuses an exact governed study-method audit only after complete current-source read-through and compatibility, freshness, and impact validation; otherwise the existing validator performs a fresh audit."
   ],
   "demoRecording": {
     "status": "pending",
@@ -61,7 +74,13 @@
       "status": "in_progress",
       "evidence": null,
       "completedAt": null,
-      "note": "The owner reports that OpenAI approved the organization request on 2026-08-29. The exact portal approval scope, organization/publisher identity selection, and an independent non-secret receipt remain to be verified before this gate can be marked complete."
+      "note": "Signed-in portal readback on 2026-08-30 showed Individual verification as Approved, Business verification as Start, and the organization notice as Organization could not be verified. The plugin portal exposed Create plugin and no drafts, but no publisher identity was selected and no draft was created. Choose the verified individual identity or complete business verification before marking this gate complete; see docs/audits/2026-08-30-openai-plugin-portal-readback.md."
+    },
+    "globalDataResidency": {
+      "status": "pending",
+      "evidence": null,
+      "completedAt": null,
+      "note": "Verify in the signed-in portal that the submission project uses global data residency. Current OpenAI MCP review documentation says EU-residency projects cannot submit and must use a global-residency project."
     },
     "domainVerification": {
       "status": "pending",
@@ -73,7 +92,7 @@
       "status": "pending",
       "evidence": null,
       "completedAt": null,
-      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 17-tool inventory with the committed inventory."
+      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 21-tool inventory with the committed inventory."
     },
     "demoRecording": {
       "status": "pending",

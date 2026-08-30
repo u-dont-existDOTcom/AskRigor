@@ -66,6 +66,10 @@ complete XML protocol.
   deployment and curated source-free seed, deterministic/real-PostgreSQL
   evidence, direct miss/drift/hit checks, installed-package receipt, and fresh
   primary-account ChatGPT reuse acceptance
+- `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
+  submission requirements, signed-in individual/business verification labels,
+  accessible empty plugin portal, no-action boundary, and unresolved publisher-
+  identity/data-residency gates
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
@@ -95,7 +99,8 @@ complete XML protocol.
 - `youtube-evidence-frontier-held-out-v0.1.0.json`: held-out synthetic
   popularity/clickbait/stage-mismatch/transcript-selection regression
 - `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
-  handoff, and external-gate states
+  handoff, 21-tool inventory binding, non-secret portal readback, and external-
+  gate states
 - `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
   script
 - `public-review-automation.md`: bounded direct-MCP and Responses API review runner
