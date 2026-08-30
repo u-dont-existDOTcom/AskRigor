@@ -54,7 +54,7 @@ describe("AskRigor public site", () => {
     expect(html).toContain('href="/privacy"');
     expect(html).toContain('href="/terms"');
     expect(html).toContain('href="/support"');
-    expect(html).toContain("AskRigor is a product operated by Mayan Roots.");
+    expect(html).toContain("AskRigor is a product operated by Mayan Roots LLC.");
   });
 
   it.each(pages)("makes %s a complete accessible document", async (file) => {

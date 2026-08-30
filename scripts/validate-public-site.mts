@@ -78,7 +78,7 @@ const expectedFiles = new Set([
 
 const commonFragments = [
   "joel@askrigor.com",
-  "AskRigor is a product operated by Mayan Roots.",
+  "AskRigor is a product operated by Mayan Roots LLC.",
   'href="/privacy"',
   'href="/terms"',
   'href="/support"',

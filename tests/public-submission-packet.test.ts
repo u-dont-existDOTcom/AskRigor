@@ -140,7 +140,7 @@ describe("AskRigor public submission packet", () => {
     expect(packet.listing).toMatchObject({
       displayName: "AskRigor",
       shortDescription: "Auditable research retrieval",
-      developerName: "Mayan Roots",
+      developerName: "Mayan Roots LLC",
       category: "Productivity",
       capabilities: ["Read"],
       websiteURL: "https://askrigor.com",
@@ -171,9 +171,9 @@ describe("AskRigor public submission packet", () => {
       logo: packet.listing.logo,
       composerIcon: packet.listing.composerIcon
     });
-    expect(manifest).toMatchObject({ author: { name: "Mayan Roots" } });
+    expect(manifest).toMatchObject({ author: { name: "Mayan Roots LLC" } });
     expect(packet.listing.displayName).toBe("AskRigor");
-    expect(packet.listing.developerName).toBe("Mayan Roots");
+    expect(packet.listing.developerName).toBe("Mayan Roots LLC");
   });
 
   it("selects exactly five positive and three negative portal cases without deleting extended evidence", async () => {
@@ -268,7 +268,7 @@ describe("AskRigor public submission packet", () => {
       completedAt: null
     });
     expect(packet.externalGates.developerIdentity?.note).toContain(
-      "Mayan Roots"
+      "Mayan Roots LLC"
     );
     expect(packet.externalGates.developerIdentity?.note).toContain(
       "selected"

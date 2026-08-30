@@ -5,7 +5,7 @@ Date: 2026-08-30
 Status: non-secret signed-in portal receipt; no draft or submission action
 
 Subsequent owner decision: later on 2026-08-30, the owner selected **Mayan
-Roots** as the business developer identity while keeping **AskRigor** as the
+Roots LLC** as the business developer identity while keeping **AskRigor** as the
 product name. That later decision and the still-incomplete business-
 verification gate are recorded in
 `docs/audits/2026-08-30-mayan-roots-publisher-alignment.md`; they do not alter
