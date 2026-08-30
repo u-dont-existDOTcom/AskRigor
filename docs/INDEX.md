@@ -68,8 +68,10 @@ complete XML protocol.
   primary-account ChatGPT reuse acceptance
 - `audits/2026-08-30-research-frontier-ledger.md`: requested-versus-confirmed
   formal discovery coverage, append-only candidate/trail decisions, gap-aware
-  delta state, zero-community persistence, deterministic derived views, and
-  real-PostgreSQL dump/wipe/restore evidence
+  delta state, zero-community persistence, deterministic derived views,
+  real-PostgreSQL dump/wipe/restore evidence, protected merge, exact production
+  migration/rollback, direct MCP reuse, installed-package, and fresh primary-
+  account product acceptance
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/
