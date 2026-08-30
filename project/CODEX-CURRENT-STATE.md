@@ -15,6 +15,15 @@ Release closeout review: PR #141
 
 Assurance lane: release, with targeted privacy and frontier-truth gates
 
+Current-worker supervision bootstrap: adopted from
+`u-dont-existDOTcom/universal-dev-architecture` branch
+`architecture/codex-pro-supervision-mission-control-20260830`, commit
+`ac29ad29acf232a52e36a9a1ecdb7c6f12fbd199`, path
+`templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md`. Its material effect
+is to preserve this existing closeout task, branch, worktree, and authority;
+continue deterministic verification with exact tools; and retain headless
+browser and tab-lease hygiene. Mission Control was not activated.
+
 The owner-approved next living-evidence layer is deployed. It persists a
 governed formal research frontier rather than another final-answer cache:
 discovery passes, requested versus confirmed date windows, screened source

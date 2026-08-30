@@ -80,6 +80,14 @@
     "protocolManifestReadback": true,
     "readOnlyPubMedProbe": "api_visible_complete"
   },
+  "currentWorkerSupervisionBootstrap": {
+    "status": "adopted",
+    "sourceRepository": "u-dont-existDOTcom/universal-dev-architecture",
+    "sourceBranch": "architecture/codex-pro-supervision-mission-control-20260830",
+    "sourceCommit": "ac29ad29acf232a52e36a9a1ecdb7c6f12fbd199",
+    "sourcePath": "templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md",
+    "materialEffect": "Preserved the existing release-closeout task, branch, worktree, and authority; continued exact-tool verification and headless-browser hygiene without activating Mission Control."
+  },
   "completion": null,
   "suspendedTaskSources": [
     "completed living-evidence read-through release and its historical acceptance artifacts",

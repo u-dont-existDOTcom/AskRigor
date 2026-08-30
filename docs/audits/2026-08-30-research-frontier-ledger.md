@@ -196,7 +196,7 @@ visible window. The 547 MB temporary profile and two screenshots were moved to
 trash after acceptance. The owner's original browser profile and visible Brave
 window were not modified.
 
-The final release lesson checkpoint at `2026-08-30T14:21:49.293Z` is available:
+The final release lesson checkpoint at `2026-08-30T14:54:12.586Z` is available:
 0 open candidates, 0 needing review, 0 accepted but not incorporated, 4
 incorporated or closed, and 0 deletion eligible.
 
