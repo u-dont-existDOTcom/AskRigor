@@ -130,6 +130,12 @@ hash; failures retain only bounded codes and body hashes.
 - Complete deterministic gate: `npm run verify` passed on stable source; 113
   test files passed and 1 skipped, 1,528 tests passed and 6 skipped, followed by
   a successful TypeScript project build.
+- GitHub independently reproduced the implementation at commit
+  `8000b7ff21106a8cf6405b6ca2d219f0e7984a6b`: deterministic run
+  `33336704801` / job `99324809018` passed the same 1,528-test gate and build,
+  the 35-check living-evidence PostgreSQL acceptance, and the 9-check synthetic
+  Community Forum PostgreSQL acceptance. Workflow-policy run `33336704778` /
+  job `99324809037` also passed.
 - Test-efficiency observation: 36 runs, 2,169.487 seconds of test wall time,
   49.74% of task elapsed time; all 3 complete-gate runs passed and no redundant
   green run was forced.

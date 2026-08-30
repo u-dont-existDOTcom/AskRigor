@@ -3,7 +3,8 @@
 Date: 2026-08-30
 Task ID: `community-forum-discourse-lab-20260830`
 Owner-outcome epoch: `1`
-Status: `LOCAL_CANDIDATE_PENDING_GITHUB`
+Status: `TASK_COMPLETE` for this bounded synthetic slice; root product
+nonterminal and release forbidden
 
 ## Normalized owner result
 
@@ -68,7 +69,7 @@ automated regulatory reporting.
 | Keep visibility separate from evidence strength | Model and test each axis independently | Publication transitions cannot mutate scientific fields | Mutation-invariance tests and exact public-version record hash | Satisfied locally | None |
 | Do not perform real-world/public/recruitment/regulatory actions | No provider credentials, public endpoints, real records, email, indexing, recruitment, or reports | Static inventory and tests show synthetic/nondeployment boundary | Runtime cleanup, privacy/source-storage review, and nondeployment receipt | Satisfied locally | None |
 | Run complete gate and review the diff | Use Node 24.18.0, focused tests, `npm run verify`, then inspect exact final diff | All applicable deterministic checks pass and review findings are closed | 51 focused tests; PostgreSQL 9/9; pinned Discourse runtime; 1,528/6 complete test gate; successful build; staged-tree review | Satisfied locally | None |
-| Save exact receipts in GitHub | Commit, push with protected rollback, and update PR #142 with exact identities/results | PR body/comment contains base/head, changed files, tests, limitations, rollback | GitHub receipt | Pending | None |
+| Save exact receipts in GitHub | Commit, push with protected rollback, and update PR #142 with exact identities/results | PR #142 body, implementation commit `8000b7ff...`, deterministic run `33336704801`, workflow-policy run `33336704778`, and final PR receipt | Satisfied | None |
 
 ## Non-satisfying proxy states
 
@@ -86,13 +87,13 @@ automated regulatory reporting.
 - shared bootstrap: `u-dont-existDOTcom/universal-dev-architecture@90a230e85f78063080dc627ec36a0237c3234f72`, `templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md`;
 - owner source: `docs/audits/2026-08-30-community-forum-discourse-lab-owner-source.txt`;
 - independent source limitation: no durable external message identifier was exposed to the worker, so the exact current owner message is preserved as an immutable repository block and hashed by deterministic tooling;
-- worker-to-contract alignment: `YELLOW` because implementation, the complete
-  deterministic gate, and final diff review are complete, while the protected
-  push and GitHub checks/receipt remain open;
+- worker-to-contract alignment: `GREEN`; implementation, the complete local
+  gate, final diff review, protected push, independent GitHub checks, and exact
+  receipts are complete;
 - contract-to-owner alignment: `MATCH` after restoring the corrected two-object rule and the synthetic-only boundary;
-- completion claim: `WORKING` (local task candidate; no terminal claim before
-  GitHub verification);
-- operational alignment: `LOCAL_CANDIDATE_PENDING_GITHUB`;
+- completion claim: `TASK_COMPLETE` for this bounded implementation contract;
+  the root Community Forum/Public Lead product remains explicitly nonterminal;
+- operational alignment: `ALIGNED_FOR_SYNTHETIC_SLICE`;
 - scientific adequacy: `NOT_APPLICABLE` for health-outcome inference; the implementation may encode evidence-capability boundaries but makes no scientific or clinical conclusion;
 - release adequacy: `FAIL_CLOSED`; release permission is false and no deployment/publication is authorized;
 - contract repair: locally complete; the former public-story helper is explicitly narrative-only and the new two-object runtime contract preserves a reporter-consented deidentified secondhand lead path;
@@ -105,8 +106,13 @@ automated regulatory reporting.
   syntax and exact-source Compose expansion pass, the lab validator passes,
   no credential/private-owner-data signature was found, and no unresolved
   `TODO`/placeholder marker remains;
+- GitHub verification: implementation commit
+  `8000b7ff21106a8cf6405b6ca2d219f0e7984a6b`; deterministic run
+  `33336704801` / job `99324809018` passed the 1,528-test gate, build,
+  35-check living-evidence acceptance, and 9-check Community Forum acceptance;
+  workflow-policy run `33336704778` / job `99324809037` passed;
 - supervision-design feedback: none identified at this checkpoint.
 
-Reconcile this matrix again after the rebase semantics are changed, before the
-complete verification gate, before pushing the rewritten branch, and before the
-final completion claim.
+The required recurring reconciliations were completed after semantic repair,
+before the complete gate, before the protected rewrite, and before this typed
+completion claim.
