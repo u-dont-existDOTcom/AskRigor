@@ -77,21 +77,29 @@ Status: branch-local architecture and Phase-0 implementation index
     - PR-stack reconciliation boundary;
     - exact Codex handoff.
 
-14. `../audits/2026-08-30-universal-supervision-bootstrap-critique.md`
+14. `COMMUNITY-FORUM-SYNTHETIC-LAB-RECEIPT.md`
+    - reconciled PR #142 Git identities and rollback;
+    - pinned, loopback-only Discourse runtime and cleanup receipt;
+    - executable contract, migration, service, repository, privacy, and
+      nonautomation boundaries;
+    - complete local verification and separate operational, scientific, and
+      release-adequacy verdicts.
+
+15. `../audits/2026-08-30-universal-supervision-bootstrap-critique.md`
     - application of the updated shared Codex/Pro supervision bootstrap;
     - objective-contract reconciliation;
     - independent supervisor owner-source receipt;
     - typed completion and separate operational/scientific/release verdicts.
 
-15. `../superpowers/plans/2026-08-30-public-atlas-phase0-prediction-stories.md`
+16. `../superpowers/plans/2026-08-30-public-atlas-phase0-prediction-stories.md`
     - implemented prediction/story/study/job contracts and tests;
     - next database/service fixture slice;
     - bounded Codex continuation handoff.
 
-16. `../../packages/evidence-repository/src/public-atlas-phase0.ts`
+17. `../../packages/evidence-repository/src/public-atlas-phase0.ts`
     - Phase-0 pure TypeScript contracts and deterministic validators.
 
-17. `../../tests/public-atlas-phase0.test.ts`
+18. `../../tests/public-atlas-phase0.test.ts`
     - prediction lock/reveal/scoring;
     - small-aggregate suppression;
     - incomplete-story acceptance;

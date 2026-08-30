@@ -1,0 +1,34 @@
+name: askrigor-synthetic-discourse-lab
+
+services:
+  discourse:
+    image: docker.io/discourse/discourse_dev@sha256:d8dc0097c0911ebbf1e4844e7db0426ebeae9469637d45fcabc7cd10c516940f
+    platform: linux/amd64
+    hostname: askrigor-synthetic-discourse
+    command: /sbin/boot
+    restart: "no"
+    environment:
+      ASKRIGOR_SYNTHETIC_ONLY: "true"
+      UNICORN_BIND_ALL: "true"
+    ports:
+      - "127.0.0.1:${ASKRIGOR_DISCOURSE_HTTP_PORT:-33000}:3000"
+    volumes:
+      - type: bind
+        source: ${ASKRIGOR_DISCOURSE_SOURCE_DIR:?set to an exact checkout of the manifest commit}
+        target: /src
+      - type: bind
+        source: ./seed.rb
+        target: /askrigor-lab/seed.rb
+        read_only: true
+      - type: volume
+        source: discourse_synthetic_postgres
+        target: /shared/postgres_data
+    labels:
+      com.askrigor.synthetic-only: "true"
+      com.askrigor.real-health-data-allowed: "false"
+      com.askrigor.public-deployment-authorized: "false"
+
+volumes:
+  discourse_synthetic_postgres:
+    labels:
+      com.askrigor.disposable: "true"

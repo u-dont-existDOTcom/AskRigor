@@ -10,6 +10,7 @@
     }
   },
   "dependencies": {
+    "@askrigor/contracts": "0.1.0",
     "pg": "8.16.3",
     "zod": "4.4.3"
   },

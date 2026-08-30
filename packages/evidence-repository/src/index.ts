@@ -12,6 +12,27 @@ export {
 } from "./contracts.js";
 export { deterministicUuid, sha256, stableJson } from "./hash.js";
 export {
+  buildSyntheticPublicLeadProjection,
+  communityDeadLetterErrorCode,
+  computeCommunitySourceIndependenceKeys,
+  signDiscourseConnectPayload,
+  signDiscourseWebhook,
+  syntheticPublicLeadProjectionSha256,
+  SyntheticCommunityBridge,
+  SyntheticCommunityLeadService,
+  SyntheticDiscourseConnectService,
+  verifyDiscourseConnectPayload,
+  verifyDiscourseWebhookSignature,
+  type CommunityBridgeDeadLetter,
+  type CommunityBridgeEventReceipt,
+  type DiscourseConnectResponse,
+  type SyntheticPublicLeadProjection,
+} from "./community-forum-service.js";
+export {
+  PostgresSyntheticCommunityRepository,
+  type CommunityPostgresOptions,
+} from "./community-postgres.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";

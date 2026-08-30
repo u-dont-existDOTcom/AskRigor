@@ -63,6 +63,35 @@ inherit the same classification and deadline. Production ingestion, user/private
 analysis persistence, raw-source storage, multi-user access, and long-term
 backup remain separately gated.
 
+### Isolated synthetic Community Forum laboratory
+
+The Community Forum implementation branch adds a third, strictly synthetic
+development class. A pinned Discourse development runtime binds only to
+`127.0.0.1`, uses a disposable local volume, disables outbound email and
+search indexing, and accepts only synthetic accounts and synthetic health
+discussions. It is not a public forum, real-user pilot, or production data
+store.
+
+The AskRigor fixture repository may store synthetic account IDs, a SHA-256 of a
+synthetic `.invalid` email address, pseudonymous synthetic display names,
+signed event metadata, topic/post IDs, content hashes, source versions,
+structured synthetic leads, consent/privacy/safety fixture states, and an
+allowlisted synthetic public projection. It does not store an email value, raw
+forum body, private subject reference, direct subject quotation, document, or
+media body. Failed webhook payloads retain only a bounded error code, event ID
+when syntactically valid, and raw-body SHA-256. Validation failures map to a
+fixed code rather than storing exception text derived from the rejected body.
+
+The two publication objects remain distinct. `PUBLIC_NARRATIVE` requires
+subject exact-version approval. A deidentified `PUBLIC_RESEARCH_LEAD` may model
+a reporter-consented secondhand report without subject exact-version approval
+only after the synthetic privacy, abuse, and jurisdiction gates pass and the
+projection contains no reasonably identifying subject, direct private subject
+quotation, document, or media. Lab visibility cannot upgrade verification,
+evidence capability, completeness, or formal-evidence relationship. The branch
+activates no public DNS, indexing, recruitment, real lead publication,
+regulatory report, provider account, or deployment.
+
 AskRigor has deliberately separate processing paths:
 
 - **Controlled Custom GPT research path:** four authenticated Actions start,

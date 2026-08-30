@@ -525,7 +525,7 @@ export function storyIsEligibleForAggregateResearch(storyInput: PatientStory): b
   );
 }
 
-export function storyIsEligibleForPublicRelease(storyInput: PatientStory): boolean {
+export function storyIsEligibleForPublicNarrativeRelease(storyInput: PatientStory): boolean {
   const story = patientStorySchema.parse(storyInput);
   return (
     story.public_story?.publication_state === "PUBLISHED" &&
@@ -533,3 +533,9 @@ export function storyIsEligibleForPublicRelease(storyInput: PatientStory): boole
     story.consents.public_redacted_story.decision === "YES"
   );
 }
+
+/**
+ * Backward-compatible name for the v0.1 Patient Experience Observatory
+ * narrative workflow. It is not a blanket gate for PUBLIC_RESEARCH_LEAD.
+ */
+export const storyIsEligibleForPublicRelease = storyIsEligibleForPublicNarrativeRelease;

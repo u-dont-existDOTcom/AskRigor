@@ -170,10 +170,36 @@ the actual check completion, result, exact source/version, and impact status.
   production design. The curated source-free study-audit phase has no automatic
   off-host backup and declares host loss as a durability limitation.
 
+## Synthetic Community Forum fixture class
+
+This class is limited to the isolated development laboratory. Every account,
+discussion, event, lead, and projection is invented for testing and carries an
+enforced synthetic marker. Allowed AskRigor-side fields are synthetic IDs; the
+SHA-256 of a synthetic `.invalid` email; pseudonymous synthetic display name;
+signed event/version/visibility metadata; source and body hashes; typed
+synthetic lead, consent, privacy, moderation, scientific-annotation, safety,
+question, proposal, cluster, correction, and withdrawal records; and the exact
+allowlisted synthetic projection.
+
+Prohibited fields are real email or identity, real health narrative, raw forum
+body, private subject reference, direct private quotation, document/media body,
+provider credential, public search-index record, active recruitment/contact,
+and regulatory submission. Dead letters store no payload body. PostgreSQL rows
+are append-only; a withdrawal removes the synthetic projection while retaining
+a content-free audit tombstone. The Compose-owned volume and disposable source
+checkout are local runtime artifacts, receive no backup, and are destroyed
+after acceptance.
+
+This class is not an exception to the zero-storage rule for real YouTube or
+community-derived data. Activating a real forum or importing any real community
+source requires a new field-by-field storage, consent, retention, deletion,
+provider-terms, security, and release review.
+
 ## Provider-specific boundary
 
-The active YouTube API compliance review is unresolved. The pilot persists no
-YouTube or community-derived record, including minimized findings. Source
+The active YouTube API compliance review is unresolved. Apart from the
+synthetic-only fixture class above, the pilot persists no YouTube or
+community-derived record, including minimized findings. Source
 identifiers, comments, transcripts, creator/channel identity, rediscovery
 leads, corpus hashes, and derived community assertions remain outside the
 durable pilot until an exact field-by-field policy and owner approval replaces

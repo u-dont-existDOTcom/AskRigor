@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "taskId": "community-forum-discourse-lab-20260830",
+  "acceptedAt": "2026-08-30T21:22:35Z",
+  "accepted": true,
+  "syntheticOnly": true,
+  "sourceCommit": "768a4ed1cd8e6742fe1c1340a9c4ab01318285ec",
+  "imageRef": "docker.io/discourse/discourse_dev@sha256:d8dc0097c0911ebbf1e4844e7db0426ebeae9469637d45fcabc7cd10c516940f",
+  "imageId": "sha256:d8dc0097c0911ebbf1e4844e7db0426ebeae9469637d45fcabc7cd10c516940f",
+  "ephemeralContainerId": "1a6a30325b16015f86deaa2f5aab42651ac59477b85335cc3dad02f33e7c29b4",
+  "httpBinding": "127.0.0.1:33000",
+  "outboundEmail": "DISABLED",
+  "robotsDenyAll": true,
+  "xRobotsTag": "noindex, nofollow",
+  "seed": {
+    "marker": "SYNTHETIC — NOT REAL HEALTH DATA",
+    "humanUserCount": 4,
+    "syntheticHumanUserCount": 4,
+    "categoryCount": 3,
+    "topicCount": 3,
+    "allFixturePostsMarkedSynthetic": true,
+    "permissionChecks": {
+      "anonymousCanSeePublic": true,
+      "anonymousCannotSeeMembersOnly": true,
+      "anonymousCannotSeePrivateModeration": true,
+      "memberCanCreateMemberReport": true,
+      "ordinaryMemberCannotSeePrivateModeration": true,
+      "moderatorCanCreatePrivateReview": true
+    },
+    "settings": {
+      "allowIndexInRobotsTxt": false,
+      "robotsOverride": "User-agent: *\nDisallow: /\n",
+      "disableEmails": "yes",
+      "loginRequired": false,
+      "allowNewRegistrations": false,
+      "taggingEnabled": true
+    }
+  },
+  "acceptedFileSha256": {
+    "labs/discourse-synthetic/lab-manifest.json": "154a5e0d6e0a3421eff55541d3d227cfcebb7f36f24524d8eed37150518a5a3b",
+    "labs/discourse-synthetic/compose.yaml": "3f56c679eaea80f71d73eb55ab126effc86da88ad582d80fc95aa19f8c4f3b98",
+    "labs/discourse-synthetic/seed.rb": "4cef0fc9a49e2541625f85eb91ac840b09be4a3541321fbee63983dfe8be89f9",
+    "scripts/run-discourse-synthetic-acceptance.sh": "deffdb324c4c4bdc50080edd6c2a52b45022a9acf055a083d3f6fad846886458"
+  },
+  "cleanup": {
+    "ownedComposeProjectRemoved": true,
+    "ownedVolumesRemoved": true,
+    "syntheticLabeledContainersRemaining": 0
+  },
+  "limitations": [
+    "The acceptance used a disposable source checkout and did not deploy or configure a public DNS name.",
+    "The runtime proves the synthetic Discourse substrate and permission fixtures; SSO and webhook boundary behavior are exercised separately by deterministic service tests.",
+    "No real account, health report, public research lead, recruitment flow, or regulatory report was created."
+  ]
+}

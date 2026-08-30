@@ -21,7 +21,7 @@ import {
   sourceFamilyObservationSchema,
   storyConsentLedgerSchema,
   storyIsEligibleForAggregateResearch,
-  storyIsEligibleForPublicRelease,
+  storyIsEligibleForPublicNarrativeRelease,
   studyAuditProfileSchema,
   studyInformationContributionProfileSchema,
   transitionResearchMission,
@@ -1031,7 +1031,7 @@ describe("Patient Experience Observatory contracts", () => {
     expect(() => patientStorySchema.parse(withNarrative)).toThrow(/reviewed for identifiers/i);
   });
 
-  it("requires exact-version approval and specific consent before public publication", () => {
+  it("requires exact-version approval and specific consent for a public narrative", () => {
     const story = clone(minimalStory());
     story.intake_channel = "EXTERNAL_SECURE_PORTAL";
     story.public_story = {
@@ -1049,7 +1049,7 @@ describe("Patient Experience Observatory contracts", () => {
 
     story.consents.public_redacted_story = consentDecision("YES", "c");
     const publishable = patientStorySchema.parse(story);
-    expect(storyIsEligibleForPublicRelease(publishable)).toBe(true);
+    expect(storyIsEligibleForPublicNarrativeRelease(publishable)).toBe(true);
   });
 
   it("excludes withdrawn aggregate-research consent without deleting the story record", () => {

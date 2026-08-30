@@ -50,3 +50,8 @@ jobs:
           DATABASE_URL: postgresql://askrigor_ci:ci-only-password@127.0.0.1:5432/askrigor_living_evidence
           ASKRIGOR_LIVING_EVIDENCE_OUTPUT: /tmp/askrigor-living-evidence-ci
         run: npm run living-evidence:acceptance && npm run living-evidence:pilot
+
+      - name: Run synthetic Community Forum and Discourse contract acceptance
+        env:
+          DATABASE_URL: postgresql://askrigor_ci:ci-only-password@127.0.0.1:5432/askrigor_living_evidence
+        run: npm run community-forum:lab-validate && npm run community-forum:acceptance
