@@ -159,6 +159,7 @@ function yaml(value: string): string {
 function mermaidLabel(value: string): string {
   return value
     .replaceAll("&", "&amp;")
+    .replaceAll("\\", "&#92;")
     .replaceAll("\"", "&quot;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")

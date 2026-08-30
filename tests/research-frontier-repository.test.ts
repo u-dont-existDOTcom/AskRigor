@@ -359,7 +359,7 @@ describe("research-frontier persistence contracts", () => {
       },
       question: {
         question_id: contribution.question.questionId,
-        normalized_question: "Question <script>alert(1)</script>",
+        normalized_question: "Question <script>alert(1)</script> \\\"] click escaped",
         dimensions: contribution.question.dimensions,
       },
       lanes: [{
@@ -417,6 +417,8 @@ describe("research-frontier persistence contracts", () => {
     expect(rendered.obsidianMarkdown).not.toContain("\n# injected heading");
     expect(rendered.obsidianMarkdown).toContain("&lt;script&gt;");
     expect(rendered.obsidianMarkdown).toContain("\\[linked title\\](https://example.invalid)");
+    expect(rendered.mermaid).not.toContain("\\");
+    expect(rendered.mermaid).toContain("&#92;");
   });
 
   it("prepares a writer-only frontier import against the exact current protocols", async () => {
