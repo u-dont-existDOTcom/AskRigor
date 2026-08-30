@@ -184,14 +184,23 @@ append-only progressive-composer versions, reporter-reviewed preview hashes,
 explicit missingness and permissions, balanced frontier snapshots,
 duplicate-aware independence keys, operational queue records, active-role
 assignments, and operational actions whose before/after source-meaning hashes
-are identical.
+are identical. The same class may store content-free hostile-integrity signals
+bound to exact human-review queues; separate moderation/scientific
+disagreement references; append-only publication state and visibility events;
+exact cluster-version dependencies for questions; exact evidence-check links
+for nonrecruiting proposals; and withdrawal-propagation receipts containing
+only typed record/version/disposition references, review-required markers, and
+hashes. Evidence, source meaning, and independence fields remain invariant
+across manipulation and publication-lifecycle records.
 
 Prohibited fields are real email or identity, real health narrative, raw forum
 body, private subject reference, direct private quotation, document/media body,
 provider credential, public search-index record, active recruitment/contact,
-and regulatory submission. Dead letters store no payload body. PostgreSQL rows
+regulatory submission, hostile instruction text, or withdrawn public content.
+Dead letters store no payload body. PostgreSQL rows
 are append-only; a withdrawal removes the synthetic projection while retaining
-a content-free audit tombstone. The Compose-owned volume and disposable source
+a content-free audit tombstone and content-free downstream invalidation
+receipt. The Compose-owned volume and disposable source
 checkout are local runtime artifacts, receive no backup, and are destroyed
 after acceptance.
 

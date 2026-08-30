@@ -946,6 +946,357 @@ export const communityWithdrawalEventSchema = z
   })
   .strict();
 
+const communityHostileTargetTypeSchema = z.enum([
+  "TOPIC",
+  "POST",
+  "LEAD",
+  "PUBLIC_VERSION",
+  "CLUSTER",
+  "QUESTION",
+  "PROPOSAL",
+  "USER",
+]);
+
+const communityIntegrityQueueTypeSchema = z.enum([
+  "MODERATION",
+  "PRIVACY",
+  "SCIENTIFIC",
+  "SAFETY",
+]);
+
+const requiredIntegrityQueuesByKind = {
+  COMMERCIAL_COORDINATION: ["MODERATION", "SCIENTIFIC"],
+  SOCKPUPPET_COORDINATION: ["MODERATION", "SCIENTIFIC"],
+  VOTE_BRIGADING: ["MODERATION", "SCIENTIFIC"],
+  IMPERSONATION: ["MODERATION", "PRIVACY"],
+  REIDENTIFICATION_ATTEMPT: ["MODERATION", "PRIVACY"],
+  DANGEROUS_INSTRUCTION: ["MODERATION", "SAFETY"],
+} as const;
+
+export const communityIntegritySignalSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    integritySignalId: z.string().regex(/^ARINT-[A-Z0-9_-]{8,80}$/u),
+    kind: z.enum([
+      "COMMERCIAL_COORDINATION",
+      "SOCKPUPPET_COORDINATION",
+      "VOTE_BRIGADING",
+      "IMPERSONATION",
+      "REIDENTIFICATION_ATTEMPT",
+      "DANGEROUS_INSTRUCTION",
+    ]),
+    targetType: communityHostileTargetTypeSchema,
+    targetId: shortTextSchema,
+    sourceMeaningSha256Before: sha256Schema,
+    sourceMeaningSha256After: sha256Schema,
+    verificationStateBefore: communityVerificationStateSchema,
+    verificationStateAfter: communityVerificationStateSchema,
+    evidenceCapabilityBefore: communityEvidenceCapabilitySchema,
+    evidenceCapabilityAfter: communityEvidenceCapabilitySchema,
+    formalEvidenceRelationshipBefore:
+      communityFormalEvidenceRelationshipSchema,
+    formalEvidenceRelationshipAfter:
+      communityFormalEvidenceRelationshipSchema,
+    independentSourceCountBefore: z.number().int().nonnegative(),
+    independentSourceCountAfter: z.number().int().nonnegative(),
+    engagement: z
+      .object({
+        views: z.number().int().nonnegative(),
+        replies: z.number().int().nonnegative(),
+        votes: z.number().int().nonnegative(),
+      })
+      .strict(),
+    engagementAffectsEvidenceState: z.literal(false),
+    requiredQueueTypes: z.array(communityIntegrityQueueTypeSchema).min(1).max(4),
+    automatedRegulatoryReporting: z.literal(false),
+    createdAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const invariantPairs = [
+      [value.sourceMeaningSha256Before, value.sourceMeaningSha256After],
+      [value.verificationStateBefore, value.verificationStateAfter],
+      [value.evidenceCapabilityBefore, value.evidenceCapabilityAfter],
+      [
+        value.formalEvidenceRelationshipBefore,
+        value.formalEvidenceRelationshipAfter,
+      ],
+      [value.independentSourceCountBefore, value.independentSourceCountAfter],
+    ] as const;
+    if (invariantPairs.some(([before, after]) => before !== after)) {
+      context.addIssue({
+        code: "custom",
+        path: ["evidenceCapabilityAfter"],
+        message:
+          "Integrity and engagement signals cannot mutate meaning, evidence, or independence",
+      });
+    }
+    if (new Set(value.requiredQueueTypes).size !== value.requiredQueueTypes.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["requiredQueueTypes"],
+        message: "Integrity queue types must be unique",
+      });
+    }
+    const required = requiredIntegrityQueuesByKind[value.kind];
+    if (
+      value.requiredQueueTypes.length !== required.length ||
+      required.some((queueType) => !value.requiredQueueTypes.includes(queueType))
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["requiredQueueTypes"],
+        message: "Integrity signal is missing a required independent queue",
+      });
+    }
+  });
+
+export const communityReviewDisagreementSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    disagreementId: z.string().regex(/^ARDIS-[A-Z0-9_-]{8,64}$/u),
+    targetType: communityHostileTargetTypeSchema.exclude([
+      "PUBLIC_VERSION",
+      "USER",
+    ]),
+    targetId: shortTextSchema,
+    moderationEventId: z.string().regex(/^ARMOD-[A-Z0-9_-]{8,64}$/u),
+    moderationDisposition: z.enum([
+      "NO_CONDUCT_ACTION",
+      "CONDUCT_ACTION_RECORDED",
+      "APPEAL_PENDING",
+    ]),
+    scientificAnnotationId: z
+      .string()
+      .regex(/^ARANN-[A-Z0-9_-]{8,64}$/u),
+    scientificDisposition: z.enum([
+      "UNRESOLVED",
+      "ANNOTATED",
+      "METHODS_REVIEW_REQUIRED",
+      "RESOLVED",
+    ]),
+    sourceMeaningSha256Before: sha256Schema,
+    sourceMeaningSha256After: sha256Schema,
+    status: z.enum(["OPEN", "IN_REVIEW", "RESOLVED", "SUPERSEDED"]),
+    recordedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.sourceMeaningSha256Before !== value.sourceMeaningSha256After) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceMeaningSha256After"],
+        message: "Review disagreement cannot rewrite source meaning",
+      });
+    }
+    if (value.status === "RESOLVED" && value.scientificDisposition !== "RESOLVED") {
+      context.addIssue({
+        code: "custom",
+        path: ["status"],
+        message: "A disagreement cannot resolve while science remains unresolved",
+      });
+    }
+  });
+
+const communityPublicationLifecycleStateSchema = z.enum([
+  "DRAFT",
+  "PRIVACY_REVIEW",
+  "APPROVED",
+  "SYNTHETIC_LAB_PROJECTION",
+  "CHALLENGED",
+  "WITHDRAWN",
+  "SUPERSEDED",
+]);
+
+const publicationTransitions: Readonly<Record<string, readonly string[]>> = {
+  START: ["DRAFT"],
+  DRAFT: ["PRIVACY_REVIEW", "WITHDRAWN", "SUPERSEDED"],
+  PRIVACY_REVIEW: ["APPROVED", "DRAFT", "WITHDRAWN", "SUPERSEDED"],
+  APPROVED: ["SYNTHETIC_LAB_PROJECTION", "CHALLENGED", "WITHDRAWN", "SUPERSEDED"],
+  SYNTHETIC_LAB_PROJECTION: ["CHALLENGED", "WITHDRAWN", "SUPERSEDED"],
+  CHALLENGED: ["PRIVACY_REVIEW", "WITHDRAWN", "SUPERSEDED"],
+  WITHDRAWN: [],
+  SUPERSEDED: [],
+};
+
+export const communityPublicationLifecycleEventSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    lifecycleEventId: z.string().regex(/^ARLIFE-[A-Z0-9_-]{8,64}$/u),
+    publicVersionId: z.string().regex(/^ARPUB-[A-Z0-9_-]{8,64}$/u),
+    leadId: z.string().regex(/^ARLEAD-[A-Z0-9_-]{8,64}$/u),
+    leadVersion: z.number().int().positive(),
+    fromState: communityPublicationLifecycleStateSchema.nullable(),
+    toState: communityPublicationLifecycleStateSchema,
+    visibilityBefore: z.enum(["NOT_VISIBLE", "SYNTHETIC_LAB_ONLY"]),
+    visibilityAfter: z.enum(["NOT_VISIBLE", "SYNTHETIC_LAB_ONLY"]),
+    verificationStateBefore: communityVerificationStateSchema,
+    verificationStateAfter: communityVerificationStateSchema,
+    evidenceCapabilityBefore: communityEvidenceCapabilitySchema,
+    evidenceCapabilityAfter: communityEvidenceCapabilitySchema,
+    formalEvidenceRelationshipBefore:
+      communityFormalEvidenceRelationshipSchema,
+    formalEvidenceRelationshipAfter:
+      communityFormalEvidenceRelationshipSchema,
+    occurredAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const allowed = publicationTransitions[value.fromState ?? "START"] ?? [];
+    if (!allowed.includes(value.toState)) {
+      context.addIssue({
+        code: "custom",
+        path: ["toState"],
+        message: "Invalid publication lifecycle transition",
+      });
+    }
+    const beforeAllowed =
+      value.fromState === "CHALLENGED"
+        ? ["NOT_VISIBLE", "SYNTHETIC_LAB_ONLY"]
+        : value.fromState === "SYNTHETIC_LAB_PROJECTION"
+          ? ["SYNTHETIC_LAB_ONLY"]
+          : ["NOT_VISIBLE"];
+    const afterAllowed =
+      value.toState === "CHALLENGED"
+        ? ["NOT_VISIBLE", "SYNTHETIC_LAB_ONLY"]
+        : value.toState === "SYNTHETIC_LAB_PROJECTION"
+          ? ["SYNTHETIC_LAB_ONLY"]
+          : ["NOT_VISIBLE"];
+    if (
+      !beforeAllowed.includes(value.visibilityBefore) ||
+      !afterAllowed.includes(value.visibilityAfter)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["visibilityAfter"],
+        message: "Lifecycle state and actual lab visibility must remain explicit",
+      });
+    }
+    if (
+      value.verificationStateBefore !== value.verificationStateAfter ||
+      value.evidenceCapabilityBefore !== value.evidenceCapabilityAfter ||
+      value.formalEvidenceRelationshipBefore !==
+        value.formalEvidenceRelationshipAfter
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["evidenceCapabilityAfter"],
+        message: "Publication lifecycle cannot mutate scientific evidence state",
+      });
+    }
+  });
+
+const communityDependencyReviewSchema = z
+  .object({
+    dependencyState: z.literal("REVIEW_REQUIRED"),
+  })
+  .strict();
+
+export const communityWithdrawalPropagationReceiptSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    propagationReceiptId: z
+      .string()
+      .regex(/^ARPROPAGATE-[A-Z0-9_-]{8,64}$/u),
+    withdrawalEventId: z.string().regex(/^ARWITH-[A-Z0-9_-]{8,64}$/u),
+    publicVersionId: z.string().regex(/^ARPUB-[A-Z0-9_-]{8,64}$/u),
+    leadId: z.string().regex(/^ARLEAD-[A-Z0-9_-]{8,64}$/u),
+    leadVersion: z.number().int().positive(),
+    exactProjectionRemoved: z.literal(true),
+    publicContentRetained: z.literal(false),
+    provenanceRetained: z.literal(true),
+    clusterChanges: z
+      .array(
+        z
+          .object({
+            clusterId: z.string().regex(/^ARCL-[A-Z0-9_-]{8,64}$/u),
+            fromClusterVersion: z.number().int().positive(),
+            toClusterVersion: z.number().int().positive().nullable(),
+            disposition: z.enum(["RECOMPUTED", "RETIRED_EMPTY"]),
+          })
+          .strict()
+          .superRefine((value, context) => {
+            if (
+              (value.disposition === "RECOMPUTED" &&
+                value.toClusterVersion !== value.fromClusterVersion + 1) ||
+              (value.disposition === "RETIRED_EMPTY" &&
+                value.toClusterVersion !== null)
+            ) {
+              context.addIssue({
+                code: "custom",
+                path: ["toClusterVersion"],
+                message: "Withdrawal cluster change must be contiguous or retired",
+              });
+            }
+          }),
+      )
+      .min(1)
+      .max(10_000),
+    affectedQuestions: z
+      .array(
+        communityDependencyReviewSchema.extend({
+          questionId: z.string().regex(/^ARQ-[A-Z0-9_-]{8,64}$/u),
+          questionVersion: z.number().int().positive(),
+        }),
+      )
+      .max(10_000),
+    affectedProposals: z
+      .array(
+        communityDependencyReviewSchema.extend({
+          proposalId: z.string().regex(/^ARPROP-[A-Z0-9_-]{8,64}$/u),
+          proposalVersion: z.number().int().positive(),
+        }),
+      )
+      .max(10_000),
+    propagationState: z.literal("COMPLETE"),
+    completedAt: timestampSchema,
+  })
+  .strict();
+
+export const communityResearchQuestionExecutionSchema = z
+  .object({
+    synthetic: z.literal(true),
+    question: communityResearchQuestionSchema,
+    clusterDependencies: z
+      .array(
+        z
+          .object({
+            clusterId: z.string().regex(/^ARCL-[A-Z0-9_-]{8,64}$/u),
+            clusterVersion: z.number().int().positive(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(1_000),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const dependencyIds = value.clusterDependencies.map(
+      (dependency) => dependency.clusterId,
+    );
+    if (
+      new Set(dependencyIds).size !== dependencyIds.length ||
+      dependencyIds.length !== value.question.derivedFromClusterIds.length ||
+      dependencyIds.some(
+        (clusterId) => !value.question.derivedFromClusterIds.includes(clusterId),
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["clusterDependencies"],
+        message: "Question cluster IDs and exact-version dependencies must match",
+      });
+    }
+  });
+
 const communityComposerStepSchema = z.enum([
   "REPORTER_RELATIONSHIP",
   "INFORMATION_ORIGIN",
@@ -1525,6 +1876,39 @@ export type CommunityLeadCorrection = z.infer<
 >;
 export type CommunitySignalCluster = z.infer<
   typeof communitySignalClusterSchema
+>;
+export type CommunityIntegritySignal = z.infer<
+  typeof communityIntegritySignalSchema
+>;
+export type CommunityReviewDisagreement = z.infer<
+  typeof communityReviewDisagreementSchema
+>;
+export type CommunityPublicationLifecycleEvent = z.infer<
+  typeof communityPublicationLifecycleEventSchema
+>;
+export type CommunityWithdrawalPropagationReceipt = z.infer<
+  typeof communityWithdrawalPropagationReceiptSchema
+>;
+export type CommunityWithdrawalEvent = z.infer<
+  typeof communityWithdrawalEventSchema
+>;
+export type CommunityResearchQuestion = z.infer<
+  typeof communityResearchQuestionSchema
+>;
+export type CommunityQuestionEvidenceCheck = z.infer<
+  typeof communityQuestionEvidenceCheckSchema
+>;
+export type CommunityResearchProposal = z.infer<
+  typeof communityResearchProposalSchema
+>;
+export type CommunityModerationEvent = z.infer<
+  typeof communityModerationEventSchema
+>;
+export type CommunityScientificAnnotation = z.infer<
+  typeof communityScientificAnnotationSchema
+>;
+export type CommunityResearchQuestionExecution = z.infer<
+  typeof communityResearchQuestionExecutionSchema
 >;
 export type CommunityComposerDetails = z.infer<
   typeof communityComposerDetailsSchema

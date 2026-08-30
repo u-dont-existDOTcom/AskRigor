@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "reconciliationId": "community-forum-hostile-lifecycle-research-artifact-ready-20260830",
+  "taskId": "community-forum-hostile-lifecycle-research-20260830",
+  "trigger": "PRE_GITHUB_ARTIFACT_RECONCILIATION",
+  "reconciledAt": "2026-08-30T23:52:00Z",
+  "ownerSource": {
+    "ownerRequestId": "joel-chat-community-forum-work-queue-20260830-epoch-1",
+    "canonicalLocator": "docs/audits/2026-08-30-community-forum-hostile-lifecycle-research-owner-source.txt",
+    "sha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "capturedBy": "deterministic-tool/current-owner-message-capture",
+    "corrections": []
+  },
+  "independentSupervisorReceipt": {
+    "receiptId": "owner-source-receipt-community-forum-hostile-lifecycle-research-20260830",
+    "collector": "deterministic-tool/current-owner-message-capture",
+    "sourceSha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "workerSuppliedCopySha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "comparison": "MATCH",
+    "limitations": [
+      "The chat system exposed no durable external message identifier; the receipt binds the exact current owner message and reconciles it with the durable queue and controlling architecture."
+    ]
+  },
+  "taskContract": {
+    "taskContractId": "community-forum-hostile-lifecycle-research-execution-contract-20260830",
+    "revision": 1,
+    "canonicalLocator": "docs/superpowers/plans/2026-08-30-community-forum-hostile-lifecycle-research.md",
+    "sha256": "2477e874661e26f3f1bfa2fea7fb549441787ab991d4426ba7b4c46130d02789"
+  },
+  "alignment": {
+    "workerToContract": {
+      "status": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+      "evidenceRefs": [
+        "agent/community-forum-hostile-lifecycle-research-20260830 based on 0e3d2e963982f87e2d1338f3da8e74ae87a04fc9",
+        "Focused hostile lifecycle regression: PASS (6/6)",
+        "PostgreSQL acceptance community_acceptance_1401265: PASS (14/14)",
+        "Living-evidence acceptance living_evidence_acceptance_1401740: PASS (35/35)",
+        "Complete deterministic gate: PASS (1,543 passed; 6 skipped)"
+      ],
+      "findings": [
+        "The synthetic contracts, services, fifth migration, PostgreSQL acceptance, privacy records, complete deterministic gate, and staged diff review are complete locally.",
+        "The remaining task-contract step is exact stacked-PR publication and GitHub verification; no product release is part of the task."
+      ]
+    },
+    "contractToOwner": {
+      "status": "MATCH",
+      "unmappedOwnerRequirementIds": [],
+      "divergences": [],
+      "authorizedScopeChanges": []
+    }
+  },
+  "requirements": [
+    {
+      "ownerRequirementId": "OR-001",
+      "ownerRequirementText": "Always continue the Community Health Forum/Public Lead work queue.",
+      "workerInterpretation": "Advance the next nonterminal synthetic contract/migration/service slice without requesting an execution-mode choice.",
+      "acceptanceEvidence": [
+        "Stacked task branch from the verified PR #143 head",
+        "Updated durable work-queue checkpoint"
+      ],
+      "status": "SATISFIED_LOCALLY"
+    },
+    {
+      "ownerRequirementId": "OR-002",
+      "ownerRequirementText": "Preserve the corrected public-lead rule and keep public visibility independent from evidentiary strength.",
+      "workerInterpretation": "Prevent manipulation, lifecycle state, moderation, visibility, and withdrawal from upgrading evidence or source independence.",
+      "acceptanceEvidence": [
+        "Six-test hostile lifecycle regression",
+        "Fourteen-check PostgreSQL acceptance",
+        "Explicit APPROVED/NOT_VISIBLE fixture"
+      ],
+      "status": "SATISFIED"
+    },
+    {
+      "ownerRequirementId": "OR-003",
+      "ownerRequirementText": "Implement only isolated synthetic contract, migration, and service fixtures; do not activate real or public behavior.",
+      "workerInterpretation": "Use synthetic/lab-only, content-free fixtures and preserve every publication, indexing, recruitment, reporting, provider, and deployment boundary as false.",
+      "acceptanceEvidence": [
+        "Synthetic lab manifest validation",
+        "PostgreSQL nonrelease receipt",
+        "Privacy/source-storage/release records"
+      ],
+      "status": "SATISFIED"
+    },
+    {
+      "ownerRequirementId": "OR-004",
+      "ownerRequirementText": "Run the complete applicable deterministic gate, review the final diff, and save exact receipts in GitHub.",
+      "workerInterpretation": "Complete focused, PostgreSQL, migration-chain, lab-manifest, and full gates plus staged diff review, then publish a stacked PR and record exact GitHub run identities.",
+      "acceptanceEvidence": [
+        "Local gates and staged review complete",
+        "GitHub receipt pending"
+      ],
+      "status": "PARTIAL_PENDING_GITHUB"
+    }
+  ],
+  "completionClaim": {
+    "type": "ARTIFACT_READY",
+    "proposedTerminal": false,
+    "candidateRef": "agent/community-forum-hostile-lifecycle-research-20260830",
+    "evidenceRefs": [
+      "Focused hostile lifecycle regression: PASS (6/6)",
+      "PostgreSQL acceptance community_acceptance_1401265: PASS (14/14)",
+      "Living-evidence acceptance living_evidence_acceptance_1401740: PASS (35/35)",
+      "Synthetic lab manifest: PASS",
+      "Complete deterministic gate: PASS (1,543 passed; 6 skipped)"
+    ]
+  },
+  "result": {
+    "overallTraffic": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+    "rootTerminalizationAllowed": false,
+    "requiredDirective": "PUBLISH_STACKED_PR_AND_CAPTURE_GITHUB_RECEIPTS",
+    "supervisionDesignFeedback": null
+  },
+  "previousReconciliationId": null
+}

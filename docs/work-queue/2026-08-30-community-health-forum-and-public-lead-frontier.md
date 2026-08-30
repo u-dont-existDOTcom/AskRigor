@@ -138,12 +138,31 @@ The next bounded contract/migration/service slice now adds:
 - a fourth PostgreSQL migration and 12-check synthetic repository acceptance,
   including independent-review collision and no-automated-reporting gates.
 
-The next bounded synthetic service task is the remaining hostile manipulation
-and lifecycle frontier: commercial/sockpuppet coordination, vote brigading,
-dangerous-instruction routing, moderator/scientific disagreement, publication-
-state confusion, withdrawal propagation through clusters, and the existing
-question/proposal lead-to-research contracts. It remains contract/service/test
-work only unless the owner separately authorizes a visual/public UI.
+The next stacked synthetic service slice now adds:
+
+- hostile-integrity records for commercial coordination, sockpuppets, vote
+  brigading, impersonation, reidentification attempts, and dangerous
+  instructions, bound to exact independent moderation, scientific, privacy, or
+  safety queues without changing evidence or source independence;
+- separate append-only moderation/scientific disagreement and publication-
+  lifecycle records, with `APPROVED` explicitly not visible and only
+  `SYNTHETIC_LAB_PROJECTION` able to establish initial lab visibility; an
+  explicit `CHALLENGED` transition may preserve a visible dispute or place it
+  on hold;
+- exact withdrawal-propagation receipts that remove one projection, recompute
+  or retire clusters, and mark dependent questions/proposals for review while
+  retaining no public content; and
+- exact cluster-version question dependencies and evidence-check-bound,
+  nonrecruiting proposals, enforced by migration `0005` and a 14-check
+  PostgreSQL acceptance path.
+
+The next safe synthetic-only closure task is the remaining hostile acceptance
+matrix and closed-loop result propagation: appeals/reversals, aligned formal
+contradiction and stale-evidence updates, answered/partial/conflicted question
+transitions, design-feasibility gates, and negative-result return to the
+originating cluster/thread. It remains contract/service/migration/test work;
+visual/public UI, real users, external indexing, recruitment, and deployment
+remain separately gated.
 
 ## Gates before any real-user pilot
 
@@ -162,7 +181,7 @@ work only unless the owner separately authorizes a visual/public UI.
 
 Architecture completion is not forum completion. The root product outcome remains open until a separately authorized implementation, pilot, review, deployment, and direct product acceptance establish that people can actually discuss, submit leads, see the public frontier, and follow the lead-to-research loop safely.
 
-Current next state: `SYNTHETIC_COMPOSER_FRONTIER_QUEUE_FOUNDATION_IMPLEMENTED`;
-continue with remaining synthetic hostile lifecycle and lead-to-research
-service fixtures before any separately authorized visual UI or real-user pilot.
+Current next state: `SYNTHETIC_HOSTILE_LIFECYCLE_RESEARCH_FOUNDATION_IMPLEMENTED`;
+continue with the remaining synthetic hostile acceptance and closed-loop result
+fixtures before any separately authorized visual UI or real-user pilot.
 Root outcome remains nonterminal.
