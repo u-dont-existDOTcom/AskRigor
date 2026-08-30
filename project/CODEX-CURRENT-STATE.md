@@ -61,9 +61,15 @@ and installed eight-member package receipts match at SHA-256
 Rollback source preserves prior version `0.1.0+codex.20260825134144`, package
 SHA-256 `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
 Production `tools/list` exactly matches all 21 tools; both manifests and one
-read-only PubMed connector probe pass. The current thread retains a stale 17-
-tool pre-refresh snapshot, so fresh-thread acceptance remains the correct client
-reload boundary.
+read-only PubMed connector probe pass. The earlier Codex thread retained a
+stale 17-tool pre-refresh snapshot, but a genuinely fresh primary-account
+ordinary ChatGPT plugin chat now passes the client reload boundary on 5.6 Sol
+Max. It returned exact Universal `20.5.15` and HRP `20.5.23` dates/hashes plus
+PMID `40223676` as `api_visible_complete` in 20 seconds. A fresh Custom GPT
+control had neither requested tool and refused without fabrication, confirming
+that regular ChatGPT with the attached plugin remains the primary surface. The
+receipt is
+`../docs/audits/2026-08-30-primary-plugin-max-acceptance.md`.
 
 The final lesson checkpoint at `2026-08-30T02:05:30.550Z` again reported 0
 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,

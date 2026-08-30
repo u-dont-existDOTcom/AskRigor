@@ -71,7 +71,13 @@ The exact prior package is preserved in rollback source, version
 `d383648b27a7cf4e50ce0858f2443c3d8e73f536a471befa321595593e39ed24`.
 Live MCP initialization and `tools/list` exactly match all 21 committed tools;
 both protocol manifests and a read-only PubMed connector probe pass. The
-already-open thread still shows its 17-tool pre-refresh snapshot, so a fresh
+already-open Codex thread still shows its 17-tool pre-refresh snapshot. A fresh
+primary-account ordinary ChatGPT chat opened through the installed AskRigor
+plugin's `Try in chat` action passed on 5.6 Sol Max: both exact manifests and
+PMID `40223676` / `api_visible_complete` rendered correctly after 20 seconds.
+A fresh Custom GPT control lacked those tools and refused rather than inventing
+results. Complete product-interface evidence and the second-profile boundary
+are in `docs/audits/2026-08-30-primary-plugin-max-acceptance.md`.
 thread is required to load the reinstalled package and current connector view.
 The final lesson checkpoint at `2026-08-30T02:05:30.550Z` again reported 0
 open, 0 needing review, 0 accepted-not-incorporated, 4 incorporated or closed,

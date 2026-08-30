@@ -74,6 +74,9 @@ complete XML protocol.
   AskRigor-product/Mayan-Roots-LLC-publisher split, official listing boundary,
   deployed public/plugin alignment, exact receipts, rollback, and still-open
   business-verification gate
+- `audits/2026-08-30-primary-plugin-max-acceptance.md`: fresh primary-account
+  ordinary-Chat AskRigor attachment on 5.6 Sol Max, exact live protocol/PubMed
+  readback, Custom GPT missing-tool control, and second-profile access boundary
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
