@@ -3,8 +3,8 @@
   "taskId": "askrigor-living-evidence-research-frontier-v1",
   "status": "ready_for_protected_merge",
   "exclusive": true,
-  "requiredBranch": "agent/research-frontier-ledger-20260830",
-  "pullRequest": 139,
+  "requiredBranch": "agent/research-frontier-release-closeout-20260830",
+  "pullRequest": null,
   "assuranceLane": "release",
   "targetedHardGates": [
     "requested search windows never masquerade as confirmed coverage",
@@ -16,7 +16,7 @@
   ],
   "preflightCommand": "npm run living-evidence:preflight",
   "completionCommand": "npm run living-evidence:acceptance",
-  "integrationCommit": "d446db7d1443058c24890d2cbe798cea1bccdba5",
+  "integrationCommit": "036c343343ceb5348b0907f81a1333a59d8bace7",
   "preservedLocalRollback": "rollback/main-pre-research-frontier-20260830",
   "ownerApprovals": [
     "Persist the complete study or review analysis to the extent performed, including later clarifying analysis as new versions.",
@@ -38,6 +38,49 @@
       "credentials, authorization headers, secrets, or opaque provider continuation state"
     ]
   },
+  "releaseAcceptance": {
+    "status": "pass",
+    "implementationPullRequest": 139,
+    "deployedMergeCommit": "036c343343ceb5348b0907f81a1333a59d8bace7",
+    "researchImageSha256": "ff01d543194d60f771ad15475de2f6ab9c21f27b18872f37748f31f23e5435d6",
+    "researchContainer": "1a1e8d448f03",
+    "databaseContainer": "393070e563f1",
+    "databaseRelationCount": 42,
+    "frontierRows": 0,
+    "publicHealth": "pass",
+    "toolCount": 21,
+    "readerSelectMissing": 0,
+    "readerWriteGrants": 0,
+    "transactionReadOnly": true,
+    "rawSourceContentIncluded": false,
+    "communityDerivedRecords": 0
+  },
+  "rollbackReceipt": {
+    "priorResearchImage": "askrigor-research:rollback-frontier-036c343",
+    "priorResearchImageSha256": "7aa19ebbbddedaaad326e9de9be0a446a31bdffdb171fd3e8e941afab7692e6b",
+    "databaseDumpSha256": "293e3d430224f98b3faa0b970e7c7e32cf7ad1daae3b9aaa85b046ea2ece41d9",
+    "rollbackDirectory": "/opt/askrigor/rollbacks/pre-036c343343ceb5348b0907f81a1333a59d8bace7"
+  },
+  "pluginReceipt": {
+    "memberCount": 8,
+    "sourceVersion": "0.1.0",
+    "installedVersion": "0.1.0+codex.20260830020029",
+    "sourcePackageSha256": "398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca",
+    "installedPackageSha256": "0e4db5e82818bf321a5c9dce50b73357faeaf5c6333183cf99a679fef267329a",
+    "nonManifestMembersByteIdentical": true,
+    "semanticManifestMatch": true,
+    "reinstallRequired": false
+  },
+  "productAcceptance": {
+    "status": "pass",
+    "surface": "primary account ordinary ChatGPT Chat mode, Pro",
+    "conversation": "https://chatgpt.com/c/6a944152-49b0-83e9-997e-3e84a6c5b614",
+    "workedFor": "57s",
+    "installedActionCount": 21,
+    "protocolManifestReadback": true,
+    "readOnlyPubMedProbe": "api_visible_complete"
+  },
+  "completion": null,
   "suspendedTaskSources": [
     "completed living-evidence read-through release and its historical acceptance artifacts",
     "YouTube or community persistence pending the separate Google policy disposition",

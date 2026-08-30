@@ -1,16 +1,19 @@
 # AskRigor Codex Current State
 
-## 2026-08-30 durable research-frontier ledger ready for protected merge
+## 2026-08-30 durable research-frontier ledger deployed
 
 Task ID: `askrigor-living-evidence-research-frontier-v1`
 
-Branch: `agent/research-frontier-ledger-20260830`
+Implementation branch: `agent/research-frontier-ledger-20260830`
 
-Protected review: PR #139
+Protected implementation review: PR #139, merged as
+`036c343343ceb5348b0907f81a1333a59d8bace7`
+
+Release closeout branch: `agent/research-frontier-release-closeout-20260830`
 
 Assurance lane: release, with targeted privacy and frontier-truth gates
 
-The owner-approved next living-evidence layer is active. It must persist a
+The owner-approved next living-evidence layer is deployed. It persists a
 governed formal research frontier rather than another final-answer cache:
 discovery passes, requested versus confirmed date windows, screened source
 candidates and their versioned decisions, unresolved questions, unattempted or
@@ -35,18 +38,70 @@ production build. `npm run test:site` validates all four public pages and
 `2026-08-30T14:01:21.897Z` is available: 0 open, 0 needs review, 0 accepted
 but not incorporated, 4 incorporated or closed, and 0 deletion eligible. Final
 diff, whitespace, high-confidence secret, privacy, and exact 21-tool boundary
-reviews pass. Production migration and ordinary-Chat frontier access are not
-claimed before protected merge and direct deployment acceptance.
+reviews pass. Protected deterministic, workflow-policy, and all CodeQL checks
+passed before PR #139 merged.
+
+Production now runs exact image
+`askrigor-research:036c343343ceb5348b0907f81a1333a59d8bace7`, image ID
+`sha256:ff01d543194d60f771ad15475de2f6ab9c21f27b18872f37748f31f23e5435d6`,
+in healthy container `1a1e8d448f03`. Private PostgreSQL remained healthy in
+unchanged container `393070e563f1`, and Caddy remained running in unchanged
+container `297c59cfb620`. Migration `0002_research_frontier` is recorded with
+exact SHA-256
+`eeeee1872c72bc5b67f1cd71797c6bcb11a4d8aee172763daa7a92a83e845200`.
+The schema now has 42 relations. The prior one source family and one analysis
+are unchanged; every new frontier table is empty. The reader has CONNECT,
+schema USAGE, and SELECT on all 42 relations, zero INSERT/UPDATE/DELETE/TRUNCATE
+privileges, and `transaction_read_only=on`.
+
+The exact predeployment database dump is SHA-256
+`293e3d430224f98b3faa0b970e7c7e32cf7ad1daae3b9aaa85b046ea2ece41d9`.
+The prior image is preserved as
+`askrigor-research:rollback-frontier-036c343`, image ID
+`sha256:7aa19ebbbddedaaad326e9de9be0a446a31bdffdb171fd3e8e941afab7692e6b`,
+with Compose and database receipts under
+`/opt/askrigor/rollbacks/pre-036c343343ceb5348b0907f81a1333a59d8bace7`.
+
+Fresh public acceptance passed HTTPS health, the exact ordered 21-tool MCP
+catalog, both canonical protocol manifests, and a read-only PubMed probe for
+PMID `40223676` as `api_visible_complete`. The LEAP source was read to all
+58 blocks in one continuation. A wrong repository version failed closed as
+`fresh_study_audit_required / candidate_missing`; the exact version returned
+`source_linked_study_audit_validated` with audit SHA-256
+`678a0720b775f9518c753cf6d785b8e9fe6580e537d3ea7a25a13b4d578b4ff6`
+and compatibility revalidated.
+
+The installed AskRigor package exposes all 21 actions and retains an exact
+eight-member receipt. Source version `0.1.0` has package SHA-256
+`398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca`;
+installed cachebuster `0.1.0+codex.20260830020029` has package SHA-256
+`0e4db5e82818bf321a5c9dce50b73357faeaf5c6333183cf99a679fef267329a`.
+The manifests are semantically identical after the expected version change,
+and all seven non-manifest members are byte-identical. No reinstall was needed.
+
+A fresh primary-account ordinary ChatGPT run in Chat mode/Pro completed in
+57 seconds at
+`https://chatgpt.com/c/6a944152-49b0-83e9-997e-3e84a6c5b614`. It used the
+installed AskRigor plugin and returned exact Universal `20.5.15`, HRP `20.5.23`,
+both SHA-256 values, and PMID `40223676` as `api_visible_complete`. The isolated
+temporary Brave profile and screenshots were moved to trash after acceptance;
+the owner's original browser profile and visible window were not changed.
+
+Ordinary ChatGPT still cannot query an arbitrary stored frontier because this
+slice deliberately retained the exact 21-tool public catalog. Adding a
+dedicated frontier query operation is the next product/catalog decision; an
+unrelated existing tool must not be overloaded to hide that decision.
 
 Recovery authority is
 `../docs/superpowers/plans/2026-08-30-research-frontier-ledger.md` and
-`../tasks/ACTIVE-TASK.json`. Baseline and integration commit are
-`d446db7d1443058c24890d2cbe798cea1bccdba5`; source rollback is
+`../tasks/ACTIVE-TASK.json`. Baseline is
+`d446db7d1443058c24890d2cbe798cea1bccdba5`; integration commit is
+`036c343343ceb5348b0907f81a1333a59d8bace7`; source rollback is
 `rollback/main-pre-research-frontier-20260830`. Run
-`npm run living-evidence:preflight` before implementation and
-`npm run living-evidence:acceptance` at the completion boundary. Do not mutate
+`npm run living-evidence:preflight` before further task edits and
+`npm run living-evidence:acceptance` at a future repository boundary. Do not mutate
 migration `0001`, broaden the public catalog beyond the required 21 tools, or
-claim production migration/product access from local repository tests.
+persist YouTube/community data before the separate policy and field decision.
 
 ## 2026-08-30 Mayan Roots LLC publisher release completed; verification pending
 
