@@ -23,10 +23,18 @@ archive was never uploaded: the first read-only VPS preflight failed at DNS
 resolution before reaching or changing the server, and the stale archive was
 moved to trash. The correction merge above is the released candidate.
 
-The developer-identity gate remains `in_progress`: the direct portal readback
-still says Business verification `Start`. Global residency, the askrigor.com
-domain challenge for Mayan Roots LLC, Scan Tools, demo recording, final review,
-and submission remain separate external gates. No portal draft was created.
+The developer-identity gate remains `in_progress`. On 2026-08-30, after explicit
+owner approval, the signed-in OpenAI organization label was changed from
+`AskRigor.com` to the exact legal name `Mayan Roots LLC`; the portal confirmed
+`Organization updated successfully`, and direct readback showed the saved
+value. Expanding Verifications still showed Individual `Approved`, Business
+`Identity rejected`, and `Start`. Retrying `Start` stopped before any form at
+`Unable to verify organization` / `verification is not available to your
+organization at this time`. No tax identifier, address, document, or other
+private verification value was entered or transmitted. Global residency, the
+askrigor.com domain challenge for Mayan Roots LLC, Scan Tools, demo recording,
+final review, and submission remain separate external gates. No portal draft
+was created.
 
 The initial identity TDD passed 36/36 after failing against the old identity.
 The exact-legal-name correction then failed the expected 8 no-suffix
