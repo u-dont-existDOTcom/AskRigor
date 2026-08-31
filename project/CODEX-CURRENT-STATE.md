@@ -1,5 +1,45 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 issue #150 local synthetic gap-to-research slice
+
+The cycle-A release boundary remains closed at PR #151. The owner-corrected
+nonterminal continuation then completed the bounded local-only synthetic
+prolactinoma slice on branch
+`task/issue-150-synthetic-gap-loop-20260831`, implementation commit
+`3c86a38e5a25b2081385c60742c736d9274d3597`, PR #152.
+
+The loop reuses the existing community composer, lead, balanced-frontier, and
+research-pipeline services. It provides provenance-first intake, an unprompted
+private synthetic account, structured remission/non-remission detail, exact
+deidentified preview and opt-in, equal-weight non-remission comparison,
+challenge, contiguous correction, all-version withdrawal with no-content
+tombstones, and a linked noncausal evidence-check/question/draft-proposal
+boundary. It adds no migration or generalized backend and does not touch or
+deploy the public site.
+
+Focused tests pass 7/7. A complete two-worker run passes 119 files with one
+declared skip and 1,566 tests with six declared skips; typecheck and build pass.
+The actual headless Brave interaction path passes contribution through
+withdrawal, and the hosted exact deterministic-verification, workflow-policy,
+and CodeQL jobs pass on the implementation commit. Exact evidence is in
+`../docs/audits/2026-08-31-issue150-synthetic-gap-loop.json` and `.md`.
+
+Operational alignment passes. Scientific adequacy passes only for the bounded
+synthetic provenance, missingness, comparator, noncausal, and lifecycle
+semantics exercised. Release adequacy is not applicable because no public
+release was authorized or performed. The root product outcome remains open.
+The owner explicitly rejected the controller-invented invite-only pilot and
+institutional/staffing gate. The next frontier is the smallest real public
+self-serve form and GPT-readable structured/deidentified review path. Public
+visitors should complete the form as best they can; incomplete submissions
+remain usable and labeled partial. Raw submissions remain private, and
+plain-language consent/privacy, provenance, missingness,
+correction/withdrawal, and proportionate abuse controls remain applicable.
+Routine implementation continues without another owner prompt; external
+production deployment remains a separate consequential boundary. The causal
+lesson is routed as `SDF-20260831-UNSOURCED-GOVERNANCE-001` through Mission
+Control PR #46.
+
 ## 2026-08-31 issue #150 cycle A completed the frontier release
 
 Task ID: `askrigor-pr148-release-boundary-closeout-v1`

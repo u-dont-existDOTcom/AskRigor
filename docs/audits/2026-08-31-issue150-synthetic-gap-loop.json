@@ -1,0 +1,152 @@
+{
+  "schemaVersion": "1.0.0",
+  "taskId": "askrigor-issue150-synthetic-gap-loop-v1",
+  "issue": 150,
+  "pullRequest": 152,
+  "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/152",
+  "branch": "task/issue-150-synthetic-gap-loop-20260831",
+  "baseCommit": "2ee08e649474aa1d7cf8260ec2a915ab961963bb",
+  "implementationCommit": "3c86a38e5a25b2081385c60742c736d9274d3597",
+  "scope": {
+    "synthetic": true,
+    "localOnly": true,
+    "conditionFixture": "prolactinoma",
+    "route": "/evidence-gaps/prolactinoma-spontaneous-remission",
+    "migrationAdded": false,
+    "contractAdded": false,
+    "publicSiteChanged": false,
+    "publicDeployment": false,
+    "realHealthData": false,
+    "realRecruitment": false
+  },
+  "implementedLoop": [
+    "known evidence gap",
+    "local condition and question page",
+    "explicit provenance",
+    "unprompted private synthetic account",
+    "structured outcome, transition, treatment context, and coverage fields",
+    "exact deidentified preview and consent",
+    "bounded public research lead with verification and missingness",
+    "equal-weight non-remission comparator",
+    "challenge",
+    "contiguous correction",
+    "all-public-version withdrawal with no-content tombstones",
+    "linked evidence check, research question, and review-required draft proposal"
+  ],
+  "acceptance": {
+    "command": "npm run evidence-gap:synthetic-acceptance",
+    "browser": "Brave headless",
+    "profile": "ephemeral isolated profile removed after acceptance",
+    "status": "PASS",
+    "initial": {
+      "reportedRemission": 0,
+      "nonRemissionComparator": 1,
+      "frontierCards": 1
+    },
+    "afterPublication": {
+      "reportedRemission": 1,
+      "nonRemissionComparator": 1,
+      "frontierCards": 2
+    },
+    "afterCorrection": {
+      "leadVersion": 2,
+      "baselineDocumentationStillMissing": false,
+      "verificationUpgraded": false,
+      "researchDependencyReviewVisible": true
+    },
+    "afterWithdrawal": {
+      "frontierCards": 1,
+      "noContentTombstones": 2,
+      "reportedRemission": 0,
+      "nonRemissionComparator": 1,
+      "treatmentAdviceFound": false,
+      "recruitmentInactive": true
+    },
+    "transientScreenshotSha256": "495004a35f3c27b3d67f2bb3d89ab79b77af8732d00091a7de2c9742ef3ab938"
+  },
+  "verification": {
+    "focused": {
+      "command": "npx vitest run tests/synthetic-evidence-gap-loop.test.ts",
+      "status": "PASS",
+      "testFilesPassed": 1,
+      "testsPassed": 7
+    },
+    "unconstrainedCompleteAttempt": {
+      "command": "npm run verify",
+      "status": "RESOURCE_CONTENTION_TIMEOUTS",
+      "testFilesPassed": 117,
+      "testFilesFailed": 2,
+      "testFilesSkipped": 1,
+      "testsPassed": 1564,
+      "testsFailed": 2,
+      "testsSkipped": 6,
+      "failedTests": [
+        "tests/action-http.test.ts malformed raw request containment",
+        "tests/controlled-research-route.test.ts formal source capacity crossing"
+      ]
+    },
+    "isolatedTimeoutChecks": {
+      "status": "PASS",
+      "actionHttp": "1 passed, 46 skipped, 26.79 seconds",
+      "controlledResearch": "1 passed, 10 skipped, 171.20 seconds"
+    },
+    "constrainedComplete": {
+      "command": "npx vitest run --maxWorkers=2",
+      "status": "PASS",
+      "testFilesPassed": 119,
+      "testFilesSkipped": 1,
+      "testsPassed": 1566,
+      "testsSkipped": 6,
+      "durationSeconds": 341.36
+    },
+    "typecheck": "PASS",
+    "build": "PASS",
+    "hostedExactDeterministicVerification": {
+      "status": "PASS",
+      "implementationCommit": "3c86a38e5a25b2081385c60742c736d9274d3597",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33408960196/job/99543464647"
+    },
+    "hostedWorkflowPolicy": "PASS",
+    "hostedCodeQL": "PASS"
+  },
+  "lessonQueue": {
+    "status": "available",
+    "openCandidates": 0,
+    "needsReview": 0,
+    "acceptedNotIncorporated": 0,
+    "incorporatedOrClosed": 4,
+    "deletionEligible": 0,
+    "checkedAt": "2026-08-31T16:14:16.765Z"
+  },
+  "adequacy": {
+    "workerToContract": "ALIGNED",
+    "contractToOwner": "ALIGNED_FOR_BOUNDED_LOCAL_SYNTHETIC_SLICE",
+    "operationalAlignment": "PASS",
+    "scientificAdequacy": "PASS_FOR_BOUNDED_SYNTHETIC_SEMANTICS_ONLY",
+    "releaseAdequacy": "NOT_APPLICABLE_NO_PUBLIC_RELEASE_AUTHORIZED",
+    "rootProductOutcome": "OPEN"
+  },
+  "supervisionDesignFeedback": {
+    "newPacketRequired": true,
+    "priorContinuationPacket": "SDF-20260831-QUEUED-SLICE-CONTINUITY-001",
+    "ownerIntentDriftPacket": "SDF-20260831-UNSOURCED-GOVERNANCE-001",
+    "missionControlPullRequest": "https://github.com/u-dont-existDOTcom/universal-dev-architecture/pull/46"
+  },
+  "ownerCorrection": {
+    "source": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150#issuecomment-5480845723",
+    "supersedes": "the controller-invented invite-only pilot and consolidated staffing gate",
+    "productIntent": "public visitors fill out the relevant form as best they can; partial submissions remain usable and labeled; AskRigor/GPT examines and organizes the available evidence leads",
+    "preservedSafeguards": [
+      "plain-language consent and privacy",
+      "private raw submissions",
+      "provenance and missingness",
+      "correction and withdrawal",
+      "proportionate abuse prevention"
+    ]
+  },
+  "nextFrontier": {
+    "ownerDecisionRequired": false,
+    "scope": "smallest real public self-serve intake and GPT-readable structured/deidentified review path",
+    "separateConsequentialBoundary": "external production deployment"
+  }
+}
