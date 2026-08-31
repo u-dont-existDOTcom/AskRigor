@@ -1,5 +1,38 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 Auth0 evidence-gap runtime deployed; primary OAuth acceptance pending
+
+PR #155 merged as `7c0e589d50325de537ee042b4e3df3ed81adbd4b` and that exact
+source is deployed in production as immutable image
+`sha256:59abaee8b3ca08a30a5c4837526c6d84e8a056a9a582c8731a4762ecbffbab77`.
+The public site, migration `0008`, restricted intake role, Auth0 discovery,
+23-tool MCP catalog, 22-tool anonymous/Gemini surface, canonical live protocol
+manifests, anonymous connector probe, unauthorized-review rejection, synthetic
+partial comparison flow, participant recovery, public non-exposure, and
+withdrawal all pass direct production acceptance. The exact prior image,
+configuration, and site release remain available for rollback.
+
+The installed Codex plugin's complete declared eight-file inventory matches the
+reviewed release after normalizing only its cache-busted version. A new mixed
+anonymous/OAuth ChatGPT connector reaches the correct Auth0 primary-owner login.
+The remaining boundary is the owner's password completion, OAuth callback,
+authorized protected-review acceptance in a fresh primary-account conversation,
+and only then removal of the superseded inert connector/client. Do not depend on
+a secondary account.
+
+One superseded client secret became visible in a controlled browser-tool trace
+during setup. It was rotated before any connector used it; the replacement was
+transferred without rendering it, the clipboard was cleared, and no secret or
+token is in Git. Exact sanitized deployment evidence and pending work are in
+`../docs/audits/2026-08-31-auth0-evidence-gap-production-release.json` and
+`.md`.
+
+Operational alignment passes for production runtime and direct interfaces.
+Scientific adequacy passes only for bounded provenance, missingness,
+participant-reported/unverified, partial-case, comparator, and noncausal
+semantics. Release adequacy remains pending the primary ChatGPT OAuth/product
+acceptance and superseded-client cleanup.
+
 ## 2026-08-31 Auth0-backed public evidence-gap release active
 
 The US production tenant `askrigor-prod` now exists. The durable free-tier

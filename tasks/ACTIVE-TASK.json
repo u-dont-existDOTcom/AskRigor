@@ -3,7 +3,7 @@
   "taskId": "askrigor-auth0-evidence-gap-release-v1",
   "status": "active",
   "exclusive": true,
-  "requiredBranch": "task/auth0-release-20260831",
+  "requiredBranch": "task/auth0-release-receipt-20260831",
   "stackedOnBranch": "task/public-gap-oauth-review-20260831",
   "stackedOnCommit": "2d0b3b343a3378e9647d6030b69358983a013212",
   "assuranceLane": "release",
@@ -35,18 +35,19 @@
     "review output preserves provenance, missingness, unverified status, and noncausal boundary",
     "no direct participant identifiers are added to MCP output"
   ],
-  "externalReleaseBoundary": "Owner-approved US Auth0 tenant and primary owner account are configured without trial-only dependencies; password completion and primary ChatGPT static-client acceptance precede the reviewed merge/deployment transaction with rollback",
+  "externalReleaseBoundary": "The reviewed source is merged and deployed with rollback, and direct production acceptance passes; password completion and primary ChatGPT static-client OAuth acceptance precede superseded-client cleanup and the final release claim",
   "plan": "docs/superpowers/plans/2026-08-31-auth0-evidence-gap-release.md",
   "completionCommand": "npm run verify",
   "implementationCommit": "acaab5e0f137bf22519a7569ed62899fb701e523",
-  "executionReceipt": "docs/audits/2026-08-31-auth0-evidence-gap-release-candidate.json",
+  "releaseCommit": "7c0e589d50325de537ee042b4e3df3ed81adbd4b",
+  "executionReceipt": "docs/audits/2026-08-31-auth0-evidence-gap-production-release.json",
   "providerConfigurationReceipt": "docs/audits/2026-08-31-auth0-production-configuration.json",
   "supervision": {
     "completionClaim": null,
     "workerToContract": "in_progress",
     "contractToOwner": "aligned",
-    "operationalAlignment": "pass_auth0_configuration_checkpoint",
-    "scientificAdequacy": "bounded_to_existing_provenance_missingness_unverified_comparator_and_noncausal_semantics",
-    "releaseAdequacy": "pending_password_primary_chatgpt_merge_deployment_plugin_and_product_acceptance"
+    "operationalAlignment": "pass_production_runtime_and_direct_interfaces",
+    "scientificAdequacy": "pass_for_provenance_missingness_unverified_partial_comparator_and_noncausal_semantics_only",
+    "releaseAdequacy": "pending_primary_chatgpt_oauth_product_acceptance_and_superseded_client_cleanup"
   }
 }

@@ -1,0 +1,68 @@
+# Auth0 evidence-gap production release — acceptance receipt
+
+PR #155 merged the bounded Auth0-backed public evidence-gap release to `main`
+as commit `7c0e589d50325de537ee042b4e3df3ed81adbd4b`. That exact source was built
+and deployed as immutable image
+`sha256:59abaee8b3ca08a30a5c4837526c6d84e8a056a9a582c8731a4762ecbffbab77`.
+The public site is served from immutable release `7c0e589d5032`. The previous
+image and configuration remain reachable through the recorded rollback tag and
+directory.
+
+The owner boundary did not change. AskRigor remains public: 22 research tools
+and the evidence-gap contribution flow work anonymously, participant recovery
+keys reach only the participant's own case, incomplete cases remain included
+and labeled partial, and only cross-user private review requires OAuth scope
+`cases:review`. Raw participant submissions are not public. Auth0 authenticates
+the one owner/reviewer account; participants do not need Auth0 accounts.
+
+Production acceptance passed health, public evidence-gap page, protected
+resource metadata, Auth0 discovery, exact 23-tool MCP inventory, 22-tool Gemini
+inventory, live Universal and HRP manifest hashes, one anonymous read-only
+connector probe, and rejection of protected review without OAuth. A clearly
+synthetic partial comparison case passed start, unprompted narrative, partial
+details, submit, participant recovery inspection, public non-exposure, and
+withdrawal. The withdrawn narrative is absent from the repository and live
+review surface.
+
+Migration `0008_public_evidence_gap_intake` is applied. The production intake
+role can select, insert, and update only the intake table. Transactional probes
+proved that it cannot delete, read another repository table, create a schema
+object, or create a temporary table. The database is not publicly networked;
+the application and database containers are healthy, read-only where declared,
+and run with all Linux capabilities dropped.
+
+The installed Codex plugin has the exact declared eight-file package inventory.
+Every skill and asset matches the reviewed source. The manifest differs only by
+the required cache-busted version; semantic normalization matches and the full
+normalized tree receipt is
+`59c13b699a7b966ff0afb390d51ae51b6ef80e4f131fe5491967a7c86d2c3a70`.
+The live MCP catalog and canonical protocol manifests also match the release.
+
+The exact source merge previously passed the complete deterministic gate: 121
+test files passed with one declared skip, 1,581 tests passed with six declared
+skips, and typecheck and build passed. On this receipt branch, typecheck plus
+the release-packet, production-deployment, and OAuth-review suites pass 23/23;
+both JSON receipts parse and `git diff --check` passes. The pre-closeout lesson
+checkpoint is available with zero open, needs-review, accepted-but-not-
+incorporated, or deletion-eligible entries and four incorporated/closed entries.
+
+The primary ChatGPT account has a new mixed-auth connector named `AskRigor
+Reviewer`. ChatGPT discovered the exact Auth0 endpoints, `client_secret_post`,
+the `cases:review` scope, and both anonymous and signed-in connection modes.
+The OAuth flow reached the correct Auth0 login. Final primary-account password
+completion, OAuth callback, authorized protected-tool acceptance, and removal
+of the superseded inert connector/client remain pending; therefore this receipt
+does not claim complete product release adequacy.
+
+During configuration, a superseded client-secret value became visible in a
+controlled browser-tool trace. It was rotated immediately before any connector
+used it. The replacement was transferred without rendering it, the clipboard
+was cleared, and no credential or token is stored in Git. This sanitized event
+is retained so the release record does not silently omit a credential incident.
+
+Operational alignment passes for the deployed runtime and direct interfaces.
+Scientific adequacy passes only for the bounded provenance, missingness,
+participant-reported/unverified, partial-case, comparator, and noncausal
+semantics; no causal or medical conclusion is claimed. Release adequacy remains
+pending only the primary ChatGPT OAuth/product acceptance and superseded-client
+cleanup described above.
