@@ -35,7 +35,7 @@
     "review output preserves provenance, missingness, unverified status, and noncausal boundary",
     "no direct participant identifiers are added to MCP output"
   ],
-  "externalReleaseBoundary": "The reviewed source is merged and deployed with rollback, and direct production acceptance passes; password completion and primary ChatGPT static-client OAuth acceptance precede superseded-client cleanup and the final release claim",
+  "externalReleaseBoundary": "The reviewed source is merged and deployed with rollback, direct production acceptance passes, and primary ChatGPT static-client OAuth protected review passes; exact temporary-data and superseded-object cleanup precede the final release claim",
   "plan": "docs/superpowers/plans/2026-08-31-auth0-evidence-gap-release.md",
   "completionCommand": "npm run verify",
   "implementationCommit": "acaab5e0f137bf22519a7569ed62899fb701e523",
@@ -44,10 +44,10 @@
   "providerConfigurationReceipt": "docs/audits/2026-08-31-auth0-production-configuration.json",
   "supervision": {
     "completionClaim": null,
-    "workerToContract": "in_progress",
+    "workerToContract": "in_progress_external_cleanup_only",
     "contractToOwner": "aligned",
-    "operationalAlignment": "pass_production_runtime_and_direct_interfaces",
+    "operationalAlignment": "pass_production_runtime_direct_interfaces_and_primary_chatgpt_protected_review",
     "scientificAdequacy": "pass_for_provenance_missingness_unverified_partial_comparator_and_noncausal_semantics_only",
-    "releaseAdequacy": "pending_primary_chatgpt_oauth_product_acceptance_and_superseded_client_cleanup"
+    "releaseAdequacy": "pending_temporary_synthetic_case_withdrawal_and_superseded_chatgpt_auth0_cleanup"
   }
 }

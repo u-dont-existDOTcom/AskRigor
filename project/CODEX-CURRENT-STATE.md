@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-08-31 Auth0 evidence-gap runtime deployed; primary OAuth acceptance pending
+## 2026-08-31 Auth0 evidence-gap runtime and primary OAuth accepted; cleanup pending
 
 PR #155 merged as `7c0e589d50325de537ee042b4e3df3ed81adbd4b` and that exact
 source is deployed in production as immutable image
@@ -13,12 +13,19 @@ withdrawal all pass direct production acceptance. The exact prior image,
 configuration, and site release remain available for rollback.
 
 The installed Codex plugin's complete declared eight-file inventory matches the
-reviewed release after normalizing only its cache-busted version. A new mixed
-anonymous/OAuth ChatGPT connector reaches the correct Auth0 primary-owner login.
-The remaining boundary is the owner's password completion, OAuth callback,
-authorized protected-review acceptance in a fresh primary-account conversation,
-and only then removal of the superseded inert connector/client. Do not depend on
-a secondary account.
+reviewed release after normalizing only its cache-busted version. The new mixed
+anonymous/OAuth `AskRigor Reviewer` ChatGPT connector completed its primary-
+owner OAuth callback, exposes all 23 tool schemas, and passed protected review
+in a fresh Extra High Chat conversation. Its result preserved one synthetic
+partial pregnancy/postpartum non-remission comparator, all explicit missingness,
+participant-reported/unverified status, false documentation flags, and
+`causalAnalysisPermitted: false`. Do not depend on a secondary account.
+
+The remaining boundary is narrow external cleanup: withdraw the temporary
+synthetic acceptance case, uninstall the superseded ChatGPT `AskRigor` plugin,
+delete the inert Auth0 third-party `ChatGPT` application, and delete the unused
+Auth0 `AskRigor Reviewer` role. Those exact destructive actions await the
+required action-time confirmation.
 
 One superseded client secret became visible in a controlled browser-tool trace
 during setup. It was rotated before any connector used it; the replacement was
@@ -27,11 +34,12 @@ token is in Git. Exact sanitized deployment evidence and pending work are in
 `../docs/audits/2026-08-31-auth0-evidence-gap-production-release.json` and
 `.md`.
 
-Operational alignment passes for production runtime and direct interfaces.
+Operational alignment passes for production runtime, direct interfaces, and the
+primary-account ChatGPT protected-review interface.
 Scientific adequacy passes only for bounded provenance, missingness,
 participant-reported/unverified, partial-case, comparator, and noncausal
-semantics. Release adequacy remains pending the primary ChatGPT OAuth/product
-acceptance and superseded-client cleanup.
+semantics. Release adequacy remains pending only the exact temporary-data and
+superseded-object cleanup above.
 
 ## 2026-08-31 Auth0-backed public evidence-gap release active
 

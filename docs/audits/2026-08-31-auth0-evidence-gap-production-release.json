@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "taskId": "askrigor-auth0-evidence-gap-release-v1",
   "recordedAt": "2026-08-31T22:08:22Z",
-  "releaseState": "production_deployed_primary_chatgpt_oauth_acceptance_pending",
+  "releaseState": "production_and_primary_chatgpt_accepted_cleanup_pending",
   "source": {
     "pullRequest": 155,
     "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/155",
@@ -115,9 +115,33 @@
     "anonymousModeOffered": true,
     "signedInModeOffered": true,
     "oauthReachedCorrectAuth0Login": true,
-    "primaryAccountOauthCallback": "pending_password_completion",
-    "authorizedProtectedToolAcceptance": "pending",
-    "supersededConnectorCleanup": "pending_until_replacement_acceptance"
+    "primaryAccountOauthCallback": "pass",
+    "linkedPrimaryOwnerConnection": true,
+    "toolSchemaCount": 23,
+    "authorizedProtectedToolAcceptance": {
+      "result": "pass",
+      "surface": "fresh_primary_account_chat_extra_high",
+      "tool": "review_evidence_gap_submissions",
+      "syntheticCase": true,
+      "counts": {
+        "total": 1,
+        "partial": 1,
+        "remissionOrRegression": 0,
+        "comparisonOrNonRemission": 1
+      },
+      "outcome": "STABLE",
+      "verificationStatus": "PARTICIPANT_REPORTED_UNVERIFIED",
+      "missingInformationPreserved": [
+        "transition timing",
+        "baseline prolactin or MRI documentation",
+        "follow-up prolactin or MRI documentation"
+      ],
+      "baselineDocumented": false,
+      "followupDocumented": false,
+      "causalAnalysisPermitted": false,
+      "causalInferenceMade": false
+    },
+    "supersededConnectorCleanup": "pending_action_time_deletion_confirmation"
   },
   "credentialIncident": {
     "classification": "superseded_client_secret_visible_in_control_trace",
@@ -167,16 +191,15 @@
   },
   "completion": {
     "typedClaim": "PROGRESS",
-    "workerToContract": "in_progress_primary_chatgpt_acceptance_only",
+    "workerToContract": "in_progress_external_cleanup_only",
     "contractToOwner": "aligned",
-    "operationalAlignment": "pass_production_runtime_and_direct_interfaces",
+    "operationalAlignment": "pass_production_runtime_direct_interfaces_and_primary_chatgpt_protected_review",
     "scientificAdequacy": "pass_for_provenance_missingness_unverified_partial_comparator_and_noncausal_semantics_only",
-    "releaseAdequacy": "pending_primary_chatgpt_oauth_product_acceptance_and_superseded_client_cleanup"
+    "releaseAdequacy": "pending_temporary_synthetic_case_withdrawal_and_superseded_chatgpt_auth0_cleanup"
   },
   "remainingReleaseWork": [
-    "Complete the primary owner account password setup and ChatGPT OAuth callback.",
-    "Run an authorized protected-review tool acceptance in a fresh primary-account ChatGPT conversation.",
-    "Remove the superseded inert ChatGPT connector and Auth0 client only after replacement acceptance.",
+    "Withdraw the temporary synthetic acceptance case and verify that its active content leaves the review queue.",
+    "Uninstall superseded ChatGPT plugin AskRigor, delete inert third-party Auth0 application ChatGPT, and delete unused Auth0 role AskRigor Reviewer after action-time deletion confirmation.",
     "Amend this receipt to a typed OUTCOME claim and merge its closeout PR."
   ]
 }

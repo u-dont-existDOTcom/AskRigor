@@ -49,10 +49,18 @@ incorporated, or deletion-eligible entries and four incorporated/closed entries.
 The primary ChatGPT account has a new mixed-auth connector named `AskRigor
 Reviewer`. ChatGPT discovered the exact Auth0 endpoints, `client_secret_post`,
 the `cases:review` scope, and both anonymous and signed-in connection modes.
-The OAuth flow reached the correct Auth0 login. Final primary-account password
-completion, OAuth callback, authorized protected-tool acceptance, and removal
-of the superseded inert connector/client remain pending; therefore this receipt
-does not claim complete product release adequacy.
+The OAuth callback completed and ChatGPT shows a linked primary-owner
+connection plus all 23 tool schemas. In a fresh Extra High Chat conversation,
+ChatGPT called `review_evidence_gap_submissions` against one temporary synthetic
+partial pregnancy/postpartum non-remission comparison case. It returned exactly
+one total/partial/comparison case and zero remission/regression cases, preserved
+all three missing-information categories, `PARTICIPANT_REPORTED_UNVERIFIED`,
+false baseline/follow-up documentation flags, the explicit synthetic marker,
+and `causalAnalysisPermitted: false`. No causal inference was made.
+
+Final removal of the temporary synthetic content and superseded inert
+connector/client/role remains pending action-time deletion confirmation;
+therefore this receipt does not yet claim complete product release adequacy.
 
 During configuration, a superseded client-secret value became visible in a
 controlled browser-tool trace. It was rotated immediately before any connector
@@ -60,9 +68,10 @@ used it. The replacement was transferred without rendering it, the clipboard
 was cleared, and no credential or token is stored in Git. This sanitized event
 is retained so the release record does not silently omit a credential incident.
 
-Operational alignment passes for the deployed runtime and direct interfaces.
+Operational alignment passes for the deployed runtime, direct interfaces, and
+primary-account ChatGPT protected-review product interface.
 Scientific adequacy passes only for the bounded provenance, missingness,
 participant-reported/unverified, partial-case, comparator, and noncausal
 semantics; no causal or medical conclusion is claimed. Release adequacy remains
-pending only the primary ChatGPT OAuth/product acceptance and superseded-client
-cleanup described above.
+pending only deletion of the temporary synthetic case content and superseded
+inert ChatGPT/Auth0 objects described above.
