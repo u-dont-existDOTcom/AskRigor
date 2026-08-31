@@ -10,6 +10,7 @@
     "issue": 150,
     "url": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150",
     "ownerCorrection": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150#issuecomment-5479430773",
+    "publicIntakeCorrection": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150#issuecomment-5480845723",
     "adoptedAt": "2026-08-31T13:58:35Z"
   },
   "reviewedBoundary": {
@@ -51,7 +52,7 @@
     "scientificAdequacy": "pass_for_bounded_synthetic_semantics_only",
     "releaseAdequacy": "not_applicable_no_public_release_authorized",
     "rootProductOutcome": "open",
-    "nextBoundary": "consolidated owner gate required before a real invite-only forum or recruitment pilot"
+    "nextBoundary": "continue with the smallest real public self-serve intake and GPT-readable structured/deidentified review path; external production deployment remains a separate consequential boundary"
   },
   "implementationEvidence": {
     "implementationCommit": "3c86a38e5a25b2081385c60742c736d9274d3597",

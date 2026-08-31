@@ -28,8 +28,17 @@ Operational alignment passes. Scientific adequacy passes only for the bounded
 synthetic provenance, missingness, comparator, noncausal, and lifecycle
 semantics exercised. Release adequacy is not applicable because no public
 release was authorized or performed. The root product outcome remains open.
-A real invite-only forum or recruitment pilot requires the consolidated owner
-gate in issue #150 before implementation.
+The owner explicitly rejected the controller-invented invite-only pilot and
+institutional/staffing gate. The next frontier is the smallest real public
+self-serve form and GPT-readable structured/deidentified review path. Public
+visitors should complete the form as best they can; incomplete submissions
+remain usable and labeled partial. Raw submissions remain private, and
+plain-language consent/privacy, provenance, missingness,
+correction/withdrawal, and proportionate abuse controls remain applicable.
+Routine implementation continues without another owner prompt; external
+production deployment remains a separate consequential boundary. The causal
+lesson is routed as `SDF-20260831-UNSOURCED-GOVERNANCE-001` through Mission
+Control PR #46.
 
 ## 2026-08-31 issue #150 cycle A completed the frontier release
 

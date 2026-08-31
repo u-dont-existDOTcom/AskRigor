@@ -99,5 +99,8 @@ placed in any tombstone.
   false.
 - Aggregate association, frequency estimation, causal inference, and treatment
   conclusions are outside this slice.
-- A real invite-only pilot requires the consolidated owner gate documented in
-  issue #150.
+- This synthetic lab is an interaction fixture, not a requirement for an
+  invite-only pilot or institutional operating model. The next product frontier
+  is the smallest public self-serve form with private raw submissions, partial
+  labeling, and a GPT-readable structured/deidentified review path. External
+  deployment remains a separate consequential boundary.

@@ -116,7 +116,7 @@
     "acceptedNotIncorporated": 0,
     "incorporatedOrClosed": 4,
     "deletionEligible": 0,
-    "checkedAt": "2026-08-31T15:30:15.701Z"
+    "checkedAt": "2026-08-31T16:14:16.765Z"
   },
   "adequacy": {
     "workerToContract": "ALIGNED",
@@ -127,19 +127,26 @@
     "rootProductOutcome": "OPEN"
   },
   "supervisionDesignFeedback": {
-    "newPacketRequired": false,
+    "newPacketRequired": true,
     "priorContinuationPacket": "SDF-20260831-QUEUED-SLICE-CONTINUITY-001",
+    "ownerIntentDriftPacket": "SDF-20260831-UNSOURCED-GOVERNANCE-001",
     "missionControlPullRequest": "https://github.com/u-dont-existDOTcom/universal-dev-architecture/pull/46"
   },
-  "nextOwnerGate": {
-    "requiredBefore": "real invite-only forum or recruitment pilot",
-    "topics": [
-      "pilot scope",
-      "moderation, privacy, and safety staffing",
-      "consent and retention",
-      "jurisdictions",
-      "participant contact",
-      "launch boundary"
+  "ownerCorrection": {
+    "source": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150#issuecomment-5480845723",
+    "supersedes": "the controller-invented invite-only pilot and consolidated staffing gate",
+    "productIntent": "public visitors fill out the relevant form as best they can; partial submissions remain usable and labeled; AskRigor/GPT examines and organizes the available evidence leads",
+    "preservedSafeguards": [
+      "plain-language consent and privacy",
+      "private raw submissions",
+      "provenance and missingness",
+      "correction and withdrawal",
+      "proportionate abuse prevention"
     ]
+  },
+  "nextFrontier": {
+    "ownerDecisionRequired": false,
+    "scope": "smallest real public self-serve intake and GPT-readable structured/deidentified review path",
+    "separateConsequentialBoundary": "external production deployment"
   }
 }

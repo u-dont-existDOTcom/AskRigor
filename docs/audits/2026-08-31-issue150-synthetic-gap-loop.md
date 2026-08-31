@@ -67,14 +67,23 @@ retained.
   performed.
 - Root product outcome: **OPEN**.
 
-## Remaining owner gate
+## Owner correction and next frontier
 
-A real invite-only forum or recruitment pilot remains outside this slice. It
-requires the consolidated owner decision named in issue #150: pilot scope;
-moderation, privacy, and safety staffing; consent and retention; jurisdictions;
-participant contact; and the launch boundary.
+The earlier invite-only-pilot and consolidated staffing gate was a
+controller-invented operating model, not an owner requirement. The owner
+explicitly superseded it in issue #150. The intended product is a public
+self-serve form that people complete as best they can; incomplete submissions
+remain usable and are labeled partial; AskRigor/GPT examines and organizes the
+available evidence leads. Raw case submissions remain private. Plain-language
+consent/privacy, provenance, missingness, correction/withdrawal, and
+proportionate abuse controls are implementation safeguards rather than a reason
+to invent an institutional program.
 
-No new `SUPERVISION_DESIGN_FEEDBACK` packet was required for this
-implementation. The earlier queued-slice continuation correction remains
-preserved in `SDF-20260831-QUEUED-SLICE-CONTINUITY-001` and Mission Control PR
+The next implementation frontier is the smallest real public intake and
+GPT-readable structured/deidentified review path. Routine implementation does
+not require another owner decision. External production deployment remains a
+separate consequential boundary.
+
+The exact cause and prevention control are preserved in
+`SDF-20260831-UNSOURCED-GOVERNANCE-001` on Mission Control PR
 <https://github.com/u-dont-existDOTcom/universal-dev-architecture/pull/46>.
