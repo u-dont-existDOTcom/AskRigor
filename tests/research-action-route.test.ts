@@ -445,7 +445,7 @@ describe("read-only research Action routes", () => {
     ]);
   });
 
-  it("generates 18 unsecured read operations plus the one secured lesson write", () => {
+  it("generates 19 unsecured read operations plus the one secured lesson write", () => {
     const document = createActionOpenApiDocument([
       ...createResearchActionRoutes(),
       ...createDefaultActionRoutes()
@@ -459,8 +459,8 @@ describe("read-only research Action routes", () => {
     const operations = Object.values(document.paths)
       .flatMap((path) => Object.values(path));
 
-    expect(operations).toHaveLength(19);
-    expect(new Set(operations.map(({ operationId }) => operationId)).size).toBe(19);
+    expect(operations).toHaveLength(20);
+    expect(new Set(operations.map(({ operationId }) => operationId)).size).toBe(20);
     const lesson = operations.find(({ operationId }) =>
       operationId === "submit_lesson_candidate"
     );
