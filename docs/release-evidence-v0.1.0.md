@@ -1,9 +1,9 @@
 
 # AskRigor v0.1.0 release evidence
 
-## 2026-08-31 dedicated read-only research-frontier tool — release candidate
+## 2026-08-31 dedicated read-only research-frontier tool deployed and accepted
 
-The candidate appends `get_research_frontier` as the exact 22nd read-only MCP
+PR #148 appends `get_research_frontier` as the exact 22nd read-only MCP
 operation. It exposes only an exact known frontier/question/topic selector,
 reports repository state as control metadata rather than evidence, fixes
 currency to `not_assessed`, makes a miss `not_indexed`, sanitizes repository
@@ -21,8 +21,34 @@ The regenerated installation bundle is
 `19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f`;
 the 22-tool synchronization ledger is
 `f9390dce34c947cefb72553796bc29c4a77a1200194fad2ad40864a7b88de7fc`.
-Production, package, and fresh product receipts remain pending until protected
-merge and release.
+PR #148 merged as
+`1e90b60bf743e9acc1b38b5464dc5581057761ca`. After issue #150 supplied the
+chat-authored release-closeout directive, current
+`main@26623f982cca5a1fab23b495959f71b8970ad59f` was built and deployed as
+immutable image ID
+`sha256:5b36557c785738ecc4e57bc63653bbcc2f20bac59a7f3b3235af9a687c2bb40f`
+in healthy container
+`4a1ae631dfa7b87dbe6fadc0df32f9b1a973aa5270cc50f201ef5fb32be47d3a`.
+The exact prior image is preserved as
+`askrigor-research:rollback-pr148-closeout-26623f9`.
+
+Direct production acceptance passed all 22 operations, both exact protocol
+manifests, PubMed `40223676`, truthful `not_indexed` frontier miss semantics,
+and the partial-corpus YouTube boundary. The complete installed eight-member
+plugin package remains current at `0.1.0+codex.20260831104512`; refreshed
+plugin settings expose all 22 operations. Controlled editor bytes match the
+reviewed instructions and five-operation Action schema under the editor's
+single trailing-LF normalization.
+
+Fresh primary ordinary-Chat acceptance completed in 2 minutes 4 seconds at
+`https://chatgpt.com/c/6a9573d8-19d8-83ea-a450-93d80a52252d`. It successfully
+called operation 22, returned exact Universal 20.5.15 and HRP 20.5.24
+identities, retrieved PMID `40223676` as `api_visible_complete`, stated that a
+`not_indexed` miss does not mean external evidence is absent, and retained all
+65 retrieved YouTube records for bounded analysis while reporting partial
+coverage, continuation, and `synthesis_lock:block`. Release adequacy passes.
+Exact evidence is in
+`docs/audits/2026-08-31-pr148-release-boundary-closeout.json`.
 
 ## 2026-08-31 Community Forum closed-loop hostile fixtures — unreleased
 

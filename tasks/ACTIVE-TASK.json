@@ -1,87 +1,67 @@
 {
   "schemaVersion": 1,
-  "taskId": "askrigor-living-evidence-frontier-readonly-tool-v1",
-  "status": "active",
+  "taskId": "askrigor-pr148-release-boundary-closeout-v1",
+  "status": "complete",
   "exclusive": true,
-  "requiredBranch": "agent/research-frontier-readonly-tool-20260831",
-  "pullRequest": 148,
+  "requiredBranch": "agent/pr148-release-boundary-closeout-20260831",
+  "pullRequest": 151,
   "assuranceLane": "release",
-  "targetedHardGates": [
-    "the public operation is a dedicated exact-selector frontier lookup rather than an overloaded existing tool",
-    "the public path is read-only and cannot write through to the canonical repository",
-    "success, not-indexed, unavailable, stale, partial, and terminal frontier states remain explicit",
-    "stored research-control state never masquerades as evidence or a health conclusion",
-    "not indexed never masquerades as no evidence exists",
-    "usable records from partial corpora remain eligible for bounded evidence review and are labeled partial without extrapolation to unseen records",
-    "raw source/provider bodies, chat, prompts, private health material, and community or YouTube data remain impossible",
-    "the exact ordered MCP catalog advances from 21 to 22 only after executable contract evidence"
-  ],
-  "preflightCommand": "npm run living-evidence:preflight",
-  "completionCommand": "npm run living-evidence:acceptance",
-  "integrationCommit": "36aa56a44c9be4f35c29e20329961838163355ca",
-  "preservedLocalRollback": "rollback/main-pre-frontier-readonly-tool-20260831",
-  "ownerApprovals": [
-    "Expose one dedicated public read-only operation so ordinary AskRigor and ChatGPT runs can retrieve a stored formal research frontier as a base for further research.",
-    "Do not overload an existing operation to conceal the public catalog boundary; advance the exact catalog from 21 tools to 22 tools.",
-    "Do not add automatic write-through, raw source or provider bodies, chat or prompts, private health material, community or YouTube storage, credentials, or opaque provider state.",
-    "Stop excluding partial corpora from evidence review: analyze usable retrieved records, label coverage partial, and bound claims to the observed subset."
-  ],
-  "publicFrontierBoundary": {
-    "allowed": [
-      "exact frontier UUID, question UUID, or canonical topic-key selectors",
-      "current topic, question, lane, discovery-pass, candidate, trail, and contribution-receipt projections",
-      "optional append-only candidate and trail history",
-      "explicit gaps, next capabilities, terminal boundaries, and deterministic receipt hashes",
-      "typed complete, not-indexed, unavailable, and error access states"
-    ],
-    "prohibited": [
-      "writes or automatic contribution from an ordinary tool call",
-      "raw source bodies or raw provider responses",
-      "chat, prompts, private research content, or personal health narratives",
-      "transcripts, comments, replies, channels, user identities, or person profiles",
-      "credentials, authorization headers, secrets, or opaque provider continuation state"
-    ]
+  "supervisorDirective": {
+    "issue": 150,
+    "url": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150",
+    "updatedAt": "2026-08-31T11:34:04Z",
+    "bodySha256": "eb7546fab315b7ae0a5b85b9094294eb5426c53445b8444a70eaf12dd06295c2"
   },
-  "supervision": {
+  "reviewedBoundary": {
+    "implementationMerge": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
+    "currentMainAtAdoption": "26623f982cca5a1fab23b495959f71b8970ad59f"
+  },
+  "supersededTask": {
+    "taskId": "askrigor-living-evidence-frontier-readonly-tool-v1",
+    "requiredBranch": "agent/research-frontier-readonly-tool-20260831",
+    "pullRequest": 148,
+    "mergeCommit": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
     "completionClaim": "PARTIAL_OUTCOME",
-    "workerToContract": "aligned",
-    "contractToOwner": "aligned",
-    "operationalAlignment": "implementation_and_backend_aligned_product_tool_surface_partial",
-    "scientificAdequacy": "owner_corrected_partial_corpus_invariant_verified",
     "releaseAdequacy": "failed_closed_product_interface_missing_get_research_frontier",
-    "directiveState": "SUPERVISION_DIRECTIVE_MISSING_FOR_21_OPERATION_PRODUCT_CONTRACT_CHANGE"
+    "historicalReceipt": "docs/audits/2026-08-31-research-frontier-product-acceptance-execution-receipt.json"
+  },
+  "targetedHardGates": [
+    "build and deploy one exact immutable production image from current main through the existing path with a preserved rollback identity",
+    "all governed MCP, plugin, package, editor, ordinary-product, and protocol surfaces expose operation 22 and HRP 20.5.24",
+    "fresh headless primary ordinary-product acceptance verifies exact Universal and HRP identities",
+    "fresh headless primary ordinary-product acceptance verifies PubMed 40223676 access behavior",
+    "fresh headless primary ordinary-product acceptance verifies get_research_frontier not_indexed miss semantics without external-evidence negation",
+    "fresh headless primary ordinary-product acceptance verifies a partial YouTube community audit with retrieved and returned counts, continuation state, and no corpus-wide extrapolation",
+    "operational, scientific, and release adequacy remain separately reported"
+  ],
+  "prohibitedExpansion": [
+    "another architecture document, generalized schema, migration, or synthetic-backend expansion",
+    "automatic research agent or write-through",
+    "removal or consolidation of an existing research capability",
+    "local gap-to-research vertical-slice execution before a separate post-cycle-A Extra High directive"
+  ],
+  "preflightCommand": "npm run lessons:status",
+  "completionCommand": "npm run verify",
+  "preservedLocalRollback": "rollback/main-pre-frontier-readonly-tool-20260831",
+  "supervision": {
+    "completionClaim": "OUTCOME",
+    "claimScope": "issue 150 bounded execution cycle A only",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned_for_cycle_a",
+    "operationalAlignment": "pass",
+    "scientificAdequacy": "pass_for_bounded_partial_corpus_and_frontier_miss_semantics",
+    "releaseAdequacy": "pass",
+    "rootProductOutcome": "open",
+    "nextBoundary": "separate Extra High directive required before the local synthetic gap-to-research loop"
   },
   "releaseEvidence": {
-    "implementationPullRequest": 148,
-    "deployedMergeCommit": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
-    "researchImageSha256": "d3be6c3e11dc34146fd9bf38e06bf830ca88fb3df88ce6437395dacb93313443",
-    "researchContainer": "0ee98b06c8501dfe2871b3266a10484e5d71edd73cc30b1a645872b31cad69f3",
-    "publicHealth": "pass",
+    "productionSourceCommit": "26623f982cca5a1fab23b495959f71b8970ad59f",
+    "researchImageId": "sha256:5b36557c785738ecc4e57bc63653bbcc2f20bac59a7f3b3235af9a687c2bb40f",
+    "researchContainer": "4a1ae631dfa7b87dbe6fadc0df32f9b1a973aa5270cc50f201ef5fb32be47d3a",
     "backendToolCount": 22,
-    "readerSelectMissing": 0,
-    "readerWriteGrants": 0,
-    "transactionReadOnly": true
-  },
-  "pluginReceipt": {
-    "memberCount": 8,
-    "installedVersion": "0.1.0+codex.20260831104512",
-    "installedPackageSha256": "fa45c89437048f12c70ad3af90987d451cbcf7b79a059a923d891487d893653d",
-    "installedSkillSha256": "e8d54c6954a5409d6d3cabf5a6e75e59a06edeafcbdf2cb7ce703d566f74f586",
-    "priorPackagePreserved": true
-  },
-  "productAcceptance": {
-    "status": "fail_closed",
-    "surface": "primary account ordinary ChatGPT Chat mode, Extra High, AskRigor plugin",
-    "conversation": "https://chatgpt.com/c/6a95624a-2388-83ea-96ed-6955a944bef2",
-    "pluginSettingsOperationCount": 22,
-    "attachedChatOperationCount": 21,
-    "missingOperation": "get_research_frontier",
-    "otherBoundedChecksPassed": true,
-    "rawYoutubeCommentsExposed": false
-  },
-  "suspendedTaskSources": [
-    "automatic frontier contribution or write-through from public tool calls",
-    "YouTube or community persistence pending the separate Google policy disposition",
-    "unrelated forum, public-atlas, portal-submission, and provider-expansion work"
-  ]
+    "pluginSettingsToolCount": 22,
+    "ordinaryProductOperation22Callable": true,
+    "ordinaryProductConversation": "https://chatgpt.com/c/6a9573d8-19d8-83ea-a450-93d80a52252d",
+    "executionReceipt": "docs/audits/2026-08-31-pr148-release-boundary-closeout.json"
+  }
 }

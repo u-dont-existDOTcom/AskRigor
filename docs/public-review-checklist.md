@@ -1,6 +1,6 @@
 # AskRigor v0 public-review checklist
 
-## 2026-08-31 read-only frontier and partial-corpus candidate
+## 2026-08-31 read-only frontier and partial-corpus release accepted
 
 The candidate public MCP catalog contains 22 exact read-only operations,
 including `get_research_frontier`. HRP 20.5.24 and the product instructions now
@@ -14,7 +14,15 @@ the installation bundle is
 `19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f`;
 the synchronization ledger is
 `f9390dce34c947cefb72553796bc29c4a77a1200194fad2ad40864a7b88de7fc`.
-Production, plugin, and fresh product acceptance remain pending.
+Production and refreshed plugin settings expose all 22 operations; the exact
+installed eight-member package is current. Controlled editor bytes match the
+reviewed instructions and five-operation Action schema under the editor's
+single trailing-LF normalization. Fresh primary ordinary-Chat acceptance at
+`https://chatgpt.com/c/6a9573d8-19d8-83ea-a450-93d80a52252d` successfully
+called `get_research_frontier`, returned the exact manifest and PubMed checks,
+and preserved the bounded partial-corpus YouTube receipt. Operational,
+bounded-scientific, and release adequacy pass; the broader product outcome
+remains open.
 
 ## 2026-08-27 candidate-screening worker guidance candidate
 
