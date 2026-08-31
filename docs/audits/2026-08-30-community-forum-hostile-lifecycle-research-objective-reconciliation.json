@@ -31,7 +31,7 @@
     "workerToContract": {
       "status": "YELLOW_PENDING_GITHUB_REPRODUCTION",
       "evidenceRefs": [
-        "agent/community-forum-hostile-lifecycle-research-20260830 based on 0e3d2e963982f87e2d1338f3da8e74ae87a04fc9",
+        "agent/community-forum-hostile-lifecycle-research-20260830@14a5c4af4b5b3df5adb9f40c8d8b0363070a61d9 based on 0e3d2e963982f87e2d1338f3da8e74ae87a04fc9",
         "Focused hostile lifecycle regression: PASS (6/6)",
         "PostgreSQL acceptance community_acceptance_1401265: PASS (14/14)",
         "Living-evidence acceptance living_evidence_acceptance_1401740: PASS (35/35)",
@@ -96,7 +96,7 @@
   "completionClaim": {
     "type": "ARTIFACT_READY",
     "proposedTerminal": false,
-    "candidateRef": "agent/community-forum-hostile-lifecycle-research-20260830",
+    "candidateRef": "agent/community-forum-hostile-lifecycle-research-20260830@14a5c4af4b5b3df5adb9f40c8d8b0363070a61d9",
     "evidenceRefs": [
       "Focused hostile lifecycle regression: PASS (6/6)",
       "PostgreSQL acceptance community_acceptance_1401265: PASS (14/14)",

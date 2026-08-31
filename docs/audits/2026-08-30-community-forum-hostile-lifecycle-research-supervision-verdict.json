@@ -14,7 +14,7 @@
       "No visual/public UI, provider activation, real data, recruitment, reporting, or deployment was introduced."
     ],
     "evidenceRefs": [
-      "agent/community-forum-hostile-lifecycle-research-20260830 based on 0e3d2e963982f87e2d1338f3da8e74ae87a04fc9",
+      "agent/community-forum-hostile-lifecycle-research-20260830@14a5c4af4b5b3df5adb9f40c8d8b0363070a61d9 based on 0e3d2e963982f87e2d1338f3da8e74ae87a04fc9",
       "docs/public-atlas/COMMUNITY-FORUM-HOSTILE-LIFECYCLE-RESEARCH-RECEIPT.md",
       "PostgreSQL acceptance community_acceptance_1401265: PASS (14/14)",
       "Complete deterministic gate: PASS (1,543 passed; 6 skipped)"
