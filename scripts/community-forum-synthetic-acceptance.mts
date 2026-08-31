@@ -262,7 +262,7 @@ async function main(): Promise<void> {
   const checks: string[] = [];
   try {
     await evidence.migrate();
-    checks.push("six_migration_chain_applied");
+    checks.push("seven_migration_chain_applied");
 
     await community.registerAccount({
       synthetic: true,
@@ -577,6 +577,18 @@ async function main(): Promise<void> {
     );
     await community.createLead(leadOne, first.eventId);
     await community.createLead(leadTwo, duplicateEvent.eventId);
+    const minorLead = communityLeadSchema.parse({
+      ...lead("ARLEAD-ACCEPTMINORHOLD01", 9002, []),
+      subjectBoundary: {
+        subjectIdentifiableInPublicVersion: false,
+        directSubjectQuotePresent: false,
+        subjectDocumentsOrMediaPresent: false,
+        subjectExactVersionApproval: null,
+        minorStatus: "MINOR",
+      },
+      status: "PRIVACY_HOLD",
+    });
+    await community.createLead(minorLead, duplicateEvent.eventId);
     checks.push(
       "secondhand_combination_leads_persisted_without_raw_forum_body",
     );
@@ -941,6 +953,199 @@ async function main(): Promise<void> {
           AT,
         ],
       );
+      const minorPublicVersionId = "ARPUB-ACCEPTMINORHOLD01";
+      await sqlClient.query(
+        `INSERT INTO community_lead_public_versions
+          (public_version_id, lead_id, lead_version, publication_object_type,
+           reporter_publication_consent, subject_exact_version_approval,
+           privacy_review_outcome, abuse_review_state, jurisdiction_policy_state,
+           subject_identifiable, direct_subject_quote_present, documents_or_media_present,
+           verification_state, evidence_capability, formal_evidence_relationship,
+           status, public_payload_sha256, version_record_sha256, public_payload_json)
+         VALUES ($1, $2, 1, 'PUBLIC_RESEARCH_LEAD', true, null,
+           'HUMAN_REVIEW_REQUIRED', 'PENDING', 'REVIEW_REQUIRED', false, false, false,
+           'UNVERIFIED', 'COMBINATION_ASSOCIATION_ONLY', 'NOT_CHECKED',
+           'PRIVACY_REVIEW', $3, $4, '{}'::jsonb)`,
+        [
+          minorPublicVersionId,
+          minorLead.leadId,
+          sha256("synthetic minor public candidate payload"),
+          sha256("synthetic minor public candidate record"),
+        ],
+      );
+      const rareRiskFlags = [
+        "RARE_COMBINATION",
+        "PRECISE_LOCATION",
+        "CLINICIAN_OR_CLINIC",
+        "EXACT_DATE_OR_AGE",
+      ];
+      await sqlClient.query(
+        `INSERT INTO community_privacy_publication_gates
+          (gate_id, public_version_id, lead_id, lead_version,
+           risk_flags_before, risk_flags_after, generalization_applied,
+           minor_status, guardian_consent_state, legal_privacy_review_state,
+           ordinary_projection_permitted, decision, assessed_at)
+         VALUES ('ARPRIVGATE-ACCEPTRARERISK01', $1, $2, 1,
+           $3::text[], $3::text[], false, 'ADULT', 'NOT_APPLICABLE', 'APPROVED',
+           false, 'HOLD_REIDENTIFICATION', $4)`,
+        [version.publicVersionId, leadOneId, rareRiskFlags, AT],
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_privacy_publication_gates
+              (gate_id, public_version_id, lead_id, lead_version,
+               risk_flags_before, risk_flags_after, generalization_applied,
+               minor_status, guardian_consent_state, legal_privacy_review_state,
+               ordinary_projection_permitted, decision, assessed_at)
+             VALUES ('ARPRIVGATE-INVALIDRARERISK01', $1, $2, 1,
+               $3::text[], $3::text[], false, 'ADULT', 'NOT_APPLICABLE', 'APPROVED',
+               true, 'ELIGIBLE_SYNTHETIC_LAB', $4)`,
+            [version.publicVersionId, leadOneId, rareRiskFlags, AT],
+          ),
+        "community_privacy_gate_decision",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_privacy_publication_gates
+              (gate_id, public_version_id, lead_id, lead_version,
+               risk_flags_before, risk_flags_after, generalization_applied,
+               minor_status, guardian_consent_state, legal_privacy_review_state,
+               ordinary_projection_permitted, decision, assessed_at)
+             VALUES ('ARPRIVGATE-INVALIDDUPRISK001', $1, $2, 1,
+               ARRAY['RARE_COMBINATION', 'RARE_COMBINATION'],
+               ARRAY['RARE_COMBINATION', 'RARE_COMBINATION'], false,
+               'ADULT', 'NOT_APPLICABLE', 'APPROVED', false,
+               'HOLD_REIDENTIFICATION', $3)`,
+            [version.publicVersionId, leadOneId, AT],
+          ),
+        "community_privacy_gate_risk_flags_allowed",
+      );
+      checks.push("rare_reidentification_requires_complete_generalization");
+
+      await sqlClient.query(
+        `INSERT INTO community_privacy_publication_gates
+          (gate_id, public_version_id, lead_id, lead_version,
+           risk_flags_before, risk_flags_after, generalization_applied,
+           minor_status, guardian_consent_state, legal_privacy_review_state,
+           ordinary_projection_permitted, decision, assessed_at)
+         VALUES ('ARPRIVGATE-ACCEPTMINORHOLD01', $1, $2, 1,
+           '{}'::text[], '{}'::text[], false, 'MINOR', 'PENDING', 'REVIEW_REQUIRED',
+           false, 'HOLD_MINOR_REVIEW', $3)`,
+        [minorPublicVersionId, minorLead.leadId, AT],
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_privacy_publication_gates
+              (gate_id, public_version_id, lead_id, lead_version,
+               risk_flags_before, risk_flags_after, generalization_applied,
+               minor_status, guardian_consent_state, legal_privacy_review_state,
+               ordinary_projection_permitted, decision, assessed_at)
+             VALUES ('ARPRIVGATE-INVALIDMINOR0001', $1, $2, 1,
+               '{}'::text[], '{}'::text[], false, 'MINOR', 'APPROVED', 'APPROVED',
+               true, 'ELIGIBLE_SYNTHETIC_LAB', $3)`,
+            [minorPublicVersionId, minorLead.leadId, AT],
+          ),
+        "community_privacy_gate_decision",
+      );
+      checks.push("minor_and_unknown_age_require_enhanced_nonordinary_review");
+
+      await sqlClient.query(
+        `INSERT INTO community_external_source_extraction_boundaries
+          (extraction_id, external_source_id, source_url, source_visibility,
+           provider_terms_state, attribution_state, quotation_state, privacy_state,
+           deletion_state, raw_source_body_persisted, publication_eligible,
+           decision, assessed_at)
+         VALUES ('AREXTRACT-ACCEPTPUBLIC0001', 'ARSYN-ACCEPTEXTERNAL01',
+           'https://public-source.synthetic.invalid/report/1', 'PUBLIC', 'ALLOWED',
+           'COMPLETE', 'NONE', 'PASS', 'ACTIVE', false, true,
+           'ELIGIBLE_SYNTHETIC_LAB', $1)`,
+        [AT],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_external_source_extraction_boundaries
+          (extraction_id, external_source_id, source_url, source_visibility,
+           provider_terms_state, attribution_state, quotation_state, privacy_state,
+           deletion_state, raw_source_body_persisted, publication_eligible,
+           decision, assessed_at)
+         VALUES ('AREXTRACT-ACCEPTDELETED001', 'ARSYN-ACCEPTEXTERNAL02',
+           'https://deleted-source.synthetic.invalid/report/2', 'DELETED', 'ALLOWED',
+           'COMPLETE', 'NONE', 'PASS', 'DELETED', false, false,
+           'WITHDRAW_SOURCE_DELETED', $1)`,
+        [AT],
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_external_source_extraction_boundaries
+              (extraction_id, external_source_id, source_url, source_visibility,
+               provider_terms_state, attribution_state, quotation_state, privacy_state,
+               deletion_state, raw_source_body_persisted, publication_eligible,
+               decision, assessed_at)
+             VALUES ('AREXTRACT-INVALIDPRIVATE01', 'ARSYN-INVALIDEXTERNAL01',
+               'https://private-source.synthetic.invalid/report/3', 'PRIVATE', 'ALLOWED',
+               'COMPLETE', 'NONE', 'PASS', 'ACTIVE', false, true,
+               'ELIGIBLE_SYNTHETIC_LAB', $1)`,
+            [AT],
+          ),
+        "community_external_source_decision",
+      );
+      checks.push("external_source_terms_attribution_privacy_and_deletion_gate");
+
+      await sqlClient.query(
+        `INSERT INTO community_deleted_source_retention_decisions
+          (decision_id, source_event_id, source_version, lead_id, lead_version,
+           public_version_id, source_deleted, source_body_retained, provenance_retained,
+           reporter_public_lead_consent_state, lead_consent_independent_of_source_post,
+           privacy_policy_state, disposition, assessed_at)
+         VALUES ('ARRETENTION-ACCEPTDELETED0001', $1, 4, $2, 1, $3,
+           true, false, true, 'YES', true, 'PASS', 'RETAIN_DEIDENTIFIED_LEAD', $4)`,
+        [deleted.eventId, leadOneId, version.publicVersionId, AT],
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_deleted_source_retention_decisions
+              (decision_id, source_event_id, source_version, lead_id, lead_version,
+               public_version_id, source_deleted, source_body_retained, provenance_retained,
+               reporter_public_lead_consent_state, lead_consent_independent_of_source_post,
+               privacy_policy_state, disposition, assessed_at)
+             VALUES ('ARRETENTION-INVALIDCONSENT01', $1, 4, $2, 1, $3,
+               true, false, true, 'WITHDRAWN', true, 'PASS',
+               'RETAIN_DEIDENTIFIED_LEAD', $4)`,
+            [deleted.eventId, leadOneId, version.publicVersionId, AT],
+          ),
+        "community_deleted_source_retention_disposition",
+      );
+      checks.push("deleted_source_retention_requires_independent_consent_and_policy");
+
+      await sqlClient.query(
+        `INSERT INTO community_private_intake_boundaries
+          (boundary_id, intake_id, intake_class, source_visibility,
+           initial_public_lead_consent_state, forum_record_created,
+           public_projection_created, later_separate_public_lead_workflow_required,
+           raw_intake_body_persisted, assessed_at)
+         VALUES ('ARPRIVATE-ACCEPTPAIDINTAKE01', 'ARSYN-ACCEPTPAIDINTAKE01',
+           'PAID_PRIVATE', 'PRIVATE', 'NOT_ASKED', false, false, true, false, $1)`,
+        [AT],
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_private_intake_boundaries
+              (boundary_id, intake_id, intake_class, source_visibility,
+               initial_public_lead_consent_state, forum_record_created,
+               public_projection_created, later_separate_public_lead_workflow_required,
+               raw_intake_body_persisted, assessed_at)
+             VALUES ('ARPRIVATE-INVALIDPAIDINTAKE1', 'ARSYN-INVALIDPAIDINTAKE01',
+               'PAID_PRIVATE', 'PRIVATE', 'NOT_ASKED', false, true, true, false, $1)`,
+            [AT],
+          ),
+        "community_private_intake_no_public_projection",
+      );
+      checks.push("paid_private_intake_creates_no_forum_or_public_projection");
       checks.push(
         "hostile_integrity_lifecycle_and_exact_research_dependencies_persisted",
       );
@@ -1333,6 +1538,13 @@ async function main(): Promise<void> {
         () =>
           appendOnlyClient.query(
             "DELETE FROM community_closed_loop_results WHERE result_propagation_id = 'ARRESULT-ACCEPTNEGATIVE01'",
+          ),
+        "APPEND_ONLY_TABLE",
+      );
+      await expectReject(
+        () =>
+          appendOnlyClient.query(
+            "DELETE FROM community_private_intake_boundaries WHERE boundary_id = 'ARPRIVATE-ACCEPTPAIDINTAKE01'",
           ),
         "APPEND_ONLY_TABLE",
       );

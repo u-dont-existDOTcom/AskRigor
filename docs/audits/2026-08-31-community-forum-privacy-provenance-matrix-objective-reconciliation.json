@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "reconciliationId": "community-forum-privacy-provenance-matrix-artifact-ready-20260831",
+  "taskId": "community-forum-privacy-provenance-matrix-20260831",
+  "trigger": "PRE_GITHUB_ARTIFACT_RECONCILIATION",
+  "reconciledAt": "2026-08-31T00:52:19Z",
+  "ownerSource": {
+    "canonicalLocator": "docs/audits/2026-08-31-community-forum-privacy-provenance-matrix-owner-source.txt",
+    "sha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "capturedBy": "deterministic-tool/current-owner-message-capture"
+  },
+  "independentSupervisorReceipt": {
+    "receiptId": "owner-source-receipt-community-forum-privacy-provenance-matrix-20260831",
+    "sourceSha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "workerSuppliedCopySha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "comparison": "MATCH"
+  },
+  "taskContract": {
+    "canonicalLocator": "docs/superpowers/plans/2026-08-31-community-forum-privacy-provenance-matrix.md",
+    "sha256": "eaeb07f4af5867f85602af445b098f33ef058ea1e5a2fad062149ee9721306a5"
+  },
+  "alignment": {
+    "workerToContract": {
+      "status": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+      "evidenceRefs": [
+        "agent/community-forum-privacy-provenance-matrix-20260831@8ff130c7233c864209c590fd97288aa308ebe569 based on 8e20185f69086395fb2cf4ae2cf814938515a874",
+        "Post-closure hostile matrix: 30/30 executable",
+        "Focused privacy/provenance regression: PASS (6/6)",
+        "PostgreSQL acceptance community_acceptance_1477796: PASS (20/20)",
+        "Living-evidence acceptance living_evidence_acceptance_1477815: PASS (35/35)",
+        "Complete deterministic gate: PASS (1,554 passed; 6 skipped)"
+      ]
+    },
+    "contractToOwner": {
+      "status": "MATCH",
+      "unmappedOwnerRequirementIds": [],
+      "divergences": [],
+      "authorizedScopeChanges": []
+    }
+  },
+  "completionClaim": {
+    "type": "ARTIFACT_READY",
+    "proposedTerminal": false,
+    "candidateRef": "agent/community-forum-privacy-provenance-matrix-20260831@8ff130c7233c864209c590fd97288aa308ebe569",
+    "evidenceRefs": [
+      "Six audited privacy/provenance gaps closed without reopening 24 executable cases",
+      "Seven-migration PostgreSQL acceptance: PASS",
+      "Synthetic-only/no-real-data controls: PASS",
+      "Complete deterministic gate: PASS"
+    ]
+  },
+  "result": {
+    "overallTraffic": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+    "rootTerminalizationAllowed": false,
+    "requiredDirective": "PUBLISH_STACKED_PR_AND_CAPTURE_GITHUB_RECEIPTS",
+    "supervisionDesignFeedback": null
+  }
+}

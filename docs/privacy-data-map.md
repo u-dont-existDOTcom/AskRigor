@@ -118,6 +118,18 @@ contact data. Originating reports and source meaning cannot be erased or
 rewritten; launch, recruitment, causal claims, and effectiveness percentages
 remain false.
 
+Migration `0007` adds only synthetic, content-free privacy/provenance decision
+metadata: before/after reidentification risk flags and generalization state;
+lead-bound adult/minor/unknown status plus guardian and legal/privacy review
+state; synthetic `.invalid` external-source URL, visibility, provider-terms,
+attribution, quotation, privacy, and deletion state; deleted-source event,
+version, consent/policy, no-body and retained-provenance state; and a paid-
+private-intake boundary. It stores no external-source body, intake body, real
+URL, real identity, health narrative, quotation, document/media, contact data,
+or provider response. External/deleted/private sources fail closed, minor or
+unknown-age fixtures cannot use ordinary projection, and paid private intake
+creates neither a forum record nor a public projection.
+
 The two publication objects remain distinct. `PUBLIC_NARRATIVE` requires
 subject exact-version approval. A deidentified `PUBLIC_RESEARCH_LEAD` may model
 a reporter-consented secondhand report without subject exact-version approval

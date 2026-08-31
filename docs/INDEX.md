@@ -87,6 +87,10 @@ complete XML protocol.
   pinned loopback-only Discourse acceptance, executable forum/lead
   contract-migration-service fixtures, exact deterministic verification, and
   separate synthetic-operational, scientific, and release verdicts
+- `public-atlas/COMMUNITY-FORUM-PRIVACY-PROVENANCE-MATRIX-RECEIPT.md`: exact
+  30-case hostile audit and synthetic closure of reidentification, minor,
+  external/deleted-source, incomplete-hearsay, and paid-private-intake gaps,
+  with migration 0007, 20-check PostgreSQL evidence, and no-release verdicts
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis
