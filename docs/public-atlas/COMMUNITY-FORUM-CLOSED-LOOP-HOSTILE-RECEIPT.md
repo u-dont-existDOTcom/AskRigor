@@ -23,6 +23,9 @@ reporting, activate a provider, or deploy anything.
   `agent/community-forum-hostile-lifecycle-research-20260830` at
   `6a547963cadfed671d986862f4a5a37ba41306a9`;
 - task branch: `agent/community-forum-closed-loop-hostile-20260831`;
+- reviewed implementation commit:
+  `f4e35dce0bb6b7759ce30eac31a50c2fa9f35c1c`; the final receipt-only commit
+  and exact GitHub head are recorded in the PR receipt;
 - rollback is the exact base plus the task branch reflog; no shared history is
   rewritten and no stacked PR is merged.
 

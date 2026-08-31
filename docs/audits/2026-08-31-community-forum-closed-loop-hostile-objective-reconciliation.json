@@ -23,7 +23,7 @@
     "workerToContract": {
       "status": "YELLOW_PENDING_GITHUB_REPRODUCTION",
       "evidenceRefs": [
-        "agent/community-forum-closed-loop-hostile-20260831 based on 6a547963cadfed671d986862f4a5a37ba41306a9",
+        "agent/community-forum-closed-loop-hostile-20260831@f4e35dce0bb6b7759ce30eac31a50c2fa9f35c1c based on 6a547963cadfed671d986862f4a5a37ba41306a9",
         "Focused closed-loop hostile regression: PASS (5/5)",
         "PostgreSQL acceptance community_acceptance_1438083: PASS (15/15)",
         "Living-evidence acceptance living_evidence_acceptance_1436507: PASS (35/35)",
@@ -40,7 +40,7 @@
   "completionClaim": {
     "type": "ARTIFACT_READY",
     "proposedTerminal": false,
-    "candidateRef": "agent/community-forum-closed-loop-hostile-20260831",
+    "candidateRef": "agent/community-forum-closed-loop-hostile-20260831@f4e35dce0bb6b7759ce30eac31a50c2fa9f35c1c",
     "evidenceRefs": [
       "Appeal/evidence/question/feasibility/result service fixtures: PASS",
       "Six-migration PostgreSQL acceptance: PASS",
