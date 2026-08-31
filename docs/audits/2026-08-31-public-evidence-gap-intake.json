@@ -1,0 +1,98 @@
+{
+  "schema": "askrigor.public-evidence-gap-intake-receipt.v1",
+  "generated_at": "2026-08-31T17:06:30.068Z",
+  "branch": "task/public-evidence-gap-intake-20260831",
+  "parent_branch": "task/issue-150-synthetic-gap-loop-20260831",
+  "parent_commit": "86a70cdff4f34f53f935dbedf837313f95c2a9cf",
+  "implementation_commit": "ed71b5e64d8a99ed83cc05bd300cf5d415a70e68",
+  "objective": "Let public visitors contribute the prolactinoma evidence-gap form as best they can, retain partial and non-remission comparison cases, keep raw content private, and expose an authenticated participant-reported review projection for later AskRigor/GPT examination.",
+  "authority_correction": {
+    "unsupported_product_directions_rejected": [
+      "invite-only pilot",
+      "institutional research program",
+      "staffing or jurisdiction launch gate",
+      "generic community product"
+    ],
+    "root_cause": "An assistant-authored controller directive added organizational constraints without an independent owner source; the worker optimized to that derived contract instead of detecting contract-to-owner divergence.",
+    "mission_control_feedback": "SDF-20260831-UNSOURCED-GOVERNANCE-001",
+    "mission_control_commit": "21369668f5eeb8c30b471f07ef3a0a97ff01b9d8",
+    "mission_control_pull_request": "https://github.com/u-dont-existDOTcom/universal-dev-architecture/pull/46",
+    "mission_control_comment": "https://github.com/u-dont-existDOTcom/universal-dev-architecture/pull/46#issuecomment-5481093547"
+  },
+  "delivered": {
+    "public_route": "/evidence-gaps/prolactinoma-spontaneous-remission",
+    "participant_flow": [
+      "provenance",
+      "unprompted account saved before structured prompts",
+      "optional structured details",
+      "private GPT analysis consent",
+      "pseudonymous case ID and recovery key",
+      "participant inspect and active-content withdrawal"
+    ],
+    "partial_corpus_policy": "accepted and labeled PARTIAL",
+    "comparison_policy": "non-remission cases are recruited and counted independently",
+    "public_case_projection": false,
+    "private_review_route": "/internal/evidence-gaps/:slug/review-queue",
+    "verification_label": "PARTICIPANT_REPORTED_UNVERIFIED",
+    "causal_analysis_permitted": false
+  },
+  "privacy_and_security": {
+    "account_or_contact_collection": false,
+    "participant_identifier": "random pseudonym",
+    "recovery_key_persistence": "SHA-256 only",
+    "narrative_storage": "AES-256-GCM application envelope",
+    "structured_storage": "private PostgreSQL JSONB, not independently application-encrypted",
+    "public_raw_content": false,
+    "review_authentication": "separate at-least-32-byte bearer secret",
+    "review_transform": "basic email, phone, and URL pattern removal across narrative and structured free text",
+    "redaction_limitation": "does not guarantee removal of names, places, rare events, or indirect identifiers",
+    "withdrawal": "clears active narrative, structured details, consent, and review membership; retains a no-content row"
+  },
+  "artifacts": {
+    "migration_sha256": "029326053ac5aa9fcb3d2590286ae256ff9e33bb1bf0f5c21fd6dbd42cd831f0",
+    "service_sha256": "fbc85da29962877d658cb396484a501c092a25ae6458efc3d7080709583dd081",
+    "http_sha256": "f5602ca9ec91a6af33cabbc8c2b712a48ed90a52573951809b87722ad4aa7bde",
+    "page_sha256": "dab95f216471ad51dc9871f047233174d004bc6ec86db78049cbbf1e1679a710",
+    "test_sha256": "ed98d0be5ff7239a5e885eeb0697ac90467b19c679a3a2c301901e876bf12302",
+    "headless_acceptance_sha256": "7a7c12b353c9ee9a7ebdb19253736f870971b623f3e58b6a3608abfa882754c8"
+  },
+  "verification": {
+    "focused": "8/8 tests passed",
+    "postgresql": "39/39 checks passed against disposable PostgreSQL 16, including migration 0008, partial comparator round-trip, encryption/hash boundary, private review, and withdrawal erasure",
+    "headless_brave": "passed exact public partial non-remission comparison -> private review -> withdrawal path",
+    "complete_gate": "120 files passed, 1 declared file skip; 1574 tests passed, 6 declared test skips; typecheck and build passed",
+    "diff_check": "passed",
+    "high_confidence_secret_scan": "passed",
+    "lesson_queue": {
+      "open_candidates": 0,
+      "needs_review": 0,
+      "accepted_not_incorporated": 0,
+      "incorporated_or_closed": 4,
+      "deletion_eligible": 0,
+      "checked_at": "2026-08-31T17:06:30.068Z"
+    },
+    "test_efficiency": {
+      "observed_test_seconds": 363.59,
+      "forced_redundant_green_seconds": 0,
+      "redundant_green_runs_skipped": 0
+    }
+  },
+  "adequacy": {
+    "typed_completion_claim": "OUTCOME",
+    "claim_scope": "local public self-serve intake and authenticated private review projection only",
+    "worker_to_contract": "aligned",
+    "contract_to_owner": "aligned",
+    "operational_alignment": "pass",
+    "scientific_adequacy": "pass for provenance-first intake, explicit missingness, comparator retention, unverified labeling, and noncausal review semantics only",
+    "release_adequacy": "not applicable; no external deployment was performed",
+    "root_product_outcome": "open"
+  },
+  "limitations_and_next_slice": [
+    "The private review endpoint is not yet wired into a GPT Action or MCP tool.",
+    "No document upload, OCR, or document-derived verification exists.",
+    "No outbound follow-up/contact collection exists.",
+    "No public aggregate dashboard or causal/statistical analysis exists.",
+    "External deployment still needs exact privacy-notice, GPT/provider disclosure, retention/backup, encryption-key, routing, and rollback evidence.",
+    "The recommended next slice is the smallest authenticated GPT review tool over this existing projection, without adding institutional workflow."
+  ]
+}
