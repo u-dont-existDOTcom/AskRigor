@@ -1,5 +1,11 @@
 # Research-frontier read-only tool and partial-corpus evidence receipt
 
+> Historical boundary: this receipt preserves the initial failed-closed
+> ordinary-product result. AskRigor issue #150 subsequently authorized and
+> completed bounded release cycle A without removing a capability. The
+> superseding immutable receipt is
+> `2026-08-31-pr148-release-boundary-closeout.json`.
+
 Date: 2026-08-31
 
 Task: `askrigor-living-evidence-frontier-readonly-tool-v1`

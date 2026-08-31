@@ -77,6 +77,11 @@ complete XML protocol.
   HRP 20.5.24, real-PostgreSQL and full-gate receipts, byte-derived package and
   catalog identities, and separate local operational/scientific versus pending
   release adequacy
+- `audits/2026-08-31-pr148-release-boundary-closeout.md` and its machine JSON:
+  issue #150 owner-source adoption, exact current-main production image and
+  rollback, synchronized MCP/plugin/package/editor/protocol consumers, fresh
+  primary ordinary-Chat operation-22 acceptance, and separate operational,
+  bounded-scientific, release, and root-product states
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/

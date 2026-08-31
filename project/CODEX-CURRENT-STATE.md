@@ -1,5 +1,52 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 issue #150 cycle A completed the frontier release
+
+Task ID: `askrigor-pr148-release-boundary-closeout-v1`
+
+Branch: `agent/pr148-release-boundary-closeout-20260831`
+
+Current main at directive adoption:
+`26623f982cca5a1fab23b495959f71b8970ad59f`
+
+The current chat-authored supervisor directive is AskRigor issue #150,
+`Supervisor redirect: close frontier release, then prove one usable
+gap-to-research loop`. Its body is preserved independently by URL, timestamps,
+UTF-8 byte count, and SHA-256 in
+`../docs/audits/2026-08-31-pr148-release-boundary-owner-source.json`. It
+supersedes the missing-directive state below without erasing that prior
+failed-closed evidence.
+
+Cycle A is complete. Current main was built and deployed as image
+`askrigor-research:26623f982cca5a1fab23b495959f71b8970ad59f`, image ID
+`sha256:5b36557c785738ecc4e57bc63653bbcc2f20bac59a7f3b3235af9a687c2bb40f`,
+in healthy container
+`4a1ae631dfa7b87dbe6fadc0df32f9b1a973aa5270cc50f201ef5fb32be47d3a`.
+The exact prior image remains reachable as
+`askrigor-research:rollback-pr148-closeout-26623f9` with Compose rollback under
+`/opt/askrigor/rollbacks/pre-26623f982cca5a1fab23b495959f71b8970ad59f/`.
+
+Production and refreshed plugin settings expose all 22 operations. The exact
+eight-member installed package remains current. The controlled Custom GPT
+editor's instructions and five-operation Action schema match reviewed source
+under the editor's single trailing-LF normalization. Both protocol identities
+are exact. Fresh primary ordinary-Chat acceptance passed at
+`https://chatgpt.com/c/6a9573d8-19d8-83ea-a450-93d80a52252d`: operation 22 was
+callable, the frontier miss remained `not_indexed` without external-evidence
+negation, PubMed `40223676` was `api_visible_complete`, and the partial YouTube
+audit returned 65/65 bounded records with continuation present and synthesis
+blocked.
+
+Current typed claim: `OUTCOME` for issue #150 cycle A only.
+Worker-to-contract and contract-to-owner are aligned for that cycle.
+Operational adequacy passes; scientific adequacy passes for the bounded
+partial-corpus and frontier-miss semantics only; release adequacy passes. The
+root product outcome remains open. The issue's local synthetic gap-to-research
+loop is behind stop/review boundary A and requires a separate Extra High
+directive; no architecture, schema, migration, or synthetic-backend expansion
+is active. Exact evidence is in
+`../docs/audits/2026-08-31-pr148-release-boundary-closeout.json`.
+
 ## 2026-08-31 read-only frontier product acceptance failed closed
 
 PR #148 merged as

@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "CODEX_EXECUTION_RECEIPT",
+  "receiptId": "pr148-release-boundary-closeout-20260831",
+  "recordedAt": "2026-08-31T12:48:01Z",
+  "taskId": "askrigor-pr148-release-boundary-closeout-v1",
+  "supervisorDirective": {
+    "issue": 150,
+    "url": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150",
+    "updatedAt": "2026-08-31T11:34:04Z",
+    "bodyUtf8Bytes": 5637,
+    "bodySha256": "eb7546fab315b7ae0a5b85b9094294eb5426c53445b8444a70eaf12dd06295c2"
+  },
+  "source": {
+    "implementationPullRequest": 148,
+    "implementationMerge": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
+    "currentMainBuilt": "26623f982cca5a1fab23b495959f71b8970ad59f",
+    "currentMainArchiveSha256": "d8d6a3726776803bf6db95526887d6ee3862d073dccbc21cbd450f32319b6726",
+    "runtimeInputsDifferFromImplementationMerge": false
+  },
+  "deterministicGate": {
+    "command": "npm run verify",
+    "status": "pass",
+    "testFilesPassed": 118,
+    "testFilesSkipped": 1,
+    "testsPassed": 1559,
+    "testsSkipped": 6,
+    "typecheck": "pass",
+    "productionBuild": "pass",
+    "dependencyVulnerabilities": 0
+  },
+  "lessonCheckpoints": {
+    "preDeployment": "2026-08-31T12:09:52.008Z",
+    "closeout": "2026-08-31T12:47:27.385Z",
+    "openCandidates": 0,
+    "needsReview": 0,
+    "acceptedNotIncorporated": 0,
+    "incorporatedOrClosed": 4,
+    "deletionEligible": 0
+  },
+  "deployment": {
+    "imageRef": "askrigor-research:26623f982cca5a1fab23b495959f71b8970ad59f",
+    "imageId": "sha256:5b36557c785738ecc4e57bc63653bbcc2f20bac59a7f3b3235af9a687c2bb40f",
+    "imageArchiveSha256": "89eadba8d33deb2799639d7a3a152729410e0c1d93580acc2d610a537cafa7ed",
+    "imageArchiveBytes": 108832256,
+    "containerId": "4a1ae631dfa7b87dbe6fadc0df32f9b1a973aa5270cc50f201ef5fb32be47d3a",
+    "containerStartedAt": "2026-08-31T12:19:50.805441321Z",
+    "health": "pass",
+    "runtimeUser": "node",
+    "readOnlyRootFilesystem": true,
+    "capabilitiesDropped": ["ALL"],
+    "noNewPrivileges": true,
+    "rollback": {
+      "imageRef": "askrigor-research:rollback-pr148-closeout-26623f9",
+      "imageId": "sha256:d3be6c3e11dc34146fd9bf38e06bf830ca88fb3df88ce6437395dacb93313443",
+      "configurationDirectory": "/opt/askrigor/rollbacks/pre-26623f982cca5a1fab23b495959f71b8970ad59f",
+      "composeSha256": "3b937b0c89e6b72c1ecb88b9ffe9d7df5325653cfeb262ae4501c781061d5c5c",
+      "livingEvidenceComposeSha256": "af8c891561537897ae8894a43a6fe3faf7f8b711beec367f4a6a304e9a5ae45e"
+    }
+  },
+  "governedConsumers": {
+    "productionMcp": {
+      "status": "pass",
+      "operationCount": 22,
+      "finalOperation": "get_research_frontier"
+    },
+    "protocols": {
+      "universal": {
+        "version": "20.5.15",
+        "revisionDate": "2026-08-24",
+        "sha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172"
+      },
+      "hrp": {
+        "version": "20.5.24",
+        "revisionDate": "2026-08-31",
+        "sha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
+      }
+    },
+    "installedPluginPackage": {
+      "version": "0.1.0+codex.20260831104512",
+      "memberCount": 8,
+      "packageSha256": "fa45c89437048f12c70ad3af90987d451cbcf7b79a059a923d891487d893653d",
+      "skillSha256": "e8d54c6954a5409d6d3cabf5a6e75e59a06edeafcbdf2cb7ce703d566f74f586",
+      "sourcePackageSha256BeforeCachebuster": "0e9b73cd1db9c48be4b02570257a885c0f15b297e5f58c5d21f93eeae48e3c74",
+      "contentCurrent": true,
+      "reinstallRequired": false
+    },
+    "pluginSettings": {
+      "appId": "asdk_app_6a7cd2a0156881918ce7dedecb715250",
+      "versionId": "asdk_app_v_6a7cd2a015748191a410021ac85dc069",
+      "endpoint": "https://mcp.askrigor.com/mcp",
+      "refreshed": true,
+      "operationCount": 22,
+      "missingOperations": []
+    },
+    "controlledCustomGpt": {
+      "status": "published",
+      "lastEdited": "2026-08-31",
+      "editorInstructionsCharacters": 4751,
+      "editorInstructionsSha256": "8389f4a05544f2e42ec32284c2acf8971db7f745c907200533aaaca706d8f352",
+      "sourceInstructionsSha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514",
+      "trailingLfIsOnlyNormalization": true,
+      "editorActionSchemaCharacters": 89266,
+      "editorActionSchemaSha256": "fa59f2fe4072b9bee22ec225434bb8996812ff074cf886432c9db8b9bd4239c9",
+      "sourceActionSchemaSha256": "cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930",
+      "actionOperationCount": 5,
+      "trailingLfIsOnlyActionNormalization": true,
+      "liveActionCanonicalSha256": "9bbf7fccdd7e34fb7a2334dab05193f03ba826caf35109adc39320ef48788049",
+      "sourceActionCanonicalSha256": "9bbf7fccdd7e34fb7a2334dab05193f03ba826caf35109adc39320ef48788049"
+    }
+  },
+  "directAcceptance": {
+    "pubmed": {
+      "pmid": "40223676",
+      "accessStatus": "api_visible_complete",
+      "returned": 1,
+      "exhausted": true
+    },
+    "frontierMiss": {
+      "topicKey": "pr148-release-boundary-miss-26623f982cca",
+      "accessStatus": "not_found",
+      "lookupStatus": "not_indexed",
+      "frontierCurrency": "not_assessed",
+      "meaning": "The selector is absent from this repository; no claim is made that external evidence is absent."
+    },
+    "youtubeCommunity": {
+      "videoId": "nIRABXSJwSw",
+      "accessStatus": "partial",
+      "recordsRetrievedThisCall": 65,
+      "recordsRetrievedCumulative": 65,
+      "recordsReturnedForAnalysis": 65,
+      "topLevelRecordsReturnedForAnalysis": 50,
+      "replyRecordsReturnedForAnalysis": 15,
+      "continuationTokenPresent": true,
+      "continuationRecommended": true,
+      "completionState": "incomplete",
+      "synthesisLock": "block",
+      "corpusWideExtrapolationAllowed": false,
+      "rawCommentsRecorded": false
+    }
+  },
+  "ordinaryProductAcceptance": {
+    "status": "pass",
+    "account": "primary",
+    "surface": "ordinary ChatGPT Chat",
+    "reasoningLabel": "Pro (owner-identified Extra High equivalent)",
+    "plugin": "AskRigor",
+    "browserMode": "background authenticated Brave extension tab; no new visible window and no user tab navigation",
+    "conversation": "https://chatgpt.com/c/6a9573d8-19d8-83ea-a450-93d80a52252d",
+    "elapsed": "2m 4s",
+    "operation22CalledSuccessfully": true,
+    "manifestIdentity": "pass",
+    "pubmed40223676": "pass",
+    "frontierMissSemantics": "pass",
+    "partialCorpusBoundary": "pass",
+    "rawCommentsDisplayed": false
+  },
+  "objectiveReconciliation": {
+    "workerToContract": "ALIGNED",
+    "contractToOwner": "ALIGNED_FOR_CYCLE_A",
+    "completionClaim": "OUTCOME",
+    "claimScope": "issue 150 bounded execution cycle A only",
+    "operationalAdequacy": "PASS",
+    "scientificAdequacy": "PASS_FOR_BOUNDED_PARTIAL_CORPUS_AND_MISS_SEMANTICS",
+    "releaseAdequacy": "PASS",
+    "rootProductOutcome": "OPEN",
+    "nextBoundary": "Return this receipt to Extra High; do not begin the local synthetic gap-to-research loop without a separate directive."
+  },
+  "unauthorizedDecisionAudit": {
+    "architectureExpansion": false,
+    "capabilityRemovedOrConsolidated": false,
+    "scientificConclusionMade": false,
+    "realHealthDataCollected": false,
+    "newProductStrategyChosen": false
+  }
+}
