@@ -1,0 +1,994 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://askrigor.com/schemas/community-health-forum-and-public-lead-contract-v0.1.0.json",
+  "title": "AskRigor Community Health Forum and Public Lead Frontier contract bundle",
+  "description": "Machine-readable draft contracts for forum source references, provenance-typed community leads, public lead versions, signal clusters, research questions and proposals, and governance events. Public visibility is independent from evidentiary strength. Deidentified secondhand reports may be public research leads without being represented as subject-verified narratives.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "record_type", "record_id", "payload", "created_at"],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "record_type": {
+      "enum": [
+        "FORUM_SOURCE_REFERENCE",
+        "COMMUNITY_LEAD",
+        "PUBLIC_LEAD_VERSION",
+        "SIGNAL_CLUSTER",
+        "RESEARCH_QUESTION",
+        "RESEARCH_PROPOSAL",
+        "MODERATION_EVENT",
+        "SCIENTIFIC_ANNOTATION",
+        "PRIVACY_REVIEW",
+        "SAFETY_CANDIDATE",
+        "CONSENT_EVENT",
+        "WITHDRAWAL_EVENT"
+      ]
+    },
+    "record_id": {"type": "string", "minLength": 8, "maxLength": 128},
+    "payload": {"type": "object"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "record_payload_sha256": {
+      "type": ["string", "null"],
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"record_type": {"const": "FORUM_SOURCE_REFERENCE"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/forumSourceReference"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "COMMUNITY_LEAD"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/communityLead"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "PUBLIC_LEAD_VERSION"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/publicLeadVersion"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "SIGNAL_CLUSTER"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/signalCluster"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "RESEARCH_QUESTION"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/researchQuestion"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "RESEARCH_PROPOSAL"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/researchProposal"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "MODERATION_EVENT"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/moderationEvent"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "SCIENTIFIC_ANNOTATION"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/scientificAnnotation"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "PRIVACY_REVIEW"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/privacyReview"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "SAFETY_CANDIDATE"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/safetyCandidate"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "CONSENT_EVENT"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/consentEvent"}}}
+    },
+    {
+      "if": {"properties": {"record_type": {"const": "WITHDRAWAL_EVENT"}}, "required": ["record_type"]},
+      "then": {"properties": {"payload": {"$ref": "#/$defs/withdrawalEvent"}}}
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "shortText": {"type": "string", "minLength": 1, "maxLength": 300},
+    "mediumText": {"type": "string", "minLength": 1, "maxLength": 4000},
+    "longText": {"type": "string", "minLength": 1, "maxLength": 20000},
+    "sourceDistance": {
+      "enum": [
+        "FIRSTHAND_SUBJECT",
+        "FIRSTHAND_OBSERVER",
+        "ONE_HOP_SUBJECT_RELAY",
+        "MULTI_HOP_HEARSAY",
+        "PUBLIC_SOURCE_EXTRACTED",
+        "MIXED",
+        "UNKNOWN"
+      ]
+    },
+    "reporterRole": {
+      "enum": [
+        "SELF",
+        "FRIEND",
+        "FAMILY",
+        "CAREGIVER",
+        "CLINICIAN",
+        "RESEARCHER",
+        "PUBLIC_SOURCE_AUTHOR",
+        "OTHER",
+        "UNKNOWN"
+      ]
+    },
+    "informationOrigin": {
+      "enum": [
+        "SELF_EXPERIENCE",
+        "DIRECT_OBSERVATION",
+        "SUBJECT_RELAYED_TO_REPORTER",
+        "THIRD_PARTY_RELAYED",
+        "DOCUMENTED_RECORD",
+        "PUBLIC_SOURCE_EXTRACTION",
+        "MIXED",
+        "UNKNOWN"
+      ]
+    },
+    "verificationState": {
+      "enum": [
+        "UNVERIFIED",
+        "REPORTER_ACCOUNT_VERIFIED",
+        "REPORTER_IDENTITY_VERIFIED_PRIVATE",
+        "SUBJECT_ACKNOWLEDGED",
+        "SUBJECT_VERIFIED",
+        "DOCUMENT_CORROBORATED",
+        "CLINICIAN_CORROBORATED",
+        "MULTIPLE_CORROBORATION_TYPES",
+        "CONFLICTED",
+        "UNVERIFIABLE"
+      ]
+    },
+    "evidenceCapability": {
+      "enum": [
+        "LEAD_ONLY",
+        "DESCRIPTIVE_REPORT_ONLY",
+        "TEMPORAL_ASSOCIATION_ONLY",
+        "COMBINATION_ASSOCIATION_ONLY",
+        "DECHALLENGE_SIGNAL",
+        "RECHALLENGE_SIGNAL",
+        "PROSPECTIVE_N_OF_1_SIGNAL",
+        "FORMAL_EVIDENCE_LINKED",
+        "UNRESOLVED"
+      ]
+    },
+    "formalEvidenceRelationship": {
+      "enum": [
+        "NOT_CHECKED",
+        "SUPPORT_NOT_LOCATED",
+        "ADJACENT_ONLY",
+        "CORROBORATED_FOR_MATCHED_SCOPE",
+        "CONTRADICTED_FOR_MATCHED_SCOPE",
+        "OUTCOME_MISMATCH",
+        "POPULATION_MISMATCH",
+        "INTERVENTION_MISMATCH",
+        "TIME_HORIZON_MISMATCH",
+        "FORMAL_EVIDENCE_CONFLICTED",
+        "UNRESOLVED"
+      ]
+    },
+    "leadStatus": {
+      "enum": [
+        "LEAD_CANDIDATE",
+        "STRUCTURED",
+        "PRIVACY_HOLD",
+        "SAFETY_REVIEW",
+        "PUBLIC",
+        "CHALLENGED",
+        "CORRECTED",
+        "DUPLICATE_LINKED",
+        "WITHDRAWAL_REQUESTED",
+        "PUBLIC_WITHDRAWN",
+        "SUPERSEDED",
+        "UNVERIFIABLE",
+        "REMOVED_POLICY_VIOLATION"
+      ]
+    },
+    "consentDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "notice_version", "decided_at"],
+      "properties": {
+        "decision": {"enum": ["YES", "NO", "WITHDRAWN", "NOT_ASKED"]},
+        "notice_version": {"$ref": "#/$defs/shortText"},
+        "consent_text_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "decided_at": {"$ref": "#/$defs/timestamp"},
+        "actor_type": {"enum": ["REPORTER", "SUBJECT", "GUARDIAN", "AUTHORIZED_REPRESENTATIVE", "SYSTEM"]},
+        "channel": {"enum": ["FORUM", "SECURE_PORTAL", "APP", "RESEARCH_INTERFACE", "ADMIN_CORRECTION"]}
+      }
+    },
+    "forumSourceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forum_service",
+        "topic_id",
+        "post_id",
+        "source_version",
+        "source_visibility",
+        "occurred_at",
+        "content_sha256"
+      ],
+      "properties": {
+        "forum_service": {"enum": ["DISCOURSE", "OTHER_APPROVED"]},
+        "forum_instance_id": {"$ref": "#/$defs/shortText"},
+        "topic_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "post_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "source_version": {"type": "integer", "minimum": 1},
+        "source_visibility": {"enum": ["PRIVATE", "MEMBER_ONLY", "PUBLIC", "DELETED", "UNKNOWN"]},
+        "source_url": {"type": ["string", "null"], "format": "uri", "maxLength": 2000},
+        "author_pseudonymous_id": {"type": ["string", "null"], "maxLength": 128},
+        "occurred_at": {"$ref": "#/$defs/timestamp"},
+        "received_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+        "content_sha256": {"$ref": "#/$defs/sha256"},
+        "approved_excerpt": {"type": ["string", "null"], "maxLength": 2000},
+        "excerpt_publication_consent_id": {"type": ["string", "null"], "maxLength": 128},
+        "deleted_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]}
+      }
+    },
+    "reporter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reporter_id",
+        "reporter_role",
+        "information_origin",
+        "source_distance",
+        "verification_state"
+      ],
+      "properties": {
+        "reporter_id": {"type": "string", "pattern": "^ARREP-[A-Z0-9_-]{8,64}$"},
+        "reporter_role": {"$ref": "#/$defs/reporterRole"},
+        "relationship_description": {"type": ["string", "null"], "maxLength": 500},
+        "information_origin": {"$ref": "#/$defs/informationOrigin"},
+        "source_distance": {"$ref": "#/$defs/sourceDistance"},
+        "verification_state": {"$ref": "#/$defs/verificationState"},
+        "public_attribution": {"enum": ["ANONYMOUS", "PSEUDONYM", "PUBLIC_HANDLE", "REAL_NAME", "NOT_PUBLIC"]},
+        "conflict_disclosures": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "maxItems": 20
+        }
+      }
+    },
+    "subjectBoundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "subject_private_ref_present",
+        "subject_identifiability_in_source",
+        "subject_identifiability_in_public_version",
+        "direct_subject_quote_present",
+        "subject_documents_or_media_present",
+        "minor_status",
+        "subject_acknowledgement_state"
+      ],
+      "properties": {
+        "subject_private_ref_present": {"type": "boolean"},
+        "subject_identifiability_in_source": {"enum": ["NONE", "LOW", "MODERATE", "HIGH", "DIRECT", "UNKNOWN"]},
+        "subject_identifiability_in_public_version": {"enum": ["NONE", "LOW", "MODERATE", "HIGH", "DIRECT", "UNKNOWN"]},
+        "direct_subject_quote_present": {"type": "boolean"},
+        "subject_documents_or_media_present": {"type": "boolean"},
+        "minor_status": {"enum": ["ADULT", "MINOR", "UNKNOWN"]},
+        "subject_acknowledgement_state": {"enum": ["NOT_REQUESTED", "INVITED", "ACKNOWLEDGED", "VERIFIED", "DISPUTED", "DECLINED", "UNREACHABLE"]},
+        "subject_exact_version_approval": {"anyOf": [{"$ref": "#/$defs/consentDecision"}, {"type": "null"}]}
+      }
+    },
+    "conditionEpisode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition_episode_id", "condition_name", "diagnostic_certainty"],
+      "properties": {
+        "condition_episode_id": {"type": "string", "pattern": "^ARC-[A-Z0-9_-]{4,64}$"},
+        "condition_id": {"type": ["string", "null"], "maxLength": 200},
+        "condition_name": {"$ref": "#/$defs/shortText"},
+        "diagnostic_certainty": {
+          "enum": [
+            "CLINICIAN_CONFIRMED",
+            "LAB_OR_CRITERIA_SUPPORTED",
+            "SELF_IDENTIFIED",
+            "REPORTED_BY_PROXY",
+            "SUSPECTED",
+            "UNKNOWN"
+          ]
+        },
+        "diagnosis_source_summary": {"type": ["string", "null"], "maxLength": 2000},
+        "population_stage": {"type": ["string", "null"], "maxLength": 1000},
+        "baseline_summary": {"type": ["string", "null"], "maxLength": 4000}
+      }
+    },
+    "interventionComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["component_id", "name", "dose_known", "start_known"],
+      "properties": {
+        "component_id": {"type": "string", "pattern": "^ARIC-[A-Z0-9_-]{4,64}$"},
+        "normalized_intervention_id": {"type": ["string", "null"], "maxLength": 200},
+        "name": {"$ref": "#/$defs/shortText"},
+        "formulation": {"type": ["string", "null"], "maxLength": 500},
+        "route": {"type": ["string", "null"], "maxLength": 200},
+        "dose_known": {"type": "boolean"},
+        "dose_value": {"type": ["number", "null"]},
+        "dose_unit": {"type": ["string", "null"], "maxLength": 100},
+        "frequency": {"type": ["string", "null"], "maxLength": 500},
+        "start_known": {"type": "boolean"},
+        "start_description": {"type": ["string", "null"], "maxLength": 500},
+        "end_description": {"type": ["string", "null"], "maxLength": 500},
+        "adherence_summary": {"type": ["string", "null"], "maxLength": 2000},
+        "dechallenge_summary": {"type": ["string", "null"], "maxLength": 3000},
+        "rechallenge_summary": {"type": ["string", "null"], "maxLength": 3000}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"dose_known": {"const": true}}, "required": ["dose_known"]},
+          "then": {"required": ["dose_value", "dose_unit"]}
+        }
+      ]
+    },
+    "interventionEpisode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intervention_episode_id", "episode_type", "components", "sequence_known"],
+      "properties": {
+        "intervention_episode_id": {"type": "string", "pattern": "^ARI-[A-Z0-9_-]{4,64}$"},
+        "episode_type": {"enum": ["SINGLE", "COMBINATION", "SEQUENCE", "BACKGROUND", "UNKNOWN"]},
+        "components": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/interventionComponent"},
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "sequence_known": {"type": "boolean"},
+        "sequence_summary": {"type": ["string", "null"], "maxLength": 3000},
+        "cointerventions_summary": {"type": ["string", "null"], "maxLength": 4000},
+        "program_fingerprint": {"type": ["string", "null"], "maxLength": 1000}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome_id", "name", "reported_direction", "measurement_type"],
+      "properties": {
+        "outcome_id": {"type": "string", "pattern": "^ARO-[A-Z0-9_-]{4,64}$"},
+        "name": {"$ref": "#/$defs/shortText"},
+        "reported_direction": {"enum": ["IMPROVED", "WORSENED", "NO_CLEAR_CHANGE", "MIXED", "UNKNOWN"]},
+        "reported_magnitude": {"enum": ["MINIMAL", "SMALL", "MODERATE", "LARGE", "VERY_LARGE", "UNKNOWN"]},
+        "measurement_type": {
+          "enum": [
+            "SUBJECTIVE_GLOBAL",
+            "VALIDATED_PATIENT_REPORTED",
+            "DIRECT_OBSERVER",
+            "DEVICE",
+            "LAB",
+            "CLINICIAN_ASSESSED",
+            "HEALTHCARE_USE",
+            "OTHER",
+            "UNKNOWN"
+          ]
+        },
+        "baseline_value": {"type": ["number", "string", "null"]},
+        "follow_up_value": {"type": ["number", "string", "null"]},
+        "unit_or_scale": {"type": ["string", "null"], "maxLength": 200},
+        "onset_after_intervention": {"type": ["string", "null"], "maxLength": 500},
+        "duration_or_persistence": {"type": ["string", "null"], "maxLength": 1000},
+        "current_status": {"enum": ["PERSISTED", "PARTIALLY_PERSISTED", "LOST_EFFECT", "REVERSED", "ONGOING_UNKNOWN", "UNKNOWN"]},
+        "reporter_wording": {"type": ["string", "null"], "maxLength": 2000}
+      }
+    },
+    "completenessProfile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overall_band", "field_status", "missing_material_fields"],
+      "properties": {
+        "overall_band": {"enum": ["MINIMAL", "PARTIAL", "MODERATE", "HIGH_DETAIL"]},
+        "field_status": {
+          "type": "object",
+          "additionalProperties": {"enum": ["KNOWN", "PARTIAL", "UNKNOWN", "NOT_APPLICABLE"]},
+          "maxProperties": 100
+        },
+        "missing_material_fields": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 200},
+          "uniqueItems": true,
+          "maxItems": 100
+        },
+        "follow_up_questions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "maxItems": 50
+        }
+      }
+    },
+    "discoveryValueComponents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "novelty",
+        "intervention_specificity",
+        "reported_outcome_magnitude",
+        "harm_urgency",
+        "independent_replication",
+        "formal_evidence_gap",
+        "follow_up_tractability",
+        "decision_importance"
+      ],
+      "properties": {
+        "novelty": {"type": "integer", "minimum": 0, "maximum": 4},
+        "intervention_specificity": {"type": "integer", "minimum": 0, "maximum": 4},
+        "reported_outcome_magnitude": {"type": "integer", "minimum": 0, "maximum": 4},
+        "harm_urgency": {"type": "integer", "minimum": 0, "maximum": 4},
+        "independent_replication": {"type": "integer", "minimum": 0, "maximum": 4},
+        "formal_evidence_gap": {"type": "integer", "minimum": 0, "maximum": 4},
+        "follow_up_tractability": {"type": "integer", "minimum": 0, "maximum": 4},
+        "decision_importance": {"type": "integer", "minimum": 0, "maximum": 4},
+        "equity_or_neglect_importance": {"type": "integer", "minimum": 0, "maximum": 4},
+        "rationales": {
+          "type": "object",
+          "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 2000},
+          "maxProperties": 20
+        },
+        "composite_display_prohibited": {"const": true}
+      }
+    },
+    "leadConsentLedger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_lead", "aggregate_research", "recontact", "direct_quote", "documents_or_media"],
+      "properties": {
+        "public_lead": {"$ref": "#/$defs/consentDecision"},
+        "aggregate_research": {"$ref": "#/$defs/consentDecision"},
+        "recontact": {"$ref": "#/$defs/consentDecision"},
+        "direct_quote": {"$ref": "#/$defs/consentDecision"},
+        "documents_or_media": {"$ref": "#/$defs/consentDecision"},
+        "exact_regimen_publication": {"anyOf": [{"$ref": "#/$defs/consentDecision"}, {"type": "null"}]},
+        "future_research": {"anyOf": [{"$ref": "#/$defs/consentDecision"}, {"type": "null"}]},
+        "model_training": {"anyOf": [{"$ref": "#/$defs/consentDecision"}, {"type": "null"}]}
+      }
+    },
+    "communityLead": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lead_id",
+        "lead_version",
+        "source_references",
+        "reporter",
+        "subject_boundary",
+        "conditions",
+        "intervention_episodes",
+        "outcomes",
+        "verification_state",
+        "evidence_capability",
+        "formal_evidence_relationship",
+        "completeness",
+        "discovery_value_components",
+        "consents",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "lead_id": {"type": "string", "pattern": "^ARLEAD-[A-Z0-9_-]{8,64}$"},
+        "lead_version": {"type": "integer", "minimum": 1},
+        "source_references": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/forumSourceReference"},
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "reporter": {"$ref": "#/$defs/reporter"},
+        "subject_boundary": {"$ref": "#/$defs/subjectBoundary"},
+        "conditions": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/conditionEpisode"},
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "intervention_episodes": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/interventionEpisode"},
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "outcomes": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/outcome"},
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "adverse_event_summaries": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mediumText"},
+          "maxItems": 100
+        },
+        "alternative_explanations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mediumText"},
+          "maxItems": 50
+        },
+        "verification_state": {"$ref": "#/$defs/verificationState"},
+        "evidence_capability": {"$ref": "#/$defs/evidenceCapability"},
+        "formal_evidence_relationship": {"$ref": "#/$defs/formalEvidenceRelationship"},
+        "completeness": {"$ref": "#/$defs/completenessProfile"},
+        "discovery_value_components": {"$ref": "#/$defs/discoveryValueComponents"},
+        "consents": {"$ref": "#/$defs/leadConsentLedger"},
+        "duplicate_or_linked_lead_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^ARLEAD-[A-Z0-9_-]{8,64}$"},
+          "uniqueItems": true,
+          "maxItems": 100
+        },
+        "status": {"$ref": "#/$defs/leadStatus"},
+        "created_at": {"$ref": "#/$defs/timestamp"},
+        "updated_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+        "canonical_payload_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+      }
+    },
+    "deidentificationReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_id", "outcome", "risk_flags", "reviewed_at", "reviewer_role"],
+      "properties": {
+        "review_id": {"type": "string", "pattern": "^ARPRIV-[A-Z0-9_-]{8,64}$"},
+        "outcome": {"enum": ["PASS", "FAIL", "HUMAN_REVIEW_REQUIRED", "PENDING"]},
+        "risk_flags": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "DIRECT_IDENTIFIER",
+              "EXACT_DATE_OR_AGE",
+              "RARE_CONDITION_INTERVENTION_COMBINATION",
+              "PRECISE_LOCATION",
+              "CLINICIAN_OR_CLINIC",
+              "UNIQUE_SEARCHABLE_QUOTE",
+              "IMAGE_OR_EXIF",
+              "DOCUMENT_IDENTIFIER",
+              "MINOR",
+              "PUBLIC_BACKLINK_REIDENTIFICATION",
+              "RELATIONAL_REIDENTIFICATION",
+              "OTHER"
+            ]
+          },
+          "uniqueItems": true,
+          "maxItems": 30
+        },
+        "redactions_or_generalizations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mediumText"},
+          "maxItems": 50
+        },
+        "reviewed_at": {"$ref": "#/$defs/timestamp"},
+        "reviewer_role": {"enum": ["PRIVACY_REVIEWER", "SYSTEM_PRECHECK", "LEGAL_REVIEWER"]},
+        "rationale": {"type": ["string", "null"], "maxLength": 4000}
+      }
+    },
+    "publicLeadVersion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "public_version_id",
+        "lead_id",
+        "lead_version",
+        "publication_object_type",
+        "public_title",
+        "public_paraphrase",
+        "source_distance_label",
+        "reporter_publication_consent",
+        "subject_exact_version_approval",
+        "deidentification_review",
+        "subject_identifiable_in_public_version",
+        "direct_subject_quote_present",
+        "documents_or_media_present",
+        "limitations",
+        "status",
+        "public_payload_sha256"
+      ],
+      "properties": {
+        "public_version_id": {"type": "string", "pattern": "^ARPUB-[A-Z0-9_-]{8,64}$"},
+        "lead_id": {"type": "string", "pattern": "^ARLEAD-[A-Z0-9_-]{8,64}$"},
+        "lead_version": {"type": "integer", "minimum": 1},
+        "publication_object_type": {"enum": ["PUBLIC_RESEARCH_LEAD", "PUBLIC_NARRATIVE"]},
+        "public_title": {"$ref": "#/$defs/shortText"},
+        "public_paraphrase": {"$ref": "#/$defs/longText"},
+        "source_distance_label": {"$ref": "#/$defs/shortText"},
+        "reporter_publication_consent": {"$ref": "#/$defs/consentDecision"},
+        "subject_exact_version_approval": {"anyOf": [{"$ref": "#/$defs/consentDecision"}, {"type": "null"}]},
+        "deidentification_review": {"$ref": "#/$defs/deidentificationReview"},
+        "subject_identifiable_in_public_version": {"type": "boolean"},
+        "direct_subject_quote_present": {"type": "boolean"},
+        "documents_or_media_present": {"type": "boolean"},
+        "verification_state": {"$ref": "#/$defs/verificationState"},
+        "evidence_capability": {"$ref": "#/$defs/evidenceCapability"},
+        "formal_evidence_relationship": {"$ref": "#/$defs/formalEvidenceRelationship"},
+        "limitations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mediumText"},
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "published_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]},
+        "status": {"enum": ["DRAFT", "PRIVACY_REVIEW", "APPROVED", "PUBLISHED", "CHALLENGED", "WITHDRAWN", "SUPERSEDED"]},
+        "public_payload_sha256": {"$ref": "#/$defs/sha256"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"publication_object_type": {"const": "PUBLIC_NARRATIVE"}},
+            "required": ["publication_object_type"]
+          },
+          "then": {
+            "properties": {
+              "subject_exact_version_approval": {
+                "type": "object",
+                "properties": {"decision": {"const": "YES"}},
+                "required": ["decision"]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {"publication_object_type": {"const": "PUBLIC_RESEARCH_LEAD"}},
+            "required": ["publication_object_type"]
+          },
+          "then": {
+            "properties": {
+              "reporter_publication_consent": {
+                "type": "object",
+                "properties": {"decision": {"const": "YES"}},
+                "required": ["decision"]
+              },
+              "deidentification_review": {
+                "type": "object",
+                "properties": {"outcome": {"const": "PASS"}},
+                "required": ["outcome"]
+              },
+              "subject_identifiable_in_public_version": {"const": false},
+              "direct_subject_quote_present": {"const": false},
+              "documents_or_media_present": {"const": false}
+            }
+          }
+        }
+      ]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "population": {"type": ["string", "null"], "maxLength": 2000},
+        "condition": {"type": ["string", "null"], "maxLength": 1000},
+        "intervention_or_exposure": {"type": ["string", "null"], "maxLength": 2000},
+        "comparator": {"type": ["string", "null"], "maxLength": 2000},
+        "outcome": {"type": ["string", "null"], "maxLength": 2000},
+        "horizon": {"type": ["string", "null"], "maxLength": 1000},
+        "setting": {"type": ["string", "null"], "maxLength": 1000}
+      }
+    },
+    "directionCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["improved", "worsened", "no_clear_change", "mixed", "unknown"],
+      "properties": {
+        "improved": {"type": "integer", "minimum": 0},
+        "worsened": {"type": "integer", "minimum": 0},
+        "no_clear_change": {"type": "integer", "minimum": 0},
+        "mixed": {"type": "integer", "minimum": 0},
+        "unknown": {"type": "integer", "minimum": 0}
+      }
+    },
+    "sourceDistanceCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "firsthand_subject",
+        "firsthand_observer",
+        "one_hop_subject_relay",
+        "multi_hop_hearsay",
+        "public_source_extracted",
+        "mixed",
+        "unknown"
+      ],
+      "properties": {
+        "firsthand_subject": {"type": "integer", "minimum": 0},
+        "firsthand_observer": {"type": "integer", "minimum": 0},
+        "one_hop_subject_relay": {"type": "integer", "minimum": 0},
+        "multi_hop_hearsay": {"type": "integer", "minimum": 0},
+        "public_source_extracted": {"type": "integer", "minimum": 0},
+        "mixed": {"type": "integer", "minimum": 0},
+        "unknown": {"type": "integer", "minimum": 0}
+      }
+    },
+    "signalCluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cluster_id",
+        "cluster_version",
+        "scope",
+        "member_lead_ids",
+        "independent_source_count",
+        "direction_counts",
+        "source_distance_counts",
+        "duplicate_handling",
+        "clustering_method_version",
+        "formal_evidence_relationship",
+        "limitations",
+        "created_at"
+      ],
+      "properties": {
+        "cluster_id": {"type": "string", "pattern": "^ARCL-[A-Z0-9_-]{8,64}$"},
+        "cluster_version": {"type": "integer", "minimum": 1},
+        "scope": {"$ref": "#/$defs/scope"},
+        "program_fingerprint": {"type": ["string", "null"], "maxLength": 2000},
+        "member_lead_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^ARLEAD-[A-Z0-9_-]{8,64}$"},
+          "minItems": 1,
+          "uniqueItems": true,
+          "maxItems": 100000
+        },
+        "independent_source_count": {"type": "integer", "minimum": 1},
+        "direction_counts": {"$ref": "#/$defs/directionCounts"},
+        "source_distance_counts": {"$ref": "#/$defs/sourceDistanceCounts"},
+        "duplicate_handling": {"$ref": "#/$defs/mediumText"},
+        "clustering_method_version": {"$ref": "#/$defs/shortText"},
+        "formal_evidence_relationship": {"$ref": "#/$defs/formalEvidenceRelationship"},
+        "selection_boundary": {"$ref": "#/$defs/mediumText"},
+        "denominator_available": {"type": "boolean"},
+        "effectiveness_percentage_display_permitted": {"const": false},
+        "limitations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mediumText"},
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "created_at": {"$ref": "#/$defs/timestamp"},
+        "updated_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]}
+      }
+    },
+    "researchQuestion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question_id",
+        "question_version",
+        "derived_from_cluster_ids",
+        "question_text",
+        "scope",
+        "evidence_check_status",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "question_id": {"type": "string", "pattern": "^ARQ-[A-Z0-9_-]{8,64}$"},
+        "question_version": {"type": "integer", "minimum": 1},
+        "derived_from_cluster_ids": {
+          "type": "array",
+          "items": {"type": "string", "pattern": "^ARCL-[A-Z0-9_-]{8,64}$"},
+          "minItems": 1,
+          "uniqueItems": true,
+          "maxItems": 1000
+        },
+        "question_text": {"$ref": "#/$defs/mediumText"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "evidence_check_status": {
+          "enum": [
+            "NOT_CHECKED",
+            "ANSWERED_FOR_SCOPE",
+            "PARTIALLY_ANSWERED",
+            "FORMAL_EVIDENCE_CONFLICTED",
+            "NOT_ANSWERED",
+            "QUESTION_NOT_YET_WELL_FORMED",
+            "INACCESSIBLE_OR_UNRESOLVED"
+          ]
+        },
+        "existing_evidence_summary": {"type": ["string", "null"], "maxLength": 10000},
+        "unresolved_reason": {"type": ["string", "null"], "maxLength": 4000},
+        "stakeholder_priority_snapshot_ids": {
+          "type": "array",
+          "items": {"type": "string", "maxLength": 128},
+          "uniqueItems": true,
+          "maxItems": 100
+        },
+        "status": {"enum": ["CANDIDATE", "EVIDENCE_CHECK", "OPEN_UNCERTAINTY", "ANSWERED", "PRIORITIZED", "PROPOSAL_LINKED", "CLOSED", "SUPERSEDED"]},
+        "created_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "researchProposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "proposal_id",
+        "proposal_version",
+        "question_id",
+        "proposal_type",
+        "design_summary",
+        "outcomes_and_horizon",
+        "ethics_state",
+        "privacy_state",
+        "safety_state",
+        "methods_review_state",
+        "status",
+        "created_at"
+      ],
+      "properties": {
+        "proposal_id": {"type": "string", "pattern": "^ARPROP-[A-Z0-9_-]{8,64}$"},
+        "proposal_version": {"type": "integer", "minimum": 1},
+        "question_id": {"type": "string", "pattern": "^ARQ-[A-Z0-9_-]{8,64}$"},
+        "proposal_type": {
+          "enum": [
+            "TARGETED_REVIEW",
+            "EVIDENCE_MAP_UPDATE",
+            "RETROSPECTIVE_SURVEY",
+            "PROSPECTIVE_COMMUNITY_FOLLOW_UP",
+            "OBSERVATIONAL_COHORT",
+            "N_OF_1",
+            "CASE_SERIES",
+            "PRAGMATIC_TRIAL",
+            "RANDOMIZED_TRIAL",
+            "DIAGNOSTIC_OR_BIOMARKER",
+            "MECHANISTIC",
+            "PHARMACOVIGILANCE",
+            "QUALITATIVE_IMPLEMENTATION",
+            "DATA_LINKAGE"
+          ]
+        },
+        "signal_basis_summary": {"type": ["string", "null"], "maxLength": 10000},
+        "design_summary": {"$ref": "#/$defs/longText"},
+        "outcomes_and_horizon": {"$ref": "#/$defs/mediumText"},
+        "competing_explanations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/mediumText"},
+          "maxItems": 100
+        },
+        "ethics_state": {"enum": ["NOT_REVIEWED", "REVIEW_REQUIRED", "REVIEW_IN_PROGRESS", "APPROVED", "NOT_APPLICABLE", "REJECTED"]},
+        "privacy_state": {"enum": ["NOT_REVIEWED", "REVIEW_REQUIRED", "REVIEW_IN_PROGRESS", "APPROVED", "NOT_APPLICABLE", "REJECTED"]},
+        "safety_state": {"enum": ["NOT_REVIEWED", "REVIEW_REQUIRED", "REVIEW_IN_PROGRESS", "APPROVED", "NOT_APPLICABLE", "REJECTED"]},
+        "methods_review_state": {"enum": ["NOT_REVIEWED", "REVIEW_IN_PROGRESS", "APPROVED", "REVISE", "REJECTED"]},
+        "community_priority_summary": {"type": ["string", "null"], "maxLength": 4000},
+        "clinician_priority_summary": {"type": ["string", "null"], "maxLength": 4000},
+        "researcher_priority_summary": {"type": ["string", "null"], "maxLength": 4000},
+        "mission_id": {"type": ["string", "null"], "maxLength": 128},
+        "status": {"enum": ["DRAFT", "PUBLIC_COMMENT", "METHODS_REVIEW", "ETHICS_REVIEW", "SEEKING_SUPPORT", "FUNDED", "ACTIVE", "COMPLETED", "REJECTED", "CLOSED", "SUPERSEDED"]},
+        "created_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "moderationEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "target_type", "target_id", "actor_role", "action", "reason", "occurred_at", "appealable"],
+      "properties": {
+        "event_id": {"type": "string", "pattern": "^ARMOD-[A-Z0-9_-]{8,64}$"},
+        "target_type": {"enum": ["TOPIC", "POST", "LEAD", "CLUSTER", "QUESTION", "PROPOSAL", "USER"]},
+        "target_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "actor_role": {"enum": ["CATEGORY_MODERATOR", "GLOBAL_MODERATOR", "ADMINISTRATOR", "SYSTEM_PRECHECK"]},
+        "action": {"enum": ["LABEL", "MOVE", "HIDE", "REMOVE", "RESTORE", "LOCK", "UNLOCK", "SUSPEND", "UNSUSPEND", "ESCALATE", "NO_ACTION"]},
+        "reason": {"$ref": "#/$defs/mediumText"},
+        "occurred_at": {"$ref": "#/$defs/timestamp"},
+        "appealable": {"type": "boolean"},
+        "appeal_id": {"type": ["string", "null"], "maxLength": 128}
+      }
+    },
+    "scientificAnnotation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["annotation_id", "target_type", "target_id", "annotation_type", "annotation_text", "actor_role", "occurred_at"],
+      "properties": {
+        "annotation_id": {"type": "string", "pattern": "^ARANN-[A-Z0-9_-]{8,64}$"},
+        "target_type": {"enum": ["TOPIC", "POST", "LEAD", "CLUSTER", "QUESTION", "PROPOSAL"]},
+        "target_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "annotation_type": {
+          "enum": [
+            "EXPERIENCE_REPORT",
+            "SECONDHAND_REPORT",
+            "DIRECT_OBSERVATION",
+            "MECHANISM_HYPOTHESIS",
+            "CAUSAL_CLAIM",
+            "FORMAL_EVIDENCE_CLAIM",
+            "SAFETY_CLAIM",
+            "CONFLICT_DISCLOSURE",
+            "ASKRIGOR_CONTEXT_NOTE",
+            "CORRECTION",
+            "UNRESOLVED_DISPUTE"
+          ]
+        },
+        "annotation_text": {"$ref": "#/$defs/longText"},
+        "source_identifiers": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "uniqueItems": true,
+          "maxItems": 100
+        },
+        "actor_role": {"enum": ["SCIENTIFIC_ANNOTATOR", "METHODS_REVIEWER", "ASKRIGOR_SYSTEM"]},
+        "occurred_at": {"$ref": "#/$defs/timestamp"},
+        "supersedes_annotation_id": {"type": ["string", "null"], "maxLength": 128},
+        "appealable": {"type": "boolean", "default": true}
+      }
+    },
+    "privacyReview": {"$ref": "#/$defs/deidentificationReview"},
+    "safetyCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "safety_candidate_id",
+        "source_target_type",
+        "source_target_id",
+        "event_summary",
+        "seriousness",
+        "patient_identifiability",
+        "reporter_identifiability",
+        "product_or_intervention_identified",
+        "triage_state",
+        "created_at"
+      ],
+      "properties": {
+        "safety_candidate_id": {"type": "string", "pattern": "^ARSAFE-[A-Z0-9_-]{8,64}$"},
+        "source_target_type": {"enum": ["POST", "LEAD", "CLUSTER"]},
+        "source_target_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "event_summary": {"$ref": "#/$defs/mediumText"},
+        "seriousness": {"enum": ["NON_SERIOUS", "SERIOUS", "POTENTIALLY_SERIOUS", "IMMEDIATE_CRISIS", "UNKNOWN"]},
+        "patient_identifiability": {"enum": ["IDENTIFIABLE", "POTENTIALLY_IDENTIFIABLE", "NOT_IDENTIFIABLE", "UNKNOWN"]},
+        "reporter_identifiability": {"enum": ["IDENTIFIABLE", "POTENTIALLY_IDENTIFIABLE", "NOT_IDENTIFIABLE", "UNKNOWN"]},
+        "product_or_intervention_identified": {"type": "boolean"},
+        "jurisdiction": {"type": ["string", "null"], "maxLength": 200},
+        "follow_up_feasible": {"type": ["boolean", "null"]},
+        "regulatory_responsibility_state": {"enum": ["NOT_ASSESSED", "ASSESSMENT_REQUIRED", "NO_DUTY_IDENTIFIED", "REPORTING_DUTY_IDENTIFIED", "LEGAL_REVIEW_REQUIRED"]},
+        "triage_state": {"enum": ["NEW", "URGENT", "IN_REVIEW", "FOLLOW_UP_REQUESTED", "ACTION_TAKEN", "CLOSED_NO_ACTION", "REFERRED", "SUPERSEDED"]},
+        "created_at": {"$ref": "#/$defs/timestamp"}
+      }
+    },
+    "consentEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consent_event_id", "subject_type", "subject_id", "permission", "decision"],
+      "properties": {
+        "consent_event_id": {"type": "string", "pattern": "^ARCONS-[A-Z0-9_-]{8,64}$"},
+        "subject_type": {"enum": ["REPORTER", "AFFECTED_PERSON", "GUARDIAN", "AUTHORIZED_REPRESENTATIVE"]},
+        "subject_id": {"type": "string", "minLength": 1, "maxLength": 128},
+        "permission": {
+          "enum": [
+            "FORUM_PUBLICATION",
+            "SEARCH_INDEXING",
+            "PUBLIC_LEAD",
+            "AGGREGATE_RESEARCH",
+            "DIRECT_QUOTATION",
+            "EXACT_REGIMEN_PUBLICATION",
+            "DOCUMENTS_OR_MEDIA",
+            "RECONTACT",
+            "SUBJECT_CONTACT_INVITATION",
+            "PROSPECTIVE_FOLLOW_UP",
+            "EXTERNAL_LINKAGE",
+            "PRODUCT_IMPROVEMENT",
+            "MODEL_TRAINING"
+          ]
+        },
+        "decision": {"$ref": "#/$defs/consentDecision"},
+        "target_record_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 128},
+          "uniqueItems": true,
+          "maxItems": 1000
+        }
+      }
+    },
+    "withdrawalEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["withdrawal_event_id", "requester_type", "target_record_ids", "requested_at", "propagation_state"],
+      "properties": {
+        "withdrawal_event_id": {"type": "string", "pattern": "^ARWITH-[A-Z0-9_-]{8,64}$"},
+        "requester_type": {"enum": ["REPORTER", "AFFECTED_PERSON", "GUARDIAN", "AUTHORIZED_REPRESENTATIVE", "PLATFORM_PRIVACY_ACTION"]},
+        "target_record_ids": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 128},
+          "minItems": 1,
+          "uniqueItems": true,
+          "maxItems": 10000
+        },
+        "reason": {"type": ["string", "null"], "maxLength": 4000},
+        "requested_at": {"$ref": "#/$defs/timestamp"},
+        "propagation_state": {"enum": ["REQUESTED", "PUBLIC_PROJECTION_REMOVED", "SEARCH_REMOVED", "CLUSTERS_RECOMPUTED", "CACHES_PENDING", "COMPLETE", "PARTIALLY_IRREVERSIBLE", "REJECTED_WITH_REASON"]},
+        "irreversible_aggregate_boundary": {"type": ["string", "null"], "maxLength": 4000},
+        "completed_at": {"anyOf": [{"$ref": "#/$defs/timestamp"}, {"type": "null"}]}
+      }
+    }
+  }
+}

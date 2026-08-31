@@ -1,0 +1,55 @@
+{
+  "schema_version": "0.1.0",
+  "record_type": "PUBLIC_LEAD_VERSION",
+  "record_id": "ARPUB-ANDYLIKE20260830V1",
+  "payload": {
+    "public_version_id": "ARPUB-ANDYLIKE20260830V1",
+    "lead_id": "ARLEAD-ANDYLIKE20260830",
+    "lead_version": 1,
+    "publication_object_type": "PUBLIC_RESEARCH_LEAD",
+    "public_title": "Reported substantial MCAS improvement — secondhand community lead",
+    "public_paraphrase": "A community member reports that an adult friend with reported mast cell activation syndrome experienced substantial improvement while using a combination of low-dose naltrexone, low-dose NAD+ injections, and low-dose tirzepatide. This is a one-hop report relayed by a friend, has not been independently verified, and currently lacks enough diagnostic, sequencing, timing, dose, co-intervention, adverse-effect, and follow-up detail to attribute the improvement to the combination or any component. AskRigor retains it as a public lead for follow-up, similar-report discovery, evidence checking, and future research design.",
+    "source_distance_label": "Reported by a friend who says the affected person told them; not a firsthand subject report",
+    "reporter_publication_consent": {
+      "decision": "YES",
+      "notice_version": "community-public-lead-notice-0.1.0",
+      "consent_text_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "decided_at": "2026-08-30T16:31:00Z",
+      "actor_type": "REPORTER",
+      "channel": "FORUM"
+    },
+    "subject_exact_version_approval": null,
+    "deidentification_review": {
+      "review_id": "ARPRIV-ANDYLIKE20260830",
+      "outcome": "PASS",
+      "risk_flags": [],
+      "redactions_or_generalizations": [
+        "Omitted the affected person's name and relationship-specific identifying detail.",
+        "Used an adult age band rather than exact age.",
+        "Omitted location, clinician, clinic, dates, records, and direct quotations."
+      ],
+      "reviewed_at": "2026-08-30T16:35:00Z",
+      "reviewer_role": "PRIVACY_REVIEWER",
+      "rationale": "The public version contains only a broad adult subject description, reported condition, three intervention names, and a high-level outcome. It does not expose a direct identifier, direct private quotation, document, media, exact location, or exact date. This is a synthetic fixture and not a real publication."
+    },
+    "subject_identifiable_in_public_version": false,
+    "direct_subject_quote_present": false,
+    "documents_or_media_present": false,
+    "verification_state": "UNVERIFIED",
+    "evidence_capability": "COMBINATION_ASSOCIATION_ONLY",
+    "formal_evidence_relationship": "NOT_CHECKED",
+    "limitations": [
+      "The report is secondhand and has not been independently verified.",
+      "The MCAS diagnostic basis is unknown.",
+      "The doses, formulations, frequencies, start dates, sequence, overlap, adherence, and stopping or restarting are unknown.",
+      "Other medications, diet, infections, environment, and life changes are unknown.",
+      "The baseline, exact outcomes, time to improvement, durability, current status, and adverse effects are incompletely described.",
+      "This lead cannot establish efficacy, causality, population frequency, or which component mattered."
+    ],
+    "published_at": null,
+    "status": "APPROVED",
+    "public_payload_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+  },
+  "created_at": "2026-08-30T16:35:00Z",
+  "record_payload_sha256": null
+}

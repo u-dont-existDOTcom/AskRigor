@@ -1,0 +1,487 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://askrigor.com/schemas/patient-story-intake-contract-v0.1.0.json",
+  "title": "AskRigor Patient Experience Observatory story record",
+  "description": "Versioned structured treatment-story intake. A story is patient-reported evidence and a research lead; it does not by itself establish causality or population efficacy.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "story_id",
+    "intake_channel",
+    "record_state",
+    "reporter_role",
+    "condition_episodes",
+    "intervention_episodes",
+    "outcomes",
+    "completeness",
+    "consents",
+    "created_at"
+  ],
+  "properties": {
+    "schema_version": {"const": "0.1.0"},
+    "story_id": {"type": "string", "pattern": "^ARS-[A-Z0-9_-]{8,64}$"},
+    "story_version": {"type": "integer", "minimum": 1, "default": 1},
+    "intake_channel": {
+      "enum": [
+        "EXTERNAL_SECURE_PORTAL",
+        "DEIDENTIFIED_APP_INTAKE",
+        "RESEARCHER_MODERATED_INTERVIEW",
+        "PUBLIC_SOURCE_EXTRACTION",
+        "BULK_REGISTRY_IMPORT"
+      ]
+    },
+    "record_state": {
+      "enum": [
+        "PARTIAL",
+        "SUBMITTED",
+        "FOLLOW_UP_REQUESTED",
+        "REVIEWED",
+        "DUPLICATE_OR_LINKED",
+        "RESEARCH_LEAD",
+        "WITHDRAWAL_REQUESTED",
+        "WITHDRAWN",
+        "SUPERSEDED"
+      ]
+    },
+    "reporter_role": {"enum": ["SELF", "CAREGIVER", "CLINICIAN", "RESEARCHER", "PUBLIC_SOURCE_AUTHOR", "OTHER"]},
+    "subject_private_ref": {
+      "type": ["string", "null"],
+      "description": "Opaque reference into a separately protected identity store. Forbidden for deidentified app intake.",
+      "maxLength": 200
+    },
+    "subject_summary": {"$ref": "#/$defs/subjectSummary"},
+    "minimal_report": {"$ref": "#/$defs/minimalReport"},
+    "condition_episodes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/conditionEpisode"},
+      "minItems": 1,
+      "maxItems": 20
+    },
+    "intervention_episodes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/interventionEpisode"},
+      "minItems": 1,
+      "maxItems": 100
+    },
+    "outcomes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/outcome"},
+      "minItems": 1,
+      "maxItems": 100
+    },
+    "adverse_events": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/adverseEvent"},
+      "maxItems": 100
+    },
+    "measurements": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/measurement"},
+      "maxItems": 1000
+    },
+    "timeline_events": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/timelineEvent"},
+      "maxItems": 1000
+    },
+    "cointerventions_and_changes": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/cointervention"},
+      "maxItems": 100
+    },
+    "reporter_attribution": {"$ref": "#/$defs/reporterAttribution"},
+    "alternative_explanations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1, "maxLength": 2000},
+      "maxItems": 50
+    },
+    "clinician_involvement": {"$ref": "#/$defs/clinicianInvolvement"},
+    "source_documents": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/sourceDocument"},
+      "maxItems": 100
+    },
+    "narrative": {
+      "anyOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/narrative"}
+      ]
+    },
+    "completeness": {"$ref": "#/$defs/completeness"},
+    "askrigor_capability": {
+      "enum": [
+        "DESCRIPTIVE_REPORT_ONLY",
+        "TEMPORAL_ASSOCIATION_ONLY",
+        "COMBINATION_ASSOCIATION_ONLY",
+        "DECHALLENGE_SIGNAL",
+        "RECHALLENGE_SIGNAL",
+        "PROSPECTIVE_N_OF_1_SIGNAL",
+        "FORMAL_EVIDENCE_LINKED",
+        "UNRESOLVED"
+      ]
+    },
+    "duplicate_or_linked_story_ids": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^ARS-[A-Z0-9_-]{8,64}$"},
+      "uniqueItems": true,
+      "maxItems": 100
+    },
+    "consents": {"$ref": "#/$defs/consentLedger"},
+    "public_story": {
+      "anyOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/publicStory"}
+      ]
+    },
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": ["string", "null"], "format": "date-time"},
+    "record_payload_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"}
+  },
+  "$defs": {
+    "approximateDate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["precision"],
+      "properties": {
+        "value": {"type": ["string", "null"], "maxLength": 30},
+        "precision": {"enum": ["EXACT_DAY", "MONTH", "YEAR", "RELATIVE_ONLY", "UNKNOWN"]},
+        "relative_description": {"type": ["string", "null"], "maxLength": 500}
+      }
+    },
+    "subjectSummary": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "age_range": {"enum": [null, "UNDER_18", "18_29", "30_44", "45_59", "60_74", "75_PLUS", "UNKNOWN"]},
+        "sex_at_birth": {"enum": [null, "FEMALE", "MALE", "INTERSEX", "UNKNOWN", "PREFER_NOT_TO_SAY"]},
+        "gender_identity": {"type": ["string", "null"], "maxLength": 100},
+        "country_or_broad_region": {"type": ["string", "null"], "maxLength": 100},
+        "public_demographic_detail_allowed": {"type": "boolean", "default": false}
+      }
+    },
+    "minimalReport": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "what_happened": {"type": ["string", "null"], "maxLength": 4000},
+        "reported_direction": {"enum": [null, "HELPED", "HARMED", "NO_CLEAR_CHANGE", "MIXED", "UNCLEAR"]},
+        "approximate_timing": {"type": ["string", "null"], "maxLength": 1000},
+        "incomplete_submission_acknowledged": {"type": "boolean", "default": true}
+      }
+    },
+    "conditionEpisode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["condition_episode_id", "condition_name", "diagnostic_certainty"],
+      "properties": {
+        "condition_episode_id": {"type": "string", "pattern": "^ARC-[A-Z0-9_-]{4,64}$"},
+        "condition_id": {"type": ["string", "null"], "maxLength": 200},
+        "condition_name": {"type": "string", "minLength": 1, "maxLength": 500},
+        "diagnostic_certainty": {"enum": ["CLINICIAN_CONFIRMED", "LAB_OR_CRITERIA_SUPPORTED", "SELF_IDENTIFIED", "SUSPECTED", "UNKNOWN"]},
+        "diagnosis_source_summary": {"type": ["string", "null"], "maxLength": 2000},
+        "onset": {"$ref": "#/$defs/approximateDate"},
+        "baseline_severity": {"type": ["number", "null"], "minimum": 0, "maximum": 10},
+        "baseline_function_summary": {"type": ["string", "null"], "maxLength": 4000},
+        "natural_history_summary": {"type": ["string", "null"], "maxLength": 4000},
+        "major_comorbidities_summary": {"type": ["string", "null"], "maxLength": 3000}
+      }
+    },
+    "interventionEpisode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["intervention_episode_id", "name", "episode_role", "start", "dose_known", "adherence_known"],
+      "properties": {
+        "intervention_episode_id": {"type": "string", "pattern": "^ARI-[A-Z0-9_-]{4,64}$"},
+        "parent_combination_id": {"type": ["string", "null"], "pattern": "^ARCOMBO-[A-Z0-9_-]{4,64}$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 500},
+        "normalized_intervention_id": {"type": ["string", "null"], "maxLength": 200},
+        "episode_role": {"enum": ["PRIMARY_REPORTED", "COMBINATION_COMPONENT", "BACKGROUND", "RESCUE", "UNKNOWN"]},
+        "formulation": {"type": ["string", "null"], "maxLength": 500},
+        "route": {"type": ["string", "null"], "maxLength": 200},
+        "dose_known": {"type": "boolean"},
+        "dose_value": {"type": ["number", "null"]},
+        "dose_unit": {"type": ["string", "null"], "maxLength": 100},
+        "frequency": {"type": ["string", "null"], "maxLength": 500},
+        "start": {"$ref": "#/$defs/approximateDate"},
+        "end": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/approximateDate"}]},
+        "dose_or_schedule_changes": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/timelineEvent"},
+          "maxItems": 100
+        },
+        "adherence_known": {"type": "boolean"},
+        "adherence_summary": {"type": ["string", "null"], "maxLength": 2000},
+        "stopped_and_restarted": {"type": ["boolean", "null"]},
+        "dechallenge_summary": {"type": ["string", "null"], "maxLength": 3000},
+        "rechallenge_summary": {"type": ["string", "null"], "maxLength": 3000},
+        "prescribed_or_supervised": {"enum": ["CLINICIAN", "RESEARCH_PROTOCOL", "SELF_DIRECTED", "OTHER", "UNKNOWN"]}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome_id", "name", "reported_direction", "measurement_type", "onset_after_intervention"],
+      "properties": {
+        "outcome_id": {"type": "string", "pattern": "^ARO-[A-Z0-9_-]{4,64}$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 500},
+        "normalized_outcome_id": {"type": ["string", "null"], "maxLength": 200},
+        "reported_direction": {"enum": ["IMPROVED", "WORSENED", "NO_CLEAR_CHANGE", "MIXED", "UNKNOWN"]},
+        "measurement_type": {"enum": ["SUBJECTIVE_GLOBAL", "VALIDATED_PATIENT_REPORTED", "DEVICE", "LAB", "CLINICIAN_ASSESSED", "HEALTHCARE_USE", "OTHER", "UNKNOWN"]},
+        "baseline_value": {"type": ["number", "string", "null"]},
+        "follow_up_value": {"type": ["number", "string", "null"]},
+        "unit_or_scale": {"type": ["string", "null"], "maxLength": 200},
+        "onset_after_intervention": {"type": ["string", "null"], "maxLength": 500},
+        "peak_change_timing": {"type": ["string", "null"], "maxLength": 500},
+        "duration_or_persistence": {"type": ["string", "null"], "maxLength": 1000},
+        "current_status": {"enum": ["PERSISTED", "PARTIALLY_PERSISTED", "LOST_EFFECT", "REVERSED", "ONGOING_UNKNOWN", "NOT_APPLICABLE", "UNKNOWN"]},
+        "clinically_meaningful_to_reporter": {"type": ["boolean", "null"]},
+        "notes": {"type": ["string", "null"], "maxLength": 3000}
+      }
+    },
+    "adverseEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "description", "severity", "relationship_reported"],
+      "properties": {
+        "event_id": {"type": "string", "pattern": "^ARAE-[A-Z0-9_-]{4,64}$"},
+        "description": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "severity": {"enum": ["MILD", "MODERATE", "SEVERE", "LIFE_THREATENING", "UNKNOWN"]},
+        "serious": {"type": ["boolean", "null"]},
+        "onset": {"anyOf": [{"type": "null"}, {"$ref": "#/$defs/approximateDate"}]},
+        "resolution": {"type": ["string", "null"], "maxLength": 1000},
+        "relationship_reported": {"enum": ["DEFINITE_BY_REPORTER", "PROBABLE_BY_REPORTER", "POSSIBLE_BY_REPORTER", "UNLIKELY_BY_REPORTER", "UNKNOWN"]},
+        "clinician_assessed": {"type": ["boolean", "null"]},
+        "reported_to_regulator": {"type": ["boolean", "null"]}
+      }
+    },
+    "measurement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["measurement_id", "name", "measured_at", "source_type"],
+      "properties": {
+        "measurement_id": {"type": "string", "pattern": "^ARM-[A-Z0-9_-]{4,64}$"},
+        "name": {"type": "string", "minLength": 1, "maxLength": 500},
+        "value": {"type": ["number", "string", "null"]},
+        "unit_or_scale": {"type": ["string", "null"], "maxLength": 200},
+        "measured_at": {"$ref": "#/$defs/approximateDate"},
+        "source_type": {"enum": ["SELF_REPORT", "VALIDATED_INSTRUMENT", "LAB", "DEVICE", "CLINICIAN", "DOCUMENT", "OTHER"]},
+        "source_document_id": {"type": ["string", "null"], "maxLength": 200}
+      }
+    },
+    "timelineEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "event_type", "when", "description"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1, "maxLength": 100},
+        "event_type": {"enum": ["CONDITION_ONSET", "DIAGNOSIS", "INTERVENTION_START", "DOSE_CHANGE", "INTERVENTION_STOP", "INTERVENTION_RESTART", "OUTCOME_CHANGE", "ADVERSE_EVENT", "LIFE_CHANGE", "OTHER"]},
+        "when": {"$ref": "#/$defs/approximateDate"},
+        "description": {"type": "string", "minLength": 1, "maxLength": 2000},
+        "linked_episode_ids": {"type": "array", "items": {"type": "string", "maxLength": 100}, "maxItems": 20}
+      }
+    },
+    "cointervention": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "timing_known"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": 500},
+        "timing_known": {"type": "boolean"},
+        "timing_summary": {"type": ["string", "null"], "maxLength": 1000},
+        "possible_effect_on_outcome": {"type": ["string", "null"], "maxLength": 2000}
+      }
+    },
+    "reporterAttribution": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "what_reporter_believes_helped_or_harmed": {"type": ["string", "null"], "maxLength": 4000},
+        "confidence": {"type": ["integer", "null"], "minimum": 0, "maximum": 100},
+        "reasoning": {"type": ["string", "null"], "maxLength": 6000}
+      }
+    },
+    "clinicianInvolvement": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "properties": {
+        "involved": {"type": ["boolean", "null"]},
+        "role_summary": {"type": ["string", "null"], "maxLength": 2000},
+        "clinician_observed_change": {"type": ["boolean", "null"]},
+        "clinician_assessment_summary": {"type": ["string", "null"], "maxLength": 3000}
+      }
+    },
+    "sourceDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_document_id", "document_type", "storage_state", "separate_consent_record_id"],
+      "properties": {
+        "source_document_id": {"type": "string", "pattern": "^ARDOC-[A-Z0-9_-]{4,64}$"},
+        "document_type": {"enum": ["LAB", "CLINIC_NOTE", "PRESCRIPTION", "DEVICE_EXPORT", "PHOTO", "VIDEO", "OTHER"]},
+        "storage_state": {"enum": ["NOT_UPLOADED", "PRIVATE_ENCRYPTED", "REDACTED_RESEARCH_COPY", "DELETED", "UNAVAILABLE"]},
+        "separate_consent_record_id": {"type": "string", "maxLength": 200},
+        "content_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "public_use_allowed": {"type": "boolean", "default": false}
+      }
+    },
+    "narrative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["text", "contains_identifiers_reviewed", "separate_consent_record_id"],
+      "properties": {
+        "text": {"type": "string", "minLength": 1, "maxLength": 50000},
+        "contains_identifiers_reviewed": {"type": "boolean"},
+        "separate_consent_record_id": {"type": "string", "maxLength": 200},
+        "public_quote_allowed": {"type": "boolean", "default": false}
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["overall_tier", "fields"],
+      "properties": {
+        "overall_tier": {"enum": ["MINIMAL", "MODERATE", "HIGH_DETAIL", "PROSPECTIVE", "UNKNOWN"]},
+        "fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "diagnosis_detail": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "baseline": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "intervention_specificity": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "timeline_resolution": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "cointervention_coverage": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "outcome_measurement": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "follow_up_duration": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "adverse_event_coverage": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "dechallenge_rechallenge": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "objective_corroboration": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]},
+            "prospective_collection": {"enum": ["PRESENT", "PARTIAL", "MISSING", "NOT_APPLICABLE"]}
+          }
+        },
+        "highest_value_missing_questions": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1, "maxLength": 1000},
+          "maxItems": 20
+        }
+      }
+    },
+    "consentDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "notice_version", "consent_text_sha256", "decided_at", "channel"],
+      "properties": {
+        "decision": {"enum": ["YES", "NO", "WITHDRAWN", "NOT_ASKED"]},
+        "notice_version": {"type": "string", "minLength": 1, "maxLength": 100},
+        "consent_text_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "decided_at": {"type": "string", "format": "date-time"},
+        "channel": {"enum": ["SECURE_PORTAL", "APP_DEIDENTIFIED", "INTERVIEW", "WRITTEN_EXTERNAL"]},
+        "withdrawn_at": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "consentLedger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "private_service_storage",
+        "deidentified_aggregate_research",
+        "human_reviewer_access",
+        "recontact",
+        "public_redacted_story",
+        "direct_quotation",
+        "document_or_media_publication",
+        "external_record_linkage",
+        "future_related_research",
+        "generalized_product_improvement",
+        "model_training"
+      ],
+      "properties": {
+        "private_service_storage": {"$ref": "#/$defs/consentDecision"},
+        "deidentified_aggregate_research": {"$ref": "#/$defs/consentDecision"},
+        "human_reviewer_access": {"$ref": "#/$defs/consentDecision"},
+        "recontact": {"$ref": "#/$defs/consentDecision"},
+        "public_redacted_story": {"$ref": "#/$defs/consentDecision"},
+        "direct_quotation": {"$ref": "#/$defs/consentDecision"},
+        "document_or_media_publication": {"$ref": "#/$defs/consentDecision"},
+        "external_record_linkage": {"$ref": "#/$defs/consentDecision"},
+        "future_related_research": {"$ref": "#/$defs/consentDecision"},
+        "generalized_product_improvement": {"$ref": "#/$defs/consentDecision"},
+        "model_training": {"$ref": "#/$defs/consentDecision"}
+      }
+    },
+    "publicStory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["publication_state", "attribution_mode", "redacted_version_id", "exact_version_approved"],
+      "properties": {
+        "publication_state": {"enum": ["PRIVATE_DRAFT", "PRIVACY_REVIEW", "REDACTED_PREVIEW", "SUBJECT_APPROVED", "EDITORIAL_REVIEW", "PUBLISHED", "REVISION_REQUESTED", "WITHDRAWAL_REQUESTED", "PUBLIC_WITHDRAWN", "LEGAL_OR_SAFETY_HOLD"]},
+        "attribution_mode": {"enum": ["ANONYMOUS", "PSEUDONYM", "REAL_NAME"]},
+        "display_name": {"type": ["string", "null"], "maxLength": 200},
+        "redacted_version_id": {"type": "string", "maxLength": 200},
+        "redacted_payload_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "exact_version_approved": {"type": "boolean"},
+        "approved_at": {"type": ["string", "null"], "format": "date-time"},
+        "published_at": {"type": ["string", "null"], "format": "date-time"},
+        "withdrawal_policy_version": {"type": ["string", "null"], "maxLength": 100}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"intake_channel": {"const": "DEIDENTIFIED_APP_INTAKE"}}},
+      "then": {
+        "properties": {
+          "subject_private_ref": {"type": "null"},
+          "source_documents": {"maxItems": 0},
+          "narrative": {
+            "anyOf": [
+              {"type": "null"},
+              {
+                "allOf": [
+                  {"$ref": "#/$defs/narrative"},
+                  {"properties": {"contains_identifiers_reviewed": {"const": true}}}
+                ]
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "public_story": {
+            "type": "object",
+            "properties": {"publication_state": {"const": "PUBLISHED"}}
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "public_story": {
+            "properties": {
+              "exact_version_approved": {"const": true},
+              "redacted_payload_sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+            }
+          },
+          "consents": {
+            "properties": {
+              "public_redacted_story": {
+                "properties": {"decision": {"const": "YES"}}
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "x-askrigor-invariants": [
+    "Missing fields remain missing; they are never inferred as patient facts.",
+    "A combination episode retains separate components and is not split into independent success reports.",
+    "Reporter attribution is distinct from AskRigor causal capability.",
+    "Story popularity and aggregate report counts do not alter formal evidence certainty.",
+    "Public publication requires approval of the exact redacted version.",
+    "Research use, public story, quotation, media, recontact, linkage, product improvement, and model training are separate consent decisions.",
+    "Identifiable full story intake must not transit the ChatGPT app channel.",
+    "A story can be useful as a research lead while remaining incomplete and private."
+  ]
+}
