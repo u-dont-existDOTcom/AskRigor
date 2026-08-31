@@ -22,8 +22,9 @@ deploy, or merge any stacked PR.
 - stacked base: `agent/community-forum-closed-loop-hostile-20260831` at
   `8e20185f69086395fb2cf4ae2cf814938515a874`;
 - task branch: `agent/community-forum-privacy-provenance-matrix-20260831`;
-- the reviewed implementation commit and exact GitHub head are recorded in the
-  final PR receipt;
+- reviewed implementation commit:
+  `8ff130c7233c864209c590fd97288aa308ebe569`; the exact GitHub head is
+  recorded in the final PR receipt;
 - rollback is the exact base plus the task branch reflog; no shared history is
   rewritten and no stacked PR is merged.
 
