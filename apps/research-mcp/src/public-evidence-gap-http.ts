@@ -104,17 +104,23 @@ export function publicEvidenceGapIntakeConfigFromEnv(
 export function createPublicEvidenceGapIntakeHandlerFromConfig(
   config: PublicEvidenceGapIntakeConfig,
 ): PublicEvidenceGapIntakeHandler {
+  return createPublicEvidenceGapIntakeHandler({
+    service: createPublicEvidenceGapIntakeServiceFromConfig(config),
+    reviewApiKey: config.reviewApiKey,
+  });
+}
+
+export function createPublicEvidenceGapIntakeServiceFromConfig(
+  config: PublicEvidenceGapIntakeConfig,
+): PublicEvidenceGapIntakeService {
   const store = new PostgresPublicGapIntakeStore({
     connectionString: config.connectionString,
     schema: config.schema,
     ssl: config.ssl,
   });
-  return createPublicEvidenceGapIntakeHandler({
-    service: new PublicEvidenceGapIntakeService(store, {
-      encryptionKey: config.encryptionKey,
-      encryptionKeyId: config.encryptionKeyId,
-    }),
-    reviewApiKey: config.reviewApiKey,
+  return new PublicEvidenceGapIntakeService(store, {
+    encryptionKey: config.encryptionKey,
+    encryptionKeyId: config.encryptionKeyId,
   });
 }
 

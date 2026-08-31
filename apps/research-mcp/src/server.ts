@@ -8,6 +8,8 @@ import {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
+import type { PublicEvidenceGapIntakeService } from
+  "@askrigor/evidence-repository";
 
 import {
   actionApiKeyFromEnv,
@@ -75,15 +77,29 @@ import { createFileResearchSessionStore } from
   "./actions/file-research-session-store.js";
 import type { N8nControlPlaneHandler } from "./n8n-control-plane-route.js";
 import {
-  createPublicEvidenceGapIntakeHandlerFromConfig,
+  createPublicEvidenceGapIntakeHandler,
+  createPublicEvidenceGapIntakeServiceFromConfig,
   publicEvidenceGapIntakeConfigFromEnv,
   type PublicEvidenceGapIntakeHandler,
 } from "./public-evidence-gap-http.js";
+import {
+  attachOptionalOAuthIdentity,
+  oauthResourceServerFromEnv,
+  protectedResourceMetadataUrl,
+  writeOAuthProtectedResourceMetadata,
+  type AskRigorOAuthResourceServer,
+} from "./oauth-resource-server.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
+export interface AskRigorMcpServerOptions {
+  publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
+  oauthResourceMetadataUrl?: URL;
+}
+
 export function createAskRigorServer(
-  profile: McpToolCatalogProfile = "standard"
+  profile: McpToolCatalogProfile = "standard",
+  options: AskRigorMcpServerOptions = {},
 ): McpServer {
   const server = new McpServer(
     {
@@ -92,7 +108,7 @@ export function createAskRigorServer(
     },
     { instructions: SERVER_INSTRUCTIONS }
   );
-  registerTools(server);
+  registerTools(server, options);
   if (profile === "gemini") {
     installGeminiCompatibleToolCatalog(server);
   }
@@ -125,6 +141,8 @@ export interface AskRigorHttpServerOptions {
   n8nControlPlaneRateLimiter?: TokenBucketLimiter;
   n8nControlPlaneConcurrencyLimiter?: ConcurrencyLimiter;
   publicEvidenceGapIntakeHandler?: PublicEvidenceGapIntakeHandler;
+  publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
+  oauthResourceServer?: AskRigorOAuthResourceServer;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -237,7 +255,6 @@ export function createAskRigorHttpServer(
   const rateLimiter = options.rateLimiter ?? createTokenBucketLimiter(PUBLIC_RATE_LIMIT);
   const concurrencyLimiter = options.concurrencyLimiter ??
     createConcurrencyLimiter(PUBLIC_MCP_CONCURRENCY_LIMIT);
-  const createMcpServer = options.createMcpServer ?? createAskRigorServer;
   const mcpHandshakeDiagnosticsEnabled =
     options.mcpHandshakeDiagnosticsEnabled ??
     mcpHandshakeDiagnosticsAreEnabled();
@@ -292,13 +309,31 @@ export function createAskRigorHttpServer(
     options.publicEvidenceGapIntakeHandler === undefined
       ? publicEvidenceGapIntakeConfigFromEnv()
       : undefined;
+  const publicEvidenceGapReviewService =
+    options.publicEvidenceGapReviewService ??
+    (publicEvidenceGapIntakeConfig === undefined
+      ? undefined
+      : createPublicEvidenceGapIntakeServiceFromConfig(
+          publicEvidenceGapIntakeConfig,
+        ));
   const publicEvidenceGapIntakeHandler =
     options.publicEvidenceGapIntakeHandler ??
     (publicEvidenceGapIntakeConfig === undefined
       ? undefined
-      : createPublicEvidenceGapIntakeHandlerFromConfig(
-          publicEvidenceGapIntakeConfig,
-        ));
+      : createPublicEvidenceGapIntakeHandler({
+          service: publicEvidenceGapReviewService!,
+          reviewApiKey: publicEvidenceGapIntakeConfig.reviewApiKey,
+        }));
+  const oauthResourceServer =
+    options.oauthResourceServer ?? oauthResourceServerFromEnv();
+  const oauthResourceMetadataUrl = oauthResourceServer === undefined
+    ? undefined
+    : protectedResourceMetadataUrl(oauthResourceServer.resourceUrl);
+  const createMcpServer = options.createMcpServer ??
+    ((profile?: McpToolCatalogProfile) => createAskRigorServer(profile, {
+      publicEvidenceGapReviewService,
+      oauthResourceMetadataUrl,
+    }));
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -319,6 +354,18 @@ export function createAskRigorHttpServer(
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(HEALTH_PAYLOAD));
+      return;
+    }
+
+    if (
+      request.method === "GET" &&
+      oauthResourceServer !== undefined &&
+      [
+        "/.well-known/oauth-protected-resource",
+        "/.well-known/oauth-protected-resource/mcp",
+      ].includes(pathname)
+    ) {
+      writeOAuthProtectedResourceMetadata(response, oauthResourceServer);
       return;
     }
 
@@ -455,6 +502,7 @@ export function createAskRigorHttpServer(
 
       let server: McpServer | undefined;
       try {
+        await attachOptionalOAuthIdentity(request, oauthResourceServer);
         const profile = pathname === GEMINI_COMPATIBLE_MCP_PATH
           ? "gemini"
           : "standard";

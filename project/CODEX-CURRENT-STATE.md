@@ -1,5 +1,30 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 public plugin with scoped case review active
+
+Task `askrigor-public-gap-oauth-review-v1` is active on branch
+`task/public-gap-oauth-review-20260831`, stacked on public-intake receipt commit
+`4130f4d9dd008cb1e47b1da1b6fbebf5382bf874`.
+
+The owner's correction controls: every plugin may receive private material
+from its invoking user, so that fact does not make AskRigor a private plugin.
+AskRigor remains publicly installable; its public research tools and public
+evidence-gap contribution form remain anonymous. OAuth is required only for a
+tool retrieving durable stored submissions belonging to other users, with the
+scope `cases:review`. Participant recovery keys continue to govern inspection
+and withdrawal of one's own case.
+
+Assurance lane is iteration with a targeted authorization/privacy hard gate.
+This slice implements the local resource-server/tool contract only. Choosing
+and configuring an external OAuth issuer, production deployment, and plugin
+publication remain later release boundaries. Recovery authority is
+`../tasks/ACTIVE-TASK.json` and
+`../docs/superpowers/plans/2026-08-31-public-gap-oauth-review.md`.
+The current prospective synchronization ledger SHA-256 is
+`8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4`;
+the controlled Instructions remain 4,752 characters. This is not a release
+claim.
+
 ## 2026-08-31 public self-serve evidence-gap intake completed locally
 
 Branch `task/public-evidence-gap-intake-20260831` is stacked on the corrected

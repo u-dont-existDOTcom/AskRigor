@@ -47,8 +47,12 @@ const TOOL_NAMES = [
   "audit_youtube_community",
   "survey_youtube_community",
   "audit_youtube_video_community",
-  "get_research_frontier"
+  "get_research_frontier",
+  "review_evidence_gap_submissions"
 ];
+const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
+  name !== "review_evidence_gap_submissions"
+);
 
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
@@ -70,7 +74,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the twenty-two read-only research tools", async () => {
+  it("registers exactly the twenty-three read-only research tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -2034,7 +2038,7 @@ describe("AskRigor Streamable HTTP server", () => {
           arguments: { pmid: "not-a-pmid" }
         });
 
-        expect(tools.map(({ name }) => name)).toEqual(TOOL_NAMES);
+        expect(tools.map(({ name }) => name)).toEqual(GEMINI_TOOL_NAMES);
         expect(client.getServerVersion()?.name).toBe("askrigor_research");
         expect(tools.every((tool) => !("outputSchema" in tool))).toBe(true);
         expect(tools.every((tool) => !("execution" in tool))).toBe(true);

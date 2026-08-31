@@ -21,12 +21,14 @@ const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
 ]);
 
 export function installGeminiCompatibleToolCatalog(server: McpServer): void {
-  const tools = RESEARCH_OPERATIONS.map((operation) => ({
+  const tools = RESEARCH_OPERATIONS
+    .filter(({ name }) => name !== "review_evidence_gap_submissions")
+    .map((operation) => ({
     name: operation.name,
     description: compactGeminiDescription(operation.description),
     inputSchema: geminiCompatibleInputSchema(operation.inputSchema),
     annotations: operation.annotations
-  }));
+    }));
 
   server.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
 }

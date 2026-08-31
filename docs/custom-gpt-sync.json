@@ -44,6 +44,7 @@
     "get_youtube_video",
     "load_protocol",
     "resolve_doi",
+    "review_evidence_gap_submissions",
     "search_clinical_trials",
     "search_europe_pmc",
     "search_pubmed",

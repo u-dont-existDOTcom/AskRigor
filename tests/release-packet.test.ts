@@ -38,7 +38,8 @@ const TOOL_NAMES = [
   "audit_youtube_community",
   "survey_youtube_community",
   "audit_youtube_video_community",
-  "get_research_frontier"
+  "get_research_frontier",
+  "review_evidence_gap_submissions"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -593,9 +594,9 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(22);
+    expect(inventory.tools).toHaveLength(23);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "c23e9f3adf48110f4a7ce6882476274d28a81ec04810c18058370372425f21d8"
+      "35345b5eaabcb6acb2fa9ba8257f8610fbcc72c1f0c7fe5bb8066b1220201cf1"
     );
 
     for (const tool of inventory.tools) {
@@ -611,9 +612,11 @@ describe("AskRigor public-review packet", () => {
         execution: { taskSupport: "forbidden" }
       });
       expect(tool.title).toBeUndefined();
-      expect(tool._meta).toBeUndefined();
+      expect(tool._meta).toEqual(tool.name === "review_evidence_gap_submissions"
+        ? { securitySchemes: [{ type: "oauth2", scopes: ["cases:review"] }] }
+        : { securitySchemes: [{ type: "noauth" }] });
       expect(Object.keys(tool).filter((key) => tool[key] !== undefined).sort()).toEqual([
-        "annotations", "description", "execution", "inputSchema", "name", "outputSchema"
+        "_meta", "annotations", "description", "execution", "inputSchema", "name", "outputSchema"
       ]);
     }
 

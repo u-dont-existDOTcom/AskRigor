@@ -2,9 +2,15 @@ import type {
   CallToolResult,
   ToolAnnotations
 } from "@modelcontextprotocol/sdk/types.js";
+import type { AuthInfo } from "@modelcontextprotocol/sdk/server/auth/types.js";
+
+export interface ResearchOperationExtra {
+  authInfo?: AuthInfo;
+}
 
 export type ResearchOperationHandler = (
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  extra?: ResearchOperationExtra,
 ) => Promise<CallToolResult>;
 
 export interface ResearchOperation {

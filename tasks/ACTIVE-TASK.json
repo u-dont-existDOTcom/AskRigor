@@ -1,40 +1,40 @@
 {
   "schemaVersion": 1,
-  "taskId": "askrigor-public-evidence-gap-intake-v1",
-  "status": "complete",
+  "taskId": "askrigor-public-gap-oauth-review-v1",
+  "status": "working",
   "exclusive": true,
-  "requiredBranch": "task/public-evidence-gap-intake-20260831",
-  "stackedOnBranch": "task/issue-150-synthetic-gap-loop-20260831",
-  "stackedOnCommit": "86a70cdff4f34f53f935dbedf837313f95c2a9cf",
+  "requiredBranch": "task/public-gap-oauth-review-20260831",
+  "stackedOnBranch": "task/public-evidence-gap-intake-20260831",
+  "stackedOnCommit": "4130f4d9dd008cb1e47b1da1b6fbebf5382bf874",
   "assuranceLane": "iteration",
-  "ownerObjective": "Public visitors fill out one evidence-gap form as best they can; partial cases remain labeled and usable; private submissions are examined through AskRigor/GPT.",
+  "ownerObjective": "Keep AskRigor publicly installable and its research tools/public contribution form open, while allowing the owner's GPT account to retrieve stored participant cases through one OAuth-scoped review capability.",
+  "authorizationBoundary": {
+    "anonymous": [
+      "public research tools",
+      "public evidence-gap page and contribution flow"
+    ],
+    "participantRecoveryKey": [
+      "inspect own submitted case",
+      "withdraw own submitted case"
+    ],
+    "oauthScopeCasesReview": [
+      "retrieve other participants' stored private review projections"
+    ]
+  },
   "unsupportedConstraintsProhibited": [
-    "invite-only pilot",
+    "invite-only plugin or form",
     "institutional research program",
-    "staffing or jurisdiction launch gate",
-    "generic social or community product"
+    "generic private-plugin classification merely because user input may be private",
+    "public projection of raw participant submissions"
   ],
   "hardGates": [
-    "unprompted account is stored before candidate prompts",
-    "partial and non-remission comparison cases are accepted",
-    "raw submissions have no public projection",
-    "participant recovery key gates inspect and withdrawal",
-    "private GPT feed preserves provenance, missingness, unverified status, and noncausal boundary",
-    "focused, PostgreSQL migration, headless Brave, complete deterministic, and final-diff checks pass"
+    "anonymous public tools continue to work",
+    "review operation rejects missing, invalid, expired, wrong-resource, and insufficient-scope tokens",
+    "review operation requires cases:review",
+    "review output preserves provenance, missingness, unverified status, and noncausal boundary",
+    "no direct participant identifiers are added to MCP output"
   ],
-  "externalReleaseBoundary": "not authorized by this local implementation slice; requires accurate public privacy/runtime deployment review",
-  "plan": "docs/superpowers/plans/2026-08-31-public-evidence-gap-intake.md",
-  "completionCommand": "npm run verify",
-  "implementationCommit": "ed71b5e64d8a99ed83cc05bd300cf5d415a70e68",
-  "pullRequest": 153,
-  "executionReceipt": "docs/audits/2026-08-31-public-evidence-gap-intake.json",
-  "supervision": {
-    "completionClaim": "OUTCOME",
-    "workerToContract": "aligned",
-    "contractToOwner": "aligned",
-    "operationalAlignment": "pass",
-    "scientificAdequacy": "pass_for_intake_semantics_only",
-    "releaseAdequacy": "not_applicable_no_external_release",
-    "unsupportedConstraintLesson": "SDF-20260831-UNSOURCED-GOVERNANCE-001"
-  }
+  "externalReleaseBoundary": "local resource-server/tool slice only; choosing or configuring the external OAuth issuer and deploying remain later release decisions",
+  "plan": "docs/superpowers/plans/2026-08-31-public-gap-oauth-review.md",
+  "completionCommand": "npx vitest run tests/public-gap-oauth-review.test.ts tests/mcp-tools.test.ts tests/research-operation-registry.test.ts"
 }

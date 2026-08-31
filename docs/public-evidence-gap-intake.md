@@ -15,6 +15,10 @@ people who experienced the same suspected transition without remission. It
 accepts incomplete structured fields and labels the submission `PARTIAL`
 instead of excluding it.
 
+AskRigor's plugin remains publicly installable. Its 22 research operations and
+this contribution form do not require login. Authentication is limited to the
+operation that retrieves stored submissions belonging to other users.
+
 ## Participant flow
 
 1. The visitor states whether the account is firsthand, directly observed,
@@ -65,6 +69,19 @@ The feature is absent unless all settings are valid:
 - `ASKRIGOR_EVIDENCE_GAP_ENCRYPTION_KEY_ID`
 - `ASKRIGOR_EVIDENCE_GAP_REVIEW_API_KEY` (at least 32 UTF-8 bytes)
 
+The optional ChatGPT/Codex review operation additionally requires:
+
+- `ASKRIGOR_OAUTH_ENABLED=true`
+- `ASKRIGOR_OAUTH_RESOURCE_URL` (the canonical HTTPS MCP resource URL)
+- `ASKRIGOR_OAUTH_ISSUER_URL` (the exact authorization-server issuer)
+- `ASKRIGOR_OAUTH_JWKS_URL` (the issuer's HTTPS signing-key set)
+
+The authorization server is external to this slice and must support the MCP
+OAuth 2.1 flow. AskRigor verifies JWT signature, issuer, audience, expiry,
+client identity, and scopes. The private tool additionally requires
+`cases:review`. Invalid or stale tokens do not disable anonymous research
+tools; they are treated as unauthenticated for the protected tool.
+
 Public mutation routes are JSON-only, same-origin when an Origin header is
 present, request-size limited, rate limited, and honeypot checked. Participant
 inspection and withdrawal require that case's recovery key. The private review
@@ -87,6 +104,13 @@ The projection includes descriptive counts of remission/regression and
 non-remission/comparison cases. It returns `causalAnalysisPermitted: false`.
 The system does not diagnose remission, infer cause, recommend treatment, or
 equate completeness with verification.
+
+The public MCP catalog exposes the same projection through
+`review_evidence_gap_submissions`. Its per-tool security metadata requires
+OAuth scope `cases:review`; an unauthenticated invocation returns the standard
+MCP `mcp/www_authenticate` challenge. Participant recovery keys still authorize
+only inspection and withdrawal of that participant's own case and cannot call
+the cross-user review operation.
 
 ## Adding another evidence gap
 
