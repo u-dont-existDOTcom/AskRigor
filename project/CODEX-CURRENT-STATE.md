@@ -1,8 +1,8 @@
 # AskRigor Codex Current State
 
-## 2026-08-31 public plugin with scoped case review active
+## 2026-08-31 public plugin with scoped case review completed locally
 
-Task `askrigor-public-gap-oauth-review-v1` is active on branch
+Task `askrigor-public-gap-oauth-review-v1` is complete locally on branch
 `task/public-gap-oauth-review-20260831`, stacked on public-intake receipt commit
 `4130f4d9dd008cb1e47b1da1b6fbebf5382bf874`.
 
@@ -24,6 +24,24 @@ The current prospective synchronization ledger SHA-256 is
 `8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4`;
 the controlled Instructions remain 4,752 characters. This is not a release
 claim.
+
+Implementation commit
+`f7a3c4131db915a66c7903ab171afac2f74310ef` provides the exact 23-tool
+catalog: 22 anonymous research tools and one OAuth-scoped case-review tool.
+JWT signature, issuer, audience, expiry, client, resource, and scope checks are
+implemented; missing or invalid authorization cannot break anonymous tools.
+Focused authorization/catalog/privacy coverage passes 142/142 tests. The
+complete deterministic gate passes 121 files plus one declared skip and 1,579
+tests plus six declared skips, followed by build; production dependency audit
+reports zero vulnerabilities. Exact evidence is in
+`../docs/audits/2026-08-31-public-gap-oauth-review.json` and `.md`.
+
+Typed claim: `OUTCOME` for the local resource-server/tool contract only.
+Operational alignment passes locally. Scientific adequacy passes only for the
+bounded provenance, missingness, participant-reported/unverified, comparator,
+and noncausal projection semantics. Release adequacy is not applicable: no
+external identity provider was chosen/configured, and no deployment, plugin
+installation, or product-interface OAuth acceptance occurred.
 
 ## 2026-08-31 public self-serve evidence-gap intake completed locally
 
