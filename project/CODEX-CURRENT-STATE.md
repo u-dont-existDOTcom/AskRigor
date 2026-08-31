@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-08-31 Auth0 evidence-gap runtime and primary OAuth accepted; cleanup pending
+## 2026-08-31 Auth0 evidence-gap production release complete
 
 PR #155 merged as `7c0e589d50325de537ee042b4e3df3ed81adbd4b` and that exact
 source is deployed in production as immutable image
@@ -21,11 +21,12 @@ partial pregnancy/postpartum non-remission comparator, all explicit missingness,
 participant-reported/unverified status, false documentation flags, and
 `causalAnalysisPermitted: false`. Do not depend on a secondary account.
 
-The remaining boundary is narrow external cleanup: withdraw the temporary
-synthetic acceptance case, uninstall the superseded ChatGPT `AskRigor` plugin,
-delete the inert Auth0 third-party `ChatGPT` application, and delete the unused
-Auth0 `AskRigor Reviewer` role. Those exact destructive actions await the
-required action-time confirmation.
+Confirmed cleanup is complete. The temporary synthetic case is `WITHDRAWN`
+with all active narrative, structured, consent, and missing-field content
+cleared, and the submitted review queue is zero. The superseded ChatGPT
+`AskRigor` plugin, inert Auth0 third-party `ChatGPT` application, and unused
+Auth0 `AskRigor Reviewer` role are deleted. A post-cleanup protected call through
+the working connector still succeeds and returns a zero-item queue.
 
 One superseded client secret became visible in a controlled browser-tool trace
 during setup. It was rotated before any connector used it; the replacement was
@@ -34,12 +35,11 @@ token is in Git. Exact sanitized deployment evidence and pending work are in
 `../docs/audits/2026-08-31-auth0-evidence-gap-production-release.json` and
 `.md`.
 
-Operational alignment passes for production runtime, direct interfaces, and the
-primary-account ChatGPT protected-review interface.
+Typed claim: `OUTCOME`. Operational alignment passes for production runtime,
+direct interfaces, and the primary-account ChatGPT protected-review interface.
 Scientific adequacy passes only for bounded provenance, missingness,
 participant-reported/unverified, partial-case, comparator, and noncausal
-semantics. Release adequacy remains pending only the exact temporary-data and
-superseded-object cleanup above.
+semantics. Release adequacy passes.
 
 ## 2026-08-31 Auth0-backed public evidence-gap release active
 

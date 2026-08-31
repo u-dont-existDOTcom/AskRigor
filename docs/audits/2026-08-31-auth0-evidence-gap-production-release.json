@@ -2,7 +2,8 @@
   "schemaVersion": 1,
   "taskId": "askrigor-auth0-evidence-gap-release-v1",
   "recordedAt": "2026-08-31T22:08:22Z",
-  "releaseState": "production_and_primary_chatgpt_accepted_cleanup_pending",
+  "completedAt": "2026-08-31T22:53:10Z",
+  "releaseState": "production_release_complete",
   "source": {
     "pullRequest": 155,
     "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/155",
@@ -141,7 +142,54 @@
       "causalAnalysisPermitted": false,
       "causalInferenceMade": false
     },
-    "supersededConnectorCleanup": "pending_action_time_deletion_confirmation"
+    "supersededConnectorCleanup": "complete"
+  },
+  "releaseCleanup": {
+    "temporarySyntheticCase": {
+      "submissionId": "1a06e989-6f6d-4d3b-b695-0bddfb1925b4",
+      "participantPseudonym": "ARCASE-DC8274A8DFFD",
+      "originalSubmittedAt": "2026-08-31T22:28:54.350Z",
+      "disposition": "WITHDRAWN",
+      "mechanism": "exact production database withdrawal-equivalent update after browser confirmation control timeout",
+      "exactRowsUpdated": 1,
+      "narrativeCiphertextCleared": true,
+      "structuredDataCleared": true,
+      "consentCleared": true,
+      "missingFieldsCleared": true,
+      "submittedAtCleared": true,
+      "withdrawnAtRecorded": true,
+      "submittedReviewQueueCountAfter": 0
+    },
+    "supersededChatGptPlugin": {
+      "name": "AskRigor",
+      "pluginId": "plugin_asdk_app_6a7cd2a0156881918ce7dedecb715250",
+      "disposition": "uninstalled",
+      "verification": "plugin detail changed from Try in chat to Install plugin"
+    },
+    "supersededAuth0Application": {
+      "name": "ChatGPT",
+      "clientId": "tpc_qurNsDSFe8gnQG7ku4ff2g",
+      "registrationType": "CIMD",
+      "disposition": "deleted",
+      "verification": "client absent after refreshed application inventory",
+      "workingReviewerClientPreserved": "KpzLdf3h7yMofpcpHCrhqB12YkEpvejD"
+    },
+    "unusedAuth0Role": {
+      "name": "AskRigor Reviewer",
+      "roleId": "rol_oU1DOiV7E7eVxwuW",
+      "disposition": "deleted",
+      "verification": "Auth0 role inventory reports no roles"
+    },
+    "postCleanupProtectedReview": {
+      "result": "pass",
+      "workingConnector": "AskRigor Reviewer",
+      "tool": "review_evidence_gap_submissions",
+      "counts": {
+        "total": 0,
+        "partial": 0,
+        "comparisonOrNonRemission": 0
+      }
+    }
   },
   "credentialIncident": {
     "classification": "superseded_client_secret_visible_in_control_trace",
@@ -187,19 +235,15 @@
     "acceptedNotIncorporated": 0,
     "incorporatedOrClosed": 4,
     "deletionEligible": 0,
-    "checkedAt": "2026-08-31T22:13:51.738Z"
+    "checkedAt": "2026-08-31T22:53:28.121Z"
   },
   "completion": {
-    "typedClaim": "PROGRESS",
-    "workerToContract": "in_progress_external_cleanup_only",
+    "typedClaim": "OUTCOME",
+    "workerToContract": "aligned",
     "contractToOwner": "aligned",
     "operationalAlignment": "pass_production_runtime_direct_interfaces_and_primary_chatgpt_protected_review",
     "scientificAdequacy": "pass_for_provenance_missingness_unverified_partial_comparator_and_noncausal_semantics_only",
-    "releaseAdequacy": "pending_temporary_synthetic_case_withdrawal_and_superseded_chatgpt_auth0_cleanup"
+    "releaseAdequacy": "pass"
   },
-  "remainingReleaseWork": [
-    "Withdraw the temporary synthetic acceptance case and verify that its active content leaves the review queue.",
-    "Uninstall superseded ChatGPT plugin AskRigor, delete inert third-party Auth0 application ChatGPT, and delete unused Auth0 role AskRigor Reviewer after action-time deletion confirmation.",
-    "Amend this receipt to a typed OUTCOME claim and merge its closeout PR."
-  ]
+  "remainingReleaseWork": []
 }

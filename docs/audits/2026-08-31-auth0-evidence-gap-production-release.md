@@ -58,9 +58,20 @@ all three missing-information categories, `PARTICIPANT_REPORTED_UNVERIFIED`,
 false baseline/follow-up documentation flags, the explicit synthetic marker,
 and `causalAnalysisPermitted: false`. No causal inference was made.
 
-Final removal of the temporary synthetic content and superseded inert
-connector/client/role remains pending action-time deletion confirmation;
-therefore this receipt does not yet claim complete product release adequacy.
+Cleanup is complete. The browser confirmation control for the temporary
+synthetic case did not complete reliably, so the confirmed withdrawal was
+applied at the production database boundary with exact submission ID,
+pseudonym, creation timestamp, and `SUBMITTED` predicates. Exactly one row was
+updated using the service's withdrawal semantics: narrative ciphertext,
+structured data, consent, and missing fields were cleared; status is
+`WITHDRAWN`; and the submitted review queue is zero. No real case was touched.
+
+The superseded ChatGPT plugin `AskRigor` is uninstalled, the inert Auth0 CIMD
+application `ChatGPT` is deleted, and the unused Auth0 `AskRigor Reviewer` role
+is deleted. The working `AskRigor Reviewer` connector and confidential Auth0
+application remain. A fresh post-cleanup call through that working connector
+succeeded and returned zero total, partial, and comparison/non-remission queue
+items.
 
 During configuration, a superseded client-secret value became visible in a
 controlled browser-tool trace. It was rotated immediately before any connector
@@ -68,10 +79,9 @@ used it. The replacement was transferred without rendering it, the clipboard
 was cleared, and no credential or token is stored in Git. This sanitized event
 is retained so the release record does not silently omit a credential incident.
 
-Operational alignment passes for the deployed runtime, direct interfaces, and
-primary-account ChatGPT protected-review product interface.
+Typed completion claim: `OUTCOME`. Operational alignment passes for the
+deployed runtime, direct interfaces, and primary-account ChatGPT protected-
+review product interface.
 Scientific adequacy passes only for the bounded provenance, missingness,
 participant-reported/unverified, partial-case, comparator, and noncausal
-semantics; no causal or medical conclusion is claimed. Release adequacy remains
-pending only deletion of the temporary synthetic case content and superseded
-inert ChatGPT/Auth0 objects described above.
+semantics; no causal or medical conclusion is claimed. Release adequacy passes.
