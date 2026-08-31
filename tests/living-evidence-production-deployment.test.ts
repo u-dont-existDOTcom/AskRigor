@@ -39,6 +39,39 @@ describe("production living-evidence deployment", () => {
     expect(init).not.toContain("set -x");
   });
 
+  it("provisions a table-scoped evidence-gap intake role without create or delete access", async () => {
+    const compose = await read("infra/living-evidence-production/compose.yaml");
+    const provision = await read(
+      "infra/living-evidence-production/provision-evidence-gap-role.sh",
+    );
+
+    expect(compose).toMatch(
+      /secrets:\n\s+- living_evidence_migrator_password\n\s+- living_evidence_reader_password\n\s+- evidence_gap_intake_password/u,
+    );
+    expect(compose).toContain(
+      "ASKRIGOR_EVIDENCE_GAP_INTAKE_PASSWORD_FILE: /run/secrets/evidence_gap_intake_password",
+    );
+    expect(compose).toContain(
+      "/opt/askrigor/living-evidence/provision-evidence-gap-role.sh:/usr/local/bin/provision-evidence-gap-role:ro",
+    );
+    expect(provision).toContain(
+      "CREATE ROLE askrigor_evidence_gap_intake LOGIN PASSWORD",
+    );
+    expect(provision).toContain(
+      "REVOKE ALL ON ALL TABLES IN SCHEMA living_evidence FROM askrigor_evidence_gap_intake",
+    );
+    expect(provision).toContain(
+      "GRANT SELECT, INSERT, UPDATE ON TABLE living_evidence.evidence_gap_submissions",
+    );
+    expect(provision).toContain(
+      "REVOKE TEMPORARY ON DATABASE askrigor_living_evidence FROM PUBLIC",
+    );
+    expect(provision).toContain("REVOKE CREATE ON SCHEMA public FROM PUBLIC");
+    expect(provision).not.toMatch(/GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu);
+    expect(provision).not.toContain("GRANT SELECT ON ALL TABLES");
+    expect(provision).not.toContain("set -x");
+  });
+
   it("separates the public reader from the one-shot writer and declares rollback", async () => {
     const compose = await read("infra/living-evidence-production/compose.yaml");
     const config = await read("apps/research-mcp/src/config.ts");

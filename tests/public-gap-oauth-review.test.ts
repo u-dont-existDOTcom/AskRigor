@@ -22,6 +22,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   CASE_REVIEW_SCOPE,
   createJwtOAuthResourceServer,
+  oauthResourceServerFromEnv,
   type AskRigorOAuthResourceServer,
 } from "../apps/research-mcp/src/oauth-resource-server.js";
 import { createAskRigorHttpServer } from
@@ -46,6 +47,8 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       resourceUrl,
       issuerUrl,
       jwks: createLocalJWKSet({ keys: [publicJwk] }),
+      allowedClientIds: ["chatgpt-client"],
+      allowedSubjects: ["owner"],
     });
     const sign = (claims: Record<string, unknown>) => new SignJWT(claims)
       .setProtectedHeader({ alg: "RS256", kid: publicJwk.kid })
@@ -94,9 +97,52 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
         aud: resourceUrl.href,
         exp: Math.floor(Date.now() / 1_000) + 300,
       },
+      {
+        iss: issuerUrl.href,
+        aud: resourceUrl.href,
+        exp: Math.floor(Date.now() / 1_000) + 300,
+        client_id: "other-client",
+        sub: "owner",
+      },
+      {
+        iss: issuerUrl.href,
+        aud: resourceUrl.href,
+        exp: Math.floor(Date.now() / 1_000) + 300,
+        client_id: "chatgpt-client",
+        sub: "other-user",
+      },
+      {
+        iss: issuerUrl.href,
+        aud: resourceUrl.href,
+        exp: Math.floor(Date.now() / 1_000) + 300,
+        client_id: "chatgpt-client",
+      },
     ]) {
       await expect(config.verifier.verifyAccessToken(await sign(claims)))
         .rejects.toThrow();
+    }
+  });
+
+  it("requires exact client and owner-subject bindings when OAuth is enabled from the environment", () => {
+    const baseEnv = {
+      ASKRIGOR_OAUTH_ENABLED: "true",
+      ASKRIGOR_OAUTH_RESOURCE_URL: resourceUrl.href,
+      ASKRIGOR_OAUTH_ISSUER_URL: issuerUrl.href,
+      ASKRIGOR_OAUTH_JWKS_URL: "https://identity.askrigor.example/jwks.json",
+      ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID: "chatgpt-client",
+      ASKRIGOR_OAUTH_ALLOWED_SUBJECT: "owner",
+    } satisfies NodeJS.ProcessEnv;
+
+    expect(oauthResourceServerFromEnv(baseEnv)).toBeDefined();
+    for (const missing of [
+      "ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID",
+      "ASKRIGOR_OAUTH_ALLOWED_SUBJECT",
+    ] as const) {
+      const invalid = { ...baseEnv };
+      delete invalid[missing];
+      expect(() => oauthResourceServerFromEnv(invalid)).toThrow(
+        `${missing}_INVALID`,
+      );
     }
   });
 

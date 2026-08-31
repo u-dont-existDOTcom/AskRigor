@@ -75,12 +75,20 @@ The optional ChatGPT/Codex review operation additionally requires:
 - `ASKRIGOR_OAUTH_RESOURCE_URL` (the canonical HTTPS MCP resource URL)
 - `ASKRIGOR_OAUTH_ISSUER_URL` (the exact authorization-server issuer)
 - `ASKRIGOR_OAUTH_JWKS_URL` (the issuer's HTTPS signing-key set)
+- `ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID` (the exact ChatGPT OAuth application ID)
+- `ASKRIGOR_OAUTH_ALLOWED_SUBJECT` (the stable subject of the sole owner account)
 
-The authorization server is external to this slice and must support the MCP
-OAuth 2.1 flow. AskRigor verifies JWT signature, issuer, audience, expiry,
-client identity, and scopes. The private tool additionally requires
-`cases:review`. Invalid or stale tokens do not disable anonymous research
-tools; they are treated as unauthenticated for the protected tool.
+The approved production authorization server is Auth0. Its resource identifier
+is the canonical MCP URL. Resource Parameter Compatibility, issuer responses,
+offline access, and an exact per-application `cases:review` grant must be
+enabled before release. ChatGPT uses a regular confidential OAuth application
+with static client credentials, authorization code, PKCE, and refresh tokens;
+no Enterprise-only Auth0 feature is required. Public database registration is
+disabled, that application has only the closed database connection, and the
+sole owner account is created with the primary owner email. AskRigor verifies
+JWT signature, issuer, audience, expiry, scope, exact client ID, and exact owner
+subject. Invalid or stale tokens do not disable anonymous research tools; they
+are treated as unauthenticated for the protected tool.
 
 Public mutation routes are JSON-only, same-origin when an Origin header is
 present, request-size limited, rate limited, and honeypot checked. Participant
@@ -126,6 +134,10 @@ they should not make a participant's otherwise useful submission ineligible.
 - No public aggregate dashboard or public case display.
 - No automated causal or statistical analysis.
 - Basic narrative contact redaction is not full de-identification.
-- Production deployment, final public privacy-notice text, provider disclosure,
-  retention/backups, and encryption-key operation are not completed by this
-  local implementation slice.
+- Active drafts and submissions have no automatic expiry in this MVP. They are
+  retained until withdrawal or operator deletion. Withdrawal removes active
+  case content but leaves a no-content row; database write-ahead/storage
+  remnants age out through ordinary PostgreSQL maintenance.
+- There is no automatic off-host backup of the intake database.
+- Auth0 authenticates only the private owner/reviewer tool. It never receives
+  participant case content from AskRigor.

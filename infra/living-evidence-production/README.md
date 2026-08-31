@@ -26,14 +26,18 @@ Persistent database state is
 root filesystem, all capabilities dropped, no-new-privileges, bounded CPU
 and memory, and only its database bind plus two tmpfs paths writable.
 
-Two independent random 32-byte hexadecimal passwords live only in:
+Three independent random 32-byte hexadecimal passwords live only in:
 
 - /opt/askrigor/secrets/living-evidence-migrator-password
 - /opt/askrigor/secrets/living-evidence-reader-password
+- /opt/askrigor/secrets/evidence-gap-intake-password
 
 Both host files are root-owned, group 70, mode 0440 so the non-root PostgreSQL
 process can read the Compose bind-mounted secrets without making them
-world-readable. The ordinary research service
+world-readable. The evidence-gap role has `SELECT`, `INSERT`, and `UPDATE`
+only on `living_evidence.evidence_gap_submissions`; it has no access to other
+repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
+database-create privilege. The ordinary research service
 receives only the reader URL through the existing root-owned mode-0600
 runtime.env. The one-shot admin profile receives only the migrator URL
 through root-owned mode-0600 living-evidence-writer.env. Neither URL or
@@ -47,12 +51,14 @@ placed in Compose.
    modes, and a rollback copy of the base Compose file.
 2. Copy the exact reviewed overlay to
    /opt/askrigor/compose.living-evidence.yaml and the exact reviewed init
-   script to /opt/askrigor/living-evidence/init-reader.sh. Record hashes and
-   use root ownership/mode 0600 for the overlay and 0555 for the script.
-3. Create the state directory as UID/GID 70 mode 0700; create the two secret
+   and role-provisioning scripts to
+   /opt/askrigor/living-evidence/init-reader.sh and
+   /opt/askrigor/living-evidence/provision-evidence-gap-role.sh. Record hashes
+   and use root ownership/mode 0600 for the overlay and 0555 for each script.
+3. Create the state directory as UID/GID 70 mode 0700; create the three secret
    files atomically under a root umask from independent openssl random-byte
-   calls without printing either value, then set root:70 ownership and mode
-   0440.
+   calls without printing any value, then set root:70 ownership and mode 0440.
+   Create the third independent evidence-gap intake password the same way.
 4. Create the writer environment and append the four reader configuration
    names to runtime.env with an in-memory, non-echoing editor. The exact
    non-secret settings are schema living_evidence, SSL mode disable on the
@@ -61,11 +67,18 @@ placed in Compose.
    no PostgreSQL published port, internal network, mounts, security controls,
    and secret-file references. Start only living-evidence-postgres and wait
    for its health check.
-6. Run the exact merged image's one-shot admin entry point with migrate.
+6. Run the exact merged image's one-shot admin entry point with migrate. Then
+   run `/usr/local/bin/provision-evidence-gap-role` inside only the PostgreSQL
+   service; it reads the mounted secrets, revokes all repository-wide table
+   access, and grants only `SELECT`, `INSERT`, and `UPDATE` on
+   `living_evidence.evidence_gap_submissions`.
    Verify migration identity and query the catalog as the migrator to prove
    askrigor_reader has CONNECT, schema USAGE, and SELECT on every table/view,
    has no INSERT/UPDATE/DELETE/TRUNCATE privileges, and defaults to read-only
-   transactions.
+   transactions. Separately connect as `askrigor_evidence_gap_intake` and prove
+   that it can select/insert/update the intake table but cannot delete from it,
+   select another repository table, create a persistent or temporary object,
+   or use another schema.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
    plus the internal repository network, stays healthy, and does not emit
@@ -74,6 +87,34 @@ placed in Compose.
    source-linked audit and run an exact hit plus one deliberately stale/mutated
    forced-fresh case. Record only identifiers, hashes, states, timings, image
    identities, and allowlisted reason codes.
+
+## Public evidence-gap and Auth0 activation
+
+The public form reuses this private PostgreSQL service; Railway is not needed.
+Assemble `ASKRIGOR_EVIDENCE_GAP_DATABASE_URL` in the mode-0600 runtime.env with
+the dedicated intake role and its Docker-internal hostname. Add a separately
+generated 32-byte base64url narrative key, a non-secret key ID, and a separate
+high-entropy internal review key. Never print or receipt their values.
+
+The external authorization server is Auth0. Configure the production tenant
+for the canonical resource `https://mcp.askrigor.com/mcp`, enable Resource
+Parameter Compatibility, Include Issuer in Authorization Responses, and
+offline access. Define only `cases:review`. Use a regular confidential OAuth
+application with only authorization-code and refresh-token grants, OpenAI's
+exact callback URL, and a per-application user-delegated grant for that scope.
+Disable public database signups and every application connection except the
+closed database connection containing the sole owner account. Supply the
+static client ID and secret directly in ChatGPT's OAuth setup; never put the
+secret in Git or the runtime environment. The runtime receives only the
+non-secret Auth0 issuer, JWKS URL, resource URL, exact allowed client ID, and
+stable allowed owner subject. It independently rejects a validly signed token
+from any other client or user. This path avoids Auth0's Enterprise-only
+`private_key_jwt` and role-management features.
+
+Before enabling the switches, deploy the public privacy/terms bytes that name
+the case store, OpenAI ChatGPT review, Auth0 reviewer authentication, current
+retention, withdrawal behavior, and redaction limitations. The public form and
+22 research tools remain anonymous; participants do not use Auth0.
 
 Every later Compose command must use both the base and living-evidence overlay;
 otherwise the database remains running but the research container loses its
@@ -114,6 +155,10 @@ the payload.
 - Disable ASKRIGOR_LIVING_EVIDENCE_REUSE_ENABLED, restore the prior research
   image/base Compose selection, and recreate only research-mcp for immediate
   product rollback. Repository rows are retained.
+- Disable `ASKRIGOR_EVIDENCE_GAP_INTAKE_ENABLED` and `ASKRIGOR_OAUTH_ENABLED`
+  and recreate only research-mcp to remove the form and protected review tool
+  from the active runtime without deleting participant rows. Revoke the Auth0
+  client grant separately if authorization must be disabled immediately.
 - Stop the database only after the research service no longer selects the
   overlay. Do not delete its state, secrets, or logical exports as part of a
   code rollback.

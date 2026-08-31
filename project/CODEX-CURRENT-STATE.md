@@ -1,5 +1,52 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 Auth0-backed public evidence-gap release active
+
+The US production tenant `askrigor-prod` now exists. The durable free-tier
+configuration uses a regular confidential ChatGPT application with the exact
+OpenAI callback, authorization-code and refresh-token grants, offline access,
+the RFC 9068 access-token profile, and one per-application `cases:review`
+grant. The imported CIMD application's grant was revoked after current Auth0
+pricing showed that its `private_key_jwt` and role-management dependencies are
+not included on Free. API RBAC is disabled, so the release does not depend on
+trial-only features. Public database signup is disabled; the replacement
+application has only that closed database connection, Google is disabled for
+it, and one primary owner account was created. Auth0 accepted the owner
+password-setup email request. No password, client secret, token, or personal
+email is in the repository.
+
+Defense in depth is now implemented locally: when OAuth is enabled from the
+environment, AskRigor requires exact allowed client-ID and stable owner-subject
+bindings in addition to signature, issuer, audience, expiry, and scope. Focused
+authorization/deployment/privacy tests pass 53/53 and typecheck passes. The
+next external dependency is completion of the password-setup email; unrelated
+release work continues meanwhile. After that, install the static client
+credentials privately in primary-account ChatGPT, run the real OAuth flow,
+then merge, deploy, and complete exact product/plugin acceptance.
+
+Local release hardening is now complete at implementation commit
+`acaab5e0f137bf22519a7569ed62899fb701e523`. The full gate passes 121
+test files plus one declared skip and 1,580 tests plus six declared skips,
+followed by build. Headless Brave acceptance passes the partial non-remission
+comparison flow through private review and withdrawal. A disposable PostgreSQL
+17.6 execution applied migration `0008`, proved the intake role's real
+select/insert/update path, and proved denial of delete, truncate, another-table
+read, persistent create, and temporary create. Exact local evidence is in
+`../docs/audits/2026-08-31-auth0-evidence-gap-release-candidate.json` and
+`.md`.
+
+The owner approved Auth0 as the external identity provider for the already
+completed public-intake and OAuth-scoped review stack. Active branch
+`task/auth0-release-20260831` is stacked on
+`2d0b3b343a3378e9647d6030b69358983a013212`; the release plan is
+`../docs/superpowers/plans/2026-08-31-auth0-evidence-gap-release.md`.
+
+The invariant is unchanged: AskRigor remains public, 22 research tools and the
+public form remain anonymous, participant recovery keys reach only their own
+case, and only cross-user review requires `cases:review`. Auth0 is for the
+owner/reviewer identity, not participants. No production deployment, merge, or
+release claim has yet been completed in this slice.
+
 ## 2026-08-31 public plugin with scoped case review completed locally
 
 Task `askrigor-public-gap-oauth-review-v1` is complete locally on branch

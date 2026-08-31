@@ -9,6 +9,14 @@ product operated by Mayan Roots LLC. Its public privacy-notice effective date is
 August 30, 2026. This identity clarification changes no processing, collection,
 retention, recipient, or access boundary in this data map.
 
+The August 31 release candidate adds an accurate public notice for the public
+evidence-gap form. Active drafts/submissions currently have no automatic
+expiration and remain in the private VPS database until withdrawal or operator
+deletion. There is no automatic off-host backup. Withdrawal removes active
+content and leaves a no-content row; PostgreSQL write-ahead/storage remnants
+age out through ordinary maintenance. The participant browser stores the case
+ID and recovery key in local storage; the server stores only the key hash.
+
 ## Purpose and boundary
 
 ### Approved isolated living-evidence pilot
@@ -78,7 +86,8 @@ only its hash is stored. Withdrawal clears the active narrative envelope,
 structured fields, consent, and review-queue membership, leaving a no-content
 row. The encryption key and private review bearer key are runtime secrets, not
 database fields. Structured JSON is private but not separately application-
-encrypted in this MVP.
+encrypted in this MVP. Active drafts and submitted cases have no automatic
+expiration. The private VPS database has no automatic off-host backup.
 
 An authenticated internal review route may return explicitly consented cases
 to AskRigor/GPT as participant-reported, unverified leads. It applies basic
@@ -100,8 +109,10 @@ attaching identity to the MCP request. Its OAuth challenge and protected-
 resource metadata contain only endpoint and scope metadata. The tool receives
 the already bounded review projection; it does not receive recovery keys,
 encryption material, contact destinations, raw database envelopes, or OAuth
-tokens in its result. Choosing and configuring the external identity provider
-and documenting that provider's processing remain release work.
+tokens in its result. Auth0 is the approved external identity provider. It
+processes only the owner/reviewer identity, login/consent, and related security
+metadata; participants do not authenticate with Auth0, and AskRigor sends it no
+participant case content. API RBAC restricts `cases:review` to the owner role.
 
 The local and conditionally authorized Railway pilot boundaries are defined by
 `docs/living-evidence-source-storage-policy.md` and

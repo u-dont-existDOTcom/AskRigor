@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-auth0-evidence-gap-release-v1",
+  "recordedAt": "2026-08-31T19:17:41Z",
+  "branch": "task/auth0-release-20260831",
+  "stackedOn": {
+    "branch": "task/public-gap-oauth-review-20260831",
+    "commit": "2d0b3b343a3378e9647d6030b69358983a013212"
+  },
+  "implementationCommit": "acaab5e0f137bf22519a7569ed62899fb701e523",
+  "releaseState": "local_release_candidate",
+  "ownerBoundary": {
+    "publicResearchToolCount": 22,
+    "publicFormAnonymous": true,
+    "participantOwnCaseAccess": "recovery_key",
+    "crossUserReviewAccess": "oauth_cases_review",
+    "participantAuth0AccountRequired": false,
+    "rawCasesPublic": false,
+    "partialCasesIncludedAndLabeled": true
+  },
+  "productionHardening": {
+    "provider": "Auth0",
+    "resource": "https://mcp.askrigor.com/mcp",
+    "permission": "cases:review",
+    "intakeRole": "askrigor_evidence_gap_intake",
+    "intakeTable": "living_evidence.evidence_gap_submissions",
+    "allowedTablePrivileges": ["SELECT", "INSERT", "UPDATE"],
+    "deniedPrivilegesVerified": [
+      "DELETE intake table",
+      "TRUNCATE intake table",
+      "SELECT another repository table",
+      "CREATE persistent schema object",
+      "CREATE temporary object"
+    ],
+    "publicNoticeNamesOpenAiChatGpt": true,
+    "publicNoticeNamesAuth0": true,
+    "publicNoticeStatesNoAutomaticExpiry": true,
+    "publicNoticeStatesNoAutomaticOffHostBackup": true,
+    "publicNoticeStatesBasicRedactionLimit": true
+  },
+  "verification": [
+    {
+      "command": "npm run test:run -- tests/living-evidence-production-deployment.test.ts tests/public-evidence-gap-intake.test.ts tests/public-site.test.ts tests/release-packet.test.ts tests/public-gap-oauth-review.test.ts",
+      "result": "pass",
+      "testFilesPassed": 5,
+      "testsPassed": 52
+    },
+    {
+      "command": "npm run test:site",
+      "result": "pass",
+      "pagesValidated": 4
+    },
+    {
+      "command": "npm run test:site-deploy",
+      "result": "pass",
+      "testFilesPassed": 1,
+      "testsPassed": 28
+    },
+    {
+      "command": "npm run verify",
+      "result": "pass",
+      "testFilesPassed": 121,
+      "testFilesSkipped": 1,
+      "testsPassed": 1580,
+      "testsSkipped": 6,
+      "typecheck": "pass",
+      "build": "pass"
+    },
+    {
+      "command": "npm audit --omit=dev",
+      "result": "pass",
+      "vulnerabilities": 0
+    },
+    {
+      "command": "npm run evidence-gap:public-acceptance",
+      "result": "pass",
+      "browser": "Brave headless",
+      "flow": "public partial non-remission comparison -> private GPT queue -> withdrawal",
+      "partialLabelShown": true,
+      "verificationStatus": "PARTICIPANT_REPORTED_UNVERIFIED",
+      "causalAnalysisPermitted": false,
+      "publicRawNarrativeAbsent": true,
+      "withdrawalClearedReviewQueue": true
+    },
+    {
+      "command": "disposable PostgreSQL 17.6 migration and intake-role acceptance",
+      "result": "pass",
+      "migration": "0008 applied",
+      "realInsertUpdateRollback": "pass",
+      "deniedPrivilegeProbes": "pass"
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "artifactHashes": {
+    "productionComposeSha256": "79ab84deb6eff416150a3854d5c4c336f95b459a2e1ba950f62b5b6a73035f09",
+    "intakeRoleProvisionerSha256": "3ec5896e83566931ebdfd86ea0b6db07087999543c9fc98d16f4bfde51a74bb7",
+    "privacyNoticeSha256": "99423085f32390d9d4c040d32d0e0a2c05abec5952671e212ff0d91ac8e0b5e9",
+    "termsSha256": "23f78efe85b62a04af336fcda266073857f2b770ee074992dbf05eb435bd49ac",
+    "publicGapPageSha256": "6d2f279c272d4a14eb36fc3315345f4f0a4a3c26d3fee902ce57265a43ed2833",
+    "environmentTemplateSha256": "616966d146a4e90098fad959c37db9e3fa4ae5d16181ea7020e3721ca2f6bead"
+  },
+  "lessonQueue": {
+    "status": "available",
+    "openCandidates": 0,
+    "needsReview": 0,
+    "acceptedNotIncorporated": 0,
+    "incorporatedOrClosed": 4,
+    "deletionEligible": 0,
+    "checkedAt": "2026-08-31T18:32:11.783Z"
+  },
+  "completion": {
+    "typedClaim": "PROGRESS",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_local_release_candidate",
+    "scientificAdequacy": "pass_for_provenance_missingness_unverified_comparator_and_noncausal_semantics_only",
+    "releaseAdequacy": "pending_auth0_configuration_merge_deployment_and_primary_chatgpt_acceptance"
+  },
+  "remainingReleaseWork": [
+    "Create or select the production Auth0 tenant and configure CIMD, PKCE, resource compatibility, issuer response, RBAC, and the owner-only cases:review grant.",
+    "Reconcile and merge the stacked pull requests, build the immutable image, and deploy with an exact rollback identity.",
+    "Run live anonymous, unauthorized, owner-authorized, participant-recovery, site, plugin-package, and primary ChatGPT acceptance."
+  ]
+}

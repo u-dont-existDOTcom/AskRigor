@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-auth0-evidence-gap-release-v1",
+  "recordedAt": "2026-08-31T21:01:00Z",
+  "state": "auth0_configured_password_setup_pending",
+  "tenant": {
+    "name": "askrigor-prod",
+    "environment": "production",
+    "region": "US-5",
+    "issuer": "https://askrigor-prod.us.auth0.com/",
+    "jwks": "https://askrigor-prod.us.auth0.com/.well-known/jwks.json",
+    "defaultAudience": "https://mcp.askrigor.com/mcp",
+    "resourceParameterCompatibility": true,
+    "includeIssuerInAuthorizationResponses": true,
+    "offlineAccess": true
+  },
+  "api": {
+    "name": "AskRigor evidence-gap review",
+    "resource": "https://mcp.askrigor.com/mcp",
+    "permission": "cases:review",
+    "jwtProfile": "RFC_9068",
+    "signingAlgorithm": "RS256",
+    "userDelegatedAccess": "per_application",
+    "clientAccess": "denied",
+    "rbacEnabled": false,
+    "permissionsClaimEnabled": false
+  },
+  "chatgptApplication": {
+    "name": "AskRigor ChatGPT reviewer",
+    "type": "regular_web_application",
+    "clientId": "KpzLdf3h7yMofpcpHCrhqB12YkEpvejD",
+    "clientSecretStoredInGit": false,
+    "callback": "https://chatgpt.com/connector_platform_oauth_redirect",
+    "grantTypes": ["authorization_code", "refresh_token"],
+    "apiPermissionsGranted": ["cases:review"],
+    "clientCredentialsAccess": "denied",
+    "enabledConnections": ["Username-Password-Authentication"],
+    "googleConnectionEnabled": false
+  },
+  "ownerBoundary": {
+    "publicDatabaseSignupDisabled": true,
+    "ownerAccountCount": 1,
+    "ownerEmailStoredInGit": false,
+    "passwordSetupRequestHttpStatus": 200,
+    "temporaryPasswordCleared": true,
+    "allowedClientIdRequiredAtResourceServer": true,
+    "allowedSubjectRequiredAtResourceServer": true,
+    "allowedSubjectStoredInGit": false
+  },
+  "trialFeatureRemoval": {
+    "privateKeyJwtUsedByRelease": false,
+    "roleManagementUsedByRelease": false,
+    "importedCimdGrant": "revoked_0_of_1",
+    "importedCimdClientState": "inert_pending_replacement_acceptance_then_delete"
+  },
+  "discoveryReadback": {
+    "openidConfiguration": "pass",
+    "oauthAuthorizationServer": "pass",
+    "offlineAccessAdvertised": true,
+    "authorizationCodeAdvertised": true,
+    "refreshTokenAdvertised": true,
+    "clientSecretBasicAdvertised": true,
+    "clientSecretPostAdvertised": true,
+    "cimdAdvertised": true,
+    "authorizationResponseIssuerAdvertised": true
+  },
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "result": "pass"
+    },
+    {
+      "command": "npm run test:run -- tests/public-gap-oauth-review.test.ts tests/living-evidence-production-deployment.test.ts tests/public-evidence-gap-intake.test.ts tests/public-site.test.ts tests/release-packet.test.ts",
+      "result": "pass",
+      "testFilesPassed": 5,
+      "testsPassed": 53
+    }
+  ],
+  "adequacy": {
+    "typedClaim": "PROGRESS",
+    "operationalAlignment": "pass_auth0_configuration_checkpoint",
+    "scientificAdequacy": "unchanged_bounded_provenance_missingness_comparison_unverified_noncausal_only",
+    "releaseAdequacy": "pending_password_primary_chatgpt_merge_deploy_plugin_and_product_acceptance"
+  }
+}
