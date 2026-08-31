@@ -11,11 +11,14 @@ keys remain case-specific, and only cross-user review requires
 ## Release boundary
 
 1. Configure an Auth0 production tenant as the MCP authorization server using
-   its free Auth for MCP capability, the OpenAI CIMD client, PKCE, the resource
+   a regular confidential OAuth client, static credentials supplied privately
+   to ChatGPT, authorization code, PKCE, refresh tokens, the resource
    compatibility profile, and issuer identification.
-2. Define the `cases:review` API permission, enable Auth0 RBAC, and assign it
-   only to the owner reviewer identity. A successful login by another tenant
-   user must not receive the review scope.
+2. Define only the `cases:review` API permission, grant it only to that exact
+   application, close database registration, and keep only the primary owner
+   account in the application's sole enabled connection. Pin the exact client
+   ID and owner subject again at the AskRigor resource server. A token for any
+   other client or user must fail even when otherwise correctly signed.
 3. Give the application database role access only to
    `living_evidence.evidence_gap_submissions`; it receives no access to the
    broader research repository and no table-delete or schema-create privilege.

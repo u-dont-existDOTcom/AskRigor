@@ -75,14 +75,20 @@ The optional ChatGPT/Codex review operation additionally requires:
 - `ASKRIGOR_OAUTH_RESOURCE_URL` (the canonical HTTPS MCP resource URL)
 - `ASKRIGOR_OAUTH_ISSUER_URL` (the exact authorization-server issuer)
 - `ASKRIGOR_OAUTH_JWKS_URL` (the issuer's HTTPS signing-key set)
+- `ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID` (the exact ChatGPT OAuth application ID)
+- `ASKRIGOR_OAUTH_ALLOWED_SUBJECT` (the stable subject of the sole owner account)
 
 The approved production authorization server is Auth0. Its resource identifier
-is the canonical MCP URL; Resource Parameter Compatibility, issuer responses,
-manual CIMD registration, API RBAC, and the owner-only `cases:review` role must
-all be enabled before release. AskRigor verifies JWT signature, issuer, audience, expiry,
-client identity, and scopes. The private tool additionally requires
-`cases:review`. Invalid or stale tokens do not disable anonymous research
-tools; they are treated as unauthenticated for the protected tool.
+is the canonical MCP URL. Resource Parameter Compatibility, issuer responses,
+offline access, and an exact per-application `cases:review` grant must be
+enabled before release. ChatGPT uses a regular confidential OAuth application
+with static client credentials, authorization code, PKCE, and refresh tokens;
+no Enterprise-only Auth0 feature is required. Public database registration is
+disabled, that application has only the closed database connection, and the
+sole owner account is created with the primary owner email. AskRigor verifies
+JWT signature, issuer, audience, expiry, scope, exact client ID, and exact owner
+subject. Invalid or stale tokens do not disable anonymous research tools; they
+are treated as unauthenticated for the protected tool.
 
 Public mutation routes are JSON-only, same-origin when an Origin header is
 present, request-size limited, rate limited, and honeypot checked. Participant

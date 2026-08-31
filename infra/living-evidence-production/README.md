@@ -99,11 +99,17 @@ high-entropy internal review key. Never print or receipt their values.
 The external authorization server is Auth0. Configure the production tenant
 for the canonical resource `https://mcp.askrigor.com/mcp`, enable Resource
 Parameter Compatibility, Include Issuer in Authorization Responses, and
-manual CIMD registration, then import OpenAI's exact current CIMD URL. Define
-only `cases:review`, enable API RBAC, and assign that permission only to the
-owner reviewer role. The runtime receives only the non-secret Auth0 issuer,
-JWKS URL, and resource URL. It receives no Auth0 client secret because the
-OpenAI CIMD/PKCE client uses public-client token exchange.
+offline access. Define only `cases:review`. Use a regular confidential OAuth
+application with only authorization-code and refresh-token grants, OpenAI's
+exact callback URL, and a per-application user-delegated grant for that scope.
+Disable public database signups and every application connection except the
+closed database connection containing the sole owner account. Supply the
+static client ID and secret directly in ChatGPT's OAuth setup; never put the
+secret in Git or the runtime environment. The runtime receives only the
+non-secret Auth0 issuer, JWKS URL, resource URL, exact allowed client ID, and
+stable allowed owner subject. It independently rejects a validly signed token
+from any other client or user. This path avoids Auth0's Enterprise-only
+`private_key_jwt` and role-management features.
 
 Before enabling the switches, deploy the public privacy/terms bytes that name
 the case store, OpenAI ChatGPT review, Auth0 reviewer authentication, current

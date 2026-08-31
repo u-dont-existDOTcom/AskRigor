@@ -35,10 +35,20 @@ export function oauthResourceServerFromEnv(
     env.ASKRIGOR_OAUTH_JWKS_URL,
     "ASKRIGOR_OAUTH_JWKS_URL",
   );
+  const allowedClientId = parseTokenBinding(
+    env.ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID,
+    "ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID",
+  );
+  const allowedSubject = parseTokenBinding(
+    env.ASKRIGOR_OAUTH_ALLOWED_SUBJECT,
+    "ASKRIGOR_OAUTH_ALLOWED_SUBJECT",
+  );
   return createJwtOAuthResourceServer({
     resourceUrl,
     issuerUrl,
     jwks: createRemoteJWKSet(jwksUrl),
+    allowedClientIds: [allowedClientId],
+    allowedSubjects: [allowedSubject],
   });
 }
 
@@ -46,6 +56,8 @@ export function createJwtOAuthResourceServer(options: {
   resourceUrl: URL;
   issuerUrl: URL;
   jwks: JWTVerifyGetKey;
+  allowedClientIds?: readonly string[];
+  allowedSubjects?: readonly string[];
 }): AskRigorOAuthResourceServer {
   const resourceUrl = parseHttpsUrl(
     options.resourceUrl.href,
@@ -55,6 +67,8 @@ export function createJwtOAuthResourceServer(options: {
     options.issuerUrl.href,
     "OAUTH_ISSUER_URL",
   );
+  const allowedClientIds = new Set(options.allowedClientIds ?? []);
+  const allowedSubjects = new Set(options.allowedSubjects ?? []);
   return Object.freeze({
     resourceUrl,
     authorizationServerUrls: Object.freeze([issuerUrl]),
@@ -79,17 +93,40 @@ export function createJwtOAuthResourceServer(options: {
         if (clientId === undefined || clientId.length === 0) {
           throw new Error("OAUTH_ACCESS_TOKEN_CLIENT_REQUIRED");
         }
+        if (allowedClientIds.size > 0 && !allowedClientIds.has(clientId)) {
+          throw new Error("OAUTH_ACCESS_TOKEN_CLIENT_NOT_ALLOWED");
+        }
+        const subject = typeof payload.sub === "string"
+          ? payload.sub
+          : undefined;
+        if (
+          allowedSubjects.size > 0 &&
+          (subject === undefined || !allowedSubjects.has(subject))
+        ) {
+          throw new Error("OAUTH_ACCESS_TOKEN_SUBJECT_NOT_ALLOWED");
+        }
         return {
           token,
           clientId,
           scopes: extractScopes(payload.scope, payload.scp),
           expiresAt: payload.exp,
           resource: resourceUrl,
-          extra: typeof payload.sub === "string" ? { subject: payload.sub } : {},
+          extra: subject === undefined ? {} : { subject },
         };
       },
     },
   });
+}
+
+function parseTokenBinding(value: string | undefined, name: string): string {
+  if (
+    value === undefined ||
+    value.trim() !== value ||
+    !/^[^\s\u0000-\u001f\u007f]{1,512}$/u.test(value)
+  ) {
+    throw new Error(`${name}_INVALID`);
+  }
+  return value;
 }
 
 export async function attachOptionalOAuthIdentity(
