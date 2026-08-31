@@ -82,6 +82,11 @@ complete XML protocol.
   rollback, synchronized MCP/plugin/package/editor/protocol consumers, fresh
   primary ordinary-Chat operation-22 acceptance, and separate operational,
   bounded-scientific, release, and root-product states
+- `audits/2026-08-31-issue150-synthetic-gap-loop.md` and its machine JSON:
+  local-only synthetic prolactinoma gap page, provenance-first intake,
+  equal-weight non-remission comparator, lifecycle propagation, linked research
+  boundary, headless Brave acceptance, and separate operational, bounded-
+  scientific, and no-public-release verdicts
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/
