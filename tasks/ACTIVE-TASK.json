@@ -4,7 +4,7 @@
   "status": "active",
   "exclusive": true,
   "requiredBranch": "agent/research-frontier-readonly-tool-20260831",
-  "pullRequest": null,
+  "pullRequest": 148,
   "assuranceLane": "release",
   "targetedHardGates": [
     "the public operation is a dedicated exact-selector frontier lookup rather than an overloaded existing tool",
