@@ -101,6 +101,10 @@ complete XML protocol.
   30-case hostile audit and synthetic closure of reidentification, minor,
   external/deleted-source, incomplete-hearsay, and paid-private-intake gaps,
   with migration 0007, 20-check PostgreSQL evidence, and no-release verdicts
+- `synthetic-evidence-gap-lab.md`: local-only prolactinoma gap-to-research
+  vertical slice, existing-service composition, provenance-first contribution,
+  equal-weight non-remission comparator, correction/withdrawal propagation,
+  headless Brave acceptance, and explicit no-recruitment/no-release limits
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

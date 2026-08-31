@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>AskRigor synthetic evidence-gap lab</title>
+    <link rel="stylesheet" href="/synthetic-evidence-gap.css" />
+    <script src="/synthetic-evidence-gap.js" defer></script>
+  </head>
+  <body>
+    <div class="lab-banner" role="status">
+      <strong>Local synthetic laboratory</strong>
+      <span>No real health data. No active recruitment. Nothing here is treatment advice.</span>
+    </div>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="AskRigor synthetic lab home">
+        <span class="brand-mark" aria-hidden="true">AR</span>
+        <span>AskRigor</span>
+      </a>
+      <span class="environment-pill">Synthetic fixture · local only</span>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="gap-title">
+        <div>
+          <p class="eyebrow">Evidence gap · observational signal collection</p>
+          <h1 id="gap-title">What precedes spontaneous prolactinoma remission?</h1>
+          <p class="hero-copy" id="gap-question">
+            Loading the bounded synthetic research question…
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#contribute">Contribute a synthetic case</a>
+            <a class="button secondary" href="#frontier">Inspect the evidence frontier</a>
+          </div>
+        </div>
+        <aside class="coverage-card" aria-label="Current synthetic coverage">
+          <p class="label">Comparison coverage</p>
+          <div class="coverage-pair">
+            <div>
+              <strong id="remission-count">0</strong>
+              <span>reported remission</span>
+            </div>
+            <div>
+              <strong id="comparator-count">0</strong>
+              <span>non-remission comparator</span>
+            </div>
+          </div>
+          <p id="comparison-message" class="small-copy"></p>
+        </aside>
+      </section>
+
+      <section class="known-grid" aria-label="Evidence-gap context">
+        <article class="context-card">
+          <p class="label">What is known</p>
+          <p id="known-copy"></p>
+        </article>
+        <article class="context-card unresolved">
+          <p class="label">What remains unresolved</p>
+          <p id="unresolved-copy"></p>
+        </article>
+        <article class="context-card comparator">
+          <p class="label">Why comparison cases matter</p>
+          <p id="comparison-copy"></p>
+        </article>
+      </section>
+
+      <section id="contribute" class="workspace" aria-labelledby="contribute-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Contribute experience</p>
+            <h2 id="contribute-title">Help test the workflow with synthetic data</h2>
+          </div>
+          <p class="section-note">Four short steps · raw account stays private</p>
+        </div>
+
+        <ol class="stepper" aria-label="Contribution progress">
+          <li class="active" data-step-marker="1">1 <span>Provenance</span></li>
+          <li data-step-marker="2">2 <span>Unprompted account</span></li>
+          <li data-step-marker="3">3 <span>Structured details</span></li>
+          <li data-step-marker="4">4 <span>Preview &amp; consent</span></li>
+        </ol>
+
+        <div id="form-status" class="form-status" role="status" aria-live="polite"></div>
+
+        <form id="provenance-form" class="step-panel" data-step="1">
+          <fieldset>
+            <legend>Whose synthetic experience are you describing?</legend>
+            <p class="field-help">Source distance remains visible on every public research lead.</p>
+            <div class="radio-grid">
+              <label><input type="radio" name="provenance" value="SELF" checked /> My own synthetic experience</label>
+              <label><input type="radio" name="provenance" value="DIRECT_OBSERVER" /> I directly observed it</label>
+              <label><input type="radio" name="provenance" value="SUBJECT_RELAYED" /> The person told me</label>
+              <label><input type="radio" name="provenance" value="HEARSAY" /> I heard it indirectly</label>
+            </div>
+          </fieldset>
+          <button class="button primary" type="submit" data-testid="start-contribution">Continue</button>
+        </form>
+
+        <form id="narrative-form" class="step-panel" data-step="2" hidden>
+          <label for="narrative"><strong>Before seeing candidate transitions, what changed?</strong></label>
+          <p class="field-help">
+            Describe only a fictional case. Include the word “synthetic.” This raw answer is saved before structured prompts and is not displayed publicly.
+          </p>
+          <textarea id="narrative" name="narrative" rows="6" required minlength="20" maxlength="4000" data-testid="unprompted-account" placeholder="Synthetic account: during the period before…"></textarea>
+          <button class="button primary" type="submit" data-testid="save-narrative">Save private synthetic account</button>
+        </form>
+
+        <form id="details-form" class="step-panel" data-step="3" hidden>
+          <div class="field-grid">
+            <label>Outcome
+              <select name="outcome" required data-testid="outcome">
+                <option value="REPORTED_REMISSION">Reported remission or regression</option>
+                <option value="NO_REMISSION">No remission</option>
+              </select>
+            </label>
+            <label>Candidate transition
+              <select name="exposure" required data-testid="exposure">
+                <option value="PREGNANCY_POSTPARTUM">Pregnancy / postpartum</option>
+                <option value="MENOPAUSE">Menopause</option>
+                <option value="POSSIBLE_APOPLEXY">Possible apoplexy-like episode</option>
+                <option value="DOPAMINE_AGONIST_WITHDRAWAL">Dopamine-agonist withdrawal</option>
+                <option value="BREAST_IMPLANT_OR_EXPLANT">Breast implant / explant</option>
+                <option value="OTHER_TRANSITION">Other transition</option>
+              </select>
+            </label>
+            <label>Treatment context
+              <select name="treatmentContext" required data-testid="treatment-context">
+                <option value="NO_PRIOR_DOPAMINE_AGONIST">No prior dopamine agonist</option>
+                <option value="PREVIOUSLY_TREATED">Previously treated</option>
+                <option value="CURRENTLY_TREATED">Currently treated</option>
+                <option value="TREATMENT_WITHDRAWN">Treatment withdrawn</option>
+                <option value="UNKNOWN">Unknown</option>
+              </select>
+            </label>
+          </div>
+          <fieldset class="check-grid">
+            <legend>Which synthetic details are available?</legend>
+            <label><input type="checkbox" name="timingKnown" checked /> Transition timing</label>
+            <label><input type="checkbox" name="persistenceKnown" /> Outcome persistence</label>
+            <label><input type="checkbox" name="baselineDocumented" /> Baseline MRI/lab metadata</label>
+            <label><input type="checkbox" name="followupDocumented" /> Follow-up MRI/lab metadata</label>
+          </fieldset>
+          <button class="button primary" type="submit" data-testid="prepare-preview">Prepare deidentified preview</button>
+        </form>
+
+        <form id="consent-form" class="step-panel" data-step="4" hidden>
+          <div class="preview-box">
+            <p class="label">Exact synthetic public preview</p>
+            <h3 id="preview-title"></h3>
+            <p id="preview-copy"></p>
+            <p id="preview-source" class="source-label"></p>
+            <ul id="preview-limitations"></ul>
+          </div>
+          <div class="consent-box">
+            <label><input type="checkbox" name="syntheticOnly" required /> I confirm this is fictional synthetic data only.</label>
+            <label><input type="checkbox" name="publicLead" required /> Add this deidentified preview to the local synthetic frontier.</label>
+            <label><input type="checkbox" name="recontact" /> Allow synthetic follow-up prompts in this lab session.</label>
+          </div>
+          <button class="button primary" type="submit" data-testid="publish-lead">Add bounded research lead</button>
+        </form>
+        <div id="contribution-complete" class="completion-box" hidden>
+          <p class="label">Synthetic contribution state</p>
+          <h3 id="completion-title">Bounded research lead added</h3>
+          <p id="completion-copy">
+            The projection is visible below at its actual verification and completeness level.
+          </p>
+        </div>
+      </section>
+
+      <section id="frontier" class="frontier-section" aria-labelledby="frontier-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Bounded public research leads</p>
+            <h2 id="frontier-title">Synthetic evidence frontier</h2>
+          </div>
+          <p class="section-note">Direction-balanced · not ranked by popularity</p>
+        </div>
+        <div class="denominator-warning">
+          Counts describe submitted synthetic leads only. No denominator, effectiveness percentage, or causal conclusion is available.
+        </div>
+        <div id="frontier-cards" class="frontier-grid" aria-live="polite"></div>
+        <div id="tombstones" class="tombstone-list"></div>
+      </section>
+
+      <section class="research-section" aria-labelledby="research-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Gap-to-research handoff</p>
+            <h2 id="research-title">Linked research boundary</h2>
+          </div>
+          <span class="status-pill review">Recruitment inactive</span>
+        </div>
+        <div id="research-boundary" class="research-grid"></div>
+      </section>
+    </main>
+
+    <footer>
+      AskRigor local synthetic lab · observational evidence collection only
+    </footer>
+  </body>
+</html>

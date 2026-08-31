@@ -50,6 +50,16 @@ export {
   type CommunityPrivacyGateDependencies,
 } from "./community-forum-privacy-provenance.js";
 export {
+  SYNTHETIC_PROLACTINOMA_GAP_SLUG,
+  syntheticProlactinomaGap,
+  SyntheticProlactinomaGapLoop,
+  type SyntheticGapDetailsInput,
+  type SyntheticGapExposure,
+  type SyntheticGapOutcome,
+  type SyntheticGapProvenance,
+  type SyntheticGapTreatmentContext,
+} from "./synthetic-evidence-gap-loop.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";

@@ -1,67 +1,55 @@
 {
   "schemaVersion": 1,
-  "taskId": "askrigor-pr148-release-boundary-closeout-v1",
-  "status": "complete",
+  "taskId": "askrigor-issue150-synthetic-gap-loop-v1",
+  "status": "in_progress",
   "exclusive": true,
-  "requiredBranch": "agent/pr148-release-boundary-closeout-20260831",
-  "pullRequest": 151,
-  "assuranceLane": "release",
+  "requiredBranch": "task/issue-150-synthetic-gap-loop-20260831",
+  "pullRequest": null,
+  "assuranceLane": "iteration",
   "supervisorDirective": {
     "issue": 150,
     "url": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150",
-    "updatedAt": "2026-08-31T11:34:04Z",
-    "bodySha256": "eb7546fab315b7ae0a5b85b9094294eb5426c53445b8444a70eaf12dd06295c2"
+    "ownerCorrection": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150#issuecomment-5479430773",
+    "adoptedAt": "2026-08-31T13:58:35Z"
   },
   "reviewedBoundary": {
-    "implementationMerge": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
-    "currentMainAtAdoption": "26623f982cca5a1fab23b495959f71b8970ad59f"
+    "cycleAReceiptMerge": "2ee08e649474aa1d7cf8260ec2a915ab961963bb",
+    "cycleAProductionSource": "26623f982cca5a1fab23b495959f71b8970ad59f"
   },
-  "supersededTask": {
-    "taskId": "askrigor-living-evidence-frontier-readonly-tool-v1",
-    "requiredBranch": "agent/research-frontier-readonly-tool-20260831",
-    "pullRequest": 148,
-    "mergeCommit": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
-    "completionClaim": "PARTIAL_OUTCOME",
-    "releaseAdequacy": "failed_closed_product_interface_missing_get_research_frontier",
-    "historicalReceipt": "docs/audits/2026-08-31-research-frontier-product-acceptance-execution-receipt.json"
+  "priorTask": {
+    "taskId": "askrigor-pr148-release-boundary-closeout-v1",
+    "pullRequest": 151,
+    "mergeCommit": "2ee08e649474aa1d7cf8260ec2a915ab961963bb",
+    "completionClaim": "OUTCOME",
+    "releaseAdequacy": "pass",
+    "historicalReceipt": "docs/audits/2026-08-31-pr148-release-boundary-closeout.json"
   },
   "targetedHardGates": [
-    "build and deploy one exact immutable production image from current main through the existing path with a preserved rollback identity",
-    "all governed MCP, plugin, package, editor, ordinary-product, and protocol surfaces expose operation 22 and HRP 20.5.24",
-    "fresh headless primary ordinary-product acceptance verifies exact Universal and HRP identities",
-    "fresh headless primary ordinary-product acceptance verifies PubMed 40223676 access behavior",
-    "fresh headless primary ordinary-product acceptance verifies get_research_frontier not_indexed miss semantics without external-evidence negation",
-    "fresh headless primary ordinary-product acceptance verifies a partial YouTube community audit with retrieved and returned counts, continuation state, and no corpus-wide extrapolation",
-    "operational, scientific, and release adequacy remain separately reported"
+    "local evidence-gap page exposes the synthetic prolactinoma question and comparison need",
+    "synthetic provenance and unprompted account are recorded before structured candidate fields",
+    "deidentified preview and explicit opt-in precede bounded public-lead projection",
+    "reported remission and same-transition non-remission comparator remain equally visible at actual evidence levels",
+    "challenge, correction, and withdrawal propagate to the frontier and linked research boundary",
+    "linked evidence check, question, and draft proposal remain noncausal with recruitment inactive",
+    "targeted tests, local headless Brave acceptance, complete deterministic verification, and final diff review pass"
   ],
   "prohibitedExpansion": [
-    "another architecture document, generalized schema, migration, or synthetic-backend expansion",
-    "automatic research agent or write-through",
-    "removal or consolidation of an existing research capability",
-    "local gap-to-research vertical-slice execution before a separate post-cycle-A Extra High directive"
+    "broad backend, generalized schema, migration, or public-site deployment",
+    "real health data, real recruitment, participant contact, or public indexing",
+    "efficacy percentage, causal inference, treatment recommendation, or popularity evidence upgrade",
+    "automatic research execution or regulatory reporting"
   ],
   "preflightCommand": "npm run lessons:status",
   "completionCommand": "npm run verify",
-  "preservedLocalRollback": "rollback/main-pre-frontier-readonly-tool-20260831",
+  "preservedLocalRollback": "2ee08e649474aa1d7cf8260ec2a915ab961963bb",
   "supervision": {
-    "completionClaim": "OUTCOME",
-    "claimScope": "issue 150 bounded execution cycle A only",
+    "completionClaim": "IN_PROGRESS",
+    "claimScope": "issue 150 local synthetic gap-to-research loop only",
     "workerToContract": "aligned",
-    "contractToOwner": "aligned_for_cycle_a",
-    "operationalAlignment": "pass",
-    "scientificAdequacy": "pass_for_bounded_partial_corpus_and_frontier_miss_semantics",
-    "releaseAdequacy": "pass",
-    "rootProductOutcome": "open",
-    "nextBoundary": "separate Extra High directive required before the local synthetic gap-to-research loop"
-  },
-  "releaseEvidence": {
-    "productionSourceCommit": "26623f982cca5a1fab23b495959f71b8970ad59f",
-    "researchImageId": "sha256:5b36557c785738ecc4e57bc63653bbcc2f20bac59a7f3b3235af9a687c2bb40f",
-    "researchContainer": "4a1ae631dfa7b87dbe6fadc0df32f9b1a973aa5270cc50f201ef5fb32be47d3a",
-    "backendToolCount": 22,
-    "pluginSettingsToolCount": 22,
-    "ordinaryProductOperation22Callable": true,
-    "ordinaryProductConversation": "https://chatgpt.com/c/6a9573d8-19d8-83ea-a450-93d80a52252d",
-    "executionReceipt": "docs/audits/2026-08-31-pr148-release-boundary-closeout.json"
+    "contractToOwner": "aligned_for_bounded_local_slice",
+    "operationalAlignment": "in_progress",
+    "scientificAdequacy": "in_progress_bounded_synthetic_semantics_only",
+    "releaseAdequacy": "not_applicable_no_public_release_authorized",
+    "rootProductOutcome": "open"
   }
 }

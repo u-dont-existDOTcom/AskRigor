@@ -39,6 +39,8 @@
     "community-forum:lab-validate": "tsx scripts/validate-discourse-synthetic-lab.mts",
     "community-forum:acceptance": "tsx scripts/community-forum-synthetic-acceptance.mts",
     "community-forum:runtime-acceptance": "bash scripts/run-discourse-synthetic-acceptance.sh",
+    "evidence-gap:synthetic-lab": "tsx scripts/run-synthetic-evidence-gap-lab.mts",
+    "evidence-gap:synthetic-acceptance": "tsx scripts/accept-synthetic-evidence-gap-lab.mts",
     "review:public-live": "tsx scripts/run-public-review-eval.mts",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
     "start:mcp": "node apps/research-mcp/dist/index.js"
