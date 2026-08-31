@@ -1,5 +1,44 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 public self-serve evidence-gap intake completed locally
+
+Branch `task/public-evidence-gap-intake-20260831` is stacked on the corrected
+issue #150 branch at `86a70cdff4f34f53f935dbedf837313f95c2a9cf`.
+
+The active objective is deliberately small: the public fills out the
+prolactinoma evidence-gap form as best they can; incomplete cases remain usable
+and labeled partial; non-remission comparison cases are recruited explicitly;
+raw case content remains private; and an authenticated AskRigor/GPT projection
+can examine participant-reported cases without treating them as verified or
+causal evidence.
+
+This is not an invite-only pilot, institutional research program, staffing or
+jurisdiction plan, generic forum, or public story directory. The prior veer
+arose because an assistant-authored controller directive invented those
+constraints and the worker failed to trace them to an independent owner
+source. Mission Control PR #46 now detects that added-constraint divergence as
+`UNSUPPORTED_CONSTRAINT_ADDITION`; durable feedback packet
+`SDF-20260831-UNSOURCED-GOVERNANCE-001` records the failure.
+
+Implementation commit `ed71b5e64d8a99ed83cc05bd300cf5d415a70e68`
+and stacked PR #153 add the one-page form, one private migration/service,
+recovery-key participant
+access, and authenticated private review projection. Focused tests pass 8/8;
+real PostgreSQL acceptance passes 39/39; the exact headless Brave partial
+non-remission flow passes through private review and withdrawal; and the
+complete gate passes 120 files plus one declared skip, 1,574 tests plus six
+declared skips, typecheck, and build. Exact evidence is in
+`../docs/audits/2026-08-31-public-evidence-gap-intake.json` and `.md`.
+
+Typed claim: `OUTCOME` for the local intake/review-projection slice only.
+Worker-to-contract and contract-to-owner alignment pass. Operational adequacy
+passes. Scientific adequacy passes only for the bounded provenance,
+missingness, comparator, unverified, and noncausal intake semantics. Release
+adequacy is not applicable because no external deployment occurred. The root
+product outcome remains open: the private review projection still needs the
+smallest authenticated GPT tool, followed separately by accurate public
+privacy/provider/retention/key/routing/rollback evidence before deployment.
+
 ## 2026-08-31 issue #150 local synthetic gap-to-research slice
 
 The cycle-A release boundary remains closed at PR #151. The owner-corrected

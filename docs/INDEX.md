@@ -110,6 +110,10 @@ complete XML protocol.
   vertical slice, existing-service composition, provenance-first contribution,
   equal-weight non-remission comparator, correction/withdrawal propagation,
   headless Brave acceptance, and explicit no-recruitment/no-release limits
+- `public-evidence-gap-intake.md`: smallest public self-serve evidence-gap form,
+  partial-case retention, equal-value comparison recruitment, private encrypted
+  narrative storage, recovery-key inspection/withdrawal, authenticated GPT
+  review projection, and explicit deployment/privacy limitations
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

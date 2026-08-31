@@ -1,65 +1,40 @@
 {
   "schemaVersion": 1,
-  "taskId": "askrigor-issue150-synthetic-gap-loop-v1",
+  "taskId": "askrigor-public-evidence-gap-intake-v1",
   "status": "complete",
   "exclusive": true,
-  "requiredBranch": "task/issue-150-synthetic-gap-loop-20260831",
-  "pullRequest": 152,
+  "requiredBranch": "task/public-evidence-gap-intake-20260831",
+  "stackedOnBranch": "task/issue-150-synthetic-gap-loop-20260831",
+  "stackedOnCommit": "86a70cdff4f34f53f935dbedf837313f95c2a9cf",
   "assuranceLane": "iteration",
-  "supervisorDirective": {
-    "issue": 150,
-    "url": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150",
-    "ownerCorrection": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150#issuecomment-5479430773",
-    "publicIntakeCorrection": "https://github.com/u-dont-existDOTcom/AskRigor/issues/150#issuecomment-5480845723",
-    "adoptedAt": "2026-08-31T13:58:35Z"
-  },
-  "reviewedBoundary": {
-    "cycleAReceiptMerge": "2ee08e649474aa1d7cf8260ec2a915ab961963bb",
-    "cycleAProductionSource": "26623f982cca5a1fab23b495959f71b8970ad59f"
-  },
-  "priorTask": {
-    "taskId": "askrigor-pr148-release-boundary-closeout-v1",
-    "pullRequest": 151,
-    "mergeCommit": "2ee08e649474aa1d7cf8260ec2a915ab961963bb",
-    "completionClaim": "OUTCOME",
-    "releaseAdequacy": "pass",
-    "historicalReceipt": "docs/audits/2026-08-31-pr148-release-boundary-closeout.json"
-  },
-  "targetedHardGates": [
-    "local evidence-gap page exposes the synthetic prolactinoma question and comparison need",
-    "synthetic provenance and unprompted account are recorded before structured candidate fields",
-    "deidentified preview and explicit opt-in precede bounded public-lead projection",
-    "reported remission and same-transition non-remission comparator remain equally visible at actual evidence levels",
-    "challenge, correction, and withdrawal propagate to the frontier and linked research boundary",
-    "linked evidence check, question, and draft proposal remain noncausal with recruitment inactive",
-    "targeted tests, local headless Brave acceptance, complete deterministic verification, and final diff review pass"
+  "ownerObjective": "Public visitors fill out one evidence-gap form as best they can; partial cases remain labeled and usable; private submissions are examined through AskRigor/GPT.",
+  "unsupportedConstraintsProhibited": [
+    "invite-only pilot",
+    "institutional research program",
+    "staffing or jurisdiction launch gate",
+    "generic social or community product"
   ],
-  "prohibitedExpansion": [
-    "broad backend, generalized schema, migration, or public-site deployment",
-    "real health data, real recruitment, participant contact, or public indexing",
-    "efficacy percentage, causal inference, treatment recommendation, or popularity evidence upgrade",
-    "automatic research execution or regulatory reporting"
+  "hardGates": [
+    "unprompted account is stored before candidate prompts",
+    "partial and non-remission comparison cases are accepted",
+    "raw submissions have no public projection",
+    "participant recovery key gates inspect and withdrawal",
+    "private GPT feed preserves provenance, missingness, unverified status, and noncausal boundary",
+    "focused, PostgreSQL migration, headless Brave, complete deterministic, and final-diff checks pass"
   ],
-  "preflightCommand": "npm run lessons:status",
+  "externalReleaseBoundary": "not authorized by this local implementation slice; requires accurate public privacy/runtime deployment review",
+  "plan": "docs/superpowers/plans/2026-08-31-public-evidence-gap-intake.md",
   "completionCommand": "npm run verify",
-  "preservedLocalRollback": "2ee08e649474aa1d7cf8260ec2a915ab961963bb",
+  "implementationCommit": "ed71b5e64d8a99ed83cc05bd300cf5d415a70e68",
+  "pullRequest": 153,
+  "executionReceipt": "docs/audits/2026-08-31-public-evidence-gap-intake.json",
   "supervision": {
     "completionClaim": "OUTCOME",
-    "claimScope": "issue 150 local synthetic gap-to-research loop only",
     "workerToContract": "aligned",
-    "contractToOwner": "aligned_for_bounded_local_slice",
+    "contractToOwner": "aligned",
     "operationalAlignment": "pass",
-    "scientificAdequacy": "pass_for_bounded_synthetic_semantics_only",
-    "releaseAdequacy": "not_applicable_no_public_release_authorized",
-    "rootProductOutcome": "open",
-    "nextBoundary": "continue with the smallest real public self-serve intake and GPT-readable structured/deidentified review path; external production deployment remains a separate consequential boundary"
-  },
-  "implementationEvidence": {
-    "implementationCommit": "3c86a38e5a25b2081385c60742c736d9274d3597",
-    "headlessBraveAcceptance": "pass",
-    "focusedTestsPassed": 7,
-    "completeTestsPassed": 1566,
-    "hostedDeterministicVerification": "pass",
-    "executionReceipt": "docs/audits/2026-08-31-issue150-synthetic-gap-loop.json"
+    "scientificAdequacy": "pass_for_intake_semantics_only",
+    "releaseAdequacy": "not_applicable_no_external_release",
+    "unsupportedConstraintLesson": "SDF-20260831-UNSOURCED-GOVERNANCE-001"
   }
 }

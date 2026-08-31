@@ -5,6 +5,14 @@ import { DEFAULT_PORT } from "./config.js";
 import { createAskRigorHttpServer } from "./server.js";
 
 export { createAskRigorHttpServer, createAskRigorServer } from "./server.js";
+export {
+  createPublicEvidenceGapIntakeHandler,
+  createPublicEvidenceGapIntakeHandlerFromConfig,
+  publicEvidenceGapIntakeConfigFromEnv,
+  type CreatePublicEvidenceGapIntakeHandlerOptions,
+  type PublicEvidenceGapIntakeConfig,
+  type PublicEvidenceGapIntakeHandler,
+} from "./public-evidence-gap-http.js";
 export { createActionOpenApiDocument } from "./actions/openapi.js";
 export { createProtocolActionChunk } from "./actions/protocol-continuation.js";
 export { createResearchActionRoutes } from "./actions/research-routes.js";
