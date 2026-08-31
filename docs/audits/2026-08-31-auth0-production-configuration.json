@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "taskId": "askrigor-auth0-evidence-gap-release-v1",
   "recordedAt": "2026-08-31T21:01:00Z",
-  "state": "auth0_configured_password_setup_pending",
+  "state": "production_accepted",
   "tenant": {
     "name": "askrigor-prod",
     "environment": "production",
@@ -42,6 +42,8 @@
     "ownerAccountCount": 1,
     "ownerEmailStoredInGit": false,
     "passwordSetupRequestHttpStatus": 200,
+    "passwordSetupCompleted": true,
+    "primaryChatGptOauthAccepted": true,
     "temporaryPasswordCleared": true,
     "allowedClientIdRequiredAtResourceServer": true,
     "allowedSubjectRequiredAtResourceServer": true,
@@ -51,7 +53,8 @@
     "privateKeyJwtUsedByRelease": false,
     "roleManagementUsedByRelease": false,
     "importedCimdGrant": "revoked_0_of_1",
-    "importedCimdClientState": "inert_pending_replacement_acceptance_then_delete"
+    "importedCimdClientState": "deleted_after_replacement_acceptance",
+    "unusedReviewerRoleState": "deleted_after_replacement_acceptance"
   },
   "discoveryReadback": {
     "openidConfiguration": "pass",
@@ -77,9 +80,9 @@
     }
   ],
   "adequacy": {
-    "typedClaim": "PROGRESS",
-    "operationalAlignment": "pass_auth0_configuration_checkpoint",
+    "typedClaim": "OUTCOME",
+    "operationalAlignment": "pass_production_and_primary_chatgpt_oauth",
     "scientificAdequacy": "unchanged_bounded_provenance_missingness_comparison_unverified_noncausal_only",
-    "releaseAdequacy": "pending_password_primary_chatgpt_merge_deploy_plugin_and_product_acceptance"
+    "releaseAdequacy": "pass_in_auth0_evidence_gap_production_release_receipt"
   }
 }

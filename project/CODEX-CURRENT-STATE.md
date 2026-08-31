@@ -1,5 +1,46 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 Auth0 evidence-gap production release complete
+
+PR #155 merged as `7c0e589d50325de537ee042b4e3df3ed81adbd4b` and that exact
+source is deployed in production as immutable image
+`sha256:59abaee8b3ca08a30a5c4837526c6d84e8a056a9a582c8731a4762ecbffbab77`.
+The public site, migration `0008`, restricted intake role, Auth0 discovery,
+23-tool MCP catalog, 22-tool anonymous/Gemini surface, canonical live protocol
+manifests, anonymous connector probe, unauthorized-review rejection, synthetic
+partial comparison flow, participant recovery, public non-exposure, and
+withdrawal all pass direct production acceptance. The exact prior image,
+configuration, and site release remain available for rollback.
+
+The installed Codex plugin's complete declared eight-file inventory matches the
+reviewed release after normalizing only its cache-busted version. The new mixed
+anonymous/OAuth `AskRigor Reviewer` ChatGPT connector completed its primary-
+owner OAuth callback, exposes all 23 tool schemas, and passed protected review
+in a fresh Extra High Chat conversation. Its result preserved one synthetic
+partial pregnancy/postpartum non-remission comparator, all explicit missingness,
+participant-reported/unverified status, false documentation flags, and
+`causalAnalysisPermitted: false`. Do not depend on a secondary account.
+
+Confirmed cleanup is complete. The temporary synthetic case is `WITHDRAWN`
+with all active narrative, structured, consent, and missing-field content
+cleared, and the submitted review queue is zero. The superseded ChatGPT
+`AskRigor` plugin, inert Auth0 third-party `ChatGPT` application, and unused
+Auth0 `AskRigor Reviewer` role are deleted. A post-cleanup protected call through
+the working connector still succeeds and returns a zero-item queue.
+
+One superseded client secret became visible in a controlled browser-tool trace
+during setup. It was rotated before any connector used it; the replacement was
+transferred without rendering it, the clipboard was cleared, and no secret or
+token is in Git. Exact sanitized deployment evidence and pending work are in
+`../docs/audits/2026-08-31-auth0-evidence-gap-production-release.json` and
+`.md`.
+
+Typed claim: `OUTCOME`. Operational alignment passes for production runtime,
+direct interfaces, and the primary-account ChatGPT protected-review interface.
+Scientific adequacy passes only for bounded provenance, missingness,
+participant-reported/unverified, partial-case, comparator, and noncausal
+semantics. Release adequacy passes.
+
 ## 2026-08-31 Auth0-backed public evidence-gap release active
 
 The US production tenant `askrigor-prod` now exists. The durable free-tier
