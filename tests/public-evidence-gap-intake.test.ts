@@ -237,6 +237,11 @@ describe("public evidence-gap HTTP boundary", () => {
     const html = await page.text();
     expect(html).toContain("A partial case is still useful");
     expect(html).toContain("did <strong>not</strong> remit");
+    expect(html).toContain("OpenAI ChatGPT");
+    expect(html).toContain("Privacy Notice");
+    const script = await fetch(`${base}/evidence-gap-intake.js`);
+    expect(script.status).toBe(200);
+    expect(await script.text()).toContain("public-gap-intake-v2-2026-08-31");
 
     const metadata = await fetch(
       `${base}/api/evidence-gaps/${PUBLIC_PROLACTINOMA_GAP_SLUG}`,

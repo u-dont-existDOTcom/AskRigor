@@ -39,7 +39,11 @@ const pageRequirements = [
       "During research",
       "does not create user accounts",
       "connected client",
-      "operational metadata"
+      "operational metadata",
+      "Public evidence-gap contributions",
+      "OpenAI ChatGPT",
+      "Auth0",
+      "no automatic expiration"
     ]
   },
   {
@@ -54,7 +58,8 @@ const pageRequirements = [
       "YouTube Terms of Service",
       "third-party",
       "as available",
-      "applicable law"
+      "applicable law",
+      "Evidence-gap contributions"
     ]
   },
   {

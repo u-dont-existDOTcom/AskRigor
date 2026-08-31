@@ -1,5 +1,22 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 Auth0-backed public evidence-gap release active
+
+The owner approved Auth0 as the external identity provider for the already
+completed public-intake and OAuth-scoped review stack. Active branch
+`task/auth0-release-20260831` is stacked on
+`2d0b3b343a3378e9647d6030b69358983a013212`; the release plan is
+`../docs/superpowers/plans/2026-08-31-auth0-evidence-gap-release.md`.
+
+The invariant is unchanged: AskRigor remains public, 22 research tools and the
+public form remain anonymous, participant recovery keys reach only their own
+case, and only cross-user review requires `cases:review`. Auth0 is for the
+owner/reviewer identity, not participants. No provider account, credential,
+production deployment, merge, or release claim has yet been completed in this
+slice. The next safe action is production hardening and public-notice work,
+then the action-time owner confirmation required before Auth0 identity/account
+data is transmitted or persistent OAuth configuration is created.
+
 ## 2026-08-31 public plugin with scoped case review completed locally
 
 Task `askrigor-public-gap-oauth-review-v1` is complete locally on branch

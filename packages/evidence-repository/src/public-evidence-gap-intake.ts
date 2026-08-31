@@ -110,7 +110,10 @@ export const publicGapConsentSchema = z
     privateGptAnalysis: z.literal(true),
     deidentifiedAggregateUse: z.boolean(),
     futureFollowup: z.boolean(),
-    noticeVersion: z.literal("public-gap-intake-v1"),
+    noticeVersion: z.enum([
+      "public-gap-intake-v1",
+      "public-gap-intake-v2-2026-08-31",
+    ]),
     observationalAcknowledgement: z.literal(true),
   })
   .strict();

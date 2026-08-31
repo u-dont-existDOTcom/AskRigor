@@ -76,8 +76,10 @@ The optional ChatGPT/Codex review operation additionally requires:
 - `ASKRIGOR_OAUTH_ISSUER_URL` (the exact authorization-server issuer)
 - `ASKRIGOR_OAUTH_JWKS_URL` (the issuer's HTTPS signing-key set)
 
-The authorization server is external to this slice and must support the MCP
-OAuth 2.1 flow. AskRigor verifies JWT signature, issuer, audience, expiry,
+The approved production authorization server is Auth0. Its resource identifier
+is the canonical MCP URL; Resource Parameter Compatibility, issuer responses,
+manual CIMD registration, API RBAC, and the owner-only `cases:review` role must
+all be enabled before release. AskRigor verifies JWT signature, issuer, audience, expiry,
 client identity, and scopes. The private tool additionally requires
 `cases:review`. Invalid or stale tokens do not disable anonymous research
 tools; they are treated as unauthenticated for the protected tool.
@@ -126,6 +128,10 @@ they should not make a participant's otherwise useful submission ineligible.
 - No public aggregate dashboard or public case display.
 - No automated causal or statistical analysis.
 - Basic narrative contact redaction is not full de-identification.
-- Production deployment, final public privacy-notice text, provider disclosure,
-  retention/backups, and encryption-key operation are not completed by this
-  local implementation slice.
+- Active drafts and submissions have no automatic expiry in this MVP. They are
+  retained until withdrawal or operator deletion. Withdrawal removes active
+  case content but leaves a no-content row; database write-ahead/storage
+  remnants age out through ordinary PostgreSQL maintenance.
+- There is no automatic off-host backup of the intake database.
+- Auth0 authenticates only the private owner/reviewer tool. It never receives
+  participant case content from AskRigor.
