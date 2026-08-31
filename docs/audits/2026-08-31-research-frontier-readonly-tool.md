@@ -19,9 +19,11 @@ for bounded evidence review. Partial coverage is labeled and limits corpus-wide
 claims; it does not erase observed evidence.
 
 Worker-to-contract alignment: **ALIGNED**. Contract-to-owner alignment:
-**ALIGNED**. Typed completion claim: **WORKING**, because protected review,
-production, installed-package synchronization, and fresh product acceptance are
-still required.
+**ALIGNED** as last recorded by the reasoning supervisor. Typed completion
+claim: **PARTIAL_OUTCOME**. Protected review, production, package
+synchronization, and controlled-instruction installation completed, but fresh
+ordinary-Chat product acceptance exposed only 21 of the 22 registered tools.
+No terminal owner-outcome claim is made.
 
 ## Implemented contract
 
@@ -72,6 +74,80 @@ still required.
 - `git diff --check`: **PASS**.
 - Lesson status at `2026-08-31T10:04:17.301Z`: 0 open, 0 needs review,
   0 accepted-not-incorporated, 4 incorporated/closed, 0 deletion eligible.
+- Closeout lesson status at `2026-08-31T11:26:02.570Z`: 0 open, 0 needs
+  review, 0 accepted-not-incorporated, 4 incorporated/closed, 0 deletion
+  eligible.
+
+## Protected merge, production, and package evidence
+
+- PR #148 merged as
+  `1e90b60bf743e9acc1b38b5464dc5581057761ca` at
+  `2026-08-31T10:31:40Z`.
+- The exact merge archive contained 709 members and had SHA-256
+  `259d6a73307bb14449839de60c28218b77388ffcca59e491758a94304889f349`.
+- Production runs image
+  `askrigor-research:1e90b60bf743e9acc1b38b5464dc5581057761ca`, image ID
+  `sha256:d3be6c3e11dc34146fd9bf38e06bf830ca88fb3df88ce6437395dacb93313443`,
+  in healthy container
+  `0ee98b06c8501dfe2871b3266a10484e5d71edd73cc30b1a645872b31cad69f3`.
+  The container remains non-root, has a read-only root filesystem, drops all
+  capabilities, and has `no-new-privileges`.
+- The pre-release image remains reachable as
+  `askrigor-research:rollback-readonly-frontier-1e90b60`, image ID
+  `sha256:ff01d543194d60f771ad15475de2f6ab9c21f27b18872f37748f31f23e5435d6`.
+  Rollback configuration is preserved under
+  `/opt/askrigor/rollbacks/pre-1e90b60bf743e9acc1b38b5464dc5581057761ca/`.
+- Direct production acceptance passed HTTPS health, both exact manifests,
+  PubMed `40223676` as `api_visible_complete`, a truthful
+  `not_found`/`not_indexed` frontier miss with currentness `not_assessed`, and
+  the partial-corpus YouTube contract: 65 retrieved, 65 retained for bounded
+  analysis, continuation available, completion incomplete, synthesis lock
+  blocked, and no corpus-wide inference.
+- Database role acceptance returned `askrigor_reader`,
+  `transaction_read_only=on`, SELECT access to all 42 relations, zero missing
+  SELECT grants, and zero write grants.
+- The installed AskRigor package is
+  `0.1.0+codex.20260831104512`. Its complete eight-member package SHA-256 is
+  `fa45c89437048f12c70ad3af90987d451cbcf7b79a059a923d891487d893653d`;
+  `skills/askrigor/SKILL.md` is
+  `e8d54c6954a5409d6d3cabf5a6e75e59a06edeafcbdf2cb7ce703d566f74f586`.
+  Prior source and installed package copies were preserved before refresh.
+- The controlled Custom GPT editor saved the reviewed instruction text with
+  its known single trailing-LF normalization: 4,751 editor characters,
+  SHA-256
+  `8389f4a05544f2e42ec32284c2acf8971db7f745c907200533aaaca706d8f352`,
+  equal to the 4,752-character generated artifact after removing its final LF.
+
+## Fresh primary-account product acceptance
+
+The installed plugin was attached to a new ordinary primary-account Chat in
+Chat mode with Extra High reasoning. The first bounded acceptance conversation
+was `https://chatgpt.com/c/6a956069-53b8-83ea-99a6-78ccfb025105`.
+After the plugin's explicit **Refresh** control, its settings enumerated all 22
+registered operations, including `get_research_frontier`. A second fresh
+ordinary-Chat acceptance was then run at
+`https://chatgpt.com/c/6a95624a-2388-83ea-96ed-6955a944bef2`.
+
+Both conversations received only 21 callable operations and omitted the final
+`get_research_frontier` operation. Both truthfully refused to invent the
+missing `not_indexed` result. In the refreshed run, the remaining bounded
+checks passed:
+
+- Universal `20.5.15` / `2026-08-24` /
+  `69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`;
+- HRP `20.5.24` / `2026-08-31` /
+  `dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1`;
+- PubMed `40223676` as `api_visible_complete` with one record and pagination
+  exhausted; and
+- YouTube `nIRABXSJwSw` as 65 retrieved/65 returned, partial, continuation
+  available but unused, completion incomplete, and synthesis lock blocked.
+
+The UI therefore demonstrates a product-surface discrepancy: plugin settings
+can enumerate 22 operations, while a fresh attached Chat receives 21 and drops
+the appended operation. This receipt does not choose which existing research
+capability, if any, should be removed or consolidated to fit that product
+surface. That is an unresolved product/architecture tradeoff, not an execution
+detail.
 
 ## Byte-derived candidate identities
 
@@ -95,16 +171,31 @@ still required.
 
 ## Separate adequacy states
 
-- Operational alignment: **PASS LOCALLY**. Exact-selector, state, read-only,
-  catalog, repository, and sanitization behavior have executable evidence.
-- Scientific adequacy: **PASS LOCALLY FOR THIS BOUNDED CHANGE**. Retrieved
+- Operational alignment: **PARTIAL**. The implementation, production service,
+  database boundary, package, editor instructions, and 22-operation plugin
+  settings agree, but a fresh ordinary Chat receives only 21 operations and
+  cannot invoke `get_research_frontier`.
+- Scientific adequacy: **PASS FOR THE BOUNDED PARTIAL-CORPUS INVARIANT**.
+  Retrieved
   partial-corpus records are reviewed and labeled; coverage denominators and
   limitations remain explicit; unseen records and corpus-wide properties are
   not inferred. The frontier operation itself performs no scientific synthesis.
-- Release adequacy: **PENDING**. It requires protected merge, immutable
-  production deployment, direct 22-tool/protocol/read-only acceptance, exact
-  installed-package readback, controlled-instruction installation, and fresh
-  headless primary-account ordinary-ChatGPT acceptance.
+- Release adequacy: **FAIL CLOSED AT PRODUCT INTERFACE**. Protected merge,
+  production deployment, rollback, direct server acceptance, package readback,
+  editor installation, and fresh headless primary-account acceptance all have
+  receipts. The defining operation remains unavailable to ordinary Chat, so
+  this release does not satisfy its product acceptance boundary.
+
+Current-worker supervision hotfix receipt: the superseding bootstrap was read
+in full from
+`u-dont-existDOTcom/universal-dev-architecture`, branch
+`architecture/codex-pro-supervision-mission-control-20260830`, path
+`templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md`. Existing evidence
+was preserved; operational, scientific, and release adequacy remain separate;
+no false terminal claim is made. No versioned chat-authored directive artifact
+was available for choosing a 21-operation product contract, so
+`SUPERVISION_DIRECTIVE_MISSING` applies to that unresolved strategy change.
+Unaffected owner-authorized work may continue.
 
 No universal supervision-rule change was identified. The corrected
 eligibility-versus-completion distinction is a project scientific contract and

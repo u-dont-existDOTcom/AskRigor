@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "research-frontier-product-acceptance-20260831",
+  "taskId": "askrigor-living-evidence-frontier-readonly-tool-v1",
+  "recordedAt": "2026-08-31T11:24:49Z",
+  "receiptType": "CODEX_EXECUTION_RECEIPT",
+  "ownerOutcomeAuthority": {
+    "state": "SOURCE_MISSING_FOR_INDEPENDENT_RECEIPT",
+    "availableDerivedContract": "docs/superpowers/plans/2026-08-31-research-frontier-readonly-tool.md",
+    "derivedContractSha256": "6cf0e8322c1510437d85a9fd97c8dde90e214aa563abcfb00cb6227695d9eae0",
+    "ownerCorrectionsRecordedIn": "tasks/ACTIVE-TASK.json"
+  },
+  "supervisionBootstrap": {
+    "status": "adopted",
+    "sourceRepository": "u-dont-existDOTcom/universal-dev-architecture",
+    "sourceBranch": "architecture/codex-pro-supervision-mission-control-20260830",
+    "sourceCommit": "03db807ef4382c8d2d32ff94941845be3f116e24",
+    "sourcePath": "templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md"
+  },
+  "chatDirective": {
+    "state": "SUPERVISION_DIRECTIVE_MISSING",
+    "scope": "choosing a revised 21-operation product contract after the fresh product failure",
+    "lastReviewedEvidenceBoundary": "backend deployment, installed package, controlled editor, plugin settings, and two fresh ordinary-Chat acceptances",
+    "strategyChangeExecuted": false
+  },
+  "execution": {
+    "requiredCapability": "headless authenticated browser automation and exact runtime readback",
+    "reasonChatCouldNotReliablyPerformIt": "the acceptance depended on the primary account's installed plugin, refreshed tool settings, and fresh ordinary-Chat runtime surface",
+    "actions": [
+      "attached AskRigor to a fresh ordinary Chat",
+      "selected Chat mode with Extra High reasoning",
+      "ran the bounded four-check acceptance",
+      "used the plugin Refresh control",
+      "verified all 22 operations were visible in plugin settings",
+      "repeated acceptance in another fresh ordinary Chat"
+    ],
+    "mutations": [
+      "refreshed the existing AskRigor plugin registration",
+      "created two bounded acceptance conversations"
+    ]
+  },
+  "evidence": {
+    "deploymentCommit": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
+    "backendToolCount": 22,
+    "pluginSettingsToolCount": 22,
+    "freshAttachedChatToolCount": 21,
+    "missingOperation": "get_research_frontier",
+    "otherChecks": {
+      "protocolManifests": "pass",
+      "pubmed40223676": "pass",
+      "partialCorpusRetention": "pass",
+      "rawCommentExposure": false
+    },
+    "conversations": [
+      "https://chatgpt.com/c/6a956069-53b8-83ea-99a6-78ccfb025105",
+      "https://chatgpt.com/c/6a95624a-2388-83ea-96ed-6955a944bef2"
+    ]
+  },
+  "executionObservation": {
+    "operational": "backend and plugin settings expose 22 operations; fresh attached Chat exposes 21",
+    "scientific": "the bounded partial-corpus invariant remained intact in product output",
+    "release": "the defining frontier operation is not callable in ordinary Chat"
+  },
+  "completionClaim": "PARTIAL_OUTCOME",
+  "stopTrigger": "material product-interface deviation requiring a revised capability contract",
+  "handoff": {
+    "state": "HANDOFF_BLOCKED",
+    "reason": "no assigned reasoning-chat endpoint or versioned directive exists for the 21-operation capability tradeoff",
+    "ownerActionState": "not required for unaffected work",
+    "automaticContinuation": "continue the independently owner-authorized Evidence Gap Network MVP"
+  },
+  "unauthorizedDecisionAudit": {
+    "strategicDecisionMade": false,
+    "scientificDecisionMade": false,
+    "productCapabilityRemoved": false,
+    "falseCompletionClaimMade": false
+  }
+}
