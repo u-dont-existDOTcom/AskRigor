@@ -1,6 +1,19 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-31 Community Forum closed-loop hostile fixtures — unreleased
+
+This stacked synthetic-only slice adds append-only moderation appeals,
+contiguous formal-evidence and question transitions, evidence/design-bound
+proposal feasibility, and exact negative/null result return to originating
+proposal, question, cluster, lead, and forum targets. Migration `0006`
+preserves source meaning and reports, makes popularity non-evidentiary, blocks
+answered or infeasible proposals, and keeps launch, recruitment, regulatory
+reporting, causal claims, and efficacy percentages false. It changes no public
+MCP, site, plugin, Custom GPT, VPS, Railway, public Discourse, or real-data
+path. Release adequacy remains fail-closed; exact evidence belongs in
+`docs/public-atlas/COMMUNITY-FORUM-CLOSED-LOOP-HOSTILE-RECEIPT.md`.
+
 ## 2026-08-30 Community Forum hostile lifecycle/research fixtures — unreleased
 
 The next stacked synthetic-only slice adds hostile-integrity routing,

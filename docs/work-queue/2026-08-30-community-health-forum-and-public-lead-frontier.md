@@ -156,13 +156,21 @@ The next stacked synthetic service slice now adds:
   nonrecruiting proposals, enforced by migration `0005` and a 14-check
   PostgreSQL acceptance path.
 
-The next safe synthetic-only closure task is the remaining hostile acceptance
-matrix and closed-loop result propagation: appeals/reversals, aligned formal
-contradiction and stale-evidence updates, answered/partial/conflicted question
-transitions, design-feasibility gates, and negative-result return to the
-originating cluster/thread. It remains contract/service/migration/test work;
-visual/public UI, real users, external indexing, recruitment, and deployment
-remain separately gated.
+The next stacked synthetic closure slice now adds append-only
+appeals/reversals, aligned formal contradiction and stale-evidence updates,
+answered/partial/conflicted/unanswered/ill-formed/inaccessible question
+transitions, evidence/design-bound proposal feasibility, and negative/null
+result return to exact proposal, question, cluster, lead, and forum origins.
+Migration `0006` and the 15-check Community Forum acceptance keep popularity
+non-evidentiary and preserve reports, source meaning, no launch, no
+recruitment, no causal upgrade, and no efficacy percentage.
+
+The next safe synthetic-only task is a hostile-matrix closure audit followed by
+fixtures for any remaining privacy/provenance gaps: rare reidentification,
+private quotation, minors, public-source extraction, deleted-source retention,
+and paid/private intake without public consent. It may add only missing
+contract/service/migration/tests; visual/public UI, real users, external
+indexing, recruitment, and deployment remain separately gated.
 
 ## Gates before any real-user pilot
 
@@ -181,7 +189,8 @@ remain separately gated.
 
 Architecture completion is not forum completion. The root product outcome remains open until a separately authorized implementation, pilot, review, deployment, and direct product acceptance establish that people can actually discuss, submit leads, see the public frontier, and follow the lead-to-research loop safely.
 
-Current next state: `SYNTHETIC_HOSTILE_LIFECYCLE_RESEARCH_FOUNDATION_IMPLEMENTED`;
-continue with the remaining synthetic hostile acceptance and closed-loop result
-fixtures before any separately authorized visual UI or real-user pilot.
+Current next state: `SYNTHETIC_CLOSED_LOOP_HOSTILE_FOUNDATION_IMPLEMENTED`;
+continue with the synthetic hostile-matrix closure audit and any missing
+privacy/provenance fixtures before any separately authorized visual UI or
+real-user pilot.
 Root outcome remains nonterminal.

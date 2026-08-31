@@ -107,6 +107,17 @@ projection to be absent and `publicContentRetained=false` while preserving
 append-only provenance. No forum text, instruction text, identity, health
 narrative, quotation, document, media, or provider body is added.
 
+Migration `0006` adds only synthetic closed-loop governance metadata:
+append-only moderation appeals/reversals, exact cluster-version formal-
+evidence updates, exact question-version transitions, proposal-feasibility
+assessments, and result-propagation target references. It may retain typed IDs,
+versions, state enums, hashes, synthetic popularity counts, and content-free
+target arrays. It stores no appeal narrative, forum/report/result body, real
+identity, real health fact, quotation, document/media, provider response, or
+contact data. Originating reports and source meaning cannot be erased or
+rewritten; launch, recruitment, causal claims, and effectiveness percentages
+remain false.
+
 The two publication objects remain distinct. `PUBLIC_NARRATIVE` requires
 subject exact-version approval. A deidentified `PUBLIC_RESEARCH_LEAD` may model
 a reporter-consented secondhand report without subject exact-version approval

@@ -44,6 +44,7 @@ export {
   SyntheticCommunityResearchPipelineService,
   type RoutedCommunityIntegritySignal,
 } from "./community-forum-lifecycle.js";
+export { SyntheticCommunityClosedLoopService } from "./community-forum-closed-loop.js";
 export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
