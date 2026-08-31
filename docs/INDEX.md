@@ -83,6 +83,10 @@ complete XML protocol.
 - `audits/2026-08-30-primary-plugin-max-acceptance.md`: fresh primary-account
   ordinary-Chat AskRigor attachment on 5.6 Sol Max, exact live protocol/PubMed
   readback, Custom GPT missing-tool control, and second-profile access boundary
+- `public-atlas/COMMUNITY-FORUM-SYNTHETIC-LAB-RECEIPT.md`: reconciled PR #142,
+  pinned loopback-only Discourse acceptance, executable forum/lead
+  contract-migration-service fixtures, exact deterministic verification, and
+  separate synthetic-operational, scientific, and release verdicts
 - `treatment-landscape-workflow.md`: living Mermaid map of broad discovery,
   separate selection coverage and per-video depth, bidirectional reopening, and
   bounded synthesis

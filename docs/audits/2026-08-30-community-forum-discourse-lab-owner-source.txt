@@ -1,0 +1,42 @@
+approve runtime-first, and yes you can send to the best practices convo when pertinent... i am also pasting some new directives here. Required supervision hotfix: re-read the current shared bootstrap from:
+
+u-dont-existDOTcom/universal-dev-architecture
+branch: architecture/codex-pro-supervision-mission-control-20260830
+path: templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md
+
+This version supersedes the earlier bootstrap.
+
+At your next safe checkpoint, adopt its independent owner-source receipt, objective-reconciliation matrix, separate worker-to-contract and contract-to-owner alignment states, typed completion claim, and recurring reconciliation rules.
+
+For AskRigor or comparable research work, report operational alignment, scientific adequacy, and release adequacy separately.
+
+If you identify a substantive improvement, loophole, ambiguity, recurring failure, or question about the supervision design, create a SUPERVISION_DESIGN_FEEDBACK packet and route a self-contained evidence packet to the shared Pro supervisor-design meta-review lane:
+
+supervision-architecture/<epoch>
+
+Do not silently rewrite universal supervision rules and do not open a separate architecture Pro chat for every worker. Immediate-risk defects go to Pro immediately; nonblocking improvements may be batched. Continue unaffected task work automatically.Continue the AskRigor Community Health Forum and Public Lead Frontier from
+GitHub, not this prompt.
+
+Re-read AGENTS.md, the complete canonical Universal and HRP protocol files,
+project/PROJECT_INSTRUCTIONS.md, project/FORUM_SIGNAL_MODULE.md,
+docs/public-atlas/INDEX.md, and the forum/lead prior-work scan, specification,
+machine contract, synthetic fixtures, implementation plan, work-queue entry,
+and architecture receipt.
+
+Reconcile the current PR stack first. PR #142 predates the corrected public-lead
+rule and must be rebased and reconciled rather than merged as-is.
+
+Implement only the isolated synthetic Discourse integration laboratory and
+contract/migration/service fixtures. Use synthetic users and synthetic health
+reports.
+
+Do not collect real stories, deploy a public forum, index content publicly,
+activate research recruitment, publish a real lead, or automate regulatory
+reporting.
+
+Preserve the invariant that deidentified secondhand reports may be public
+research leads and that public visibility is independent from evidentiary
+strength.
+
+Run the complete applicable deterministic gate, review the final diff, and save
+exact receipts in GitHub.

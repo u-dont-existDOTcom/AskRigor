@@ -1,7 +1,7 @@
 # Work queue — Community Health Forum and Public Lead Frontier
 
 Date: 2026-08-30
-Status: architecture complete; synthetic implementation not yet started; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
+Status: architecture complete; isolated synthetic Discourse/contract/migration/service slice implemented and locally verified on PR #142's reconciled task branch; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
 Owner source: Joel, 2026-08-30
 
 ## Owner outcome
@@ -90,6 +90,32 @@ A reporter-consented secondhand lead may be public without affected-person exact
 - paid provider spending or production deployment;
 - changes to formal AskRigor findings based only on community reports.
 
+## Synthetic implementation checkpoint — 2026-08-30
+
+The bounded implementation slice now contains:
+
+- an exact-source/exact-image Discourse development runtime with one
+  loopback-only HTTP binding, outbound email disabled, deny-all robots policy,
+  disposable storage, four `.invalid` fixture users, three marker-checked
+  synthetic topics, and public/member/private permission acceptance;
+- canonical TypeScript runtime contracts for forum events/references, accounts,
+  structured leads, public narratives, public research leads, verification,
+  challenges/corrections, duplicate-aware clusters, questions/evidence checks,
+  proposals, roles, consent, safety, and withdrawal;
+- signed DiscourseConnect and webhook fixtures with exact endpoint, account
+  collision/recovery, session invalidation, replay/order/delete, hash-only
+  sanitized dead letters, and every-source provenance checks;
+- the third append-only PostgreSQL migration plus repository acceptance for
+  synthetic accounts, events, leads, public versions, clusters, withdrawal,
+  privacy constraints, and the nonautomation gates; and
+- an exact runtime receipt under `../audits/` and a dedicated implementation
+  receipt under `../public-atlas/`.
+
+This checkpoint does not implement the progressive composer or public-frontier
+UI, operational moderation/privacy/safety queues, a real-user pilot, or a
+production release. Those remain in the queue and still require the gates
+below. The root outcome remains nonterminal.
+
 ## Gates before any real-user pilot
 
 - owner authorization for the bounded pilot;
@@ -107,4 +133,6 @@ A reporter-consented secondhand lead may be public without affected-person exact
 
 Architecture completion is not forum completion. The root product outcome remains open until a separately authorized implementation, pilot, review, deployment, and direct product acceptance establish that people can actually discuss, submit leads, see the public frontier, and follow the lead-to-research loop safely.
 
-Current next state: `READY_FOR_SYNTHETIC_IMPLEMENTATION`, nonterminal.
+Current next state: `SYNTHETIC_FOUNDATION_IMPLEMENTED`; continue with the
+remaining synthetic UI/queue hostile fixtures before any separately authorized
+real-user pilot. Root outcome remains nonterminal.

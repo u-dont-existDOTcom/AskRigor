@@ -174,3 +174,25 @@ export {
   type StudyExternalEvidenceBundle,
   type UnresolvedExternalEvidenceItem,
 } from "./study-external-evidence.js";
+
+export * from "./source-family.js";
+export {
+  studyDesignClassSchema,
+  studyMethodJudgmentSchema,
+  studyAuditDomainFindingSchema,
+  studyAuditProfileSchema,
+  studyInfluenceAnalysisSchema,
+  studyInformationContributionProfileSchema,
+  studyLabComparisonEntrySchema,
+  studyLabComparisonSchema,
+  type StudyAuditProfile,
+  type StudyInformationContributionProfile,
+  type StudyInfluenceAnalysis,
+  type StudyLabComparison,
+} from "./study-lab.js";
+export * from "./study-lab-influence.js";
+export * from "./research-mission.js";
+export * from "./public-prediction.js";
+export * from "./public-prediction-policy.js";
+export * from "./patient-story.js";
+export * from "./community-forum.js";

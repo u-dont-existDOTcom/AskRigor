@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "labId": "ASKRIGOR-SYNTHETIC-DISCOURSE-LAB",
+  "syntheticOnly": true,
+  "realHealthDataAllowed": false,
+  "publicDnsAllowed": false,
+  "publicIndexingAllowed": false,
+  "outboundEmailMode": "DISABLED",
+  "researchRecruitmentAllowed": false,
+  "regulatoryAutomationAllowed": false,
+  "hostBind": "127.0.0.1",
+  "disposableData": true,
+  "discourse": {
+    "repository": "https://github.com/discourse/discourse.git",
+    "commit": "768a4ed1cd8e6742fe1c1340a9c4ab01318285ec",
+    "image": "docker.io/discourse/discourse_dev",
+    "imageDigest": "sha256:d8dc0097c0911ebbf1e4844e7db0426ebeae9469637d45fcabc7cd10c516940f",
+    "platform": "linux/amd64"
+  }
+}

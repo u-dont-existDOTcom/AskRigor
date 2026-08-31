@@ -147,6 +147,7 @@ export class PostgresEvidenceRepository {
     const migrations = await Promise.all([
       "0001_living_evidence",
       "0002_research_frontier",
+      "0003_community_forum_synthetic_lab",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),

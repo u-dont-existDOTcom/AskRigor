@@ -606,13 +606,13 @@ async function main(): Promise<void> {
       const migrations = await migrationClient.query<{ migration_id: string }>(
         "SELECT migration_id FROM schema_migrations ORDER BY migration_id",
       );
-      if (migrations.rows.map(({ migration_id: id }) => id).join(",") !== "0001_living_evidence,0002_research_frontier") {
+      if (migrations.rows.map(({ migration_id: id }) => id).join(",") !== "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab") {
         throw new Error("FRONTIER_MIGRATION_CHAIN_MISMATCH");
       }
     } finally {
       migrationClient.release();
     }
-    checks.push("immutable_two_migration_chain_applied");
+    checks.push("immutable_three_migration_chain_applied");
 
     const frontierInitial = researchFrontierFixture(namespace);
     const frontierInserted = await repository.contributeFrontier(frontierInitial);

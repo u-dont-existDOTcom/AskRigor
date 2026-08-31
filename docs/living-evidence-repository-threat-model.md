@@ -76,6 +76,32 @@ storage and must support consent, access control, export, deletion, and backup
 propagation. The pilot schema's ability to store text is not authorization to
 store every future analysis automatically.
 
+## Synthetic Community Forum extension
+
+The Community Forum migration and services are development fixtures only. The
+Discourse runtime is pinned, disposable, and loopback-bound. Exact source
+checkout, image digest, Compose port bindings, synthetic-only labels, noindex
+site setting, disabled outbound email, and runtime teardown are acceptance evidence;
+none is a production deployment control.
+
+| Threat | Fixture control | Failure behavior |
+| --- | --- | --- |
+| Real identity or health content enters the lab | Runtime contracts require `synthetic: true`, `.invalid` verified email, synthetic IDs, synthetic fixture labels, and explicit operator preflight | Reject before account, event, lead, or projection creation |
+| DiscourseConnect takeover or unsafe merge | HMAC-SHA256 verification, canonical payload encoding, one-use nonce, exact loopback origin and `/session/sso_login` endpoint, stable external ID, verified email, collision checks, session invalidation, and explicit administrative recovery | Reject the request; invalid requests create no account side effect |
+| Webhook spoofing, replay, or reordering | Verify the signature over exact raw bytes before parsing; bind payload hash; idempotency key; source version; transactional advisory lock | Reject/collapse replay; ignore stale state changes; never resurrect deleted content |
+| Failed webhook leaks a forum body | Dead letter stores only an allowlisted/fixed error code, syntactically valid event ID, raw-body SHA-256, and `raw_forum_body_persisted=false`; rejected-body exception text is never stored | Original error remains primary; no raw body is written |
+| Lead cites an invented secondary source | Every source reference contains an exact signed event ID and must match the stored forum instance, topic, post, version, author, visibility, time, and content hash | Lead creation fails if any source reference is absent or mismatched |
+| Public projection upgrades evidence | Exact lead/version and immutable version-record binding plus equality of verification, evidence capability, and formal-evidence relationship; exact allowlisted projection hash | Projection fails; no public-version row is inserted |
+| Secondhand-lead correction is narrowed back to a narrative-only rule | Separate `PUBLIC_RESEARCH_LEAD` and `PUBLIC_NARRATIVE` gates plus hostile tests | Contract/database reject the wrong gate or unsafe projection |
+| Duplicate virality inflates source independence | Duplicate-link graph and same-reporter grouping produce component-level independence keys; cluster counts cannot display effectiveness percentages | Cluster creation fails on mismatched independence count |
+| Withdrawal leaves a visible projection | Append-only withdrawal tombstone excludes the exact version from the synthetic projection view | Projection lookup returns absent while audit history remains |
+| Forum role implies scientific/privacy authority | Separate role enums and records for moderation, scientific annotation, privacy, safety, methods, and administration | Cross-role input fails schema/database checks; no self-upgrade is inferred |
+| Serious-harm fixture triggers autonomous reporting | Safety candidate requires `automated_regulatory_reporting=false`; research proposal requires `recruitment_active=false` | Database/contract rejects the state |
+
+Residual boundary: synthetic hostile fixtures do not establish production SSO,
+privacy, abuse, legal/regulatory, moderation-staffing, backup, deletion/cache, or
+real-user safety adequacy. Every real-data and release boundary remains closed.
+
 ## Railway boundary
 
 Provisioning is allowed only when all of these can be read back before import:
