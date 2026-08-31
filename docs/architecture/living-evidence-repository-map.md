@@ -1,9 +1,9 @@
 # Living evidence repository map
 
-Date: 2026-08-30
+Date: 2026-08-31
 Status: production study-audit read-through deployed; formal research-frontier
-ledger implemented and locally verified; derived control surface, not
-implementation authority
+ledger deployed; dedicated exact-selector read-only frontier tool is a verified
+release candidate; derived control surface, not implementation authority
 
 This map is a navigational projection of the proposed design in
 `../superpowers/specs/2026-08-29-cumulative-living-evidence-repository-design.md`.
@@ -20,7 +20,10 @@ flowchart LR
         R[Protocol-governed run]
         A[Source and method audits]
         F[Finalization receipt]
+        FR[get_research_frontier<br/>exact known selector]
         Q --> R --> A --> F
+        Q --> FR
+        FR -->|control state for delta work| R
     end
 
     subgraph Canonical[Canonical living repository: PostgreSQL]
@@ -58,6 +61,9 @@ flowchart LR
     D --- S
     D --- RT
     RT --- T
+    T -->|SELECT only| FR
+    D -->|requested and confirmed windows| FR
+    RT -->|candidates, gaps, and trails| FR
 
     Canonical --> X
     Canonical --> V
@@ -80,7 +86,9 @@ flowchart LR
 ```
 
 The database has no public endpoint or raw corpus store, and the public service
-has no writer. The one-shot administrator can import a reviewed source-free
+has no writer. The dedicated tool reads only through the same restricted
+PostgreSQL reader and reports `frontier_currency:not_assessed`; a miss means
+only `not_indexed`. The one-shot administrator can import a reviewed source-free
 study audit or a reviewed de-identified formal research frontier. There is no
 automatic public-run ingestion and no vector or graph service.
 
@@ -133,7 +141,9 @@ MCP or Actions.
 
 ```mermaid
 flowchart LR
-    PR[Prior formal frontier] --> GAP{Open coverage gap?}
+    LOOKUP[Exact known frontier/question/topic selector] --> PR[Prior formal frontier]
+    LOOKUP -->|no row| MISS[Not indexed; fresh discovery remains required]
+    PR --> GAP{Open coverage gap?}
     GAP -->|yes| EARLY[Earliest missing half-open window]
     GAP -->|no| DELTA[Latest confirmed end]
     EARLY --> PASS[Next de-identified discovery pass]
@@ -259,6 +269,11 @@ open questions, and unattempted/blocked/exhausted trails. A later run begins
 from both views: it revalidates current knowledge, searches deltas since prior
 coverage, and pursues high-value open trails. It never treats an old final
 answer as proof that discovery is complete.
+
+The current public read boundary is exact-selector only. It does not provide a
+free-text topic catalog, fuzzy matching, or automatic topic-key invention. That
+searchable discovery layer and ordinary-run contribution remain separate queued
+work so this release cannot silently broaden collection or persistence.
 
 ## Map maintenance rule
 

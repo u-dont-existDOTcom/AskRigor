@@ -1,5 +1,21 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-31 read-only frontier and partial-corpus candidate
+
+The candidate public MCP catalog contains 22 exact read-only operations,
+including `get_research_frontier`. HRP 20.5.24 and the product instructions now
+keep usable records from partial corpora in bounded evidence review, label their
+coverage partial, and prohibit extrapolation to unseen records. The controlled
+Custom GPT Instructions are 4,752 characters, SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+The unchanged five-operation Action schema is SHA-256
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`;
+the installation bundle is
+`19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f`;
+the synchronization ledger is
+`f9390dce34c947cefb72553796bc29c4a77a1200194fad2ad40864a7b88de7fc`.
+Production, plugin, and fresh product acceptance remain pending.
+
 ## 2026-08-27 candidate-screening worker guidance candidate
 
 The fresh installed-product challenge reached candidate screening and rejected
@@ -478,6 +494,10 @@ bounded to 15 seconds, while the reasoning controller may continue for several
 minutes when expected information gain remains positive. The legacy
 `audit_youtube_community` remains advertised for compatibility. None of these
 tools makes an efficacy, safety, causality, prevalence, or treatment judgment.
+When coverage is partial but usable records were retrieved, those records must
+remain present for bounded review with an explicit partial-corpus limitation;
+the block applies to completeness, representativeness, and broad ranking, not
+to evidence eligibility.
 
 That paragraph describes the frozen MCP operation. The Custom GPT Action form
 keeps the MCP token and operation schema unchanged internally but relays a
@@ -615,7 +635,7 @@ execution steps are:
 2. Verify that the selected submission project uses global data residency, then
    complete the askrigor.com domain challenge for the Mayan Roots LLC identity.
 3. Submit `https://mcp.askrigor.com/mcp`, select **Scan Tools**, and compare the
-   discovered 21-tool metadata with the committed inventory.
+   discovered 22-tool metadata with the committed inventory.
 4. Record the privacy-safe reviewer demo using
    `docs/public-submission-demo-recording.md`, host it at an accepted HTTPS URL,
    and publish its verified receipt through the protected repository workflow.

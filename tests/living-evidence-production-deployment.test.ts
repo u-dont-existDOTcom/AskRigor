@@ -56,7 +56,7 @@ describe("production living-evidence deployment", () => {
     expect(runbook).toContain("root-owned, group 70, mode 0440");
   });
 
-  it("ships the append-only formal frontier migration and writer-only import without changing the public catalog", async () => {
+  it("ships the append-only formal frontier migration, writer-only import, and dedicated read-only public query", async () => {
     const migration = await read("packages/evidence-repository/migrations/0002_research_frontier.sql");
     const repository = await read("packages/evidence-repository/src/postgres.ts");
     const admin = await read("apps/research-mcp/src/living-evidence-admin.ts");
@@ -88,8 +88,8 @@ describe("production living-evidence deployment", () => {
     expect(admin).toContain('command === "import-frontier"');
     expect(admin).toContain("prepareResearchFrontierImport");
     expect(runbook).toContain("Requested and confirmed");
-    expect(registry).toContain("Expected 21 research operations");
-    expect(registry).not.toContain('registerTool(\n    "get_research_frontier"');
+    expect(registry).toContain("Expected 22 research operations");
+    expect(registry).toContain('registerTool(\n    "get_research_frontier"');
   });
 });
 

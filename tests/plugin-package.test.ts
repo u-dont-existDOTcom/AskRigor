@@ -173,6 +173,8 @@ describe("AskRigor plugin package", () => {
     );
     expect(skill).toContain("`search_youtube_comments`");
     expect(skill).toContain("query-bounded `partial`");
+    expect(skill).toContain("Review every usable record from a partial corpus and label it partial");
+    expect(skill).toContain("not evidence eligibility");
     expect(skill).toContain("`continuation_recommended: true`");
     expect(skill).toContain(
       "continue while `continuation_recommended: true`"

@@ -23,8 +23,8 @@ AskRigor uses this order when sources disagree:
 6. current release/reviewer evidence indexed by `docs/INDEX.md`; and
 7. the recovery checkpoint at `project/CODEX-CURRENT-STATE.md`.
 
-The current canonical files identify HRP `20.5.23` (2026-08-24), SHA-256
-`bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299`,
+The current canonical files identify HRP `20.5.24` (2026-08-31), SHA-256
+`dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1`,
 and Universal Instructions `20.5.15` (2026-08-24), SHA-256
 `69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172`.
 Those values are descriptive receipts derived from the exact XML bytes, not
@@ -238,13 +238,17 @@ gain is positive.
 
 Each per-video result distinguishes the provider-reported comment count, the
 API-visible comments/replies actually retrieved, and the records returned for
-analysis. Terminal corpora of 500 or fewer normally return every refetchable
-record; larger terminal corpora receive a deterministic 500-record sample. If
+analysis. Partial as well as terminal corpora return their usable records for
+bounded evidence review with an explicit partial-coverage limitation; coverage
+locks control completeness and broad-ranking claims, not evidence eligibility.
+Corpora of 500 or fewer normally return every refetchable record; larger
+corpora receive a deterministic 500-record sample. If
 YouTube stops exposing one or more already acquired sampled identifiers, the
 refetch isolates them under the same request/time bounds and returns only the
 still-verifiable deterministic subset as `completed_with_access_boundary`.
-The limitations state that the sample may not represent the full acquired
-corpus; zero refetchable records still block synthesis. The final report names
+The limitations state that the sample may not represent the full acquired or
+unseen corpus; zero refetchable records still block claims based on those
+records. The final report names
 and links content-verified videos worth watching, and it cannot synthesize while
 wider or deeper executable work is still likely to improve the answer. The
 current source candidate adds a Custom GPT-only `get_youtube_transcript` read
@@ -283,7 +287,7 @@ and digest ledger with `npm run generate:custom-gpt`. Install
 `docs/custom-gpt-instructions.md`, keep Knowledge empty, and import
 `https://mcp.askrigor.com/actions/openapi.json` with API Key → Bearer
 authentication. The separately consented lesson write remains the fifth Action.
-The MCP surface is independent and remains exactly 21 read-only tools. Current
+The MCP surface is independent and exposes exactly 22 read-only tools. Current
 deployment and signed product-acceptance state is recorded in
 `docs/custom-gpt-action-live-acceptance.md`.
 
@@ -331,7 +335,7 @@ response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 disabling it does not disable the existing lesson Action or MCP.
 
 The deployed release exposes 25 public research reads plus the lesson write and
-the exact 21-tool MCP. One Action-only automated Gemini scout accepts only a
+the exact 22-tool MCP. One Action-only automated Gemini scout accepts only a
 de-identified population target and runs a storage-disabled
 Google-grounded candidate search, reconstructs a compact fixed-column response
 into the strict canonical packet, and independently validates public YouTube

@@ -43,7 +43,7 @@ placed in Compose.
 ## Reversible activation
 
 1. Record the exact current research image ID/tag, healthy container ID, base
-   Compose hash, public 21-tool inventory, protocol manifests, state-directory
+   Compose hash, public 22-tool inventory, protocol manifests, state-directory
    modes, and a rollback copy of the base Compose file.
 2. Copy the exact reviewed overlay to
    /opt/askrigor/compose.living-evidence.yaml and the exact reviewed init

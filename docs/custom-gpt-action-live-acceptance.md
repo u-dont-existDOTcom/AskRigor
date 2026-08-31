@@ -1498,3 +1498,20 @@ a Custom GPT packet defect now covered by a generated-instruction regression;
 current universal guidance already requires explicit instruction authority and
 representative final-output testing. It does not create a new transferable
 architecture rule.
+## 2026-08-31 read-only frontier MCP candidate
+
+The dedicated `get_research_frontier` operation changes the ordinary MCP/plugin
+catalog from 21 to 22; it does not change the controlled Custom GPT's
+five-operation editor Action schema. The Instructions contain 4,752 characters and now also
+require usable records from partial corpora to remain in bounded review with a
+partial label and no extrapolation to unseen records. Instruction SHA-256 is
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`;
+the unchanged Action schema is
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`;
+the installation bundle is
+`19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f`.
+The regenerated synchronization ledger enumerates the 22-tool candidate MCP
+catalog at SHA-256
+`f9390dce34c947cefb72553796bc29c4a77a1200194fad2ad40864a7b88de7fc`.
+Fresh ordinary ChatGPT acceptance and exact installed-package evidence remain
+pending; this candidate note is not a product-interface pass.

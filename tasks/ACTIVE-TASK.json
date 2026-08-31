@@ -1,111 +1,58 @@
 {
   "schemaVersion": 1,
-  "taskId": "askrigor-living-evidence-research-frontier-v1",
-  "status": "complete",
+  "taskId": "askrigor-living-evidence-frontier-readonly-tool-v1",
+  "status": "active",
   "exclusive": true,
-  "requiredBranch": "main",
-  "pullRequest": 141,
+  "requiredBranch": "agent/research-frontier-readonly-tool-20260831",
+  "pullRequest": 148,
   "assuranceLane": "release",
   "targetedHardGates": [
-    "requested search windows never masquerade as confirmed coverage",
-    "candidate and trail decisions are append-only and correction-aware",
-    "every nonterminal frontier exposes an executable next capability",
-    "gapped delta searches preserve the missing interval as an open trail",
-    "zero representable or durable YouTube and community data",
-    "deterministic canonical export and rebuildable Obsidian/Mermaid views"
+    "the public operation is a dedicated exact-selector frontier lookup rather than an overloaded existing tool",
+    "the public path is read-only and cannot write through to the canonical repository",
+    "success, not-indexed, unavailable, stale, partial, and terminal frontier states remain explicit",
+    "stored research-control state never masquerades as evidence or a health conclusion",
+    "not indexed never masquerades as no evidence exists",
+    "usable records from partial corpora remain eligible for bounded evidence review and are labeled partial without extrapolation to unseen records",
+    "raw source/provider bodies, chat, prompts, private health material, and community or YouTube data remain impossible",
+    "the exact ordered MCP catalog advances from 21 to 22 only after executable contract evidence"
   ],
   "preflightCommand": "npm run living-evidence:preflight",
   "completionCommand": "npm run living-evidence:acceptance",
-  "integrationCommit": "036c343343ceb5348b0907f81a1333a59d8bace7",
-  "preservedLocalRollback": "rollback/main-pre-research-frontier-20260830",
+  "integrationCommit": "36aa56a44c9be4f35c29e20329961838163355ca",
+  "preservedLocalRollback": "rollback/main-pre-frontier-readonly-tool-20260831",
   "ownerApprovals": [
-    "Persist the complete study or review analysis to the extent performed, including later clarifying analysis as new versions.",
-    "Keep durable YouTube and community persistence at zero until the separate Google policy disposition.",
-    "Treat prior work as a research frontier for further delta discovery, not merely as cached answers; retain found sources, searched windows, unresolved questions, and unexplored trails."
+    "Expose one dedicated public read-only operation so ordinary AskRigor and ChatGPT runs can retrieve a stored formal research frontier as a base for further research.",
+    "Do not overload an existing operation to conceal the public catalog boundary; advance the exact catalog from 21 tools to 22 tools.",
+    "Do not add automatic write-through, raw source or provider bodies, chat or prompts, private health material, community or YouTube storage, credentials, or opaque provider state.",
+    "Stop excluding partial corpora from evidence review: analyze usable retrieved records, label coverage partial, and bound claims to the observed subset."
   ],
-  "persistentFrontierBoundary": {
+  "publicFrontierBoundary": {
     "allowed": [
-      "de-identified formal-source search queries and exact requested/confirmed date windows",
-      "formal candidate identifiers, titles, dates, and versioned selection decisions",
-      "unresolved questions, coverage gaps, blocked trails, and executable next capabilities",
-      "protocol, provider, access, coverage, and deterministic receipt hashes",
-      "later candidate or trail corrections and resolutions as appended versions"
+      "exact frontier UUID, question UUID, or canonical topic-key selectors",
+      "current topic, question, lane, discovery-pass, candidate, trail, and contribution-receipt projections",
+      "optional append-only candidate and trail history",
+      "explicit gaps, next capabilities, terminal boundaries, and deterministic receipt hashes",
+      "typed complete, not-indexed, unavailable, and error access states"
     ],
     "prohibited": [
+      "writes or automatic contribution from an ordinary tool call",
       "raw source bodies or raw provider responses",
       "chat, prompts, private research content, or personal health narratives",
       "transcripts, comments, replies, channels, user identities, or person profiles",
       "credentials, authorization headers, secrets, or opaque provider continuation state"
     ]
   },
-  "releaseAcceptance": {
-    "status": "pass",
-    "implementationPullRequest": 139,
-    "deployedMergeCommit": "036c343343ceb5348b0907f81a1333a59d8bace7",
-    "researchImageSha256": "ff01d543194d60f771ad15475de2f6ab9c21f27b18872f37748f31f23e5435d6",
-    "researchContainer": "1a1e8d448f03",
-    "databaseContainer": "393070e563f1",
-    "databaseRelationCount": 42,
-    "frontierRows": 0,
-    "publicHealth": "pass",
-    "toolCount": 21,
-    "readerSelectMissing": 0,
-    "readerWriteGrants": 0,
-    "transactionReadOnly": true,
-    "rawSourceContentIncluded": false,
-    "communityDerivedRecords": 0
-  },
-  "rollbackReceipt": {
-    "priorResearchImage": "askrigor-research:rollback-frontier-036c343",
-    "priorResearchImageSha256": "7aa19ebbbddedaaad326e9de9be0a446a31bdffdb171fd3e8e941afab7692e6b",
-    "databaseDumpSha256": "293e3d430224f98b3faa0b970e7c7e32cf7ad1daae3b9aaa85b046ea2ece41d9",
-    "rollbackDirectory": "/opt/askrigor/rollbacks/pre-036c343343ceb5348b0907f81a1333a59d8bace7"
-  },
-  "pluginReceipt": {
-    "memberCount": 8,
-    "sourceVersion": "0.1.0",
-    "installedVersion": "0.1.0+codex.20260830020029",
-    "sourcePackageSha256": "398aa93d489ffcf80be61b5e8b3be21e0a2ec90ca932d4abc966797c04479bca",
-    "installedPackageSha256": "0e4db5e82818bf321a5c9dce50b73357faeaf5c6333183cf99a679fef267329a",
-    "nonManifestMembersByteIdentical": true,
-    "semanticManifestMatch": true,
-    "reinstallRequired": false
-  },
-  "productAcceptance": {
-    "status": "pass",
-    "surface": "primary account ordinary ChatGPT Chat mode, Pro",
-    "conversation": "https://chatgpt.com/c/6a944152-49b0-83e9-997e-3e84a6c5b614",
-    "workedFor": "57s",
-    "installedActionCount": 21,
-    "protocolManifestReadback": true,
-    "readOnlyPubMedProbe": "api_visible_complete"
-  },
-  "currentWorkerSupervisionBootstrap": {
-    "status": "adopted",
-    "sourceRepository": "u-dont-existDOTcom/universal-dev-architecture",
-    "sourceBranch": "architecture/codex-pro-supervision-mission-control-20260830",
-    "sourceCommit": "ac29ad29acf232a52e36a9a1ecdb7c6f12fbd199",
-    "sourcePath": "templates/CURRENT-CODEX-WORKER-SUPERVISION-BOOTSTRAP.md",
-    "materialEffect": "Preserved the existing release-closeout task, branch, worktree, and authority; continued exact-tool verification and headless-browser hygiene without activating Mission Control."
-  },
-  "completion": {
-    "implementationPullRequest": 139,
-    "implementationMergeCommit": "036c343343ceb5348b0907f81a1333a59d8bace7",
-    "evidenceCloseoutPullRequest": 141,
-    "evidencePreparedHead": "0c3c53bee210dd481ccd00ca8d60e3520d5b49ba",
-    "productionDeployed": true,
-    "directAcceptancePassed": true,
-    "productAcceptancePassed": true,
-    "rollbackRefsVerified": true,
-    "pluginReceiptVerified": true,
-    "currentWorkerSupervisionBootstrapAdopted": true,
-    "youtubeCommunityPersistence": "zero pending Google policy disposition",
-    "audit": "docs/audits/2026-08-30-research-frontier-ledger.md"
+  "supervision": {
+    "completionClaim": "WORKING",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "approved",
+    "scientificAdequacy": "owner_corrected_partial_corpus_invariant_locally_verified",
+    "releaseAdequacy": "pending"
   },
   "suspendedTaskSources": [
-    "completed living-evidence read-through release and its historical acceptance artifacts",
+    "automatic frontier contribution or write-through from public tool calls",
     "YouTube or community persistence pending the separate Google policy disposition",
-    "public MCP catalog expansion beyond the currently required exact 21 tools",
-    "unrelated worktrees, deployment remnants, and optional provider experiments"
+    "unrelated forum, public-atlas, portal-submission, and provider-expansion work"
   ]
 }

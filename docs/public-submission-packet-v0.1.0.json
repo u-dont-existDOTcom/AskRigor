@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "release": "0.1.0",
-  "reviewedAt": "2026-08-30",
+  "reviewedAt": "2026-08-31",
   "officialSources": [
     "https://developers.openai.com/plugins/build/plugins",
     "https://developers.openai.com/plugins/deploy/submission-errors",
@@ -31,7 +31,7 @@
   "mcp": {
     "submissionMode": "with_mcp",
     "serverURL": "https://mcp.askrigor.com/mcp",
-    "expectedToolCount": 21
+    "expectedToolCount": 22
   },
   "portalReadback": {
     "observedAt": "2026-08-30",
@@ -60,7 +60,7 @@
   },
   "releaseNotes": [
     "Retrieves canonical AskRigor protocol files with byte-derived version and SHA-256 integrity receipts.",
-    "Provides 21 read-only tools for scholarly, trial, DOI, full-text method-audit, and public YouTube source retrieval with explicit provenance and access states.",
+    "Provides 22 read-only tools for scholarly, trial, DOI, full-text method-audit, stored formal research-frontier, and public YouTube source retrieval with explicit provenance and access states.",
     "Preserves pagination, reply reconciliation, rate limits, inaccessible sources, and partial evidence without making clinical conclusions or changing provider data.",
     "Reuses an exact governed study-method audit only after complete current-source read-through and compatibility, freshness, and impact validation; otherwise the existing validator performs a fresh audit."
   ],
@@ -92,7 +92,7 @@
       "status": "pending",
       "evidence": null,
       "completedAt": null,
-      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 21-tool inventory with the committed inventory."
+      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 22-tool inventory with the committed inventory."
     },
     "demoRecording": {
       "status": "pending",

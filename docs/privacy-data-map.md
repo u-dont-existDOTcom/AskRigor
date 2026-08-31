@@ -1,6 +1,6 @@
 # AskRigor v0 data map and privacy review
 
-Status at 2026-08-30: this remains the detailed engineering inventory.
+Status at 2026-08-31: this remains the detailed engineering inventory.
 The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.
 The August 13, 2026 lesson notice is live and was reverified before the lesson Action was enabled.
 The August 30 publisher-identity notice is deployed from merge
@@ -50,6 +50,16 @@ It writes only through the one-shot administrator profile; automatic public-run
 write-through remains absent. Its PostgreSQL rows and hashes are canonical.
 Obsidian and Mermaid renderings are deterministic derived views and cannot
 establish search completion, source quality, or a health claim.
+
+The dedicated `get_research_frontier` MCP operation adds no collection or
+write-through. It returns only these existing allowlisted formal frontier
+projections through the restricted SELECT-only reader for one exact frontier
+UUID, question UUID, or canonical topic key. It echoes that selector, returns
+`frontier_currency:not_assessed`, distinguishes `not_indexed` from external
+evidence absence, and sanitizes repository/configuration failures. Optional
+history is the existing append-only candidate/trail history; raw source or
+provider bodies, chat/prompts, private health material, credentials, opaque
+provider state, and YouTube/community data remain unrepresentable.
 
 The local and conditionally authorized Railway pilot boundaries are defined by
 `docs/living-evidence-source-storage-policy.md` and
@@ -331,6 +341,7 @@ separately in `docs/custom-gpt-action-live-acceptance.md` and
 | Category | Examples returned | Why it is returned |
 | --- | --- | --- |
 | User-supplied search or lookup input | query terms, date ranges, PMIDs, NCT IDs, DOI/citation strings, YouTube video IDs/URLs, opaque cursors | Reproducibility and pagination in the provenance envelope. |
+| Stored formal research-frontier lookup | One exact frontier UUID, question UUID, or canonical topic key; optional history flag; de-identified formal discovery passes and requested/confirmed windows; formal candidate identifiers/titles/decisions; unresolved or blocked trails; next capabilities; terminal reasons; receipt/canonical hashes | Lets a later run resume prior formal research-control state and pursue current delta work. The output is not evidence or a conclusion, does not assess currentness, and performs no write. |
 | Protocol responses | complete canonical protocol text from `load_protocol`; manifest/integrity outputs from `get_protocol_manifest` and `verify_protocol_integrity`, including protocol name, version, revision date, SHA-256, verification boolean, and protocol error code/message when applicable | Protocol activation, integrity checking, and source reproducibility. |
 | Shared provenance | provider, record type, primary/provider IDs, retrieval timestamp, source URL/title/authors or channel, pagination, access status, limitations, and structured provider error | Makes source, time, coverage, and failure boundaries auditable. |
 | Shared nested response fields | `raw_metadata` provider counters/freshness fields; `error` code/message/optional HTTP status/retryability; `source_identity` canonical URL/title/authors or channel; pagination cursor/next cursor/page size/returned/exhausted; limitations | These nested fields disclose response coverage, provider context, and failure semantics without exposing a raw provider payload. |

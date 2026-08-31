@@ -68,6 +68,11 @@ import type {
   ResearchOperationHandler
 } from "./research-operation.js";
 import {
+  researchFrontierInputSchema,
+  researchFrontierOutputSchema,
+  researchFrontierToolResult
+} from "./research-frontier-tool.js";
+import {
   acquireOpenFullTextActionInputSchema,
   availableOpenFullTextActionOutputSchema,
   continueOpenFullTextActionInputSchema,
@@ -79,9 +84,11 @@ import {
   studyMethodAuditRouteOutputSchema
 } from "./actions/open-full-text-route.js";
 
+const LIVING_EVIDENCE_READER = configuredLivingEvidenceRepository();
 const OPEN_FULL_TEXT_MCP_ROUTES = createOpenFullTextActionRoutes(
-  configuredOpenFullTextOptions()
+  configuredOpenFullTextOptions(LIVING_EVIDENCE_READER)
 );
+const RESEARCH_FRONTIER_READER = LIVING_EVIDENCE_READER;
 
 const protocolSchema = z.enum(["hrp", "universal"]);
 const manifestSchema = z.object({
@@ -895,7 +902,7 @@ function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): v
     "audit_youtube_video_community",
     {
       description:
-        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation, returning exact retrieved-versus-analyzed counts and a blocking completion receipt; no medical conclusions are generated.",
+        "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated.",
       inputSchema: youtubeVideoCommunityAuditInputSchema,
       outputSchema: youtubeVideoCommunityAuditOutputSchema,
       annotations: READ_ONLY_ANNOTATIONS
@@ -920,6 +927,19 @@ function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): v
         result
       );
     }
+  );
+
+  registrar.registerTool(
+    "get_research_frontier",
+    {
+      description: "Retrieve an exact stored formal research frontier by frontier UUID, question UUID, or canonical topic key, including current coverage, candidates, unresolved trails, and optionally append-only history. Repository state is research control metadata, not evidence or a health conclusion. Retrieval is read-only and never contributes or updates a frontier.",
+      inputSchema: researchFrontierInputSchema,
+      outputSchema: researchFrontierOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS
+    },
+    async (input) => researchFrontierToolResult(input, {
+      reader: RESEARCH_FRONTIER_READER
+    })
   );
 }
 
@@ -968,17 +988,10 @@ function registerOpenFullTextMcpTools(
   );
 }
 
-function configuredOpenFullTextOptions() {
-  const config = optionalLivingEvidenceReuseConfigFromEnv();
-  if (config === undefined) return {};
-  const repository = new PostgresEvidenceRepository({
-    connectionString: config.connectionString,
-    schema: config.schema,
-    ssl: config.ssl,
-    connectionTimeoutMillis: config.connectionTimeoutMillis,
-    queryTimeoutMillis: config.queryTimeoutMillis,
-    statementTimeoutMillis: config.statementTimeoutMillis
-  });
+function configuredOpenFullTextOptions(
+  repository: PostgresEvidenceRepository | undefined
+) {
+  if (repository === undefined) return {};
   return {
     studyAuditReuse: {
       reader: repository,
@@ -988,6 +1001,19 @@ function configuredOpenFullTextOptions() {
       ])
     }
   };
+}
+
+function configuredLivingEvidenceRepository(): PostgresEvidenceRepository | undefined {
+  const config = optionalLivingEvidenceReuseConfigFromEnv();
+  if (config === undefined) return undefined;
+  return new PostgresEvidenceRepository({
+    connectionString: config.connectionString,
+    schema: config.schema,
+    ssl: config.ssl,
+    connectionTimeoutMillis: config.connectionTimeoutMillis,
+    queryTimeoutMillis: config.queryTimeoutMillis,
+    statementTimeoutMillis: config.statementTimeoutMillis
+  });
 }
 
 async function invokeOpenFullTextMcp(
@@ -1073,8 +1099,8 @@ function collectResearchOperations(): readonly ResearchOperation[] {
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar);
-  if (operations.length !== 21) {
-    throw new Error(`Expected 21 research operations; received ${operations.length}`);
+  if (operations.length !== 22) {
+    throw new Error(`Expected 22 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

@@ -1,5 +1,71 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 dedicated read-only research-frontier tool active
+
+Task ID: `askrigor-living-evidence-frontier-readonly-tool-v1`
+
+Branch: `agent/research-frontier-readonly-tool-20260831`
+
+Baseline and integration commit:
+`36aa56a44c9be4f35c29e20329961838163355ca`
+
+Rollback ref: `rollback/main-pre-frontier-readonly-tool-20260831`
+
+Assurance lane: release, with targeted repository-read, privacy, catalog, and
+frontier-truth gates
+
+The owner approved one dedicated public read-only operation so ordinary
+AskRigor and ChatGPT runs can retrieve an exact stored formal research
+frontier and use it as research-control state for current delta discovery. The
+operation must select by frontier UUID, question UUID, or canonical topic key;
+may include the existing append-only candidate and trail history; and must
+preserve explicit gaps, next capabilities, terminal boundaries, limitations,
+and deterministic hashes. It must not present repository state as evidence or
+a health conclusion, and a missing row must mean only `not indexed`, never `no
+evidence exists`.
+
+The owner then corrected a separate evidence-handling failure: partial corpora
+must not be excluded from review. Every usable retrieved record must be
+analyzed as bounded evidence and labeled partial with its observed denominator,
+retrieval window, and limitations. Coverage locks still govern completeness,
+representativeness, prevalence, and broad ranking, but never evidence
+eligibility; no claim may be extrapolated to unseen records.
+
+The public path remains read-only through the existing restricted PostgreSQL
+reader. This task does not add automatic contribution or write-through, a new
+database migration, raw source/provider bodies, chat or prompts, private
+health material, YouTube/community data, credentials, or opaque provider
+state. The exact ordered public MCP catalog may advance only from 21 to 22,
+with the new operation appended so the existing 21-operation order remains
+stable.
+
+Current supervision claim is `WORKING`. Worker-to-contract and
+contract-to-owner alignment are both aligned. Operational alignment is
+approved; scientific adequacy for the owner-corrected partial-corpus invariant
+is pending deterministic and product verification; release adequacy remains
+pending protected review, production, plugin-package, and fresh
+ordinary-product acceptance.
+
+The controlled Custom GPT five-operation editor Action schema remains unchanged
+at SHA-256
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`.
+Its Instructions contain 4,752 characters and now preserve labeled partial-corpus findings,
+SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+The generated installation bundle is
+`19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f`,
+and the 22-tool synchronization ledger is
+`f9390dce34c947cefb72553796bc29c4a77a1200194fad2ad40864a7b88de7fc`.
+
+Recovery authority is
+`../docs/superpowers/plans/2026-08-31-research-frontier-readonly-tool.md` and
+`../tasks/ACTIVE-TASK.json`. Run `npm run living-evidence:preflight` before
+substantive task edits and `npm run living-evidence:acceptance` before the
+repository release boundary. Continue automatically through protected review,
+deployment, exact installed-package synchronization, and headless primary
+ordinary-ChatGPT acceptance while those surfaces remain technically available
+and no new consequential tradeoff intervenes.
+
 ## 2026-08-30 durable research-frontier ledger release completed
 
 Task ID: `askrigor-living-evidence-research-frontier-v1`

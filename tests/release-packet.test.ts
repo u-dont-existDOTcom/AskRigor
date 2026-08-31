@@ -37,7 +37,8 @@ const TOOL_NAMES = [
   "search_youtube_comments",
   "audit_youtube_community",
   "survey_youtube_community",
-  "audit_youtube_video_community"
+  "audit_youtube_video_community",
+  "get_research_frontier"
 ];
 
 describe("AskRigor public-review packet", () => {
@@ -592,9 +593,9 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(21);
+    expect(inventory.tools).toHaveLength(22);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "e2ab407b92824d4094986aaf0e108917500546d892c85231772ff0b3c5c60f5e"
+      "c23e9f3adf48110f4a7ce6882476274d28a81ec04810c18058370372425f21d8"
     );
 
     for (const tool of inventory.tools) {

@@ -10,9 +10,11 @@ authorize new collection, persistence, publication, or provider spending.
 Status: local isolated pilot merged in PR #128; exact production study-audit
 read-through deployed through PRs #130 and #131; durable formal research-
 frontier ledger deployed through PRs #139 and #141 and accepted under
-`askrigor-living-evidence-research-frontier-v1`. Ordinary-run frontier access
-and contribution remain queued. Railway hosting remains optional and
-unprovisioned.
+`askrigor-living-evidence-research-frontier-v1`. Exact-selector ordinary-run
+frontier read access is the active release task
+`askrigor-living-evidence-frontier-readonly-tool-v1`. Automatic contribution,
+free-text/topic-catalog discovery, and durable multi-user capture remain
+queued. Railway hosting remains optional and unprovisioned.
 
 Source: Joel, 2026-08-29
 
@@ -44,6 +46,13 @@ public-endpoint rule, and prohibited-data classes. Production study-audit
 read-through was separately authorized on 2026-08-29 and completed on
 2026-08-30. Automatic public-run write-through, review/external-audit reuse,
 and durable YouTube/community records remain outside that completed slice.
+
+The active read-only slice exposes a known frontier UUID, question UUID, or
+canonical topic key through one dedicated MCP operation. It does not guess a
+topic key, search the topic/subtopic catalog from free text, or write an
+ordinary run back to PostgreSQL. A later catalog/search slice is still needed
+before a new conversation with no trusted selector can discover every relevant
+stored frontier automatically.
 
 Local PostgreSQL implementation, protected review, merge, and restore
 acceptance pass. Railway remains

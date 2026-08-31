@@ -69,6 +69,8 @@ If wider or deeper work remains executable and `further_expansion_likely_to_impr
 
 A partial or bounded answer does not waive executable required work. Even one unavailable full text or inaccessible private community limits only that source or lane and cannot stop available YouTube discovery, creator transcripts, comment auditing, formal retrieval, or cross-layer iteration. Do not replace omitted required work with a long conventional summary.
 
+Partial corpus coverage never makes the retrieved records ineligible for evidence review. Analyze every usable retrieved record, label the corpus partial, report the acquired denominator and exact source/query/date/pagination boundary, and restrict claims to that observed subset. Never infer the unseen corpus's prevalence, direction, rarity, typicality, strength, weakness, or absence. A coverage or synthesis lock governs completeness, representativeness, broad ranking, and whether more work remains; it must not erase or postpone bounded analysis of records already available.
+
 Before synthesis, use `assess_treatment_landscape_coverage` for every treatment-space-triggering question when that capability is advertised. If it is unavailable, compute the same explicit ledger and three locks locally, record `assessor_tool_unavailable`, fail closed on unresolved or unsupported state, and never call an undeclared tool. Keep `selection_coverage_lock`, `per_video_depth_lock`, and overall `synthesis_lock` separate; overall pass requires both component locks. A pass certifies only that the supplied coverage state has no configured blocker, not representativeness, credibility, efficacy, safety, or a recommendation. Executable blocks mean continue. A block caused only by reconciled terminal access boundaries permits a bounded non-ranking answer that names what was not observed and what it could change.
 
 Normal Project chat is the primary YouTube pagination workflow. Deep Research is optional for later broad literature or web synthesis when AskRigor is available there; Deep Research does not make YouTube pagination faster.
@@ -153,6 +155,8 @@ Also return:
 ```text
 forum_signal_receipt:
   status: complete | completed_with_access_boundary | incomplete
+  corpus_coverage: complete | completed_with_access_boundary | partial
+  partial_corpora_reviewed: yes | not_applicable
   treatment_landscape_selection_coverage_lock: pass | block | not_applicable
   treatment_landscape_per_video_depth_lock: pass | block | not_applicable
   treatment_landscape_synthesis_lock: pass | block | not_applicable
@@ -171,4 +175,4 @@ forum_signal_receipt:
   confidence_effect: <explicit text>
 ```
 
-`complete` requires every applicable field complete, no unresolved material claim fingerprint, all three treatment-landscape locks passed when triggered, no creator-content assertion without transcript support, and every selected discussion audit locked. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect; it cannot support a broad treatment ranking while a landscape lock is blocked. This receipt is an input to HRP synthesis, not a treatment verdict.
+`complete` requires every applicable field complete, no unresolved material claim fingerprint, all three treatment-landscape locks passed when triggered, no creator-content assertion without transcript support, and every selected discussion audit locked. A partial corpus must still be reviewed and labeled; its incomplete coverage cannot support a representative or corpus-wide claim. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect; it cannot support a broad treatment ranking while a landscape lock is blocked. This receipt is an input to HRP synthesis, not a treatment verdict.

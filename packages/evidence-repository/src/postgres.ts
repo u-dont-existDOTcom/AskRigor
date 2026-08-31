@@ -383,7 +383,12 @@ export class PostgresEvidenceRepository {
             [frontierId],
           ),
           client.query<Record<string, unknown>>(
-            `SELECT current_candidate.*,
+            `SELECT current_candidate.candidate_id, current_candidate.frontier_id,
+                    current_candidate.candidate_kind, current_candidate.identity_hash,
+                    current_candidate.version_id, current_candidate.observed_in_pass_id,
+                    current_candidate.display_title, current_candidate.publication_date::text,
+                    current_candidate.decision, current_candidate.decision_reason,
+                    current_candidate.relevance_summary, current_candidate.source_family_id,
                     COALESCE((
                       SELECT jsonb_agg(jsonb_build_object('scheme', identifier.scheme, 'value', identifier.canonical_value)
                         ORDER BY identifier.scheme, identifier.canonical_value)
@@ -396,7 +401,11 @@ export class PostgresEvidenceRepository {
             [frontierId],
           ),
           client.query<Record<string, unknown>>(
-            `SELECT * FROM frontier_trail_current_projection
+            `SELECT trail_id, frontier_id, trail_kind, version_id, lane_id,
+                    target_start::text, target_end_exclusive::text,
+                    description, rationale, priority, state, next_capability,
+                    blocked_reason_code, resolution_note
+             FROM frontier_trail_current_projection
              WHERE frontier_id = $1
              ORDER BY
                CASE priority WHEN 'decision_critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,

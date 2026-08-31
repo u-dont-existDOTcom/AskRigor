@@ -20,7 +20,7 @@ In the Custom GPT editor, copy only the generated
 `https://mcp.askrigor.com/actions/openapi.json`. The generator projects the
 dedicated controlled instruction source and exactly four authenticated research
 operations plus the consented lesson write. Low-level research operations stay
-inside the server and the 21-tool MCP catalog. Action authentication and import are separate from the MCP Project connection. The generated instructions alone do not create or authorize an Action.
+inside the server and the 22-tool MCP catalog. Action authentication and import are separate from the MCP Project connection. The generated instructions alone do not create or authorize an Action.
 
 After changing either installation, start a new chat. Existing chats do not acquire the new standing-consent behavior, and consent from an old chat never carries into a new one.
 

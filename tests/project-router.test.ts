@@ -105,6 +105,8 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(instructions).toContain("or `incomplete` directional/bidirectional field");
     expect(instructions).toContain("`youtube_synthesis_lock: pass`");
     expect(instructions).toContain("selected discussion audits' `synthesis_lock: pass`");
+    expect(instructions).toContain("Review usable records from partial corpora and label them partial");
+    expect(instructions).toContain("not evidence eligibility");
     expect(instructions).toContain("If `get_youtube_transcript` is unavailable");
     expect(instructions).toContain("`transcript_tool_unavailable`");
     expect(instructions).toContain("never call an undeclared tool");
@@ -206,6 +208,8 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(module.toLowerCase()).toContain("query-bounded comment search is discovery-only");
     expect(module).toContain("person × treatment episode");
     expect(module).toContain("This receipt is an input to HRP synthesis, not a treatment verdict");
+    expect(module).toContain("Partial corpus coverage never makes the retrieved records ineligible");
+    expect(module).toContain("partial_corpora_reviewed: yes | not_applicable");
     expect(module).toContain("If `get_youtube_transcript` is unavailable");
     expect(module).toContain("`transcript_tool_unavailable`");
     expect(module).toContain("never call an undeclared tool");

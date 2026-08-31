@@ -25,7 +25,8 @@ const EXPECTED_NAMES = [
   "search_youtube_comments",
   "audit_youtube_community",
   "survey_youtube_community",
-  "audit_youtube_video_community"
+  "audit_youtube_video_community",
+  "get_research_frontier"
 ] as const;
 
 interface RegistryEntry {
@@ -39,7 +40,7 @@ interface RegistryEntry {
 }
 
 describe("shared research-operation registry", () => {
-  it("is the exact frozen 21-operation source with executable full-text audits", async () => {
+  it("is the exact frozen 22-operation source with executable full-text audits", async () => {
     const researchModule = await import("../apps/research-mcp/src/index.js") as
       Record<string, unknown>;
     const operations = researchModule.RESEARCH_OPERATIONS as
@@ -47,7 +48,7 @@ describe("shared research-operation registry", () => {
 
     expect(operations).toBeDefined();
     expect(operations!.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(21);
+    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(22);
     expect(operations!.every(({ name, actionPath, annotations }) =>
       actionPath === `/actions/research/${name}` &&
       annotations.readOnlyHint === true &&
@@ -57,9 +58,9 @@ describe("shared research-operation registry", () => {
 
     const inventory = await createToolInventory();
     expect(inventory.tools.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(inventory.tools).toHaveLength(21);
+    expect(inventory.tools).toHaveLength(22);
     expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "e2ab407b92824d4094986aaf0e108917500546d892c85231772ff0b3c5c60f5e"
+      "c23e9f3adf48110f4a7ce6882476274d28a81ec04810c18058370372425f21d8"
     );
   });
 });

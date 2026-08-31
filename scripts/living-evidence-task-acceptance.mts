@@ -13,6 +13,7 @@ import { pathToFileURL } from "node:url";
 import {
   STUDY_METHOD_AUDIT_DOMAINS,
   createValidatedStudyAuditContribution,
+  getResearchFrontier,
   resolveStudyAuditReuse,
   validateStudyMethodAudit,
   type StudyMethodAuditSubmission,
@@ -23,7 +24,7 @@ import { Pool } from "pg";
 
 const CURRENT_PROTOCOLS: ProtocolManifest[] = [
   { name: "AskRigor Universal", version: "20.5.15", revisionDate: "2026-08-24", sha256: "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172" },
-  { name: "AskRigor HRP", version: "20.5.23", revisionDate: "2026-08-24", sha256: "bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299" },
+  { name: "AskRigor HRP", version: "20.5.24", revisionDate: "2026-08-31", sha256: "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1" },
 ];
 
 function fixture(namespace: string): LivingEvidenceContribution {
@@ -40,7 +41,7 @@ function fixture(namespace: string): LivingEvidenceContribution {
       completedAt: "2026-08-29T12:01:00.000Z",
       protocolManifests: [
         { name: "AskRigor Universal", version: "20.5.15", revisionDate: "2026-08-24", sha256: "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172" },
-        { name: "AskRigor HRP", version: "20.5.23", revisionDate: "2026-08-24", sha256: "bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299" },
+        { name: "AskRigor HRP", version: "20.5.24", revisionDate: "2026-08-31", sha256: "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1" },
       ],
       provenanceNote: "Synthetic, non-health acceptance record for transactional and lossless-storage verification.",
     },
@@ -704,6 +705,43 @@ async function main(): Promise<void> {
       throw new Error("FRONTIER_APPEND_ONLY_CORRECTION_PROJECTION_FAILED");
     }
     checks.push("frontier_candidate_and_trail_corrections_project_current_state");
+
+    const publicFrontier = await getResearchFrontier({
+      frontier_id: frontierInitial.frontier.frontierId,
+      include_history: true,
+    }, {
+      reader: repository,
+      now: () => new Date("2026-08-31T09:15:00.000Z"),
+    });
+    if (
+      publicFrontier.access_status !== "complete" ||
+      publicFrontier.lookup_status !== "retrieved" ||
+      publicFrontier.frontier_currency !== "not_assessed" ||
+      publicFrontier.data.result_count !== 1 ||
+      publicFrontier.data.frontiers[0]?.frontier_id !== frontierInitial.frontier.frontierId ||
+      publicFrontier.data.frontiers[0]?.history?.candidate_versions.length !== 2 ||
+      publicFrontier.data.frontiers[0]?.history?.trail_versions.length !== 3
+    ) {
+      throw new Error("PUBLIC_FRONTIER_READTHROUGH_MISMATCH");
+    }
+    checks.push("public_frontier_readthrough_preserves_nonempty_history");
+
+    const publicMiss = await getResearchFrontier({
+      frontier_id: deterministicUuid(`${namespace}:frontier:not-indexed`),
+    }, {
+      reader: repository,
+      now: () => new Date("2026-08-31T09:16:00.000Z"),
+    });
+    if (
+      publicMiss.access_status !== "not_found" ||
+      publicMiss.lookup_status !== "not_indexed" ||
+      publicMiss.frontier_currency !== "not_assessed" ||
+      publicMiss.data.result_count !== 0 ||
+      !publicMiss.error?.message.includes("does not mean that no external evidence exists")
+    ) {
+      throw new Error("PUBLIC_FRONTIER_NOT_INDEXED_BOUNDARY_MISMATCH");
+    }
+    checks.push("public_frontier_miss_is_not_negative_evidence");
 
     const staleFrontier = structuredClone(frontierCorrection);
     staleFrontier.idempotencyKey = `acceptance:${namespace}:frontier:stale-branch`;

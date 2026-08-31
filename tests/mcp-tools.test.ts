@@ -46,7 +46,8 @@ const TOOL_NAMES = [
   "search_youtube_comments",
   "audit_youtube_community",
   "survey_youtube_community",
-  "audit_youtube_video_community"
+  "audit_youtube_video_community",
+  "get_research_frontier"
 ];
 
 const READ_ONLY_ANNOTATIONS = {
@@ -69,7 +70,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the twenty-one read-only research tools", async () => {
+  it("registers exactly the twenty-two read-only research tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -202,7 +203,7 @@ describe("AskRigor MCP tools", () => {
       });
 
       expect(audit).toMatchObject({
-        description: "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation, returning exact retrieved-versus-analyzed counts and a blocking completion receipt; no medical conclusions are generated.",
+        description: "Retrieve one material YouTube video's unfiltered API-visible top-level comments and independently paginated replies through authenticated stateless continuation. Returns exact retrieved-versus-analyzed counts, usable partial-corpus records for bounded review, and a separate completion receipt; no medical conclusions are generated.",
         annotations: READ_ONLY_ANNOTATIONS,
         inputSchema: {
           type: "object",
@@ -465,7 +466,7 @@ describe("AskRigor MCP tools", () => {
         provider_reported_comments: "7",
         records_retrieved_this_call: 1,
         records_retrieved_cumulative: 1,
-        records_returned_for_analysis: 0,
+        records_returned_for_analysis: 1,
         continuation_recommended: true,
         receipt: { completion_state: "incomplete", synthesis_lock: "block" }
       });
@@ -1922,9 +1923,9 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.5.23",
-          revisionDate: "2026-08-24",
-          sha256: "bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299"
+          version: "20.5.24",
+          revisionDate: "2026-08-31",
+          sha256: "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
         },
         text: canonicalText
       });

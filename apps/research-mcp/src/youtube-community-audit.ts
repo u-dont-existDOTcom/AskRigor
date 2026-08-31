@@ -125,6 +125,8 @@ interface CandidateAssociation {
 
 const DISCOVERY_LIMITATION =
   "YouTube video discovery used one bounded provider-ranked page per distinct query; it did not exhaust the full platform or determine materiality.";
+const PARTIAL_CORPUS_EVIDENCE_LIMITATION =
+  "This is a partial corpus. The retrieved records remain eligible for bounded evidence review, but they do not represent unseen records or establish corpus-wide prevalence, direction, rarity, or typicality.";
 
 export async function auditYoutubeCommunity(
   input: YoutubeCommunityAuditInput,
@@ -206,7 +208,10 @@ export async function auditYoutubeCommunity(
       commentData.data.manifest.extraction_coverage === "api_visible_complete" &&
       commentData.data.manifest.reply_count_mismatches.length === 0;
 
-    if (corpusComplete && commentData.success) {
+    if (commentData.success && (
+      corpusComplete ||
+      (commentsResult.access_status === "partial" && commentData.data.comments.length > 0)
+    )) {
       const comments = commentData.data.comments;
       const sampled = sampleYoutubeComments(comments, parsed.sample_comments_per_video);
       video.manifest = commentData.data.manifest;
@@ -221,12 +226,17 @@ export async function auditYoutubeCommunity(
       };
       if (sampled.length < comments.length) {
         video.limitations.push(
-          `Returned a deterministic chronological sample of ${sampled.length} from ${comments.length} completely acquired API-visible comments and replies; the sample does not establish prevalence.`
+          `Returned a deterministic chronological sample of ${sampled.length} from ${comments.length} retrieved comments and replies; the sample does not establish prevalence.`
         );
       }
-    } else if (isTerminalAccessBoundary(commentsResult.access_status, commentsResult.error?.code)) {
+      if (!corpusComplete) video.limitations.push(PARTIAL_CORPUS_EVIDENCE_LIMITATION);
+    }
+    if (!corpusComplete && isTerminalAccessBoundary(
+      commentsResult.access_status,
+      commentsResult.error?.code
+    )) {
       boundaryStatuses.push(commentsResult.access_status);
-    } else {
+    } else if (!corpusComplete) {
       incomplete = true;
       blockers.push(`Video ${videoId} comments ended with ${commentsResult.access_status}.`);
     }
