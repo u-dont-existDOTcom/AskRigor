@@ -1,5 +1,14 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-31 public-plugin scoped-review candidate — not live-accepted
+
+The local candidate retains the existing five-operation Custom GPT Action and
+adds one OAuth-scoped MCP review operation for the owner's primary ChatGPT
+plugin account. Its synchronization ledger SHA-256 is
+`8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4`.
+The controlled Instructions remain 4,752 characters. No production or
+product-interface acceptance is claimed for this candidate.
+
 ## 2026-08-29 primary-account Chat plugin review-method audit
 
 The owner's primary `u-dont-exist.com` ChatGPT account still exposed the

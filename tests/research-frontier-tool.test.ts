@@ -166,8 +166,8 @@ describe("dedicated read-only research-frontier tool", () => {
   });
 
   it("is operation 22 with read-only MCP and non-consequential Action/OpenAPI contracts", () => {
-    const operation = RESEARCH_OPERATIONS.at(-1);
-    expect(RESEARCH_OPERATIONS).toHaveLength(22);
+    const operation = RESEARCH_OPERATIONS.at(21);
+    expect(RESEARCH_OPERATIONS).toHaveLength(23);
     expect(operation).toMatchObject({
       name: "get_research_frontier",
       actionPath: "/actions/research/get_research_frontier",

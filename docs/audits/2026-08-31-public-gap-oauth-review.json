@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-public-gap-oauth-review-v1",
+  "recordedAt": "2026-08-31T18:02:35Z",
+  "branch": "task/public-gap-oauth-review-20260831",
+  "stackedOn": {
+    "branch": "task/public-evidence-gap-intake-20260831",
+    "commit": "4130f4d9dd008cb1e47b1da1b6fbebf5382bf874"
+  },
+  "implementationCommit": "f7a3c4131db915a66c7903ab171afac2f74310ef",
+  "ownerCorrection": "A plugin may receive private material from its invoking user without becoming a private product. Cross-user retrieval of durable stored health submissions is the narrower authenticated capability.",
+  "outcome": {
+    "publicResearchToolCount": 22,
+    "oauthProtectedReviewToolCount": 1,
+    "totalStandardMcpToolCount": 23,
+    "geminiAnonymousToolCount": 22,
+    "requiredReviewScope": "cases:review",
+    "publicFormRemainsAnonymous": true,
+    "participantOwnCaseAccessStillUsesRecoveryKey": true,
+    "rawSubmissionsPublic": false,
+    "causalAnalysisPermitted": false
+  },
+  "authorization": {
+    "protocol": "OAuth 2.1 MCP resource-server contract",
+    "tokenProfile": "signed JWT",
+    "checks": [
+      "signature",
+      "issuer",
+      "audience/resource",
+      "expiry",
+      "client identity",
+      "cases:review scope"
+    ],
+    "toolSecurityMetadata": true,
+    "toolLevelMcpWwwAuthenticateChallenge": true,
+    "protectedResourceMetadata": true,
+    "authorizationServerImplementedByAskRigor": false,
+    "externalIdentityProviderSelected": false
+  },
+  "privacy": {
+    "reviewProjectionReused": true,
+    "contactPatternRedactionReused": true,
+    "recoveryKeysReturnedByTool": false,
+    "oauthTokensReturnedByTool": false,
+    "verificationStatusPreserved": "PARTICIPANT_REPORTED_UNVERIFIED",
+    "partialCasesRetained": true,
+    "comparisonCasesRetained": true
+  },
+  "verification": [
+    {
+      "command": "npx vitest run tests/public-gap-oauth-review.test.ts tests/mcp-tools.test.ts tests/research-operation-registry.test.ts tests/research-frontier-tool.test.ts tests/research-action-route.test.ts tests/living-evidence-production-deployment.test.ts tests/lesson-action.test.ts tests/custom-gpt-packet.test.ts tests/public-submission-packet.test.ts tests/release-packet.test.ts",
+      "result": "pass",
+      "testFilesPassed": 10,
+      "testsPassed": 142
+    },
+    {
+      "command": "npm run verify",
+      "result": "pass",
+      "testFilesPassed": 121,
+      "testFilesSkipped": 1,
+      "testsPassed": 1579,
+      "testsSkipped": 6,
+      "typecheck": "pass",
+      "build": "pass"
+    },
+    {
+      "command": "npm audit --omit=dev",
+      "result": "pass",
+      "vulnerabilities": 0
+    },
+    {
+      "command": "git diff --check",
+      "result": "pass"
+    }
+  ],
+  "artifactHashes": {
+    "toolInventoryFileSha256": "993a8fcd8960b618ec4d6200b3209c3cea677da9cbff200f7456f47b3619749e",
+    "toolInventoryCanonicalJsonSha256": "35345b5eaabcb6acb2fa9ba8257f8610fbcc72c1f0c7fe5bb8066b1220201cf1",
+    "customGptSyncSha256": "8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4"
+  },
+  "lessonQueue": {
+    "status": "available",
+    "openCandidates": 0,
+    "needsReview": 0,
+    "acceptedNotIncorporated": 0,
+    "incorporatedOrClosed": 4,
+    "deletionEligible": 0,
+    "checkedAt": "2026-08-31T18:02:36.773Z"
+  },
+  "officialImplementationReference": "https://developers.openai.com/plugins/build/auth",
+  "completion": {
+    "typedClaim": "OUTCOME",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_local_resource_server_and_tool",
+    "scientificAdequacy": "pass_for_provenance_missingness_unverified_and_noncausal_projection_only",
+    "releaseAdequacy": "not_applicable_no_external_oauth_issuer_or_deployment"
+  },
+  "remainingReleaseWork": [
+    "Choose and configure an established OAuth identity provider that supports the current MCP authorization contract.",
+    "Restrict cases:review grant policy to the owner/reviewer identity.",
+    "Update the public privacy notice with the exact identity and GPT/provider processing, retention, backup, key, and redaction boundaries.",
+    "Deploy with rollback, synchronize the exact plugin package, and run fresh primary-account ChatGPT OAuth acceptance."
+  ]
+}

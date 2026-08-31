@@ -1,6 +1,15 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-31 public-plugin scoped-review candidate — unreleased
+
+The current reversible candidate keeps 22 research operations anonymous and
+adds one read-only `cases:review` OAuth operation for cross-user stored case
+retrieval. The public contribution page remains open. This candidate has not
+been deployed or installed; its regenerated synchronization ledger SHA-256 is
+`8e4c04cfb9c36107529f9cfcc606f3bfd04a610f9323ae50c94aee327c0cc2a4`.
+The controlled Instructions remain 4,752 characters.
+
 ## 2026-08-31 dedicated read-only research-frontier tool deployed and accepted
 
 PR #148 appends `get_research_frontier` as the exact 22nd read-only MCP

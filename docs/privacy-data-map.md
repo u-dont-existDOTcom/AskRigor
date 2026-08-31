@@ -90,6 +90,19 @@ causal analysis in its machine response. Public deployment still requires an
 accurate public notice for GPT/provider processing, active and backup
 retention, key operation, and the limits of deterministic redaction.
 
+The public AskRigor plugin itself remains public: anonymous research tools may
+receive private text chosen by the invoking user, as plugins generally can,
+without gaining database access. Cross-user retrieval is a separate boundary.
+The `review_evidence_gap_submissions` MCP operation requires a validated OAuth
+JWT with the exact `cases:review` scope. The resource server validates
+signature, issuer, audience, expiry, client identity, and scopes before
+attaching identity to the MCP request. Its OAuth challenge and protected-
+resource metadata contain only endpoint and scope metadata. The tool receives
+the already bounded review projection; it does not receive recovery keys,
+encryption material, contact destinations, raw database envelopes, or OAuth
+tokens in its result. Choosing and configuring the external identity provider
+and documenting that provider's processing remain release work.
+
 The local and conditionally authorized Railway pilot boundaries are defined by
 `docs/living-evidence-source-storage-policy.md` and
 `docs/living-evidence-repository-threat-model.md`. Railway must be isolated,

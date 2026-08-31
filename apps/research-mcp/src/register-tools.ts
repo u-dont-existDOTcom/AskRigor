@@ -4,7 +4,11 @@ import type {
   ToolAnnotations
 } from "@modelcontextprotocol/sdk/types.js";
 import { ACCESS_STATUSES, errorEnvelope } from "@askrigor/contracts";
-import { PostgresEvidenceRepository } from "@askrigor/evidence-repository";
+import {
+  PostgresEvidenceRepository,
+  PUBLIC_PROLACTINOMA_GAP_SLUG,
+  type PublicEvidenceGapIntakeService,
+} from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
   loadProtocol,
@@ -67,6 +71,13 @@ import type {
   ResearchOperation,
   ResearchOperationHandler
 } from "./research-operation.js";
+import {
+  createEvidenceGapReviewHandler,
+  evidenceGapReviewInputSchema,
+  evidenceGapReviewOutputSchema,
+  evidenceGapReviewSecurityMetadata,
+  publicToolSecurityMetadata,
+} from "./evidence-gap-review-tool.js";
 import {
   researchFrontierInputSchema,
   researchFrontierOutputSchema,
@@ -427,8 +438,19 @@ const OPEN_FULL_TEXT_MCP_OPERATION_NAMES = new Set([
   "validate_study_method_audit",
   "validate_review_method_audit"
 ]);
+const PRIVATE_MCP_OPERATION_NAMES = new Set([
+  "review_evidence_gap_submissions",
+]);
 
-function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): void {
+export interface RegisterToolsOptions {
+  publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
+  oauthResourceMetadataUrl?: URL;
+}
+
+function defineResearchOperations(
+  registrar: Pick<McpServer, "registerTool">,
+  options: RegisterToolsOptions,
+): void {
   registrar.registerTool(
     "get_protocol_manifest",
     {
@@ -941,6 +963,20 @@ function defineResearchOperations(registrar: Pick<McpServer, "registerTool">): v
       reader: RESEARCH_FRONTIER_READER
     })
   );
+
+  registrar.registerTool(
+    "review_evidence_gap_submissions",
+    {
+      description: `Retrieve the private, deidentified review projection for submitted cases in the ${PUBLIC_PROLACTINOMA_GAP_SLUG} evidence gap. Requires OAuth scope cases:review. Participant-reported cases remain explicitly unverified and noncausal; partial and comparison cases are retained and labeled.`,
+      inputSchema: evidenceGapReviewInputSchema,
+      outputSchema: evidenceGapReviewOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    createEvidenceGapReviewHandler({
+      service: options.publicEvidenceGapReviewService,
+      resourceMetadataUrl: options.oauthResourceMetadataUrl,
+    }),
+  );
 }
 
 function registerOpenFullTextMcpTools(
@@ -1049,18 +1085,26 @@ async function invokeOpenFullTextMcp(
 
 export const RESEARCH_OPERATIONS = Object.freeze(collectResearchOperations());
 
-export function registerTools(server: McpServer): void {
+export function registerTools(
+  server: McpServer,
+  options: RegisterToolsOptions = {},
+): void {
   const register = server.registerTool.bind(server) as unknown as (
     name: string,
     config: unknown,
     execute: ResearchOperationHandler
   ) => unknown;
-  for (const operation of RESEARCH_OPERATIONS) {
+  const operations = Object.keys(options).length === 0
+    ? RESEARCH_OPERATIONS
+    : collectResearchOperations(options);
+  for (const operation of operations) {
     register(operation.name, operation.mcpConfig, operation.execute);
   }
 }
 
-function collectResearchOperations(): readonly ResearchOperation[] {
+function collectResearchOperations(
+  options: RegisterToolsOptions = {},
+): readonly ResearchOperation[] {
   const operations: ResearchOperation[] = [];
   const registrar = {
     registerTool(
@@ -1070,6 +1114,7 @@ function collectResearchOperations(): readonly ResearchOperation[] {
         inputSchema?: unknown;
         outputSchema?: unknown;
         annotations?: ToolAnnotations;
+        _meta?: Record<string, unknown>;
       },
       execute: ResearchOperationHandler
     ) {
@@ -1082,7 +1127,14 @@ function collectResearchOperations(): readonly ResearchOperation[] {
         throw new Error(`Incomplete research operation definition: ${name}`);
       }
       const annotations = Object.freeze({ ...config.annotations });
-      const mcpConfig = Object.freeze({ ...config, annotations });
+      const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
+        ? evidenceGapReviewSecurityMetadata()
+        : publicToolSecurityMetadata();
+      const mcpConfig = Object.freeze({
+        ...config,
+        annotations,
+        _meta: Object.freeze({ ...config._meta, ..._meta }),
+      });
       operations.push(Object.freeze({
         name,
         actionPath: `/actions/research/${name}`,
@@ -1090,7 +1142,9 @@ function collectResearchOperations(): readonly ResearchOperation[] {
         inputSchema: config.inputSchema,
         outputSchema: config.outputSchema,
         annotations,
-        actionEnabled: !OPEN_FULL_TEXT_MCP_OPERATION_NAMES.has(name),
+        actionEnabled:
+          !OPEN_FULL_TEXT_MCP_OPERATION_NAMES.has(name) &&
+          !PRIVATE_MCP_OPERATION_NAMES.has(name),
         execute,
         mcpConfig
       }));
@@ -1098,9 +1152,9 @@ function collectResearchOperations(): readonly ResearchOperation[] {
     }
   } as unknown as Pick<McpServer, "registerTool">;
 
-  defineResearchOperations(registrar);
-  if (operations.length !== 22) {
-    throw new Error(`Expected 22 research operations; received ${operations.length}`);
+  defineResearchOperations(registrar, options);
+  if (operations.length !== 23) {
+    throw new Error(`Expected 23 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

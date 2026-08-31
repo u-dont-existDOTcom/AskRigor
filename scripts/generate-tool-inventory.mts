@@ -17,7 +17,7 @@ export interface ToolInventoryEntry {
   [key: string]: unknown;
   name: string;
   title?: undefined;
-  _meta?: undefined;
+  _meta?: Record<string, unknown>;
   description: string;
   inputSchema: unknown;
   outputSchema: unknown;

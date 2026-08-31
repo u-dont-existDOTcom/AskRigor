@@ -88,7 +88,7 @@ describe("AskRigor public submission packet", () => {
     expect(packet.mcp).toEqual({
       submissionMode: "with_mcp",
       serverURL: "https://mcp.askrigor.com/mcp",
-      expectedToolCount: 22
+      expectedToolCount: 23
     });
   });
 
