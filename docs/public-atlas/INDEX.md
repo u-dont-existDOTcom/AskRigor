@@ -69,7 +69,7 @@ Status: branch-local architecture and Phase-0 implementation index
     - durable owner outcome and controlling read order;
     - immediate synthetic implementation slice;
     - explicit non-authorizations and real-pilot gates;
-    - nonterminal `READY_FOR_SYNTHETIC_IMPLEMENTATION` state.
+    - nonterminal `SYNTHETIC_HOSTILE_MATRIX_FOUNDATION_MERGED` state.
 
 13. `COMMUNITY-FORUM-ARCHITECTURE-RECEIPT.md`
     - final architecture closure and artifact identities;
@@ -143,7 +143,11 @@ The Community Health Forum and Public Lead Frontier prior-work scan, spec, machi
 
 They supersede any earlier downstream clause that can be read to require affected-person exact-version approval before **every** deidentified secondhand lead may be public. Earlier exact-version approval requirements remain controlling for `PUBLIC_NARRATIVE`, direct subject quotations, identifiable or reasonably reidentifiable subject presentation, subject documents/media, and other explicitly consent-gated uses.
 
-The existing Phase-0 implementation and tests predate this owner correction and must be reconciled before implementation proceeds. No existing test may be treated as authority to narrow the corrected product outcome.
+The original Phase-0 implementation and tests predated this owner correction.
+They were reconciled in the corrected PR #142 ancestry and merged through the
+ordered stack ending at PR #146. Pre-correction commits remain historical only;
+no old test may be treated as authority to narrow the corrected product
+outcome.
 
 ## Authority boundary
 

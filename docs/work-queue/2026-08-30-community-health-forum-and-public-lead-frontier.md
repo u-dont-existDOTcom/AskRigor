@@ -1,7 +1,7 @@
 # Work queue — Community Health Forum and Public Lead Frontier
 
 Date: 2026-08-30
-Status: architecture complete; all 30 hostile cases now have isolated synthetic contract/service/migration/test evidence through migration 0007; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
+Status: synthetic foundation merged through PR #146; all 30 hostile cases have isolated synthetic contract/service/migration/test evidence through migration 0007; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
 Owner source: Joel, 2026-08-30
 
 ## Owner outcome
@@ -174,10 +174,14 @@ retention, minor/unknown-age enhanced review, and paid/private no-public
 intake. PostgreSQL acceptance is 20/20 and the post-closure audit is 30/30
 executable for the synthetic lab.
 
-No further implementation slice is implied by that closure. The next safe
-queue action is stack reconciliation and review of the synthetic PRs and their
-exact receipts. Visual/public UI, real users, external indexing, recruitment,
-deployment, and any real-data pilot remain separately gated owner decisions.
+No further implementation slice is implied by that closure. Ordered stack
+reconciliation and review completed on 2026-08-31: PRs #140, #142, #143, #144,
+#145, and #146 merged to `main`, whose exact closing commit is
+`6692b728a700cdcaf53a5850278fcf3f6616b1d8`. Final-main deterministic
+verification, repository workflow policy, and all CodeQL analyses passed; the
+exact receipt is recorded on PR #146. Visual/public UI, real users, external
+indexing, recruitment, deployment, and any real-data pilot remain separately
+gated owner decisions.
 
 ## Gates before any real-user pilot
 
@@ -196,8 +200,8 @@ deployment, and any real-data pilot remain separately gated owner decisions.
 
 Architecture completion is not forum completion. The root product outcome remains open until a separately authorized implementation, pilot, review, deployment, and direct product acceptance establish that people can actually discuss, submit leads, see the public frontier, and follow the lead-to-research loop safely.
 
-Current next state: `SYNTHETIC_CLOSED_LOOP_HOSTILE_FOUNDATION_IMPLEMENTED`;
-continue with the synthetic hostile-matrix closure audit and any missing
-privacy/provenance fixtures before any separately authorized visual UI or
-real-user pilot.
+Current next state: `SYNTHETIC_HOSTILE_MATRIX_FOUNDATION_MERGED`. There is no
+additional implied synthetic implementation slice. Any visual UI, staffed
+operations, real-user pilot, or deployment must begin under the applicable
+separate authorization and production gates above.
 Root outcome remains nonterminal.
