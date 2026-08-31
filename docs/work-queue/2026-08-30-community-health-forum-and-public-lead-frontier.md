@@ -1,7 +1,7 @@
 # Work queue — Community Health Forum and Public Lead Frontier
 
 Date: 2026-08-30
-Status: architecture complete; isolated synthetic Discourse plus composer/frontier/role-separated queue contract, migration, and service fixtures implemented and locally verified; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
+Status: architecture complete; all 30 hostile cases now have isolated synthetic contract/service/migration/test evidence through migration 0007; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
 Owner source: Joel, 2026-08-30
 
 ## Owner outcome
@@ -165,12 +165,19 @@ Migration `0006` and the 15-check Community Forum acceptance keep popularity
 non-evidentiary and preserve reports, source meaning, no launch, no
 recruitment, no causal upgrade, and no efficacy percentage.
 
-The next safe synthetic-only task is a hostile-matrix closure audit followed by
-fixtures for any remaining privacy/provenance gaps: rare reidentification,
-private quotation, minors, public-source extraction, deleted-source retention,
-and paid/private intake without public consent. It may add only missing
-contract/service/migration/tests; visual/public UI, real users, external
-indexing, recruitment, and deployment remain separately gated.
+The hostile-matrix closure audit found 24 executable cases, three partial cases,
+and three gaps. Migration `0007` plus focused contracts/services/tests now
+closes the six partial/gap items: exact reidentification/generalization,
+incomplete multi-hop public leads without evidence upgrade, external-source
+terms/attribution/privacy/deletion, deleted-source independent-consent
+retention, minor/unknown-age enhanced review, and paid/private no-public
+intake. PostgreSQL acceptance is 20/20 and the post-closure audit is 30/30
+executable for the synthetic lab.
+
+No further implementation slice is implied by that closure. The next safe
+queue action is stack reconciliation and review of the synthetic PRs and their
+exact receipts. Visual/public UI, real users, external indexing, recruitment,
+deployment, and any real-data pilot remain separately gated owner decisions.
 
 ## Gates before any real-user pilot
 

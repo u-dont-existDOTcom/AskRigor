@@ -364,28 +364,26 @@ export const communityLeadSchema = z
     }
   });
 
+export const communityPrivacyRiskFlagSchema = z.enum([
+  "DIRECT_IDENTIFIER",
+  "EXACT_DATE_OR_AGE",
+  "RARE_COMBINATION",
+  "PRECISE_LOCATION",
+  "CLINICIAN_OR_CLINIC",
+  "UNIQUE_SEARCHABLE_QUOTE",
+  "IMAGE_OR_EXIF",
+  "DOCUMENT_IDENTIFIER",
+  "MINOR",
+  "PUBLIC_BACKLINK_REIDENTIFICATION",
+  "RELATIONAL_REIDENTIFICATION",
+  "OTHER",
+]);
+
 export const communityPrivacyReviewSchema = z
   .object({
     reviewId: z.string().regex(/^ARPRIV-[A-Z0-9_-]{8,64}$/u),
     outcome: z.enum(["PASS", "FAIL", "HUMAN_REVIEW_REQUIRED", "PENDING"]),
-    riskFlags: z
-      .array(
-        z.enum([
-          "DIRECT_IDENTIFIER",
-          "EXACT_DATE_OR_AGE",
-          "RARE_COMBINATION",
-          "PRECISE_LOCATION",
-          "CLINICIAN_OR_CLINIC",
-          "UNIQUE_SEARCHABLE_QUOTE",
-          "IMAGE_OR_EXIF",
-          "DOCUMENT_IDENTIFIER",
-          "MINOR",
-          "PUBLIC_BACKLINK_REIDENTIFICATION",
-          "RELATIONAL_REIDENTIFICATION",
-          "OTHER",
-        ]),
-      )
-      .max(30),
+    riskFlags: z.array(communityPrivacyRiskFlagSchema).max(30),
     reviewedAt: timestampSchema,
   })
   .strict();
@@ -498,6 +496,276 @@ export const communityPublicVersionSchema = z
       });
     }
   });
+
+export const communityPrivacyPublicationGateSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    gateId: z.string().regex(/^ARPRIVGATE-[A-Z0-9_-]{8,64}$/u),
+    publicVersionId: z.string().regex(/^ARPUB-[A-Z0-9_-]{8,64}$/u),
+    leadId: z.string().regex(/^ARLEAD-[A-Z0-9_-]{8,64}$/u),
+    leadVersion: z.number().int().positive(),
+    riskFlagsBefore: z.array(communityPrivacyRiskFlagSchema).max(30),
+    riskFlagsAfter: z.array(communityPrivacyRiskFlagSchema).max(30),
+    generalizationApplied: z.boolean(),
+    minorStatus: z.enum(["ADULT", "MINOR", "UNKNOWN"]),
+    guardianConsentState: z.enum([
+      "NOT_APPLICABLE",
+      "NOT_REVIEWED",
+      "PENDING",
+      "APPROVED",
+      "REJECTED",
+    ]),
+    legalPrivacyReviewState: z.enum([
+      "NOT_REVIEWED",
+      "REVIEW_REQUIRED",
+      "REVIEW_IN_PROGRESS",
+      "APPROVED",
+      "REJECTED",
+    ]),
+    ordinaryProjectionPermitted: z.boolean(),
+    decision: z.enum([
+      "ELIGIBLE_SYNTHETIC_LAB",
+      "HOLD_REIDENTIFICATION",
+      "HOLD_MINOR_REVIEW",
+      "BLOCKED",
+    ]),
+    assessedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const before = new Set(value.riskFlagsBefore);
+    const after = new Set(value.riskFlagsAfter);
+    if (after.size !== value.riskFlagsAfter.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["riskFlagsAfter"],
+        message: "Residual privacy-risk flags must be unique",
+      });
+    }
+    if (before.size !== value.riskFlagsBefore.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["riskFlagsBefore"],
+        message: "Initial privacy-risk flags must be unique",
+      });
+    }
+    if ([...after].some((flag) => !before.has(flag))) {
+      context.addIssue({
+        code: "custom",
+        path: ["riskFlagsAfter"],
+        message: "Generalization cannot introduce an unrecorded privacy risk",
+      });
+    }
+    const changed =
+      before.size !== after.size || [...before].some((flag) => !after.has(flag));
+    if (value.generalizationApplied !== changed) {
+      context.addIssue({
+        code: "custom",
+        path: ["generalizationApplied"],
+        message: "Generalization state must match the before/after risk decision",
+      });
+    }
+    if (
+      (value.minorStatus === "ADULT") !==
+      (value.guardianConsentState === "NOT_APPLICABLE")
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["guardianConsentState"],
+        message: "Minor or unknown-age subjects require a guardian-consent review state",
+      });
+    }
+
+    let expectedDecision: typeof value.decision;
+    if (
+      value.guardianConsentState === "REJECTED" ||
+      value.legalPrivacyReviewState === "REJECTED"
+    ) {
+      expectedDecision = "BLOCKED";
+    } else if (after.size > 0) {
+      expectedDecision = "HOLD_REIDENTIFICATION";
+    } else if (value.minorStatus !== "ADULT") {
+      expectedDecision = "HOLD_MINOR_REVIEW";
+    } else if (value.legalPrivacyReviewState !== "APPROVED") {
+      expectedDecision = "BLOCKED";
+    } else {
+      expectedDecision = "ELIGIBLE_SYNTHETIC_LAB";
+    }
+    if (value.decision !== expectedDecision) {
+      context.addIssue({
+        code: "custom",
+        path: ["decision"],
+        message: "Privacy publication decision does not match its recorded gates",
+      });
+    }
+    if (
+      value.ordinaryProjectionPermitted !==
+      (expectedDecision === "ELIGIBLE_SYNTHETIC_LAB")
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["ordinaryProjectionPermitted"],
+        message: "Only an eligible adult synthetic-lab decision permits ordinary projection",
+      });
+    }
+  });
+
+export const communityExternalSourceExtractionBoundarySchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    extractionId: z.string().regex(/^AREXTRACT-[A-Z0-9_-]{8,64}$/u),
+    externalSourceId: syntheticIdSchema,
+    sourceUrl: z
+      .string()
+      .url()
+      .refine(
+        (value) => new URL(value).hostname.endsWith(".invalid"),
+        "Synthetic external-source URLs must use an invalid hostname",
+      ),
+    sourceVisibility: z.enum([
+      "PUBLIC",
+      "MEMBER_ONLY",
+      "PRIVATE",
+      "DELETED",
+      "UNKNOWN",
+    ]),
+    providerTermsState: z.enum([
+      "ALLOWED",
+      "REVIEW_REQUIRED",
+      "PROHIBITED",
+      "UNKNOWN",
+    ]),
+    attributionState: z.enum(["COMPLETE", "INCOMPLETE", "NOT_APPLICABLE"]),
+    quotationState: z.enum(["NONE", "APPROVED_EXCERPT", "WITHHELD"]),
+    privacyState: z.enum(["PASS", "HOLD", "FAIL"]),
+    deletionState: z.enum(["ACTIVE", "DELETED", "UNKNOWN"]),
+    rawSourceBodyPersisted: z.literal(false),
+    publicationEligible: z.boolean(),
+    decision: z.enum([
+      "ELIGIBLE_SYNTHETIC_LAB",
+      "HOLD_ACCESS_OR_TERMS",
+      "HOLD_ATTRIBUTION_OR_QUOTATION",
+      "HOLD_PRIVACY",
+      "WITHDRAW_SOURCE_DELETED",
+    ]),
+    assessedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    let expectedDecision: typeof value.decision;
+    if (
+      value.deletionState === "DELETED" ||
+      value.sourceVisibility === "DELETED"
+    ) {
+      expectedDecision = "WITHDRAW_SOURCE_DELETED";
+    } else if (
+      value.sourceVisibility !== "PUBLIC" ||
+      value.providerTermsState !== "ALLOWED" ||
+      value.deletionState !== "ACTIVE"
+    ) {
+      expectedDecision = "HOLD_ACCESS_OR_TERMS";
+    } else if (
+      value.attributionState !== "COMPLETE" ||
+      value.quotationState === "WITHHELD"
+    ) {
+      expectedDecision = "HOLD_ATTRIBUTION_OR_QUOTATION";
+    } else if (value.privacyState !== "PASS") {
+      expectedDecision = "HOLD_PRIVACY";
+    } else {
+      expectedDecision = "ELIGIBLE_SYNTHETIC_LAB";
+    }
+    if (value.decision !== expectedDecision) {
+      context.addIssue({
+        code: "custom",
+        path: ["decision"],
+        message: "External-source decision does not match the recorded boundary",
+      });
+    }
+    if (
+      value.publicationEligible !==
+      (expectedDecision === "ELIGIBLE_SYNTHETIC_LAB")
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["publicationEligible"],
+        message: "External-source publication eligibility must fail closed",
+      });
+    }
+  });
+
+export const communityDeletedSourceRetentionDecisionSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    decisionId: z.string().regex(/^ARRETENTION-[A-Z0-9_-]{8,64}$/u),
+    sourceEventId: z.string().regex(/^AREVT-[A-Z0-9_-]{8,64}$/u),
+    sourceVersion: z.number().int().positive(),
+    leadId: z.string().regex(/^ARLEAD-[A-Z0-9_-]{8,64}$/u),
+    leadVersion: z.number().int().positive(),
+    publicVersionId: z.string().regex(/^ARPUB-[A-Z0-9_-]{8,64}$/u),
+    sourceDeleted: z.literal(true),
+    sourceBodyRetained: z.literal(false),
+    provenanceRetained: z.literal(true),
+    reporterPublicLeadConsentState: z.enum([
+      "YES",
+      "NO",
+      "WITHDRAWN",
+      "NOT_ASKED",
+    ]),
+    leadConsentIndependentOfSourcePost: z.boolean(),
+    privacyPolicyState: z.enum(["PASS", "HOLD", "FAIL"]),
+    disposition: z.enum([
+      "RETAIN_DEIDENTIFIED_LEAD",
+      "WITHDRAW_PUBLIC_PROJECTION",
+      "HOLD_REVIEW",
+    ]),
+    assessedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    let expectedDisposition: typeof value.disposition;
+    if (["NO", "WITHDRAWN"].includes(value.reporterPublicLeadConsentState)) {
+      expectedDisposition = "WITHDRAW_PUBLIC_PROJECTION";
+    } else if (
+      value.reporterPublicLeadConsentState === "YES" &&
+      value.leadConsentIndependentOfSourcePost &&
+      value.privacyPolicyState === "PASS"
+    ) {
+      expectedDisposition = "RETAIN_DEIDENTIFIED_LEAD";
+    } else {
+      expectedDisposition = "HOLD_REVIEW";
+    }
+    if (value.disposition !== expectedDisposition) {
+      context.addIssue({
+        code: "custom",
+        path: ["disposition"],
+        message: "Deleted-source retention requires independent consent and policy",
+      });
+    }
+  });
+
+export const communityPrivateIntakeBoundarySchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    boundaryId: z.string().regex(/^ARPRIVATE-[A-Z0-9_-]{8,64}$/u),
+    intakeId: syntheticIdSchema,
+    intakeClass: z.literal("PAID_PRIVATE"),
+    sourceVisibility: z.literal("PRIVATE"),
+    initialPublicLeadConsentState: z.enum(["NOT_ASKED", "NO", "WITHDRAWN"]),
+    forumRecordCreated: z.literal(false),
+    publicProjectionCreated: z.literal(false),
+    laterSeparatePublicLeadWorkflowRequired: z.literal(true),
+    rawIntakeBodyPersisted: z.literal(false),
+    assessedAt: timestampSchema,
+  })
+  .strict();
 
 export const discourseSyntheticLabManifestSchema = z
   .object({
@@ -2208,6 +2476,18 @@ export type CommunityForumSourceReference = z.infer<
 export type CommunityLead = z.infer<typeof communityLeadSchema>;
 export type CommunityPublicVersion = z.infer<
   typeof communityPublicVersionSchema
+>;
+export type CommunityPrivacyPublicationGate = z.infer<
+  typeof communityPrivacyPublicationGateSchema
+>;
+export type CommunityExternalSourceExtractionBoundary = z.infer<
+  typeof communityExternalSourceExtractionBoundarySchema
+>;
+export type CommunityDeletedSourceRetentionDecision = z.infer<
+  typeof communityDeletedSourceRetentionDecisionSchema
+>;
+export type CommunityPrivateIntakeBoundary = z.infer<
+  typeof communityPrivateIntakeBoundarySchema
 >;
 export type DiscourseSyntheticLabManifest = z.infer<
   typeof discourseSyntheticLabManifestSchema

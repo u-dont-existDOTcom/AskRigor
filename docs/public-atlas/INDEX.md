@@ -106,21 +106,28 @@ Status: branch-local architecture and Phase-0 implementation index
     - exact negative/null result return, sixth migration, PostgreSQL
       acceptance, and nonrelease verdicts.
 
-18. `../audits/2026-08-30-universal-supervision-bootstrap-critique.md`
+18. `COMMUNITY-FORUM-PRIVACY-PROVENANCE-MATRIX-RECEIPT.md`
+    - exact 30-case hostile coverage audit and six-item closure;
+    - reidentification/generalization and minor/unknown-age gates;
+    - external/deleted/private source and paid-intake boundaries;
+    - seventh migration, 20-check PostgreSQL acceptance, and nonrelease
+      verdicts.
+
+19. `../audits/2026-08-30-universal-supervision-bootstrap-critique.md`
     - application of the updated shared Codex/Pro supervision bootstrap;
     - objective-contract reconciliation;
     - independent supervisor owner-source receipt;
     - typed completion and separate operational/scientific/release verdicts.
 
-19. `../superpowers/plans/2026-08-30-public-atlas-phase0-prediction-stories.md`
+20. `../superpowers/plans/2026-08-30-public-atlas-phase0-prediction-stories.md`
     - implemented prediction/story/study/job contracts and tests;
     - next database/service fixture slice;
     - bounded Codex continuation handoff.
 
-20. `../../packages/evidence-repository/src/public-atlas-phase0.ts`
+21. `../../packages/evidence-repository/src/public-atlas-phase0.ts`
     - Phase-0 pure TypeScript contracts and deterministic validators.
 
-21. `../../tests/public-atlas-phase0.test.ts`
+22. `../../tests/public-atlas-phase0.test.ts`
     - prediction lock/reveal/scoring;
     - small-aggregate suppression;
     - incomplete-story acceptance;

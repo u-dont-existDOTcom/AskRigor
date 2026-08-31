@@ -199,6 +199,14 @@ closed-loop result target references. These records contain only synthetic
 IDs, versions, state enums, hashes, counts, and exact target references; no
 appeal, report, research-result, or provider body is stored. Report retention
 and source meaning are immutable, and launch/recruitment remain false.
+The same class may store content-free privacy/provenance decisions for initial
+and residual reidentification risk flags, generalization, minor/unknown-age
+guardian and legal review, synthetic `.invalid` external-source access/terms/
+attribution/quotation/privacy/deletion state, deleted-source independent lead
+consent and retention policy, and paid-private-intake separation. Raw external
+source and private-intake bodies are always false; deleted-source provenance is
+retained without source content; paid private intake creates no forum or public
+projection and requires a later separate consent workflow.
 
 Prohibited fields are real email or identity, real health narrative, raw forum
 body, private subject reference, direct private quotation, document/media body,

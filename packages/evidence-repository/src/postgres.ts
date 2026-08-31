@@ -151,6 +151,7 @@ export class PostgresEvidenceRepository {
       "0004_community_forum_composer_frontier_queues",
       "0005_community_forum_hostile_lifecycle_research",
       "0006_community_forum_closed_loop_hostile",
+      "0007_community_forum_privacy_provenance_matrix",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),

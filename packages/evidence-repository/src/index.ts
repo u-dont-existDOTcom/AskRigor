@@ -46,6 +46,10 @@ export {
 } from "./community-forum-lifecycle.js";
 export { SyntheticCommunityClosedLoopService } from "./community-forum-closed-loop.js";
 export {
+  SyntheticCommunityPrivacyProvenanceService,
+  type CommunityPrivacyGateDependencies,
+} from "./community-forum-privacy-provenance.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";
