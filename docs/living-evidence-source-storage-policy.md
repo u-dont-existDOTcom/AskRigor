@@ -179,7 +179,12 @@ SHA-256 of a synthetic `.invalid` email; pseudonymous synthetic display name;
 signed event/version/visibility metadata; source and body hashes; typed
 synthetic lead, consent, privacy, moderation, scientific-annotation, safety,
 question, proposal, cluster, correction, and withdrawal records; and the exact
-allowlisted synthetic projection.
+allowlisted synthetic projection. The same synthetic-only class may also hold
+append-only progressive-composer versions, reporter-reviewed preview hashes,
+explicit missingness and permissions, balanced frontier snapshots,
+duplicate-aware independence keys, operational queue records, active-role
+assignments, and operational actions whose before/after source-meaning hashes
+are identical.
 
 Prohibited fields are real email or identity, real health narrative, raw forum
 body, private subject reference, direct private quotation, document/media body,

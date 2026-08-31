@@ -33,6 +33,12 @@ export {
   type CommunityPostgresOptions,
 } from "./community-postgres.js";
 export {
+  buildSyntheticCommunityFrontierView,
+  SyntheticCommunityComposerService,
+  SyntheticCommunityOperationsService,
+  type SyntheticCommunityFrontierView,
+} from "./community-forum-operations.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";

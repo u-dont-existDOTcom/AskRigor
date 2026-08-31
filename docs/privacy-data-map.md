@@ -82,6 +82,19 @@ media body. Failed webhook payloads retain only a bounded error code, event ID
 when syntactically valid, and raw-body SHA-256. Validation failures map to a
 fixed code rather than storing exception text derived from the rejected body.
 
+Migration `0004` extends only this synthetic class. It stores append-only
+composer draft versions (entry point, explicit post-conversion state,
+structured synthetic fields, declared unknowns/missingness, granular
+permission state, and a reporter-reviewed public paraphrase/provenance label),
+synthetic frontier snapshots, capability-specific queue items, explicit active
+role assignments, and append-only operational actions. Frontier snapshots
+retain direction, evidence-state, version/correction/challenge/withdrawal,
+duplicate-aware independence, denominator-boundary, and discussion-activity
+fields; discussion activity is explicitly incapable of changing evidence
+state. Operational actions retain only hashes of source meaning and must keep
+the before/after hash equal. These fixtures add no raw post body, private
+quotation, document/media body, real identity, or real health report.
+
 The two publication objects remain distinct. `PUBLIC_NARRATIVE` requires
 subject exact-version approval. A deidentified `PUBLIC_RESEARCH_LEAD` may model
 a reporter-consented secondhand report without subject exact-version approval

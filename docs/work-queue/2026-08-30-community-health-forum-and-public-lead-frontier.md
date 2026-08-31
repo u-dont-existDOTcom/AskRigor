@@ -1,7 +1,7 @@
 # Work queue — Community Health Forum and Public Lead Frontier
 
 Date: 2026-08-30
-Status: architecture complete; isolated synthetic Discourse/contract/migration/service slice implemented and locally verified on PR #142's reconciled task branch; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
+Status: architecture complete; isolated synthetic Discourse plus composer/frontier/role-separated queue contract, migration, and service fixtures implemented and locally verified; no real-data collection, public deployment, recruitment, or automated safety reporting authorized
 Owner source: Joel, 2026-08-30
 
 ## Owner outcome
@@ -111,10 +111,39 @@ The bounded implementation slice now contains:
 - an exact runtime receipt under `../audits/` and a dedicated implementation
   receipt under `../public-atlas/`.
 
-This checkpoint does not implement the progressive composer or public-frontier
-UI, operational moderation/privacy/safety queues, a real-user pilot, or a
-production release. Those remain in the queue and still require the gates
-below. The root outcome remains nonterminal.
+This checkpoint does not implement a visual/public frontier UI, staffed
+moderation/privacy/safety operations, a real-user pilot, or a production
+release. Those remain in the queue and still require the gates below. The root
+outcome remains nonterminal.
+
+## Synthetic composer/frontier/queue checkpoint — 2026-08-30
+
+The next bounded contract/migration/service slice now adds:
+
+- a member-controlled append-only composer state machine for direct structured
+  intake or explicit forum-post conversion, early stop, preserved missingness,
+  exact public paraphrase/provenance preview, acknowledgement, and granular
+  public-lead permission;
+- public-frontier cards and filters that preserve source distance,
+  verification, completeness, evidence capability, formal-evidence
+  relationship, versions, corrections/challenges/withdrawal, harms/no effect,
+  confounders, research status, and duplicate-aware source independence;
+- deterministic direction-balanced default ordering with no positive-first or
+  engagement-driven ranking, no effectiveness percentage, and an adjacent
+  self-selection/denominator boundary;
+- explicit append-only actor-role assignments and capability-specific
+  moderation, privacy, scientific, safety, research-stewardship,
+  methods/ethics, and administration queues whose actions cannot rewrite the
+  member's source-meaning hash; and
+- a fourth PostgreSQL migration and 12-check synthetic repository acceptance,
+  including independent-review collision and no-automated-reporting gates.
+
+The next bounded synthetic service task is the remaining hostile manipulation
+and lifecycle frontier: commercial/sockpuppet coordination, vote brigading,
+dangerous-instruction routing, moderator/scientific disagreement, publication-
+state confusion, withdrawal propagation through clusters, and the existing
+question/proposal lead-to-research contracts. It remains contract/service/test
+work only unless the owner separately authorizes a visual/public UI.
 
 ## Gates before any real-user pilot
 
@@ -133,6 +162,7 @@ below. The root outcome remains nonterminal.
 
 Architecture completion is not forum completion. The root product outcome remains open until a separately authorized implementation, pilot, review, deployment, and direct product acceptance establish that people can actually discuss, submit leads, see the public frontier, and follow the lead-to-research loop safely.
 
-Current next state: `SYNTHETIC_FOUNDATION_IMPLEMENTED`; continue with the
-remaining synthetic UI/queue hostile fixtures before any separately authorized
-real-user pilot. Root outcome remains nonterminal.
+Current next state: `SYNTHETIC_COMPOSER_FRONTIER_QUEUE_FOUNDATION_IMPLEMENTED`;
+continue with remaining synthetic hostile lifecycle and lead-to-research
+service fixtures before any separately authorized visual UI or real-user pilot.
+Root outcome remains nonterminal.
