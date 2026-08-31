@@ -1297,6 +1297,353 @@ export const communityResearchQuestionExecutionSchema = z
     }
   });
 
+export const communityModerationAppealSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    appealId: z.string().regex(/^ARAPPEAL-[A-Z0-9_-]{8,64}$/u),
+    originalModerationEventId: z
+      .string()
+      .regex(/^ARMOD-[A-Z0-9_-]{8,64}$/u),
+    resolutionModerationEventId: z
+      .string()
+      .regex(/^ARMOD-[A-Z0-9_-]{8,64}$/u)
+      .nullable(),
+    targetType: z.enum([
+      "TOPIC",
+      "POST",
+      "LEAD",
+      "CLUSTER",
+      "QUESTION",
+      "PROPOSAL",
+      "USER",
+    ]),
+    targetId: shortTextSchema,
+    appellantActorId: syntheticIdSchema,
+    sourceMeaningSha256Before: sha256Schema,
+    sourceMeaningSha256After: sha256Schema,
+    scientificDispositionChanged: z.literal(false),
+    appealState: z.enum(["SUBMITTED", "IN_REVIEW", "UPHELD", "REVERSED"]),
+    occurredAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.sourceMeaningSha256Before !== value.sourceMeaningSha256After) {
+      context.addIssue({
+        code: "custom",
+        path: ["sourceMeaningSha256After"],
+        message: "Moderation appeal cannot rewrite source meaning",
+      });
+    }
+    const resolved = value.appealState === "UPHELD" || value.appealState === "REVERSED";
+    if (resolved !== (value.resolutionModerationEventId !== null)) {
+      context.addIssue({
+        code: "custom",
+        path: ["resolutionModerationEventId"],
+        message: "Resolved appeals require one exact resolution event",
+      });
+    }
+    if (value.resolutionModerationEventId === value.originalModerationEventId) {
+      context.addIssue({
+        code: "custom",
+        path: ["resolutionModerationEventId"],
+        message: "Appeal resolution must be append-only, not the original event",
+      });
+    }
+  });
+
+export const communityFormalEvidenceUpdateSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    evidenceUpdateId: z.string().regex(/^AREVUP-[A-Z0-9_-]{8,64}$/u),
+    clusterId: z.string().regex(/^ARCL-[A-Z0-9_-]{8,64}$/u),
+    fromClusterVersion: z.number().int().positive(),
+    toClusterVersion: z.number().int().positive(),
+    updateKind: z.enum([
+      "NEW_FORMAL_EVIDENCE",
+      "CORRECTION_OR_RETRACTION",
+      "FRESHNESS_EXPIRED",
+      "ACCESS_CHANGED",
+    ]),
+    scopeRelationship: z.enum([
+      "ALIGNED_SCOPE",
+      "ADJACENT_ONLY",
+      "OUTCOME_MISMATCH",
+      "POPULATION_MISMATCH",
+      "INTERVENTION_MISMATCH",
+      "TIME_HORIZON_MISMATCH",
+      "INACCESSIBLE_OR_UNRESOLVED",
+    ]),
+    formalEvidenceRelationshipBefore:
+      communityFormalEvidenceRelationshipSchema,
+    formalEvidenceRelationshipAfter:
+      communityFormalEvidenceRelationshipSchema,
+    freshnessBefore: z.enum([
+      "CURRENT",
+      "STALE_PENDING_REVIEW",
+      "INACCESSIBLE_OR_UNRESOLVED",
+    ]),
+    freshnessAfter: z.enum([
+      "CURRENT",
+      "STALE_PENDING_REVIEW",
+      "INACCESSIBLE_OR_UNRESOLVED",
+    ]),
+    communityReportCountBefore: z.number().int().nonnegative(),
+    communityReportCountAfter: z.number().int().nonnegative(),
+    communityReportCountAffectsFormalEvidence: z.literal(false),
+    originatingReportsRetained: z.literal(true),
+    originatingReportMeaningChanged: z.literal(false),
+    effectivenessPercentageDisplayPermitted: z.literal(false),
+    evidenceIdentifiers: z.array(shortTextSchema).min(1).max(1_000),
+    occurredAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.toClusterVersion !== value.fromClusterVersion + 1) {
+      context.addIssue({
+        code: "custom",
+        path: ["toClusterVersion"],
+        message: "Formal-evidence update must create the next cluster version",
+      });
+    }
+    if (
+      value.scopeRelationship === "ALIGNED_SCOPE" &&
+      [
+        "ADJACENT_ONLY",
+        "OUTCOME_MISMATCH",
+        "POPULATION_MISMATCH",
+        "INTERVENTION_MISMATCH",
+        "TIME_HORIZON_MISMATCH",
+      ].includes(value.formalEvidenceRelationshipAfter)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["formalEvidenceRelationshipAfter"],
+        message: "Aligned formal evidence cannot use a mismatch relationship",
+      });
+    }
+  });
+
+const communityQuestionMatchedStatusSchema = z.enum([
+  "ANSWERED_FOR_SCOPE",
+  "PARTIALLY_ANSWERED",
+  "FORMAL_EVIDENCE_CONFLICTED",
+  "NOT_ANSWERED",
+  "QUESTION_NOT_YET_WELL_FORMED",
+  "INACCESSIBLE_OR_UNRESOLVED",
+]);
+
+const questionTransitionByKind = {
+  CLOSE_ANSWERED: {
+    matchedEvidenceStatus: "ANSWERED_FOR_SCOPE",
+    toStatus: "ANSWERED",
+  },
+  NARROW_PARTIAL_ANSWER: {
+    matchedEvidenceStatus: "PARTIALLY_ANSWERED",
+    toStatus: "OPEN_UNCERTAINTY",
+  },
+  PRESERVE_FORMAL_CONFLICT: {
+    matchedEvidenceStatus: "FORMAL_EVIDENCE_CONFLICTED",
+    toStatus: "OPEN_UNCERTAINTY",
+  },
+  OPEN_UNANSWERED: {
+    matchedEvidenceStatus: "NOT_ANSWERED",
+    toStatus: "OPEN_UNCERTAINTY",
+  },
+  REFORMULATE_ILL_FORMED: {
+    matchedEvidenceStatus: "QUESTION_NOT_YET_WELL_FORMED",
+    toStatus: "CANDIDATE",
+  },
+  DEFER_INACCESSIBLE: {
+    matchedEvidenceStatus: "INACCESSIBLE_OR_UNRESOLVED",
+    toStatus: "OPEN_UNCERTAINTY",
+  },
+} as const;
+
+export const communityQuestionTransitionSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    transitionId: z.string().regex(/^ARQTRANS-[A-Z0-9_-]{8,64}$/u),
+    questionId: z.string().regex(/^ARQ-[A-Z0-9_-]{8,64}$/u),
+    fromQuestionVersion: z.number().int().positive(),
+    toQuestionVersion: z.number().int().positive(),
+    evidenceCheckId: z.string().regex(/^AREC-[A-Z0-9_-]{8,64}$/u),
+    matchedEvidenceStatus: communityQuestionMatchedStatusSchema,
+    fromStatus: z.enum([
+      "CANDIDATE",
+      "EVIDENCE_CHECK",
+      "OPEN_UNCERTAINTY",
+      "ANSWERED",
+      "PRIORITIZED",
+      "PROPOSAL_LINKED",
+      "CLOSED",
+      "SUPERSEDED",
+    ]),
+    toStatus: z.enum([
+      "CANDIDATE",
+      "EVIDENCE_CHECK",
+      "OPEN_UNCERTAINTY",
+      "ANSWERED",
+      "PRIORITIZED",
+      "PROPOSAL_LINKED",
+      "CLOSED",
+      "SUPERSEDED",
+    ]),
+    transitionKind: z.enum([
+      "CLOSE_ANSWERED",
+      "NARROW_PARTIAL_ANSWER",
+      "PRESERVE_FORMAL_CONFLICT",
+      "OPEN_UNANSWERED",
+      "REFORMULATE_ILL_FORMED",
+      "DEFER_INACCESSIBLE",
+    ]),
+    occurredAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.toQuestionVersion !== value.fromQuestionVersion + 1) {
+      context.addIssue({
+        code: "custom",
+        path: ["toQuestionVersion"],
+        message: "Question transition must create the next contiguous version",
+      });
+    }
+    const expected = questionTransitionByKind[value.transitionKind];
+    if (
+      value.matchedEvidenceStatus !== expected.matchedEvidenceStatus ||
+      value.toStatus !== expected.toStatus
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["transitionKind"],
+        message: "Question transition must match evidence-check disposition",
+      });
+    }
+  });
+
+export const communityProposalFeasibilityAssessmentSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    assessmentId: z.string().regex(/^ARFEAS-[A-Z0-9_-]{8,64}$/u),
+    proposalId: z.string().regex(/^ARPROP-[A-Z0-9_-]{8,64}$/u),
+    proposalVersion: z.number().int().positive(),
+    questionId: z.string().regex(/^ARQ-[A-Z0-9_-]{8,64}$/u),
+    questionVersion: z.number().int().positive(),
+    evidenceCheckId: z.string().regex(/^AREC-[A-Z0-9_-]{8,64}$/u),
+    matchedEvidenceStatus: communityQuestionMatchedStatusSchema,
+    designAnswerability: z.enum(["FEASIBLE", "INFEASIBLE", "UNCERTAIN"]),
+    popularity: z
+      .object({
+        votes: z.number().int().nonnegative(),
+        comments: z.number().int().nonnegative(),
+      })
+      .strict(),
+    popularityAffectsFeasibility: z.literal(false),
+    disposition: z.enum([
+      "BLOCKED_ANSWERED_SCOPE",
+      "BLOCKED_INFEASIBLE_DESIGN",
+      "METHODS_ETHICS_REVIEW_REQUIRED",
+    ]),
+    launchAuthorized: z.literal(false),
+    recruitmentActive: z.literal(false),
+    assessedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const expected =
+      value.matchedEvidenceStatus === "ANSWERED_FOR_SCOPE"
+        ? "BLOCKED_ANSWERED_SCOPE"
+        : value.designAnswerability === "INFEASIBLE"
+          ? "BLOCKED_INFEASIBLE_DESIGN"
+          : "METHODS_ETHICS_REVIEW_REQUIRED";
+    if (value.disposition !== expected) {
+      context.addIssue({
+        code: "custom",
+        path: ["disposition"],
+        message: "Proposal disposition must follow evidence and design feasibility",
+      });
+    }
+  });
+
+export const communityClosedLoopResultSchema = z
+  .object({
+    schemaVersion: z.literal("0.1.0"),
+    synthetic: z.literal(true),
+    labOnly: z.literal(true),
+    resultPropagationId: z.string().regex(/^ARRESULT-[A-Z0-9_-]{8,64}$/u),
+    proposalId: z.string().regex(/^ARPROP-[A-Z0-9_-]{8,64}$/u),
+    proposalVersion: z.number().int().positive(),
+    questionId: z.string().regex(/^ARQ-[A-Z0-9_-]{8,64}$/u),
+    questionVersion: z.number().int().positive(),
+    resultDirection: z.enum(["NEGATIVE", "NULL", "MIXED", "POSITIVE"]),
+    formalEvidenceRelationship: communityFormalEvidenceRelationshipSchema,
+    clusterTargets: z
+      .array(
+        z
+          .object({
+            clusterId: z.string().regex(/^ARCL-[A-Z0-9_-]{8,64}$/u),
+            clusterVersion: z.number().int().positive(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(1_000),
+    leadTargets: z
+      .array(
+        z
+          .object({
+            leadId: z.string().regex(/^ARLEAD-[A-Z0-9_-]{8,64}$/u),
+            leadVersion: z.number().int().positive(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(10_000),
+    forumTargets: z
+      .array(
+        z
+          .object({
+            targetType: z.enum(["TOPIC", "POST"]),
+            targetId: z
+              .string()
+              .regex(/^SYNTHETIC-(?:TOPIC|POST)-[0-9]{1,12}$/u),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(10_000),
+    originatingReportsRetained: z.literal(true),
+    originatingHypothesisPenalized: z.literal(false),
+    sourceMeaningChanged: z.literal(false),
+    causalClaimPermitted: z.literal(false),
+    effectivenessPercentageDisplayPermitted: z.literal(false),
+    recruitmentActive: z.literal(false),
+    propagatedAt: timestampSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    for (const [path, values] of [
+      ["clusterTargets", value.clusterTargets.map((item) => `${item.clusterId}:${item.clusterVersion}`)],
+      ["leadTargets", value.leadTargets.map((item) => `${item.leadId}:${item.leadVersion}`)],
+      ["forumTargets", value.forumTargets.map((item) => `${item.targetType}:${item.targetId}`)],
+    ] as const) {
+      if (new Set(values).size !== values.length) {
+        context.addIssue({
+          code: "custom",
+          path: [path],
+          message: "Closed-loop result targets must be exact and unique",
+        });
+      }
+    }
+  });
+
 const communityComposerStepSchema = z.enum([
   "REPORTER_RELATIONSHIP",
   "INFORMATION_ORIGIN",
@@ -1909,6 +2256,21 @@ export type CommunityScientificAnnotation = z.infer<
 >;
 export type CommunityResearchQuestionExecution = z.infer<
   typeof communityResearchQuestionExecutionSchema
+>;
+export type CommunityModerationAppeal = z.infer<
+  typeof communityModerationAppealSchema
+>;
+export type CommunityFormalEvidenceUpdate = z.infer<
+  typeof communityFormalEvidenceUpdateSchema
+>;
+export type CommunityQuestionTransition = z.infer<
+  typeof communityQuestionTransitionSchema
+>;
+export type CommunityProposalFeasibilityAssessment = z.infer<
+  typeof communityProposalFeasibilityAssessmentSchema
+>;
+export type CommunityClosedLoopResult = z.infer<
+  typeof communityClosedLoopResultSchema
 >;
 export type CommunityComposerDetails = z.infer<
   typeof communityComposerDetailsSchema

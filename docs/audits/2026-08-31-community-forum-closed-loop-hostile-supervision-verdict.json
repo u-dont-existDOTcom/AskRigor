@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "verdictId": "community-forum-closed-loop-hostile-artifact-ready-verdict-20260831",
+  "taskId": "community-forum-closed-loop-hostile-20260831",
+  "reviewedAt": "2026-08-31T00:21:00Z",
+  "workerToContractAlignment": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+  "contractToOwnerAlignment": "MATCH",
+  "operationalAlignment": {
+    "status": "ALIGNED_FOR_LOCAL_SYNTHETIC_ARTIFACT",
+    "findings": [
+      "Appeal/reversal, formal-evidence update, exact question transition, feasibility, closed-loop result, sixth migration, privacy records, 15-check PostgreSQL acceptance, and complete 1,548-test gate pass locally.",
+      "No public UI, provider activation, real data, recruitment, reporting, or deployment was introduced."
+    ]
+  },
+  "scientificAdequacy": {
+    "status": "NOT_APPLICABLE",
+    "methodologicalFindings": [
+      "Invented fixtures test software/governance semantics and produce no health finding."
+    ],
+    "inferenceBoundaries": [
+      "No efficacy, causal, prevalence, safety, or real-community inference is permitted."
+    ]
+  },
+  "releaseAdequacy": {
+    "status": "FAIL_CLOSED",
+    "privacy": "SYNTHETIC_ONLY",
+    "security": "NOT_EVALUATED_FOR_PRODUCTION",
+    "productRules": "NO_RELEASE_AUTHORIZED"
+  },
+  "completionClaimType": "ARTIFACT_READY",
+  "releasePermission": {
+    "allowed": false,
+    "reason": "All real-data and release boundaries remain closed."
+  },
+  "requiredDirective": "PUBLISH_STACKED_PR_AND_CAPTURE_GITHUB_RECEIPTS",
+  "ownerDecisionRequired": false,
+  "supervisionDesignFeedback": null
+}

@@ -262,7 +262,7 @@ async function main(): Promise<void> {
   const checks: string[] = [];
   try {
     await evidence.migrate();
-    checks.push("five_migration_chain_applied");
+    checks.push("six_migration_chain_applied");
 
     await community.registerAccount({
       synthetic: true,
@@ -659,6 +659,17 @@ async function main(): Promise<void> {
     });
     await community.createCluster(cluster);
     checks.push("duplicate_virality_does_not_increase_source_independence");
+    const updatedCluster = communitySignalClusterSchema.parse({
+      ...cluster,
+      clusterVersion: 2,
+      formalEvidenceRelationship: "FORMAL_EVIDENCE_CONFLICTED",
+      limitations: [
+        ...cluster.limitations,
+        "Synthetic corrected formal evidence remains conflicted and stale pending review.",
+      ],
+      createdAt: "2026-08-30T18:01:00.000Z",
+    });
+    await community.createCluster(updatedCluster);
 
     const sqlClient = await pool.connect();
     try {
@@ -826,8 +837,155 @@ async function main(): Promise<void> {
          VALUES ('ARPROP-ACCEPTHOSTILE01', 1, 'AREC-ACCEPTHOSTILE01',
            'ARQ-ACCEPTHOSTILE01', 1)`,
       );
+      await sqlClient.query(
+        `INSERT INTO community_moderation_events
+          (event_id, target_type, target_id, actor_role, action, reason, appealable, occurred_at)
+         VALUES ('ARMOD-ACCEPTREVERSAL01', 'LEAD', $1, 'GLOBAL_MODERATOR', 'RESTORE',
+           'Synthetic appeal reversal; scientific disposition remains separate.', true, $2)`,
+        [leadOneId, AT],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_moderation_appeals
+          (appeal_id, original_moderation_event_id, resolution_moderation_event_id,
+           target_type, target_id, appellant_actor_id,
+           source_meaning_sha256_before, source_meaning_sha256_after,
+           scientific_disposition_changed, appeal_state, payload_sha256, payload_json, occurred_at)
+         VALUES ('ARAPPEAL-ACCEPTREVERSAL01', 'ARMOD-ACCEPTDISAGREE01',
+           'ARMOD-ACCEPTREVERSAL01', 'LEAD', $1, 'ARSYN-ACCEPTAPPELLANT01',
+           $2, $2, false, 'REVERSED', $3, '{}'::jsonb, $4)`,
+        [
+          leadOneId,
+          sourceMeaningSha256,
+          sha256("synthetic moderation appeal acceptance"),
+          AT,
+        ],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_formal_evidence_updates
+          (evidence_update_id, cluster_id, from_cluster_version, to_cluster_version,
+           update_kind, scope_relationship, formal_evidence_relationship_before,
+           formal_evidence_relationship_after, freshness_before, freshness_after,
+           community_report_count_before, community_report_count_after,
+           community_report_count_affects_formal_evidence, originating_reports_retained,
+           originating_report_meaning_changed, effectiveness_percentage_display_permitted,
+           payload_sha256, payload_json, occurred_at)
+         VALUES ('AREVUP-ACCEPTSTALECONFLICT01', $1, 1, 2,
+           'CORRECTION_OR_RETRACTION', 'ALIGNED_SCOPE', 'NOT_CHECKED',
+           'FORMAL_EVIDENCE_CONFLICTED', 'CURRENT', 'STALE_PENDING_REVIEW',
+           2, 1000002, false, true, false, false, $2, '{}'::jsonb, $3)`,
+        [
+          cluster.clusterId,
+          sha256("synthetic formal evidence update acceptance"),
+          AT,
+        ],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_research_questions
+          (question_id, question_version, question_text, evidence_check_status,
+           status, payload_json)
+         VALUES ('ARQ-ACCEPTHOSTILE01', 2,
+           'Which exact part of the synthetic signal remains unanswered?',
+           'NOT_ANSWERED', 'OPEN_UNCERTAINTY', $1::jsonb)`,
+        [
+          JSON.stringify({
+            synthetic: true,
+            derivedFromClusterIds: [cluster.clusterId],
+          }),
+        ],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_question_transitions
+          (transition_id, question_id, from_question_version, to_question_version,
+           evidence_check_id, matched_evidence_status, from_status, to_status,
+           transition_kind, payload_sha256, payload_json, occurred_at)
+         VALUES ('ARQTRANS-ACCEPTUNANSWERED01', 'ARQ-ACCEPTHOSTILE01', 1, 2,
+           'AREC-ACCEPTHOSTILE01', 'NOT_ANSWERED', 'EVIDENCE_CHECK',
+           'OPEN_UNCERTAINTY', 'OPEN_UNANSWERED', $1, '{}'::jsonb, $2)`,
+        [sha256("synthetic question transition acceptance"), AT],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_proposal_feasibility_assessments
+          (assessment_id, proposal_id, proposal_version, question_id, question_version,
+           evidence_check_id, matched_evidence_status, design_answerability,
+           popularity_affects_feasibility, disposition, launch_authorized,
+           recruitment_active, payload_sha256, payload_json, assessed_at)
+         VALUES ('ARFEAS-ACCEPTINFEASIBLE01', 'ARPROP-ACCEPTHOSTILE01', 1,
+           'ARQ-ACCEPTHOSTILE01', 1, 'AREC-ACCEPTHOSTILE01', 'NOT_ANSWERED',
+           'INFEASIBLE', false, 'BLOCKED_INFEASIBLE_DESIGN', false, false,
+           $1, $2::jsonb, $3)`,
+        [
+          sha256("synthetic feasibility acceptance"),
+          JSON.stringify({ popularity: { votes: 1_000_000, comments: 100_000 } }),
+          AT,
+        ],
+      );
+      const closedLoopPayload = {
+        clusterTargets: [{ clusterId: cluster.clusterId, clusterVersion: 2 }],
+        leadTargets: [{ leadId: leadOneId, leadVersion: 1 }],
+        forumTargets: [{ targetType: "TOPIC", targetId: "SYNTHETIC-TOPIC-9001" }],
+      };
+      await sqlClient.query(
+        `INSERT INTO community_closed_loop_results
+          (result_propagation_id, proposal_id, proposal_version, question_id,
+           question_version, result_direction, formal_evidence_relationship,
+           originating_reports_retained, originating_hypothesis_penalized,
+           source_meaning_changed, causal_claim_permitted,
+           effectiveness_percentage_display_permitted, recruitment_active,
+           payload_sha256, payload_json, propagated_at)
+         VALUES ('ARRESULT-ACCEPTNEGATIVE01', 'ARPROP-ACCEPTHOSTILE01', 1,
+           'ARQ-ACCEPTHOSTILE01', 1, 'NEGATIVE', 'CONTRADICTED_FOR_MATCHED_SCOPE',
+           true, false, false, false, false, false, $1, $2::jsonb, $3)`,
+        [
+          sha256(stableJson(closedLoopPayload)),
+          JSON.stringify(closedLoopPayload),
+          AT,
+        ],
+      );
       checks.push(
         "hostile_integrity_lifecycle_and_exact_research_dependencies_persisted",
+      );
+      checks.push(
+        "appeal_evidence_feasibility_and_negative_result_loop_persisted",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_formal_evidence_updates
+              (evidence_update_id, cluster_id, from_cluster_version, to_cluster_version,
+               update_kind, scope_relationship, formal_evidence_relationship_before,
+               formal_evidence_relationship_after, freshness_before, freshness_after,
+               community_report_count_before, community_report_count_after,
+               community_report_count_affects_formal_evidence, originating_reports_retained,
+               originating_report_meaning_changed, effectiveness_percentage_display_permitted,
+               payload_sha256, payload_json, occurred_at)
+             VALUES ('AREVUP-INVALIDPOPULARITY01', $1, 1, 2,
+               'NEW_FORMAL_EVIDENCE', 'ALIGNED_SCOPE', 'NOT_CHECKED',
+               'CORROBORATED_FOR_MATCHED_SCOPE', 'CURRENT', 'CURRENT', 2, 1000002,
+               true, true, false, false, $2, '{}'::jsonb, $3)`,
+            [cluster.clusterId, sha256("invalid popularity evidence update"), AT],
+          ),
+        "community_formal_update_report_count_gate",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_closed_loop_results
+              (result_propagation_id, proposal_id, proposal_version, question_id,
+               question_version, result_direction, formal_evidence_relationship,
+               originating_reports_retained, originating_hypothesis_penalized,
+               source_meaning_changed, causal_claim_permitted,
+               effectiveness_percentage_display_permitted, recruitment_active,
+               payload_sha256, payload_json, propagated_at)
+             VALUES ('ARRESULT-INVALIDERASURE01', 'ARPROP-ACCEPTHOSTILE01', 1,
+               'ARQ-ACCEPTHOSTILE01', 1, 'NEGATIVE', 'CONTRADICTED_FOR_MATCHED_SCOPE',
+               false, false, false, false, false, false, $1, $2::jsonb, $3)`,
+            [
+              sha256("invalid closed loop report erasure"),
+              JSON.stringify(closedLoopPayload),
+              AT,
+            ],
+          ),
+        "community_closed_loop_reports_retained_gate",
       );
       await expectReject(
         () =>
@@ -1168,6 +1326,13 @@ async function main(): Promise<void> {
         () =>
           appendOnlyClient.query(
             "DELETE FROM community_integrity_signals WHERE integrity_signal_id = 'ARINT-ACCEPTBRIGADE01'",
+          ),
+        "APPEND_ONLY_TABLE",
+      );
+      await expectReject(
+        () =>
+          appendOnlyClient.query(
+            "DELETE FROM community_closed_loop_results WHERE result_propagation_id = 'ARRESULT-ACCEPTNEGATIVE01'",
           ),
         "APPEND_ONLY_TABLE",
       );

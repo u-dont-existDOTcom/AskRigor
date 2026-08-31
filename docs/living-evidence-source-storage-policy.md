@@ -192,6 +192,13 @@ for nonrecruiting proposals; and withdrawal-propagation receipts containing
 only typed record/version/disposition references, review-required markers, and
 hashes. Evidence, source meaning, and independence fields remain invariant
 across manipulation and publication-lifecycle records.
+The same synthetic class may store append-only conduct appeal/reversal lineage,
+formal-evidence update state bound to exact cluster versions, evidence-check-
+bound question transitions, content-free proposal feasibility assessments, and
+closed-loop result target references. These records contain only synthetic
+IDs, versions, state enums, hashes, counts, and exact target references; no
+appeal, report, research-result, or provider body is stored. Report retention
+and source meaning are immutable, and launch/recruitment remain false.
 
 Prohibited fields are real email or identity, real health narrative, raw forum
 body, private subject reference, direct private quotation, document/media body,

@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "reconciliationId": "community-forum-closed-loop-hostile-artifact-ready-20260831",
+  "taskId": "community-forum-closed-loop-hostile-20260831",
+  "trigger": "PRE_GITHUB_ARTIFACT_RECONCILIATION",
+  "reconciledAt": "2026-08-31T00:21:00Z",
+  "ownerSource": {
+    "canonicalLocator": "docs/audits/2026-08-31-community-forum-closed-loop-hostile-owner-source.txt",
+    "sha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "capturedBy": "deterministic-tool/current-owner-message-capture"
+  },
+  "independentSupervisorReceipt": {
+    "receiptId": "owner-source-receipt-community-forum-closed-loop-hostile-20260831",
+    "sourceSha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "workerSuppliedCopySha256": "6214d1d43eee15468e64375daf2af422d0feef8cbd1e433a22fab8d16f7902c9",
+    "comparison": "MATCH"
+  },
+  "taskContract": {
+    "canonicalLocator": "docs/superpowers/plans/2026-08-31-community-forum-closed-loop-hostile.md",
+    "sha256": "84e51701360bf98bcf6c17a7790885ceeb009ce8be9d3f29b619f792ba92ae22"
+  },
+  "alignment": {
+    "workerToContract": {
+      "status": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+      "evidenceRefs": [
+        "agent/community-forum-closed-loop-hostile-20260831 based on 6a547963cadfed671d986862f4a5a37ba41306a9",
+        "Focused closed-loop hostile regression: PASS (5/5)",
+        "PostgreSQL acceptance community_acceptance_1438083: PASS (15/15)",
+        "Living-evidence acceptance living_evidence_acceptance_1436507: PASS (35/35)",
+        "Complete deterministic gate: PASS (1,548 passed; 6 skipped)"
+      ]
+    },
+    "contractToOwner": {
+      "status": "MATCH",
+      "unmappedOwnerRequirementIds": [],
+      "divergences": [],
+      "authorizedScopeChanges": []
+    }
+  },
+  "completionClaim": {
+    "type": "ARTIFACT_READY",
+    "proposedTerminal": false,
+    "candidateRef": "agent/community-forum-closed-loop-hostile-20260831",
+    "evidenceRefs": [
+      "Appeal/evidence/question/feasibility/result service fixtures: PASS",
+      "Six-migration PostgreSQL acceptance: PASS",
+      "Synthetic lab manifest: PASS",
+      "Complete deterministic gate: PASS"
+    ]
+  },
+  "result": {
+    "overallTraffic": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+    "rootTerminalizationAllowed": false,
+    "requiredDirective": "PUBLISH_STACKED_PR_AND_CAPTURE_GITHUB_RECEIPTS",
+    "supervisionDesignFeedback": null
+  }
+}
