@@ -2,7 +2,7 @@
 
 The first real evidence-gap form is implemented locally on branch
 `task/public-evidence-gap-intake-20260831`, implementation commit
-`ed71b5e64d8a99ed83cc05bd300cf5d415a70e68`.
+`ed71b5e64d8a99ed83cc05bd300cf5d415a70e68`, stacked PR #153.
 
 The product is intentionally simple. A visitor states provenance, gives an
 unprompted account before seeing candidate transitions, adds whatever optional

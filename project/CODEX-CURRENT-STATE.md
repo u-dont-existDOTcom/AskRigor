@@ -21,7 +21,8 @@ source. Mission Control PR #46 now detects that added-constraint divergence as
 `SDF-20260831-UNSOURCED-GOVERNANCE-001` records the failure.
 
 Implementation commit `ed71b5e64d8a99ed83cc05bd300cf5d415a70e68`
-adds the one-page form, one private migration/service, recovery-key participant
+and stacked PR #153 add the one-page form, one private migration/service,
+recovery-key participant
 access, and authenticated private review projection. Focused tests pass 8/8;
 real PostgreSQL acceptance passes 39/39; the exact headless Brave partial
 non-remission flow passes through private review and withdrawal; and the

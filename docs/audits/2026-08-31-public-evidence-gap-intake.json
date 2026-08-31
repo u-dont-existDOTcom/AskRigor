@@ -5,6 +5,7 @@
   "parent_branch": "task/issue-150-synthetic-gap-loop-20260831",
   "parent_commit": "86a70cdff4f34f53f935dbedf837313f95c2a9cf",
   "implementation_commit": "ed71b5e64d8a99ed83cc05bd300cf5d415a70e68",
+  "pull_request": "https://github.com/u-dont-existDOTcom/AskRigor/pull/153",
   "objective": "Let public visitors contribute the prolactinoma evidence-gap form as best they can, retain partial and non-remission comparison cases, keep raw content private, and expose an authenticated participant-reported review projection for later AskRigor/GPT examination.",
   "authority_correction": {
     "unsupported_product_directions_rejected": [
