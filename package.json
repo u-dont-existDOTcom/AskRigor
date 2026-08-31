@@ -41,6 +41,7 @@
     "community-forum:runtime-acceptance": "bash scripts/run-discourse-synthetic-acceptance.sh",
     "evidence-gap:synthetic-lab": "tsx scripts/run-synthetic-evidence-gap-lab.mts",
     "evidence-gap:synthetic-acceptance": "tsx scripts/accept-synthetic-evidence-gap-lab.mts",
+    "evidence-gap:public-acceptance": "tsx scripts/accept-public-evidence-gap-intake.mts",
     "review:public-live": "tsx scripts/run-public-review-eval.mts",
     "dev:mcp": "tsx apps/research-mcp/src/index.ts",
     "start:mcp": "node apps/research-mcp/dist/index.js"

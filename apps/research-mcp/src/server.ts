@@ -74,6 +74,11 @@ import { createResearchSessionStore } from
 import { createFileResearchSessionStore } from
   "./actions/file-research-session-store.js";
 import type { N8nControlPlaneHandler } from "./n8n-control-plane-route.js";
+import {
+  createPublicEvidenceGapIntakeHandlerFromConfig,
+  publicEvidenceGapIntakeConfigFromEnv,
+  type PublicEvidenceGapIntakeHandler,
+} from "./public-evidence-gap-http.js";
 
 export type McpToolCatalogProfile = "standard" | "gemini";
 
@@ -119,6 +124,7 @@ export interface AskRigorHttpServerOptions {
   n8nControlPlaneHandler?: N8nControlPlaneHandler;
   n8nControlPlaneRateLimiter?: TokenBucketLimiter;
   n8nControlPlaneConcurrencyLimiter?: ConcurrencyLimiter;
+  publicEvidenceGapIntakeHandler?: PublicEvidenceGapIntakeHandler;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -282,6 +288,17 @@ export function createAskRigorHttpServer(
   const n8nControlPlaneConcurrencyLimiter =
     options.n8nControlPlaneConcurrencyLimiter ??
     createConcurrencyLimiter(PRIVATE_ORCHESTRATION_CONCURRENCY_LIMIT);
+  const publicEvidenceGapIntakeConfig =
+    options.publicEvidenceGapIntakeHandler === undefined
+      ? publicEvidenceGapIntakeConfigFromEnv()
+      : undefined;
+  const publicEvidenceGapIntakeHandler =
+    options.publicEvidenceGapIntakeHandler ??
+    (publicEvidenceGapIntakeConfig === undefined
+      ? undefined
+      : createPublicEvidenceGapIntakeHandlerFromConfig(
+          publicEvidenceGapIntakeConfig,
+        ));
 
   return createServer(async (request, response) => {
     const pathname = exactOriginFormPath(request.url);
@@ -302,6 +319,16 @@ export function createAskRigorHttpServer(
     if (request.method === "GET" && pathname === "/healthz") {
       response.writeHead(200, { "content-type": "application/json" });
       response.end(JSON.stringify(HEALTH_PAYLOAD));
+      return;
+    }
+
+    if (
+      publicEvidenceGapIntakeHandler !== undefined &&
+      (await publicEvidenceGapIntakeHandler.dispatch(request, response, {
+        pathname,
+        clientIp: resolveClientIp(request, trustedClientIpHeader),
+      }))
+    ) {
       return;
     }
 

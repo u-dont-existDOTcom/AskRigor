@@ -1,5 +1,8 @@
 import {
+  PostgresPublicGapIntakeStore,
   PostgresEvidenceRepository,
+  PUBLIC_PROLACTINOMA_GAP_SLUG,
+  PublicEvidenceGapIntakeService,
   deterministicUuid,
   prepareContribution,
   renderResearchFrontierViews,
@@ -597,6 +600,16 @@ async function main(): Promise<void> {
     connectionString,
     ssl: process.env.PGSSLMODE === "require" ? { rejectUnauthorized: false } : undefined,
   });
+  const publicGapStore = new PostgresPublicGapIntakeStore({
+    connectionString,
+    schema,
+    ssl: process.env.PGSSLMODE === "require" ? { rejectUnauthorized: false } : undefined,
+  });
+  const publicGapService = new PublicEvidenceGapIntakeService(publicGapStore, {
+    encryptionKey: new Uint8Array(32).fill(41),
+    encryptionKeyId: "postgres-acceptance-v1",
+    now: () => "2026-08-31T17:30:00.000Z",
+  });
   const checks: string[] = [];
   try {
     await repository.migrate();
@@ -609,14 +622,118 @@ async function main(): Promise<void> {
       );
       if (
         migrations.rows.map(({ migration_id: id }) => id).join(",") !==
-        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix"
+        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix,0008_public_evidence_gap_intake"
       ) {
         throw new Error("FRONTIER_MIGRATION_CHAIN_MISMATCH");
       }
     } finally {
       migrationClient.release();
     }
-    checks.push("immutable_seven_migration_chain_applied");
+    checks.push("immutable_eight_migration_chain_applied");
+
+    const publicGapSubmission = await publicGapService.start({
+      gapSlug: PUBLIC_PROLACTINOMA_GAP_SLUG,
+      provenance: "SELF",
+    });
+    const publicGapNarrative =
+      "Synthetic PostgreSQL acceptance account: pregnancy occurred, but the fictional prolactinoma remained stable. Contact person@example.com.";
+    await publicGapService.saveNarrative(
+      publicGapSubmission.submissionId,
+      publicGapSubmission.recoveryKey,
+      publicGapNarrative,
+    );
+    const publicGapDetails = await publicGapService.saveDetails(
+      publicGapSubmission.submissionId,
+      publicGapSubmission.recoveryKey,
+      {
+        outcome: "STABLE",
+        exposure: "PREGNANCY_POSTPARTUM",
+        treatmentContext: "NO_PRIOR_DOPAMINE_AGONIST",
+      },
+    );
+    if (!publicGapDetails.partial) {
+      throw new Error("PUBLIC_GAP_POSTGRES_PARTIAL_LABEL_MISSING");
+    }
+    await publicGapService.submit(
+      publicGapSubmission.submissionId,
+      publicGapSubmission.recoveryKey,
+      {
+        privateGptAnalysis: true,
+        deidentifiedAggregateUse: false,
+        futureFollowup: false,
+        noticeVersion: "public-gap-intake-v1",
+        observationalAcknowledgement: true,
+      },
+    );
+    await expectReject(
+      () => publicGapService.inspect(
+        publicGapSubmission.submissionId,
+        "A".repeat(43),
+      ),
+      "PUBLIC_GAP_SUBMISSION_ACCESS_DENIED",
+    );
+    const participantView = await publicGapService.inspect(
+      publicGapSubmission.submissionId,
+      publicGapSubmission.recoveryKey,
+    );
+    const publicGapReview = await publicGapService.reviewQueue(
+      PUBLIC_PROLACTINOMA_GAP_SLUG,
+    );
+    if (
+      participantView.narrative !== publicGapNarrative ||
+      publicGapReview.counts.total !== 1 ||
+      publicGapReview.counts.partial !== 1 ||
+      publicGapReview.counts.comparisonOrNonRemission !== 1 ||
+      publicGapReview.items[0]?.narrativeForPrivateGptReview.includes(
+        "person@example.com",
+      ) ||
+      !publicGapReview.items[0]?.narrativeForPrivateGptReview.includes(
+        "[email removed]",
+      )
+    ) {
+      throw new Error("PUBLIC_GAP_POSTGRES_REVIEW_BOUNDARY_MISMATCH");
+    }
+    const privateRow = await acceptancePool.query<{
+      recovery_key_sha256: string;
+      narrative_ciphertext: string;
+    }>(
+      `SELECT recovery_key_sha256, narrative_ciphertext
+       FROM ${schema}.evidence_gap_submissions WHERE submission_id = $1`,
+      [publicGapSubmission.submissionId],
+    );
+    if (
+      privateRow.rows[0]?.recovery_key_sha256 === publicGapSubmission.recoveryKey ||
+      privateRow.rows[0]?.narrative_ciphertext.includes("pregnancy")
+    ) {
+      throw new Error("PUBLIC_GAP_POSTGRES_SECRET_OR_PLAINTEXT_PERSISTED");
+    }
+    checks.push("public_gap_postgres_private_partial_comparator_roundtrip");
+
+    await publicGapService.withdraw(
+      publicGapSubmission.submissionId,
+      publicGapSubmission.recoveryKey,
+    );
+    const withdrawnRow = await acceptancePool.query<{
+      status: string;
+      narrative_ciphertext: string | null;
+      structured_json: Record<string, unknown>;
+      consent_json: Record<string, unknown>;
+    }>(
+      `SELECT status, narrative_ciphertext, structured_json, consent_json
+       FROM ${schema}.evidence_gap_submissions WHERE submission_id = $1`,
+      [publicGapSubmission.submissionId],
+    );
+    if (
+      withdrawnRow.rows[0]?.status !== "WITHDRAWN" ||
+      withdrawnRow.rows[0]?.narrative_ciphertext !== null ||
+      Object.keys(withdrawnRow.rows[0]?.structured_json ?? {}).length !== 0 ||
+      Object.keys(withdrawnRow.rows[0]?.consent_json ?? {}).length !== 0 ||
+      (await publicGapService.reviewQueue(PUBLIC_PROLACTINOMA_GAP_SLUG)).counts
+        .total !== 0
+    ) {
+      throw new Error("PUBLIC_GAP_POSTGRES_WITHDRAWAL_ERASURE_FAILED");
+    }
+    checks.push("public_gap_postgres_withdrawal_erases_active_content");
 
     const frontierInitial = researchFrontierFixture(namespace);
     const frontierInserted = await repository.contributeFrontier(frontierInitial);
@@ -1116,6 +1233,7 @@ async function main(): Promise<void> {
 
     process.stdout.write(`${JSON.stringify({ status: "PASS", schema, checks, check_count: checks.length, analysis_id: initial.analysis.analysisId, initial_sha256: prepared.wholeTextSha256 })}\n`);
   } finally {
+    await publicGapStore.close();
     await acceptancePool.end();
     await repository.close();
   }

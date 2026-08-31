@@ -61,6 +61,35 @@ history is the existing append-only candidate/trail history; raw source or
 provider bodies, chat/prompts, private health material, credentials, opaque
 provider state, and YouTube/community data remain unrepresentable.
 
+### Public self-serve evidence-gap intake
+
+Migration `0008` introduces a separate private class for cases voluntarily
+submitted through one public evidence-gap form. This is a self-serve product
+flow, not an institutional research program or public story directory. It may
+retain a random UUID and pseudonym, recovery-key SHA-256, provenance class,
+AES-256-GCM narrative envelope, optional participant-reported health/timing
+fields, consent choices, completeness/missingness labels, lifecycle state, and
+timestamps. It collects no name, account, email address, or outbound-contact
+destination in this slice.
+
+The raw submission is never returned by the public gap metadata route and has
+no public case page. A per-case recovery key permits inspection or withdrawal;
+only its hash is stored. Withdrawal clears the active narrative envelope,
+structured fields, consent, and review-queue membership, leaving a no-content
+row. The encryption key and private review bearer key are runtime secrets, not
+database fields. Structured JSON is private but not separately application-
+encrypted in this MVP.
+
+An authenticated internal review route may return explicitly consented cases
+to AskRigor/GPT as participant-reported, unverified leads. It applies basic
+email, phone, and URL pattern removal to the narrative but explicitly does not
+claim full de-identification. Provenance, partial/substantial completeness,
+named missing fields, and non-remission comparator status remain visible;
+neither completeness nor visibility upgrades verification. The route prohibits
+causal analysis in its machine response. Public deployment still requires an
+accurate public notice for GPT/provider processing, active and backup
+retention, key operation, and the limits of deterministic redaction.
+
 The local and conditionally authorized Railway pilot boundaries are defined by
 `docs/living-evidence-source-storage-policy.md` and
 `docs/living-evidence-repository-threat-model.md`. Railway must be isolated,

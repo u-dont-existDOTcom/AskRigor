@@ -60,6 +60,28 @@ export {
   type SyntheticGapTreatmentContext,
 } from "./synthetic-evidence-gap-loop.js";
 export {
+  InMemoryPublicGapIntakeStore,
+  PostgresPublicGapIntakeStore,
+  PUBLIC_PROLACTINOMA_GAP_SLUG,
+  PublicEvidenceGapIntakeService,
+  publicEvidenceGapDefinition,
+  publicGapConsentSchema,
+  publicGapDetailsSchema,
+  publicGapProvenanceSchema,
+  type EncryptedNarrative,
+  type PostgresPublicGapIntakeStoreOptions,
+  type PublicEvidenceGapIntakeOptions,
+  type PublicGapCompleteness,
+  type PublicGapConsent,
+  type PublicGapDetails,
+  type PublicGapIntakeStore,
+  type PublicGapParticipantView,
+  type PublicGapProvenance,
+  type PublicGapReviewItem,
+  type PublicGapSubmissionRecord,
+  type PublicGapSubmissionStatus,
+} from "./public-evidence-gap-intake.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";

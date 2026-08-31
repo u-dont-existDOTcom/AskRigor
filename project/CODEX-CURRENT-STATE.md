@@ -1,5 +1,30 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 public self-serve evidence-gap intake in progress
+
+Branch `task/public-evidence-gap-intake-20260831` is stacked on the corrected
+issue #150 branch at `86a70cdff4f34f53f935dbedf837313f95c2a9cf`.
+
+The active objective is deliberately small: the public fills out the
+prolactinoma evidence-gap form as best they can; incomplete cases remain usable
+and labeled partial; non-remission comparison cases are recruited explicitly;
+raw case content remains private; and an authenticated AskRigor/GPT projection
+can examine participant-reported cases without treating them as verified or
+causal evidence.
+
+This is not an invite-only pilot, institutional research program, staffing or
+jurisdiction plan, generic forum, or public story directory. The prior veer
+arose because an assistant-authored controller directive invented those
+constraints and the worker failed to trace them to an independent owner
+source. Mission Control PR #46 now detects that added-constraint divergence as
+`UNSUPPORTED_CONSTRAINT_ADDITION`; durable feedback packet
+`SDF-20260831-UNSOURCED-GOVERNANCE-001` records the failure.
+
+Implementation, focused tests, PostgreSQL migration acceptance, actual headless
+Brave acceptance, complete verification, and final review remain in progress.
+External deployment is not part of this local slice and requires accurate
+public privacy/runtime release evidence, not an invented organizational gate.
+
 ## 2026-08-31 issue #150 local synthetic gap-to-research slice
 
 The cycle-A release boundary remains closed at PR #151. The owner-corrected
