@@ -205,6 +205,14 @@ unrepresentable. PostgreSQL is authoritative; generated Obsidian and Mermaid
 views are deterministic navigation aids. Deployment and rollback details are in
 `infra/living-evidence-production/README.md`.
 
+`search_research_frontiers` provides bounded lexical discovery over the stored
+topic/question catalog when a new conversation does not already know an exact
+selector. It returns only exact frontier selectors and descriptive coverage
+state, including partial, blocked, and open-gap counts. The caller then uses
+`get_research_frontier` for the complete stored control state. Neither operation
+writes the request, assesses freshness, or turns repository metadata into
+evidence or a health conclusion.
+
 ## ChatGPT Developer Mode connection
 
 The production MCP endpoint is `https://mcp.askrigor.com/mcp`. In ChatGPT,
@@ -334,8 +342,9 @@ response was `200` and identified **AskRigor.com Heterodox Research Protocol**.
 `ASKRIGOR_RESEARCH_ACTIONS_ENABLED=true` enables only this research surface;
 disabling it does not disable the existing lesson Action or MCP.
 
-The deployed release exposes 25 public research reads plus the lesson write and
-the exact 22-tool MCP. One Action-only automated Gemini scout accepts only a
+The deployed release exposes 25 public research reads plus the lesson write;
+the current catalog-discovery candidate exposes an exact 24-tool MCP. One
+Action-only automated Gemini scout accepts only a
 de-identified population target and runs a storage-disabled
 Google-grounded candidate search, reconstructs a compact fixed-column response
 into the strict canonical packet, and independently validates public YouTube

@@ -1,6 +1,27 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-31 research-frontier catalog discovery candidate — unreleased
+
+The candidate adds `search_research_frontiers` as operation 23 while preserving
+`get_research_frontier` as operation 22 and the OAuth-scoped case-review tool
+as operation 24. The first 22 operation names and order are unchanged. The new
+operation performs read-only lexical discovery over stored topic/question
+metadata, returns exact selectors and explicit partial/blocked/gap counts, fixes
+currency to `not_assessed`, and makes no-match non-negative evidence. It adds no
+migration or write path. The 24-tool inventory SHA-256 is
+`0b223e5b5ff48aea39cce4ed7dfbd04b85b4ff5cab14d37c0c8f8cdc44fc7036`.
+The compact Gemini surface remains on its prior 22-tool set because including
+the new schema exceeds its enforced 25,000-byte compatibility budget; the
+owner-primary ordinary-Chat plugin receives the complete standard catalog.
+The generated synchronization ledger SHA-256 is
+`2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`;
+the unchanged controlled Instructions remain 4,752 characters with SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+Focused tests, typecheck, and the real PostgreSQL 41-check plus dump/wipe/restore
+path pass. Protected merge, deployment, package synchronization, and fresh
+primary ordinary-Chat acceptance remain pending.
+
 ## 2026-08-31 public-plugin scoped-review candidate — unreleased
 
 The current reversible candidate keeps 22 research operations anonymous and

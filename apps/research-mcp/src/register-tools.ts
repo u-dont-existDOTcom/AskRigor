@@ -84,6 +84,11 @@ import {
   researchFrontierToolResult
 } from "./research-frontier-tool.js";
 import {
+  researchFrontierSearchInputSchema,
+  researchFrontierSearchOutputSchema,
+  researchFrontierSearchToolResult,
+} from "./research-frontier-search-tool.js";
+import {
   acquireOpenFullTextActionInputSchema,
   availableOpenFullTextActionOutputSchema,
   continueOpenFullTextActionInputSchema,
@@ -965,6 +970,19 @@ function defineResearchOperations(
   );
 
   registrar.registerTool(
+    "search_research_frontiers",
+    {
+      description: "Search the stored formal research-frontier catalog by topic labels, aliases, research questions, and structured question dimensions. Returns bounded selectors and explicit partial, blocked, gap, and currentness-not-assessed state; catalog matches are research control metadata, not evidence or health conclusions. Retrieval is read-only and never contributes or updates a frontier.",
+      inputSchema: researchFrontierSearchInputSchema,
+      outputSchema: researchFrontierSearchOutputSchema,
+      annotations: READ_ONLY_ANNOTATIONS,
+    },
+    async (input) => researchFrontierSearchToolResult(input, {
+      reader: RESEARCH_FRONTIER_READER,
+    }),
+  );
+
+  registrar.registerTool(
     "review_evidence_gap_submissions",
     {
       description: `Retrieve the private, deidentified review projection for submitted cases in the ${PUBLIC_PROLACTINOMA_GAP_SLUG} evidence gap. Requires OAuth scope cases:review. Participant-reported cases remain explicitly unverified and noncausal; partial and comparison cases are retained and labeled.`,
@@ -1153,8 +1171,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 23) {
-    throw new Error(`Expected 23 research operations; received ${operations.length}`);
+  if (operations.length !== 24) {
+    throw new Error(`Expected 24 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

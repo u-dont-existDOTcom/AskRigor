@@ -422,6 +422,16 @@ export {
   type ResearchFrontierOutput,
   type ResearchFrontierReader
 } from "./research-frontier-tool.js";
+export {
+  searchResearchFrontiers,
+  researchFrontierSearchInputSchema,
+  researchFrontierSearchOutputSchema,
+  researchFrontierSearchToolResult,
+  type ResearchFrontierCatalogReader,
+  type ResearchFrontierSearchDependencies,
+  type ResearchFrontierSearchOutput,
+  type ResearchFrontierSearchPublicInput,
+} from "./research-frontier-search-tool.js";
 export { createLessonActionRoute } from "./lessons/action-route.js";
 export {
   createDefaultActionRoutes,

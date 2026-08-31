@@ -103,4 +103,5 @@ export {
   type FrontierFailureInjection,
   type KnowledgeSearchInput,
   type ResearchFrontierLookupInput,
+  type ResearchFrontierSearchInput,
 } from "./postgres.js";

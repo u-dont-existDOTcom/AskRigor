@@ -50,6 +50,11 @@ export interface ResearchFrontierLookupInput {
   includeHistory?: boolean;
 }
 
+export interface ResearchFrontierSearchInput {
+  query: string;
+  limit?: number;
+}
+
 export interface KnowledgeSearchInput {
   text?: string;
   identifier?: { scheme: string; value: string };
@@ -512,6 +517,154 @@ export class PostgresEvidenceRepository {
         frontier_schema: "askrigor.living-evidence.research-frontier.v1",
         result_count: snapshots.length,
         frontiers: snapshots,
+      };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async searchResearchFrontiers(input: ResearchFrontierSearchInput): Promise<Record<string, unknown>> {
+    const parsed = researchFrontierSearch(input);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY");
+      await this.setSearchPath(client);
+      const result = await client.query<Record<string, unknown>>(
+        `WITH search_query AS (
+           SELECT websearch_to_tsquery('simple', $1) AS query
+         ), catalog AS (
+           SELECT frontier.frontier_id,
+                  topic.topic_id, topic.canonical_key AS topic_key, topic.label AS topic_label,
+                  aliases.aliases, aliases.alias_text,
+                  question.question_id, question.normalized_question,
+                  question.population, question.program_or_exposure, question.comparator,
+                  question.outcome, question.horizon, question.setting,
+                  concat_ws(' ', topic.canonical_key, topic.label, aliases.alias_text,
+                    question.normalized_question, question.population,
+                    question.program_or_exposure, question.comparator,
+                    question.outcome, question.horizon, question.setting) AS search_text
+           FROM research_frontiers frontier
+           JOIN questions question ON question.question_id = frontier.question_id
+           JOIN topics topic ON topic.topic_id = question.topic_id
+           LEFT JOIN LATERAL (
+             SELECT COALESCE(jsonb_agg(alias.alias ORDER BY alias.alias), '[]'::jsonb) AS aliases,
+                    COALESCE(string_agg(alias.alias, ' ' ORDER BY alias.alias), '') AS alias_text
+             FROM topic_aliases alias
+             WHERE alias.topic_id = topic.topic_id
+           ) aliases ON true
+         )
+         SELECT catalog.*,
+                ts_rank_cd(to_tsvector('simple', catalog.search_text), search_query.query)::double precision AS text_rank,
+                array_remove(ARRAY[
+                  CASE WHEN to_tsvector('simple', catalog.topic_key) @@ search_query.query THEN 'topic_key' END,
+                  CASE WHEN to_tsvector('simple', catalog.topic_label) @@ search_query.query THEN 'topic_label' END,
+                  CASE WHEN to_tsvector('simple', catalog.alias_text) @@ search_query.query THEN 'topic_alias' END,
+                  CASE WHEN to_tsvector('simple', catalog.normalized_question) @@ search_query.query THEN 'question' END,
+                  CASE WHEN to_tsvector('simple', COALESCE(catalog.population, '')) @@ search_query.query THEN 'population' END,
+                  CASE WHEN to_tsvector('simple', COALESCE(catalog.program_or_exposure, '')) @@ search_query.query THEN 'program_or_exposure' END,
+                  CASE WHEN to_tsvector('simple', COALESCE(catalog.comparator, '')) @@ search_query.query THEN 'comparator' END,
+                  CASE WHEN to_tsvector('simple', COALESCE(catalog.outcome, '')) @@ search_query.query THEN 'outcome' END,
+                  CASE WHEN to_tsvector('simple', COALESCE(catalog.horizon, '')) @@ search_query.query THEN 'horizon' END,
+                  CASE WHEN to_tsvector('simple', COALESCE(catalog.setting, '')) @@ search_query.query THEN 'setting' END
+                ], NULL)::text[] AS match_fields,
+                coverage.lane_count, coverage.pass_count, coverage.partial_pass_count,
+                coverage.blocked_pass_count, coverage.candidate_count,
+                coverage.selected_candidate_count, coverage.open_trail_count,
+                coverage.coverage_gap_count, coverage.blocked_terminal_trail_count,
+                coverage.latest_pass_at
+         FROM catalog
+         CROSS JOIN search_query
+         LEFT JOIN LATERAL (
+           SELECT
+             (SELECT count(*)::integer FROM frontier_lanes lane
+              WHERE lane.frontier_id = catalog.frontier_id) AS lane_count,
+             (SELECT count(*)::integer FROM discovery_passes pass
+              JOIN frontier_lanes lane ON lane.lane_id = pass.lane_id
+              WHERE lane.frontier_id = catalog.frontier_id) AS pass_count,
+             (SELECT count(*)::integer FROM discovery_passes pass
+              JOIN frontier_lanes lane ON lane.lane_id = pass.lane_id
+              WHERE lane.frontier_id = catalog.frontier_id AND pass.status = 'partial') AS partial_pass_count,
+             (SELECT count(*)::integer FROM discovery_passes pass
+              JOIN frontier_lanes lane ON lane.lane_id = pass.lane_id
+              WHERE lane.frontier_id = catalog.frontier_id
+                AND pass.status IN ('blocked_retryable', 'blocked_terminal')) AS blocked_pass_count,
+             (SELECT count(*)::integer FROM frontier_candidate_current_projection candidate
+              WHERE candidate.frontier_id = catalog.frontier_id) AS candidate_count,
+             (SELECT count(*)::integer FROM frontier_candidate_current_projection candidate
+              WHERE candidate.frontier_id = catalog.frontier_id
+                AND candidate.decision = 'selected') AS selected_candidate_count,
+             (SELECT count(*)::integer FROM frontier_trail_current_projection trail
+              WHERE trail.frontier_id = catalog.frontier_id
+                AND trail.state IN ('open', 'ready', 'blocked_retryable')) AS open_trail_count,
+             (SELECT count(*)::integer FROM frontier_trail_current_projection trail
+              WHERE trail.frontier_id = catalog.frontier_id
+                AND trail.trail_kind = 'coverage_gap'
+                AND trail.state IN ('open', 'ready', 'blocked_retryable')) AS coverage_gap_count,
+             (SELECT count(*)::integer FROM frontier_trail_current_projection trail
+              WHERE trail.frontier_id = catalog.frontier_id
+                AND trail.state = 'blocked_terminal') AS blocked_terminal_trail_count,
+             (SELECT max(pass.executed_at)::text FROM discovery_passes pass
+              JOIN frontier_lanes lane ON lane.lane_id = pass.lane_id
+              WHERE lane.frontier_id = catalog.frontier_id) AS latest_pass_at
+         ) coverage ON true
+         WHERE to_tsvector('simple', catalog.search_text) @@ search_query.query
+         ORDER BY text_rank DESC, catalog.topic_key, catalog.normalized_question, catalog.frontier_id
+         LIMIT $2`,
+        [parsed.query, parsed.limit + 1],
+      );
+      const hasMore = result.rows.length > parsed.limit;
+      const matches = result.rows.slice(0, parsed.limit).map((row) => ({
+        frontier_id: row.frontier_id,
+        topic: {
+          topic_id: row.topic_id,
+          canonical_key: row.topic_key,
+          label: row.topic_label,
+          aliases: row.aliases,
+        },
+        question: {
+          question_id: row.question_id,
+          normalized_question: row.normalized_question,
+          dimensions: {
+            population: row.population,
+            program_or_exposure: row.program_or_exposure,
+            comparator: row.comparator,
+            outcome: row.outcome,
+            horizon: row.horizon,
+            setting: row.setting,
+          },
+        },
+        frontier_state: Number(row.open_trail_count) > 0
+          ? "actionable"
+          : Number(row.blocked_terminal_trail_count) > 0
+            ? "blocked_terminal"
+            : "complete",
+        coverage: {
+          lane_count: Number(row.lane_count),
+          pass_count: Number(row.pass_count),
+          partial_pass_count: Number(row.partial_pass_count),
+          blocked_pass_count: Number(row.blocked_pass_count),
+          candidate_count: Number(row.candidate_count),
+          selected_candidate_count: Number(row.selected_candidate_count),
+          open_trail_count: Number(row.open_trail_count),
+          coverage_gap_count: Number(row.coverage_gap_count),
+          latest_pass_at: row.latest_pass_at === null
+            ? null
+            : new Date(String(row.latest_pass_at)).toISOString(),
+        },
+        match_fields: Array.isArray(row.match_fields) && row.match_fields.length > 0
+          ? row.match_fields
+          : ["catalog"],
+        text_rank: Number(row.text_rank),
+      }));
+      await client.query("COMMIT");
+      return {
+        catalog_schema: "askrigor.living-evidence.research-frontier-catalog.v1",
+        result_count: matches.length,
+        has_more: hasMore,
+        matches,
       };
     } catch (error) {
       await client.query("ROLLBACK");
@@ -1682,4 +1835,16 @@ function researchFrontierLookup(input: ResearchFrontierLookupInput): ResearchFro
     throw new Error("INVALID_RESEARCH_FRONTIER_TOPIC_KEY");
   }
   return { ...input, includeHistory: input.includeHistory ?? false };
+}
+
+function researchFrontierSearch(input: ResearchFrontierSearchInput): Required<ResearchFrontierSearchInput> {
+  const query = input.query.trim();
+  if (query.length < 2 || query.length > 300) {
+    throw new Error("INVALID_RESEARCH_FRONTIER_SEARCH_QUERY");
+  }
+  const limit = input.limit ?? 10;
+  if (!Number.isInteger(limit) || limit < 1 || limit > 25) {
+    throw new Error("INVALID_RESEARCH_FRONTIER_SEARCH_LIMIT");
+  }
+  return { query, limit };
 }

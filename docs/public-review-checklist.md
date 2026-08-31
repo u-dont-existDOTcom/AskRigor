@@ -1,5 +1,17 @@
 # AskRigor v0 public-review checklist
 
+## 2026-08-31 research-frontier catalog discovery candidate
+
+The candidate contains 24 exact read-only MCP operations, with
+`get_research_frontier` remaining operation 22 and
+`search_research_frontiers` added as operation 23. The new catalog operation
+returns stored selectors and explicit partial/blocked/gap state but no evidence
+or health conclusion. The controlled Instructions remain 4,752 characters,
+SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+Production, installed-package, and fresh primary ordinary-Chat acceptance are
+pending.
+
 ## 2026-08-31 read-only frontier and partial-corpus release accepted
 
 The candidate public MCP catalog contains 22 exact read-only operations,

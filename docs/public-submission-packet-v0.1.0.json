@@ -31,7 +31,7 @@
   "mcp": {
     "submissionMode": "with_mcp",
     "serverURL": "https://mcp.askrigor.com/mcp",
-    "expectedToolCount": 23
+    "expectedToolCount": 24
   },
   "portalReadback": {
     "observedAt": "2026-08-30",
@@ -60,7 +60,7 @@
   },
   "releaseNotes": [
     "Retrieves canonical AskRigor protocol files with byte-derived version and SHA-256 integrity receipts.",
-    "Provides 23 read-only tools: 22 anonymous research tools plus one OAuth-scoped evidence-gap review tool; the public contribution form remains open while cross-user stored case retrieval requires cases:review.",
+    "Provides 24 read-only tools: 23 anonymous research tools plus one OAuth-scoped evidence-gap review tool; the public contribution form remains open while cross-user stored case retrieval requires cases:review.",
     "Preserves pagination, reply reconciliation, rate limits, inaccessible sources, and partial evidence without making clinical conclusions or changing provider data.",
     "Reuses an exact governed study-method audit only after complete current-source read-through and compatibility, freshness, and impact validation; otherwise the existing validator performs a fresh audit."
   ],
@@ -92,7 +92,7 @@
       "status": "pending",
       "evidence": null,
       "completedAt": null,
-      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 23-tool inventory and per-tool security metadata with the committed inventory."
+      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 24-tool inventory and per-tool security metadata with the committed inventory."
     },
     "demoRecording": {
       "status": "pending",
