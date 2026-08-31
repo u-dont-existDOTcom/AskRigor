@@ -2,6 +2,17 @@
 
 ## 2026-08-31 Auth0-backed public evidence-gap release active
 
+Local release hardening is now complete at implementation commit
+`acaab5e0f137bf22519a7569ed62899fb701e523`. The full gate passes 121
+test files plus one declared skip and 1,580 tests plus six declared skips,
+followed by build. Headless Brave acceptance passes the partial non-remission
+comparison flow through private review and withdrawal. A disposable PostgreSQL
+17.6 execution applied migration `0008`, proved the intake role's real
+select/insert/update path, and proved denial of delete, truncate, another-table
+read, persistent create, and temporary create. Exact local evidence is in
+`../docs/audits/2026-08-31-auth0-evidence-gap-release-candidate.json` and
+`.md`.
+
 The owner approved Auth0 as the external identity provider for the already
 completed public-intake and OAuth-scoped review stack. Active branch
 `task/auth0-release-20260831` is stacked on
@@ -13,9 +24,9 @@ public form remain anonymous, participant recovery keys reach only their own
 case, and only cross-user review requires `cases:review`. Auth0 is for the
 owner/reviewer identity, not participants. No provider account, credential,
 production deployment, merge, or release claim has yet been completed in this
-slice. The next safe action is production hardening and public-notice work,
-then the action-time owner confirmation required before Auth0 identity/account
-data is transmitted or persistent OAuth configuration is created.
+slice. The next safe action is the action-time owner confirmation required
+before Auth0 identity/account data is transmitted or persistent OAuth
+configuration is created, followed by the reviewed release transaction.
 
 ## 2026-08-31 public plugin with scoped case review completed locally
 
