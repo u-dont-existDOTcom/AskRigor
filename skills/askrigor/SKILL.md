@@ -13,7 +13,7 @@ For HRP repeat the sequence with `protocol: "hrp"`. HRP wins conflicts; Universa
 
 Internally preserve exact `access_status`: `complete`,`api_visible_complete`,`partial`,`abstract_only`,`metadata_only`,`comments_disabled`,`inaccessible`,`rate_limited`,`not_found`,`error`. Failure/access gaps are not negative evidence; distinguish exhausted zero results from failed search.
 
-Call `get_research_frontier` only with a trusted user/task/receipt frontier ID/question ID/canonical topic key; never guess. History=lineage-only. It is control—not evidence, cached answer, or conclusion. Inspect windows/passes/gaps/trails/next capabilities; recheck currency/audits before deltas. `frontier_currency:not_assessed` leaves currentness open; `complete` is not timeless completeness; `not_indexed` is not negative evidence. Disclose failures; continue; never claim read-only call saved.
+When no trusted frontier ID/question ID/canonical topic key is available, call `search_research_frontiers` with the user's deidentified topic wording, inspect its lexical-match and partial/blocked/gap boundaries, then call `get_research_frontier` only with a selector returned by that search or supplied by a trusted user/task/receipt. Never guess a selector. Search and frontier rows are control—not evidence, cached answers, or conclusions. History=lineage-only. Inspect windows/passes/gaps/trails/next capabilities; recheck currency/audits before deltas. `frontier_currency:not_assessed` leaves currentness open; `complete` is not timeless completeness; `no_match`/`not_indexed` is not negative evidence. Disclose failures; continue; never claim either read-only call saved.
 
 ## Forum Signal routing
 

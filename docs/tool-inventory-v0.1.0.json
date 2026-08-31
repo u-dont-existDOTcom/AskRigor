@@ -8644,6 +8644,441 @@
       }
     },
     {
+      "name": "search_research_frontiers",
+      "description": "Search the stored formal research-frontier catalog by topic labels, aliases, research questions, and structured question dimensions. Returns bounded selectors and explicit partial, blocked, gap, and currentness-not-assessed state; catalog matches are research control metadata, not evidence or health conclusions. Retrieval is read-only and never contributes or updates a frontier.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 300,
+            "description": "Free-text lexical query over stored topic keys, labels, aliases, research questions, and structured question dimensions."
+          },
+          "limit": {
+            "default": 10,
+            "description": "Maximum catalog matches to return; defaults to 10 and cannot exceed 25.",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 25
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "askrigor_living_evidence"
+          },
+          "record_type": {
+            "type": "string",
+            "const": "research_frontier_catalog"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+          },
+          "query": {
+            "type": "object",
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 25
+              }
+            },
+            "required": [
+              "text",
+              "limit"
+            ],
+            "additionalProperties": false
+          },
+          "source_identity": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "returned": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "has_more": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "returned",
+              "has_more"
+            ],
+            "additionalProperties": false
+          },
+          "access_status": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "not_found",
+              "inaccessible",
+              "error"
+            ]
+          },
+          "search_status": {
+            "type": "string",
+            "enum": [
+              "matched",
+              "no_match",
+              "repository_unavailable",
+              "error"
+            ]
+          },
+          "frontier_currency": {
+            "type": "string",
+            "const": "not_assessed"
+          },
+          "limitations": {
+            "minItems": 3,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "retryable": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "retryable"
+            ],
+            "additionalProperties": false
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "catalog_schema": {
+                "type": "string",
+                "const": "askrigor.living-evidence.research-frontier-catalog.v1"
+              },
+              "result_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "has_more": {
+                "type": "boolean"
+              },
+              "matches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "frontier_id": {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    "topic": {
+                      "type": "object",
+                      "properties": {
+                        "topic_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "canonical_key": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "aliases": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      "required": [
+                        "topic_id",
+                        "canonical_key",
+                        "label",
+                        "aliases"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "question": {
+                      "type": "object",
+                      "properties": {
+                        "question_id": {
+                          "type": "string",
+                          "format": "uuid",
+                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                        },
+                        "normalized_question": {
+                          "type": "string"
+                        },
+                        "dimensions": {
+                          "type": "object",
+                          "properties": {
+                            "population": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "program_or_exposure": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "comparator": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "outcome": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "horizon": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "setting": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          },
+                          "required": [
+                            "population",
+                            "program_or_exposure",
+                            "comparator",
+                            "outcome",
+                            "horizon",
+                            "setting"
+                          ],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "question_id",
+                        "normalized_question",
+                        "dimensions"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "frontier_state": {
+                      "type": "string",
+                      "enum": [
+                        "actionable",
+                        "blocked_terminal",
+                        "complete"
+                      ]
+                    },
+                    "coverage": {
+                      "type": "object",
+                      "properties": {
+                        "lane_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "pass_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "partial_pass_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "blocked_pass_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "candidate_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "selected_candidate_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "open_trail_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "coverage_gap_count": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        },
+                        "latest_pass_at": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "lane_count",
+                        "pass_count",
+                        "partial_pass_count",
+                        "blocked_pass_count",
+                        "candidate_count",
+                        "selected_candidate_count",
+                        "open_trail_count",
+                        "coverage_gap_count",
+                        "latest_pass_at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "match_fields": {
+                      "minItems": 1,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "catalog",
+                          "topic_key",
+                          "topic_label",
+                          "topic_alias",
+                          "question",
+                          "population",
+                          "program_or_exposure",
+                          "comparator",
+                          "outcome",
+                          "horizon",
+                          "setting"
+                        ]
+                      }
+                    },
+                    "text_rank": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "frontier_id",
+                    "topic",
+                    "question",
+                    "frontier_state",
+                    "coverage",
+                    "match_fields",
+                    "text_rank"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "catalog_schema",
+              "result_count",
+              "has_more",
+              "matches"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "provider",
+          "record_type",
+          "retrieved_at",
+          "query",
+          "source_identity",
+          "pagination",
+          "access_status",
+          "search_status",
+          "frontier_currency",
+          "limitations",
+          "data"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "noauth"
+          }
+        ]
+      }
+    },
+    {
       "name": "review_evidence_gap_submissions",
       "description": "Retrieve the private, deidentified review projection for submitted cases in the prolactinoma-spontaneous-remission evidence gap. Requires OAuth scope cases:review. Participant-reported cases remain explicitly unverified and noncausal; partial and comparison cases are retained and labeled.",
       "inputSchema": {

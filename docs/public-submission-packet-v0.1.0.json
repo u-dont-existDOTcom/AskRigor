@@ -92,7 +92,7 @@
       "status": "pending",
       "evidence": null,
       "completedAt": null,
-      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 23-tool inventory and per-tool security metadata with the committed inventory."
+      "note": "Run Scan Tools against the production MCP endpoint and compare the discovered 24-tool inventory and per-tool security metadata with the committed inventory."
     },
     "demoRecording": {
       "status": "pending",

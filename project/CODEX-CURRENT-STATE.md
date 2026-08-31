@@ -1,5 +1,40 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 research-frontier catalog discovery in progress
+
+Task `askrigor-living-evidence-frontier-catalog-discovery-v1` is active on
+branch `task/frontier-catalog-discovery-20260831` from exact baseline
+`27bcfdcdc8b7667eaf1da6076304fe3af4c2bd00`. The previous Auth0/public-
+evidence-gap release remains complete and deployed; this task does not reopen
+or broaden it.
+
+The bounded product gap is ordinary-run discovery: `get_research_frontier`
+already retrieves prior work when the conversation knows an exact selector,
+but a fresh conversation cannot yet find relevant stored frontiers from topic
+wording. The candidate adds one read-only lexical catalog operation over stored
+topic keys, labels, aliases, questions, and structured dimensions. It returns
+exact selectors with explicit partial, blocked, coverage-gap, and currentness-
+not-assessed state, then leaves detailed retrieval to the existing exact tool.
+The standard ChatGPT/Codex catalog grows to 24 tools. The compact Gemini
+catalog remains at 22 because including the new schema exceeds its enforced
+25,000-byte compatibility budget; this task is explicitly prioritized for the
+owner's primary ordinary-Chat plugin.
+
+This is not automatic contribution, semantic inference, a vector/graph
+subsystem, YouTube/community persistence, or an institutional research program.
+Focused tool/registry tests, typecheck, and the real PostgreSQL 41-check
+acceptance plus dump/wipe/restore pass. Release adequacy remains pending until
+the complete deterministic gate, protected merge, deployment, package sync,
+and fresh primary ordinary-Chat discovery-to-exact-lookup acceptance pass.
+The candidate generated synchronization ledger SHA-256 is
+`2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`;
+the controlled Instructions remain 4,752 characters with SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+
+Recovery authority is
+`../docs/superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md`
+and `../tasks/ACTIVE-TASK.json`.
+
 ## 2026-08-31 Auth0 evidence-gap production release complete
 
 PR #155 merged as `7c0e589d50325de537ee042b4e3df3ed81adbd4b` and that exact

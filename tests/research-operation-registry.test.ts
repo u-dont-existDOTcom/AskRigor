@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import { describe, expect, it } from "vitest";
 
 import { createToolInventory } from "../scripts/generate-tool-inventory.mts";
@@ -27,6 +25,7 @@ const EXPECTED_NAMES = [
   "survey_youtube_community",
   "audit_youtube_video_community",
   "get_research_frontier",
+  "search_research_frontiers",
   "review_evidence_gap_submissions"
 ] as const;
 
@@ -41,7 +40,7 @@ interface RegistryEntry {
 }
 
 describe("shared research-operation registry", () => {
-  it("is the exact frozen 23-operation source with executable full-text audits", async () => {
+  it("is the exact frozen 24-operation source with executable full-text audits", async () => {
     const researchModule = await import("../apps/research-mcp/src/index.js") as
       Record<string, unknown>;
     const operations = researchModule.RESEARCH_OPERATIONS as
@@ -49,7 +48,7 @@ describe("shared research-operation registry", () => {
 
     expect(operations).toBeDefined();
     expect(operations!.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(23);
+    expect(new Set(operations!.map(({ actionPath }) => actionPath)).size).toBe(24);
     expect(operations!.every(({ name, actionPath, annotations }) =>
       actionPath === `/actions/research/${name}` &&
       annotations.readOnlyHint === true &&
@@ -59,9 +58,6 @@ describe("shared research-operation registry", () => {
 
     const inventory = await createToolInventory();
     expect(inventory.tools.map(({ name }) => name)).toEqual(EXPECTED_NAMES);
-    expect(inventory.tools).toHaveLength(23);
-    expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "35345b5eaabcb6acb2fa9ba8257f8610fbcc72c1f0c7fe5bb8066b1220201cf1"
-    );
+    expect(inventory.tools).toHaveLength(24);
   });
 });

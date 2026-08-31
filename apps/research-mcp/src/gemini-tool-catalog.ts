@@ -22,7 +22,10 @@ const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
 
 export function installGeminiCompatibleToolCatalog(server: McpServer): void {
   const tools = RESEARCH_OPERATIONS
-    .filter(({ name }) => name !== "review_evidence_gap_submissions")
+    .filter(({ name }) => ![
+      "review_evidence_gap_submissions",
+      "search_research_frontiers",
+    ].includes(name))
     .map((operation) => ({
     name: operation.name,
     description: compactGeminiDescription(operation.description),

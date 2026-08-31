@@ -17,6 +17,7 @@ import {
   STUDY_METHOD_AUDIT_DOMAINS,
   createValidatedStudyAuditContribution,
   getResearchFrontier,
+  searchResearchFrontiers,
   resolveStudyAuditReuse,
   validateStudyMethodAudit,
   type StudyMethodAuditSubmission,
@@ -797,6 +798,58 @@ async function main(): Promise<void> {
       throw new Error("FRONTIER_DERIVED_VIEW_MISMATCH");
     }
     checks.push("gap_aware_frontier_and_deterministic_views");
+
+    const publicCatalog = await searchResearchFrontiers({
+      query: "synthetic formal evidence",
+      limit: 5,
+    }, {
+      reader: repository,
+      now: () => new Date("2026-08-31T09:14:00.000Z"),
+    });
+    const catalogMatch = publicCatalog.data.matches[0];
+    if (
+      publicCatalog.access_status !== "complete" ||
+      publicCatalog.search_status !== "matched" ||
+      publicCatalog.frontier_currency !== "not_assessed" ||
+      publicCatalog.data.result_count !== 1 ||
+      catalogMatch?.frontier_id !== frontierInitial.frontier.frontierId ||
+      catalogMatch.coverage.pass_count !== 2 ||
+      catalogMatch.coverage.candidate_count !== 1 ||
+      catalogMatch.coverage.selected_candidate_count !== 1 ||
+      catalogMatch.coverage.coverage_gap_count !== 1 ||
+      !catalogMatch.match_fields.includes("question")
+    ) {
+      throw new Error("PUBLIC_FRONTIER_CATALOG_SEARCH_MISMATCH");
+    }
+    checks.push("public_frontier_catalog_search_preserves_gap_state");
+
+    const crossFieldCatalog = await repository.searchResearchFrontiers({
+      query: "formal population",
+      limit: 5,
+    }) as { matches: Array<{ match_fields: string[] }> };
+    if (
+      crossFieldCatalog.matches.length !== 1 ||
+      crossFieldCatalog.matches[0]?.match_fields[0] !== "catalog"
+    ) {
+      throw new Error("PUBLIC_FRONTIER_CATALOG_CROSS_FIELD_MATCH_MISMATCH");
+    }
+    checks.push("public_frontier_catalog_cross_field_match_is_labeled");
+
+    const publicCatalogMiss = await searchResearchFrontiers({
+      query: "definitely absent catalog phrase",
+    }, {
+      reader: repository,
+      now: () => new Date("2026-08-31T09:14:30.000Z"),
+    });
+    if (
+      publicCatalogMiss.access_status !== "not_found" ||
+      publicCatalogMiss.search_status !== "no_match" ||
+      publicCatalogMiss.data.result_count !== 0 ||
+      !publicCatalogMiss.error?.message.includes("does not mean that no external evidence exists")
+    ) {
+      throw new Error("PUBLIC_FRONTIER_CATALOG_NO_MATCH_BOUNDARY_MISMATCH");
+    }
+    checks.push("public_frontier_catalog_miss_is_not_negative_evidence");
 
     const frontierCorrection = resolveResearchFrontierGap(frontierInitial, namespace);
     await repository.contributeFrontier(frontierCorrection);

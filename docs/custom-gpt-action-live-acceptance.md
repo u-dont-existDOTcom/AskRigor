@@ -1,5 +1,16 @@
 # Custom GPT Action live acceptance
 
+## 2026-08-31 research-frontier catalog discovery candidate — not live-accepted
+
+The candidate leaves the five-operation Custom GPT Action and its 4,752-
+character Instructions unchanged while adding the public read-only MCP
+`search_research_frontiers` operation. The candidate MCP inventory contains 24
+tools; the synchronization ledger SHA-256 is
+`2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`,
+and the unchanged Instructions SHA-256 is
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+No product-interface or production acceptance is claimed yet.
+
 ## 2026-08-31 public-plugin scoped-review candidate — not live-accepted
 
 The local candidate retains the existing five-operation Custom GPT Action and

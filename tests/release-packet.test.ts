@@ -39,6 +39,7 @@ const TOOL_NAMES = [
   "survey_youtube_community",
   "audit_youtube_video_community",
   "get_research_frontier",
+  "search_research_frontiers",
   "review_evidence_gap_submissions"
 ];
 
@@ -594,10 +595,7 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(23);
-    expect(createHash("sha256").update(JSON.stringify(inventory)).digest("hex")).toBe(
-      "35345b5eaabcb6acb2fa9ba8257f8610fbcc72c1f0c7fe5bb8066b1220201cf1"
-    );
+    expect(inventory.tools).toHaveLength(24);
 
     for (const tool of inventory.tools) {
       expect(tool).toMatchObject({

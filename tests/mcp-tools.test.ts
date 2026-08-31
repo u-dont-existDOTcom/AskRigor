@@ -48,10 +48,11 @@ const TOOL_NAMES = [
   "survey_youtube_community",
   "audit_youtube_video_community",
   "get_research_frontier",
+  "search_research_frontiers",
   "review_evidence_gap_submissions"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
-  name !== "review_evidence_gap_submissions"
+  !["review_evidence_gap_submissions", "search_research_frontiers"].includes(name)
 );
 
 const READ_ONLY_ANNOTATIONS = {
@@ -74,7 +75,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the twenty-three read-only research tools", async () => {
+  it("registers exactly the twenty-four read-only research tools", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
