@@ -21,8 +21,8 @@ const protocols = [{
 }, {
   protocol: "hrp" as const,
   name: "Health Research Protocol",
-  version: "20.5.23",
-  revision_date: "2026-08-24",
+  version: "20.5.24",
+  revision_date: "2026-08-31",
   sha256: "b".repeat(64)
 }] as const;
 

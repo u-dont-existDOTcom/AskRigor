@@ -1,6 +1,29 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-31 dedicated read-only research-frontier tool — release candidate
+
+The candidate appends `get_research_frontier` as the exact 22nd read-only MCP
+operation. It exposes only an exact known frontier/question/topic selector,
+reports repository state as control metadata rather than evidence, fixes
+currency to `not_assessed`, makes a miss `not_indexed`, sanitizes repository
+failures, and has no writer. The owner-corrected release also keeps usable
+records from partial corpora in bounded evidence review while labeling their
+coverage partial and prohibiting extrapolation to unseen records. Canonical HRP
+is now 20.5.24 / 2026-08-31 / SHA-256
+`dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1`.
+The generated controlled Custom GPT Instructions are 4,752 characters with
+SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`;
+the editor's five-operation Action schema remains SHA-256
+`cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930`.
+The regenerated installation bundle is
+`19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f`;
+the 22-tool synchronization ledger is
+`f9390dce34c947cefb72553796bc29c4a77a1200194fad2ad40864a7b88de7fc`.
+Production, package, and fresh product receipts remain pending until protected
+merge and release.
+
 ## 2026-08-31 Community Forum closed-loop hostile fixtures — unreleased
 
 This stacked synthetic-only slice adds append-only moderation appeals,

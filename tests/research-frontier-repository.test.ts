@@ -39,7 +39,7 @@ function completeFrontier(): ResearchFrontierContribution {
       completedAt: "2026-08-30T10:02:00.000Z",
       protocolManifests: [
         { name: "AskRigor Universal", version: "20.5.15", revisionDate: "2026-08-24", sha256: "1".repeat(64) },
-        { name: "AskRigor HRP", version: "20.5.23", revisionDate: "2026-08-24", sha256: "2".repeat(64) },
+        { name: "AskRigor HRP", version: "20.5.24", revisionDate: "2026-08-31", sha256: "2".repeat(64) },
       ],
       provenanceNote: "Synthetic formal-source frontier fixture with no raw source content.",
     },
@@ -433,9 +433,9 @@ describe("research-frontier persistence contracts", () => {
       },
       {
         name: "HRP",
-        version: "20.5.23",
-        revisionDate: "2026-08-24",
-        sha256: "bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299",
+        version: "20.5.24",
+        revisionDate: "2026-08-31",
+        sha256: "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
       },
     ];
     const prepared = await prepareResearchFrontierImport(contribution);

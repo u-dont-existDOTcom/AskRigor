@@ -304,7 +304,7 @@ describe("adaptive per-video YouTube community audit", () => {
     );
   });
 
-  it("continues a partial chain, returns no premature sample, and completes on the next call", async () => {
+  it("reviews a labeled partial corpus, continues its chain, and completes on the next call", async () => {
     const firstComments = makeComments(200);
     const secondComments = makeComments(200, 200);
     const allComments = [...firstComments, ...secondComments];
@@ -354,12 +354,20 @@ describe("adaptive per-video YouTube community audit", () => {
       access_status: "partial",
       records_retrieved_this_call: 200,
       records_retrieved_cumulative: 200,
-      records_returned_for_analysis: 0,
+      records_returned_for_analysis: 200,
       continuation_recommended: true,
       insufficient_depth: true,
       receipt: { completion_state: "incomplete", synthesis_lock: "block" }
     });
-    expect(first.sample).toBeUndefined();
+    expect(first.sample).toMatchObject({
+      mode: "all",
+      corpus_count: 200,
+      sampled_count: 200,
+      comments: firstComments
+    });
+    expect(first.limitations).toContainEqual(expect.stringMatching(
+      /partial corpus.*eligible for bounded evidence review/i
+    ));
     expect(first.continuation_token).toEqual(expect.any(String));
     const payload = Buffer.from(first.continuation_token!.split(".")[0]!, "base64url").toString("utf8");
     expect(payload).not.toContain("Recorded comment");
@@ -380,6 +388,7 @@ describe("adaptive per-video YouTube community audit", () => {
       receipt: { completion_state: "api_visible_complete", synthesis_lock: "pass" }
     });
     expect(second.sample?.comments).toHaveLength(400);
+    expect(dependencies.get_comments_by_ids).toHaveBeenCalledTimes(2);
     expect(getSegment).toHaveBeenNthCalledWith(
       2,
       {
@@ -501,7 +510,7 @@ describe("adaptive per-video YouTube community audit", () => {
     });
     expect(result.continuation_token).toBeUndefined();
     expect(result.sample).toBeUndefined();
-    expect(dependencies.get_comments_by_ids).not.toHaveBeenCalled();
+    expect(dependencies.get_comments_by_ids).toHaveBeenCalledOnce();
   });
 
   it("returns previously acquired records when a continuation reaches an access boundary", async () => {
@@ -570,7 +579,7 @@ describe("adaptive per-video YouTube community audit", () => {
       }
     });
     expect(second.sample?.comments).toEqual(comments);
-    expect(getCommentsByIds).toHaveBeenCalledOnce();
+    expect(getCommentsByIds).toHaveBeenCalledTimes(2);
   });
 
   it("blocks with restart instructions when a terminal sample cannot be refetched", async () => {

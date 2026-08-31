@@ -66,6 +66,15 @@ projection without erasing history. This authorization does not extend to
 private/user-derived analysis, review-audit reuse, external-evidence audit
 reuse, or YouTube/community data.
 
+The dedicated public `get_research_frontier` path may read one exact stored
+frontier/question/topic selection through the restricted reader and may return
+the existing append-only candidate/trail history. It adds no stored class and
+does not infer freshness: `frontier_currency:not_assessed` requires the next
+run to recheck source, protocol, access, correction/retraction, confirmed
+windows, gaps, and open trails. `not_indexed` is a repository miss rather than
+negative evidence. Configuration and query failures are sanitized and cannot
+expose a database URL or provider payload.
+
 The curated formal research-frontier importer is a separate contract from the
 analysis importer. It stores no final-answer cache and cannot turn a candidate
 or search receipt into evidence. It loads only exact current protocol manifests,

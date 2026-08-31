@@ -4,6 +4,8 @@ import { z } from "zod";
 
 import { RESEARCH_OPERATIONS } from "./register-tools.js";
 
+const GEMINI_DESCRIPTION_MAX_CHARACTERS = 170;
+
 const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
   "type",
   "nullable",
@@ -21,12 +23,19 @@ const GEMINI_FUNCTION_SCHEMA_KEYS = new Set([
 export function installGeminiCompatibleToolCatalog(server: McpServer): void {
   const tools = RESEARCH_OPERATIONS.map((operation) => ({
     name: operation.name,
-    description: operation.description,
+    description: compactGeminiDescription(operation.description),
     inputSchema: geminiCompatibleInputSchema(operation.inputSchema),
     annotations: operation.annotations
   }));
 
   server.server.setRequestHandler(ListToolsRequestSchema, () => ({ tools }));
+}
+
+function compactGeminiDescription(description: string): string {
+  if (description.length <= GEMINI_DESCRIPTION_MAX_CHARACTERS) return description;
+  const prefix = description.slice(0, GEMINI_DESCRIPTION_MAX_CHARACTERS - 1);
+  const boundary = prefix.lastIndexOf(" ");
+  return `${prefix.slice(0, Math.max(1, boundary)).replace(/[.;,:]+$/u, "")}.`;
 }
 
 function geminiCompatibleInputSchema(inputSchema: unknown): Record<string, unknown> {

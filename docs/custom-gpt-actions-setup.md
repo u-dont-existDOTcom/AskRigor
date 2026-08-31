@@ -8,7 +8,8 @@ non-consequential research operations—`start_research_session`,
 `finalize_research_report`—plus the authenticated consequential lesson write.
 The low-level research routes documented later in this file are retained as
 historical/internal technical behavior and are not installed in the Custom GPT.
-The exact 21-tool MCP catalog is unchanged.
+The exact MCP catalog contains 22 read-only tools, including the dedicated
+stored research-frontier lookup.
 
 The controller runs automatic Gemini/Spark scouting, native discovery,
 transcript and community depth, formal search, lawful open-full-text acquisition,
@@ -140,7 +141,7 @@ Privacy: https://askrigor.com/privacy
    `submit_lesson_candidate` operation remains authenticated and consequential.
    No low-level provider, transcript, comment, full-text, study-audit,
    treatment-lock, or Gemini operation belongs in the editor Action list. The
-   MCP inventory must independently preserve the reviewed 21-tool contract.
+   MCP inventory must independently preserve the reviewed 22-tool contract.
 6. Save the GPT without publishing and test in a new chat.
 7. After live acceptance and publication, copy the direct `/g/...` GPT URL.
    Do not use a `/share/...` conversation URL for `gpt.askrigor.com`.
@@ -300,9 +301,10 @@ repeated, expired, or inconsistent chunks block complete loading. Large
 per-video YouTube results preserve the retrieval receipt, corpus counts, and
 digest while returning a deterministic transport-bounded analysis sample.
 Continue immediately with the returned short handle while
-`continuation_recommended:true`; do not synthesize until
-`receipt.synthesis_lock:pass`. Legacy bulk YouTube envelopes are never silently
-trimmed.
+`continuation_recommended:true`. Review any returned partial-corpus records as
+bounded evidence and label them partial; require `receipt.synthesis_lock:pass`
+only for complete-coverage or broad-ranking claims. Legacy bulk YouTube
+envelopes are never silently trimmed.
 
 `get_youtube_transcript` is a Custom GPT Action only; it is not an MCP tool.
 It re-fetches the selected public caption track on each page and stores no
@@ -382,7 +384,7 @@ unavailable never means zero.
 
 Set `ASKRIGOR_RESEARCH_ACTIONS_ENABLED` to a value other than `true` and
 recreate only the research service to remove public research Actions while
-preserving `/healthz`, the exact 21-tool `/mcp` inventory, and the lesson
+preserving `/healthz`, the exact 22-tool `/mcp` inventory, and the lesson
 Action's prior enabled state. This does not disable lesson capture or MCP.
 
 Separately, set `ASKRIGOR_ACTIONS_ENABLED` to a value other than `true` or

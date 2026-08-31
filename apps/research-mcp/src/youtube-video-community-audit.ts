@@ -42,6 +42,8 @@ const CONTINUATION_REPLY_OVERLAP_LIMITATION =
   "An exact reply repeated across continuation segments; the repeat was removed from unique counts, but provider-reported per-parent reply totals could not be independently proven.";
 const PARTIAL_SAMPLE_REFETCH_LIMITATION =
   "The deterministic analysis sample could only be partially refetched; unavailable sampled identifiers were excluded, so the retained records are bounded evidence and may not represent the full acquired corpus.";
+const PARTIAL_CORPUS_EVIDENCE_LIMITATION =
+  "This is a partial corpus. The retrieved records remain eligible for bounded evidence review, but they do not represent unseen records or establish corpus-wide prevalence, direction, rarity, or typicality.";
 
 export const youtubeVideoCommunityAuditInputSchema = z.object({
   video_id_or_url: z.string().min(1).max(2_048).optional(),
@@ -314,6 +316,7 @@ export async function auditYoutubeVideoCommunity(
   let sampleRefetchBoundary = false;
   let sampleRefetchLimitations: string[] = [];
   if (
+    state.sample_identifiers.length > 0 ||
     apiVisibleComplete ||
     terminalAccessBoundary ||
     terminalReplyMismatchBoundary ||
@@ -335,34 +338,39 @@ export async function auditYoutubeVideoCommunity(
           now: clock
         }
       );
-      const returnedIds = refetched.comments.map(({ comment_id }) => comment_id);
-      if (
+      if (refetched === undefined) {
+        sampleFailure =
+          "The bounded analysis sample could not be materialized from the retrieved partial corpus.";
+      } else {
+        const returnedIds = refetched.comments.map(({ comment_id }) => comment_id);
+        if (
         refetched.access_status === "error" ||
         new Set(returnedIds).size !== returnedIds.length ||
         returnedIds.some((id) => !sampleIds.includes(id)) ||
         refetched.comments.some(({ video_id }) => video_id !== videoId)
-      ) {
-        sampleFailure =
-          "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
-      } else if (returnedIds.length === 0) {
-        sampleFailure =
-          "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
-      } else {
-        sampleRefetchBoundary =
-          refetched.access_status !== "api_visible_complete" ||
-          returnedIds.length !== sampleIds.length ||
-          sampleIds.some((id) => !returnedIds.includes(id));
-        sampleRefetchLimitations = refetched.limitations;
-        const comments = chronological(refetched.comments);
-        sample = {
-          mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT &&
-              !sampleRefetchBoundary
-            ? "all"
-            : "deterministic_hash_chronological",
-          corpus_count: state.records_retrieved_cumulative,
-          sampled_count: comments.length,
-          comments
-        };
+        ) {
+          sampleFailure =
+            "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
+        } else if (returnedIds.length === 0) {
+          sampleFailure =
+            "The deterministic analysis sample could not be completely refetched; restart the audit from the video ID.";
+        } else {
+          sampleRefetchBoundary =
+            refetched.access_status !== "api_visible_complete" ||
+            returnedIds.length !== sampleIds.length ||
+            sampleIds.some((id) => !returnedIds.includes(id));
+          sampleRefetchLimitations = refetched.limitations;
+          const comments = chronological(refetched.comments);
+          sample = {
+            mode: state.records_retrieved_cumulative <= DEFAULT_ANALYSIS_LIMIT &&
+                !sampleRefetchBoundary
+              ? "all"
+              : "deterministic_hash_chronological",
+            corpus_count: state.records_retrieved_cumulative,
+            sampled_count: comments.length,
+            comments
+          };
+        }
       }
     }
   }
@@ -406,7 +414,9 @@ export async function auditYoutubeVideoCommunity(
         ...(continuationStateTooLarge
           ? ["The exact continuation state exceeded the safe stateless-token limit; this audit cannot continue automatically."]
           : []),
-        ...(sampleFailure === undefined ? [] : [sampleFailure]),
+        ...(sampleFailure === undefined || !topLevelPaginationExhausted
+          ? []
+          : [sampleFailure]),
         ...(!canAutoContinue && !retryLater && !mismatchBlock && !restartRequired &&
           !continuationStateTooLarge && sampleFailure === undefined
           ? ["The YouTube video corpus did not reach a terminal complete or access-boundary state."]
@@ -432,6 +442,9 @@ export async function auditYoutubeVideoCommunity(
     ...(continuationReplyOverlapBoundary ? [CONTINUATION_REPLY_OVERLAP_LIMITATION] : []),
     ...sampleRefetchLimitations,
     ...(sampleRefetchBoundary ? [PARTIAL_SAMPLE_REFETCH_LIMITATION] : []),
+    ...(completionState === "incomplete" && sample !== undefined
+      ? [PARTIAL_CORPUS_EVIDENCE_LIMITATION]
+      : []),
     ...(continuationStateTooLarge
       ? ["The exact continuation state exceeded the safe stateless-token limit."]
       : []),

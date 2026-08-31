@@ -297,7 +297,7 @@ function researchActionDescription(operation: ResearchOperation): string {
     return "Legacy untrimmed YouTube community response; it may return action_response_too_large. Use survey_youtube_community, then resumable audit_youtube_video_community. Retrieval only; no medical conclusions.";
   }
   if (operation.name === "audit_youtube_video_community") {
-    return "Retrieve one video's bounded API-visible YouTube discussion. Custom GPT continuation uses a short one-hour in-memory handle; continue while requested and require synthesis_lock pass. Retrieval only; no medical conclusions.";
+    return "Retrieve one video's bounded API-visible YouTube discussion. Custom GPT continuation uses a short one-hour in-memory handle. Review returned partial-corpus records as bounded evidence; require synthesis_lock pass only for complete-coverage or broad-ranking claims. Retrieval only; no medical conclusions.";
   }
   return operation.description;
 }

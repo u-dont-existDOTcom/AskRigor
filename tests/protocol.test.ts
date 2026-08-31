@@ -16,7 +16,7 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "bf2adc1c4daea8241c47b2a111d4a19e6bf7427a6401ecf1b3ba75a58e046299";
+  "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1";
 const UNIVERSAL_SHA_256 =
   "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172";
 
@@ -34,8 +34,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.23",
-      revisionDate: "2026-08-24"
+      version: "20.5.24",
+      revisionDate: "2026-08-31"
     });
   });
 
@@ -92,7 +92,7 @@ describe("canonical protocol loader", () => {
 
     for (const required of [
       '<CommunityCorpusCompletionGate priority="Critical">',
-      'name="PartialRetrievalCannotCompleteAudit"',
+      'name="PartialRetrievalRemainsBoundedEvidence"',
       "access_status",
       "extraction_coverage",
       "next_cursor",
@@ -100,7 +100,7 @@ describe("canonical protocol loader", () => {
       'name="QueryBoundedYouTubeSearchIsDiscoveryOnly"',
       'name="NoPrematureSaturation"',
       'name="CoverageStateBeforeSynthesis"',
-      "complete / completed-with-access-boundary / incomplete",
+      "complete / completed-with-access-boundary / partial",
       'id="OneQueryBoundedYouTubeCommentPresentedAsReconnaissance"',
       'id="ApiVisibleCompleteYouTubeCorpusIsTerminalSuccess"'
     ]) {
@@ -113,8 +113,9 @@ describe("canonical protocol loader", () => {
     expect(gateText).toContain("paginate until exhausted");
     expect(gateText).toContain("retrieve accessible replies");
     expect(gateText).toContain("reconcile expected versus retrieved replies");
-    expect(gateText).toContain("continue automatically before synthesis");
-    expect(gateText).toContain("Do not characterize prevalence, direction, rarity, typicality, or strength");
+    expect(gateText).toContain("continue automatically");
+    expect(gateText).toContain("never exclude them solely because the corpus is partial");
+    expect(gateText).toContain("Do not extrapolate their composition, prevalence, direction, rarity, typicality");
     expect(gateText).toContain("CommunityCorpusAccessBoundaryCompletion");
     expect(gateText).toContain("complete and api_visible_complete");
 
@@ -165,7 +166,8 @@ describe("canonical protocol loader", () => {
       "reconcile expected versus retrieved replies",
       "benefit, no-effect, harm, and discontinuation",
       "CommunityCorpusAccessBoundaryCompletion",
-      "Do not characterize prevalence"
+      "Review the one retrieved comment as bounded evidence rather than excluding it",
+      "Do not characterize corpus-wide prevalence"
     ]) {
       expect(queryBoundedRegression).toContain(required);
     }
@@ -178,6 +180,7 @@ describe("canonical protocol loader", () => {
     expect(completeCorpusRegression).toContain("extraction_coverage=api_visible_complete");
     expect(completeCorpusRegression).toContain("terminal successful retrieval");
     expect(completeCorpusRegression).toContain("must not remain incomplete solely because");
+    expect(text).toContain('<Check id="FS197">');
   });
 
   it("scopes independent community weighting and actionability to the HRP 20.5.17 gate", async () => {
@@ -248,7 +251,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.23" revisionDate="2026-08-24"/
+      /<Protocol name="HRP" version="20\.5\.24" revisionDate="2026-08-31"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',

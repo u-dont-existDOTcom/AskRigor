@@ -6,11 +6,11 @@
     },
     {
       "path": "docs/custom-gpt-instructions.md",
-      "sha256": "cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95"
+      "sha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514"
     },
     {
       "path": "apps/research-mcp/src/generated/custom-gpt-bundle.ts",
-      "sha256": "783311e5ebc8d206feabe9ab60d1f719eb9db530cfc00d7aa1559aaf39eb17df"
+      "sha256": "14f42bf412aad6abe2bf55077d1da5b6a1bc6021469c24a6137ce026e56485b2"
     }
   ],
   "consequential_operation_ids": [
@@ -26,8 +26,8 @@
   "generated_at": "2026-08-25",
   "installation_bundle": {
     "action_schema_sha256": "cf7018c447baad2b1c9fce8d1ca880998863c2f15a4c3a36a9e672aec7e0d930",
-    "bundle_sha256": "5aafafc5a43fb1d2be58086729154daee128def922735ca78aa2f904aa20652d",
-    "instructions_sha256": "cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95"
+    "bundle_sha256": "19cee5ae9b3419836e3b8fe3bfdfed8eaee7d250b39ac1d07912cefa0df3ba8f",
+    "instructions_sha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514"
   },
   "internal_scout_skill_sha256": "562505f1c39843940d983c1b208e273be30d97c43ecbd9d9d6ea4b9226a62645",
   "mcp_research_operation_ids": [
@@ -39,6 +39,7 @@
     "fetch_clinical_trial",
     "fetch_pubmed_record",
     "get_protocol_manifest",
+    "get_research_frontier",
     "get_youtube_comments",
     "get_youtube_video",
     "load_protocol",
@@ -63,7 +64,7 @@
   "sources": [
     {
       "path": "project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md",
-      "sha256": "cf22a1174deea0e15802749a8fe30c707da72035149a6021c01e99b5718b7b95"
+      "sha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514"
     },
     {
       "path": "integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md",

@@ -213,7 +213,7 @@ describe("YouTube community audit", () => {
     });
   });
 
-  it("blocks synthesis when a selected corpus stops before top-level pagination exhausts", async () => {
+  it("keeps a labeled partial corpus in evidence review when pagination is unfinished", async () => {
     const [searchBody, videoBody, threadsPageOne] = await Promise.all([
       fixture("search-page-1.json"),
       fixture("video-found.json"),
@@ -250,11 +250,22 @@ describe("YouTube community audit", () => {
         blockers: [expect.stringContaining("comments ended with partial")]
       },
       videos: [{
-        comments_access_status: "partial"
+        comments_access_status: "partial",
+        manifest: {
+          extraction_coverage: "partial",
+          total_comments_and_replies: expect.any(Number)
+        },
+        sample: {
+          corpus_count: expect.any(Number),
+          sampled_count: expect.any(Number),
+          comments: expect.any(Array)
+        },
+        corpus_sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        limitations: expect.arrayContaining([
+          expect.stringMatching(/partial corpus.*eligible for bounded evidence review/i)
+        ])
       }]
     });
-    expect(result.videos[0]).not.toHaveProperty("manifest");
-    expect(result.videos[0]).not.toHaveProperty("sample");
-    expect(result.videos[0]).not.toHaveProperty("corpus_sha256");
+    expect(result.videos[0]?.sample?.comments.length).toBeGreaterThan(0);
   });
 });

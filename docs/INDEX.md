@@ -72,6 +72,11 @@ complete XML protocol.
   real-PostgreSQL dump/wipe/restore evidence, protected merge, exact production
   migration/rollback, direct MCP reuse, installed-package, and fresh primary-
   account product acceptance
+- `audits/2026-08-31-research-frontier-readonly-tool.md`: dedicated exact-
+  selector frontier operation 22, partial-corpus evidence inclusion correction,
+  HRP 20.5.24, real-PostgreSQL and full-gate receipts, byte-derived package and
+  catalog identities, and separate local operational/scientific versus pending
+  release adequacy
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/
@@ -120,7 +125,7 @@ complete XML protocol.
 - `youtube-evidence-frontier-held-out-v0.1.0.json`: held-out synthetic
   popularity/clickbait/stage-mismatch/transcript-selection regression
 - `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
-  handoff, 21-tool inventory binding, non-secret portal readback, and external-
+  handoff, 22-tool inventory binding, non-secret portal readback, and external-
   gate states
 - `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
   script
@@ -135,7 +140,7 @@ complete XML protocol.
 - `custom-gpt-action-openapi.json`: generated four-operation controlled
   research Action schema plus the separately consequential lesson Action;
   low-level retrieval and Gemini scouting remain server-internal and MCP
-  remains frozen at 21 tools
+  exposes the dedicated read-only frontier query as tool 22
 - `custom-gpt-sync.json`: SHA-256 source/artifact synchronization ledger
 - `custom-gpt-actions-setup.md`: exact editor, secret, enablement, rollback, and
   synthetic test handoff

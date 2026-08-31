@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.23" revisionDate="2026-08-24" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.24" revisionDate="2026-08-31" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -45,6 +45,18 @@
  </Purpose>
 
  <RevisionHistory>
+  <Revision version="20.5.24" priority="Critical">
+   Corrected the community-corpus completion heuristic so incomplete coverage no longer discards evidence that was actually
+   retrieved. Every usable record from a partial corpus remains eligible for bounded evidence review and must be labeled
+   partial with the exact acquired denominator, acquisition method, time or query window, unresolved pagination or access
+   boundary, and prohibited extrapolations. Partial coverage does not establish the composition, prevalence, direction,
+   rarity, typicality, or absence of the unseen corpus, and zero query matches remain non-evidence about unseen material.
+
+   Separated evidence-review eligibility from corpus-completion and representativeness claims. Continue useful retrieval
+   automatically when possible, but a coverage lock controls only completion, broad ranking, and representativeness claims;
+   it must never erase, quarantine, or defer analysis of already retrieved records. A bounded final synthesis may include
+   labeled partial-corpus findings while preserving what further retrieval could change.
+  </Revision>
   <Revision version="20.5.23" priority="Critical">
    Added the universal phase-routing repair to HRP's controlling research architecture so HRP cannot override or silently
    omit the DEVELOPMENT / DISCOVERY versus VALIDATION / CONFIRMATION distinction. DEVELOPMENT data may influence hypotheses
@@ -1226,21 +1238,25 @@
 
  <CommunityCorpusCompletionGate priority="Critical">
   <Purpose>
-   Convert concrete incomplete community-retrieval output into a synthesis-blocking state before later narrative judgment can
-   mistake a discovery query for the signal corpus. This gate controls completion; the platform-specific community and
-   YouTube rules control acquisition, extraction, deduplication, and evidence grading.
+   Keep evidence-review eligibility separate from corpus completion so incomplete coverage is labeled without discarding
+   retrieved evidence or misrepresenting a discovery query as the unseen corpus. This gate controls completion,
+   representativeness, and broad-ranking claims; the platform-specific community and YouTube rules control acquisition,
+   extraction, deduplication, and evidence grading.
   </Purpose>
 
-  <Rule name="PartialRetrievalCannotCompleteAudit" priority="Critical">
+  <Rule name="PartialRetrievalRemainsBoundedEvidence" priority="Critical">
    Source-appropriate terminal successful access_status values are complete and api_visible_complete. If any
    principal-community retrieval reports another access_status; extraction_coverage as partial,
    search-only, ranked, manual, creator-only, or another incomplete class; an unconsumed next_cursor; has_more=true; or an
-   explicit limitation stating that results are query-bounded or incomplete, the community audit is not complete.
+   explicit limitation stating that results are query-bounded or incomplete, label the corpus partial and preserve the exact
+   records, acquired denominator, method, source scope, time or query window, pagination state, and limitations.
 
-   Do not characterize prevalence, direction, rarity, typicality, or strength of community signal from that retrieval, and
-   do not use zero query matches as evidence about the unseen corpus. If additional retrieval is possible in the current
-   interaction, continue automatically before synthesis. If broader retrieval is genuinely impossible, completion requires
-   every condition of CommunityCorpusAccessBoundaryCompletion; partial output alone does not establish an access boundary.
+   Review and synthesize the retrieved records as bounded evidence; never exclude them solely because the corpus is partial.
+   Do not extrapolate their composition, prevalence, direction, rarity, typicality, strength, weakness, or absence to unseen
+   records, and do not use zero query matches as evidence about the unseen corpus. If additional retrieval is useful and
+   possible in the current interaction, continue automatically, while retaining the already reviewed partial evidence. If
+   broader retrieval is genuinely impossible, partial output alone does not establish an access boundary; preserve the gap
+   and apply CommunityCorpusAccessBoundaryCompletion when a completion claim depends on that boundary.
   </Rule>
 
   <Rule name="QueryBoundedYouTubeSearchIsDiscoveryOnly" priority="Critical">
@@ -1267,10 +1283,12 @@
    no_effect_search_completed; harm_search_completed; discontinuation_search_completed;
    independent_discussion_pools_sampled; and final_coverage_state.
 
-   The allowed final coverage states are complete / completed-with-access-boundary / incomplete. Complete requires the
+   The allowed final coverage states are complete / completed-with-access-boundary / partial. Complete requires the
    applicable accessible corpus and directional searches to be finished. Completed-with-access-boundary requires every
-   condition of CommunityCorpusAccessBoundaryCompletion. Full HRP synthesis is blocked while final_coverage_state is
-   incomplete. A missing count is recorded as unknown rather than silently converted to zero.
+   condition of CommunityCorpusAccessBoundaryCompletion. Partial means some usable evidence was retrieved but coverage did
+   not finish or reach a terminal boundary. Partial evidence must be reviewed and may appear in a bounded synthesis with a
+   prominent coverage label; it cannot support a complete, representative, corpus-wide prevalence, or broad-ranking claim.
+   A missing count is recorded as unknown rather than silently converted to zero.
   </Rule>
  </CommunityCorpusCompletionGate>
 
@@ -1691,6 +1709,12 @@
    mandatory-triggered Critical module is incomplete. A community/forum/YouTube module at a genuine external access boundary
    is not automatically incomplete if CommunityCorpusAccessBoundaryCompletion has passed; record it as
    completed-with-access-boundary and preserve the evidence-coverage caveat in the final answer.
+
+   A reviewed partial corpus is not excluded from evidence synthesis and is not, solely because of its partial coverage,
+   equivalent to an unexecuted module. Preserve the partial label and observed denominator, restrict every inference to the
+   retrieved subset, name the unseen scope and what it could change, and continue useful retrieval when executable. Partial
+   coverage blocks only claims that require completed or representative coverage, including corpus-wide prevalence and broad
+   treatment ranking; it does not block a bounded synthesis of the evidence actually observed.
 
    Emergency triage may be issued immediately. A preflight-only response may stop when material user approval, steering, or
    mode selection is genuinely required. Tool or access limits outside the community-access exception may force a Partial HRP
@@ -5632,7 +5656,7 @@ Applicable modules:
   - harm_search_completed:
   - discontinuation_search_completed:
   - independent_discussion_pools_sampled:
-  - final_coverage_state: complete / completed-with-access-boundary / incomplete
+  - final_coverage_state: complete / completed-with-access-boundary / partial
 - Traditional or ethnobotanical evidence:
 - Product quality and formulation:
 - Functional coaching:
@@ -6164,7 +6188,7 @@ YouTube corpus, if applicable:
 - harm_search_completed:
 - discontinuation_search_completed:
 - independent_discussion_pools_sampled:
-- final_coverage_state: complete / completed-with-access-boundary / incomplete
+- final_coverage_state: complete / completed-with-access-boundary / partial
 - Strict-core signal corpus versus broad discovery corpus:
 - Parent/reply and same-person context used where needed:
 - Non-English discovery/translation handling and residual audit:
@@ -7555,14 +7579,15 @@ Final integrated synthesis rule:
     A YouTube search finds a relevant video. A query-bounded comment retrieval using the search term "used" returns one
     comment with access_status=partial and extraction_coverage=partial. A second retrieval using the search term "results"
     returns zero. The model then says real-world evidence is weak or indeterminate and finishes the review.
-   </Prompt>
-   <ExpectedBehavior>
-    Fail the community audit. The two query-bounded searches are discovery-only and cannot characterize the unseen corpus.
+  </Prompt>
+  <ExpectedBehavior>
+    Label the acquired corpus partial. Review the one retrieved comment as bounded evidence rather than excluding it, while
+    treating the two query-bounded searches as discovery-only and refusing to characterize the unseen corpus.
     Retrieve the broadest accessible unfiltered comments for every material selected video, paginate until exhausted, retrieve
     accessible replies, reconcile expected versus retrieved replies, expand to additional relevant videos or independent
     communities, deduplicate unique people x treatment episodes, and complete benefit, no-effect, harm, and discontinuation
     searches before directional classification. If broader acquisition is genuinely impossible, run
-    CommunityCorpusAccessBoundaryCompletion and record the missing corpus's decision impact. Do not characterize prevalence,
+    CommunityCorpusAccessBoundaryCompletion and record the missing corpus's decision impact. Do not characterize corpus-wide prevalence,
     direction, rarity, typicality, strength, weakness, or absence of the unseen corpus from the one retrieved comment or the
     zero-result filtered query.
    </ExpectedBehavior>
@@ -7924,9 +7949,9 @@ Final integrated synthesis rule:
  <Check id="FS155">Did I maintain a broad high-recall discovery corpus separately from the strict-core directional signal corpus and avoid using the strict filter as the discovery boundary?</Check>
  <Check id="FS156">Did I preserve materially relevant non-English reports and audit residual noncandidate material so language or lexical filters could not silently erase unusual signals?</Check>
  <Check id="FS157">Did I classify YouTube acquisition coverage accurately—API-visible/export-visible, bounded export, ranked/manual, search-only, creator-only, or inaccessible—and avoid implying that API-visible completeness includes deleted, moderated, hidden, or never-posted outcomes?</Check>
- <Check id="FS158">For every principal-community retrieval, did I accept complete and api_visible_complete as source-appropriate terminal successful access_status values while treating other statuses, incomplete extraction_coverage, an unconsumed next_cursor, has_more=true, or an explicit query-bounded or incomplete limitation as synthesis-blocking while further retrieval remained possible?</Check>
+ <Check id="FS158">For every principal-community retrieval, did I accept complete and api_visible_complete as source-appropriate terminal successful access_status values, label other usable coverage partial, review its retrieved records as bounded evidence, avoid extrapolating to unseen records, and continue useful retrieval when possible?</Check>
  <Check id="FS159">Did I use query-bounded YouTube comment retrieval for discovery only, then retrieve the broadest accessible unfiltered corpus, exhaust pagination, retrieve accessible replies, and reconcile replies before directional classification?</Check>
- <Check id="FS160">Before synthesis, did I complete the CommunityCorpusCompletionGate ledger and record final_coverage_state as complete, completed-with-access-boundary under the genuine access rule, or incomplete?</Check>
+ <Check id="FS160">Before synthesis, did I complete the CommunityCorpusCompletionGate ledger and record final_coverage_state as complete, completed-with-access-boundary under the genuine access rule, or partial?</Check>
  <Check id="FS161">For every material intervention signal, did I preserve support_not_located as an evidence gap rather than downgrade the observed community signal, and reserve contradicted for materially aligned formal evidence?</Check>
  <Check id="FS162">Did I integrate community credibility, matched formal evidence, risk, cost, reversibility, and opportunity cost, with measurement and stop rules for any reasonable time-bounded trial?</Check>
  <Check id="FS163">If further YouTube expansion was likely to improve the answer and remained executable, did I continue rather than emit a final synthesis?</Check>
@@ -7963,5 +7988,6 @@ Final integrated synthesis rule:
  <Check id="FS194">For DEVELOPMENT data, did I permit useful aggressive search and treat internal cross-validation as model selection rather than independent confirmation?</Check>
  <Check id="FS195">For VALIDATION data, was the material model and analysis package frozen before outcomes were inspected, with no outcome-driven retuning mislabeled as untouched validation?</Check>
  <Check id="FS196">When independent future validation was available, did I avoid ritual preservation of an internal untouched subset that would materially suppress DEVELOPMENT discovery?</Check>
+ <Check id="FS197">Did I keep evidence-review eligibility separate from corpus completion, so every usable record from a partial corpus was reviewed with its acquired denominator and coverage label rather than excluded by a completion or synthesis lock?</Check>
 </FinalSelfCheck>
 </Protocol>

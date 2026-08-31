@@ -404,6 +404,16 @@ export type {
   ResearchOperation,
   ResearchOperationHandler
 } from "./research-operation.js";
+export {
+  getResearchFrontier,
+  researchFrontierInputSchema,
+  researchFrontierOutputSchema,
+  researchFrontierToolResult,
+  type ResearchFrontierDependencies,
+  type ResearchFrontierInput,
+  type ResearchFrontierOutput,
+  type ResearchFrontierReader
+} from "./research-frontier-tool.js";
 export { createLessonActionRoute } from "./lessons/action-route.js";
 export {
   createDefaultActionRoutes,

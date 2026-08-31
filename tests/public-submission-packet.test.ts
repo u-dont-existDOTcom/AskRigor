@@ -15,7 +15,7 @@ interface ExternalGate {
 interface SubmissionPacket {
   schemaVersion: "1.0";
   release: "0.1.0";
-  reviewedAt: "2026-08-30";
+  reviewedAt: "2026-08-31";
   officialSources: string[];
   listing: {
     displayName: string;
@@ -78,7 +78,7 @@ describe("AskRigor public submission packet", () => {
     expect(manifest).not.toHaveProperty("apps");
     expect(packet.schemaVersion).toBe("1.0");
     expect(packet.release).toBe("0.1.0");
-    expect(packet.reviewedAt).toBe("2026-08-30");
+    expect(packet.reviewedAt).toBe("2026-08-31");
     expect(packet.officialSources).toEqual([
       "https://developers.openai.com/plugins/build/plugins",
       "https://developers.openai.com/plugins/deploy/submission-errors",
@@ -88,7 +88,7 @@ describe("AskRigor public submission packet", () => {
     expect(packet.mcp).toEqual({
       submissionMode: "with_mcp",
       serverURL: "https://mcp.askrigor.com/mcp",
-      expectedToolCount: 21
+      expectedToolCount: 22
     });
   });
 
