@@ -4,7 +4,7 @@
   "status": "complete",
   "exclusive": true,
   "requiredBranch": "agent/pr148-release-boundary-closeout-20260831",
-  "pullRequest": null,
+  "pullRequest": 151,
   "assuranceLane": "release",
   "supervisorDirective": {
     "issue": 150,
