@@ -1,6 +1,21 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-08-30 Community Forum hostile lifecycle/research fixtures — unreleased
+
+The next stacked synthetic-only slice adds hostile-integrity routing,
+moderation/scientific disagreement, explicit publication state versus
+visibility, exact withdrawal propagation, and cluster-to-question-to-evidence-
+check-to-proposal services and PostgreSQL fixtures. Migration `0005` is
+append-only and preserves evidence/independence invariants, content-free
+withdrawal receipts, exact research dependencies, no automated regulatory
+reporting, and no recruitment. It changes no public MCP, site, plugin, Custom
+GPT, VPS, Railway, Discourse deployment, or real-data path. No real account,
+health report, public lead, public forum, index, contact/recruitment flow, or
+regulatory submission is activated. Release adequacy remains fail-closed; the
+exact task evidence belongs in
+`docs/public-atlas/COMMUNITY-FORUM-HOSTILE-LIFECYCLE-RESEARCH-RECEIPT.md`.
+
 ## 2026-08-30 Community Forum composer/frontier/queue fixtures — unreleased
 
 The stacked Community Forum task adds synthetic-only progressive composer,

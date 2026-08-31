@@ -262,7 +262,7 @@ async function main(): Promise<void> {
   const checks: string[] = [];
   try {
     await evidence.migrate();
-    checks.push("four_migration_chain_applied");
+    checks.push("five_migration_chain_applied");
 
     await community.registerAccount({
       synthetic: true,
@@ -410,6 +410,37 @@ async function main(): Promise<void> {
       occurredAt: AT,
     });
     checks.push("safety_queue_requires_explicit_role_without_auto_reporting");
+
+    const hostileModerationQueue = await community.enqueueOperation({
+      synthetic: true,
+      queueItemId: "ARQUEUE-ACCEPTHOSTILEMOD01",
+      queueType: "MODERATION",
+      requiredCapability: "MODERATE_CONDUCT",
+      targetType: "LEAD",
+      targetId: "ARLEAD-ACCEPTSECONDHAND01",
+      originatorActorId: "ARSYN-ACCEPTINTEGRITY01",
+      independentReviewRequired: true,
+      sourceMeaningSha256,
+      seriousness: "NOT_APPLICABLE",
+      automatedRegulatoryReporting: false,
+      status: "QUEUED",
+      createdAt: AT,
+    });
+    const hostileScientificQueue = await community.enqueueOperation({
+      synthetic: true,
+      queueItemId: "ARQUEUE-ACCEPTHOSTILESCI01",
+      queueType: "SCIENTIFIC",
+      requiredCapability: "ANNOTATE_SCIENCE",
+      targetType: "LEAD",
+      targetId: "ARLEAD-ACCEPTSECONDHAND01",
+      originatorActorId: "ARSYN-ACCEPTINTEGRITY01",
+      independentReviewRequired: true,
+      sourceMeaningSha256,
+      seriousness: "NOT_APPLICABLE",
+      automatedRegulatoryReporting: false,
+      status: "QUEUED",
+      createdAt: AT,
+    });
 
     const first = event(1, 9001, "forum.post.created.v1");
     const firstRaw = JSON.stringify(first);
@@ -632,6 +663,276 @@ async function main(): Promise<void> {
     const sqlClient = await pool.connect();
     try {
       await sqlClient.query(`SET search_path TO ${schema}, public`);
+      await sqlClient.query(
+        `INSERT INTO community_integrity_signals
+          (integrity_signal_id, kind, target_type, target_id,
+           source_meaning_sha256_before, source_meaning_sha256_after,
+           verification_state_before, verification_state_after,
+           evidence_capability_before, evidence_capability_after,
+           formal_evidence_relationship_before, formal_evidence_relationship_after,
+           independent_source_count_before, independent_source_count_after,
+           engagement_affects_evidence_state, required_queue_types, queue_item_ids,
+           automated_regulatory_reporting, payload_sha256, payload_json, created_at)
+         VALUES ('ARINT-ACCEPTBRIGADE01', 'VOTE_BRIGADING', 'LEAD', $1,
+           $2, $2, 'UNVERIFIED', 'UNVERIFIED', 'COMBINATION_ASSOCIATION_ONLY',
+           'COMBINATION_ASSOCIATION_ONLY', 'NOT_CHECKED', 'NOT_CHECKED', 1, 1,
+           false, ARRAY['MODERATION', 'SCIENTIFIC'], ARRAY[$3, $4], false,
+           $5, $6::jsonb, $7)`,
+        [
+          leadOneId,
+          sourceMeaningSha256,
+          hostileModerationQueue.queueItemId,
+          hostileScientificQueue.queueItemId,
+          sha256("synthetic integrity acceptance"),
+          JSON.stringify({
+            synthetic: true,
+            labOnly: true,
+            engagement: { views: 1_000_000, votes: 900_000 },
+            engagementAffectsEvidenceState: false,
+          }),
+          AT,
+        ],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_moderation_events
+          (event_id, target_type, target_id, actor_role, action, reason, appealable, occurred_at)
+         VALUES ('ARMOD-ACCEPTDISAGREE01', 'LEAD', $1, 'GLOBAL_MODERATOR', 'HIDE',
+           'Synthetic conduct-only moderation fixture.', true, $2)`,
+        [leadOneId, AT],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_scientific_annotations
+          (annotation_id, target_type, target_id, annotation_type, annotation_text,
+           actor_role, appealable, occurred_at)
+         VALUES ('ARANN-ACCEPTDISAGREE01', 'LEAD', $1, 'UNRESOLVED_DISPUTE',
+           'Synthetic scientific disagreement remains unresolved.',
+           'SCIENTIFIC_ANNOTATOR', true, $2)`,
+        [leadOneId, AT],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_review_disagreements
+          (disagreement_id, target_type, target_id, moderation_event_id,
+           moderation_disposition, scientific_annotation_id, scientific_disposition,
+           source_meaning_sha256_before, source_meaning_sha256_after, status,
+           payload_sha256, payload_json, recorded_at)
+         VALUES ('ARDIS-ACCEPTSEPARATE01', 'LEAD', $1, 'ARMOD-ACCEPTDISAGREE01',
+           'CONDUCT_ACTION_RECORDED', 'ARANN-ACCEPTDISAGREE01', 'UNRESOLVED',
+           $2, $2, 'OPEN', $3, '{}'::jsonb, $4)`,
+        [
+          leadOneId,
+          sourceMeaningSha256,
+          sha256("synthetic disagreement acceptance"),
+          AT,
+        ],
+      );
+      const lifecycleRows = [
+        ["ARLIFE-ACCEPTDRAFT0001", null, "DRAFT", "NOT_VISIBLE", "NOT_VISIBLE"],
+        [
+          "ARLIFE-ACCEPTREVIEW001",
+          "DRAFT",
+          "PRIVACY_REVIEW",
+          "NOT_VISIBLE",
+          "NOT_VISIBLE",
+        ],
+        [
+          "ARLIFE-ACCEPTAPPROVE01",
+          "PRIVACY_REVIEW",
+          "APPROVED",
+          "NOT_VISIBLE",
+          "NOT_VISIBLE",
+        ],
+        [
+          "ARLIFE-ACCEPTPROJECT01",
+          "APPROVED",
+          "SYNTHETIC_LAB_PROJECTION",
+          "NOT_VISIBLE",
+          "SYNTHETIC_LAB_ONLY",
+        ],
+      ] as const;
+      for (const [eventId, fromState, toState, before, after] of lifecycleRows) {
+        await sqlClient.query(
+          `INSERT INTO community_publication_lifecycle_events
+            (lifecycle_event_id, public_version_id, lead_id, lead_version,
+             from_state, to_state, visibility_before, visibility_after,
+             verification_state_before, verification_state_after,
+             evidence_capability_before, evidence_capability_after,
+             formal_evidence_relationship_before, formal_evidence_relationship_after,
+             payload_sha256, payload_json, occurred_at)
+           VALUES ($1, $2, $3, 1, $4, $5, $6, $7,
+             'UNVERIFIED', 'UNVERIFIED', 'COMBINATION_ASSOCIATION_ONLY',
+             'COMBINATION_ASSOCIATION_ONLY', 'NOT_CHECKED', 'NOT_CHECKED',
+             $8, '{}'::jsonb, $9)`,
+          [
+            eventId,
+            version.publicVersionId,
+            leadOneId,
+            fromState,
+            toState,
+            before,
+            after,
+            sha256(`synthetic lifecycle ${eventId}`),
+            AT,
+          ],
+        );
+      }
+      await sqlClient.query(
+        `INSERT INTO community_research_questions
+          (question_id, question_version, question_text, evidence_check_status,
+           status, payload_json)
+         VALUES ('ARQ-ACCEPTHOSTILE01', 1,
+           'What evidence could distinguish the synthetic signal?',
+           'NOT_CHECKED', 'EVIDENCE_CHECK', $1::jsonb)`,
+        [
+          JSON.stringify({
+            synthetic: true,
+            derivedFromClusterIds: [cluster.clusterId],
+          }),
+        ],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_research_question_cluster_dependencies
+          (question_id, question_version, cluster_id, cluster_version)
+         VALUES ('ARQ-ACCEPTHOSTILE01', 1, $1, 1)`,
+        [cluster.clusterId],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_question_evidence_checks
+          (evidence_check_id, question_id, question_version, matched_evidence_status,
+           summary, evidence_identifiers, checked_at)
+         VALUES ('AREC-ACCEPTHOSTILE01', 'ARQ-ACCEPTHOSTILE01', 1,
+           'NOT_ANSWERED', 'Synthetic exact-scope evidence check remains unresolved.',
+           '[]'::jsonb, $1)`,
+        [AT],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_research_proposals
+          (proposal_id, proposal_version, question_id, question_version, status,
+           recruitment_active, payload_json)
+         VALUES ('ARPROP-ACCEPTHOSTILE01', 1, 'ARQ-ACCEPTHOSTILE01', 1,
+           'DRAFT', false, $1::jsonb)`,
+        [
+          JSON.stringify({
+            synthetic: true,
+            recruitmentActive: false,
+            ethicsState: "REVIEW_REQUIRED",
+            privacyState: "REVIEW_REQUIRED",
+            safetyState: "REVIEW_REQUIRED",
+          }),
+        ],
+      );
+      await sqlClient.query(
+        `INSERT INTO community_research_proposal_evidence_links
+          (proposal_id, proposal_version, evidence_check_id, question_id, question_version)
+         VALUES ('ARPROP-ACCEPTHOSTILE01', 1, 'AREC-ACCEPTHOSTILE01',
+           'ARQ-ACCEPTHOSTILE01', 1)`,
+      );
+      checks.push(
+        "hostile_integrity_lifecycle_and_exact_research_dependencies_persisted",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_integrity_signals
+              (integrity_signal_id, kind, target_type, target_id,
+               source_meaning_sha256_before, source_meaning_sha256_after,
+               verification_state_before, verification_state_after,
+               evidence_capability_before, evidence_capability_after,
+               formal_evidence_relationship_before, formal_evidence_relationship_after,
+               independent_source_count_before, independent_source_count_after,
+               engagement_affects_evidence_state, required_queue_types, queue_item_ids,
+               automated_regulatory_reporting, payload_sha256, payload_json, created_at)
+             VALUES ('ARINT-INVALIDUPGRADE01', 'VOTE_BRIGADING', 'LEAD', $1,
+               $2, $2, 'UNVERIFIED', 'SUBJECT_VERIFIED', 'COMBINATION_ASSOCIATION_ONLY',
+               'FORMAL_EVIDENCE_LINKED', 'NOT_CHECKED', 'CORROBORATED_FOR_MATCHED_SCOPE',
+               1, 2, false, ARRAY['MODERATION', 'SCIENTIFIC'], ARRAY[$3, $4], false,
+               $5, '{}'::jsonb, $6)`,
+            [
+              leadOneId,
+              sourceMeaningSha256,
+              hostileModerationQueue.queueItemId,
+              hostileScientificQueue.queueItemId,
+              sha256("invalid synthetic integrity upgrade"),
+              AT,
+            ],
+          ),
+        "community_integrity_evidence_immutable",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_integrity_signals
+              (integrity_signal_id, kind, target_type, target_id,
+               source_meaning_sha256_before, source_meaning_sha256_after,
+               verification_state_before, verification_state_after,
+               evidence_capability_before, evidence_capability_after,
+               formal_evidence_relationship_before, formal_evidence_relationship_after,
+               independent_source_count_before, independent_source_count_after,
+               engagement_affects_evidence_state, required_queue_types, queue_item_ids,
+               automated_regulatory_reporting, payload_sha256, payload_json, created_at)
+             VALUES ('ARINT-INVALIDDANGERQUEUE01', 'DANGEROUS_INSTRUCTION', 'LEAD', $1,
+               $2, $2, 'UNVERIFIED', 'UNVERIFIED', 'COMBINATION_ASSOCIATION_ONLY',
+               'COMBINATION_ASSOCIATION_ONLY', 'NOT_CHECKED', 'NOT_CHECKED', 1, 1,
+               false, ARRAY['MODERATION', 'SCIENTIFIC'], ARRAY[$3, $4], false,
+               $5, '{}'::jsonb, $6)`,
+            [
+              leadOneId,
+              sourceMeaningSha256,
+              hostileModerationQueue.queueItemId,
+              hostileScientificQueue.queueItemId,
+              sha256("invalid synthetic danger queue"),
+              AT,
+            ],
+          ),
+        "community_integrity_kind_queue_gate",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_publication_lifecycle_events
+              (lifecycle_event_id, public_version_id, lead_id, lead_version,
+               from_state, to_state, visibility_before, visibility_after,
+               verification_state_before, verification_state_after,
+               evidence_capability_before, evidence_capability_after,
+               formal_evidence_relationship_before, formal_evidence_relationship_after,
+               payload_sha256, payload_json, occurred_at)
+             VALUES ('ARLIFE-INVALIDAPPROVAL01', $1, $2, 1,
+               'SYNTHETIC_LAB_PROJECTION', 'WITHDRAWN', 'SYNTHETIC_LAB_ONLY',
+               'SYNTHETIC_LAB_ONLY', 'UNVERIFIED', 'UNVERIFIED',
+               'COMBINATION_ASSOCIATION_ONLY', 'COMBINATION_ASSOCIATION_ONLY',
+               'NOT_CHECKED', 'NOT_CHECKED', $3, '{}'::jsonb, $4)`,
+            [
+              version.publicVersionId,
+              leadOneId,
+              sha256("invalid synthetic approval visibility"),
+              AT,
+            ],
+          ),
+        "community_publication_lifecycle_visibility_gate",
+      );
+      await expectReject(
+        () =>
+          sqlClient.query(
+            `INSERT INTO community_publication_lifecycle_events
+              (lifecycle_event_id, public_version_id, lead_id, lead_version,
+               from_state, to_state, visibility_before, visibility_after,
+               verification_state_before, verification_state_after,
+               evidence_capability_before, evidence_capability_after,
+               formal_evidence_relationship_before, formal_evidence_relationship_after,
+               payload_sha256, payload_json, occurred_at)
+             VALUES ('ARLIFE-INVALIDIDENTITY01', $1, $2, 1,
+               'SYNTHETIC_LAB_PROJECTION', 'CHALLENGED', 'SYNTHETIC_LAB_ONLY',
+               'NOT_VISIBLE', 'UNVERIFIED', 'UNVERIFIED',
+               'COMBINATION_ASSOCIATION_ONLY', 'COMBINATION_ASSOCIATION_ONLY',
+               'NOT_CHECKED', 'NOT_CHECKED', $3, '{}'::jsonb, $4)`,
+            [
+              version.publicVersionId,
+              leadTwoId,
+              sha256("invalid synthetic lifecycle identity"),
+              AT,
+            ],
+          ),
+        "COMMUNITY_PUBLICATION_LIFECYCLE_IDENTITY_MISMATCH",
+      );
       await expectReject(
         () =>
           sqlClient.query(
@@ -746,6 +1047,112 @@ async function main(): Promise<void> {
     }
     checks.push("withdrawal_removes_projection_with_content_free_tombstone");
 
+    const propagationClient = await pool.connect();
+    try {
+      await propagationClient.query(`SET search_path TO ${schema}, public`);
+      const propagationPayload = {
+        synthetic: true,
+        labOnly: true,
+        publicVersionId: version.publicVersionId,
+        clusterChanges: [
+          {
+            clusterId: cluster.clusterId,
+            fromClusterVersion: 1,
+            toClusterVersion: null,
+            disposition: "RETIRED_EMPTY",
+          },
+        ],
+        affectedQuestions: [
+          {
+            questionId: "ARQ-ACCEPTHOSTILE01",
+            questionVersion: 1,
+            dependencyState: "REVIEW_REQUIRED",
+          },
+        ],
+        affectedProposals: [
+          {
+            proposalId: "ARPROP-ACCEPTHOSTILE01",
+            proposalVersion: 1,
+            dependencyState: "REVIEW_REQUIRED",
+          },
+        ],
+      };
+      await propagationClient.query(
+        `INSERT INTO community_withdrawal_events
+          (withdrawal_event_id, public_version_id, requested_at,
+           propagation_state, public_content_retained, payload_sha256, payload_json)
+         VALUES ('ARWITH-ACCEPTWITHDRAW01', $1, $2, 'COMPLETE', false, $3, $4::jsonb)`,
+        [
+          version.publicVersionId,
+          "2026-08-30T19:00:00.000Z",
+          sha256("synthetic withdrawal event acceptance"),
+          JSON.stringify({
+            synthetic: true,
+            labOnly: true,
+            targetRecordIds: [version.publicVersionId],
+            propagationState: "COMPLETE",
+            publicContentRetained: false,
+          }),
+        ],
+      );
+      await propagationClient.query(
+        `INSERT INTO community_withdrawal_propagation_receipts
+          (propagation_receipt_id, withdrawal_event_id, public_version_id,
+           lead_id, lead_version, exact_projection_removed, public_content_retained,
+           provenance_retained, propagation_state, payload_sha256, payload_json, completed_at)
+         VALUES ('ARPROPAGATE-ACCEPTWITHDRAW01', 'ARWITH-ACCEPTWITHDRAW01', $1,
+           $2, 1, true, false, true, 'COMPLETE', $3, $4::jsonb, $5)`,
+        [
+          version.publicVersionId,
+          leadOneId,
+          sha256(stableJson(propagationPayload)),
+          JSON.stringify(propagationPayload),
+          "2026-08-30T19:01:00.000Z",
+        ],
+      );
+      await expectReject(
+        () =>
+          propagationClient.query(
+            `INSERT INTO community_withdrawal_propagation_receipts
+              (propagation_receipt_id, withdrawal_event_id, public_version_id,
+               lead_id, lead_version, exact_projection_removed, public_content_retained,
+               provenance_retained, propagation_state, payload_sha256, payload_json, completed_at)
+             VALUES ('ARPROPAGATE-INVALIDIDENT01', 'ARWITH-INVALIDIDENTITY01', $1,
+               $2, 1, true, false, true, 'COMPLETE', $3, '{}'::jsonb, $4)`,
+            [
+              version.publicVersionId,
+              leadTwoId,
+              sha256("invalid withdrawal propagation identity"),
+              "2026-08-30T19:02:00.000Z",
+            ],
+          ),
+        "COMMUNITY_WITHDRAWAL_PROPAGATION_IDENTITY_MISMATCH",
+      );
+      await expectReject(
+        () =>
+          propagationClient.query(
+            `INSERT INTO community_withdrawal_propagation_receipts
+              (propagation_receipt_id, withdrawal_event_id, public_version_id,
+               lead_id, lead_version, exact_projection_removed, public_content_retained,
+               provenance_retained, propagation_state, payload_sha256, payload_json, completed_at)
+             VALUES ('ARPROPAGATE-INVALIDCONTENT01', 'ARWITH-INVALIDCONTENT01', $1,
+               $2, 1, true, true, true, 'COMPLETE', $3, '{}'::jsonb, $4)`,
+            [
+              version.publicVersionId,
+              leadOneId,
+              sha256("invalid retained public withdrawal content"),
+              "2026-08-30T19:02:00.000Z",
+            ],
+          ),
+        "community_withdrawal_propagation_no_public_content",
+      );
+    } finally {
+      propagationClient.release();
+    }
+    checks.push(
+      "withdrawal_propagates_to_clusters_questions_and_proposals_without_public_content",
+    );
+
     const appendOnlyClient = await pool.connect();
     try {
       await appendOnlyClient.query(`SET search_path TO ${schema}, public`);
@@ -754,6 +1161,13 @@ async function main(): Promise<void> {
           appendOnlyClient.query(
             "UPDATE community_leads SET status = 'APPROVED' WHERE lead_id = $1",
             [leadOneId],
+          ),
+        "APPEND_ONLY_TABLE",
+      );
+      await expectReject(
+        () =>
+          appendOnlyClient.query(
+            "DELETE FROM community_integrity_signals WHERE integrity_signal_id = 'ARINT-ACCEPTBRIGADE01'",
           ),
         "APPEND_ONLY_TABLE",
       );

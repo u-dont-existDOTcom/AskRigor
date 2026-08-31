@@ -39,6 +39,12 @@ export {
   type SyntheticCommunityFrontierView,
 } from "./community-forum-operations.js";
 export {
+  SyntheticCommunityIntegrityService,
+  SyntheticCommunityLifecycleService,
+  SyntheticCommunityResearchPipelineService,
+  type RoutedCommunityIntegritySignal,
+} from "./community-forum-lifecycle.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";

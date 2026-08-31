@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "verdictId": "community-forum-hostile-lifecycle-research-artifact-ready-verdict-20260830",
+  "taskId": "community-forum-hostile-lifecycle-research-20260830",
+  "reviewedAt": "2026-08-30T23:52:00Z",
+  "ownerSourceReceiptId": "owner-source-receipt-community-forum-hostile-lifecycle-research-20260830",
+  "objectiveReconciliationId": "community-forum-hostile-lifecycle-research-artifact-ready-20260830",
+  "workerToContractAlignment": "YELLOW_PENDING_GITHUB_REPRODUCTION",
+  "contractToOwnerAlignment": "MATCH",
+  "operationalAlignment": {
+    "status": "ALIGNED_FOR_LOCAL_SYNTHETIC_ARTIFACT",
+    "findings": [
+      "The hostile integrity routing, discipline separation, publication visibility, withdrawal propagation, exact research dependencies, fifth migration, privacy records, 14-check PostgreSQL acceptance, and complete 1,543-test gate pass locally.",
+      "No visual/public UI, provider activation, real data, recruitment, reporting, or deployment was introduced."
+    ],
+    "evidenceRefs": [
+      "agent/community-forum-hostile-lifecycle-research-20260830@14a5c4af4b5b3df5adb9f40c8d8b0363070a61d9 based on 0e3d2e963982f87e2d1338f3da8e74ae87a04fc9",
+      "docs/public-atlas/COMMUNITY-FORUM-HOSTILE-LIFECYCLE-RESEARCH-RECEIPT.md",
+      "PostgreSQL acceptance community_acceptance_1401265: PASS (14/14)",
+      "Complete deterministic gate: PASS (1,543 passed; 6 skipped)"
+    ]
+  },
+  "scientificAdequacy": {
+    "status": "NOT_APPLICABLE",
+    "claimsAssessed": [],
+    "methodologicalFindings": [
+      "The task tests software and governance semantics with invented reports; it produces no health finding."
+    ],
+    "inferenceBoundaries": [
+      "Synthetic reports support no inference about efficacy, causality, prevalence, safety, or real community signals."
+    ],
+    "unresolvedAccessOrValidationGaps": []
+  },
+  "releaseAdequacy": {
+    "status": "FAIL_CLOSED",
+    "privacy": "SYNTHETIC_ONLY",
+    "consent": "SYNTHETIC_FIXTURE_PATH_ONLY",
+    "security": "NOT_EVALUATED_FOR_PRODUCTION",
+    "productRules": "NO_RELEASE_AUTHORIZED",
+    "findings": [
+      "The artifact cannot authorize a real forum, real-data pilot, public lead, indexing, recruitment, regulatory action, or deployment."
+    ]
+  },
+  "completionClaimType": "ARTIFACT_READY",
+  "releasePermission": {
+    "allowed": false,
+    "reason": "The owner authorized synthetic contract/migration/service work only; all release boundaries remain closed."
+  },
+  "requiredDirective": "PUBLISH_STACKED_PR_AND_CAPTURE_GITHUB_RECEIPTS",
+  "ownerDecisionRequired": false,
+  "supervisionDesignFeedback": null
+}

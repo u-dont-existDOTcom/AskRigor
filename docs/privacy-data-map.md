@@ -95,6 +95,18 @@ state. Operational actions retain only hashes of source meaning and must keep
 the before/after hash equal. These fixtures add no raw post body, private
 quotation, document/media body, real identity, or real health report.
 
+Migration `0005` remains inside the same synthetic class. It adds content-free
+integrity signals, exact queue references, moderation/scientific disagreement
+links, publication-lifecycle events, exact cluster-version dependencies for
+research questions, evidence-check links for nonrecruiting proposals, and
+withdrawal-propagation receipts. Integrity and lifecycle rows carry immutable
+before/after evidence fields; engagement cannot affect evidence state.
+Withdrawal receipts retain only typed identifiers, version/disposition state,
+review-required dependency markers, and hashes. They require the exact lab
+projection to be absent and `publicContentRetained=false` while preserving
+append-only provenance. No forum text, instruction text, identity, health
+narrative, quotation, document, media, or provider body is added.
+
 The two publication objects remain distinct. `PUBLIC_NARRATIVE` requires
 subject exact-version approval. A deidentified `PUBLIC_RESEARCH_LEAD` may model
 a reporter-consented secondhand report without subject exact-version approval
