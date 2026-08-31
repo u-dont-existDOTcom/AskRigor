@@ -1,0 +1,124 @@
+{
+  "receiptSchema": "askrigor.research-frontier-catalog-discovery.local-candidate.v1",
+  "taskId": "askrigor-living-evidence-frontier-catalog-discovery-v1",
+  "status": "local_candidate_complete",
+  "baselineCommit": "27bcfdcdc8b7667eaf1da6076304fe3af4c2bd00",
+  "branch": "task/frontier-catalog-discovery-20260831",
+  "implementationHead": "b15d2b77023a6d85802a49d2511314d458a3f5d7",
+  "objective": "Let a new ordinary AskRigor conversation discover relevant stored formal research frontiers without already knowing an exact selector.",
+  "contract": {
+    "operation": "search_research_frontiers",
+    "operationPosition": 23,
+    "standardMcpToolCount": 24,
+    "anonymousStandardToolCount": 23,
+    "geminiToolCount": 22,
+    "geminiExclusionReason": "Adding the new schema exceeds the enforced 25000-byte compact-catalog compatibility budget; the owner-prioritized primary ordinary-Chat plugin receives the complete standard catalog.",
+    "searchSurface": [
+      "topic canonical key",
+      "topic label",
+      "topic aliases",
+      "normalized research question",
+      "population",
+      "program or exposure",
+      "comparator",
+      "outcome",
+      "horizon",
+      "setting"
+    ],
+    "readOnly": true,
+    "migrationAdded": false,
+    "automaticContribution": false,
+    "rawSourceContentPersisted": false,
+    "providerContentPersisted": false,
+    "personalDataPersisted": false,
+    "communityDataPersisted": false
+  },
+  "truthBoundaries": [
+    "catalog matches are research-control state, not evidence or health conclusions",
+    "frontier currentness is not assessed",
+    "partial, blocked, and coverage-gap states remain explicit",
+    "no lexical match is not evidence that no external evidence exists",
+    "cross-field matches are labeled catalog rather than inventing one matching field",
+    "detailed retrieval still requires get_research_frontier with a returned selector"
+  ],
+  "verification": {
+    "focusedAffectedTests": {
+      "status": "pass",
+      "files": 10,
+      "tests": 129
+    },
+    "realPostgresAcceptance": {
+      "command": "npm run living-evidence:local",
+      "status": "pass",
+      "checks": 42,
+      "dumpWipeRestore": "pass",
+      "rawSourceContentIncluded": false,
+      "communityDataIncluded": false
+    },
+    "completeDeterministicGate": {
+      "command": "npm run verify",
+      "status": "pass",
+      "testFilesPassed": 122,
+      "testFilesSkipped": 1,
+      "testsPassed": 1586,
+      "testsSkipped": 6,
+      "typecheck": "pass",
+      "build": "pass"
+    },
+    "toolInventorySha256": "0b223e5b5ff48aea39cce4ed7dfbd04b85b4ff5cab14d37c0c8f8cdc44fc7036",
+    "customGptSyncSha256": "2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72",
+    "controlledInstructions": {
+      "characters": 4752,
+      "sha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514"
+    },
+    "sourcePluginPackageSha256": "8b6029a31ee878b49d0e71748fc51684ffd161c121e9fc9944dd3536f2050aa5",
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-08-31T23:37:30.267Z"
+    },
+    "diffCheck": "pass"
+  },
+  "supervision": {
+    "completionClaim": "WORKING",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_local_tool_registry_postgres_and_restore",
+    "scientificAdequacy": "pass_for_lexical_catalog_partial_gap_currentness_and_nonnegative_no_match_semantics_only",
+    "releaseAdequacy": "pending_protected_merge_deployment_package_sync_and_primary_chat_acceptance"
+  },
+  "activeLessonApplication": [
+    {
+      "lesson": "product outcome over architecture",
+      "status": "pass",
+      "evidence": "One discover-to-exact-lookup operation was added without another generalized backend or migration."
+    },
+    {
+      "lesson": "owner correction against institutional drift",
+      "status": "pass",
+      "evidence": "No pilot, staffing, ethics-program, or institutional workflow constraint was added."
+    },
+    {
+      "lesson": "partial evidence remains usable",
+      "status": "pass",
+      "evidence": "Partial and gap counts are returned as descriptive state and never used to exclude stored records."
+    },
+    {
+      "lesson": "continuous completion",
+      "status": "pass",
+      "evidence": "Implementation advanced through focused, real-PostgreSQL, restore, and complete deterministic gates without an owner execution-mode prompt."
+    }
+  ],
+  "remainingReleaseWork": [
+    "push protected pull request and reconcile hosted checks",
+    "merge the reviewed exact candidate",
+    "deploy immutable production image with rollback",
+    "verify 24-tool standard and 22-tool Gemini catalogs plus exact protocol manifests",
+    "synchronize and verify the exact installed plugin package",
+    "run a fresh primary ordinary-Chat search-to-exact-frontier acceptance"
+  ]
+}

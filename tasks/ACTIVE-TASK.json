@@ -24,6 +24,8 @@
   ],
   "plan": "docs/superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md",
   "completionCommand": "npm run verify",
+  "implementationCommit": "b15d2b77023a6d85802a49d2511314d458a3f5d7",
+  "localCandidateReceipt": "docs/audits/2026-08-31-research-frontier-catalog-discovery.json",
   "previousCompletedTask": {
     "taskId": "askrigor-auth0-evidence-gap-release-v1",
     "releaseCommit": "7c0e589d50325de537ee042b4e3df3ed81adbd4b",

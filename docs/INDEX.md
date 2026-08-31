@@ -81,6 +81,10 @@ complete XML protocol.
   bounded read-only lexical topic/question discovery before exact frontier
   retrieval, with explicit no-match, partial/gap, currentness, privacy, and
   no-write boundaries
+- `audits/2026-08-31-research-frontier-catalog-discovery.md` and its machine
+  JSON: operation-23 local candidate, real-PostgreSQL catalog/restore evidence,
+  24-tool standard versus capacity-bounded 22-tool Gemini catalogs, package and
+  generated-artifact identities, and separate local versus release adequacy
 - `audits/2026-08-31-pr148-release-boundary-closeout.md` and its machine JSON:
   issue #150 owner-source adoption, exact current-main production image and
   rollback, synchronized MCP/plugin/package/editor/protocol consumers, fresh

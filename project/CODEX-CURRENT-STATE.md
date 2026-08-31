@@ -22,14 +22,18 @@ owner's primary ordinary-Chat plugin.
 
 This is not automatic contribution, semantic inference, a vector/graph
 subsystem, YouTube/community persistence, or an institutional research program.
-Focused tool/registry tests, typecheck, and the real PostgreSQL 41-check
+Focused affected tests pass 129/129 across 10 files. The real PostgreSQL 42-check
 acceptance plus dump/wipe/restore pass. Release adequacy remains pending until
-the complete deterministic gate, protected merge, deployment, package sync,
-and fresh primary ordinary-Chat discovery-to-exact-lookup acceptance pass.
+protected merge, deployment, package sync, and fresh primary ordinary-Chat
+discovery-to-exact-lookup acceptance pass.
 The candidate generated synchronization ledger SHA-256 is
 `2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`;
 the controlled Instructions remain 4,752 characters with SHA-256
 `2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+The complete deterministic gate passes 122 test files with one declared skip,
+1,586 tests with six declared skips, typecheck, and build. Exact local evidence
+is in
+`../docs/audits/2026-08-31-research-frontier-catalog-discovery.json` and `.md`.
 
 Recovery authority is
 `../docs/superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md`
