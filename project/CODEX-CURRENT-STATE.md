@@ -1,5 +1,37 @@
 # AskRigor Codex Current State
 
+## 2026-08-31 read-only frontier product acceptance failed closed
+
+PR #148 merged as
+`1e90b60bf743e9acc1b38b5464dc5581057761ca` and is deployed in healthy
+container
+`0ee98b06c8501dfe2871b3266a10484e5d71edd73cc30b1a645872b31cad69f3`,
+image SHA-256
+`d3be6c3e11dc34146fd9bf38e06bf830ca88fb3df88ce6437395dacb93313443`.
+Direct service acceptance passed the 22-operation catalog, both manifests,
+read-only PubMed/frontier probes, partial-corpus retention, and the restricted
+database reader. The exact installed plugin package is
+`0.1.0+codex.20260831104512`, complete package SHA-256
+`fa45c89437048f12c70ad3af90987d451cbcf7b79a059a923d891487d893653d`.
+
+Fresh primary-account ordinary Chat acceptance in Chat mode with Extra High
+reasoning failed closed. After an explicit plugin refresh, plugin settings
+listed all 22 operations, but a fresh attached conversation received only 21
+and omitted the appended `get_research_frontier` operation. The other bounded
+manifest, PubMed, and partial-corpus checks passed without exposing raw
+comments. Product acceptance is therefore not complete, and this state does
+not authorize silently deleting or consolidating an existing research
+capability to fit a 21-operation product surface. Exact evidence is in
+`../docs/audits/2026-08-31-research-frontier-readonly-tool.md`.
+
+Current typed claim: `PARTIAL_OUTCOME`. Operational alignment is partial;
+scientific adequacy passes only for the bounded partial-corpus invariant;
+release adequacy is fail-closed at the ordinary-Chat product interface. The
+current-worker supervision hotfix was re-read in full. A 21-operation product
+contract change has no versioned chat-authored directive, so
+`SUPERVISION_DIRECTIVE_MISSING` applies to that strategy change. Unaffected
+owner-authorized work may continue.
+
 ## 2026-08-31 dedicated read-only research-frontier tool active
 
 Task ID: `askrigor-living-evidence-frontier-readonly-tool-v1`

@@ -43,12 +43,41 @@
     ]
   },
   "supervision": {
-    "completionClaim": "WORKING",
+    "completionClaim": "PARTIAL_OUTCOME",
     "workerToContract": "aligned",
     "contractToOwner": "aligned",
-    "operationalAlignment": "approved",
-    "scientificAdequacy": "owner_corrected_partial_corpus_invariant_locally_verified",
-    "releaseAdequacy": "pending"
+    "operationalAlignment": "implementation_and_backend_aligned_product_tool_surface_partial",
+    "scientificAdequacy": "owner_corrected_partial_corpus_invariant_verified",
+    "releaseAdequacy": "failed_closed_product_interface_missing_get_research_frontier",
+    "directiveState": "SUPERVISION_DIRECTIVE_MISSING_FOR_21_OPERATION_PRODUCT_CONTRACT_CHANGE"
+  },
+  "releaseEvidence": {
+    "implementationPullRequest": 148,
+    "deployedMergeCommit": "1e90b60bf743e9acc1b38b5464dc5581057761ca",
+    "researchImageSha256": "d3be6c3e11dc34146fd9bf38e06bf830ca88fb3df88ce6437395dacb93313443",
+    "researchContainer": "0ee98b06c8501dfe2871b3266a10484e5d71edd73cc30b1a645872b31cad69f3",
+    "publicHealth": "pass",
+    "backendToolCount": 22,
+    "readerSelectMissing": 0,
+    "readerWriteGrants": 0,
+    "transactionReadOnly": true
+  },
+  "pluginReceipt": {
+    "memberCount": 8,
+    "installedVersion": "0.1.0+codex.20260831104512",
+    "installedPackageSha256": "fa45c89437048f12c70ad3af90987d451cbcf7b79a059a923d891487d893653d",
+    "installedSkillSha256": "e8d54c6954a5409d6d3cabf5a6e75e59a06edeafcbdf2cb7ce703d566f74f586",
+    "priorPackagePreserved": true
+  },
+  "productAcceptance": {
+    "status": "fail_closed",
+    "surface": "primary account ordinary ChatGPT Chat mode, Extra High, AskRigor plugin",
+    "conversation": "https://chatgpt.com/c/6a95624a-2388-83ea-96ed-6955a944bef2",
+    "pluginSettingsOperationCount": 22,
+    "attachedChatOperationCount": 21,
+    "missingOperation": "get_research_frontier",
+    "otherBoundedChecksPassed": true,
+    "rawYoutubeCommentsExposed": false
   },
   "suspendedTaskSources": [
     "automatic frontier contribution or write-through from public tool calls",
