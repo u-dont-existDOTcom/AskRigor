@@ -2,8 +2,14 @@
 
 Date: 2026-08-30
 Disposition: `ARCHITECTURE_COMPLETE`
-Root product disposition: `READY_FOR_SYNTHETIC_IMPLEMENTATION`, nonterminal
+Root product disposition: `SYNTHETIC_HOSTILE_MATRIX_FOUNDATION_MERGED`, nonterminal
 No real-data, publication, recruitment, deployment, provider-spending, or automated regulatory action authorized
+
+Execution update, 2026-08-31: the historical synthetic handoff in this receipt
+completed through the ordered PR #140/#142/#143/#144/#145/#146 stack. See the
+current work-queue entry and
+`COMMUNITY-FORUM-PRIVACY-PROVENANCE-MATRIX-RECEIPT.md` for exact final-main
+evidence. The handoff below is retained as provenance and must not be replayed.
 
 ## Owner outcome preserved
 
@@ -136,7 +142,11 @@ The new tests establish that:
 - naive effectiveness percentages are prohibited in signal clusters;
 - public narratives and public research leads have distinct conditional publication requirements.
 
-## PR-stack reconciliation
+## Historical PR-stack reconciliation — completed 2026-08-31
+
+The paragraphs below preserve the architecture-time state. PR #142 was later
+reconciled to the corrected two-object rule, and the ordered stack merged
+through PR #146. They are not current instructions.
 
 ### PR #140
 
@@ -148,23 +158,26 @@ The existing Phase-A implementation remains useful but predates the correction. 
 
 An attempted connector operation to convert PR #142 to GitHub draft state failed because of a connector GraphQL schema error. The PR was therefore made visibly nonterminal through the title `DRAFT — Reconcile Phase A contracts with the public-lead/forum architecture` and a blocking owner-correction section in its body. Its GitHub `draft` boolean remains false and must not be misreported.
 
-## Explicitly unresolved implementation work
+## Remaining root implementation work
 
-Architecture is complete. The following are implementation, review, pilot, or release work—not missing architectural decisions:
+Architecture and the isolated synthetic contract/migration/service foundation
+are complete. The Discourse lab, verified-SSO/account-linking fixtures, signed
+bridge and dead-letter fixtures, TypeScript contracts, seven append-only
+migrations, synthetic repository/services/projections, structured composer,
+and capability queues are implemented and merged.
 
-- isolated synthetic Discourse laboratory;
-- supported verified SSO/account-linking spike;
-- signed webhook/API bridge and dead-letter reconciliation;
-- TypeScript runtime contracts and PostgreSQL migrations;
-- repository/service/public-projection implementation;
-- progressive forum composer and public frontier UI;
-- moderation, privacy, scientific-annotation, safety, and appeals queues;
+The following remain separate implementation, review, pilot, or release work,
+not missing architecture or an implied continuation of the synthetic slice:
+
+- visual/public forum and frontier UI;
+- staffed moderation, privacy, scientific-annotation, safety, and appeals
+  operations;
 - legal/regulatory review of digital-platform adverse-event responsibilities;
 - security, privacy/reidentification, abuse/manipulation, backup/restore, deletion/cache, and rollback acceptance;
 - bounded real-user pilot under separate owner authorization;
 - production deployment and direct product acceptance.
 
-## Exact Codex handoff
+## Historical exact Codex handoff — completed 2026-08-31
 
 > Continue the AskRigor Community Health Forum and Public Lead Frontier from GitHub, not this prompt. Re-read `AGENTS.md`, the complete canonical Universal and HRP protocol files, `project/PROJECT_INSTRUCTIONS.md`, `project/FORUM_SIGNAL_MODULE.md`, `docs/public-atlas/INDEX.md`, and the forum/lead prior-work scan, spec, machine contract, synthetic fixtures, implementation plan, work-queue entry, and architecture receipt. Reconcile the current PR stack first: PR #142 predates the corrected public-lead rule and must be rebased/reconciled rather than merged as-is. Implement only the isolated synthetic Discourse integration laboratory and contract/migration/service fixtures. Use synthetic users and synthetic health reports. Do not collect real stories, deploy a public forum, index content publicly, activate research recruitment, publish a real lead, or automate regulatory reporting. Preserve the invariant that deidentified secondhand reports may be public research leads and that public visibility is independent from evidentiary strength. Run the complete applicable deterministic gate, review the final diff, and save exact receipts in GitHub.
 
@@ -174,4 +187,4 @@ Architecture is complete. The following are implementation, review, pilot, or re
 
 `ROOT_PRODUCT_NOT_COMPLETE`
 
-`READY_FOR_SYNTHETIC_IMPLEMENTATION`
+`SYNTHETIC_HOSTILE_MATRIX_FOUNDATION_MERGED`
