@@ -7,7 +7,9 @@ import { ACCESS_STATUSES, errorEnvelope } from "@askrigor/contracts";
 import {
   PostgresEvidenceRepository,
   PUBLIC_PROLACTINOMA_GAP_SLUG,
+  RESEARCH_USE_NOTICE_VERSION,
   type PublicEvidenceGapIntakeService,
+  type ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
 import {
   getProtocolManifest,
@@ -76,8 +78,17 @@ import {
   evidenceGapReviewInputSchema,
   evidenceGapReviewOutputSchema,
   evidenceGapReviewSecurityMetadata,
-  publicToolSecurityMetadata,
 } from "./evidence-gap-review-tool.js";
+import {
+  createManageResearchAccessHandler,
+  createResearchAccessGuard,
+  createSubmitResearchContributionHandler,
+  manageResearchAccessInputSchema,
+  manageResearchAccessOutputSchema,
+  researchUseSecurityMetadata,
+  submitResearchContributionInputSchema,
+  submitResearchContributionOutputSchema,
+} from "./research-contributor-access-tool.js";
 import {
   researchFrontierInputSchema,
   researchFrontierOutputSchema,
@@ -429,6 +440,12 @@ const READ_ONLY_ANNOTATIONS: ToolAnnotations = {
   destructiveHint: false,
   openWorldHint: false
 };
+const MUTATING_ANNOTATIONS: ToolAnnotations = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+};
 const DEFAULT_PUBMED_PAGE_SIZE = 20;
 const MAX_PUBMED_PAGE_SIZE = 100;
 const DEFAULT_EUROPE_PMC_PAGE_SIZE = 20;
@@ -446,10 +463,17 @@ const OPEN_FULL_TEXT_MCP_OPERATION_NAMES = new Set([
 const PRIVATE_MCP_OPERATION_NAMES = new Set([
   "review_evidence_gap_submissions",
 ]);
+const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
+  "manage_research_access",
+  "submit_research_contribution",
+]);
 
 export interface RegisterToolsOptions {
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
+  allowedReviewerSubjects?: ReadonlySet<string>;
+  researchContributorAccessService?: ResearchContributorAccessService;
+  researchAccessRequired?: boolean;
 }
 
 function defineResearchOperations(
@@ -983,6 +1007,34 @@ function defineResearchOperations(
   );
 
   registrar.registerTool(
+    "manage_research_access",
+    {
+      description: `Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version ${RESEARCH_USE_NOTICE_VERSION}; only eligible deidentified structured research progress may enter a non-authoritative review inbox. Paid private mode contributes nothing and activates only for an existing verified entitlement; this release offers no price or checkout.`,
+      inputSchema: manageResearchAccessInputSchema,
+      outputSchema: manageResearchAccessOutputSchema,
+      annotations: MUTATING_ANNOTATIONS,
+    },
+    createManageResearchAccessHandler({
+      service: options.researchContributorAccessService,
+      resourceMetadataUrl: options.oauthResourceMetadataUrl,
+    }),
+  );
+
+  registrar.registerTool(
+    "submit_research_contribution",
+    {
+      description: "Submit one already-validated deidentified formal research frontier or source-bound study/review analysis to the pending review inbox. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
+      inputSchema: submitResearchContributionInputSchema,
+      outputSchema: submitResearchContributionOutputSchema,
+      annotations: MUTATING_ANNOTATIONS,
+    },
+    createSubmitResearchContributionHandler({
+      service: options.researchContributorAccessService,
+      resourceMetadataUrl: options.oauthResourceMetadataUrl,
+    }),
+  );
+
+  registrar.registerTool(
     "review_evidence_gap_submissions",
     {
       description: `Retrieve the private, deidentified review projection for submitted cases in the ${PUBLIC_PROLACTINOMA_GAP_SLUG} evidence gap. Requires OAuth scope cases:review. Participant-reported cases remain explicitly unverified and noncausal; partial and comparison cases are retained and labeled.`,
@@ -993,6 +1045,7 @@ function defineResearchOperations(
     createEvidenceGapReviewHandler({
       service: options.publicEvidenceGapReviewService,
       resourceMetadataUrl: options.oauthResourceMetadataUrl,
+      allowedReviewerSubjects: options.allowedReviewerSubjects,
     }),
   );
 }
@@ -1147,7 +1200,15 @@ function collectResearchOperations(
       const annotations = Object.freeze({ ...config.annotations });
       const _meta = PRIVATE_MCP_OPERATION_NAMES.has(name)
         ? evidenceGapReviewSecurityMetadata()
-        : publicToolSecurityMetadata();
+        : researchUseSecurityMetadata();
+      const guardedExecute = options.researchAccessRequired === true &&
+          !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
+          !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name)
+        ? createResearchAccessGuard(execute, {
+            service: options.researchContributorAccessService,
+            resourceMetadataUrl: options.oauthResourceMetadataUrl,
+          })
+        : execute;
       const mcpConfig = Object.freeze({
         ...config,
         annotations,
@@ -1162,8 +1223,9 @@ function collectResearchOperations(
         annotations,
         actionEnabled:
           !OPEN_FULL_TEXT_MCP_OPERATION_NAMES.has(name) &&
-          !PRIVATE_MCP_OPERATION_NAMES.has(name),
-        execute,
+          !PRIVATE_MCP_OPERATION_NAMES.has(name) &&
+          !RESEARCH_ACCESS_CONTROL_OPERATION_NAMES.has(name),
+        execute: guardedExecute,
         mcpConfig
       }));
       return undefined;
@@ -1171,8 +1233,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 24) {
-    throw new Error(`Expected 24 research operations; received ${operations.length}`);
+  if (operations.length !== 26) {
+    throw new Error(`Expected 26 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

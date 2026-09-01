@@ -11,10 +11,12 @@ import {
 } from "jose";
 
 export const CASE_REVIEW_SCOPE = "cases:review";
+export const RESEARCH_USE_SCOPE = "research:use";
 
 export interface AskRigorOAuthResourceServer {
   resourceUrl: URL;
   authorizationServerUrls: readonly URL[];
+  reviewerSubjects: ReadonlySet<string>;
   verifier: OAuthTokenVerifier;
 }
 
@@ -48,7 +50,7 @@ export function oauthResourceServerFromEnv(
     issuerUrl,
     jwks: createRemoteJWKSet(jwksUrl),
     allowedClientIds: [allowedClientId],
-    allowedSubjects: [allowedSubject],
+    reviewerSubjects: [allowedSubject],
   });
 }
 
@@ -58,6 +60,7 @@ export function createJwtOAuthResourceServer(options: {
   jwks: JWTVerifyGetKey;
   allowedClientIds?: readonly string[];
   allowedSubjects?: readonly string[];
+  reviewerSubjects?: readonly string[];
 }): AskRigorOAuthResourceServer {
   const resourceUrl = parseHttpsUrl(
     options.resourceUrl.href,
@@ -69,9 +72,11 @@ export function createJwtOAuthResourceServer(options: {
   );
   const allowedClientIds = new Set(options.allowedClientIds ?? []);
   const allowedSubjects = new Set(options.allowedSubjects ?? []);
+  const reviewerSubjects = new Set(options.reviewerSubjects ?? []);
   return Object.freeze({
     resourceUrl,
     authorizationServerUrls: Object.freeze([issuerUrl]),
+    reviewerSubjects,
     verifier: {
       async verifyAccessToken(token: string): Promise<AuthInfo> {
         if (token.length === 0 || token.length > 16_384) {
@@ -152,7 +157,7 @@ export function oauthProtectedResourceMetadata(
   return {
     resource: config.resourceUrl.href,
     authorization_servers: config.authorizationServerUrls.map(({ href }) => href),
-    scopes_supported: [CASE_REVIEW_SCOPE],
+    scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
   };
 }
 

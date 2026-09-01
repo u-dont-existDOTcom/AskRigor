@@ -13,14 +13,18 @@ import {
   generateKeyPair,
 } from "jose";
 import {
+  InMemoryResearchContributorAccessStore,
   InMemoryPublicGapIntakeStore,
   PUBLIC_PROLACTINOMA_GAP_SLUG,
   PublicEvidenceGapIntakeService,
+  RESEARCH_USE_NOTICE_VERSION,
+  ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
   CASE_REVIEW_SCOPE,
+  RESEARCH_USE_SCOPE,
   createJwtOAuthResourceServer,
   oauthResourceServerFromEnv,
   type AskRigorOAuthResourceServer,
@@ -123,7 +127,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     }
   });
 
-  it("requires exact client and owner-subject bindings when OAuth is enabled from the environment", () => {
+  it("requires the exact client binding and keeps the configured owner subject only as reviewer authority", () => {
     const baseEnv = {
       ASKRIGOR_OAUTH_ENABLED: "true",
       ASKRIGOR_OAUTH_RESOURCE_URL: resourceUrl.href,
@@ -133,7 +137,9 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       ASKRIGOR_OAUTH_ALLOWED_SUBJECT: "owner",
     } satisfies NodeJS.ProcessEnv;
 
-    expect(oauthResourceServerFromEnv(baseEnv)).toBeDefined();
+    const configured = oauthResourceServerFromEnv(baseEnv);
+    expect(configured).toBeDefined();
+    expect(configured!.reviewerSubjects).toEqual(new Set(["owner"]));
     for (const missing of [
       "ASKRIGOR_OAUTH_ALLOWED_CLIENT_ID",
       "ASKRIGOR_OAUTH_ALLOWED_SUBJECT",
@@ -146,7 +152,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     }
   });
 
-  it("keeps public tools anonymous and declares only case review as OAuth-protected", async () => {
+  it("requires research OAuth for ordinary tools and keeps case review separately scoped", async () => {
     const { baseUrl } = await startServer(await seededService());
     const client = await connectClient(baseUrl);
 
@@ -159,15 +165,15 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
       name === "review_evidence_gap_submissions"
     );
 
-    expect(manifest.isError).not.toBe(true);
-    expect(tools).toHaveLength(24);
+    expect(manifest.isError).toBe(true);
+    expect(tools).toHaveLength(26);
     expect(review?._meta).toEqual({
       securitySchemes: [{ type: "oauth2", scopes: [CASE_REVIEW_SCOPE] }],
     });
     expect(tools.filter(({ name }) =>
       name !== "review_evidence_gap_submissions"
     ).every(({ _meta }) => JSON.stringify(_meta) === JSON.stringify({
-      securitySchemes: [{ type: "noauth" }],
+      securitySchemes: [{ type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
     }))).toBe(true);
   });
 
@@ -186,7 +192,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     expect(await metadata.json()).toEqual({
       resource: resourceUrl.href,
       authorization_servers: [issuerUrl.href],
-      scopes_supported: [CASE_REVIEW_SCOPE],
+      scopes_supported: [RESEARCH_USE_SCOPE, CASE_REVIEW_SCOPE],
     });
     expect(result.isError).toBe(true);
     expect(result.structuredContent).toEqual({
@@ -203,7 +209,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     ]);
   });
 
-  it("rejects stale, wrong-resource, and insufficient-scope tokens without breaking public tools", async () => {
+  it("rejects stale, wrong-resource, and insufficient-scope tokens for both research and review", async () => {
     for (const token of ["expired", "wrong-resource", "unscoped", "invalid"]) {
       const { baseUrl } = await startServer(await seededService());
       const client = await connectClient(baseUrl, token);
@@ -216,7 +222,7 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
         arguments: { gap_slug: PUBLIC_PROLACTINOMA_GAP_SLUG },
       });
 
-      expect(manifest.isError, token).not.toBe(true);
+      expect(manifest.isError, token).toBe(true);
       expect(review.isError, token).toBe(true);
       expect(review.structuredContent, token).toMatchObject({
         ok: false,
@@ -227,6 +233,66 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
         },
       });
     }
+  });
+
+  it("activates reciprocal free access explicitly and revocation blocks later research", async () => {
+    const { baseUrl } = await startServer(await seededService());
+    const client = await connectClient(baseUrl, "researcher");
+
+    const before = await client.callTool({
+      name: "manage_research_access",
+      arguments: { action: "inspect" },
+    });
+    expect(before.structuredContent).toMatchObject({
+      ok: true,
+      access: { status: "UNENROLLED", paidCheckoutAvailable: false },
+    });
+    const blocked = await client.callTool({
+      name: "get_protocol_manifest",
+      arguments: { protocol: "universal" },
+    });
+    expect(blocked.isError).toBe(true);
+
+    const activated = await client.callTool({
+      name: "manage_research_access",
+      arguments: {
+        action: "accept_free_contributor",
+        agreement: {
+          noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+          eligibleDeidentifiedResearchContributionRequired: true,
+          prohibitedPrivateAndRawContentExcluded: true,
+          proposalReviewAndNoAuthorityAcknowledged: true,
+          paidPrivateAlternativeAcknowledged: true,
+        },
+      },
+    });
+    expect(activated.structuredContent).toMatchObject({
+      ok: true,
+      access: {
+        status: "ACTIVE",
+        mode: "FREE_CONTRIBUTOR",
+        contributionRequired: true,
+      },
+    });
+    const permitted = await client.callTool({
+      name: "get_protocol_manifest",
+      arguments: { protocol: "universal" },
+    });
+    expect(permitted.isError).not.toBe(true);
+
+    const revoked = await client.callTool({
+      name: "manage_research_access",
+      arguments: { action: "revoke" },
+    });
+    expect(revoked.structuredContent).toMatchObject({
+      ok: true,
+      access: { status: "REVOKED", mode: null },
+    });
+    const blockedAgain = await client.callTool({
+      name: "get_protocol_manifest",
+      arguments: { protocol: "universal" },
+    });
+    expect(blockedAgain.isError).toBe(true);
   });
 
   it("returns only the existing redacted, partial-aware, noncausal review projection with cases:review", async () => {
@@ -264,6 +330,20 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     expect(JSON.stringify(result.structuredContent)).not.toContain(
       "participant@example.com",
     );
+  });
+
+  it("rejects a non-owner subject even when its token carries cases:review", async () => {
+    const { baseUrl } = await startServer(await seededService());
+    const client = await connectClient(baseUrl, "nonowner-reviewer");
+    const result = await client.callTool({
+      name: "review_evidence_gap_submissions",
+      arguments: { gap_slug: PUBLIC_PROLACTINOMA_GAP_SLUG },
+    });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({
+      ok: false,
+      error: { code: "insufficient_scope" },
+    });
   });
 });
 
@@ -308,20 +388,31 @@ function oauthConfig(): AskRigorOAuthResourceServer {
   return {
     resourceUrl,
     authorizationServerUrls: [issuerUrl],
+    reviewerSubjects: new Set(["owner-test"]),
     verifier: {
       async verifyAccessToken(token: string): Promise<AuthInfo> {
         if (token === "invalid") throw new Error("invalid token");
         return {
           token,
           clientId: "chatgpt-test-client",
-          scopes: token === "unscoped" ? [] : [CASE_REVIEW_SCOPE],
+          scopes: token === "unscoped"
+            ? []
+            : token === "researcher"
+              ? [RESEARCH_USE_SCOPE]
+              : [CASE_REVIEW_SCOPE],
           expiresAt: token === "expired"
             ? Math.floor(Date.now() / 1_000) - 60
             : Math.floor(Date.now() / 1_000) + 300,
           resource: token === "wrong-resource"
             ? new URL("https://other.example/mcp")
             : resourceUrl,
-          extra: { subject: "owner-test" },
+          extra: {
+            subject: token === "nonowner-reviewer"
+              ? "other-user"
+              : token === "researcher"
+                ? "research-user"
+                : "owner-test",
+          },
         };
       },
     },
@@ -335,6 +426,10 @@ async function startServer(
     publicServerEnabled: true,
     publicEvidenceGapReviewService: service,
     oauthResourceServer: oauthConfig(),
+    researchContributorAccessService: new ResearchContributorAccessService({
+      store: new InMemoryResearchContributorAccessStore(),
+      identitySecret: Buffer.alloc(32, 12),
+    }),
   });
   servers.push(server);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
