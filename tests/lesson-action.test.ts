@@ -450,14 +450,14 @@ describe("consequential lesson Action", () => {
     }
   });
 
-  it("does not add a lesson operation to the twenty-four-tool MCP inventory", async () => {
+  it("does not add a lesson operation to the twenty-six-tool MCP inventory", async () => {
     const server = createAskRigorServer();
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: "lesson-action-test", version: "1.0.0" });
     await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
     try {
       const tools = await client.listTools();
-      expect(tools.tools).toHaveLength(24);
+      expect(tools.tools).toHaveLength(26);
       expect(tools.tools.map(({ name }) => name)).not.toContain("submit_lesson_candidate");
     } finally {
       await Promise.all([client.close(), server.close()]);

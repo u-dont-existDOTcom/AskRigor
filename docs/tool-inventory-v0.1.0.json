@@ -102,7 +102,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -210,7 +213,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -323,7 +329,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -568,7 +577,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -777,7 +789,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -1061,7 +1076,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -1425,7 +1443,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -1778,7 +1799,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -2653,7 +2677,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -3274,7 +3301,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -3570,7 +3600,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -3851,7 +3884,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -4085,7 +4121,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -4340,7 +4379,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -4573,7 +4615,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -4823,7 +4868,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -5228,7 +5276,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -5640,7 +5691,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -6405,7 +6459,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -6841,7 +6898,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -7345,7 +7405,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -8638,7 +8701,10 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }
@@ -9073,7 +9139,390 @@
       "_meta": {
         "securitySchemes": [
           {
-            "type": "noauth"
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "manage_research_access",
+      "description": "Inspect or choose AskRigor's research-use mode. Free use requires explicit agreement to version free-contributor-v1-2026-09-01; only eligible deidentified structured research progress may enter a non-authoritative review inbox. Paid private mode contributes nothing and activates only for an existing verified entitlement; this release offers no price or checkout.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "inspect",
+              "accept_free_contributor",
+              "activate_paid_private",
+              "revoke"
+            ]
+          },
+          "agreement": {
+            "type": "object",
+            "properties": {
+              "noticeVersion": {
+                "type": "string",
+                "const": "free-contributor-v1-2026-09-01"
+              },
+              "eligibleDeidentifiedResearchContributionRequired": {
+                "type": "boolean",
+                "const": true
+              },
+              "prohibitedPrivateAndRawContentExcluded": {
+                "type": "boolean",
+                "const": true
+              },
+              "proposalReviewAndNoAuthorityAcknowledged": {
+                "type": "boolean",
+                "const": true
+              },
+              "paidPrivateAlternativeAcknowledged": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "noticeVersion",
+              "eligibleDeidentifiedResearchContributionRequired",
+              "prohibitedPrivateAndRawContentExcluded",
+              "proposalReviewAndNoAuthorityAcknowledged",
+              "paidPrivateAlternativeAcknowledged"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "access": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": [
+                  "UNENROLLED",
+                  "ACTIVE",
+                  "REVOKED"
+                ]
+              },
+              "mode": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "enum": [
+                      "FREE_CONTRIBUTOR",
+                      "PAID_PRIVATE"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "noticeVersion": {
+                "type": "string",
+                "const": "free-contributor-v1-2026-09-01"
+              },
+              "notice": {
+                "type": "string",
+                "const": "Free AskRigor use is reciprocal: eligible deidentified structured research progress from this use may be submitted to AskRigor's shared research repository. AskRigor excludes raw chat, prompts, identity or contact details, private health narratives, uploads, raw source or provider bodies, and YouTube or community content from this shared proposal path. Submitted proposals are reviewed and do not become evidence, conclusions, or scientific authority merely because they were submitted or repeated. Paid private access does not contribute to the shared repository and requires an active verified entitlement."
+              },
+              "contributionRequired": {
+                "type": "boolean"
+              },
+              "privateEntitlementRequired": {
+                "type": "boolean"
+              },
+              "paidCheckoutAvailable": {
+                "type": "boolean",
+                "const": false
+              },
+              "activatedAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "updatedAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "mode",
+              "noticeVersion",
+              "notice",
+              "contributionRequired",
+              "privateEntitlementRequired",
+              "paidCheckoutAvailable",
+              "activatedAt",
+              "updatedAt"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "authorization_required",
+                  "insufficient_scope",
+                  "research_access_service_unavailable",
+                  "research_access_required",
+                  "research_access_revoked",
+                  "paid_private_entitlement_required",
+                  "paid_private_does_not_contribute",
+                  "free_contributor_required",
+                  "contribution_privacy_rejected",
+                  "invalid_request"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "submit_research_contribution",
+      "description": "Submit one already-validated deidentified formal research frontier or source-bound study/review analysis to the pending review inbox. Never include raw chat, prompts, identity/contact details, private health narratives, uploads, raw source/provider bodies, or YouTube/community data. A proposal is not canonical evidence and does not gain scientific authority by submission. Paid-private mode cannot use this operation.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "proposalKind": {
+            "type": "string",
+            "enum": [
+              "RESEARCH_FRONTIER",
+              "SOURCE_ANALYSIS"
+            ]
+          },
+          "privacyBoundary": {
+            "type": "object",
+            "properties": {
+              "rawChatPersisted": {
+                "type": "boolean",
+                "const": false
+              },
+              "promptPersisted": {
+                "type": "boolean",
+                "const": false
+              },
+              "accountIdentityInPayload": {
+                "type": "boolean",
+                "const": false
+              },
+              "privateHealthNarrativePersisted": {
+                "type": "boolean",
+                "const": false
+              },
+              "uploadContentPersisted": {
+                "type": "boolean",
+                "const": false
+              },
+              "rawSourceContentPersisted": {
+                "type": "boolean",
+                "const": false
+              },
+              "rawProviderResponsePersisted": {
+                "type": "boolean",
+                "const": false
+              },
+              "communityDataPersisted": {
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "rawChatPersisted",
+              "promptPersisted",
+              "accountIdentityInPayload",
+              "privateHealthNarrativePersisted",
+              "uploadContentPersisted",
+              "rawSourceContentPersisted",
+              "rawProviderResponsePersisted",
+              "communityDataPersisted"
+            ],
+            "additionalProperties": false
+          },
+          "payload": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "proposalKind",
+          "privacyBoundary",
+          "payload"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "proposal": {
+            "type": "object",
+            "properties": {
+              "proposalId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "proposalKind": {
+                "type": "string",
+                "enum": [
+                  "RESEARCH_FRONTIER",
+                  "SOURCE_ANALYSIS"
+                ]
+              },
+              "payloadSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "status": {
+                "type": "string",
+                "const": "PENDING_REVIEW"
+              },
+              "partial": {
+                "type": "boolean"
+              },
+              "writeStatus": {
+                "type": "string",
+                "enum": [
+                  "inserted",
+                  "idempotent_replay"
+                ]
+              },
+              "canonicalEvidenceChanged": {
+                "type": "boolean",
+                "const": false
+              }
+            },
+            "required": [
+              "proposalId",
+              "proposalKind",
+              "payloadSha256",
+              "status",
+              "partial",
+              "writeStatus",
+              "canonicalEvidenceChanged"
+            ],
+            "additionalProperties": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "authorization_required",
+                  "insufficient_scope",
+                  "research_access_service_unavailable",
+                  "research_access_required",
+                  "research_access_revoked",
+                  "paid_private_entitlement_required",
+                  "paid_private_does_not_contribute",
+                  "free_contributor_required",
+                  "contribution_privacy_rejected",
+                  "invalid_request"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "research:use"
+            ]
           }
         ]
       }

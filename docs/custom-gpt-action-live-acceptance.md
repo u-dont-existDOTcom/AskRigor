@@ -1,5 +1,19 @@
 # Custom GPT Action live acceptance
 
+## 2026-09-01 reciprocal research access candidate — not live-accepted
+
+The standard plugin candidate has 26 MCP operations: 24 reads plus the explicit
+non-destructive access-mode and pending-proposal writes. The five-operation
+legacy Custom GPT Action and its 4,752-character Instructions remain unchanged;
+those legacy research Action routes are omitted whenever OAuth research access
+is active so they cannot bypass the mode choice. The standard inventory SHA-256
+is `d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4` and
+the synchronization ledger SHA-256 is
+`3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`.
+The unchanged Instructions SHA-256 is
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+No deployment, connector refresh, or product-interface acceptance is claimed.
+
 ## 2026-08-31 research-frontier catalog discovery candidate — not live-accepted
 
 The candidate leaves the five-operation Custom GPT Action and its 4,752-

@@ -1,6 +1,6 @@
 # AskRigor v0 data map and privacy review
 
-Status at 2026-08-31: this remains the detailed engineering inventory.
+Status at 2026-09-01: this remains the detailed engineering inventory.
 The live August 12, 2026 notice at release `f928b95e29cd` was the pre-lesson privacy notice.
 The August 13, 2026 lesson notice is live and was reverified before the lesson Action was enabled.
 The August 30 publisher-identity notice is deployed from merge
@@ -16,6 +16,15 @@ deletion. There is no automatic off-host backup. Withdrawal removes active
 content and leaves a no-content row; PostgreSQL write-ahead/storage remnants
 age out through ordinary maintenance. The participant browser stores the case
 ID and recovery key in local storage; the server stores only the key hash.
+
+The September 1 release candidate adds reciprocal connected research access.
+Free use requires an explicit versioned agreement permitting eligible
+deidentified structured formal-research progress to enter a private proposal
+review path. Paid private use contributes nothing and activates only for an
+already verified entitlement. The proposal path excludes raw chat/prompts,
+identity and contact data, private health narratives, uploads, raw source and
+provider bodies, credentials, and all community/YouTube content. It is not an
+automatic evidence-authority path.
 
 ## Purpose and boundary
 
@@ -54,8 +63,10 @@ responses, personal data, and community data are not persisted.
 
 This frontier cannot represent YouTube/community source classes, video/comment/
 reply/channel/user/person identifiers, or common community-provider locators.
-It writes only through the one-shot administrator profile; automatic public-run
-write-through remains absent. Its PostgreSQL rows and hashes are canonical.
+Canonical frontier rows write only through the one-shot administrator profile.
+An authenticated free-contributor runtime may submit the same strict shape
+only to a separate `PENDING_REVIEW` proposal table. It cannot promote or write
+canonical frontier rows. Canonical PostgreSQL rows and hashes remain authoritative.
 Obsidian and Mermaid renderings are deterministic derived views and cannot
 establish search completion, source quality, or a health claim.
 
@@ -99,9 +110,12 @@ causal analysis in its machine response. Public deployment still requires an
 accurate public notice for GPT/provider processing, active and backup
 retention, key operation, and the limits of deterministic redaction.
 
-The public AskRigor plugin itself remains public: anonymous research tools may
-receive private text chosen by the invoking user, as plugins generally can,
-without gaining database access. Cross-user retrieval is a separate boundary.
+The public AskRigor plugin requires connected-account OAuth for ordinary
+research. Before use, the person must explicitly activate free contributor
+mode or an already entitled paid private mode. Authentication does not itself
+grant canonical repository write authority: free mode may submit only strict
+deidentified proposals, while paid private mode submits none. Cross-user
+retrieval is a separate boundary.
 The `review_evidence_gap_submissions` MCP operation requires a validated OAuth
 JWT with the exact `cases:review` scope. The resource server validates
 signature, issuer, audience, expiry, client identity, and scopes before
@@ -110,9 +124,11 @@ resource metadata contain only endpoint and scope metadata. The tool receives
 the already bounded review projection; it does not receive recovery keys,
 encryption material, contact destinations, raw database envelopes, or OAuth
 tokens in its result. Auth0 is the approved external identity provider. It
-processes only the owner/reviewer identity, login/consent, and related security
-metadata; participants do not authenticate with Auth0, and AskRigor sends it no
-participant case content. API RBAC restricts `cases:review` to the owner role.
+processes connected-account identity, login/consent, and related security
+metadata; public evidence-gap participants do not authenticate with Auth0, and
+AskRigor sends it no participant case or proposal content. API RBAC restricts
+`cases:review` to the owner role; the exact owner subject is checked again by
+AskRigor and is not a global research-user allowlist.
 
 The local and conditionally authorized Railway pilot boundaries are defined by
 `docs/living-evidence-source-storage-policy.md` and
@@ -204,6 +220,15 @@ activates no public DNS, indexing, recruitment, real lead publication,
 regulatory report, provider account, or deployment.
 
 AskRigor has deliberately separate processing paths:
+
+- **Connected research-access path:** Auth0 validates the connected account.
+  AskRigor HMACs its stable subject with a server-held key and stores only that
+  derived account key, access mode, versioned agreement/status, and timestamps.
+  Free contributor mode can submit only an existing strict formal-frontier or
+  source-analysis payload plus exact privacy false markers to a private pending
+  proposal table. Paid private mode cannot submit a proposal. Revocation blocks
+  later calls and withdraws pending proposals; accepted canonical history is a
+  separate reviewed boundary.
 
 - **Controlled Custom GPT research path:** four authenticated Actions start,
   continue, inspect technical status, and finalize one server-owned research
@@ -497,8 +522,9 @@ exact UTF-8 chunk transiently and keeps no protocol-loading session record.
 | Disabled Phase J n8n control plane | AskRigor-side ephemeral state: opaque n8n execution ID, opaque AskRigor session ID, current digest/directive, bounded retry/no-progress counters, safe timestamps/reason codes, and after authorization only the output boundary and permit payload hash. n8n receives only the opaque n8n execution ID and safe projection; it does not receive the inner session ID or research content. | Process-memory AskRigor store only. The disposable pinned n8n runtime disables saving successful, failed, progress, and manual execution data and deletes its temporary database after validation. No durable database, backup, external notifier, production service, or new retention is approved. |
 | Non-production external-evidence artifact store | Strict normalized Crossref/FORRT envelopes and, only when a server executor is supplied, Retraction Watch/PubPeer/Epistemonikos envelopes for one public DOI; content-derived artifact ID; provider/source identity; media type; byte count; content and descriptor hashes | Phase G deliberately keeps this store in process memory only, with default bounds of 128 entries, 10 MiB per artifact, and 32 MiB total. Bytes are cloned, exact artifacts deduplicated, and entries explicitly revocable; process loss discards them. There is no disk, database, object store, backup, production singleton, or public route. An interrupted audit reruns rather than retaining raw artifacts. |
 | Retraction Watch public snapshot mirror | Fixed official source commit/path/file hash; normalized public publication-integrity fields; DOI/PMID indexes; manifest/file hashes; source-check and activation timestamps; current/previous pointer | Separate mode-`0700` host directory. A fixed daily one-shot container writes the mirror without receiving AskRigor runtime secrets; the application mount is read-only. Only active and previous verified generations are retained; abandoned staging and older generations are removed after verified activation. No backup. A pre-activation sync failure preserves the prior active pointer; post-activation cleanup failure remains visible and may temporarily leave an extra immutable generation. Older than 72 hours is stale/partial. The source-only implementation and deployment template are approved in Phase G, with final live activation evidence deferred to the release phase. |
-| Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP/Action process has a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity. No database port is published and no automatic off-host backup is added in this phase. |
-| Curated formal research frontier | Exact current protocol manifests; de-identified formal-source query/hash; provider and formal source class; requested and confirmed half-open date windows; access/exhaustion/count receipt; public formal identifiers/title/date; append-only candidate decision/reason; unresolved, blocked, coverage-gap, discriminator, and delta trails with next capability or terminal reason. Read-only catalog search accepts transient free text and returns only stored topic/question metadata, exact selectors, lexical match fields, and descriptive coverage counts. | One strict writer-only `import-frontier` transaction in the same private PostgreSQL service. The contribution requires explicit false raw-source/raw-provider/personal/community persistence markers. Source/provider/candidate/trail scope and lineage are database-checked; update/delete fails. The public service remains SELECT-only; catalog lookup runs in a read-only transaction, and no public request is automatically written. YouTube/community classes and locators are rejected. Deterministic Obsidian/Mermaid exports are derived, non-authoritative views. |
+| Curated production living-evidence study audit | Exact public DOI/PMID/PMCID identifiers and source-version hash; source locator/access state; complete AskRigor-authored validated 13-domain study-method audit and claim-capability findings; unresolved/future-analysis items; canonical protocol, freshness, impact, and validator receipts | A one-shot administrator process receives the exact public document index transiently over bounded stdin and writes only the source-free strict contribution to a private PostgreSQL service on the AskRigor VPS. The public MCP canonical-lookup component uses a SELECT-only role, performs one 1.5-second lookup at acquisition and one at requested reuse, and writes no public-user request, chat, tool call, health narrative, article block, provider body, transcript, comment, reply, or identity to canonical tables. No database port is published and no automatic off-host backup is added in this phase. |
+| Curated formal research frontier | Exact current protocol manifests; de-identified formal-source query/hash; provider and formal source class; requested and confirmed half-open publication/index windows; access/exhaustion/count receipt; public formal identifiers/title/date; append-only candidate decision/reason; unresolved, blocked, coverage-gap, discriminator, and delta trails with next capability or terminal reason. Read-only catalog search accepts transient free text and returns only stored topic/question metadata, exact selectors, lexical match fields, and descriptive coverage counts. | One strict writer-only `import-frontier` transaction in the same private PostgreSQL service. The contribution requires explicit false raw-source/raw-provider/personal/community persistence markers. Source/provider/candidate/trail scope and lineage are database-checked; update/delete fails. The canonical lookup role remains SELECT-only; catalog lookup runs in a read-only transaction. The distinct proposal role can insert only pending strict proposals, not canonical rows. YouTube/community classes and locators are rejected. Deterministic Obsidian/Mermaid exports are derived, non-authoritative views. |
+| Connected research-use account and pending contribution proposal | HMAC-SHA-256 account key; active/revoked state; free-contributor or paid-private mode; exact notice/agreement fields and timestamps; verified-entitlement status; strict deidentified formal-frontier or source-analysis proposal, proposal hash/kind/partial state, eight privacy false markers, and review timestamps/reason | A distinct least-privilege PostgreSQL role can select/insert/update access accounts, read entitlements, select/insert proposals, and execute one security-definer function that changes only pending proposals for a supplied HMAC account key to `WITHDRAWN`. It cannot grant entitlements, change proposal review dispositions, or write canonical evidence/frontier tables. The service, not the client, derives the key from the authenticated OAuth subject. Proposal payloads exclude raw chat/prompts, identity/contact data, private health narratives, uploads, raw source/provider bodies, credentials, and community/YouTube data. Pending rows have no automatic expiry in this slice and no automatic off-host backup. |
 
 Full application request bodies and response bodies are not logged or written
 to durable storage for either research transport. The Action adapter retains
@@ -611,7 +637,10 @@ retention and provider-side deletion remain governed by the provider.
 
 ## Research data not persistently stored
 
-- User accounts, profiles, authentication sessions, or user-entered research history.
+- Raw OAuth subjects, account email/contact fields, access tokens, passwords,
+  authentication sessions, raw chat/prompts, or unrestricted user-entered
+  research history. The narrowly disclosed HMAC research-use account and strict
+  pending-proposal records are the exception.
 - Raw search-result bodies, captions, transcripts, comments, replies, commenter
   identities/display names, return-search result text, full article blocks/text,
   unrestricted provider bodies, Gemini prompts/responses, or provider
@@ -624,14 +653,22 @@ retention and provider-side deletion remain governed by the provider.
 - Provider API keys, deployment credentials, or ChatGPT connection IDs in tracked repository files or MCP responses.
 - Full article text, server-side transcript copies, private/deleted/held-for-review content, cookies, private communities, or generic scraped web pages.
 
-The optional lesson path is the narrow durable-storage exception to the
-research path's no-durable-persistence boundary. It stores only the screened private candidate and
-anonymous recurrence metadata listed above; it does not create a research
-history, transcript store, user profile, or automatic-learning database.
+The optional lesson path is one narrow durable-storage exception. It stores
+only the screened private candidate and anonymous recurrence metadata listed
+above; it does not create a transcript store or user profile. The independently
+disclosed living-evidence, frontier, participant-intake, research-access, and
+pending-proposal stores have their own strict contracts and authority boundaries.
 
 ## Response minimization and security controls
 
-- Every MCP tool is annotated `readOnlyHint: true`, `destructiveHint: false`, and `openWorldHint: false`; the Action-only transcript, treatment-landscape, automated Gemini-candidate, and legacy validation routes are likewise public, read-only, and non-consequential. The automated scout consumes bounded provider quota but changes no provider, user, or server content.
+- Of 26 MCP operations, 24 are annotated `readOnlyHint: true`. The two explicit
+  research-access/proposal operations are declared writes with
+  `destructiveHint: false` and `openWorldHint: false`. They require authenticated
+  `research:use`; all ordinary research operations also require that scope and
+  an active free-contributor or paid-private mode. The Action-only transcript,
+  treatment-landscape, automated Gemini-candidate, and legacy validation routes
+  remain read-only; legacy research Actions are omitted whenever OAuth research
+  access is active so they cannot bypass the mode choice.
 - Strict Zod input/output schemas reject undeclared input fields. Pagination cursors are opaque at the MCP boundary.
 - Internal external-evidence receipts use a server-held secret of at least 32
   UTF-8 bytes and domain-separated HMAC-SHA256; they bind session, study,

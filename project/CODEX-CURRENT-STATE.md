@@ -24,6 +24,14 @@ private health narratives, uploads, raw source/provider bodies, and
 YouTube/community data remain prohibited. Public submissions cannot directly
 mutate canonical evidence. Partial formal corpora remain usable and labeled.
 
+The generated standard MCP inventory contains 26 operations with SHA-256
+`d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4`.
+The generated synchronization ledger SHA-256 is
+`3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
+the unchanged controlled Instructions remain 4,752 characters with SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+These are candidate bytes, not a deployment or product-interface claim.
+
 Recovery authority is `../tasks/ACTIVE-TASK.json` and
 `../docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md`.
 The completed catalog, community-forum expansion, evidence-gap expansion, and

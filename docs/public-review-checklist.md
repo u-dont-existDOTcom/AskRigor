@@ -1,5 +1,21 @@
 # AskRigor v0 public-review checklist
 
+## 2026-09-01 reciprocal research access candidate
+
+Free connected research requires explicit versioned agreement to submit
+eligible deidentified structured formal-research progress for private review;
+paid private mode submits nothing and requires an existing verified
+entitlement. The standard catalog has 26 operations (24 reads and two explicit
+non-destructive writes), inventory SHA-256
+`d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4`.
+The generated synchronization ledger SHA-256 is
+`3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
+the unchanged 4,752-character Instructions SHA-256 is
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+Local deterministic and real PostgreSQL acceptance pass. Protected merge,
+deployment, exact installed-package receipt, connector refresh, and fresh
+ordinary-Chat acceptance remain required.
+
 ## 2026-08-31 research-frontier catalog discovery candidate
 
 The candidate contains 24 exact read-only MCP operations, with

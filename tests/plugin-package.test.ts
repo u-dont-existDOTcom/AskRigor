@@ -36,7 +36,7 @@ describe("AskRigor plugin package", () => {
     expect(ignored.split(/\r?\n/)).toContain(".app.json");
   });
 
-  it("publishes the ingestion-valid read-only manifest without local app wiring", async () => {
+  it("publishes the ingestion-valid read/write manifest without local app wiring", async () => {
     const manifest = JSON.parse(
       await readFile(rootFile(".codex-plugin/plugin.json"), "utf8")
     );
@@ -57,7 +57,7 @@ describe("AskRigor plugin package", () => {
           "Rigorous health and research workflows with deterministic, auditable source retrieval and explicit access boundaries.",
         developerName: "Mayan Roots LLC",
         category: "Productivity",
-        capabilities: ["Read"],
+        capabilities: ["Read", "Write"],
         websiteURL: "https://askrigor.com",
         privacyPolicyURL: "https://askrigor.com/privacy",
         termsOfServiceURL: "https://askrigor.com/terms",
@@ -77,7 +77,32 @@ describe("AskRigor plugin package", () => {
     expect(skill.startsWith(`${EXPECTED_SKILL_FRONTMATTER}\n`)).toBe(true);
     expect(skill).not.toMatch(/\bv?20\.5\.(?:\d+|x)\b/i);
     expect(skill).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(700);
+    expect(skill.split(/\s+/).filter(Boolean).length).toBeLessThan(1_050);
+  });
+
+  it("requires an explicit reciprocal mode before research and bounds shared learning", async () => {
+    const skill = await readFile(rootFile("skills/askrigor/SKILL.md"), "utf8");
+    const access = sectionBetween(skill, "## Research access and shared learning", "## Protocol gate");
+
+    expectFragmentsInOrder(access, [
+      "`manage_research_access`",
+      '`action: "inspect"`',
+      "accept free contributor mode",
+      "paid private mode",
+      "Never infer agreement",
+      "`submit_research_contribution`",
+    ]);
+    for (const boundary of [
+      "raw chat",
+      "identity/contact details",
+      "private health narratives",
+      "raw source or",
+      "YouTube/community data",
+      "pending proposal is not canonical evidence",
+      "Preserve partial corpora as usable",
+    ]) {
+      expect(access).toContain(boundary);
+    }
   });
 
   it("routes every AskRigor invocation through Universal first and applies the exact HRP boundary", async () => {

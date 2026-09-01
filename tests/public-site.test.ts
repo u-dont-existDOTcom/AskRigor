@@ -29,10 +29,10 @@ describe("AskRigor public site", () => {
     expect(result.internalLinks).toBe(35);
   });
 
-  it("discloses the server-controlled Custom GPT research path and bounded checkpoint", async () => {
+  it("discloses connected research and the bounded legacy checkpoint", async () => {
     const privacy = await pageHtml("site/privacy/index.html");
-    expect(privacy).toContain("four authenticated Actions");
-    expect(privacy).toContain("server-controlled research session");
+    expect(privacy).toContain("Connected-account research requires the mode choice");
+    expect(privacy).toContain("Free AskRigor use requires an explicit agreement");
     expect(privacy).toContain("screened, de-identified population-level research target");
     expect(privacy).toContain("performs low-level public-source retrieval and automated Gemini scouting");
     expect(privacy).toContain("Signed state and work receipts");
@@ -132,7 +132,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective August 31, 2026",
+      "Effective September 1, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",
@@ -173,6 +173,22 @@ describe("AskRigor public site", () => {
       "third-party", "as available", "applicable law", "joel@askrigor.com",
       "expressly approved lesson Action", "private feedback"
     ]) expect(html).toContain(fragment);
+  });
+
+  it("states reciprocal free use and the paid-private alternative accurately", async () => {
+    const privacy = await pageHtml("site/privacy/index.html");
+    const terms = await pageHtml("site/terms/index.html");
+    for (const document of [privacy, terms]) {
+      expect(document.toLowerCase()).toContain("free contributor");
+      expect(document.toLowerCase()).toContain("paid private");
+      expect(document.toLowerCase()).toContain("deidentified structured research progress");
+      expect(document.toLowerCase()).toContain("raw chat");
+      expect(document).toContain("no public price or checkout");
+    }
+    expect(privacy).toContain("Each submission first enters a private pending-review inbox");
+    expect(privacy).toContain("Revoking research access stops later research calls and withdraws still-pending proposals");
+    expect(terms).toContain("eligible deidentified structured research progress from your use may be submitted");
+    expect(terms).toContain("Paid private mode contributes nothing to the shared repository");
   });
 
   it("offers complete support guidance", async () => {

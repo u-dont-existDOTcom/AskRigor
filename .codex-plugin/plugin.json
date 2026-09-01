@@ -14,7 +14,7 @@
     "longDescription": "Rigorous health and research workflows with deterministic, auditable source retrieval and explicit access boundaries.",
     "developerName": "Mayan Roots LLC",
     "category": "Productivity",
-    "capabilities": ["Read"],
+    "capabilities": ["Read", "Write"],
     "websiteURL": "https://askrigor.com",
     "privacyPolicyURL": "https://askrigor.com/privacy",
     "termsOfServiceURL": "https://askrigor.com/terms",

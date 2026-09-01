@@ -40,6 +40,8 @@ const TOOL_NAMES = [
   "audit_youtube_video_community",
   "get_research_frontier",
   "search_research_frontiers",
+  "manage_research_access",
+  "submit_research_contribution",
   "review_evidence_gap_submissions"
 ];
 
@@ -243,7 +245,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective August 31, 2026");
+    expect(privacySite).toContain("Effective September 1, 2026");
     expect(privacySite).toContain("Unpaywall");
     expect(privacySite).toContain("encrypted single-host checkpoint");
     expect(privacySite).toContain("Optional lesson feedback");
@@ -287,8 +289,8 @@ describe("AskRigor public-review packet", () => {
     }
     expect(privacyMap).toContain("protocol identity, digest, byte offset, chunk index, and expiry");
     expect(privacyMap).toContain("no protocol text, health content, or secret");
-    expect(privacySite).toContain("four authenticated Actions");
-    expect(privacySite).toContain("server-controlled research session");
+    expect(privacySite).toContain("OAuth-protected MCP research operations");
+    expect(privacySite).toContain("omits the older public and controlled research Action routes");
     expect(privacySite).toContain("encrypted single-host checkpoint");
     expect(privacySite).toContain("Raw chat, provider bodies, transcripts, comments");
     expect(setup).toContain("does not disable lesson capture or MCP");
@@ -595,15 +597,17 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(24);
+    expect(inventory.tools).toHaveLength(26);
 
     for (const tool of inventory.tools) {
+      const isWrite = tool.name === "manage_research_access" ||
+        tool.name === "submit_research_contribution";
       expect(tool).toMatchObject({
         description: expect.any(String),
         inputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
         outputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
         annotations: {
-          readOnlyHint: true,
+          readOnlyHint: !isWrite,
           destructiveHint: false,
           openWorldHint: false
         },
@@ -612,7 +616,7 @@ describe("AskRigor public-review packet", () => {
       expect(tool.title).toBeUndefined();
       expect(tool._meta).toEqual(tool.name === "review_evidence_gap_submissions"
         ? { securitySchemes: [{ type: "oauth2", scopes: ["cases:review"] }] }
-        : { securitySchemes: [{ type: "noauth" }] });
+        : { securitySchemes: [{ type: "oauth2", scopes: ["research:use"] }] });
       expect(Object.keys(tool).filter((key) => tool[key] !== undefined).sort()).toEqual([
         "_meta", "annotations", "description", "execution", "inputSchema", "name", "outputSchema"
       ]);

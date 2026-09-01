@@ -146,8 +146,8 @@ export async function attachOptionalOAuthIdentity(
     validateVerifiedAuthInfo(authInfo, token, config.resourceUrl);
     (request as IncomingMessage & { auth?: AuthInfo }).auth = authInfo;
   } catch {
-    // Optional authentication must not break anonymous research tools. A
-    // protected tool will return its own OAuth challenge for this request.
+    // Authentication is attached at the transport boundary, while each tool
+    // enforces its own scope and returns the matching OAuth challenge.
   }
 }
 

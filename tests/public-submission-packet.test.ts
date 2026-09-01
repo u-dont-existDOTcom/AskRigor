@@ -78,7 +78,7 @@ describe("AskRigor public submission packet", () => {
     expect(manifest).not.toHaveProperty("apps");
     expect(packet.schemaVersion).toBe("1.0");
     expect(packet.release).toBe("0.1.0");
-    expect(packet.reviewedAt).toBe("2026-08-31");
+    expect(packet.reviewedAt).toBe("2026-09-01");
     expect(packet.officialSources).toEqual([
       "https://developers.openai.com/plugins/build/plugins",
       "https://developers.openai.com/plugins/deploy/submission-errors",
@@ -88,7 +88,7 @@ describe("AskRigor public submission packet", () => {
     expect(packet.mcp).toEqual({
       submissionMode: "with_mcp",
       serverURL: "https://mcp.askrigor.com/mcp",
-      expectedToolCount: 24
+      expectedToolCount: 26
     });
   });
 
@@ -101,9 +101,8 @@ describe("AskRigor public submission packet", () => {
     );
 
     expect(packet.mcp.expectedToolCount).toBe(inventory.tools.length);
-    expect(packet.releaseNotes.join(" ")).toContain(
-      `${inventory.tools.length} read-only tools`
-    );
+    expect(packet.releaseNotes.join(" ")).toContain(`${inventory.tools.length} OAuth-scoped tools`);
+    expect(packet.releaseNotes.join(" ")).toContain("24 read-only operations");
     expect(packet.externalGates.scanTools?.note).toContain(
       `${inventory.tools.length}-tool inventory`
     );
@@ -142,7 +141,7 @@ describe("AskRigor public submission packet", () => {
       shortDescription: "Auditable research retrieval",
       developerName: "Mayan Roots LLC",
       category: "Productivity",
-      capabilities: ["Read"],
+      capabilities: ["Read", "Write"],
       websiteURL: "https://askrigor.com",
       supportURL: "https://askrigor.com/support",
       privacyPolicyURL: "https://askrigor.com/privacy",

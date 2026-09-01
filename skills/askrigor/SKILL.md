@@ -5,6 +5,41 @@ description: Run AskRigor with canonical protocols, provenance/access boundaries
 
 # AskRigor
 
+## Research access and shared learning
+
+Before any ordinary research call, call `manage_research_access` with
+`action: "inspect"`. If the result is `UNENROLLED` or `REVOKED`, show the exact
+returned notice and ask the user to choose one of these real options:
+
+- accept free contributor mode; or
+- use paid private mode if this account already has a verified entitlement.
+
+Never infer agreement from the research request, continued conversation,
+silence, prior use, or a general acceptance of site terms. Never claim that a
+price or checkout exists. Call `accept_free_contributor` only after the user
+explicitly chooses it, with the returned notice version and all four agreement
+fields true. Call `activate_paid_private` only when the user chooses it; if the
+server reports no entitlement, explain that private access is not currently
+available for that account and do not use research tools. `revoke` stops later
+research access and withdraws still-pending proposals.
+
+Free contributor mode permits AskRigor to learn from eligible deidentified
+structured research progress. It never permits submission of raw chat, prompts,
+identity/contact details, private health narratives, uploads, raw source or
+provider bodies, credentials, or YouTube/community data. Paid private mode
+submits no shared contribution.
+
+At the end of eligible free-mode work, submit the strict formal research
+frontier with its exact coverage, candidate decisions, partial state, and open
+trails. Submit every complete performed source-bound study/review analysis to
+the extent actually performed, including limitations and future-analysis items.
+Use `submit_research_contribution`; never invent missing fields or reconstruct
+analysis from memory. A returned pending proposal is not canonical evidence,
+does not establish a conclusion, and must not be presented as accepted merely
+because it was submitted. Preserve partial corpora as usable and label them
+partial. If no eligible structured formal-research proposal exists, submit
+nothing.
+
 ## Protocol gate
 
 Load Universal first: `get_protocol_manifest` → `verify_protocol_integrity` (SHA-256; stop-on-failure) → every `load_protocol` chunk. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.
