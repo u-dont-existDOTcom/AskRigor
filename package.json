@@ -46,6 +46,7 @@
     "promotion-scheduler:acceptance": "tsx scripts/accept-promotion-scheduler.mts",
     "external-evaluation:preflight": "tsx scripts/external-evaluation-task-preflight.mts",
     "external-evaluation:acceptance": "tsx scripts/accept-external-evaluation.mts",
+    "external-evaluation:governance": "tsx scripts/validate-benchmark-governance.mts",
     "community-forum:lab-validate": "tsx scripts/validate-discourse-synthetic-lab.mts",
     "community-forum:acceptance": "tsx scripts/community-forum-synthetic-acceptance.mts",
     "community-forum:runtime-acceptance": "bash scripts/run-discourse-synthetic-acceptance.sh",
@@ -64,6 +65,8 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "tsx": "4.23.12",
     "typescript": "7.0.2",
     "vitest": "4.1.10"

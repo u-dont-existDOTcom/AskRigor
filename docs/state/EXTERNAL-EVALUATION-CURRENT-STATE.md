@@ -2,17 +2,20 @@
 
 **Checkpoint date:** 2026-09-01  
 **Task:** `askrigor-external-evaluation-contribution-v1`  
-**Status:** `ACTIVE_PARENT / BOUNDED_CHILD_READY_FOR_PROTECTED_MERGE`
-**Required branch:** `task/external-evaluation-phase22-execution-20260901`
+**Status:** `ACTIVE_PARENT / GOVERNANCE_INSTANTIATION_READY_FOR_PROTECTED_MERGE`
+**Required branch:** `task/external-evaluation-governance-v1-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
-**Execution baseline:** `4556b58e55fc445920f831b7a1451c805283a697`
+**Execution baseline:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
 **Exact tested child candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`
+**Bounded child merge:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
 ## Current outcome
 
-The scheduler production release is terminal at `7964674b8a3dac804620a0e7d1dff62b00a68bf2`, and PR #168 merged the canonical Phase 2.2 parent-program activation as `4556b58e55fc445920f831b7a1451c805283a697`. The bounded source-rights, non-public miniature-verifier, MAST adapter, and sealed deterministic SCT-preflight child slice now passes artifact acceptance and is ready for protected merge.
+The scheduler production release is terminal at `7964674b8a3dac804620a0e7d1dff62b00a68bf2`, PR #168 merged the canonical Phase 2.2 parent-program activation as `4556b58e55fc445920f831b7a1451c805283a697`, and PR #169 merged the bounded source-rights, non-public miniature-verifier, MAST adapter, and sealed deterministic SCT-preflight child as `7d4efa895b629f4036fda05903e173ad20a65cd2`.
+
+The current governance slice instantiates the provisional benchmark manifest and defect ledger against both merged preflight artifact families. It distinguishes fixture-output and implementation-set subjects from actual model runs, permits an empty condition set where a deterministic verifier proof has no paired conditions, binds each empty defect ledger to exact manifest bytes, and requires the declared independent recheck before consequential confirmed, refuted, unresolved, or corrected dispositions. Empty ledgers record zero current defect entries; they do not claim either evaluator is defect-free.
 
 The active program has four lanes:
 
@@ -128,7 +131,7 @@ Full external identities and discrepancies are in `evaluation/governance/source-
 
 ## Next safe action
 
-Complete protected review/merge of the bounded child candidate. Then continue the parent program with benchmark-governance schema instantiation and the pre-submission difficulty/domain-review gates. Paid inference and external submission remain separately gated.
+Complete protected review/merge of the governance schema-instantiation candidate. Then run the bounded Terminal-Bench difficulty probe after anti-leakage review. Paid inference and external submission remain separately gated.
 
 ## Recovery order
 
@@ -148,4 +151,4 @@ Complete protected review/merge of the bounded child candidate. Then continue th
 
 `SUBTASK_COMPLETE_PARENT_OPEN`
 
-Operational alignment passes for the bounded rights, verifier, private-proof, paired-condition, and sealed-preflight contract and is pending protected merge. Scientific adequacy passes only for miniature verifier feasibility; no HRP performance or clinical claim exists. Release adequacy is pending protected merge and does not include a production release.
+Operational alignment passes for the schema instances, cross-artifact bindings, private-hash boundary, and correction-state policy mutants and is pending protected merge. Scientific adequacy passes only for governance provenance; no benchmark result, defect-free claim, HRP performance claim, or clinical claim exists. Release adequacy is pending protected merge and does not include a production release.

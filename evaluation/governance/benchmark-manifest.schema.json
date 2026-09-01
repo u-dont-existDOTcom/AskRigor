@@ -11,7 +11,7 @@
     "createdAt",
     "benchmark",
     "evaluator",
-    "modelUnderTest",
+    "subjectUnderTest",
     "conditions",
     "run",
     "artifacts"
@@ -84,31 +84,83 @@
         }
       }
     },
-    "modelUnderTest": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["provider", "model", "endpointClass"],
-      "properties": {
-        "provider": {
-          "type": "string",
-          "minLength": 1
+    "subjectUnderTest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "provider", "model", "endpointClass"],
+          "properties": {
+            "kind": {
+              "const": "MODEL"
+            },
+            "provider": {
+              "type": "string",
+              "minLength": 1
+            },
+            "model": {
+              "type": "string",
+              "minLength": 1
+            },
+            "snapshot": {
+              "type": ["string", "null"]
+            },
+            "endpointClass": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
         },
-        "model": {
-          "type": "string",
-          "minLength": 1
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "label", "identity"],
+          "properties": {
+            "kind": {
+              "const": "FIXTURE_OUTPUTS"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "identity": {
+              "$ref": "#/$defs/artifactIdentity"
+            }
+          }
         },
-        "snapshot": {
-          "type": ["string", "null"]
-        },
-        "endpointClass": {
-          "type": "string",
-          "minLength": 1
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "implementations"],
+          "properties": {
+            "kind": {
+              "const": "IMPLEMENTATION_SET"
+            },
+            "implementations": {
+              "type": "array",
+              "minItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["role", "identity"],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "identity": {
+                    "$ref": "#/$defs/artifactIdentity"
+                  }
+                }
+              }
+            }
+          }
         }
-      }
+      ]
     },
     "conditions": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -146,7 +198,10 @@
         "startedAt",
         "parameters",
         "runtimeIdentity",
-        "sealedBeforeProtocolRepair"
+        "sealedBeforeProtocolRepair",
+        "executionMode",
+        "inferencePerformed",
+        "rawOutputsPreserved"
       ],
       "properties": {
         "startedAt": {
@@ -164,6 +219,15 @@
           "$ref": "#/$defs/artifactIdentity"
         },
         "sealedBeforeProtocolRepair": {
+          "type": ["boolean", "null"]
+        },
+        "executionMode": {
+          "enum": ["PREFLIGHT", "INFERENCE", "REPLAY", "JUDGE", "HUMAN_REVIEW"]
+        },
+        "inferencePerformed": {
+          "type": "boolean"
+        },
+        "rawOutputsPreserved": {
           "type": "boolean"
         },
         "cost": {
@@ -227,7 +291,63 @@
         "path": {
           "type": ["string", "null"]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": ["GIT_COMMIT", "GIT_TREE", "GIT_BLOB"]
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "SHA256"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "MD5"
+              }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              }
+            }
+          }
+        }
+      ]
     }
   }
 }

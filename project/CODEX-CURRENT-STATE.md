@@ -1,15 +1,17 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 Phase 2.2 bounded child candidate ready for protected merge
+## 2026-09-01 Phase 2.2 governance instantiation ready for protected merge
 
 PR #168 merged the canonical `askrigor-external-evaluation-contribution-v1`
 parent-program activation as
-`4556b58e55fc445920f831b7a1451c805283a697`. The current bounded child runs on
-`task/external-evaluation-phase22-execution-20260901`. Use
+`4556b58e55fc445920f831b7a1451c805283a697`, and PR #169 merged the bounded
+rights/verifier/MAST-preflight child as
+`7d4efa895b629f4036fda05903e173ad20a65cd2`. The current governance child runs
+on `task/external-evaluation-governance-v1-20260901`. Use
 `npm run external-evaluation:preflight` and
 `npm run external-evaluation:acceptance` for its branch and artifact gates.
 
-The child slice passes artifact acceptance. An eight-source scan selected
+The merged child passes artifact acceptance. An eight-source scan selected
 project-authored fictional inputs; a mode-0700 miniature outside the repository
 passed two correct implementations, rejected eight invalid candidates, killed
 six verifier mutants, and observed zero false accepts or rejects. The MAST
@@ -17,16 +19,22 @@ adapter preserves raw bytes and exact condition equality and reproduces the
 pinned 174-item deterministic example. The sealed spend ceiling is zero, so no
 model request or paid inference occurred.
 
+The current slice instantiates both governance schemas against the merged MAST
+preflight and private Terminal-Bench miniature proof. The manifests distinguish
+fixture outputs and implementation sets from actual model runs. Empty defect
+ledgers are hash-bound to their manifests without claiming either evaluator is
+defect-free, and correction/recheck policy mutants fail closed.
+
 The parent program remains open. External proposal submission, a final public
 fixture, frontier-agent difficulty probing, independent domain review, paid SCT
 or NOHARM inference, HRP tuning, production mutation, participant recruitment,
 and institutional workflow are not completed or authorized by this child.
 
 Typed claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment passes the
-bounded artifact contract and is pending protected merge. Scientific adequacy
-passes only for miniature verifier feasibility; no HRP-performance or clinical
-claim exists. Release adequacy is pending protected merge and includes no
-production release.
+governance artifact and cross-binding contract and is pending protected merge.
+Scientific adequacy passes only for provenance controls; no benchmark result,
+defect-free claim, HRP-performance claim, or clinical claim exists. Release
+adequacy is pending protected merge and includes no production release.
 
 ## 2026-09-01 accepted-contribution promotion scheduler production release complete
 

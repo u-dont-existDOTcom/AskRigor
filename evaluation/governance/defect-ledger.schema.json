@@ -9,6 +9,7 @@
     "schemaVersion",
     "benchmarkId",
     "evaluatorVersion",
+    "manifestIdentity",
     "entries"
   ],
   "properties": {
@@ -24,7 +25,8 @@
       "minLength": 1
     },
     "manifestIdentity": {
-      "type": ["string", "null"]
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     },
     "entries": {
       "type": "array",
@@ -235,12 +237,15 @@
                 "const": true
               },
               "status": {
-                "enum": ["CONFIRMED", "CORRECTED"]
+                "enum": ["CONFIRMED", "REFUTED", "UNRESOLVED", "CORRECTED"]
               }
             },
             "required": ["independentRecheckRequired", "status"]
           },
           "then": {
+            "properties": {
+              "recheck": {}
+            },
             "required": ["recheck"]
           }
         },
@@ -254,7 +259,15 @@
             "required": ["status"]
           },
           "then": {
+            "properties": {
+              "correction": {}
+            },
             "required": ["correction"]
+          },
+          "else": {
+            "not": {
+              "required": ["correction"]
+            }
           }
         }
       ]
@@ -268,7 +281,13 @@
           "enum": ["TEXT", "JSON", "HASH", "NUMERIC", "ABSENT"]
         },
         "value": {
-          "type": ["string", "number", "object", "array", "null"]
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "object" },
+            { "type": "array" },
+            { "type": "null" }
+          ]
         },
         "sha256": {
           "type": ["string", "null"]
