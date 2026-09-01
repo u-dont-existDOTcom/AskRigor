@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-free-contributor-private-entitlement-v1",
-  "status": "ready_for_protected_merge",
-  "exclusive": true,
-  "requiredBranch": "task/free-contributor-private-entitlement-20260901",
+  "status": "complete",
+  "exclusive": false,
+  "requiredBranch": "task/reciprocal-access-production-release-20260901",
+  "implementationBranch": "task/free-contributor-private-entitlement-20260901",
   "baselineCommit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a",
   "assuranceLane": "iteration",
   "targetedHardGates": [
@@ -27,25 +28,25 @@
   "plan": "docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md",
   "preflightCommand": "npm run contributor-access:preflight",
   "completionCommand": "npm run contributor-access:acceptance",
+  "implementationCommit": "1c852e2ac8547644d7caf21a106b652ff65f3348",
+  "localCandidateReceipt": "docs/audits/2026-09-01-reciprocal-research-access-candidate.json",
   "pullRequest": 159,
-  "suspendedTaskSources": [
-    "completed frontier-catalog task",
-    "global work queue selection",
-    "community forum expansion",
-    "evidence-gap network expansion",
-    "unrelated deployment and architecture queues"
-  ],
+  "mergeCommit": "2559e4d54261bb04fbe45d48d1e5051d6cf6640c",
+  "productionImage": "sha256:5f2ac653d1676d5234304a83eebb9856c069b18fc923ab661def36241d86998a",
+  "installedPluginVersion": "0.1.0+codex.20260901013905",
+  "productionReceipt": "docs/audits/2026-09-01-reciprocal-research-access-production-release.json",
+  "completedAt": "2026-09-01T02:36:34Z",
   "previousCompletedTask": {
     "taskId": "askrigor-living-evidence-frontier-catalog-discovery-v1",
     "mergeCommit": "388e932e155af5c6000a7e3233ddb4672e3cff8e",
     "releaseReceiptMergeCommit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a"
   },
   "supervision": {
-    "completionClaim": "IMPLEMENTATION_VERIFIED",
+    "completionClaim": "OUTCOME",
     "workerToContract": "aligned",
-    "contractToOwner": "aligned_after_owner_correction",
-    "operationalAlignment": "local_candidate_pass",
-    "scientificAdequacy": "not_a_scientific_claim",
-    "releaseAdequacy": "pending_protected_merge_deployment_and_product_acceptance"
+    "contractToOwner": "aligned",
+    "operationalAlignment": "production_runtime_database_auth0_public_signup_installed_package_and_primary_chat_pass",
+    "scientificAdequacy": "pass_for_protocol_identity_partial_gap_currentness_and_nonnegative_no_match_semantics_only",
+    "releaseAdequacy": "pass"
   }
 }

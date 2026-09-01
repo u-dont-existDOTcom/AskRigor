@@ -1,14 +1,15 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 free-contributor/private-entitlement candidate verified
+## 2026-09-01 free-contributor/private-entitlement production release complete
 
 Task `askrigor-living-evidence-free-contributor-private-entitlement-v1` is
-ready for protected merge on branch
-`task/free-contributor-private-entitlement-20260901` from
-baseline `1a413cb6f9e0cbdcedc84760bb9a9185b663382a`. Run
-`npm run contributor-access:preflight` before resuming and
-`npm run contributor-access:acceptance` for task-specific completion. Ordinary
-green tests are prerequisites rather than task completion.
+complete. PR #159 merged as
+`2559e4d54261bb04fbe45d48d1e5051d6cf6640c`; that exact tree is deployed as
+healthy production image
+`sha256:5f2ac653d1676d5234304a83eebb9856c069b18fc923ab661def36241d86998a`.
+Migration `0009_research_contributor_access`, the same-revision public privacy
+and terms pages, Auth0 configuration, exact plugin synchronization, refreshed
+26-tool connector, and fresh primary Extra High product acceptance all pass.
 
 The owner's current product rule supersedes the earlier anonymous-free-tool
 assumption: free AskRigor requires explicit agreement that eligible
@@ -25,20 +26,32 @@ private health narratives, uploads, raw source/provider bodies, and
 YouTube/community data remain prohibited. Public submissions cannot directly
 mutate canonical evidence. Partial formal corpora remain usable and labeled.
 
-The generated standard MCP inventory contains 26 operations with SHA-256
+The standard MCP inventory contains 26 operations with SHA-256
 `d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4`.
-The generated synchronization ledger SHA-256 is
+The synchronization ledger SHA-256 is
 `3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
 the unchanged controlled Instructions remain 4,752 characters with SHA-256
 `2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
-These are candidate bytes, not a deployment or product-interface claim.
-PR #159 carries the protected candidate.
+The eight-file installed Codex package is
+`0.1.0+codex.20260901013905`, byte-identical to its personal-marketplace source
+at SHA-256
+`f5579ccc6b8517aba0b9c36886aa619a25d1d4f26ded34164e0dcd232b526ecf`.
 
-Recovery authority is `../tasks/ACTIVE-TASK.json` and
-`../docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md`.
-The completed catalog, community-forum expansion, evidence-gap expansion, and
-unrelated architecture/release queues are suspended as task selectors until
-this lock reaches a terminal state.
+The primary-account acceptance conversation displayed the exact reciprocal
+notice before activation, received an explicit second-message acceptance, and
+returned `ACTIVE / FREE_CONTRIBUTOR` with notice version
+`free-contributor-v1-2026-09-01`. It then returned the exact live Universal and
+HRP manifests, preserved bounded `no_match`/`not_assessed`/non-absence frontier
+semantics, and completed one authenticated PubMed probe. The smoke test created
+no proposal. Exact production evidence is in
+`../docs/audits/2026-09-01-reciprocal-research-access-production-release.json`
+and `.md`.
+
+Typed claim: `OUTCOME`. Operational alignment passes for production runtime,
+database authority, Auth0/public signup, installed package, refreshed connector,
+and primary ordinary-Chat. Scientific adequacy passes only for protocol
+identity, partial/gap/currentness state, and non-negative no-match semantics;
+no scientific or causal conclusion is claimed. Release adequacy passes.
 
 ## 2026-09-01 research-frontier catalog production release complete
 
