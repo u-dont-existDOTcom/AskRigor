@@ -212,8 +212,9 @@ async function main(): Promise<void> {
     condition: record.condition,
     providerSurface: "CHATGPT_CONSUMER",
     modelMode: "EXTRA_HIGH",
-    modelNameObserved: record.modelNameObserved,
-    thinkingEffortObserved: record.thinkingEffortObserved,
+    modelNameObserved: record.modelNameObserved ?? responseDispatch.modelNameObserved,
+    thinkingEffortObserved: record.thinkingEffortObserved
+      ?? responseDispatch.thinkingEffortObserved,
     chatLocator: record.chatLocator,
     sourceMessageId: record.sourceMessageId,
     sentAtSource: record.sentAtSource,
