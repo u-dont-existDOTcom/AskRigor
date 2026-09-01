@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_chatgpt_mast_operational_smoke",
+  "directiveId": "askrigor-zero-spend-chatgpt-mast-operational-smoke-v1",
+  "repositoryStartHead": "bdbe597a0233bbcb8e28448eeac5302dd511d695",
+  "repositoryEndHead": "4e293fbd563c99a3d439313f4d37e82f0899a8e3",
+  "caseFamilyId": "All001",
+  "deterministicSelectionReceiptSha256": "653e50b4176b7f496f5f568c153eaa31504b69b575b3e9482b030579e41b7b4d",
+  "packets": {
+    "bare": {
+      "condition": "BARE",
+      "packetSha256": "b908479fbf2bacd1a49fac4c7833d82f6c527ecebfac403be61eb094baa3e623"
+    },
+    "hrp": {
+      "condition": "HRP",
+      "packetSha256": "4f592e93405141798b24b90cde204d0b8228b9fca3df12667d43d51346874243"
+    },
+    "differenceAuditSha256": "26e4039db31e7973dc621272b85b7965f5a2a69428a13c7561ef9e4127a14f5b",
+    "onlyInstructionConditionAndOpaqueIdentifiersDiffer": true
+  },
+  "responseChats": [
+    {
+      "chatRole": "RESPONSE",
+      "condition": "BARE",
+      "providerSurface": "CHATGPT_CONSUMER",
+      "modelMode": "EXTRA_HIGH",
+      "chatLocator": "https://chatgpt.com/c/6a9748bc-4cc8-83ea-9fe2-e22898877d85",
+      "sourceMessageId": "1352d0c7-67fb-4ac2-8aa6-5f36d9756ef1",
+      "sentAtSource": null,
+      "sentAtSourceStatus": "UNAVAILABLE",
+      "capturedAt": "2026-09-01T21:51:11.210Z",
+      "exactInputSha256": "1862ed1e0891f41d28eb312e52eb5060369ca351155ed5ee19399349619fca0e",
+      "exactOutputSha256": "ca177655f219634377e56f688072f1c94c653f44b77f6ff7fcb11da9b15ad585",
+      "provenanceStatus": "VERIFIED",
+      "exactOutputStoredPrivately": true
+    },
+    {
+      "chatRole": "RESPONSE",
+      "condition": "HRP",
+      "providerSurface": "CHATGPT_CONSUMER",
+      "modelMode": "EXTRA_HIGH",
+      "chatLocator": "https://chatgpt.com/c/6a9748a4-9bc0-83ea-a5e3-872e1e959543",
+      "sourceMessageId": "ed4fd149-c28e-4576-8e9f-5914028b8b15",
+      "sentAtSource": null,
+      "sentAtSourceStatus": "UNAVAILABLE",
+      "capturedAt": "2026-09-01T21:51:46.986Z",
+      "exactInputSha256": "74a26d0b5a76b64bfb7f54fdeef8d8e503071593fcf61e77afd248a4729c731a",
+      "exactOutputSha256": "d8ec575e4599c46694d53e49c1af790663e13c214102222d39f2d307d0875b8a",
+      "provenanceStatus": "VERIFIED",
+      "exactOutputStoredPrivately": true
+    }
+  ],
+  "evaluatorChat": {
+    "chatRole": "EVALUATOR",
+    "condition": null,
+    "providerSurface": "CHATGPT_CONSUMER",
+    "modelMode": "EXTRA_HIGH",
+    "chatLocator": "https://chatgpt.com/c/6a974a63-b9f8-83ea-b8d8-3ab86416b291",
+    "sourceMessageId": "1582b411-4599-4e2f-b2c4-209dcb046b73",
+    "sentAtSource": null,
+    "sentAtSourceStatus": "UNAVAILABLE",
+    "capturedAt": "2026-09-01T21:58:48.865Z",
+    "exactInputSha256": "feb13aff94e8202260914f04af7b2d10b3f2652f2460d945a8300bd690bc54b6",
+    "exactOutputSha256": "68608e5e50abc222067946f371b6aecdb48450ed118e200e928e0d6dffa35c55",
+    "provenanceStatus": "VERIFIED",
+    "exactOutputStoredPrivately": true
+  },
+  "randomization": {
+    "seed": "askrigor-zero-spend-chatgpt-mast-operational-smoke-v1:All001:condition-blind-evaluator-v1",
+    "mappingSha256": "95b704743db6c32d737b13de6db7d35f166a32d71671485af2f13f0a7d07eef4",
+    "conditionDisclosedBeforeVerdict": false
+  },
+  "evaluatorOutput": {
+    "officialRubricLevelScoresPresent": true,
+    "strongestUncertaintyPresent": true,
+    "oneCaseOperationalSmokeLimitationPresent": true,
+    "exactOutputSha256": "68608e5e50abc222067946f371b6aecdb48450ed118e200e928e0d6dffa35c55"
+  },
+  "execution": {
+    "providerApiCredentialsUsed": false,
+    "paidModelApiCalls": 0,
+    "totalExternalSpendUsd": 0,
+    "codexAuthoredScientificInterpretation": false,
+    "ownerRelayRequested": false,
+    "ownerSaySendItRequested": false,
+    "resultsReturnedAutomaticallyToProjectManagerChat": true,
+    "scaledBeyondOneCaseFamily": false,
+    "hrpTunedFromResult": false,
+    "externalSubmissionPerformed": false,
+    "officialMastClaimMade": false,
+    "generalHrpEffectClaimMade": false
+  },
+  "projectManagerReturnReceipt": {
+    "messageId": "b1eefa1f-e605-42c7-8a72-6013ddf38fd3",
+    "chatLocator": "https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "exactPacketSha256": "71798f68d9874f3b3720706fbadb01917ef9f379041c4200406a73a6bfd5348a",
+    "capturedAt": "2026-09-01T22:18:59.866Z",
+    "provenanceStatus": "VERIFIED"
+  },
+  "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN"
+}

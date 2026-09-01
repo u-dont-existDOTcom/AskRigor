@@ -1,0 +1,16 @@
+{
+  "requestId": "askrigor-zero-spend-chatgpt-mast-operational-smoke-v1-execution",
+  "actor": "CODEX",
+  "action": "EXECUTE_SOURCE_BOUND_BOUNDED_DIRECTIVE",
+  "sourceReceipt": {
+    "messageId": "owner-attested-current-conversation-pending-provider-id:askrigor-zero-spend-chatgpt-mast-operational-smoke-v1",
+    "exactBodySha256": "ab2d087541b4b4e20fb7ae88ce536a6245236cce4c1b09fd68d796ac3d68431a",
+    "claimedSurface": "CHATGPT_PROJECT_MANAGER",
+    "observedSurface": "CHATGPT_PROJECT_MANAGER",
+    "provenanceStatus": "OWNER_ATTESTED"
+  },
+  "modelApiSpendUsd": 0,
+  "boundedExecution": true,
+  "taskRequiresExecutionOutsideChat": true,
+  "internalRoute": null
+}
