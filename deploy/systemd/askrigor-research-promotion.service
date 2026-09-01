@@ -8,12 +8,16 @@ Requires=docker.service
 [Service]
 Type=oneshot
 EnvironmentFile=/opt/askrigor/living-evidence-image.env
+Environment=DOCKER_CONFIG=/run/askrigor-research-promotion-docker
+RuntimeDirectory=askrigor-research-promotion-docker
+RuntimeDirectoryMode=0700
 WorkingDirectory=/opt/askrigor
+ExecStartPre=/usr/bin/test -x /usr/libexec/docker/cli-plugins/docker-compose
 ExecStartPre=/usr/bin/test -r /opt/askrigor/compose.yaml
 ExecStartPre=/usr/bin/test -r /opt/askrigor/compose.living-evidence.yaml
 ExecStartPre=/usr/bin/test -r /opt/askrigor/living-evidence-writer.env
 ExecStartPre=-/usr/bin/docker rm -f askrigor-research-promotion-runner
-ExecStart=/usr/bin/docker compose --project-name askrigor --file /opt/askrigor/compose.yaml --file /opt/askrigor/compose.living-evidence.yaml --profile living-evidence-admin run --rm --no-deps --pull never --name askrigor-research-promotion-runner living-evidence-admin promote-accepted
+ExecStart=/usr/libexec/docker/cli-plugins/docker-compose --project-name askrigor --file /opt/askrigor/compose.yaml --file /opt/askrigor/compose.living-evidence.yaml --profile living-evidence-admin run --rm --no-deps --pull never --name askrigor-research-promotion-runner living-evidence-admin promote-accepted
 ExecStopPost=-/usr/bin/docker rm -f askrigor-research-promotion-runner
 TimeoutStartSec=5min
 TimeoutStopSec=1min

@@ -44,6 +44,10 @@ fixed base and living-evidence Compose files, the fixed admin profile,
 `--no-deps`, `--pull never`, and a fixed container name. The host service is
 restricted to Unix-domain communication with the already running Docker daemon;
 the short-lived container joins only the existing internal PostgreSQL network.
+It invokes the system-installed Compose plugin directly at
+`/usr/libexec/docker/cli-plugins/docker-compose` and gives Docker an empty
+private runtime configuration directory. This preserves `ProtectHome=yes`
+without depending on or warning about root's Docker client configuration.
 
 ## Pre-activation checks
 
@@ -52,8 +56,9 @@ the short-lived container joins only the existing internal PostgreSQL network.
    and timer state. Preserve exact rollback copies before replacing any file.
 2. Confirm there is no active promotion service and no container named
    `askrigor-research-promotion-runner`.
-3. Confirm the exact scheduled image is already present locally. Do not pull or
-   build from the scheduler.
+3. Confirm the exact scheduled image is already present locally and the reviewed
+   system Compose plugin path is executable. Do not pull or build from the
+   scheduler.
 4. Validate the tracked units with:
 
    `systemd-analyze verify deploy/systemd/askrigor-research-promotion.service deploy/systemd/askrigor-research-promotion.timer`

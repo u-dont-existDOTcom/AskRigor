@@ -16,7 +16,12 @@ describe("accepted-contribution promotion scheduler", () => {
       "EnvironmentFile=/opt/askrigor/living-evidence-image.env",
     );
     expect(service).toContain(
-      "ExecStart=/usr/bin/docker compose --project-name askrigor --file /opt/askrigor/compose.yaml --file /opt/askrigor/compose.living-evidence.yaml --profile living-evidence-admin run --rm --no-deps --pull never --name askrigor-research-promotion-runner living-evidence-admin promote-accepted",
+      "ExecStart=/usr/libexec/docker/cli-plugins/docker-compose --project-name askrigor --file /opt/askrigor/compose.yaml --file /opt/askrigor/compose.living-evidence.yaml --profile living-evidence-admin run --rm --no-deps --pull never --name askrigor-research-promotion-runner living-evidence-admin promote-accepted",
+    );
+    expect(service).toContain("RuntimeDirectory=askrigor-research-promotion-docker");
+    expect(service).toContain("RuntimeDirectoryMode=0700");
+    expect(service).toContain(
+      "Environment=DOCKER_CONFIG=/run/askrigor-research-promotion-docker",
     );
     expect(service).toContain(
       "ExecStartPre=-/usr/bin/docker rm -f askrigor-research-promotion-runner",
