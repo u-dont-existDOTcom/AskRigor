@@ -1,17 +1,51 @@
 # AskRigor current state
 
-The exclusive active task is defined by `tasks/ACTIVE-TASK.json`. The active Phase 2.2 checkpoint is `docs/state/EXTERNAL-EVALUATION-CURRENT-STATE.md`, its controlling plan is `docs/superpowers/plans/2026-09-01-external-evaluation-and-scientific-contribution.md`, and its detailed queue is `tasks/2026-09-external-evaluation-and-contribution.md`.
+The exclusive active task is defined by `tasks/ACTIVE-TASK.json`. Its current
+recovery state is
+`docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the Codex/Work
+execution boundary is
+`project/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; and the current source-bound
+execution directive is
+`docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json`.
 
-Phase 2.2 evaluates whether the complete HRP instruction path improves or degrades a fixed frontier model under paired conditions, contributes a distinct executable scientific workflow to Terminal-Bench-Science, and applies versioned benchmark-integrity controls so evaluator defects cannot silently become AskRigor truth.
+The required task branch is
+`hotfix/chat-reasoning-zero-spend-routing-20260901`, based on protected-main
+merge `a1d4aaf0fe2010edc5cec13e6c431877a311d074`.
 
-The approved Terminal-Bench primary is **Dependency-Aware Clinical Meta-Analysis from Overlapping Reports**. A bounded existing-work scan found that generic messy-table normalization and conventional meta-analysis are already occupied by an approved Terminal-Bench proposal, so AskRigor retains the distinct remainder: report-to-study/cohort lineage, participant dependence, exposure/estimand compatibility, comparator validity, corrected synthesis, and deterministic verification.
+ChatGPT Project Manager/Extra High/Pro owns proposals, methodology,
+prioritization, spending design, consequential tradeoffs, scientific
+interpretation, supervisory verdicts, and selection of the next strategy.
+Codex and Work are execution-only for exact bounded mechanical work that Chat
+cannot execute. A local worker, copied summary, chat title, or opened tab cannot
+serve as a ChatGPT reasoning receipt.
 
-The previous exclusive task, `askrigor-living-evidence-promotion-scheduler-v1`, is production-release complete at protected-main commit `7964674b8a3dac804620a0e7d1dff62b00a68bf2`. Its exact production receipt is `docs/audits/2026-09-01-promotion-scheduler-production-release.json`; the scheduler remains operational but no longer holds the work-queue lock.
+Paid model API inference is canceled by the current owner decision. The active
+model API spend ceiling is USD 0. No paid model call, judge call, external
+submission, protocol mutation, or release occurred.
 
-The current dual-track child candidate is ready for protected merge: the Terminal-Bench source-rights decision and non-public miniature verifier proof pass, and the MAST OpenAI-compatible adapter reproduces the sealed deterministic SCT example with a zero spend ceiling. Paid inference, benchmark-responsive HRP tuning, external proposal submission, independent domain review, frontier-agent difficulty probing, and publication of latent benchmark answers remain gated. The Phase 2.2 parent program remains active after this child closes.
+Routine internal routing among the Project Manager Chat, specialist supervisor
+chats, and Codex/Work is standing owner-authorized control-plane transport.
+Codex/Work must route factual state automatically and must never ask Joel to
+relay a prompt, paste a packet, or say `send it`. The generic confirmation rule
+for genuinely external representational communication does not override this
+narrow internal route.
 
-Active branch-local Public Discovery Atlas work is indexed at `docs/public-atlas/INDEX.md`.
+The active bounded slice is a one-case ChatGPT-consumer MAST operational smoke:
+materialize one predeclared case family as byte-audited BARE and HRP packets,
+route them automatically to two fresh Extra High chats, route randomized outputs
+to one separate fresh condition-blind Extra High evaluator chat, preserve exact
+message/timestamp/hash receipts, and return the factual receipt bundle to the
+Project Manager Chat. It is not an official MAST result and cannot support a
+general HRP-effect claim.
 
-The Community Health Forum and Public Lead Frontier architecture is complete and queued for synthetic implementation. Its controlling closure record is `docs/public-atlas/COMMUNITY-FORUM-ARCHITECTURE-RECEIPT.md`. No real forum, real health-story collection, public lead publication, recruitment, deployment, or automated safety reporting is authorized or complete.
+Current state: the authority hotfix and exact directive are implemented on the
+task branch; execution has not started. The completion gate is
+`npx tsx scripts/accept-zero-spend-chatgpt-mast-smoke.mts`. The only eventual
+claim is `SUBTASK_COMPLETE_PARENT_OPEN` after all three ChatGPT receipts,
+zero-spend evidence, byte-difference audit, and automatic Project-Manager return
+receipt exist.
 
-This pointer does not replace canonical protocol, repository, release, privacy, safety, or task authority.
+The previous production scheduler task remains complete at protected-main
+release receipt `7964674b8a3dac804620a0e7d1dff62b00a68bf2`. The current hotfix does
+not mutate the production connector, plugin, database, protocol, or public
+interface.
