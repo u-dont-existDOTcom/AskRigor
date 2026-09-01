@@ -4,8 +4,8 @@
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
 **Queue state:** `QUEUED_NEXT`  
-**Planning branch:** `task/external-evaluation-contribution-20260901`  
-**Protected-review baseline:** `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`  
+**Queue-registration PR:** `#164`  
+**Queue-registration merge:** `e47b122a2dd07d460bd50c008a62407278ccf958`  
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Active predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`  
 **Queue date:** 2026-09-01
@@ -20,11 +20,11 @@ No benchmark case may be used to tune HRP before the first paired evaluation epo
 
 ## Current queue
 
-| Priority | Lane | Current state | Next mechanically executable action after activation | Completion boundary |
+| Priority | Lane | Current state | Next mechanically executable action | Completion boundary |
 | --- | --- | --- | --- | --- |
-| P0.0 | Queue registration | **IN PROTECTED REVIEW / QUEUED NEXT** | Merge the additive queue, conception snapshot, source registry, overlap decision, governance policy, and recovery checkpoint while preserving the active scheduler pointer | GitHub records this program without changing which release is active |
-| P0.1 | MAST paired HRP evaluation | **SPECIFIED / NOT RUN** | Build the endpoint adapter, condition-equality checks, sealed run manifest, deterministic SCT analysis, and NOHARM pilot declaration | Complete paired SCT and NOHARM epochs with raw artifacts, official scores, and blinded discordance review |
-| P0.2 | Terminal-Bench-Science v0.2 | **PROPOSAL DRAFTED / PROOF PENDING** | Select a redistributable or defensibly semisynthetic report family and build a non-public miniature latent-study fixture plus deterministic verifier proof | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
+| P0.0 | Queue registration | **MERGED / QUEUED NEXT** | Preserve this registration while the scheduler workstream completes production activation and immutable closeout | GitHub records the program without changing which release is active |
+| P0.1 | MAST paired HRP evaluation | **SPECIFIED / NOT RUN** | After activation, build the endpoint adapter, condition-equality checks, sealed run manifest, deterministic SCT analysis, and NOHARM pilot declaration | Complete paired SCT and NOHARM epochs with raw artifacts, official scores, and blinded discordance review |
+| P0.2 | Terminal-Bench-Science v0.2 | **PROPOSAL DRAFTED / PROOF PENDING** | After activation, select a redistributable or defensibly semisynthetic report family and build a non-public miniature latent-study fixture plus deterministic verifier proof | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
 | P0.3 | Benchmark integrity governance | **POLICY + SCHEMAS DRAFTED** | Validate the manifest and defect-ledger schemas against the first MAST and Terminal-Bench artifacts | Every result is version-bound, contestable, independently rechecked when consequential, and preserves original versus corrected epochs |
 | P1 | K-Bench-inspired authentic-request evaluation | **DEFERRED** | Revisit after the Terminal-Bench PR is secure | Small blinded multidimensional study of authentic AskRigor requests without pretending there is one constitutional gold answer |
 
@@ -70,7 +70,7 @@ The pre-authorized fallback remains absolute-risk reconstruction only if the pri
 
 ## Calendar
 
-The original calendar is retained as a target, but the first three boundaries are now activation-relative because an exclusive predecessor is still open.
+The original calendar is retained as a target, but the first three boundaries are activation-relative because an exclusive predecessor is still open.
 
 | Boundary | Required result |
 | --- | --- |
@@ -91,11 +91,9 @@ If predecessor completion slips enough to threaten the hard deadline, stop for a
 
 The percentages are planning weights, not fixed accounting rules. A correctness or rights blocker in the Terminal-Bench lane transfers effort to MAST rather than lowering scientific standards.
 
-## Immediate slices
+## Completed registration slice
 
-### Slice A — additive protected queue checkpoint
-
-Artifacts:
+PR #164 merged the following additive artifacts:
 
 - `docs/superpowers/plans/2026-09-01-external-evaluation-and-scientific-contribution.md`
 - `docs/state/EXTERNAL-EVALUATION-CURRENT-STATE.md`
@@ -110,9 +108,9 @@ Artifacts:
 - `contributions/terminal-bench-science/proposal-draft.md`
 - this queue.
 
-This slice must not modify `tasks/ACTIVE-TASK.json` or the exact copy-ready files under `project/`.
+The registration did not modify `tasks/ACTIVE-TASK.json` or the exact copy-ready files under `project/`. Both repository workflow policy and deterministic verification passed on the reviewed head before merge.
 
-### Slice B — Terminal-Bench source-family and verifier proof
+## First active implementation slice — Terminal-Bench source family and verifier proof
 
 Execute only after activation. Do not publish final benchmark data or latent answers in the public AskRigor repository. Work in a non-public environment or approved private fork. Public Git records may contain architecture, provenance, rights findings, verifier contracts, and non-answer-bearing test strategy.
 
@@ -126,7 +124,7 @@ Deliverables:
 - deterministic verifier false-accept/false-reject audit;
 - updated proposal evidence.
 
-### Slice C — MAST adapter and sealed SCT preflight
+## Parallel active implementation slice — MAST adapter and sealed SCT preflight
 
 Execute only after activation.
 
