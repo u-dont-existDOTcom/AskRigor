@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_chatgpt_mast_operational_smoke",
+  "directiveId": "askrigor-zero-spend-chatgpt-mast-operational-smoke-v1",
+  "repositoryStartHead": "dc20b24039470be2b3c28bc7435c3fec261305e4",
+  "repositoryEndHead": "51f915923cf11ff7c8595ea1b2706b203b2b4724",
+  "caseFamilyId": "Card001",
+  "deterministicSelectionReceiptSha256": "786d1e5282f4fc52a5015a9060374e52110c66ae60456dc2676274ee5fe14a0b",
+  "packets": {
+    "bare": {
+      "condition": "BARE",
+      "packetSha256": "6647c0dce592cf4e5a64a0732984e57338695fc8b2c821c425342885f9a1e24b"
+    },
+    "hrp": {
+      "condition": "HRP",
+      "packetSha256": "bf3270203edc762648dac8dd1abc50e66fd682891b0b0e65700a5280b6827790"
+    },
+    "differenceAuditSha256": "df2c8872cb0a87329c2e827e0abca08b43f9137697992d8f44f67a92121ff0d0",
+    "onlyInstructionConditionAndOpaqueIdentifiersDiffer": true
+  },
+  "responseChats": [
+    {
+      "chatRole": "RESPONSE",
+      "condition": "BARE",
+      "providerSurface": "CHATGPT_CONSUMER",
+      "modelMode": "EXTRA_HIGH",
+      "modelNameObserved": "GPT-5.6 Sol",
+      "thinkingEffortObserved": "Extra High, 4 of 5",
+      "chatLocator": "https://chatgpt.com/c/6a975419-a06c-83ea-a570-0cea64bbf56d",
+      "sourceMessageId": "f55efe8f-6078-4adc-8267-358c7f64f104",
+      "sentAtSource": null,
+      "sentAtSourceStatus": "UNAVAILABLE",
+      "capturedAt": "2026-09-01T22:40:50.616Z",
+      "exactInputSha256": "534bb28932d53ba90b32d6e32658586871acb53ecad759d3bd3144ce54e6ff62",
+      "exactOutputSha256": "df0e07e2fc6f03b96b0369e25df31fc641779645f537e22a08e47ffdd85076f5",
+      "provenanceStatus": "VERIFIED",
+      "exactOutputStoredPrivately": true
+    },
+    {
+      "chatRole": "RESPONSE",
+      "condition": "HRP",
+      "providerSurface": "CHATGPT_CONSUMER",
+      "modelMode": "EXTRA_HIGH",
+      "modelNameObserved": "GPT-5.6 Sol",
+      "thinkingEffortObserved": "Extra High, 4 of 5",
+      "chatLocator": "https://chatgpt.com/c/6a97547f-c4fc-83e9-9b83-397f1b5d24ce",
+      "sourceMessageId": "6fce21b0-a3d9-4038-bf2c-eb458569279c",
+      "sentAtSource": null,
+      "sentAtSourceStatus": "UNAVAILABLE",
+      "capturedAt": "2026-09-01T22:41:30.337Z",
+      "exactInputSha256": "5c7b839991ce5ce7456de8f7a54b55eb288843ed7855baf2b075535be0d820e3",
+      "exactOutputSha256": "1bf448af79fe294e034b7cc5de15b91286f1e14696bc2c34b450658a560115b9",
+      "provenanceStatus": "VERIFIED",
+      "exactOutputStoredPrivately": true
+    }
+  ],
+  "evaluatorChat": {
+    "chatRole": "EVALUATOR",
+    "condition": null,
+    "providerSurface": "CHATGPT_CONSUMER",
+    "modelMode": "EXTRA_HIGH",
+    "modelNameObserved": "GPT-5.6 Sol",
+    "thinkingEffortObserved": "Extra High, 4 of 5",
+    "chatLocator": "https://chatgpt.com/c/6a97559b-8b30-83e9-9a82-b227b5302b54",
+    "sourceMessageId": "3da7bab0-5942-425e-a5d9-2f548474a0e1",
+    "sentAtSource": null,
+    "sentAtSourceStatus": "UNAVAILABLE",
+    "capturedAt": "2026-09-01T22:46:53.739Z",
+    "exactInputSha256": "89716e6ffa7baeccf618dedc1de3b67a7b85331965efc2c1cd81d82636ec7c82",
+    "exactOutputSha256": "100a0c64ec636316398f74a4432e193d53fe0d20619da800c4842a305c2db58c",
+    "provenanceStatus": "VERIFIED",
+    "exactOutputStoredPrivately": true
+  },
+  "randomization": {
+    "seed": "askrigor-zero-spend-chatgpt-mast-operational-smoke-v1:Card001:condition-blind-evaluator-v1",
+    "mappingSha256": "08630f0c8bae392624944f9e62b969f62a32acc15e56ce500cdb2e7863b2d134",
+    "conditionDisclosedBeforeVerdict": false
+  },
+  "evaluatorOutput": {
+    "officialRubricLevelScoresPresent": true,
+    "strongestUncertaintyPresent": true,
+    "oneCaseOperationalSmokeLimitationPresent": true,
+    "exactOutputSha256": "100a0c64ec636316398f74a4432e193d53fe0d20619da800c4842a305c2db58c"
+  },
+  "execution": {
+    "providerApiCredentialsUsed": false,
+    "paidModelApiCalls": 0,
+    "totalExternalSpendUsd": 0,
+    "codexAuthoredScientificInterpretation": false,
+    "ownerRelayRequested": false,
+    "ownerSaySendItRequested": false,
+    "resultsReturnedAutomaticallyToProjectManagerChat": true,
+    "scaledBeyondOneCaseFamily": false,
+    "hrpTunedFromResult": false,
+    "externalSubmissionPerformed": false,
+    "officialMastClaimMade": false,
+    "generalHrpEffectClaimMade": false
+  },
+  "projectManagerReturnReceipt": {
+    "messageId": "e4561e0c-672a-4a6b-adbf-007d24855c9c",
+    "chatLocator": "https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "exactPacketSha256": "84c078df5c538643a9a209ea0023d8401e32714bd3621284dee3eb96f3fa85b7",
+    "capturedAt": "2026-09-01T22:51:56.543Z",
+    "provenanceStatus": "VERIFIED"
+  },
+  "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN"
+}
