@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://askrigor.com/schemas/benchmark-defect-ledger-v1.json",
+  "title": "AskRigor Benchmark Defect Ledger",
+  "description": "Decision-as-data ledger adapted from SciCode-Verified. Corrections create new evaluator epochs and never overwrite official results.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "benchmarkId",
+    "evaluatorVersion",
+    "entries"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "benchmarkId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluatorVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "manifestIdentity": {
+      "type": ["string", "null"]
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "discoveredAt",
+        "itemOrPath",
+        "field",
+        "before",
+        "proposedAfter",
+        "verdict",
+        "reason",
+        "evidence",
+        "impact",
+        "severity",
+        "status",
+        "discoverer",
+        "independentRecheckRequired"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "discoveredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "itemOrPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "field": {
+          "type": "string",
+          "minLength": 1
+        },
+        "class": {
+          "enum": [
+            "SPECIFICATION_CONTRADICTION",
+            "MISSING_CONVENTION",
+            "NON_UNIQUE_VALID_ANSWER",
+            "REFERENCE_TARGET_ERROR",
+            "TOLERANCE_TOO_STRICT",
+            "TOLERANCE_TOO_PERMISSIVE",
+            "JUDGE_NONDETERMINISM_OR_DRIFT",
+            "PARSER_OR_FORMAT_REJECTION",
+            "DEPENDENCY_OR_ENVIRONMENT_DRIFT",
+            "DATA_PROVENANCE_OR_VERSION_MISMATCH",
+            "STUDY_REPORT_IDENTITY_ERROR",
+            "PARTICIPANT_DEPENDENCE_ERROR",
+            "EXPOSURE_OR_ESTIMAND_INCOMPATIBILITY",
+            "COMPARATOR_OR_OUTCOME_WINDOW_MISMATCH",
+            "OTHER_EVIDENCED"
+          ]
+        },
+        "before": {
+          "$ref": "#/$defs/state"
+        },
+        "proposedAfter": {
+          "$ref": "#/$defs/state"
+        },
+        "verdict": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind", "value"],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "REPRODUCTION",
+                  "COUNTEREXAMPLE",
+                  "INDEPENDENT_CALCULATION",
+                  "SOURCE_CITATION",
+                  "REPEATED_JUDGE_RUN",
+                  "PROVENANCE_CHECK",
+                  "DOMAIN_REVIEW"
+                ]
+              },
+              "value": {
+                "type": "string",
+                "minLength": 1
+              },
+              "artifactHash": {
+                "type": ["string", "null"]
+              }
+            }
+          }
+        },
+        "impact": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["affectedItems", "scoreMayChange", "programConclusionMayChange"],
+          "properties": {
+            "affectedItems": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "affectedEpochs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            },
+            "scoreMayChange": {
+              "type": "boolean"
+            },
+            "programConclusionMayChange": {
+              "type": "boolean"
+            },
+            "boundedStatement": {
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "severity": {
+          "enum": ["BLOCKER", "MAJOR", "MINOR", "NOT_ESTABLISHED"]
+        },
+        "status": {
+          "enum": ["SUSPECTED", "CONFIRMED", "REFUTED", "UNRESOLVED", "CORRECTED"]
+        },
+        "discoverer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "independentRecheckRequired": {
+          "type": "boolean"
+        },
+        "recheck": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["reviewer", "reviewedAt", "decision", "reason"],
+          "properties": {
+            "reviewer": {
+              "type": "string",
+              "minLength": 1
+            },
+            "reviewedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "decision": {
+              "enum": ["CONFIRM", "REFUTE", "UNRESOLVED"]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            },
+            "evidenceArtifactHash": {
+              "type": ["string", "null"]
+            }
+          }
+        },
+        "correction": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["version", "releasedAt", "artifactHashes"],
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "releasedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "artifactHashes": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "uniqueItems": true
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "independentRecheckRequired": {
+                "const": true
+              },
+              "status": {
+                "enum": ["CONFIRMED", "CORRECTED"]
+              }
+            },
+            "required": ["independentRecheckRequired", "status"]
+          },
+          "then": {
+            "required": ["recheck"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "CORRECTED"
+              }
+            },
+            "required": ["status"]
+          },
+          "then": {
+            "required": ["correction"]
+          }
+        }
+      ]
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["representation", "value"],
+      "properties": {
+        "representation": {
+          "enum": ["TEXT", "JSON", "HASH", "NUMERIC", "ABSENT"]
+        },
+        "value": {
+          "type": ["string", "number", "object", "array", "null"]
+        },
+        "sha256": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
