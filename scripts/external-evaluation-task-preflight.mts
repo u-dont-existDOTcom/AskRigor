@@ -21,6 +21,8 @@ const taskSchema = z.object({
   assuranceLane: z.literal("evaluation_and_scientific_governance"),
   authorityPolicy: z.literal("governance/chat-work-authority-policy.json"),
   activeDirective: z.literal("docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json"),
+  currentState: z.literal("docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md"),
+  codexCurrentState: z.literal("project/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md"),
   preflightCommand: z.literal("npx tsx scripts/validate-chat-work-authority-policy.mts"),
   completionCommand: z.literal("npx tsx scripts/accept-zero-spend-chatgpt-mast-smoke.mts"),
   currentSlice: z.object({
@@ -80,8 +82,8 @@ async function main(): Promise<void> {
     readJson<ChatWorkPolicy>(join(root, task.authorityPolicy)),
     readJson<CanonicalDirective>(join(root, task.activeDirective)),
     readFile(join(root, "AGENTS.md"), "utf8"),
-    readFile(join(root, "docs", "state", "EXTERNAL-EVALUATION-CURRENT-STATE.md"), "utf8"),
-    readFile(join(root, "project", "CODEX-CURRENT-STATE.md"), "utf8"),
+    readFile(join(root, task.currentState), "utf8"),
+    readFile(join(root, task.codexCurrentState), "utf8"),
   ]);
 
   const findings = [
@@ -110,6 +112,8 @@ async function main(): Promise<void> {
     baseline_commit: task.baselineCommit,
     policy_id: policy.policyId,
     directive_id: directive.directiveId,
+    current_state: task.currentState,
+    codex_current_state: task.codexCurrentState,
     maximum_model_api_spend_usd: policy.ownerAuthority.maximumModelApiSpendUsd,
     paid_model_api_inference_authorized: false,
     internal_supervisor_routing_automatic: policy.internalSupervisorRouting.automatic,
