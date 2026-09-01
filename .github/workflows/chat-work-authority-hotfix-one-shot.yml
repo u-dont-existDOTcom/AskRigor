@@ -1,0 +1,134 @@
+name: One-shot Chat Work authority hotfix normalization
+
+on:
+  push:
+    branches:
+      - hotfix/chat-reasoning-zero-spend-routing-20260901
+    paths:
+      - .github/workflows/chat-work-authority-hotfix-one-shot.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: chat-work-authority-hotfix-one-shot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  normalize-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out exact hotfix branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: hotfix/chat-reasoning-zero-spend-routing-20260901
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Normalize directive digest and active task state
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          directive_path = Path('docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json')
+          directive = json.loads(directive_path.read_text(encoding='utf-8'))
+          text = directive['directiveText']
+          directive['directiveTextSha256'] = hashlib.sha256(text.encode('utf-8')).hexdigest()
+          directive['directiveTextUtf8Bytes'] = len(text.encode('utf-8'))
+          directive_path.write_text(json.dumps(directive, indent=2) + '\n', encoding='utf-8')
+
+          task_path = Path('tasks/ACTIVE-TASK.json')
+          task = json.loads(task_path.read_text(encoding='utf-8'))
+          task['status'] = 'active_chat_reasoning_zero_spend_mast_smoke'
+          task['requiredBranch'] = 'hotfix/chat-reasoning-zero-spend-routing-20260901'
+          task['authorityPolicy'] = 'governance/chat-work-authority-policy.json'
+          task['chatWorkAuthorityGate'] = 'scripts/validate-chat-work-authority-policy.mts'
+          task['ownerCorrection'] = {
+            'status': 'ACTIVE',
+            'sourceFeedbackSha256': 'e8bf17067b25ecbf1af071accc2c4ec3989a0322e1803c06a9b4cabbc9ca64f3',
+            'reasoningAuthority': 'CHATGPT_PROJECT_MANAGER_OR_SPECIALIST_SUPERVISOR',
+            'executionAuthority': 'CODEX_WORK_BOUNDED_MECHANICAL_ONLY',
+            'maximumModelApiSpendUsd': 0,
+            'paidModelApiPath': 'CANCELED_BY_OWNER',
+            'internalSupervisorRouting': 'AUTOMATIC_NO_OWNER_RELAY_OR_SEND_IT'
+          }
+          task['lastCompletedSlice'] = {
+            'sliceId': 'mast-noharm-pilot-analysis-freeze-v1',
+            'status': 'protected_merge_complete',
+            'pullRequest': 175,
+            'exactTestedCandidate': 'cf9465c1d232b39b73c0a2bfa65c8bd00912c85b',
+            'finalHead': '117f05b5ea5173fe8ba26415bfbc825baeee909a',
+            'mergeCommit': 'a1d4aaf0fe2010edc5cec13e6c431877a311d074',
+            'mergedAt': '2026-09-01T17:22:45Z',
+            'receipt': 'docs/audits/2026-09-01-mast-noharm-pilot-freeze-protected-merge.json'
+          }
+          task['currentSlice'] = {
+            'sliceId': 'mast-zero-spend-chatgpt-operational-smoke-v1',
+            'status': 'chat_authored_directive_ready_execution_pending',
+            'directive': 'docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json',
+            'policy': 'governance/chat-work-authority-policy.json',
+            'boundedOutcome': 'Run exactly one source-bound zero-spend MAST operational smoke through two fresh Extra High response chats and one fresh blinded Extra High evaluator chat, automatically routed without owner relay, then return exact receipts to the Project Manager Chat.',
+            'completed': [
+              'zero-spend NOHARM pilot and freeze plan protected-merge complete',
+              'Chat/Work authority failure preserved with exact owner digest',
+              'paid model API path canceled at USD 0',
+              'automatic internal supervisor routing policy encoded',
+              'bounded zero-spend ChatGPT consumer directive issued'
+            ],
+            'excluded': [
+              'paid model or judge API inference',
+              'Codex-authored proposal, methodology, priority, spending design, scientific interpretation, or consequential tradeoff',
+              'owner relay, paste request, or say-send-it handback',
+              'more than one MAST case family',
+              'HRP tuning or benchmark-responsive repair',
+              'official MAST result or HRP efficacy/degradation claim',
+              'external Terminal-Bench submission or production protocol mutation'
+            ],
+            'maximumEstimatedCostUsdBeforeAbort': 0
+          }
+          task['childWorkstreams']['mast']['status'] = 'zero_spend_chatgpt_consumer_operational_smoke_directive_ready_no_inference_run'
+          task['childWorkstreams']['mast']['nextAction'] = 'Execute the exact zero-spend directive through authenticated ChatGPT consumer Extra High chats; no API credential, owner relay, or Codex-authored interpretation.'
+          task['nextAction'] = 'Complete the Chat/Work authority hotfix review, then execute exactly one zero-spend ChatGPT-consumer MAST operational smoke using automatic internal routing.'
+          task['supervision'] = {
+            'ownerApproval': 'APPROVED_ZERO_SPEND_CHATGPT_REASONING_AND_AUTOMATIC_INTERNAL_ROUTING',
+            'completionClaim': 'PARENT_OPEN_HOTFIX_AND_LIVE_ZERO_SPEND_SMOKE_PENDING',
+            'workerToContract': 'hotfix_implementation_in_progress',
+            'contractToOwner': 'match_pending_live_chat_receipts',
+            'operationalAlignment': 'paid_api_path_canceled_chat_work_gate_added_live_smoke_pending',
+            'scientificAdequacy': 'not_reached_no_inference_run',
+            'releaseAdequacy': 'hotfix_pending_protected_review_no_paid_run_or_release'
+          }
+          task_path.write_text(json.dumps(task, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate Chat Work authority policy
+        run: npm run chat-work-authority:validate
+
+      - name: Run focused authority regressions
+        run: npx vitest run tests/chat-work-authority-policy.test.ts
+
+      - name: Run complete deterministic gate
+        run: npm run verify
+
+      - name: Commit normalized hotfix state
+        env:
+          TARGET_BRANCH: hotfix/chat-reasoning-zero-spend-routing-20260901
+        run: |
+          git config user.name "askrigor-authority-hotfix"
+          git config user.email "askrigor-authority-hotfix@users.noreply.github.com"
+          git add docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json tasks/ACTIVE-TASK.json
+          if git diff --cached --quiet; then
+            echo "Expected normalized directive/task changes were absent" >&2
+            exit 1
+          fi
+          git commit -m "chore: normalize zero-spend authority directive state"
+          git push origin "HEAD:${TARGET_BRANCH}"
