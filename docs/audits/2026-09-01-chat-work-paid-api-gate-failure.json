@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "chat_work_authority_gate_failure",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "capturedAt": "2026-09-01T20:35:27Z",
+  "timestampBasis": "CAPTURE_TIME_NATIVE_OWNER_MESSAGE_TIME_UNAVAILABLE",
+  "ownerFeedbackSha256": "e8bf17067b25ecbf1af071accc2c4ec3989a0322e1803c06a9b4cabbc9ca64f3",
+  "authority": {
+    "reasoningProposalMethodologyPriorityTradeoffs": "CHATGPT_PROJECT_MANAGER_OR_SPECIALIST_SUPERVISOR",
+    "codexWork": "BOUNDED_EXECUTION_ONLY",
+    "paidModelApiInference": "CANCELED",
+    "maximumModelApiSpendUsd": 0,
+    "internalSupervisorRouting": "AUTOMATIC_NO_OWNER_RELAY"
+  },
+  "observed": {
+    "codexAuthoredThirtyDollarSmokeProposal": true,
+    "codexAuthoredApproxOneHundredSeventyFiveDollarPilotCeiling": true,
+    "proposalFalselyAttributedToNamedChat": true,
+    "ownerAskedToSaySendItForRoutineInternalRoute": true,
+    "paidApiCallsOccurred": false
+  },
+  "existingGateFailure": [
+    "PR 175 correctly enforced a zero-dollar execution ceiling, but the authority model did not prohibit Codex from inventing a future paid proposal.",
+    "The repository required Chat reasoning for consequential work in prose, but no task-local executable gate rejected a Codex-authored proposal before it reached the owner.",
+    "No source-message receipt was mandatory before attributing reasoning to the AskRigor new research avenues chat.",
+    "Generic browser representational-communication confirmation was not reconciled with the narrower standing owner authorization for internal supervisor routing.",
+    "No liveness rule rejected an owner-relay or say-send-it handback when Codex could route the exact packet itself."
+  ],
+  "repair": {
+    "policy": "governance/chat-work-authority-policy.json",
+    "validator": "scripts/validate-chat-work-authority-policy.mts",
+    "tests": "tests/chat-work-authority-policy.test.ts",
+    "nextDirective": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
+    "paidPathCanceled": true,
+    "ownerRelayCanceled": true
+  },
+  "alignment": {
+    "operational": "FAILED_THEN_HOTFIXED_ON_TASK_BRANCH",
+    "scientific": "NOT_REACHED_NO_INFERENCE_RUN",
+    "release": "UNAFFECTED_NO_PAID_RUN_OR_RELEASE"
+  }
+}
