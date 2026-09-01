@@ -2,7 +2,7 @@
 
 The exclusive active task is defined by `tasks/ACTIVE-TASK.json`. Read `project/CODEX-CURRENT-STATE.md` for its complete recovery checkpoint and production-release boundary.
 
-The owner-approved Phase 2.2 external-evaluation and scientific-contribution program is registered as **queued next**, not active. Its compact checkpoint is `project/EXTERNAL-EVALUATION-CURRENT-STATE.md`, its controlling plan is `docs/superpowers/plans/2026-09-01-external-evaluation-and-scientific-contribution.md`, and its queue record is `tasks/2026-09-external-evaluation-and-contribution.md`.
+The owner-approved Phase 2.2 external-evaluation and scientific-contribution program is registered as **queued next**, not active. Its compact checkpoint is `docs/state/EXTERNAL-EVALUATION-CURRENT-STATE.md`, its controlling plan is `docs/superpowers/plans/2026-09-01-external-evaluation-and-scientific-contribution.md`, and its queue record is `tasks/2026-09-external-evaluation-and-contribution.md`.
 
 The queued program preserves the approved meta-analysis-integrity direction while refining it, after an existing-work scan, to dependency-aware clinical synthesis from overlapping reports: report-to-study/cohort lineage, participant dependence, exposure/estimand compatibility, comparator validity, corrected synthesis, and deterministic verification. It must not replace the active task pointer until the promotion-scheduler release has exact production activation and terminal closeout.
 
