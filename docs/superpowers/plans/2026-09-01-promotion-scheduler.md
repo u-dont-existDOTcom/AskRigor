@@ -74,14 +74,14 @@ Pre-attempt activation: `PASS`.
 
 ## Implementation sequence
 
-1. [ ] Add red contract tests for static unit bytes, five-minute timer,
+1. [x] Add red contract tests for static unit bytes, five-minute timer,
    privilege isolation, deterministic invocation, failure visibility, and
    rollback documentation.
-2. [ ] Add task preflight and artifact-based acceptance commands.
-3. [ ] Add the hardened service/timer templates and deployment runbook.
-4. [ ] Update contributor-access, privacy, architecture-map, work-queue, and
+2. [x] Add task preflight and artifact-based acceptance commands.
+3. [x] Add the hardened service/timer templates and deployment runbook.
+4. [x] Update contributor-access, privacy, architecture-map, work-queue, and
    current-state documentation without changing scientific semantics.
-5. [ ] Run focused tests and `systemd-analyze verify`, then inspect the final
+5. [x] Run focused tests and `systemd-analyze verify`, then inspect the final
    diff and lesson status.
 6. [ ] Run the complete applicable deterministic gate, protected review, merge,
    exact VPS installation, manual no-pending acceptance, timer activation,

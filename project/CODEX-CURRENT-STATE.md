@@ -24,13 +24,20 @@ is `../docs/superpowers/plans/2026-09-01-promotion-scheduler.md`; the independen
 owner-source receipt is
 `../docs/audits/2026-09-01-promotion-scheduler-owner-source.txt`.
 
-Current state: red contract scaffold. The systemd templates, preflight,
-artifact-based acceptance, runbook, implementation receipt, protected merge,
-production activation, and immutable release closeout remain incomplete.
+Current state: local candidate ready for protected merge. Red contract commit
+`aa6735d1ca329092d041d370dae2e53feb794855` and implementation commit
+`11ba00dae883e90fddca43ba472e3c3494f64b66` preserve test-first provenance.
+Focused coverage passes 57/57, both systemd validators pass, and the complete
+deterministic gate passes 126 files with one declared skip and 1,614 tests with
+six declared skips, followed by build. Exact local evidence is in
+`../docs/audits/2026-09-01-promotion-scheduler-candidate.json` and `.md`.
 
-Typed completion claim: `INCOMPLETE`. Operational alignment is pending.
-Scientific adequacy is preserved but not expanded; no scientific or causal
-conclusion is in scope. Release adequacy is pending.
+Typed completion claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment
+passes for the local candidate. Scientific adequacy is preserved but not
+expanded; no scientific or causal conclusion is in scope. Release adequacy
+remains pending protected merge, exact VPS unit/image selection installation,
+manual service acceptance, enabled timer/future-trigger readback, bounded
+journal inspection, unchanged public runtime, and immutable release closeout.
 
 ## 2026-09-01 owner review and promotion production release complete
 

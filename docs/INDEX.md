@@ -178,6 +178,9 @@ complete XML protocol.
   review receipts
 - `superpowers/plans/2026-09-01-promotion-scheduler.md`: exclusive bounded plan
   for scheduling only the already owner-accepted one-shot promoter
+- `audits/2026-09-01-promotion-scheduler-candidate.md` and its machine JSON:
+  test-first hardened systemd candidate, exact one-item accepted-intent
+  boundary, credential isolation, deterministic gates, and pending release state
 - `audits/2026-09-01-owner-review-promotion-production-release.md` and its
   machine JSON: PR #161 merge, exact production image and rollback,
   function-only owner review, one-shot hash-bound promotion, 27-tool MCP and
