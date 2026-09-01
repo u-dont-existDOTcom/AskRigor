@@ -3,7 +3,7 @@
 **Working title:** Repairing Dependency and Estimand Errors in a Clinical Meta-Analysis from Multiple Reports
 
 **Submission status:** draft only; not submitted  
-**External deadline:** 2026-10-05 pull-request deadline according to the current Terminal-Bench-Science 0.1 release announcement  
+**External deadline:** 2026-10-05 pull-request deadline according to the current v0.2 call in the Terminal-Bench-Science v0.1 release announcement  
 **Owner-controlled fields still required at submission:** preferred public name, contact email, external-form assent, and any desired affiliation wording
 
 ## Scientific Domain
@@ -115,7 +115,7 @@ Each invalid baseline must fail for a specific scientific reason visible in the 
 
 ## Complexity and Difficulty
 
-For a clinical epidemiologist or experienced systematic reviewer who understands the target estimand and the report family, the full task is expected to require approximately 4–8 hours. The conventional meta-analysis calculation is not the hard part. Difficulty comes from integrating identifiers, recruitment windows, sites, participant counts, treatment regimens, outcomes, and time horizons across reports; distinguishing duplicate, nested, extended, shared-control, overlapping, independent, and unresolved evidence; and then propagating those judgments into a valid synthesis.
+A provisional expert-time hypothesis is 4–8 hours for a clinical epidemiologist or experienced systematic reviewer who understands the target estimand and the report family. This estimate must be calibrated against a miniature fixture and an independent domain review before submission. The conventional meta-analysis calculation is not the hard part. Difficulty should come from integrating identifiers, recruitment windows, sites, participant counts, treatment regimens, outcomes, and time horizons across reports; distinguishing duplicate, nested, extended, shared-control, overlapping, independent, and unresolved evidence; and then propagating those judgments into a valid synthesis.
 
 Expected frontier-agent failures are scientifically realistic: treating papers as studies, resolving uncertainty by confident guess, selecting the wrong time point, mixing exposure regimes, confusing event risk with incidence rate, using an active comparator for a no-treatment question, or repairing code without repairing the evidence model. The fixture will be calibrated against current frontier agents. If they solve it reliably, the task will be rejected or substantively recalibrated rather than padded with arbitrary formatting traps.
 
