@@ -2,121 +2,139 @@
 
 **Checkpoint date:** 2026-09-01  
 **Task:** `askrigor-external-evaluation-contribution-v1`  
-**Queue status:** `QUEUED_NEXT`  
-**Planning branch:** `task/external-evaluation-contribution-20260901`  
-**Protected-review baseline:** `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`  
+**Status:** `ACTIVE_ON_BRANCH_PROTECTED_MERGE_PENDING`  
+**Required branch:** `task/external-evaluation-phase22-20260901`  
+**Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
 ## Current outcome
 
-The Phase 2.2 program is defined and recoverable in GitHub as a queued-next program. It is not the exclusive active task.
+The scheduler production release is terminal and preserved by protected-main commit `7964674b8a3dac804620a0e7d1dff62b00a68bf2`. A fresh priority check found no newer exclusive task. Phase 2.2 is therefore being activated from that baseline through a separate protected-review commit.
 
-While this program was being prepared, PR #163 merged the promotion-scheduler candidate and PR #165 merged its Compose-isolation repair into protected `main`, producing the protected-review baseline above. The scheduler is now installed and active; manual and repeated real timer-triggered production runs pass, and receipt-only PR #166 preserves the exact activation and rollback evidence. This program remains queued and deliberately does not replace `tasks/ACTIVE-TASK.json` during that protected closeout.
-
-This branch changes planning, evaluation-governance, and contribution-design artifacts only. It does not change production behavior, protocols, tools, database state, plugins, connectors, access agreements, public interfaces, the copy-ready ChatGPT Project package, or active release authority.
-
-The queued work program has four lanes:
+The active program has four lanes:
 
 1. paired bare-versus-HRP evaluation on MAST;
 2. an October-deadline Terminal-Bench-Science contribution;
 3. shared benchmark-integrity governance adapted from SciCode-Verified;
 4. a later K-Bench-inspired authentic-request evaluation.
 
-## Material finding
+The current implementation slice is dual-track: Terminal-Bench source-family/rights selection and miniature-verifier proof, plus the MAST endpoint adapter and sealed SCT preflight. No paid NOHARM run or external proposal submission is authorized by activation alone.
 
-A bounded overlap scan found that Terminal-Bench-Science Discussion #333 / approved Proposal #178 already occupies the broad task of reconstructing a standard meta-analysis from messy supplementary tables. It covers table normalization, missing-SD recovery, duplicate/incompatible arms, standard effect sizes, random-effects pooling, heterogeneity, and audit output.
+## Material overlap finding
 
-The owner-approved meta-analysis-integrity direction is therefore retained but narrowed to a distinct unresolved capability:
+A bounded scan found that Terminal-Bench-Science Discussion #333 / approved Proposal #178 already occupies generic reconstruction of a standard meta-analysis from messy supplementary tables: table normalization, missing-SD recovery, duplicate/incompatible arms, standard effect sizes, random-effects pooling, heterogeneity, and audit output.
+
+The owner-approved direction remains in force but is narrowed to a distinct unresolved capability:
 
 **Dependency-Aware Clinical Meta-Analysis from Overlapping Reports**
 
 The task core is report-to-study/cohort lineage, participant dependence, exposure-regime and estimand compatibility, comparator validity, and the numerical consequence of correcting an invalid report-as-study synthesis. Conventional data cleaning and random-effects calculations are reused rather than claimed as innovation.
 
-## Completed in this branch
+## Completed before activation
 
 - preserved the independent conception before external-method reconciliation;
-- pinned current source identities for MAST, Terminal-Bench-Science, SciCode-Verified, K-Bench, Cochrane, and ICH E9(R1);
+- pinned source identities for MAST, Terminal-Bench-Science, SciCode-Verified, K-Bench, Cochrane, and ICH E9(R1);
 - recorded source-specific deadline and defect-count discrepancies rather than silently normalizing them;
-- wrote the integrated Phase 2.2 plan and queued work record;
+- merged the integrated Phase 2.2 architecture and queued work record in PR #164 / `e47b122a2dd07d460bd50c008a62407278ccf958`;
 - completed a bounded Terminal-Bench overlap and reuse scan;
 - specified the refined contribution, required artifacts, deterministic verifier, invalid baselines, and rights constraints;
-- drafted the external Terminal-Bench proposal, leaving owner-controlled identity/contact/form fields unresolved rather than inventing them;
+- drafted the external Terminal-Bench proposal without inventing owner-controlled identity/contact/form fields;
 - adapted a benchmark correction and independent-recheck policy from SciCode-Verified;
 - added provisional benchmark-manifest and defect-ledger schemas;
 - specified the sealed MAST paired-evaluation design;
-- checked the private AskRigor lesson queue: no open, review-pending, or accepted-unincorporated candidates;
-- rebased the branch onto the merged promotion-scheduler series and removed the attempted active-task override;
-- located this checkpoint outside `project/`, which is reserved for the exact copy-ready ChatGPT Project package.
+- preserved the copy-ready ChatGPT Project package byte inventory;
+- closed superseded, unmerged queued-state PR #167 after the scheduler release gate cleared.
 
-## Predecessor closeout
+## Previous completed task
 
-The repository's exclusive active task remains `askrigor-living-evidence-promotion-scheduler-v1`, recorded in `tasks/ACTIVE-TASK.json`.
+`askrigor-living-evidence-promotion-scheduler-v1` is complete.
 
-Its bounded production release is operationally complete: the exact unit and
-image selection are installed, manual and automatic acceptance pass, the
-journal is bounded, the public runtime is unchanged, and the immutable receipt
-is in PR #166. This queued program must not silently select itself before that
-receipt reaches protected `main` and a fresh activation commit resolves any
-newer priority.
+- candidate merge: `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`
+- release-receipt merge: `7964674b8a3dac804620a0e7d1dff62b00a68bf2`
+- production receipt: `docs/audits/2026-09-01-promotion-scheduler-production-release.json`
+- production image: `sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da`
+- service hash: `a2b32e9c8352883b63a3b0d1aba7acb89f4ce263028fcba777d30de73e3ab3cc`
+- timer hash: `873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd`
+- image-selection hash: `6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1`
+
+The scheduler remains operational in production but no longer holds the work-queue lock.
+
+## Active Terminal-Bench slice
+
+Current actions:
+
+1. identify candidate report families that exhibit multiple reports, nested or extended cohorts, partial overlap or shared controls, and estimand drift;
+2. establish a rights path for every redistributable input;
+3. prefer a compact open or public-domain source family when it supports inspectable latent truth;
+4. otherwise construct a transparently semisynthetic fixture from a coherent hidden study model without making claims about a real treatment;
+5. build an oracle, an alternate correct implementation, invalid baselines, and mutation tests in a non-public environment;
+6. update the external proposal only after the verifier demonstrates low false-rejection and false-acceptance risk.
+
+The public AskRigor repository may contain architecture, provenance, rights findings, verifier contracts, and non-answer-bearing tests. It must not contain the final latent graph or benchmark answers before submission strategy is resolved.
+
+## Active MAST slice
+
+Current actions:
+
+1. implement an OpenAI-compatible paired-condition adapter;
+2. enforce exact equality of model, endpoint, sampling, limits, cases, retries, parser, and evaluator across `BARE` and `HRP` conditions;
+3. bind complete Universal and HRP versions and hashes;
+4. preserve and hash raw responses before parsing or judging;
+5. run only deterministic SCT fixture/preflight validation initially;
+6. freeze cost, timeout, retry, and abort rules;
+7. declare the NOHARM pilot subset and analysis-freeze boundary without executing paid judging yet.
+
+## Governance validation
+
+The provisional benchmark manifest and defect-ledger schemas must be instantiated against the first miniature Terminal-Bench and MAST preflight artifacts. Revisions require concrete schema failures; speculative taxonomy expansion remains out of scope.
 
 ## Not completed or claimed
 
-- this program is not active;
-- no MAST model inference or scoring has run;
+- the activation PR is not yet merged;
+- no MAST model inference or official benchmark scoring has run;
 - no paid NOHARM judge call has run;
 - no Terminal-Bench proposal has been submitted;
-- no Terminal-Bench fork, implementation branch, or upstream pull request exists;
+- no complete Terminal-Bench task or upstream pull request exists;
 - no final benchmark fixture or latent answer has been published;
-- no source-family redistribution decision has been made;
+- no report family or redistribution path has yet passed the go/no-go gate;
 - no independent scientific reviewer has approved the refined task;
-- no production release or scientific-performance conclusion is claimed.
+- no benchmark performance or clinical conclusion is claimed.
 
-## Exact source pins
+## Exact source and program pins
 
 - independent-conception baseline: `c7138eff5dbbce22bb25f727da78006e543fa476`
-- protected-review baseline: `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`
+- scheduler candidate: `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`
+- scheduler release receipt: `7964674b8a3dac804620a0e7d1dff62b00a68bf2`
+- Phase 2.2 architecture merge: `e47b122a2dd07d460bd50c008a62407278ccf958`
 - MAST: `57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`
 - Terminal-Bench-Science: `7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77`
 - SciCode-Verified: `ddab4a92f8d80a7113ab946628e994b52354d838`
 - SciCode-Verified paper: `arXiv:2608.04975v1`
 - K-Bench paper: `arXiv:2608.21601v1`
 
-Full identities and discrepancies are in `evaluation/governance/source-registry.json`.
+Full external identities and discrepancies are in `evaluation/governance/source-registry.json`.
 
-## Activation boundary
+## Next safe action
 
-After receipt-only PR #166 reaches protected `main`, resolve protected `main` again. Activate this program only if no newer exclusive task outranks it and the Terminal-Bench deadline remains feasible. The activation commit must:
-
-- update `tasks/ACTIVE-TASK.json` from the then-current baseline;
-- preserve the scheduler's final product, deployment, and release-receipt identities as the previous completed task;
-- change this program from `QUEUED_NEXT` to an accurate active status;
-- retain all stop triggers and non-goals recorded in the controlling plan.
-
-## Next safe action after activation
-
-Execute two linked slices without reopening the owner decision:
-
-1. **Terminal-Bench:** perform the candidate report-family and redistribution-rights scan, then build a miniature latent-study fixture and verifier proof in a non-public environment so final benchmark answers do not enter the public repository or training surfaces.
-2. **MAST:** implement the OpenAI-compatible paired-condition adapter, exact condition-equality tests, response preservation, deterministic SCT preflight, cost/abort rules, and sealed run manifest. Do not run the paid NOHARM judge yet.
-
-The Terminal-Bench proposal may be externally submitted only after the miniature verifier proof passes and the owner supplies or directly enters the required public name, contact email, and form assent.
+Complete protected activation, then continue immediately with the Terminal-Bench candidate-family/rights matrix and the MAST adapter/preflight implementation. Do not run paid NOHARM judging or expose latent benchmark truth in the public repository.
 
 ## Recovery order
 
-1. `tasks/ACTIVE-TASK.json` — current exclusive scheduler authority
+1. `tasks/ACTIVE-TASK.json`
 2. `docs/superpowers/plans/2026-09-01-external-evaluation-and-scientific-contribution.md`
 3. `tasks/2026-09-external-evaluation-and-contribution.md`
-4. `evaluation/conception/2026-09-01-independent-conception-snapshot.md`
-5. `contributions/terminal-bench-science/overlap-scan.md`
-6. `contributions/terminal-bench-science/task-design.md`
-7. `contributions/terminal-bench-science/proposal-draft.md`
-8. `evaluation/mast/README.md`
-9. `evaluation/governance/correction-and-recheck-policy.md`
-10. `evaluation/governance/source-registry.json`
+4. this file
+5. `evaluation/conception/2026-09-01-independent-conception-snapshot.md`
+6. `contributions/terminal-bench-science/overlap-scan.md`
+7. `contributions/terminal-bench-science/task-design.md`
+8. `contributions/terminal-bench-science/proposal-draft.md`
+9. `evaluation/mast/README.md`
+10. `evaluation/governance/correction-and-recheck-policy.md`
+11. `evaluation/governance/source-registry.json`
 
 ## Typed claim
 
 `PROCESS`
 
-Operational alignment is green for the approved queue-registration and task-refinement slice. Scientific adequacy is limited to architecture, source/overlap reconciliation, evaluator governance, and proposal readiness; no benchmark performance or clinical conclusion is claimed. Release adequacy is not assessed for Phase 2.2 because it remains queued behind the active scheduler release.
+Operational alignment is active on the protected-review branch. Scientific adequacy remains pending implementation proof; no benchmark performance, external acceptance, or clinical conclusion is claimed. Release adequacy is not assessed.

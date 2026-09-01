@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "active_task_transition_candidate",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "ownerApproval": "APPROVED — meta-analysis integrity primary",
+  "recordedAt": "2026-09-01T14:31:00Z",
+  "activationState": "protected_review_pending",
+  "repository": "u-dont-existDOTcom/AskRigor",
+  "pullRequest": 168,
+  "activationBranch": "task/external-evaluation-phase22-20260901",
+  "activationBaseline": "7964674b8a3dac804620a0e7d1dff62b00a68bf2",
+  "independentConceptionBaseline": "c7138eff5dbbce22bb25f727da78006e543fa476",
+  "architecturePullRequest": 164,
+  "architectureMergeCommit": "e47b122a2dd07d460bd50c008a62407278ccf958",
+  "supersededQueuedReceiptPullRequest": {
+    "number": 167,
+    "state": "closed_unmerged",
+    "reason": "scheduler production release merged while the queued-state receipt was under review; activation had to be resolved from the new protected-main baseline"
+  },
+  "activationGates": {
+    "previousExclusiveTaskTerminal": true,
+    "freshProtectedMainResolved": true,
+    "newerCompetingExclusiveTaskFound": false,
+    "externalDeadlineFeasible": true,
+    "previousTaskIdentitiesPreserved": true
+  },
+  "previousCompletedTask": {
+    "taskId": "askrigor-living-evidence-promotion-scheduler-v1",
+    "candidateMergeCommit": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
+    "releaseReceiptMergeCommit": "7964674b8a3dac804620a0e7d1dff62b00a68bf2",
+    "productionReleaseReceipt": "docs/audits/2026-09-01-promotion-scheduler-production-release.json",
+    "productionImageId": "sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da",
+    "installedServiceSha256": "a2b32e9c8352883b63a3b0d1aba7acb89f4ce263028fcba777d30de73e3ab3cc",
+    "installedTimerSha256": "873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd",
+    "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1",
+    "productionActivated": true,
+    "releaseAdequacy": "pass"
+  },
+  "activeSlices": {
+    "terminalBenchScience": {
+      "status": "source_family_and_redistribution_rights_scan",
+      "workingTitle": "Dependency-Aware Clinical Meta-Analysis from Overlapping Reports",
+      "nextProof": "non-public miniature latent-study fixture with oracle, alternate correct implementation, invalid baselines, and mutation-tested deterministic verifier"
+    },
+    "mast": {
+      "status": "endpoint_adapter_and_sealed_sct_preflight",
+      "nextProof": "condition-equality enforcement, raw-response preservation, exact protocol identities, deterministic SCT preflight, and frozen cost/retry/abort rules"
+    },
+    "benchmarkGovernance": {
+      "status": "schema_instantiation_and_validation",
+      "nextProof": "manifest and defect-ledger instances against both first-slice artifacts"
+    }
+  },
+  "hardBoundaries": [
+    "no paid NOHARM judge call in the activation slice",
+    "no MAST-responsive HRP tuning before the first paired epoch is sealed",
+    "no external Terminal-Bench submission before miniature verifier proof and owner-controlled form fields",
+    "no public release of final benchmark fixtures or latent answers",
+    "no production or canonical-protocol mutation"
+  ],
+  "validation": {
+    "workflowPolicy": "pending",
+    "deterministicVerification": "pending",
+    "protectedMerge": "pending"
+  },
+  "nonClaims": [
+    "no MAST inference or benchmark score exists",
+    "no paid judge run exists",
+    "no Terminal-Bench proposal has been submitted",
+    "no final fixture or upstream implementation PR exists",
+    "no scientific-performance or clinical conclusion is claimed"
+  ]
+}
