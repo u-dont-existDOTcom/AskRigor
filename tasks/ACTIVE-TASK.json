@@ -33,7 +33,7 @@
   "ownerSourceSha256": "e57ddfe2e11a3ac7cd6def01665f54e3a1944e2c79fab2717795dcb2fa18ca80",
   "completionReceipt": "docs/audits/2026-09-01-promotion-scheduler-candidate.json",
   "productionReleaseReceipt": null,
-  "pullRequest": null,
+  "pullRequest": 163,
   "redTestCommit": "aa6735d1ca329092d041d370dae2e53feb794855",
   "implementationCommit": "11ba00dae883e90fddca43ba472e3c3494f64b66",
   "preflightCommand": "npm run promotion-scheduler:preflight",

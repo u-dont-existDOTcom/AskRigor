@@ -7,6 +7,8 @@
   "redTestCommit": "aa6735d1ca329092d041d370dae2e53feb794855",
   "implementationCommit": "11ba00dae883e90fddca43ba472e3c3494f64b66",
   "implementationTree": "8e1cea42d6adcbd6de155ffd96094ee743d482d1",
+  "pullRequest": 163,
+  "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/163",
   "ownerSource": {
     "path": "docs/audits/2026-09-01-promotion-scheduler-owner-source.txt",
     "sha256": "e57ddfe2e11a3ac7cd6def01665f54e3a1944e2c79fab2717795dcb2fa18ca80"

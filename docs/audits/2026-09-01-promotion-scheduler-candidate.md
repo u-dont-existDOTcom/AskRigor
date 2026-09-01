@@ -8,6 +8,8 @@ artifact checks failed before implementation. Code-bearing commit
 five-minute persistent timer, task controls, deployment/rollback runbook, and
 privacy/architecture/recovery documentation.
 
+PR #163 is the protected merge and release-readiness surface.
+
 The scheduler cannot accept, reject, edit, or supply a proposal. It invokes only
 the existing `living-evidence-admin promote-accepted` command, with no shell or
 dynamic input, against the exact locally present image with pulls and builds

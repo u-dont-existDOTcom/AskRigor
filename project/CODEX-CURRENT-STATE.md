@@ -31,6 +31,7 @@ Focused coverage passes 57/57, both systemd validators pass, and the complete
 deterministic gate passes 126 files with one declared skip and 1,614 tests with
 six declared skips, followed by build. Exact local evidence is in
 `../docs/audits/2026-09-01-promotion-scheduler-candidate.json` and `.md`.
+PR #163 is the protected merge and release-readiness surface.
 
 Typed completion claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment
 passes for the local candidate. Scientific adequacy is preserved but not
