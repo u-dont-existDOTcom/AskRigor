@@ -1,34 +1,52 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 owner review and promotion candidate — local only
+## 2026-09-01 owner review and promotion production release complete
 
-Task `askrigor-owner-review-promotion-v1` is ready for protected review on branch
-`task/owner-review-promotion-20260901` from production baseline
-`ef8b713e9b5320d3ebe8e47ec2cea98095431e90`. It adds one owner-only
-`review_research_contribution` MCP operation, a function-only review database
-role, an atomic hash-bound promotion outbox, and a separate one-shot canonical
-promoter. The public runtime receives no canonical writer credential. The
-standard catalog is 27 operations with inventory SHA-256
-`5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0`;
-the compact Gemini catalog remains 22. The synchronization ledger SHA-256 is
+Task `askrigor-owner-review-promotion-v1` is complete. PR #161 merged as
+`bfc2918476d2c4d5ae9b01df6c3a603fd3418596`; that exact tree is deployed as
+healthy immutable production image
+`sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da`.
+Migration `0010_research_contribution_review`, function-only owner review,
+the separate one-shot promoter, exact plugin synchronization, refreshed
+27-tool connector, and fresh primary Extra High product acceptance all pass.
+The compact Gemini catalog remains unchanged at 22 tools.
+
+The public runtime receives no canonical writer credential. Review requires the
+exact `cases:review` scope and configured owner subject; each decision is bound
+to the immutable proposal SHA-256. Acceptance atomically creates only a
+promotion intent, and the one-shot canonical writer stores one idempotent
+receipt. No scheduler is active. The production acceptance found zero pending
+proposals, changed no canonical evidence, and created no contribution,
+decision, or promotion.
+
+AskRigor remains an ordinary public product, not an institutional research
+program or pilot. Eligible deidentified structured progress can enter the
+private queue under the existing reciprocal-contribution agreement. Partial
+formal corpora remain usable and labeled partial. Raw chat, identity/contact
+data, private health narratives, uploads, provider bodies, credentials, and
+YouTube/community material remain excluded.
+
+The standard MCP inventory contains 27 operations with SHA-256
+`5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0`.
+The installed eight-file Codex package is `0.1.0+codex.20260901124016`,
+byte-identical to its personal-marketplace source at SHA-256
+`02c41b473c23a5442d72c65e8346b6986451d26c2fe68e297cd3532067084ae1`.
+The synchronization ledger SHA-256 is
 `6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3`;
 the unchanged controlled Instructions remain 4,752 characters with SHA-256
 `2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
-No merge, deployment, migration activation, role provisioning, scheduler,
-connector refresh, or live product acceptance is claimed.
-Recovery commands are `npm run owner-review:preflight` and
-`npm run owner-review:acceptance`.
+The fresh primary-account conversation returned active free-contributor access,
+exact live Universal and HRP manifests, one authenticated PubMed record, and
+`no_pending_proposal` through the new owner-review operation.
 
-The bounded implementation is committed as
-`7697bcf6d6689533314b5e2a218bd6e602016d50`; CI acceptance-harness repair
-`b0279aca88437bed665455521d1f35d89e030aef` updates the legacy exact migration
-chain for migration 0010. Full deterministic, focused real-PostgreSQL, and the
-42-check living-evidence pilot/dump/wipe/restore gates pass. Extra High final
-review is `PASS` with typed claim
-`SUBTASK_COMPLETE_PARENT_OPEN`. Exact evidence is in
-`docs/audits/2026-09-01-owner-review-promotion-candidate.json`. PR #161 is the
-protected review and release-readiness surface; no production action is
-implied.
+Typed claim: `OUTCOME`. Operational alignment passes for the exact merge,
+production runtime, least-privilege database authority, one-shot runner,
+installed plugin, refreshed connector, and primary ordinary-Chat interface.
+Scientific adequacy is preserved but not expanded: proposal disposition remains
+an owner decision and no scientific or causal conclusion is claimed. Release
+adequacy passes. Exact evidence and rollback identity are in
+`../docs/audits/2026-09-01-owner-review-promotion-production-release.json` and
+`.md`; receipt-only PR #162 preserves the closeout on protected `main`.
 
 ## 2026-09-01 free-contributor/private-entitlement production release complete
 

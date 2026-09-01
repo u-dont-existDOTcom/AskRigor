@@ -1,0 +1,224 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-owner-review-promotion-v1",
+  "recordedAt": "2026-09-01T13:05:33Z",
+  "completedAt": "2026-09-01T13:10:45Z",
+  "releaseState": "production_release_complete",
+  "source": {
+    "pullRequest": 161,
+    "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/161",
+    "implementationHead": "d315b434be43272f4da0586fa3604b68410d804f",
+    "mergeCommit": "bfc2918476d2c4d5ae9b01df6c3a603fd3418596",
+    "mergeTree": "162810fa8b12a87aae7403b1d85ee47e67f65872",
+    "mergedAt": "2026-09-01T12:28:49Z",
+    "receiptPullRequest": 162,
+    "receiptPullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/162"
+  },
+  "productContract": {
+    "reviewOperation": "review_research_contribution",
+    "authorizedReviewer": "exact cases:review scope and configured owner subject",
+    "proposalInspection": "immutable structured proposal projection",
+    "decisionBinding": "explicit action bound to exact proposal SHA-256",
+    "acceptedPromotion": "separate one-shot canonical writer",
+    "automaticScientificAcceptance": false,
+    "automaticSchedulerActivated": false,
+    "partialFormalCorpora": "eligible_and_labeled_partial",
+    "ordinaryPublicProduct": true,
+    "institutionalResearchProgram": false
+  },
+  "privacyBoundary": {
+    "rawChatOrPrompts": false,
+    "identityOrContactData": false,
+    "privateHealthNarratives": false,
+    "uploads": false,
+    "rawSourceOrProviderBodies": false,
+    "credentials": false,
+    "youtubeOrCommunityData": false,
+    "publicRuntimeCanonicalWriterCredential": false,
+    "productionUserRecordsReadOrDisplayedDuringAcceptance": false
+  },
+  "deployment": {
+    "imageReference": "askrigor-research:bfc2918476d2c4d5ae9b01df6c3a603fd3418596",
+    "imageId": "sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da",
+    "imageArchiveBytes": 108350234,
+    "imageArchiveSha256": "cc54f66a5f7df51bf5b9894862512abf6b1c0314552504f0c152cc9a0943fe1e",
+    "researchContainer": "4230d0de22d7cda81fbe2a4c9ae1e836ea3b9c9b5de6f312da6c71f886dbac55",
+    "databaseContainer": "cf767390e8247d77a035da4582604bd151f43e0495ccb84170043a71c2a85fa6",
+    "caddyContainer": "1ed11931452121ba77882006a900d1a703fc26b3a031b035247bfc9d83572326",
+    "migration": "0010_research_contribution_review",
+    "migrationCount": 10,
+    "researchHealthy": true,
+    "databaseHealthy": true,
+    "researchRunsAsNode": true,
+    "researchReadOnlyFilesystem": true,
+    "capabilitiesDropped": "ALL",
+    "securityOptions": [
+      "no-new-privileges:true"
+    ],
+    "networks": [
+      "askrigor_default",
+      "askrigor_living_evidence_private"
+    ],
+    "productionLogsAfterAcceptance": "one startup line"
+  },
+  "deploymentArtifactHashes": {
+    "baseComposeSha256": "3b937b0c89e6b72c1ecb88b9ffe9d7df5325653cfeb262ae4501c781061d5c5c",
+    "productionOverlaySha256": "5631ff8150eea2a8583d035eab3369dc99b6e17b04d60dc7963e04b5efbdc789",
+    "runtimeEnvironmentSha256": "ad607c54a3a204766ea7b088b2adb44291d26044f4eb7b04a947e1e74b5ea31c",
+    "writerEnvironmentSha256": "24e1c06f62825768db7c77993156e1df85936310c6f1cdab5e57058e8bf53874",
+    "reviewRoleProvisionerSha256": "064d916d8e7ed6d75b9cb64bdf3b454b1216d29ca85b45ec2cb196717e1f2a91",
+    "migrationSha256": "7729583c6c33479ecec4dfb6e64ee9f94899d109a0df39e10616fa8b16b4ef9a"
+  },
+  "databaseAcceptance": {
+    "reviewRuntimeKeyCount": 4,
+    "reviewSecretBytesIncludingNewline": 65,
+    "reviewSecretMode": "0440",
+    "reviewRoleDirectTableGrantCount": 0,
+    "inspectFunctionExecute": true,
+    "decideFunctionExecute": true,
+    "randomProposalInspectCount": 0,
+    "directProposalTableSelect": "denied",
+    "temporaryTableCreate": "denied",
+    "promotionRunnerResult": "no_pending_promotion",
+    "postAcceptanceProposalCount": 0,
+    "postAcceptancePromotionCount": 0
+  },
+  "directProductionAcceptance": {
+    "health": {
+      "status": "ok",
+      "service": "askrigor-research",
+      "version": "0.1.0"
+    },
+    "standardMcpToolCount": 27,
+    "standardMcpInventorySha256": "5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0",
+    "standardCatalogExactSemanticMatch": true,
+    "standardCatalogNewOperation": "review_research_contribution",
+    "geminiMcpToolCount": 22,
+    "geminiCatalogUnchanged": true,
+    "protectedResourceScopes": [
+      "research:use",
+      "cases:review"
+    ],
+    "authorizationServer": "https://askrigor-prod.us.auth0.com/",
+    "universal": {
+      "version": "20.5.15",
+      "sha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172"
+    },
+    "hrp": {
+      "version": "20.5.24",
+      "sha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
+    }
+  },
+  "generatedArtifactIdentity": {
+    "synchronizationLedgerSha256": "6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3",
+    "controlledInstructionsCharacters": 4752,
+    "controlledInstructionsSha256": "2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514"
+  },
+  "installedCodexPlugin": {
+    "marketplace": "personal",
+    "sourcePath": "/home/joel/plugins/askrigor",
+    "installedPath": "/home/joel/.codex/plugins/cache/personal/askrigor/0.1.0+codex.20260901124016",
+    "version": "0.1.0+codex.20260901124016",
+    "declaredFileCount": 8,
+    "reviewedPreCachebusterPackageSha256": "60d20c3bd1efcb29dd11e74040a511be135ec59676028b091d5340dac5ea69b7",
+    "sourcePackageSha256": "02c41b473c23a5442d72c65e8346b6986451d26c2fe68e297cd3532067084ae1",
+    "installedPackageSha256": "02c41b473c23a5442d72c65e8346b6986451d26c2fe68e297cd3532067084ae1",
+    "sourceAndInstalledExactMatch": true,
+    "priorSourceRollbackPath": "/home/joel/plugins/askrigor.rollback-20260901T123900Z",
+    "pluginValidation": "pass",
+    "declaredInventory": {
+      ".codex-plugin/plugin.json": "3fb348a92af3f709bf5556e14cbfadf1d94aab8bf58947cdb9f62ebff0954784",
+      "assets/askrigor-composer-icon.svg": "b1f362a01d49b818524870aef917e65194fe8f99405e75601aa1cae48ae4b4f2",
+      "assets/askrigor-logo.svg": "1dd63bc58561be74b08f451c7d006489d50c2606cf46830089bf117fb21873d7",
+      "skills/askrigor/SKILL.md": "c8e970bc8378791cc93b518cc63c673ffda8bec8ffe6c5b8e7d77c167ac80a72",
+      "skills/browser-archive-downloading/GVSU-REFERENCE.md": "45f3f5b99cd67340cdf6ba2ddf8375fa5ef10bfc40ae59e8a6fa779b14785529",
+      "skills/browser-archive-downloading/SCENARIOS.md": "c3abcc13769d5586a16b9f8998baf96289135cdcc402dbb71f5aed54725a2441",
+      "skills/browser-archive-downloading/SKILL.md": "494050741f8a0281163cdc7d6d3b2beeae1340231ee7b84f52d0796f872bcac6",
+      "skills/browser-archive-downloading/SUCCESS-PROFILE.json": "afd344dd6cd1120ad047a850ef74f07352aeac5b8defb4cd0806109787e6f4d0"
+    }
+  },
+  "primaryChatProductAcceptance": {
+    "account": "primary_owner",
+    "workspace": "primary_pro_workspace",
+    "mode": "Extra High",
+    "surface": "fresh ordinary ChatGPT conversation",
+    "browser": "headless Brave with temporary minimal profile clone",
+    "connector": "AskRigor Reviewer",
+    "connectorAppId": "asdk_app_6a95f8e846e4819183fbcb5bdd5266a1",
+    "connectorVersionId": "asdk_app_v_6a95f8e846f48191ac9534b596bcbe76",
+    "refreshedSchemaToolCount": 27,
+    "refreshedSchemaMissingTools": 0,
+    "conversation": "https://chatgpt.com/c/6a96cc25-558c-83e9-8719-2bfb42b6c0ba",
+    "researchAccess": "ACTIVE_FREE_CONTRIBUTOR",
+    "universalManifestExact": true,
+    "hrpManifestExact": true,
+    "authenticatedPubmedProbe": {
+      "pmid": "40223676",
+      "access": "api_visible_complete",
+      "returnedCount": 1
+    },
+    "reviewInspectResult": "no_pending_proposal",
+    "canonicalEvidenceChangedByThisCall": false,
+    "contributionSubmittedDuringSmoke": false,
+    "proposalAcceptedDuringSmoke": false,
+    "proposalRejectedDuringSmoke": false,
+    "proposalPromotedDuringSmoke": false,
+    "temporaryBrowserProfilesRemoved": true,
+    "originalBrowserProfileModified": false,
+    "status": "pass"
+  },
+  "rollback": {
+    "previousImageTag": "askrigor-research:rollback-pre-bfc2918",
+    "previousImageReference": "askrigor-research:2559e4d54261bb04fbe45d48d1e5051d6cf6640c",
+    "rollbackDirectory": "/opt/askrigor/rollbacks/pre-bfc2918476d2c4d5ae9b01df6c3a603fd3418596",
+    "databaseDumpSha256": "ba2b29b84d04d7f8ae11c42fa84bc0e5673f7cb17aef73d95fc3df1b1363da96",
+    "databaseDumpBytes": 483697,
+    "rootOnlyRollbackMaterials": true,
+    "activationRecoveryExercise": "initial wrapper exit trap restored the prior runtime after additive migration 0010; isolated grant verification then passed and exact activation completed"
+  },
+  "verification": {
+    "protectedProductPullRequest": {
+      "deterministicVerificationRun": 33468185214,
+      "deterministicVerificationJob": 99732340050,
+      "workflowPolicyRun": 33468185253,
+      "workflowPolicyJob": 99732299538,
+      "codeqlRun": 33468182756,
+      "codeqlAggregateCheck": 99732363977,
+      "status": "all_pass"
+    },
+    "localImageBuild": "pass",
+    "localNoSecretContainerGate": "pass",
+    "postgresql176Acceptance": "pass",
+    "receiptCloseoutGate": {
+      "runtime": "Node 24.18.0",
+      "typecheck": "pass",
+      "focusedTestFilesPassed": 7,
+      "focusedTestsPassed": 48,
+      "jsonParse": "pass",
+      "diffCheck": "pass",
+      "initialFailure": "current-state closeout removed the exact generated synchronization identities required by the release-packet invariant",
+      "recovery": "restored the exact unchanged synchronization-ledger and controlled-Instructions identities; focused gate then passed"
+    },
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-09-01T13:09:01.569Z"
+    }
+  },
+  "completion": {
+    "typedClaim": "OUTCOME",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_exact_merge_production_runtime_database_least_privilege_one_shot_runner_plugin_connector_and_primary_chat",
+    "scientificAdequacy": "preserved_not_expanded_no_scientific_or_causal_conclusion_and_owner_decision_required",
+    "releaseAdequacy": "pass"
+  },
+  "remainingReleaseWork": [
+    "pass protected checks and merge receipt-only PR 162",
+    "attach its final immutable merge receipt"
+  ]
+}

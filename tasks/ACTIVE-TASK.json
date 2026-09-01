@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-owner-review-promotion-v1",
-  "status": "ready_for_protected_merge",
+  "status": "production_release_complete",
   "exclusive": true,
   "requiredBranch": "task/owner-review-promotion-20260901",
   "baselineCommit": "ef8b713e9b5320d3ebe8e47ec2cea98095431e90",
@@ -23,15 +23,20 @@
     "YouTube or community persistence",
     "institutional research program or pilot",
     "scientific or causal inference",
-    "merge, deployment, or scheduler activation"
+    "scheduler activation"
   ],
   "plan": "docs/superpowers/plans/2026-09-01-owner-review-promotion.md",
   "ownerSourceReceipt": "docs/audits/2026-09-01-owner-review-promotion-owner-source.txt",
   "directiveReceipt": "docs/audits/2026-09-01-owner-review-promotion-directive.json",
   "completionReceipt": "docs/audits/2026-09-01-owner-review-promotion-candidate.json",
+  "productionReleaseReceipt": "docs/audits/2026-09-01-owner-review-promotion-production-release.json",
   "implementationCommit": "7697bcf6d6689533314b5e2a218bd6e602016d50",
   "ciAcceptanceHarnessRepairCommit": "b0279aca88437bed665455521d1f35d89e030aef",
   "pullRequest": 161,
+  "receiptPullRequest": 162,
+  "mergeCommit": "bfc2918476d2c4d5ae9b01df6c3a603fd3418596",
+  "productionImageId": "sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da",
+  "installedPluginVersion": "0.1.0+codex.20260901124016",
   "preflightCommand": "npm run owner-review:preflight",
   "completionCommand": "npm run owner-review:acceptance",
   "previousCompletedTask": {
@@ -41,17 +46,20 @@
   },
   "supervision": {
     "directiveId": "CHAT-TO-CODEX-EXECUTION-DIRECTIVE-ASKRIGOR-OWNER-REVIEW-BRIDGE-v1.0.1-TOPOLOGY-CORRECTION",
-    "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "completionClaim": "OUTCOME",
     "workerToContract": "green",
     "contractToOwner": "match_for_bounded_subtask",
     "operationalAlignment": "green",
     "scientificAdequacy": "preserved_not_expanded",
-    "releaseAdequacy": "not_authorized"
+    "releaseAdequacy": "pass"
   },
   "protectedReview": {
     "initialDeterministicRun": 33467704229,
     "initialFailure": "stale exact nine-migration acceptance-harness expectation",
     "localRecovery": "PASS_42_CHECKS_PILOT_DUMP_WIPE_RESTORE",
-    "replacementChecks": "pending"
+    "replacementChecks": "all_pass",
+    "deterministicVerificationRun": 33468185214,
+    "workflowPolicyRun": 33468185253,
+    "codeqlRun": 33468182756
   }
 }
