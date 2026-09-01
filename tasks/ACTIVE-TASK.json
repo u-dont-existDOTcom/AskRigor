@@ -39,7 +39,7 @@
   "plan": "docs/superpowers/plans/2026-09-01-external-evaluation-and-scientific-contribution.md",
   "queue": "tasks/2026-09-external-evaluation-and-contribution.md",
   "currentState": "docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
-  "codexCurrentState": "project/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
+  "codexCurrentState": "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
   "conceptionSnapshot": "evaluation/conception/2026-09-01-independent-conception-snapshot.md",
   "sourceRegistry": "evaluation/governance/source-registry.json",
   "activationReceipt": "docs/audits/2026-09-01-chat-work-paid-api-gate-failure.json",
