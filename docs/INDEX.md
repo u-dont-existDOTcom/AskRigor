@@ -173,6 +173,10 @@ complete XML protocol.
   `audits/2026-09-01-owner-review-promotion-final-review.txt`: independent
   owner-source, corrected Extra High topology/tool-surface, and final PASS
   review receipts
+- `audits/2026-09-01-owner-review-promotion-production-release.md` and its
+  machine JSON: PR #161 merge, exact production image and rollback,
+  function-only owner review, one-shot hash-bound promotion, 27-tool MCP and
+  eight-file plugin synchronization, and fresh primary Extra High acceptance
 - `audits/2026-09-01-reciprocal-research-access-candidate.md` and `.json`:
   exact local candidate verification, package receipt, and separate operational,
   scientific, and release-adequacy states
