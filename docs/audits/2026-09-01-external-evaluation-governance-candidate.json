@@ -4,13 +4,13 @@
   "taskId": "askrigor-external-evaluation-contribution-v1",
   "sliceId": "benchmark-governance-schema-instantiation-v1",
   "state": "READY_FOR_PROTECTED_REVIEW",
-  "capturedAt": "2026-09-01T16:03:12Z",
+  "capturedAt": "2026-09-01T16:09:18Z",
   "source": {
     "repository": "u-dont-existDOTcom/AskRigor",
     "branch": "task/external-evaluation-governance-v1-20260901",
     "baselineCommit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
-    "candidateCommit": "46bb99a1de67b14ccadac8563299f370cd94c4fe",
-    "candidateTree": "320274b3c74107beb1644a5306a132f5b90fa4a8",
+    "candidateCommit": "61483e7ca4c1db58fdc443a337d87c3db80ed9d2",
+    "candidateTree": "38cc05d68cb28f57354b4b69b161810f7646d24e",
     "previousSliceMergeReceipt": "docs/audits/2026-09-01-external-evaluation-child-protected-merge.json"
   },
   "scope": {
@@ -33,7 +33,7 @@
     "mastDefectLedgerSha256": "9b277d6e5ab742df06edfc0652736fed2b13470c2c8c9f5fd0a6e59bf37817ea",
     "terminalBenchManifestSha256": "8674fdcc4f38ef88993c69f4f21b82201a954339c0af0b5a8656455ac3d47ff9",
     "terminalBenchDefectLedgerSha256": "7b484964ac1f7f2bb106da9433a4c7e1983a4a072dc5f7167e41f6c4ba92b4c0",
-    "validatorSha256": "9117539661773867e5e9cb6181f3fe19bd0f83ebcdb42370daafcfbaf005d0be",
+    "validatorSha256": "cdde95f2cca5cdb9391ea81e89f213c6b566fd04b55fe4b27c8bf4451371c908",
     "validationCommandSha256": "5e658fb2adb25399a65a146f6d9eddf46f7ebc8b3c5c608a3ed382d0d019d63b",
     "governanceTestSha256": "cc135df62135bb14b07605fae3029a9d1c1f7ee8e6d468cb9070355ae1edb660",
     "previousSliceMergeReceiptSha256": "f8fb66a26199a18750aea1e591bfeaee10ce04777b885fb75fce738d207e672d"
@@ -63,17 +63,20 @@
       "skipped": 6
     },
     "typecheck": "pass",
+    "strictNodeNextGovernanceTypecheck": "pass",
     "build": "pass",
     "diffCheck": "pass",
     "dependencyAudit": "pass_0_vulnerabilities",
     "testEfficiency": {
-      "elapsedWallSecondsAtSummary": 977.03,
-      "observedTestSeconds": 149.52,
-      "testWallPercentage": 15.3,
-      "focusedRuns": 6,
+      "elapsedWallSecondsAtSummary": 1339.7,
+      "observedTestSeconds": 291.01,
+      "testWallPercentage": 21.72,
+      "focusedRuns": 7,
       "focusedFailureDiscoveringRuns": 3,
-      "affectedRuns": 1,
-      "fullRuns": 1,
+      "affectedRuns": 4,
+      "affectedFailureDiscoveringRuns": 2,
+      "fullRuns": 2,
+      "secondFullRunReason": "material NodeNext module-interop repair changed the validator source after the first full gate",
       "forcedRedundantGreenSeconds": 0,
       "redundantGreenRunsSkipped": 0
     },
@@ -104,7 +107,7 @@
       {
         "source": "patterns/test-efficiency-and-verification-budget.md",
         "result": "PASS",
-        "evidence": "focused failures drove three schema repairs; one full pre-PR gate ran with zero forced redundant full reruns"
+        "evidence": "focused and affected failures drove schema and module-interop repairs; two materially different candidate commits received one full gate each with zero forced redundant same-state reruns"
       },
       {
         "source": "patterns/development-assurance-lanes.md",
