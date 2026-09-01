@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_source_family_and_mast_preflight",
+  "status": "active_bounded_candidate_protected_merge_pending",
   "exclusive": true,
-  "requiredBranch": "task/external-evaluation-phase22-20260901",
+  "requiredBranch": "task/external-evaluation-phase22-execution-20260901",
   "baselineCommit": "7964674b8a3dac804620a0e7d1dff62b00a68bf2",
   "activatedAt": "2026-09-01T14:29:00Z",
   "assuranceLane": "evaluation_and_scientific_governance",
@@ -18,6 +18,7 @@
     "pharmacological estimands preserve exact dose, route, formulation, schedule, timing, comparator, outcome, and horizon when available",
     "source material is redistributable or transparently semisynthetic",
     "latent benchmark answers and final fixtures are not published in the public AskRigor repository",
+    "partial corpora remain eligible for evidence review and are explicitly labeled partial",
     "no production, canonical protocol, connector, plugin, access, database, or public-interface mutation occurs without a separate authorized lane"
   ],
   "ownerObjective": "Determine whether HRP improves or degrades clinically consequential frontier-model reasoning, contribute a distinct executable meta-analysis-integrity workflow to Terminal-Bench-Science, and prevent benchmark defects from silently becoming AskRigor truth.",
@@ -37,22 +38,45 @@
   "conceptionSnapshot": "evaluation/conception/2026-09-01-independent-conception-snapshot.md",
   "sourceRegistry": "evaluation/governance/source-registry.json",
   "activationReceipt": "docs/audits/2026-09-01-external-evaluation-activation.json",
+  "preflightCommand": "npm run external-evaluation:preflight",
+  "completionCommand": "npm run external-evaluation:acceptance",
+  "currentSlice": {
+    "sliceId": "rights-verifier-and-sealed-mast-preflight-v1",
+    "status": "ready_for_protected_merge",
+    "candidateReceipt": "docs/audits/2026-09-01-external-evaluation-candidate.json",
+    "boundedOutcome": "Complete the source-rights decision, non-public miniature deterministic-verifier proof, and MAST paired-condition adapter with sealed deterministic SCT preflight.",
+    "completed": [
+      "eight-source rights and redistribution scan selecting project-authored fictional inputs",
+      "mode-0700 non-public miniature with two correct implementations passed",
+      "eight invalid implementations rejected and six verifier mutants killed",
+      "explicit risk-versus-person-time effect-measure and comparator incompatibility checks",
+      "OpenAI Responses adapter with exact condition equality and raw-byte preservation",
+      "pinned 174-item MAST example score reproduced deterministically"
+    ],
+    "excluded": [
+      "paid MAST or NOHARM inference",
+      "external Terminal-Bench proposal submission or upstream pull request",
+      "public final benchmark fixture or latent answers",
+      "production or canonical protocol mutation"
+    ],
+    "maximumEstimatedCostUsdBeforeAbort": 0
+  },
   "childWorkstreams": {
     "terminalBenchScience": {
       "priority": "P0.2_calendar_urgent",
-      "status": "source_family_and_rights_scan_active",
+      "status": "source_rights_and_miniature_verifier_proof_complete_protected_merge_pending",
       "workingTitle": "Dependency-Aware Clinical Meta-Analysis from Overlapping Reports",
       "externalPullRequestDeadline": "2026-10-05",
       "design": "contributions/terminal-bench-science/task-design.md",
       "proposalDraft": "contributions/terminal-bench-science/proposal-draft.md",
       "overlapScan": "contributions/terminal-bench-science/overlap-scan.md",
-      "nextAction": "identify and rank candidate report families and rights paths, then build a miniature latent-study fixture and deterministic verifier proof in a non-public environment"
+      "nextAction": "complete protected merge, then run a bounded frontier-agent difficulty probe and obtain independent domain review or a documented request before external submission"
     },
     "mast": {
       "priority": "P0.1_strategic",
-      "status": "adapter_and_sealed_sct_preflight_active",
+      "status": "adapter_and_sealed_sct_preflight_complete_protected_merge_pending",
       "path": "evaluation/mast/README.md",
-      "nextAction": "implement the paired endpoint adapter, exact condition-equality tests, raw-response preservation, deterministic SCT preflight, cost and abort rules, and sealed run manifest"
+      "nextAction": "complete protected merge; any paid paired epoch requires a separately reviewed nonzero spend ceiling and raw-artifact destination"
     },
     "benchmarkGovernance": {
       "priority": "P0.3_shared",
@@ -86,7 +110,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-01T14:14:51.714Z",
+    "checkedAt": "2026-09-01T15:14:53.704Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -94,14 +118,14 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Execute the Terminal-Bench candidate report-family and redistribution-rights scan while implementing the MAST paired endpoint and sealed SCT preflight; do not run paid NOHARM judging or publish latent benchmark answers yet.",
+  "nextAction": "Complete protected review and merge for the bounded rights/verifier/MAST-preflight candidate, then continue the parent program without paid inference or external submission until their separate gates are satisfied.",
   "supervision": {
     "ownerApproval": "APPROVED — meta-analysis integrity primary",
-    "completionClaim": "PROCESS",
-    "workerToContract": "green",
+    "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "workerToContract": "complete_for_current_bounded_slice",
     "contractToOwner": "match_with_overlap_driven_refinement",
-    "operationalAlignment": "active",
-    "scientificAdequacy": "implementation_proof_pending",
-    "releaseAdequacy": "not_assessed"
+    "operationalAlignment": "artifact_acceptance_pass_pending_protected_merge",
+    "scientificAdequacy": "miniature_verifier_feasibility_pass_no_benchmark_result_claimed",
+    "releaseAdequacy": "pending_protected_merge_no_production_release"
   }
 }

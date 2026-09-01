@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "capturedAt": "2026-09-01T14:57:00Z",
+  "privateDirectoryOutsideRepository": true,
+  "privateDirectoryMode": "0700",
+  "fixturePublished": false,
+  "latentAnswersPublished": false,
+  "publicReceiptContainsLatentAnswers": false,
+  "fixtureSha256": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167",
+  "oracleSha256": "2d0be521d9850134da9bfe8256fb2d087cccf8a6f26799e16cd1b28434256716",
+  "alternateImplementationSha256": "6b55eaa063b1078d4297b3ddb358061941c9b8580f45417feb52db3333a29463",
+  "verifierSha256": "c49c0ce31fdc23859b97205c2ac632cde0353909e555c3a0bfdc7f9c64f57473",
+  "verification": {
+    "correctImplementationsPassed": 2,
+    "seededInvalidImplementations": 8,
+    "seededInvalidImplementationsRejected": 8,
+    "verifierMutants": 6,
+    "verifierMutantsKilled": 6,
+    "falseAccepts": 0,
+    "falseRejects": 0
+  },
+  "scope": "non-public miniature feasibility proof, not a final benchmark fixture or external submission"
+}

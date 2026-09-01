@@ -2,15 +2,17 @@
 
 **Checkpoint date:** 2026-09-01  
 **Task:** `askrigor-external-evaluation-contribution-v1`  
-**Status:** `ACTIVE_ON_BRANCH_PROTECTED_MERGE_PENDING`  
-**Required branch:** `task/external-evaluation-phase22-20260901`  
+**Status:** `ACTIVE_PARENT / BOUNDED_CHILD_READY_FOR_PROTECTED_MERGE`
+**Required branch:** `task/external-evaluation-phase22-execution-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
+**Execution baseline:** `4556b58e55fc445920f831b7a1451c805283a697`
+**Exact tested child candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
 ## Current outcome
 
-The scheduler production release is terminal and preserved by protected-main commit `7964674b8a3dac804620a0e7d1dff62b00a68bf2`. A fresh priority check found no newer exclusive task. Phase 2.2 is therefore being activated from that baseline through a separate protected-review commit.
+The scheduler production release is terminal at `7964674b8a3dac804620a0e7d1dff62b00a68bf2`, and PR #168 merged the canonical Phase 2.2 parent-program activation as `4556b58e55fc445920f831b7a1451c805283a697`. The bounded source-rights, non-public miniature-verifier, MAST adapter, and sealed deterministic SCT-preflight child slice now passes artifact acceptance and is ready for protected merge.
 
 The active program has four lanes:
 
@@ -19,7 +21,7 @@ The active program has four lanes:
 3. shared benchmark-integrity governance adapted from SciCode-Verified;
 4. a later K-Bench-inspired authentic-request evaluation.
 
-The current implementation slice is dual-track: Terminal-Bench source-family/rights selection and miniature-verifier proof, plus the MAST endpoint adapter and sealed SCT preflight. No paid NOHARM run or external proposal submission is authorized by activation alone.
+The completed child slice changes evaluation tooling and public non-answer-bearing provenance only. No paid MAST or NOHARM run, external proposal submission, final public fixture, production mutation, or protocol mutation is authorized by this child completion.
 
 ## Material overlap finding
 
@@ -31,7 +33,7 @@ The owner-approved direction remains in force but is narrowed to a distinct unre
 
 The task core is report-to-study/cohort lineage, participant dependence, exposure-regime and estimand compatibility, comparator validity, and the numerical consequence of correcting an invalid report-as-study synthesis. Conventional data cleaning and random-effects calculations are reused rather than claimed as innovation.
 
-## Completed before activation
+## Completed program and child-slice work
 
 - preserved the independent conception before external-method reconciliation;
 - pinned source identities for MAST, Terminal-Bench-Science, SciCode-Verified, K-Bench, Cochrane, and ICH E9(R1);
@@ -44,7 +46,14 @@ The task core is report-to-study/cohort lineage, participant dependence, exposur
 - added provisional benchmark-manifest and defect-ledger schemas;
 - specified the sealed MAST paired-evaluation design;
 - preserved the copy-ready ChatGPT Project package byte inventory;
-- closed superseded, unmerged queued-state PR #167 after the scheduler release gate cleared.
+- closed superseded, unmerged queued-state PR #167 after the scheduler release gate cleared;
+- merged canonical parent-program activation through PR #168;
+- selected project-authored fictional reports and structured data after an eight-source rights scan;
+- implemented a deterministic verifier with runtime schemas, lineage, dependence, explicit compatibility codes, risk-versus-person-time separation, pooling, sensitivities, and artifact-hash linkage;
+- exercised a mode-0700 miniature outside the repository: two correct implementations passed, eight invalid candidates failed, all six verifier mutants were killed, and false accepts/rejects were both zero;
+- implemented a current official OpenAI Responses adapter with exact paired-condition equality, raw-byte hashing, and bounded retry/timeout behavior;
+- reproduced the pinned MAST 174-item SCT example score (`0.7453`) and expert-set proportion (`0.9310`) without model inference;
+- sealed `gpt-5.6-sol` with `xhigh` reasoning and a zero spend ceiling.
 
 ## Previous completed task
 
@@ -60,9 +69,9 @@ The task core is report-to-study/cohort lineage, participant dependence, exposur
 
 The scheduler remains operational in production but no longer holds the work-queue lock.
 
-## Active Terminal-Bench slice
+## Bounded Terminal-Bench child result
 
-Current actions:
+Completed actions:
 
 1. identify candidate report families that exhibit multiple reports, nested or extended cohorts, partial overlap or shared controls, and estimand drift;
 2. establish a rights path for every redistributable input;
@@ -73,17 +82,18 @@ Current actions:
 
 The public AskRigor repository may contain architecture, provenance, rights findings, verifier contracts, and non-answer-bearing tests. It must not contain the final latent graph or benchmark answers before submission strategy is resolved.
 
-## Active MAST slice
+## Bounded MAST child result
 
-Current actions:
+Completed actions:
 
 1. implement an OpenAI-compatible paired-condition adapter;
 2. enforce exact equality of model, endpoint, sampling, limits, cases, retries, parser, and evaluator across `BARE` and `HRP` conditions;
 3. bind complete Universal and HRP versions and hashes;
 4. preserve and hash raw responses before parsing or judging;
 5. run only deterministic SCT fixture/preflight validation initially;
-6. freeze cost, timeout, retry, and abort rules;
-7. declare the NOHARM pilot subset and analysis-freeze boundary without executing paid judging yet.
+6. freeze zero-spend, timeout, retry, and abort rules.
+
+Still pending in the parent program: declare and review the NOHARM pilot subset and analysis-freeze boundary before any paid judging.
 
 ## Governance validation
 
@@ -91,13 +101,12 @@ The provisional benchmark manifest and defect-ledger schemas must be instantiate
 
 ## Not completed or claimed
 
-- the activation PR is not yet merged;
-- no MAST model inference or official benchmark scoring has run;
+- no MAST model inference or new model-under-test benchmark scoring has run;
 - no paid NOHARM judge call has run;
 - no Terminal-Bench proposal has been submitted;
 - no complete Terminal-Bench task or upstream pull request exists;
 - no final benchmark fixture or latent answer has been published;
-- no report family or redistribution path has yet passed the go/no-go gate;
+- no bounded frontier-agent difficulty probe or independent domain review has run;
 - no independent scientific reviewer has approved the refined task;
 - no benchmark performance or clinical conclusion is claimed.
 
@@ -107,6 +116,8 @@ The provisional benchmark manifest and defect-ledger schemas must be instantiate
 - scheduler candidate: `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`
 - scheduler release receipt: `7964674b8a3dac804620a0e7d1dff62b00a68bf2`
 - Phase 2.2 architecture merge: `e47b122a2dd07d460bd50c008a62407278ccf958`
+- Phase 2.2 activation merge: `4556b58e55fc445920f831b7a1451c805283a697`
+- exact tested bounded child candidate: `2dab865ae817027c324f689da2aaf738de5c6b30`
 - MAST: `57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`
 - Terminal-Bench-Science: `7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77`
 - SciCode-Verified: `ddab4a92f8d80a7113ab946628e994b52354d838`
@@ -117,7 +128,7 @@ Full external identities and discrepancies are in `evaluation/governance/source-
 
 ## Next safe action
 
-Complete protected activation, then continue immediately with the Terminal-Bench candidate-family/rights matrix and the MAST adapter/preflight implementation. Do not run paid NOHARM judging or expose latent benchmark truth in the public repository.
+Complete protected review/merge of the bounded child candidate. Then continue the parent program with benchmark-governance schema instantiation and the pre-submission difficulty/domain-review gates. Paid inference and external submission remain separately gated.
 
 ## Recovery order
 
@@ -135,6 +146,6 @@ Complete protected activation, then continue immediately with the Terminal-Bench
 
 ## Typed claim
 
-`PROCESS`
+`SUBTASK_COMPLETE_PARENT_OPEN`
 
-Operational alignment is active on the protected-review branch. Scientific adequacy remains pending implementation proof; no benchmark performance, external acceptance, or clinical conclusion is claimed. Release adequacy is not assessed.
+Operational alignment passes for the bounded rights, verifier, private-proof, paired-condition, and sealed-preflight contract and is pending protected merge. Scientific adequacy passes only for miniature verifier feasibility; no HRP performance or clinical claim exists. Release adequacy is pending protected merge and does not include a production release.

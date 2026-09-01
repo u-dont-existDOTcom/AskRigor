@@ -8,7 +8,7 @@ The approved Terminal-Bench primary is **Dependency-Aware Clinical Meta-Analysis
 
 The previous exclusive task, `askrigor-living-evidence-promotion-scheduler-v1`, is production-release complete at protected-main commit `7964674b8a3dac804620a0e7d1dff62b00a68bf2`. Its exact production receipt is `docs/audits/2026-09-01-promotion-scheduler-production-release.json`; the scheduler remains operational but no longer holds the work-queue lock.
 
-The active implementation slice is dual-track: Terminal-Bench candidate report-family and redistribution-rights selection plus a non-public miniature verifier proof; and the MAST OpenAI-compatible endpoint adapter plus sealed deterministic SCT preflight. Paid NOHARM judging, benchmark-responsive HRP tuning, external proposal submission, and publication of latent benchmark answers remain gated.
+The current dual-track child candidate is ready for protected merge: the Terminal-Bench source-rights decision and non-public miniature verifier proof pass, and the MAST OpenAI-compatible adapter reproduces the sealed deterministic SCT example with a zero spend ceiling. Paid inference, benchmark-responsive HRP tuning, external proposal submission, independent domain review, frontier-agent difficulty probing, and publication of latent benchmark answers remain gated. The Phase 2.2 parent program remains active after this child closes.
 
 Active branch-local Public Discovery Atlas work is indexed at `docs/public-atlas/INDEX.md`.
 

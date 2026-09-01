@@ -3,11 +3,11 @@
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Program:** Phase 2.2 — External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Branch:** `task/external-evaluation-contribution-20260901`  
-**Integration baseline:** `f146539db8b794fce79a979980ec9d43da8c92a6`  
+**Branch:** `task/external-evaluation-phase22-execution-20260901`
+**Integration baseline:** `4556b58e55fc445920f831b7a1451c805283a697`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
-**Status:** queued next; additive planning and proposal-preparation PR under protected review  
-**Current predecessor:** exclusive release task `askrigor-living-evidence-promotion-scheduler-v1`  
+**Status:** active parent program; rights/verifier and MAST sealed-preflight child slice ready for protected merge
+**Completed predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`
 **Assurance lane:** evaluation and scientific-governance iteration; no production mutation
 
 ## 1. Owner outcome
@@ -21,7 +21,7 @@ Organize and execute the AskRigor work queue around four linked developments:
 
 The approved Terminal-Bench primary remains meta-analysis integrity. A bounded existing-work scan found a directly overlapping approved proposal for generic reconstruction of a meta-analysis from messy supplementary tables. The owner-approved direction is therefore preserved but narrowed to its unsolved remainder: **clinical report lineage, participant dependence, exposure/estimand compatibility, and comparator validity before pooling**.
 
-This program was approved while another worker completed and merged the promotion-scheduler candidate. That scheduler remains the repository's exclusive active release until exact VPS installation, end-to-end activation evidence, and immutable closeout are complete. This plan therefore registers the evaluation program as **queued next** and must not overwrite `tasks/ACTIVE-TASK.json` or obscure the scheduler release boundary.
+This program was approved while another worker completed the promotion-scheduler release. PR #166 preserves its exact VPS activation and immutable closeout, and PR #168 activates this parent program from that protected baseline. The current execution branch preserves that canonical activation while closing only the bounded rights/verifier and MAST sealed-preflight child slice.
 
 ## 2. Independent conception preserved
 
@@ -82,13 +82,13 @@ The generic cleaning and random-effects mechanics are reused as baseline infrast
 
 ## 5. Queue order
 
-### P0.0 — Queue registration and predecessor preservation
+### P0.0 — Queue registration and predecessor preservation — complete
 
 Completion boundary:
 
-- the promotion scheduler remains the exclusive active task and its exact production-activation boundary remains visible;
-- this program, its child lanes, source identities, overlap decision, and next actions are stored as a queued-next record;
-- `tasks/ACTIVE-TASK.json` is not replaced until the scheduler has a production release receipt and terminal closeout;
+- the promotion scheduler remained the exclusive active task until its exact production receipt reached protected `main`;
+- this program, its child lanes, source identities, overlap decision, and next actions were stored as a queued-next record;
+- `tasks/ACTIVE-TASK.json` was replaced by PR #168 only after the scheduler terminal closeout and fresh priority check;
 - prior production identities remain preserved;
 - the private lesson queue is checked and recorded.
 
@@ -209,21 +209,21 @@ Stop and return to the owner only if:
 - the refined task still substantially duplicates an approved or merged Terminal-Bench task;
 - a security, privacy, legal, or clinical-safety concern cannot be bounded without changing the approved objective;
 - an external submission requires owner-controlled identity/contact fields or assent that cannot be supplied through repository work;
-- the promotion-scheduler release remains nonterminal long enough to threaten the 2026-10-05 external deadline, requiring an explicit owner arbitration of queue exclusivity versus deadline risk.
+- a new higher-priority exclusive task appears and materially threatens the 2026-10-05 external deadline, requiring explicit owner arbitration.
 
 ## 10. Immediate execution sequence
 
-1. Commit the queued-next program record, conception snapshot, source registry, overlap scan, refined task design, proposal draft, governance controls, and recovery checkpoint.
-2. Open and complete protected review without modifying the active scheduler pointer.
-3. Preserve the program on `main` as queued next if the review accepts it.
-4. Complete the scheduler's exact VPS activation and immutable release closeout through its owning workstream.
-5. Only after the exclusive predecessor closes, update `tasks/ACTIVE-TASK.json` from a fresh protected-main baseline to activate this program.
-6. Build a miniature latent-study fixture and deterministic verifier proof in a non-public environment.
-7. Run negative controls that intentionally double-count reports, mix estimands, accept an invalid comparator, and mishandle person-time.
-8. Use those results to tighten the proposal without prescribing one implementation path.
+1. [x] Commit the queued-next program record, conception snapshot, source registry, overlap scan, refined task design, proposal draft, governance controls, and recovery checkpoint.
+2. [x] Open and complete protected review without modifying the active scheduler pointer.
+3. [x] Preserve the program on `main` as queued next after review.
+4. [x] Complete the scheduler's exact VPS activation and immutable release closeout through PR #166.
+5. [x] Activate the parent program from a fresh protected-main baseline through PR #168.
+6. [x] Build a miniature latent-study fixture and deterministic verifier proof in a non-public environment.
+7. [x] Run negative controls that intentionally double-count reports, mix estimands, accept an invalid comparator, and mishandle person-time.
+8. [x] Use those results to tighten the proposal without prescribing one implementation path.
 9. Submit the proposal once owner-controlled contact fields and external form assent are available.
-10. In parallel after activation, implement the MAST endpoint adapter and sealed paired-run manifest without executing the paid NOHARM judge run yet.
+10. [x] In parallel after activation, implement the MAST endpoint adapter and sealed paired-run manifest without executing model inference or the paid NOHARM judge run.
 
-## 11. Completion boundary for this planning slice
+## 11. Historical completion boundary for the planning slice
 
-This slice is complete when GitHub contains a recoverable queued-next program, exact source identities, the overlap-driven refinement, the external proposal draft, and a PR whose review can determine whether the program is ready to become active after the scheduler closes. It does not claim that this program is the active task, that MAST has run, that the Terminal-Bench proposal has been submitted, that an upstream PR exists, or that any production behavior has changed.
+PR #164 completed the planning slice and PR #168 completed protected parent-program activation. The current execution child does not claim that MAST model inference has run, that the Terminal-Bench proposal has been submitted, that an upstream PR exists, or that production behavior changed.

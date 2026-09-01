@@ -1,6 +1,6 @@
 # MAST Paired HRP Evaluation
 
-**Status:** specified, not yet executed  
+**Status:** adapter and sealed deterministic preflight implemented; no model inference executed
 **Source pin:** `ARISENetwork/mast@57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`  
 **Purpose:** test whether the complete HRP instruction path improves or degrades clinically consequential reasoning when the underlying model and execution conditions are held constant
 
@@ -136,18 +136,15 @@ A favorable result would support the claim that HRP improved performance on thes
 
 An unfavorable result must be decomposed before any protocol repair: true HRP harm, verbosity/truncation, system-instruction conflict, endpoint artifact, scorer/judge instability, or benchmark construct mismatch are different failure mechanisms.
 
-## 7. Required files before execution
+## 7. Implemented sealed preflight
 
-The next implementation slice should add:
+The bounded preflight is recorded in `evaluation/mast/preflight-manifest.json` and implemented by `evaluation/mast/src/`.
 
-- `configs/paired-open-v1.json`;
-- `manifests/paired-open-v1.preflight.json`;
-- endpoint adapter and response-preservation code;
-- deterministic SCT analysis code;
-- NOHARM pilot sampling declaration;
-- blinded discordance form/schema;
-- cost ceiling and abort rules;
-- clean-room run instructions;
-- validation tests for condition equality, parser behavior, and artifact hashing.
+- The OpenAI Responses request uses the exact `gpt-5.6-sol` model ID and `xhigh` reasoning under both conditions.
+- Request equality is mechanically checked after removing only `instructions`; condition labels are not sent as hidden request metadata.
+- Complete canonical Universal and HRP bytes are loaded directly from `protocols/` and hash-bound.
+- The adapter preserves exact response bytes and hashes, parses output text, records model/usage metadata, bounds retryable failures, and does not retry non-retryable errors.
+- The JavaScript SCT scorer independently reproduced the pinned 174-item MAST example headline score (`0.7453`) and expert-set proportion (`0.9310`).
+- The sealed cost ceiling is zero, so this artifact authorizes and performs no paid request.
 
-No paid judge run should begin until these are reviewed and the protocol identities are inserted exactly.
+Before paid SCT execution, create a separately reviewed run manifest with a nonzero owner-approved aggregate cost ceiling, raw-artifact destination, clean-room command, and exact execution-time model identity. NOHARM additionally requires the pilot declaration, judge identities/configuration, and blinded discordance schema. No favorable or unfavorable HRP result exists at this preflight stage.

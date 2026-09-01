@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "capturedAt": "2026-09-01T14:47:02Z",
+  "selection": {
+    "disposition": "transparent_semisynthetic",
+    "realTreatmentClaimPermitted": false,
+    "copyrightedFullTextRedistributed": false,
+    "identifiablePatientDataUsed": false
+  },
+  "sources": [
+    {
+      "sourceId": "terminal-bench-science-pinned-source",
+      "authority": "Harbor Framework / Terminal-Bench-Science",
+      "url": "https://github.com/harbor-framework/terminal-bench-science/tree/7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "compatible",
+      "redistributionDecision": "derived_structure_only",
+      "limitations": [
+        "Apache-2.0 repository code and authoring structure may inform a compatible task package.",
+        "Nested source material is not presumed to inherit the repository license.",
+        "No benchmark task, answer, or third-party corpus content is copied into the fixture."
+      ]
+    },
+    {
+      "sourceId": "terminal-bench-science-v0.2-call",
+      "authority": "Terminal-Bench-Science release site",
+      "url": "https://www.terminal-bench-science.ai/announcement",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "not_selected",
+      "redistributionDecision": "reference_only",
+      "limitations": [
+        "Used only to confirm the current contribution process and 2026-10-05 pull-request deadline.",
+        "The release page does not supply fixture content."
+      ]
+    },
+    {
+      "sourceId": "cochrane-study-as-unit-guidance",
+      "authority": "Cochrane Handbook, current Chapter 4",
+      "url": "https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-04",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "conditional",
+      "redistributionDecision": "reference_only",
+      "limitations": [
+        "Supports the method principle that studies, rather than reports, are the unit of interest.",
+        "No handbook prose, tables, or examples are redistributed in task inputs."
+      ]
+    },
+    {
+      "sourceId": "ich-e9-r1-estimand-guidance",
+      "authority": "International Council for Harmonisation via U.S. Food and Drug Administration",
+      "url": "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/e9r1-statistical-principles-clinical-trials-addendum-estimands-and-sensitivity-analysis-clinical",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "conditional",
+      "redistributionDecision": "derived_structure_only",
+      "limitations": [
+        "Only the high-level need to align question, estimand, estimator, and sensitivity analyses is adapted.",
+        "No guidance text or real trial claim is reproduced."
+      ]
+    },
+    {
+      "sourceId": "pmc-open-access-subset",
+      "authority": "U.S. National Library of Medicine PubMed Central",
+      "url": "https://pmc.ncbi.nlm.nih.gov/tools/openftlist/",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "conditional",
+      "redistributionDecision": "not_used",
+      "limitations": [
+        "Open access availability is not a uniform redistribution license; each article has its own terms.",
+        "No article text, table, figure, or patient-level content is selected for this fixture."
+      ]
+    },
+    {
+      "sourceId": "clinicaltrials-gov-terms",
+      "authority": "U.S. National Library of Medicine ClinicalTrials.gov",
+      "url": "https://clinicaltrials.gov/about-site/terms-conditions",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "conditional",
+      "redistributionDecision": "metadata_only",
+      "limitations": [
+        "Registry conventions may inform fictional identifier and provenance fields.",
+        "The final fixture does not reproduce a real record or imply currentness of a static registry copy.",
+        "Third-party material and non-U.S. rights can require separate review."
+      ]
+    },
+    {
+      "sourceId": "related-publication-method-paper",
+      "authority": "Betts et al., Journal of Comparative Effectiveness Research, DOI 10.57264/cer-2022-0132",
+      "url": "https://doi.org/10.57264/cer-2022-0132",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "not_selected",
+      "redistributionDecision": "reference_only",
+      "limitations": [
+        "Discovery reference for report-to-study linkage problems only.",
+        "No publication content or real network result is copied or encoded."
+      ]
+    },
+    {
+      "sourceId": "askrigor-project-authored-fixture-design",
+      "authority": "AskRigor project-authored design at protected-main baseline",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/blob/7964674b8a3dac804620a0e7d1dff62b00a68bf2/contributions/terminal-bench-science/task-design.md",
+      "capturedAt": "2026-09-01T14:47:02Z",
+      "rightsState": "compatible",
+      "redistributionDecision": "derived_structure_only",
+      "limitations": [
+        "Selected source for original fictional reports, neutral interventions, and generated numerical data.",
+        "The miniature proof remains private and is represented publicly only by non-reversible hashes and aggregate test counts."
+      ]
+    }
+  ],
+  "decision": {
+    "publicTaskInputs": "project-authored fictional reports and structured data",
+    "realSourceUse": "methods, structural failure patterns, and provenance only",
+    "latentTruthLocation": "outside_public_repository",
+    "externalSubmissionRequiresFreshRightsReview": true
+  }
+}

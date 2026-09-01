@@ -2,7 +2,7 @@
 
 **Working title:** Repairing Dependency and Estimand Errors in a Clinical Meta-Analysis from Multiple Reports
 
-**Submission status:** draft only; not submitted  
+**Submission status:** draft only; bounded miniature proof passed; not submitted
 **External deadline:** 2026-10-05 pull-request deadline according to the current v0.2 call in the Terminal-Bench-Science v0.1 release announcement  
 **Owner-controlled fields still required at submission:** preferred public name, contact email, external-form assent, and any desired affiliation wording
 
@@ -77,7 +77,7 @@ The benchmark run will require no network access, credentials, proprietary datab
 
 ## Dataset
 
-The task will be self-contained. The preferred construction is a small report family derived from explicitly redistributable open clinical reports and public trial-registry/regulatory records, with a complete provenance and rights ledger. If no suitable report family supports objective latent ground truth and redistribution, the fallback is a transparently semisynthetic fixture based on documented real review failure modes.
+The task will be self-contained. The completed source-family and rights scan selected a transparently semisynthetic fixture based on documented real review failure modes. Project-authored fictional reports and structured data will be the public inputs; real sources contribute methods, structural failure patterns, and provenance only. No copyrighted article packet, real treatment-effect claim, or identifiable person-level information is used.
 
 A semisynthetic fixture will be generated from a hidden coherent study/cohort source of truth rather than by independently editing rows. That source will determine participant overlap, recruitment periods, arms, outcomes, and report-specific slices. Every transformation from source material will be recorded. Generated results will use neutral or fictional intervention identities and will not be presented as evidence about a real treatment.
 
@@ -100,7 +100,7 @@ The verifier will check:
 9. input/result hash binding;
 10. generalization on a hidden or generated variant.
 
-Verifier development will include mutation tests for every seeded scientific error and at least two materially different correct implementations. Passing the author's oracle will not be treated as sufficient evidence that the verifier is valid.
+The non-public miniature proof accepted two correct implementations built through different code paths, rejected all eight seeded invalid candidates, and killed all six declared verifier mutants with zero false accepts and zero false rejects. The invalid candidates separately cover report double-counting, a person-time rate estimate mixed into a risk estimand, and an invalid/unresolved comparator as well as numerical, sensitivity, lineage, and hash defects. Only hashes and aggregate counts are public; this proof is not the final task fixture. Passing the author's oracle is therefore not treated as sufficient evidence that the verifier is valid.
 
 The task will include invalid baseline implementations that:
 
@@ -153,15 +153,21 @@ The new contribution is the executable benchmark instance that combines report l
 **Funding:** none asserted  
 **Recommended reviewers:** clinical epidemiology/systematic-review domain reviewer plus an independent verifier/statistical reviewer
 
-## Pre-Submission Evidence Required
+## Pre-Submission Evidence Status
 
-This draft should not be submitted until the repository contains:
+Completed in the bounded implementation candidate:
 
-- miniature fixture and latent study graph;
-- passing oracle and alternate correct implementation;
-- failing invalid baselines;
-- verifier mutation-test results;
-- source-rights determination;
+- non-public miniature fixture and latent study graph, represented publicly only by hashes;
+- passing oracle and independently built alternate correct implementation;
+- eight failing invalid candidates, including separate effect-measure and comparator errors;
+- six-of-six verifier mutation-test kills with zero observed false accepts or rejects;
+- source-rights determination selecting project-authored fictional inputs;
+- public generic verifier contract and illustrative non-final tests.
+
+Still required before external submission:
+
 - bounded frontier-agent difficulty probe;
 - independent domain review or a documented request for one;
 - exact author-controlled submission fields and assent.
+
+External submission, a public final fixture, and a frontier-agent run are outside the current bounded slice.
