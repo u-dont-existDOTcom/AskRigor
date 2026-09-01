@@ -2,19 +2,19 @@
 
 **Checkpoint date:** 2026-09-01  
 **Task:** `askrigor-external-evaluation-contribution-v1`  
-**Queue status:** `QUEUED_NEXT`  
-**Planning branch:** `task/external-evaluation-contribution-20260901`  
-**Protected-review baseline:** `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`  
+**Queue status:** `QUEUED_NEXT_ARCHITECTURE_REGISTERED`  
+**Queue-registration PR:** `#164`  
+**Queue-registration merge:** `e47b122a2dd07d460bd50c008a62407278ccf958`  
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
 ## Current outcome
 
-The Phase 2.2 program is defined and recoverable in GitHub as a queued-next program. It is not the exclusive active task.
+The Phase 2.2 program is merged into protected `main` and recoverable in GitHub as the queued-next program. It is not the exclusive active task.
 
-While this program was being prepared, PR #163 merged the promotion-scheduler candidate and PR #165 merged its Compose-isolation repair into protected `main`, producing the protected-review baseline above. That scheduler workstream remains nonterminal until exact VPS installation, end-to-end activation evidence, and immutable release closeout are recorded. This branch is based on that merge series and deliberately preserves `tasks/ACTIVE-TASK.json` without modification.
+While this program was being prepared, PR #163 merged the promotion-scheduler candidate and PR #165 merged its Compose-isolation repair. That scheduler workstream remains nonterminal until exact VPS installation, end-to-end activation evidence, and immutable release closeout are recorded. PR #164 was based on that merge series and deliberately preserved `tasks/ACTIVE-TASK.json` without modification.
 
-This branch changes planning, evaluation-governance, and contribution-design artifacts only. It does not change production behavior, protocols, tools, database state, plugins, connectors, access agreements, public interfaces, the copy-ready ChatGPT Project package, or active release authority.
+The registration changes planning, evaluation-governance, and contribution-design artifacts only. It does not change production behavior, protocols, tools, database state, plugins, connectors, access agreements, public interfaces, the copy-ready ChatGPT Project package, or active release authority.
 
 The queued work program has four lanes:
 
@@ -33,7 +33,7 @@ The owner-approved meta-analysis-integrity direction is therefore retained but n
 
 The task core is report-to-study/cohort lineage, participant dependence, exposure-regime and estimand compatibility, comparator validity, and the numerical consequence of correcting an invalid report-as-study synthesis. Conventional data cleaning and random-effects calculations are reused rather than claimed as innovation.
 
-## Completed in this branch
+## Completed and merged
 
 - preserved the independent conception before external-method reconciliation;
 - pinned current source identities for MAST, Terminal-Bench-Science, SciCode-Verified, K-Bench, Cochrane, and ICH E9(R1);
@@ -46,8 +46,10 @@ The task core is report-to-study/cohort lineage, participant dependence, exposur
 - added provisional benchmark-manifest and defect-ledger schemas;
 - specified the sealed MAST paired-evaluation design;
 - checked the private AskRigor lesson queue: no open, review-pending, or accepted-unincorporated candidates;
-- rebased the branch onto the merged promotion-scheduler series and removed the attempted active-task override;
-- located this checkpoint outside `project/`, which is reserved for the exact copy-ready ChatGPT Project package.
+- preserved the merged promotion-scheduler series and removed the attempted active-task override before review;
+- located this checkpoint outside `project/`, which is reserved for the exact copy-ready ChatGPT Project package;
+- passed repository workflow policy and deterministic verification on reviewed head `cb3305a89a026acf0a50979cd0e88ecb268cb2b7`;
+- merged PR #164 as `e47b122a2dd07d460bd50c008a62407278ccf958`.
 
 ## Active predecessor
 
@@ -78,14 +80,16 @@ This queued program must not represent those actions as complete or silently sel
 ## Exact source pins
 
 - independent-conception baseline: `c7138eff5dbbce22bb25f727da78006e543fa476`
+- scheduler candidate: `f146539db8b794fce79a979980ec9d43da8c92a6`
 - protected-review baseline: `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`
+- queue-registration merge: `e47b122a2dd07d460bd50c008a62407278ccf958`
 - MAST: `57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`
 - Terminal-Bench-Science: `7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77`
 - SciCode-Verified: `ddab4a92f8d80a7113ab946628e994b52354d838`
 - SciCode-Verified paper: `arXiv:2608.04975v1`
 - K-Bench paper: `arXiv:2608.21601v1`
 
-Full identities and discrepancies are in `evaluation/governance/source-registry.json`.
+Full external identities and discrepancies are in `evaluation/governance/source-registry.json`.
 
 ## Activation boundary
 
@@ -93,7 +97,7 @@ After the promotion-scheduler release closes, resolve protected `main` again. Ac
 
 - update `tasks/ACTIVE-TASK.json` from the then-current baseline;
 - preserve the scheduler's final product, deployment, and release-receipt identities as the previous completed task;
-- change this program from `QUEUED_NEXT` to an accurate active status;
+- change this program from `QUEUED_NEXT_ARCHITECTURE_REGISTERED` to an accurate active status;
 - retain all stop triggers and non-goals recorded in the controlling plan.
 
 ## Next safe action after activation
@@ -120,6 +124,6 @@ The Terminal-Bench proposal may be externally submitted only after the miniature
 
 ## Typed claim
 
-`PROCESS`
+`QUEUED_NEXT_ARCHITECTURE_REGISTERED`
 
-Operational alignment is green for the approved queue-registration and task-refinement slice. Scientific adequacy is limited to architecture, source/overlap reconciliation, evaluator governance, and proposal readiness; no benchmark performance or clinical conclusion is claimed. Release adequacy is not assessed for Phase 2.2 because it remains queued behind the active scheduler release.
+Operational alignment is green for the approved queue-registration and task-refinement slice. Scientific adequacy is limited to architecture, source/overlap reconciliation, evaluator governance, and proposal readiness; no benchmark performance or clinical conclusion is claimed. Phase 2.2 release adequacy is not assessed because it remains queued behind the active scheduler release.
