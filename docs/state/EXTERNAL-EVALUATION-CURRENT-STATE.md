@@ -2,13 +2,14 @@
 
 **Checkpoint date:** 2026-09-01  
 **Task:** `askrigor-external-evaluation-contribution-v1`  
-**Status:** `ACTIVE_PARENT / DIFFICULTY_PREFLIGHT_FAIL_CLOSED_READY_FOR_PROTECTED_MERGE`
-**Required branch:** `task/external-evaluation-difficulty-preflight-v1-20260901`
+**Status:** `ACTIVE_PARENT / OBSERVABLE_EVIDENCE_AUTHORING_AND_INDEPENDENT_REVIEW_REQUEST_OPEN`
+**Required branch:** `task/terminal-bench-observable-evidence-review-request-v1-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
-**Execution baseline:** `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
+**Execution baseline:** `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`
 **Exact tested child candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`
 **Bounded child merge:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
 **Governance merge:** `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
+**Difficulty-preflight merge:** `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
@@ -16,9 +17,11 @@
 
 The scheduler production release is terminal at `7964674b8a3dac804620a0e7d1dff62b00a68bf2`, PR #168 merged the canonical Phase 2.2 parent-program activation as `4556b58e55fc445920f831b7a1451c805283a697`, and PR #169 merged the bounded source-rights, non-public miniature-verifier, MAST adapter, and sealed deterministic SCT-preflight child as `7d4efa895b629f4036fda05903e173ad20a65cd2`.
 
-PR #170 merged governance schema instantiation as `1d7be7a8703e0bb645805a00e45929bd14a0cf91`. The current difficulty preflight then found that the verifier-feasibility miniature's only agent-facing file contains six report IDs and fictional-abstract hashes but none of the observed evidence or numerical inputs required to solve the task. A frontier failure on that input would measure missing information rather than task difficulty.
+PR #170 merged governance schema instantiation as `1d7be7a8703e0bb645805a00e45929bd14a0cf91`. PR #171 merged the fail-closed difficulty preflight as `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`. It found that the verifier-feasibility miniature's only agent-facing file contains six report IDs and fictional-abstract hashes but none of the observed evidence or numerical inputs required to solve the task. A frontier failure on that input would measure missing information rather than task difficulty.
 
 The new answer-free bundle contract requires the declared target estimand, observed report-lineage and estimand clues, raw event or person-time inputs, requested outputs, and sensitivity questions. It rejects grader labels and grader artifact identities. The exact private preflight returns 17 findings, reads no grader-only values, invokes no frontier model, and records one `SUSPECTED / BLOCKER` defect without overwriting the earlier two-correct/eight-invalid verifier-feasibility epoch.
+
+The current bounded slice routes a machine-readable authoring and review request through [AskRigor issue #172](https://github.com/u-dont-existDOTcom/AskRigor/issues/172). A clean source-layer author must construct only the observations a solver should see. A different clinical-epidemiology reviewer must answer eight solvability, estimand, numerical-input, uncertainty, difficulty, and leakage questions without seeing grader-only values. The current implementation worker does not self-certify that review. Mechanical readiness and an independent `PASS` are both required before any frontier invocation.
 
 The active program has four lanes:
 
@@ -125,6 +128,7 @@ The provisional benchmark manifest and defect-ledger schemas must be instantiate
 - Phase 2.2 activation merge: `4556b58e55fc445920f831b7a1451c805283a697`
 - exact tested bounded child candidate: `2dab865ae817027c324f689da2aaf738de5c6b30`
 - governance merge: `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
+- difficulty-preflight merge: `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`
 - MAST: `57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`
 - Terminal-Bench-Science: `7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77`
 - SciCode-Verified: `ddab4a92f8d80a7113ab946628e994b52354d838`
@@ -135,7 +139,7 @@ Full external identities and discrepancies are in `evaluation/governance/source-
 
 ## Next safe action
 
-Complete protected review/merge of the fail-closed difficulty preflight. Then construct and independently review a non-answer-bearing observable-evidence layer before any frontier-agent invocation. Paid inference and external submission remain separately gated.
+Complete protected review of the author/reviewer handoff, then obtain the clean source-layer packet and independent clinical-method verdict requested in `contributions/terminal-bench-science/observable-evidence-review-request.md`. Paid inference, frontier invocation, and external submission remain separately gated.
 
 ## Recovery order
 
@@ -155,4 +159,4 @@ Complete protected review/merge of the fail-closed difficulty preflight. Then co
 
 `SUBTASK_COMPLETE_PARENT_OPEN`
 
-Operational alignment passes for private inventory, anti-leakage, and fail-closed readiness and is pending protected merge. Scientific adequacy explicitly fails closed for any frontier-difficulty claim until the agent-facing evidence layer is repaired and independently reviewed; the prior verifier-feasibility finding remains valid and separate. Release adequacy is pending protected source merge and includes no external submission or production release.
+Operational alignment passes for the merged fail-closed preflight and routes the separated author/reviewer handoff pending protected merge. Scientific adequacy remains not reviewed because the agent-facing evidence layer has not been constructed or independently approved; the prior verifier-feasibility finding remains valid and separate. Release adequacy includes no external submission or production release.

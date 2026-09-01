@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "requestId": "terminal-bench-observable-evidence-method-review-v1",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "state": "OPEN_AGENT_INPUT_AUTHORING_AND_INDEPENDENT_REVIEW_REQUIRED",
+  "baseline": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "mergeCommit": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+    "blockingDefectId": "TB-MINI-001-agent-input-evidence-absent"
+  },
+  "publicRequest": {
+    "issueUrl": "https://github.com/u-dont-existDOTcom/AskRigor/issues/172",
+    "externalSubmission": false
+  },
+  "requiredAgentInput": {
+    "schemaContract": "evaluation/terminal-bench/difficulty-probe-contract.ts",
+    "evidenceFields": [
+      "TRIAL_OR_SPONSOR_ID",
+      "AUTHOR_OR_SITE",
+      "RECRUITMENT_WINDOW",
+      "PARTICIPANT_FLOW",
+      "BASELINE_SUMMARY",
+      "REPORT_RELATION_CLUE",
+      "EXPOSURE_REGIMEN",
+      "COMPARATOR",
+      "OUTCOME_DEFINITION",
+      "ASSESSMENT_HORIZON",
+      "EFFECT_MEASURE",
+      "EVENT_COUNTS",
+      "PERSON_TIME"
+    ],
+    "mustIncludeDeclaredTargetEstimand": true,
+    "mustIncludeRawRiskOrRateInputs": true,
+    "mustIncludeRequestedOutputs": true,
+    "mustIncludeRequestedSensitivities": true,
+    "answerFreePayloadHashRequired": true
+  },
+  "authoringBoundary": {
+    "cleanSourceLayerExportRequired": true,
+    "authorMayReadAgentVisibleSourceObservations": true,
+    "authorMayReadGraderOnlyValues": false,
+    "authorMayInferOrCopyLatentLabels": false,
+    "currentImplementationWorkerIsIndependentReviewer": false
+  },
+  "reviewBoundary": {
+    "reviewerIndependentFromInputAuthorAndVerifier": true,
+    "reviewerReceivesOnlyCandidateAgentBundleAndPublicContracts": true,
+    "reviewerReceivesGraderOnlyValues": false,
+    "requiredQuestions": [
+      "SOLVABLE_FROM_DISCLOSED_INPUT",
+      "OBSERVATIONS_SUPPORT_LINEAGE_REASONING_WITHOUT_REVEALING_LABELS",
+      "TARGET_ESTIMAND_IS_OPERATIONAL",
+      "RAW_NUMERICAL_INPUTS_SUPPORT_REQUESTED_CALCULATIONS",
+      "UNCERTAINTY_CAN_BE_REPRESENTED_WITHOUT_FORCED_CLASSIFICATION",
+      "REQUESTED_OUTPUTS_AND_SENSITIVITIES_MATCH_THE_SCIENTIFIC_TASK",
+      "DIFFICULTY_COMES_FROM_SCIENTIFIC_REASONING_NOT_MISSING_CONTEXT",
+      "NO_GRADER_OR_ANSWER_LEAKAGE_OBSERVED"
+    ],
+    "permittedVerdicts": [
+      "PASS",
+      "NEEDS_REPAIR",
+      "BLOCKED"
+    ],
+    "currentVerdict": "NOT_REVIEWED"
+  },
+  "withheldFromAuthorAndReviewer": [
+    "latent study and cohort identifiers",
+    "allowed relation labels",
+    "dependency groups",
+    "compatibility verdicts and incompatibility codes",
+    "allowed primary contribution sets",
+    "expected sensitivity inclusion sets",
+    "numeric tolerance and expected pooled outputs",
+    "oracle, alternate, invalid-candidate, proof, and truth values"
+  ],
+  "releaseGate": {
+    "mechanicalDifficultyPreflightMustPass": true,
+    "independentMethodReviewMustPass": true,
+    "frontierProbeBlockedUntilBothPass": true,
+    "paidInferenceAuthorized": false,
+    "externalTerminalBenchSubmissionAuthorized": false,
+    "publicLatentFixtureAuthorized": false
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "review_request_routed_frontier_probe_blocked",
+    "scientificAdequacy": "not_yet_reviewed_agent_input_not_yet_constructed",
+    "releaseAdequacy": "not_applicable_no_external_submission_or_production_release"
+  }
+}

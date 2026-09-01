@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_terminal_bench_difficulty_preflight",
+  "status": "active_terminal_bench_observable_evidence_review_request",
   "exclusive": true,
-  "requiredBranch": "task/external-evaluation-difficulty-preflight-v1-20260901",
-  "baselineCommit": "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
+  "requiredBranch": "task/terminal-bench-observable-evidence-review-request-v1-20260901",
+  "baselineCommit": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
   "activatedAt": "2026-09-01T14:29:00Z",
   "assuranceLane": "evaluation_and_scientific_governance",
   "targetedHardGates": [
@@ -41,31 +41,33 @@
   "preflightCommand": "npm run external-evaluation:preflight",
   "completionCommand": "npm run external-evaluation:acceptance",
   "lastCompletedSlice": {
-    "sliceId": "benchmark-governance-schema-instantiation-v1",
+    "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
     "status": "protected_merge_complete",
-    "pullRequest": 170,
-    "exactTestedCandidate": "61483e7ca4c1db58fdc443a337d87c3db80ed9d2",
-    "finalHead": "7483757264c7eefae7e4537f079d104859a914c6",
-    "mergeCommit": "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
-    "mergedAt": "2026-09-01T16:12:51Z",
-    "receipt": "docs/audits/2026-09-01-external-evaluation-governance-protected-merge.json"
+    "pullRequest": 171,
+    "exactTestedCandidate": "bbaf97afb1fd6178e43eea3fbfade3460612cbd4",
+    "finalHead": "344244370696d8daa51bc284cee48b068fb3bc3a",
+    "mergeCommit": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+    "mergedAt": "2026-09-01T16:39:29Z",
+    "receipt": "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-protected-merge.json"
   },
   "currentSlice": {
-    "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
+    "sliceId": "terminal-bench-observable-evidence-review-request-v1",
     "status": "ready_for_protected_merge",
-    "candidateReceipt": "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-candidate.json",
-    "boundedOutcome": "Determine whether the private miniature exposes a scientifically solvable agent-facing evidence packet, enforce the agent/grader anti-leakage boundary, and seal a valid frontier-probe package or an exact blocking finding without invoking a frontier model.",
+    "reviewRequest": "contributions/terminal-bench-science/observable-evidence-review-request.json",
+    "reviewRequestIssue": "https://github.com/u-dont-existDOTcom/AskRigor/issues/172",
+    "boundedOutcome": "Route an exact answer-free agent-input authoring and independent clinical-method review request while keeping the frontier difficulty probe blocked.",
     "completed": [
-      "private miniature inventoried by filename, mode, size, and hash without reading grader-only values",
-      "sole nominal agent-facing fixture inspected",
-      "agent-facing bundle contract accepts a complete synthetic evidence packet and rejects missing observed evidence",
-      "grader-only field and artifact-identity leakage mutants rejected",
-      "exact private preflight returns seventeen readiness findings and withholds frontier invocation",
-      "input-completeness defect recorded without overwriting the earlier verifier-feasibility epoch"
+      "difficulty-preflight PR 171 protected merge recorded",
+      "source-layer author and independent reviewer roles separated",
+      "thirteen agent-visible evidence fields and eight review questions bound",
+      "grader-only values withheld from author and reviewer",
+      "mechanical and independent-review gates required before any frontier probe",
+      "public AskRigor review request routed without external benchmark submission"
     ],
     "excluded": [
       "paid MAST or NOHARM inference",
-      "frontier-agent invocation before agent-input readiness passes",
+      "construction of observable evidence by the saturated implementation worker",
+      "frontier-agent invocation before both readiness and independent review pass",
       "external Terminal-Bench proposal submission or upstream pull request",
       "public final benchmark fixture or latent answers",
       "production or canonical protocol mutation"
@@ -75,13 +77,13 @@
   "childWorkstreams": {
     "terminalBenchScience": {
       "priority": "P0.2_calendar_urgent",
-      "status": "difficulty_probe_preflight_active_agent_input_completeness_under_review",
+      "status": "observable_evidence_authoring_and_independent_review_request_open",
       "workingTitle": "Dependency-Aware Clinical Meta-Analysis from Overlapping Reports",
       "externalPullRequestDeadline": "2026-10-05",
       "design": "contributions/terminal-bench-science/task-design.md",
       "proposalDraft": "contributions/terminal-bench-science/proposal-draft.md",
       "overlapScan": "contributions/terminal-bench-science/overlap-scan.md",
-      "nextAction": "validate and seal an answer-free agent-facing input bundle before any frontier-agent invocation"
+      "nextAction": "a clean source-layer author must construct the answer-free packet and an independent clinical-method reviewer must approve it before any frontier-agent invocation"
     },
     "mast": {
       "priority": "P0.1_strategic",
@@ -91,11 +93,11 @@
     },
     "benchmarkGovernance": {
       "priority": "P0.3_shared",
-      "status": "schemas_merged_concrete_terminal_fixture_defect_under_triage",
+      "status": "schemas_merged_concrete_terminal_fixture_defect_open_review_requested",
       "policy": "evaluation/governance/correction-and-recheck-policy.md",
       "manifestSchema": "evaluation/governance/benchmark-manifest.schema.json",
       "defectLedgerSchema": "evaluation/governance/defect-ledger.schema.json",
-      "nextAction": "record the current miniature input-completeness finding without overwriting the merged verifier-feasibility epoch"
+      "nextAction": "preserve the defect as open until a mechanically complete and independently approved agent packet exists"
     },
     "authenticRequestEvaluation": {
       "priority": "P1",
@@ -129,14 +131,14 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Complete the Terminal-Bench anti-leakage and agent-input completeness preflight; invoke no frontier model until the package is scientifically solvable.",
+  "nextAction": "Obtain a clean source-layer agent packet and independent clinical-method review; invoke no frontier model until both gates pass.",
   "supervision": {
     "ownerApproval": "APPROVED — meta-analysis integrity primary",
     "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
-    "workerToContract": "complete_for_difficulty_probe_preflight_candidate",
+    "workerToContract": "complete_for_observable_evidence_review_request_candidate",
     "contractToOwner": "match_with_overlap_driven_refinement",
-    "operationalAlignment": "private_inventory_anti_leakage_and_blocking_finding_pass_pending_protected_merge",
-    "scientificAdequacy": "frontier_difficulty_claim_fail_closed_agent_input_incomplete",
+    "operationalAlignment": "review_request_routed_frontier_probe_blocked_pending_protected_merge",
+    "scientificAdequacy": "not_yet_reviewed_agent_input_not_yet_constructed",
     "releaseAdequacy": "pending_protected_merge_no_external_submission_or_production_release"
   }
 }

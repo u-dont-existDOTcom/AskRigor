@@ -12,22 +12,22 @@ describe("external evaluation current-slice contract", () => {
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_terminal_bench_difficulty_preflight",
+      status: "active_terminal_bench_observable_evidence_review_request",
       exclusive: true,
-      requiredBranch: "task/external-evaluation-difficulty-preflight-v1-20260901",
-      baselineCommit: "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
+      requiredBranch: "task/terminal-bench-observable-evidence-review-request-v1-20260901",
+      baselineCommit: "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
       boundedOutcome: expect.stringContaining("paired MAST evaluation"),
       currentSlice: {
-        sliceId: "terminal-bench-difficulty-probe-preflight-v1",
+        sliceId: "terminal-bench-observable-evidence-review-request-v1",
         status: "ready_for_protected_merge",
         maximumEstimatedCostUsdBeforeAbort: 0,
       },
       preflightCommand: "npm run external-evaluation:preflight",
       completionCommand: "npm run external-evaluation:acceptance",
       lastCompletedSlice: {
-        sliceId: "benchmark-governance-schema-instantiation-v1",
-        pullRequest: 170,
-        mergeCommit: "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
+        sliceId: "terminal-bench-difficulty-probe-preflight-v1",
+        pullRequest: 171,
+        mergeCommit: "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
       },
     });
   });
