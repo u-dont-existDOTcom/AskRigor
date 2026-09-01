@@ -12,7 +12,8 @@
   "repairRedTestCommit": "c899df4118ec1ca4f27899c08825b934d00290da",
   "repairCommit": "2f90e17aede149d768f0217afd0ae3ea338cbb6b",
   "repairTree": "5f77279d99ada21efe832e477fad7425443d24cd",
-  "pullRequest": null,
+  "pullRequest": 165,
+  "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/165",
   "ownerSource": {
     "path": "docs/audits/2026-09-01-promotion-scheduler-owner-source.txt",
     "sha256": "e57ddfe2e11a3ac7cd6def01665f54e3a1944e2c79fab2717795dcb2fa18ca80"

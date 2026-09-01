@@ -18,6 +18,7 @@ captures the failure. Repair commit
 `2f90e17aede149d768f0217afd0ae3ea338cbb6b` invokes the reviewed
 system-installed Compose plugin directly and provides a private empty Docker
 configuration directory, preserving `ProtectHome=yes` without warnings.
+PR #165 is the protected repair and release-readiness surface.
 
 The scheduler cannot accept, reject, edit, or supply a proposal. It invokes only
 the existing `living-evidence-admin promote-accepted` command, with no shell or

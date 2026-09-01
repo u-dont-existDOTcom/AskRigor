@@ -42,7 +42,7 @@ the public runtime stayed healthy. Repair-red commit
 `2f90e17aede149d768f0217afd0ae3ea338cbb6b` now bind the system Compose plugin
 directly and give Docker a private empty runtime configuration directory. The
 focused 57/57 gate, typecheck, and systemd validators pass; protected repair
-review and activation remain.
+review in PR #165 and activation remain.
 
 Typed completion claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment
 passes for the local candidate. Scientific adequacy is preserved but not
