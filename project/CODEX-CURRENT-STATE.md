@@ -1,5 +1,45 @@
 # AskRigor Codex Current State
 
+## 2026-09-01 free-contributor/private-entitlement candidate verified
+
+Task `askrigor-living-evidence-free-contributor-private-entitlement-v1` is
+ready for protected merge on branch
+`task/free-contributor-private-entitlement-20260901` from
+baseline `1a413cb6f9e0cbdcedc84760bb9a9185b663382a`. Run
+`npm run contributor-access:preflight` before resuming and
+`npm run contributor-access:acceptance` for task-specific completion. Ordinary
+green tests are prerequisites rather than task completion.
+
+The owner's current product rule supersedes the earlier anonymous-free-tool
+assumption: free AskRigor requires explicit agreement that eligible
+deidentified structured research progress may enter a shared proposal queue;
+non-contributing use is paid private. This remains an ordinary public product,
+not an institutional research program or pilot. No price or provider is chosen,
+so paid-private activation must require an already verified entitlement and
+otherwise fail closed.
+
+The bounded slice adds pseudonymous access-mode state, a reviewed proposal
+inbox using the existing exact formal-frontier and source-analysis schemas, and
+OAuth enforcement for ordinary research use. Raw chat, identity/contact data,
+private health narratives, uploads, raw source/provider bodies, and
+YouTube/community data remain prohibited. Public submissions cannot directly
+mutate canonical evidence. Partial formal corpora remain usable and labeled.
+
+The generated standard MCP inventory contains 26 operations with SHA-256
+`d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4`.
+The generated synchronization ledger SHA-256 is
+`3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
+the unchanged controlled Instructions remain 4,752 characters with SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+These are candidate bytes, not a deployment or product-interface claim.
+PR #159 carries the protected candidate.
+
+Recovery authority is `../tasks/ACTIVE-TASK.json` and
+`../docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md`.
+The completed catalog, community-forum expansion, evidence-gap expansion, and
+unrelated architecture/release queues are suspended as task selectors until
+this lock reaches a terminal state.
+
 ## 2026-09-01 research-frontier catalog production release complete
 
 PR #157 merged task `askrigor-living-evidence-frontier-catalog-discovery-v1`

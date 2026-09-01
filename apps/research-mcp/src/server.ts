@@ -10,6 +10,10 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isJsonContentType } from "@modelcontextprotocol/sdk/shared/mediaType.js";
 import type { PublicEvidenceGapIntakeService } from
   "@askrigor/evidence-repository";
+import {
+  PostgresResearchContributorAccessStore,
+  ResearchContributorAccessService,
+} from "@askrigor/evidence-repository";
 
 import {
   actionApiKeyFromEnv,
@@ -29,6 +33,7 @@ import {
   PUBLIC_RATE_LIMIT,
   publicServerIsEnabled,
   researchFinalizationSigningConfigFromEnv,
+  researchContributorAccessConfigFromEnv,
   researchSessionCheckpointConfigFromEnv,
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
@@ -95,6 +100,9 @@ export type McpToolCatalogProfile = "standard" | "gemini";
 export interface AskRigorMcpServerOptions {
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceMetadataUrl?: URL;
+  allowedReviewerSubjects?: ReadonlySet<string>;
+  researchContributorAccessService?: ResearchContributorAccessService;
+  researchAccessRequired?: boolean;
 }
 
 export function createAskRigorServer(
@@ -143,6 +151,7 @@ export interface AskRigorHttpServerOptions {
   publicEvidenceGapIntakeHandler?: PublicEvidenceGapIntakeHandler;
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceServer?: AskRigorOAuthResourceServer;
+  researchContributorAccessService?: ResearchContributorAccessService;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -326,6 +335,28 @@ export function createAskRigorHttpServer(
         }));
   const oauthResourceServer =
     options.oauthResourceServer ?? oauthResourceServerFromEnv();
+  const researchContributorAccessConfig =
+    options.researchContributorAccessService === undefined
+      ? researchContributorAccessConfigFromEnv()
+      : undefined;
+  const researchContributorAccessService =
+    options.researchContributorAccessService ??
+    (researchContributorAccessConfig === undefined
+      ? undefined
+      : new ResearchContributorAccessService({
+          store: new PostgresResearchContributorAccessStore({
+            connectionString: researchContributorAccessConfig.connectionString,
+            schema: researchContributorAccessConfig.schema,
+            ssl: researchContributorAccessConfig.ssl,
+          }),
+          identitySecret: researchContributorAccessConfig.identitySecret,
+        }));
+  const researchAccessRequired = oauthResourceServer !== undefined;
+  const effectiveActionRoutes = researchAccessRequired
+    ? actionRoutes.filter(({ publicResearch, controlledResearch }) =>
+        publicResearch !== true && controlledResearch !== true
+      )
+    : actionRoutes;
   const oauthResourceMetadataUrl = oauthResourceServer === undefined
     ? undefined
     : protectedResourceMetadataUrl(oauthResourceServer.resourceUrl);
@@ -333,6 +364,9 @@ export function createAskRigorHttpServer(
     ((profile?: McpToolCatalogProfile) => createAskRigorServer(profile, {
       publicEvidenceGapReviewService,
       oauthResourceMetadataUrl,
+      allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
+      researchContributorAccessService,
+      researchAccessRequired,
     }));
 
   return createServer(async (request, response) => {
@@ -413,7 +447,7 @@ export function createAskRigorHttpServer(
       actionsEnabled &&
       request.method === "POST" &&
       pathname === LESSON_ACTION_PATH &&
-      actionRoutes.some((route) =>
+      effectiveActionRoutes.some((route) =>
         route.method === "POST" &&
         route.path === LESSON_ACTION_PATH &&
         route.operationId === "submit_lesson_candidate" &&
@@ -427,12 +461,12 @@ export function createAskRigorHttpServer(
       return;
     }
 
-    if (actionRoutes.length > 0 && await dispatchActionRequest(request, response, {
+    if (effectiveActionRoutes.length > 0 && await dispatchActionRequest(request, response, {
       pathname,
       clientIp: resolveClientIp(request, trustedClientIpHeader),
       actionApiKey,
-      routes: actionRoutes,
-      createOpenApiDocument: () => createActionOpenApiDocument(actionRoutes),
+      routes: effectiveActionRoutes,
+      createOpenApiDocument: () => createActionOpenApiDocument(effectiveActionRoutes),
       publicRateLimiter: rateLimiter,
       publicConcurrencyLimiter: concurrencyLimiter
     })) {

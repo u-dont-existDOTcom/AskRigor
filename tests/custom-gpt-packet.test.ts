@@ -86,12 +86,12 @@ describe("controlled Custom GPT projection", () => {
     expect(instructionsMarkdown.length).toBeLessThanOrEqual(5_000);
   });
 
-  it("binds sync metadata to the four-operation installation bundle while retaining 24 MCP tools", async () => {
+  it("binds sync metadata to the four-operation installation bundle while retaining 26 MCP tools", async () => {
     const packet = await generateCustomGptPacket();
     const sync = JSON.parse(packet.syncJson) as CustomGptSync;
     expect(sync.schema_version).toBe(3);
     expect(sync.research_operation_ids).toEqual(CONTROLLED);
-    expect(sync.mcp_research_operation_ids).toHaveLength(24);
+    expect(sync.mcp_research_operation_ids).toHaveLength(26);
     expect(sync.installation_bundle).toMatchObject({
       instructions_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),
       action_schema_sha256: expect.stringMatching(/^[a-f0-9]{64}$/u),

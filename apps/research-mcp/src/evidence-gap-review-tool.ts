@@ -70,6 +70,7 @@ export const evidenceGapReviewOutputSchema = z.object({
 export interface EvidenceGapReviewToolOptions {
   service?: PublicEvidenceGapIntakeService;
   resourceMetadataUrl?: URL;
+  allowedReviewerSubjects?: ReadonlySet<string>;
 }
 
 export function evidenceGapReviewSecurityMetadata(): Record<string, unknown> {
@@ -103,6 +104,19 @@ export function createEvidenceGapReviewHandler(
       return authorizationError(
         "insufficient_scope",
         "The connected account lacks the cases:review permission.",
+        options.resourceMetadataUrl,
+        "insufficient_scope",
+      );
+    }
+    const subject = authInfo.extra?.subject;
+    if (
+      typeof subject !== "string" ||
+      options.allowedReviewerSubjects === undefined ||
+      !options.allowedReviewerSubjects.has(subject)
+    ) {
+      return authorizationError(
+        "insufficient_scope",
+        "The connected account is not an allowed AskRigor case reviewer.",
         options.resourceMetadataUrl,
         "insufficient_scope",
       );

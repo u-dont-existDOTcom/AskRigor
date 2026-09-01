@@ -623,14 +623,14 @@ async function main(): Promise<void> {
       );
       if (
         migrations.rows.map(({ migration_id: id }) => id).join(",") !==
-        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix,0008_public_evidence_gap_intake"
+        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix,0008_public_evidence_gap_intake,0009_research_contributor_access"
       ) {
         throw new Error("FRONTIER_MIGRATION_CHAIN_MISMATCH");
       }
     } finally {
       migrationClient.release();
     }
-    checks.push("immutable_eight_migration_chain_applied");
+    checks.push("immutable_nine_migration_chain_applied");
 
     const publicGapSubmission = await publicGapService.start({
       gapSlug: PUBLIC_PROLACTINOMA_GAP_SLUG,

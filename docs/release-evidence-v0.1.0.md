@@ -1,6 +1,31 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-09-01 reciprocal research access candidate — unreleased
+
+The candidate changes connected research from anonymous use to an explicit
+choice: free contributor mode permits only eligible deidentified structured
+formal-research proposals, while paid private mode contributes nothing and
+requires an active verified entitlement. It stores only an HMAC account key,
+never the raw OAuth subject/contact field. Proposals begin `PENDING_REVIEW` and
+the public role cannot grant entitlements, review proposals, or write canonical
+evidence. Revocation and pending withdrawal are atomic; a database trigger
+blocks a concurrent late submission. Partial formal corpora remain eligible and
+labeled partial.
+
+The standard catalog has 26 operations (24 reads and two explicit
+non-destructive writes), inventory SHA-256
+`d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4`.
+The compact Gemini surface remains at 22. The generated synchronization ledger
+SHA-256 is
+`3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0`;
+the unchanged controlled Instructions remain 4,752 characters with SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+Focused tests, typecheck, public-site gates, and a real PostgreSQL least-
+privilege acceptance pass. Protected merge, production deployment, Auth0
+public-account activation, package synchronization, and fresh ordinary-Chat
+acceptance remain pending.
+
 ## 2026-08-31 research-frontier catalog discovery candidate — unreleased
 
 The candidate adds `search_research_frontiers` as operation 23 while preserving

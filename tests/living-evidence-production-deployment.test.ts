@@ -46,7 +46,7 @@ describe("production living-evidence deployment", () => {
     );
 
     expect(compose).toMatch(
-      /secrets:\n\s+- living_evidence_migrator_password\n\s+- living_evidence_reader_password\n\s+- evidence_gap_intake_password/u,
+      /secrets:\n\s+- living_evidence_migrator_password\n\s+- living_evidence_reader_password\n\s+- evidence_gap_intake_password\n\s+- research_access_password/u,
     );
     expect(compose).toContain(
       "ASKRIGOR_EVIDENCE_GAP_INTAKE_PASSWORD_FILE: /run/secrets/evidence_gap_intake_password",
@@ -72,6 +72,51 @@ describe("production living-evidence deployment", () => {
     expect(provision).not.toContain("set -x");
   });
 
+  it("provisions a proposal-only reciprocal research role without canonical writer authority", async () => {
+    const compose = await read("infra/living-evidence-production/compose.yaml");
+    const provision = await read(
+      "infra/living-evidence-production/provision-research-access-role.sh",
+    );
+
+    expect(compose).toContain(
+      "ASKRIGOR_RESEARCH_ACCESS_PASSWORD_FILE: /run/secrets/research_access_password",
+    );
+    expect(compose).toContain(
+      "/opt/askrigor/living-evidence/provision-research-access-role.sh:/usr/local/bin/provision-research-access-role:ro",
+    );
+    expect(provision).toContain(
+      "CREATE ROLE askrigor_research_access LOGIN PASSWORD",
+    );
+    expect(provision).toContain(
+      "GRANT SELECT, INSERT, UPDATE ON TABLE living_evidence.research_use_accounts",
+    );
+    expect(provision).toContain(
+      "GRANT SELECT ON TABLE living_evidence.research_private_entitlements",
+    );
+    expect(provision).toContain(
+      "GRANT SELECT, INSERT ON TABLE living_evidence.research_contribution_proposals",
+    );
+    expect(provision).toContain(
+      "GRANT EXECUTE ON FUNCTION living_evidence.withdraw_pending_research_contribution_proposals",
+    );
+    const migration = await read(
+      "packages/evidence-repository/migrations/0009_research_contributor_access.sql",
+    );
+    expect(migration).toContain("research_contribution_proposal_account_guard");
+    expect(migration).toContain("RESEARCH_PROPOSAL_ACCOUNT_NOT_FREE_ACTIVE");
+    expect(migration).toContain(
+      "REVOKE ALL ON FUNCTION enforce_research_contribution_proposal_account()",
+    );
+    expect(provision).not.toMatch(
+      /GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu,
+    );
+    expect(provision).not.toContain("GRANT INSERT ON TABLE living_evidence.research_private_entitlements");
+    expect(provision).not.toContain("GRANT SELECT ON ALL TABLES");
+    expect(provision).not.toContain("analysis_versions");
+    expect(provision).not.toContain("frontier_contributions");
+    expect(provision).not.toContain("set -x");
+  });
+
   it("separates the public reader from the one-shot writer and declares rollback", async () => {
     const compose = await read("infra/living-evidence-production/compose.yaml");
     const config = await read("apps/research-mcp/src/config.ts");
@@ -83,7 +128,7 @@ describe("production living-evidence deployment", () => {
     expect(compose).toContain("/opt/askrigor/living-evidence-writer.env");
     expect(config).toContain("ASKRIGOR_LIVING_EVIDENCE_READER_DATABASE_URL");
     expect(registration).not.toContain("ASKRIGOR_LIVING_EVIDENCE_WRITER_DATABASE_URL");
-    expect(runbook).toContain("Automatic public-run write-through is not part of this release.");
+    expect(runbook).toContain("Automatic public-run canonical write-through is not part of this");
     expect(runbook).toContain("Repository rows are retained.");
     expect(runbook).toContain("The unrelated annas-postgres-1 service is never used.");
     expect(runbook).toContain("root-owned, group 70, mode 0440");
@@ -121,7 +166,7 @@ describe("production living-evidence deployment", () => {
     expect(admin).toContain('command === "import-frontier"');
     expect(admin).toContain("prepareResearchFrontierImport");
     expect(runbook).toContain("Requested and confirmed");
-    expect(registry).toContain("Expected 24 research operations");
+    expect(registry).toContain("Expected 26 research operations");
     expect(registry).toContain('registerTool(\n    "get_research_frontier"');
   });
 });

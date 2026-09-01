@@ -1,0 +1,79 @@
+{
+  "schema_version": "askrigor-reciprocal-research-access-candidate/v1",
+  "recorded_at": "2026-09-01T01:12:20Z",
+  "branch": "task/free-contributor-private-entitlement-20260901",
+  "baseline_commit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a",
+  "implementation_head": "dc9f0e59b2ae1d3a4c6d738b1d945a21743cd6d9",
+  "pull_request": 159,
+  "product_contract": {
+    "free_mode": "explicit_versioned_contribution_agreement_required",
+    "paid_private_mode": "active_verified_entitlement_required_and_no_shared_contribution",
+    "paid_checkout_available": false,
+    "proposal_initial_status": "PENDING_REVIEW",
+    "automatic_canonical_promotion": false,
+    "partial_formal_corpora": "eligible_and_labeled_partial"
+  },
+  "privacy_boundary": {
+    "raw_oauth_subject_stored": false,
+    "account_key": "HMAC-SHA-256",
+    "raw_chat_or_prompts": false,
+    "identity_or_contact_data": false,
+    "private_health_narratives": false,
+    "uploads": false,
+    "raw_source_or_provider_bodies": false,
+    "youtube_or_community_data": false
+  },
+  "catalog": {
+    "standard_operations": 26,
+    "read_only_operations": 24,
+    "non_destructive_write_operations": 2,
+    "gemini_operations": 22,
+    "inventory_sha256": "d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4",
+    "custom_gpt_sync_sha256": "3f031c6e7a72974c48ab248b73722840630094095862eb031f56f7a55798f8d0"
+  },
+  "verification": {
+    "npm_run_verify": {
+      "status": "PASS",
+      "test_files_passed": 124,
+      "test_files_skipped": 1,
+      "tests_passed": 1602,
+      "tests_skipped": 6,
+      "typecheck": "PASS",
+      "build": "PASS"
+    },
+    "contributor_access_acceptance": "PASS",
+    "real_postgresql_17_6_acceptance": {
+      "status": "PASS",
+      "migration": "0009_research_contributor_access",
+      "partial_pending_idempotent": true,
+      "canonical_counts_unchanged": true,
+      "atomic_revoke_and_late_insert_guard": true,
+      "entitlement_admin_only": true,
+      "paid_private_contribution_blocked": true,
+      "raw_subject_absent": true
+    },
+    "public_site": "PASS",
+    "public_site_deployment_tests": "28/28 PASS",
+    "plugin_validator": "PASS",
+    "askrigor_skill_validator": "PASS"
+  },
+  "source_plugin_package": {
+    "version": "0.1.0",
+    "member_count": 8,
+    "package_sha256": "0da097c582db0482d8c4a6af8f7bc810c706f6352490e0b2b54948ca1ae9ff35",
+    "skill_sha256": "159a18873ac01729db3bbce5d01b6b85ba22a0d6dc98431a4927a83f431bed48"
+  },
+  "lesson_queue": {
+    "checked_at": "2026-09-01T01:11:48.325Z",
+    "open_candidates": 0,
+    "needs_review": 0,
+    "accepted_not_incorporated": 0,
+    "incorporated_or_closed": 4,
+    "deletion_eligible": 0
+  },
+  "adequacy": {
+    "operational_alignment": "PASS_LOCAL_CANDIDATE",
+    "scientific_adequacy": "NOT_A_SCIENTIFIC_CLAIM",
+    "release_adequacy": "PENDING_PROTECTED_MERGE_DEPLOYMENT_AND_PRODUCT_ACCEPTANCE"
+  }
+}

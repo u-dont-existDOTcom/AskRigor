@@ -49,16 +49,29 @@ const TOOL_NAMES = [
   "audit_youtube_video_community",
   "get_research_frontier",
   "search_research_frontiers",
+  "manage_research_access",
+  "submit_research_contribution",
   "review_evidence_gap_submissions"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
-  !["review_evidence_gap_submissions", "search_research_frontiers"].includes(name)
+  ![
+    "review_evidence_gap_submissions",
+    "search_research_frontiers",
+    "manage_research_access",
+    "submit_research_contribution",
+  ].includes(name)
 );
 
 const READ_ONLY_ANNOTATIONS = {
   readOnlyHint: true,
   destructiveHint: false,
   openWorldHint: false
+};
+const MUTATING_ANNOTATIONS = {
+  readOnlyHint: false,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
 };
 
 const clients: Client[] = [];
@@ -75,7 +88,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers exactly the twenty-four read-only research tools", async () => {
+  it("registers the exact twenty-six-tool catalog with two declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -83,7 +96,10 @@ describe("AskRigor MCP tools", () => {
 
       expect(tools.map(({ name }) => name)).toEqual(TOOL_NAMES);
       expect(tools.map(({ annotations }) => annotations)).toEqual(
-        TOOL_NAMES.map(() => READ_ONLY_ANNOTATIONS)
+        TOOL_NAMES.map((name) => [
+          "manage_research_access",
+          "submit_research_contribution",
+        ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
       );
       expect(tools.every(({ inputSchema, outputSchema }) =>
         inputSchema.type === "object" && outputSchema?.type === "object"
@@ -93,17 +109,23 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
-  it("prioritizes the adaptive community workflow in critical server guidance", () => {
+  it("prioritizes reciprocal access before the adaptive research workflow", () => {
     const criticalInstructions = SERVER_INSTRUCTIONS.slice(0, 512);
 
-    expect(criticalInstructions).toContain("survey_youtube_community");
-    expect(criticalInstructions).toContain("audit_youtube_video_community");
-    expect(criticalInstructions).toContain("could plausibly matter");
-    expect(criticalInstructions).toContain("excellent RCT does not remove this requirement");
-    expect(criticalInstructions).toContain("continuation_recommended");
-    expect(criticalInstructions).toContain("expected information gain is positive");
-    expect(criticalInstructions).toContain("unfiltered YouTube comments and replies");
-    expect(criticalInstructions).toContain(
+    expect(criticalInstructions).toContain("manage_research_access");
+    expect(criticalInstructions).toContain("explicitly accept free contributor mode");
+    expect(criticalInstructions).toContain("never infer consent");
+    expect(criticalInstructions).toContain("never raw chat");
+    expect(SERVER_INSTRUCTIONS).toContain("submit_research_contribution");
+    expect(SERVER_INSTRUCTIONS).toContain("Paid-private mode submits nothing");
+    expect(SERVER_INSTRUCTIONS).toContain("survey_youtube_community");
+    expect(SERVER_INSTRUCTIONS).toContain("audit_youtube_video_community");
+    expect(SERVER_INSTRUCTIONS).toContain("could plausibly matter");
+    expect(SERVER_INSTRUCTIONS).toContain("excellent RCT does not remove this requirement");
+    expect(SERVER_INSTRUCTIONS).toContain("continuation_recommended");
+    expect(SERVER_INSTRUCTIONS).toContain("expected information gain is positive");
+    expect(SERVER_INSTRUCTIONS).toContain("unfiltered YouTube comments and replies");
+    expect(SERVER_INSTRUCTIONS).toContain(
       "search_youtube_comments is query-bounded discovery only"
     );
   });
