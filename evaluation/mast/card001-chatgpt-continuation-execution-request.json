@@ -1,0 +1,16 @@
+{
+  "requestId": "askrigor-zero-spend-chatgpt-mast-card001-continuation-v1-execution",
+  "actor": "CODEX",
+  "action": "EXECUTE_SOURCE_BOUND_BOUNDED_DIRECTIVE",
+  "sourceReceipt": {
+    "messageId": "0f073614-3f9d-4493-a9bb-b7f927db05d5",
+    "exactBodySha256": "b300f17f52d742ab72a862c2a54a5b561c9d222793f3c6a306872cb17eeb78c2",
+    "claimedSurface": "CHATGPT_PROJECT_MANAGER",
+    "observedSurface": "CHATGPT_PROJECT_MANAGER",
+    "provenanceStatus": "VERIFIED"
+  },
+  "modelApiSpendUsd": 0,
+  "boundedExecution": true,
+  "taskRequiresExecutionOutsideChat": true,
+  "internalRoute": null
+}

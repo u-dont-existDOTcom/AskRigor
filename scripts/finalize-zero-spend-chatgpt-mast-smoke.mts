@@ -49,10 +49,11 @@ function parseEvaluatorOutput(exactOutput: string): Record<string, unknown> {
 
 function mechanicallyValidateEvaluatorOutput(
   value: Record<string, unknown>,
+  caseFamilyId: string,
   caseIds: string[],
   rubricOptions: Array<{ id: number; score: number }>,
 ): void {
-  if (value.caseFamilyId !== "All001" || value.limitation !== LIMITATION) {
+  if (value.caseFamilyId !== caseFamilyId || value.limitation !== LIMITATION) {
     throw new Error("EVALUATOR_OUTPUT_ID_OR_LIMITATION_INVALID");
   }
   const outputs = value.outputs as Array<Record<string, unknown>> | undefined;
@@ -107,8 +108,13 @@ async function main(): Promise<void> {
       "Usage: --artifact-root PATH --mast-root PATH --repository-start-head SHA [--repository-end-head SHA]",
     );
   }
+  const selectionBytes = await readFile(resolve(artifactRoot, "selection-receipt.json"), "utf8");
+  const selected = JSON.parse(selectionBytes) as {
+    selectedCaseFamilyId: string;
+    selectedCaseIds: string[];
+  };
+  const caseFamilyId = selected.selectedCaseFamilyId;
   const [
-    selectionBytes,
     differenceBytes,
     responseDispatch,
     evaluatorDispatch,
@@ -119,7 +125,6 @@ async function main(): Promise<void> {
     evaluatorOutput,
     rubric,
   ] = await Promise.all([
-    readFile(resolve(artifactRoot, "selection-receipt.json"), "utf8"),
     readFile(resolve(artifactRoot, "difference-audit.json"), "utf8"),
     readJson<Record<string, unknown>>(resolve(artifactRoot, "response-dispatch-receipt.json")),
     readJson<Record<string, unknown>>(resolve(artifactRoot, "evaluator-dispatch-receipt.json")),
@@ -129,19 +134,23 @@ async function main(): Promise<void> {
     readFile(resolve(artifactRoot, "response-hrp-output.txt"), "utf8"),
     readFile(resolve(artifactRoot, "evaluator-output.txt"), "utf8"),
     readJson<{ options: Array<{ id: number; score: number }> }>(
-      resolve(mastRoot, "benchmarks/donoharm/dataset/rubrics/All001.json"),
+      resolve(mastRoot, `benchmarks/donoharm/dataset/rubrics/${caseFamilyId}.json`),
     ),
   ]);
   const responseRecords = responseDispatch.responses as Array<Record<string, unknown>>;
-  const selected = JSON.parse(selectionBytes) as { selectedCaseIds: string[] };
   const parsedEvaluator = parseEvaluatorOutput(evaluatorOutput);
-  mechanicallyValidateEvaluatorOutput(parsedEvaluator, selected.selectedCaseIds, rubric.options);
+  mechanicallyValidateEvaluatorOutput(
+    parsedEvaluator,
+    caseFamilyId,
+    selected.selectedCaseIds,
+    rubric.options,
+  );
 
   const projectManagerPacket = {
     schemaVersion: 1,
     packetType: "ZERO_SPEND_CHATGPT_MAST_OPERATIONAL_SMOKE_FACTUAL_RETURN",
     directiveId: DIRECTIVE_ID,
-    caseFamilyId: "All001",
+    caseFamilyId,
     executionBoundary: {
       providerApiCredentialsUsed: false,
       paidModelApiCalls: 0,
@@ -203,6 +212,8 @@ async function main(): Promise<void> {
     condition: record.condition,
     providerSurface: "CHATGPT_CONSUMER",
     modelMode: "EXTRA_HIGH",
+    modelNameObserved: record.modelNameObserved,
+    thinkingEffortObserved: record.thinkingEffortObserved,
     chatLocator: record.chatLocator,
     sourceMessageId: record.sourceMessageId,
     sentAtSource: record.sentAtSource,
@@ -218,6 +229,8 @@ async function main(): Promise<void> {
     condition: null,
     providerSurface: "CHATGPT_CONSUMER",
     modelMode: "EXTRA_HIGH",
+    modelNameObserved: evaluatorDispatch.modelNameObserved,
+    thinkingEffortObserved: evaluatorDispatch.thinkingEffortObserved,
     chatLocator: evaluatorDispatch.chatLocator,
     sourceMessageId: evaluatorDispatch.sourceMessageId,
     sentAtSource: evaluatorDispatch.sentAtSource,
@@ -237,7 +250,7 @@ async function main(): Promise<void> {
     directiveId: DIRECTIVE_ID,
     repositoryStartHead,
     repositoryEndHead,
-    caseFamilyId: "All001",
+    caseFamilyId,
     deterministicSelectionReceiptSha256: sha256(selectionBytes),
     packets: {
       bare: {

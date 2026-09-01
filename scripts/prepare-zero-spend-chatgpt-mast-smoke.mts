@@ -131,8 +131,13 @@ async function main(): Promise<void> {
   const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
   const mastRoot = argument("--mast-root");
   const artifactRoot = argument("--artifact-root");
+  const requestedCaseFamily = argument("--case-family");
+  const supervisorDirectiveReceiptPath = argument("--supervisor-directive-receipt");
   if (!mastRoot || !artifactRoot) {
-    throw new Error("Usage: --mast-root ABSOLUTE_PATH --artifact-root ABSOLUTE_EMPTY_MODE_0700_PATH");
+    throw new Error(
+      "Usage: --mast-root ABSOLUTE_PATH --artifact-root ABSOLUTE_EMPTY_MODE_0700_PATH "
+      + "[--case-family ID --supervisor-directive-receipt PATH]",
+    );
   }
   await inspectCleanMastArtifactRoot(repositoryRoot, artifactRoot);
   const manifest = noharmPilotManifestSchema.parse(JSON.parse(await readFile(
@@ -140,8 +145,41 @@ async function main(): Promise<void> {
     "utf8",
   )));
   const sourceValidation = await verifyPinnedMastNoHarmPilot(mastRoot, manifest);
-  const caseFamilyId = manifest.pilot.baseCaseIds[0];
+  const caseFamilyId = requestedCaseFamily ?? manifest.pilot.baseCaseIds[0];
   if (!caseFamilyId) throw new Error("CHATGPT_SMOKE_NO_PREDECLARED_PILOT_CASE");
+  const selectedManifestIndex = manifest.pilot.baseCaseIds.indexOf(caseFamilyId);
+  if (selectedManifestIndex < 0) {
+    throw new Error(`CHATGPT_SMOKE_CASE_NOT_PREDECLARED caseFamilyId=${caseFamilyId}`);
+  }
+  let supervisorDirectiveReceiptSha256: string | null = null;
+  if (selectedManifestIndex > 0) {
+    if (!supervisorDirectiveReceiptPath) {
+      throw new Error("CHATGPT_SMOKE_CONTINUATION_REQUIRES_SUPERVISOR_DIRECTIVE_RECEIPT");
+    }
+    const supervisorDirectiveReceiptBytes = await readFile(supervisorDirectiveReceiptPath, "utf8");
+    const supervisorDirectiveReceipt = JSON.parse(supervisorDirectiveReceiptBytes) as {
+      sourceMessageId?: string;
+      assistantMessageId?: string;
+      exactOutputSha256?: string;
+      nextDirective?: Record<string, unknown>;
+    };
+    const nextDirective = supervisorDirectiveReceipt.nextDirective;
+    if ((!supervisorDirectiveReceipt.sourceMessageId
+        && !supervisorDirectiveReceipt.assistantMessageId)
+      || !/^[a-f0-9]{64}$/u.test(supervisorDirectiveReceipt.exactOutputSha256 ?? "")
+      || !nextDirective
+      || nextDirective.nextCaseFamily !== caseFamilyId
+      || nextDirective.selectionRule !== "CONTINUE_PREDECLARED_MANIFEST_ORDER"
+      || nextDirective.promptOrHrpTuningBeforeNextCase !== "FORBIDDEN"
+      || nextDirective.interimCrossCaseOptimization !== "FORBIDDEN"
+      || nextDirective.blindMapping !== "PRESERVE"
+      || nextDirective.exactGeneratorModelAndMode !== "MUST_RECORD"
+      || nextDirective.exactConditionInstructions !== "MUST_PRESERVE_FOR_FINAL_AUDIT"
+      || nextDirective.officialMastClaim !== "WITHHOLD") {
+      throw new Error("CHATGPT_SMOKE_SUPERVISOR_CONTINUATION_DIRECTIVE_INVALID");
+    }
+    supervisorDirectiveReceiptSha256 = sha256(supervisorDirectiveReceiptBytes);
+  }
 
   const items = (await readFile(
     resolve(mastRoot, "benchmarks/donoharm/dataset/items.jsonl"),
@@ -161,11 +199,18 @@ async function main(): Promise<void> {
   const selectionReceipt = {
     schemaVersion: 1,
     directiveId: DIRECTIVE_ID,
-    selectionRule: "first_case_family_in_predeclared_pilot_manifest_order_v1",
+    selectionRule: selectedManifestIndex === 0
+      ? "first_case_family_in_predeclared_pilot_manifest_order_v1"
+      : "source_bound_supervisor_continuation_predeclared_manifest_order_v1",
     selectionUsedOutcomeOrRubricContent: false,
     manifestPilotCaseIds: manifest.pilot.baseCaseIds,
     manifestPilotCaseIdsSha256: canonicalSha256(manifest.pilot.baseCaseIds),
     selectedCaseFamilyId: caseFamilyId,
+    selectedManifestIndex,
+    previousCaseFamilyId: selectedManifestIndex > 0
+      ? manifest.pilot.baseCaseIds[selectedManifestIndex - 1]
+      : null,
+    supervisorDirectiveReceiptSha256,
     selectedCaseIds: expectedIds,
     sourceCommit: manifest.source.commit,
     sourceTree: manifest.source.tree,
