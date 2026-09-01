@@ -5,46 +5,46 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program while advancing to the zero-spend ChatGPT child slice", async () => {
+  it("preserves the canonical parent program while advancing to the four-arm base-generation slice", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_zero_spend_chatgpt_mast_operational_smoke",
+      status: "active_zero_spend_chatgpt_mast_four_arm_base_generation",
       exclusive: true,
-      requiredBranch: "hotfix/chat-reasoning-zero-spend-routing-20260901",
-      baselineCommit: "a1d4aaf0fe2010edc5cec13e6c431877a311d074",
-      boundedOutcome: expect.stringContaining("zero-spend one-case ChatGPT-consumer MAST operational smoke"),
+      requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
+      baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
+      boundedOutcome: expect.stringContaining("zero-spend 96-response four-arm base-generation pilot"),
       authorityPolicy: "governance/chat-work-authority-policy.json",
-      activeDirective: "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
-      currentState: "docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
-      codexCurrentState: "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
+      activeDirective: "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
+      currentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
+      codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       currentSlice: {
-        sliceId: "zero-spend-chatgpt-mast-operational-smoke-v1",
-        status: "directive_ready_execution_not_started",
+        sliceId: "mast-four-arm-eight-family-base-generation-v2",
+        status: "inputs_frozen_generation_pending",
         maximumEstimatedCostUsdBeforeAbort: 0,
         requiredChats: {
-          responseChats: 2,
-          evaluatorChats: 1,
+          responseChats: 96,
+          evaluatorChats: 0,
           mode: "EXTRA_HIGH",
           automaticRouting: true,
           ownerRelayPermitted: false,
         },
       },
-      preflightCommand: "npx tsx scripts/validate-chat-work-authority-policy.mts",
-      completionCommand: "npx tsx scripts/accept-zero-spend-chatgpt-mast-smoke.mts",
+      preflightCommand: expect.stringContaining("prepare-zero-spend-mast-four-arm-base-pilot.mts"),
+      completionCommand: "npx tsx scripts/accept-zero-spend-mast-four-arm-base-generation.mts --artifact-root <PRIVATE_ARTIFACT_ROOT>",
       lastCompletedSlice: {
-        sliceId: "mast-noharm-pilot-analysis-freeze-v1",
+        sliceId: "zero-spend-chatgpt-mast-card001-calibration-v1",
         status: "protected_merge_complete",
-        pullRequest: 175,
-        mergeCommit: "a1d4aaf0fe2010edc5cec13e6c431877a311d074",
+        pullRequest: 180,
+        mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: "SUBTASK_COMPLETE_PARENT_OPEN",
-        scientificAdequacy: "not reached; no inference run",
-        releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or release",
+        completionClaim: "BASE_PILOT_PARENT_OPEN",
+        scientificAdequacy: "not reached; no untouched-family output has been evaluated or interpreted",
+        releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
     });
   });
@@ -68,9 +68,12 @@ describe("external evaluation current-slice contract", () => {
       "scripts/accept-external-evaluation.mts",
       "scripts/validate-chat-work-authority-policy.mts",
       "scripts/accept-zero-spend-chatgpt-mast-smoke.mts",
+      "scripts/prepare-zero-spend-mast-four-arm-base-pilot.mts",
+      "scripts/accept-zero-spend-mast-four-arm-base-generation.mts",
       "governance/chat-work-authority-policy.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
       "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
+      "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       "docs/audits/2026-09-01-mast-noharm-pilot-freeze-protected-merge.json",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();

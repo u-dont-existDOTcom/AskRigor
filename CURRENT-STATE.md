@@ -1,53 +1,29 @@
 # AskRigor current state
 
-The exclusive active task is defined by `tasks/ACTIVE-TASK.json`. Its current
-recovery state is
-`docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the Codex/Work
-execution boundary is
-`docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the controlling plan override
-is
-`docs/superpowers/plans/2026-09-01-chat-work-zero-spend-hotfix-addendum.md`; and
-the current source-bound execution directive is
-`docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json`.
+The exclusive active task remains `askrigor-external-evaluation-contribution-v1`
+and is defined by `tasks/ACTIVE-TASK.json`. Its current recovery checkpoint is
+`docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md`; its bounded execution
+plan is
+`docs/superpowers/plans/2026-09-01-mast-four-arm-eight-family-base-pilot.md`.
 
-The required task branch is
-`hotfix/chat-reasoning-zero-spend-routing-20260901`, based on protected-main
-merge `a1d4aaf0fe2010edc5cec13e6c431877a311d074`.
+The active branch is `task/mast-four-arm-zero-spend-harness-20260901`, based on
+protected main `88eb6d252d7b7547d3a2039872bddc96707fee9e`. The controlling
+Project Manager directive is source-bound at
+`docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json`.
 
-ChatGPT Project Manager/Extra High/Pro owns proposals, methodology,
-prioritization, spending design, consequential tradeoffs, scientific
-interpretation, supervisory verdicts, and selection of the next strategy.
-Codex and Work are execution-only for exact bounded mechanical work that Chat
-cannot execute. A local worker, copied summary, chat title, or opened tab cannot
-serve as a ChatGPT reasoning receipt.
+All001 and Card001 are development calibration only and are excluded from the
+pilot analysis and continuation gate. The current slice contains exactly eight
+untouched base-case families, four frozen arms, three trials per family-arm,
+and 96 responses. Exact inputs and a deterministic randomized dispatch schedule
+are frozen in the private mode-0700 root
+`/tmp/askrigor-mast-four-arm-base-artifacts.dMzP1H`.
 
-Paid model API inference is canceled by the current owner decision. The active
-model API spend ceiling is USD 0. No paid model call, judge call, external
-submission, protocol mutation, or release occurred.
+No untouched-family output has been generated, inspected, evaluated, or
+interpreted. Rubric and guidance content remains behind the frozen generation
+boundary. Paid model APIs and provider credentials remain forbidden; external
+spend is USD 0. The next action is mechanical capture of all 96 responses in
+fresh GPT-5.6 Sol Extra High ChatGPT consumer conversations with exact
+provenance and no tools or browsing.
 
-Routine internal routing among the Project Manager Chat, specialist supervisor
-chats, and Codex/Work is standing owner-authorized control-plane transport.
-Codex/Work must route factual state automatically and must never ask Joel to
-relay a prompt, paste a packet, or say `send it`. The generic confirmation rule
-for genuinely external representational communication does not override this
-narrow internal route.
-
-The active bounded slice is a one-case ChatGPT-consumer MAST operational smoke:
-materialize one predeclared case family as byte-audited BARE and HRP packets,
-route them automatically to two fresh Extra High chats, route randomized outputs
-to one separate fresh condition-blind Extra High evaluator chat, preserve exact
-message/timestamp/hash receipts, and return the factual receipt bundle to the
-Project Manager Chat. It is not an official MAST result and cannot support a
-general HRP-effect claim.
-
-Current state: the authority hotfix and exact directive are implemented on the
-task branch; execution has not started. The completion gate is
-`npx tsx scripts/accept-zero-spend-chatgpt-mast-smoke.mts`. The only eventual
-claim is `SUBTASK_COMPLETE_PARENT_OPEN` after all three ChatGPT receipts,
-zero-spend evidence, byte-difference audit, and automatic Project-Manager return
-receipt exist.
-
-The previous production scheduler task remains complete at protected-main
-release receipt `7964674b8a3dac804620a0e7d1dff62b00a68bf2`. The current hotfix does
-not mutate the production connector, plugin, database, protocol, or public
-interface.
+The current bounded claim is
+`FOUR_ARM_BASE_INPUTS_FROZEN_GENERATION_PENDING`. The parent remains open.

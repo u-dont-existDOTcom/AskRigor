@@ -1,0 +1,16 @@
+{
+  "requestId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot-v2-execution",
+  "actor": "CODEX",
+  "action": "EXECUTE_SOURCE_BOUND_BOUNDED_DIRECTIVE",
+  "sourceReceipt": {
+    "messageId": "73fe6ae7-3faa-45b3-b7d2-2394ef852183",
+    "exactBodySha256": "bf864a37c3da6b9e187a21865cf44546e45e2341dfac6f6f4d60a3d7ab5b3b33",
+    "claimedSurface": "CHATGPT_PROJECT_MANAGER",
+    "observedSurface": "CHATGPT_PROJECT_MANAGER",
+    "provenanceStatus": "VERIFIED"
+  },
+  "modelApiSpendUsd": 0,
+  "boundedExecution": true,
+  "taskRequiresExecutionOutsideChat": true,
+  "internalRoute": null
+}
