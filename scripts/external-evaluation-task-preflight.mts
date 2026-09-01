@@ -7,47 +7,43 @@ import { z } from "zod";
 const taskSchema = z.object({
   schemaVersion: z.literal(1),
   taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-  status: z.literal("active"),
+  status: z.literal("active_bounded_candidate_protected_merge_pending"),
   exclusive: z.literal(true),
-  requiredBranch: z.literal("task/external-evaluation-execution-20260901"),
+  requiredBranch: z.literal("task/external-evaluation-phase22-execution-20260901"),
   baselineCommit: z.literal("7964674b8a3dac804620a0e7d1dff62b00a68bf2"),
-  assuranceLane: z.literal("iteration_with_bounded_decision_evaluation"),
+  assuranceLane: z.literal("evaluation_and_scientific_governance"),
   preflightCommand: z.literal("npm run external-evaluation:preflight"),
   completionCommand: z.literal("npm run external-evaluation:acceptance"),
+  currentSlice: z.object({
+    sliceId: z.literal("rights-verifier-and-sealed-mast-preflight-v1"),
+    status: z.literal("ready_for_protected_merge"),
+    maximumEstimatedCostUsdBeforeAbort: z.literal(0),
+  }).passthrough(),
   previousCompletedTask: z.object({
     taskId: z.literal("askrigor-living-evidence-promotion-scheduler-v1"),
-    releaseReceiptPullRequest: z.literal(166),
     releaseReceiptMergeCommit: z.literal("7964674b8a3dac804620a0e7d1dff62b00a68bf2"),
-    productionActivated: z.literal(true),
-  }),
-  activeLessonContract: z.array(z.object({
-    lesson: z.string().min(1),
-    trigger: z.string().min(1),
-    requiredBehavior: z.string().min(1),
-    failureCondition: z.string().min(1),
-    enforcement: z.string().min(1),
-  })).min(5),
+  }).passthrough(),
+  lessonQueue: z.object({
+    open: z.literal(0),
+    needsReview: z.literal(0),
+    acceptedNotIncorporated: z.literal(0),
+  }).passthrough(),
 }).passthrough();
 
 const activationSchema = z.object({
   schemaVersion: z.literal(1),
+  receiptType: z.literal("active_task_transition_candidate"),
   taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-  branch: z.literal("task/external-evaluation-execution-20260901"),
-  baselineCommit: z.literal("7964674b8a3dac804620a0e7d1dff62b00a68bf2"),
+  pullRequest: z.literal(168),
+  activationBranch: z.literal("task/external-evaluation-phase22-20260901"),
+  activationBaseline: z.literal("7964674b8a3dac804620a0e7d1dff62b00a68bf2"),
   activationGates: z.object({
-    schedulerTerminalReceiptOnProtectedMain: z.literal(true),
+    previousExclusiveTaskTerminal: z.literal(true),
     freshProtectedMainResolved: z.literal(true),
-    newerHumanAuthoredExclusiveTask: z.literal(false),
-    onlyOpenPullRequestsAreRoutineDependabot: z.literal(true),
-    deadlineFeasibleAtActivation: z.literal(true),
+    newerCompetingExclusiveTaskFound: z.literal(false),
+    externalDeadlineFeasible: z.literal(true),
   }),
-  scope: z.object({
-    paidNoharmRun: z.literal(false),
-    externalSubmission: z.literal(false),
-    productionMutation: z.literal(false),
-    publicParticipantOrInstitutionalWorkflow: z.literal(false),
-  }).passthrough(),
-  preAttemptActivation: z.literal("PASS"),
+  hardBoundaries: z.array(z.string().min(1)).min(5),
 }).passthrough();
 
 function git(root: string, args: string[]): string {

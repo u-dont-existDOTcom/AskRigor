@@ -15,9 +15,20 @@ export const REPORT_RELATIONS = [
 export type ReportRelation = (typeof REPORT_RELATIONS)[number];
 export type PrimaryStatus = "INCLUDE" | "EXCLUDE" | "UNRESOLVED";
 export type ConclusionClass = "BENEFIT_SIGNAL" | "NO_CLEAR_SIGNAL" | "HARM_SIGNAL";
+export const INCOMPATIBILITY_CODES = [
+  "EXPOSURE_REGIMEN_MISMATCH",
+  "COMPARATOR_MISMATCH",
+  "OUTCOME_MISMATCH",
+  "HORIZON_MISMATCH",
+  "EFFECT_MEASURE_MISMATCH",
+  "UNRESOLVED_LINEAGE",
+] as const;
+export type IncompatibilityCode = (typeof INCOMPATIBILITY_CODES)[number];
+export type EffectMeasure = "RISK_RATIO" | "RATE_RATIO";
 
 export interface MiniatureTruth {
   targetEstimandId: string;
+  targetEffectMeasure: EffectMeasure;
   publicInputSha256: string;
   reports: Array<{
     reportId: string;
@@ -30,10 +41,14 @@ export interface MiniatureTruth {
     reportId: string;
     dependencyGroupId: string;
     targetCompatible: boolean;
+    incompatibilityCodes: IncompatibilityCode[];
+    effectMeasure: EffectMeasure;
     treatmentEvents: number;
-    treatmentTotal: number;
     controlEvents: number;
-    controlTotal: number;
+    treatmentTotal?: number;
+    controlTotal?: number;
+    treatmentPersonTime?: number;
+    controlPersonTime?: number;
   }>;
   allowedPrimaryContributionSets: string[][];
   sensitivityAnalyses: Array<{
@@ -54,9 +69,12 @@ export interface MiniatureCandidate {
     estimateId: string;
     primaryStatus: PrimaryStatus;
     dependencyGroupId: string;
+    targetCompatible: boolean;
+    incompatibilityCodes: IncompatibilityCode[];
   }>;
   effectEstimates: Array<{
     estimateId: string;
+    effectMeasure: EffectMeasure;
     logRiskRatio: number;
     samplingVariance: number;
   }>;
@@ -122,9 +140,12 @@ const candidateSchema = z.object({
     estimateId: z.string().min(1),
     primaryStatus: z.enum(["INCLUDE", "EXCLUDE", "UNRESOLVED"]),
     dependencyGroupId: z.string().min(1),
+    targetCompatible: z.boolean(),
+    incompatibilityCodes: z.array(z.enum(INCOMPATIBILITY_CODES)),
   })),
   effectEstimates: z.array(z.object({
     estimateId: z.string().min(1),
+    effectMeasure: z.enum(["RISK_RATIO", "RATE_RATIO"]),
     logRiskRatio: finiteNumber,
     samplingVariance: finiteNumber,
   })),
@@ -168,31 +189,45 @@ export function canonicalSha256(value: unknown): string {
     .digest("hex");
 }
 
-export function calculateLogRiskRatio(input: {
+export function calculateLogRatio(input: {
+  effectMeasure: EffectMeasure;
   treatmentEvents: number;
-  treatmentTotal: number;
   controlEvents: number;
-  controlTotal: number;
+  treatmentTotal?: number;
+  controlTotal?: number;
+  treatmentPersonTime?: number;
+  controlPersonTime?: number;
 }): { logRiskRatio: number; samplingVariance: number } {
-  const { treatmentEvents, treatmentTotal, controlEvents, controlTotal } = input;
+  const { treatmentEvents, controlEvents } = input;
+  const treatmentDenominator = input.effectMeasure === "RISK_RATIO"
+    ? input.treatmentTotal
+    : input.treatmentPersonTime;
+  const controlDenominator = input.effectMeasure === "RISK_RATIO"
+    ? input.controlTotal
+    : input.controlPersonTime;
   if (
-    ![treatmentEvents, treatmentTotal, controlEvents, controlTotal].every(Number.isFinite)
+    ![treatmentEvents, treatmentDenominator, controlEvents, controlDenominator].every(Number.isFinite)
     || treatmentEvents <= 0
     || controlEvents <= 0
-    || treatmentTotal <= treatmentEvents
-    || controlTotal <= controlEvents
+    || treatmentDenominator === undefined
+    || controlDenominator === undefined
+    || treatmentDenominator <= 0
+    || controlDenominator <= 0
+    || (input.effectMeasure === "RISK_RATIO" && treatmentDenominator <= treatmentEvents)
+    || (input.effectMeasure === "RISK_RATIO" && controlDenominator <= controlEvents)
   ) {
-    throw new Error("Miniature log-risk-ratio inputs require 0 < events < total in both arms");
+    throw new Error("Miniature log-ratio inputs require positive events and valid denominators");
   }
   return {
     logRiskRatio: Math.log(
-      (treatmentEvents / treatmentTotal) / (controlEvents / controlTotal),
+      (treatmentEvents / treatmentDenominator) / (controlEvents / controlDenominator),
     ),
-    samplingVariance:
-      (1 / treatmentEvents)
-      - (1 / treatmentTotal)
-      + (1 / controlEvents)
-      - (1 / controlTotal),
+    samplingVariance: input.effectMeasure === "RISK_RATIO"
+      ? (1 / treatmentEvents)
+        - (1 / treatmentDenominator)
+        + (1 / controlEvents)
+        - (1 / controlDenominator)
+      : (1 / treatmentEvents) + (1 / controlEvents),
   };
 }
 
@@ -299,7 +334,16 @@ export function verifyMiniatureCandidate(
     if (selected.dependencyGroupId !== expected.dependencyGroupId) {
       add("selection", "DEPENDENCY_GROUP_MISMATCH", `selection:${selected.estimateId}`);
     }
-    if (selected.primaryStatus === "INCLUDE" && !expected.targetCompatible) {
+    if (
+      selected.targetCompatible !== expected.targetCompatible
+      || !sameSet(selected.incompatibilityCodes, expected.incompatibilityCodes)
+    ) {
+      add("compatibility", "COMPATIBILITY_CLASSIFICATION_MISMATCH", `selection:${selected.estimateId}`);
+    }
+    if (
+      selected.primaryStatus === "INCLUDE"
+      && (!expected.targetCompatible || expected.effectMeasure !== truth.targetEffectMeasure)
+    ) {
       add("compatibility", "INCOMPATIBLE_ESTIMATE_INCLUDED", `selection:${selected.estimateId}`);
     }
   }
@@ -311,15 +355,19 @@ export function verifyMiniatureCandidate(
   }
 
   const expectedEffects = new Map(
-    truth.estimates.map((estimate) => [estimate.estimateId, calculateLogRiskRatio(estimate)]),
+    truth.estimates.map((estimate) => [estimate.estimateId, calculateLogRatio(estimate)]),
   );
   if (!sameSet(candidate.effectEstimates.map(({ estimateId }) => estimateId), includedIds)) {
     add("effects", "EFFECT_ROWS_DO_NOT_MATCH_INCLUDED_SET", "effectEstimates");
   }
   for (const actual of candidate.effectEstimates) {
     const expected = expectedEffects.get(actual.estimateId);
+    const expectedMeasure = truth.estimates.find(
+      ({ estimateId }) => estimateId === actual.estimateId,
+    )?.effectMeasure;
     if (
       !expected
+      || actual.effectMeasure !== expectedMeasure
       || !close(actual.logRiskRatio, expected.logRiskRatio, truth.numericTolerance)
       || !close(actual.samplingVariance, expected.samplingVariance, truth.numericTolerance)
     ) {
@@ -406,12 +454,15 @@ export function materializeCorrectCandidate(
         ? "EXCLUDE" as const
         : "EXCLUDE" as const,
     dependencyGroupId: estimate.dependencyGroupId,
+    targetCompatible: estimate.targetCompatible,
+    incompatibilityCodes: [...estimate.incompatibilityCodes],
   }));
   const expectedEffects = new Map(
-    truth.estimates.map((estimate) => [estimate.estimateId, calculateLogRiskRatio(estimate)]),
+    truth.estimates.map((estimate) => [estimate.estimateId, calculateLogRatio(estimate)]),
   );
   const effectEstimates = includedEstimateIds.map((estimateId) => ({
     estimateId,
+    effectMeasure: truth.estimates.find((estimate) => estimate.estimateId === estimateId)!.effectMeasure,
     ...expectedEffects.get(estimateId)!,
   }));
   const pooled = inverseVariancePool(effectEstimates);

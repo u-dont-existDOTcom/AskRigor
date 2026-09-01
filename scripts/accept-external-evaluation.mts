@@ -131,8 +131,8 @@ async function main(): Promise<void> {
   const root = git(process.cwd(), ["rev-parse", "--show-toplevel"]);
   const task = z.object({
     taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-    status: z.enum(["active", "ready_for_protected_merge"]),
-    requiredBranch: z.literal("task/external-evaluation-execution-20260901"),
+    status: z.literal("active_bounded_candidate_protected_merge_pending"),
+    requiredBranch: z.literal("task/external-evaluation-phase22-execution-20260901"),
   }).passthrough().parse(await readJson(join(root, "tasks", "ACTIVE-TASK.json")));
   const branch = git(root, ["branch", "--show-current"]);
   if (branch !== task.requiredBranch) {

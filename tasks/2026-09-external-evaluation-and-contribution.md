@@ -3,8 +3,8 @@
 **Program:** External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Queue state:** `ACTIVE`  
-**Required branch:** `task/external-evaluation-phase22-20260901`  
+**Queue state:** `ACTIVE — bounded rights/verifier/MAST-preflight candidate pending protected merge`
+**Required branch:** `task/external-evaluation-phase22-execution-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Previous completed task:** `askrigor-living-evidence-promotion-scheduler-v1`  
@@ -18,13 +18,15 @@ MAST is the highest strategic priority for determining whether HRP improves or d
 
 No benchmark case may be used to tune HRP before the first paired evaluation epoch is sealed. No official benchmark result may be silently replaced by an audit-adjusted interpretation.
 
+Partial corpora remain eligible for evidence review and must be explicitly labeled partial; incompleteness is a provenance and interpretation state, not an automatic exclusion rule.
+
 ## Current queue
 
 | Priority | Lane | Current state | Next mechanically executable action | Completion boundary |
 | --- | --- | --- | --- | --- |
-| P0.0 | Activation and queue normalization | **ACTIVE POINTER INSTALLED ON BRANCH / PROTECTED MERGE PENDING** | Merge the activation record from the fresh scheduler-closeout baseline | Phase 2.2 is the exclusive protected-main task with the scheduler preserved as previous completed task |
-| P0.1 | MAST paired HRP evaluation | **ADAPTER + SEALED SCT PREFLIGHT ACTIVE** | Build endpoint adapter, condition-equality checks, raw-response preservation, sealed manifest, deterministic SCT analysis, and NOHARM pilot declaration | Complete paired SCT and NOHARM epochs with official scores and blinded discordance review |
-| P0.2 | Terminal-Bench-Science v0.2 | **SOURCE-FAMILY + RIGHTS SCAN ACTIVE** | Rank candidate report families and rights paths, then build a non-public miniature latent-study fixture and deterministic verifier proof | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
+| P0.0 | Activation and queue normalization | **COMPLETE — PR #168** | Preserve canonical activation during child-slice integration | Phase 2.2 is the exclusive protected-main task with the scheduler preserved as previous completed task |
+| P0.1 | MAST paired HRP evaluation | **ADAPTER + SEALED SCT PREFLIGHT COMPLETE / PAID EPOCH GATED** | Merge bounded candidate; later review a nonzero spend ceiling and artifact destination | Complete paired SCT and NOHARM epochs with official scores and blinded discordance review |
+| P0.2 | Terminal-Bench-Science v0.2 | **RIGHTS + MINIATURE VERIFIER PROOF COMPLETE / SUBMISSION GATED** | Merge bounded candidate; then run difficulty probe and obtain domain review or a documented request | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
 | P0.3 | Benchmark integrity governance | **SCHEMA VALIDATION ACTIVE** | Validate the manifest and defect-ledger schemas against the first MAST and Terminal-Bench artifacts | Every result is version-bound, contestable, independently rechecked when consequential, and preserves original versus corrected epochs |
 | P1 | K-Bench-inspired authentic-request evaluation | **DEFERRED** | Revisit after the Terminal-Bench PR is secure | Small blinded multidimensional study of authentic AskRigor requests without pretending there is one constitutional gold answer |
 
@@ -108,7 +110,7 @@ PR #164 merged the following additive artifacts:
 
 That registration preserved `tasks/ACTIVE-TASK.json` and the exact copy-ready files under `project/` until the scheduler release closed.
 
-## Active implementation slice A — Terminal-Bench source family and verifier proof
+## Completed bounded child slice A — Terminal-Bench source family and verifier proof
 
 Do not publish final benchmark data or latent answers in the public AskRigor repository. Work in a non-public environment or approved private fork. Public Git records may contain architecture, provenance, rights findings, verifier contracts, and non-answer-bearing test strategy.
 
@@ -122,7 +124,9 @@ Deliverables:
 - deterministic verifier false-accept/false-reject audit;
 - updated proposal evidence.
 
-## Active implementation slice B — MAST adapter and sealed SCT preflight
+Bounded result on 2026-09-01: complete for this child slice. The rights decision uses project-authored fictional reports and structured data. A mode-0700 non-public miniature accepted two correct implementations, rejected eight invalid candidates—including distinct person-time/effect-measure and comparator errors—killed six verifier mutants, and observed zero false accepts or false rejects. The public repository contains only the generic verifier, illustrative non-final tests, and non-reversible proof hashes.
+
+## Completed bounded child slice B — MAST adapter and sealed SCT preflight
 
 Deliverables:
 
@@ -136,6 +140,8 @@ Deliverables:
 - reviewed preflight manifest.
 
 No paid NOHARM judging begins in this slice.
+
+Bounded result on 2026-09-01: complete for this child slice. Exact paired settings, complete protocol hashes, a Responses API adapter, raw-byte preservation, retry/timeout handling, condition-equality tests, and the deterministic 174-item upstream SCT example reproduction pass. The sealed spend ceiling is zero and no inference occurred.
 
 ## Lesson queue status
 

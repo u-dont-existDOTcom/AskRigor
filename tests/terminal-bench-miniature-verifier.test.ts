@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateLogRatio,
   canonicalSha256,
   materializeCorrectCandidate,
   type MiniatureCandidate,
@@ -15,6 +16,7 @@ const clone = <T>(value: T): T => structuredClone(value);
 // generated and exercised outside the public repository.
 const toyTruth: MiniatureTruth = {
   targetEstimandId: "FICTIONAL-TARGET-LOG-RR-12W",
+  targetEffectMeasure: "RISK_RATIO",
   publicInputSha256: "1".repeat(64),
   reports: [
     {
@@ -48,6 +50,8 @@ const toyTruth: MiniatureTruth = {
       reportId: "TOY-REPORT-A",
       dependencyGroupId: "TOY-DEPENDENCY-1",
       targetCompatible: true,
+      incompatibilityCodes: [],
+      effectMeasure: "RISK_RATIO",
       treatmentEvents: 18,
       treatmentTotal: 90,
       controlEvents: 30,
@@ -58,6 +62,8 @@ const toyTruth: MiniatureTruth = {
       reportId: "TOY-REPORT-B",
       dependencyGroupId: "TOY-DEPENDENCY-1",
       targetCompatible: true,
+      incompatibilityCodes: [],
+      effectMeasure: "RISK_RATIO",
       treatmentEvents: 24,
       treatmentTotal: 120,
       controlEvents: 40,
@@ -68,6 +74,8 @@ const toyTruth: MiniatureTruth = {
       reportId: "TOY-REPORT-C",
       dependencyGroupId: "TOY-DEPENDENCY-2",
       targetCompatible: true,
+      incompatibilityCodes: [],
+      effectMeasure: "RISK_RATIO",
       treatmentEvents: 14,
       treatmentTotal: 70,
       controlEvents: 23,
@@ -78,10 +86,12 @@ const toyTruth: MiniatureTruth = {
       reportId: "TOY-REPORT-D",
       dependencyGroupId: "TOY-DEPENDENCY-3",
       targetCompatible: false,
+      incompatibilityCodes: ["EFFECT_MEASURE_MISMATCH"],
+      effectMeasure: "RATE_RATIO",
       treatmentEvents: 22,
-      treatmentTotal: 80,
       controlEvents: 18,
-      controlTotal: 80,
+      treatmentPersonTime: 160,
+      controlPersonTime: 170,
     },
   ],
   allowedPrimaryContributionSets: [
@@ -113,6 +123,23 @@ describe("Terminal-Bench-Science miniature verifier contract", () => {
   it("accepts two scientifically equivalent contribution choices", () => {
     expect(verifyMiniatureCandidate(toyTruth, oracle)).toEqual({ valid: true, findings: [] });
     expect(verifyMiniatureCandidate(toyTruth, alternate)).toEqual({ valid: true, findings: [] });
+  });
+
+  it("keeps person-time rate estimates distinct from target risk estimates", () => {
+    const rate = calculateLogRatio({
+      effectMeasure: "RATE_RATIO",
+      treatmentEvents: 20,
+      treatmentPersonTime: 200,
+      controlEvents: 10,
+      controlPersonTime: 250,
+    });
+    expect(rate.logRiskRatio).toBeCloseTo(Math.log(2.5), 12);
+    expect(rate.samplingVariance).toBeCloseTo(0.15, 12);
+    expect(toyTruth.estimates.at(-1)).toMatchObject({
+      targetCompatible: false,
+      effectMeasure: "RATE_RATIO",
+      incompatibilityCodes: ["EFFECT_MEASURE_MISMATCH"],
+    });
   });
 
   it("rejects malformed untrusted candidate artifacts without throwing", () => {
