@@ -11,7 +11,8 @@
     "mergeCommit": "bfc2918476d2c4d5ae9b01df6c3a603fd3418596",
     "mergeTree": "162810fa8b12a87aae7403b1d85ee47e67f65872",
     "mergedAt": "2026-09-01T12:28:49Z",
-    "receiptPullRequest": null
+    "receiptPullRequest": 162,
+    "receiptPullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/162"
   },
   "productContract": {
     "reviewOperation": "review_research_contribution",
@@ -217,6 +218,7 @@
     "releaseAdequacy": "pass"
   },
   "remainingReleaseWork": [
-    "merge this receipt-only closeout through protected main and attach its final immutable merge receipt"
+    "pass protected checks and merge receipt-only PR 162",
+    "attach its final immutable merge receipt"
   ]
 }

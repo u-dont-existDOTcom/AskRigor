@@ -46,7 +46,7 @@ Scientific adequacy is preserved but not expanded: proposal disposition remains
 an owner decision and no scientific or causal conclusion is claimed. Release
 adequacy passes. Exact evidence and rollback identity are in
 `../docs/audits/2026-09-01-owner-review-promotion-production-release.json` and
-`.md`.
+`.md`; receipt-only PR #162 preserves the closeout on protected `main`.
 
 ## 2026-09-01 free-contributor/private-entitlement production release complete
 

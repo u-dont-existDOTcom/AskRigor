@@ -83,7 +83,7 @@ files. Its first focused run correctly detected that the current-state rewrite
 had dropped the unchanged generated synchronization identities; restoring those
 exact identities made the gate pass. Both machine records parse and the final
 diff passes whitespace validation. The receipt-only protected closeout remains
-to be merged when this record is first committed.
+to be merged as PR #162.
 
 Typed completion claim: `OUTCOME`. Operational alignment passes for the exact
 merge, production runtime, database least privilege, one-shot promotion runner,

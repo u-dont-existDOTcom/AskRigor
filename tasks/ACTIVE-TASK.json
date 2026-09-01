@@ -33,6 +33,7 @@
   "implementationCommit": "7697bcf6d6689533314b5e2a218bd6e602016d50",
   "ciAcceptanceHarnessRepairCommit": "b0279aca88437bed665455521d1f35d89e030aef",
   "pullRequest": 161,
+  "receiptPullRequest": 162,
   "mergeCommit": "bfc2918476d2c4d5ae9b01df6c3a603fd3418596",
   "productionImageId": "sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da",
   "installedPluginVersion": "0.1.0+codex.20260901124016",
