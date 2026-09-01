@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "mast_noharm_pilot_freeze_candidate",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-noharm-pilot-analysis-freeze-v1",
+  "state": "READY_FOR_PROTECTED_REVIEW_NO_MODEL_OR_JUDGE_RUN",
+  "capturedAt": "2026-09-01T17:18:50Z",
+  "source": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-noharm-pilot-freeze-v1-20260901",
+    "baselineCommit": "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
+    "candidateCommit": "cf9465c1d232b39b73c0a2bfa65c8bd00912c85b",
+    "candidateTree": "461fcdcb2c68168baf9867a72cf22bf440a370dd",
+    "mastCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "mastTree": "f73e1cb717d3e76353b190abc13739d7f3476798",
+    "previousSliceMergeReceipt": "docs/audits/2026-09-01-terminal-bench-observable-evidence-review-request-protected-merge.json"
+  },
+  "plan": {
+    "pilotClassification": "DEVELOPMENT_DISCOVERY",
+    "pilotBaseCaseFamilies": 10,
+    "pilotVariantsPerFamily": 11,
+    "pilotModelResponsesAcrossConditions": 220,
+    "stabilityRepeatFamilies": 3,
+    "stabilityRepeatJudgedRecords": 66,
+    "confirmationClassification": "VALIDATION_CONFIRMATION",
+    "untouchedConfirmationFamilies": 20,
+    "confirmationPartialCorpus": true,
+    "fullThirtyFamilyLayer": "DESCRIPTIVE_OFFICIAL_FULL_OPEN_CORPUS",
+    "analysisFreezeState": "PENDING_PILOT_NO_RESULTS_SEEN",
+    "hrpRepairFromPilotPermitted": false
+  },
+  "runtimeBoundary": {
+    "artifactRootEnvironmentVariable": "ASKRIGOR_MAST_ARTIFACT_ROOT",
+    "artifactRootPathSha256": "bd1d737bc847f3035548aa34109309c3bab034fe0a4989c01af74d280afda958",
+    "artifactRootOutsideRepository": true,
+    "artifactRootMode": "0700",
+    "artifactRootEmpty": true,
+    "fileModeRequired": "0600",
+    "rawResponsesBeforeJudging": true,
+    "credentialsStored": false,
+    "maximumEstimatedCostUsdBeforeAbort": 0
+  },
+  "scope": {
+    "modelInferencePerformed": false,
+    "judgeInferencePerformed": false,
+    "pilotResultsObserved": false,
+    "confirmationResultsObserved": false,
+    "paidInferencePerformed": false,
+    "externalSubmissionPerformed": false,
+    "productionMutation": false,
+    "protocolMutation": false
+  },
+  "artifacts": {
+    "pilotManifestSha256": "1777defc697a0c057facdd7553a1340456033701aac486ed131585a5e35f7ff5",
+    "pilotContractSha256": "732f1354835085381e37d48072bba49ae16b8484682f86292d31e8ceb0962550",
+    "pilotValidatorSha256": "2c8e61b1f17bd0ebc312ff27b9751dc0a2787f010aac4bb7f6618ae52ca901f7",
+    "pilotTestsSha256": "e111e206b721886faa9b8ee077bfc92dc2266f91e4a29d7bc537f9700e503d08",
+    "previousSliceMergeReceiptSha256": "b8dc817a6bcc088f8dc649c2e057014fe288c13a0313c8053f28c6c51fd21b2b",
+    "supervisionFeedbackJsonSha256": "936e1c7b0a1b76f9cff8eb4f877b28381be66f9fffbfbcb1e034e1b0828506a1",
+    "supervisionFeedbackMarkdownSha256": "ddc9341e6bef19de6f1ceba583f9cb6e74c71e585250e60be0c55a38c7609407"
+  },
+  "supervisionFeedback": {
+    "packet": "docs/audits/2026-09-01-supervision-design-feedback-noharm-pilot-confirmation-split.json",
+    "routeStatus": "routed_nonblocking",
+    "url": "https://github.com/u-dont-existDOTcom/AskRigor/issues/174"
+  },
+  "validation": {
+    "dependencyInstall": "pass_0_vulnerabilities",
+    "branchPreflight": "pass",
+    "artifactAcceptance": "pass",
+    "ciSafePilotValidation": "pass",
+    "exactPinnedSourceValidation": "pass_30_base_cases_330_items_all_hashes_and_inventories",
+    "exactArtifactRootInspection": "pass_outside_repository_mode_0700_empty",
+    "focusedTests": "pass_20_tests_5_files",
+    "strictNodeNextTypecheck": "pass",
+    "completeDeterministicGate": "pass",
+    "testFiles": {
+      "passed": 133,
+      "skipped": 1
+    },
+    "tests": {
+      "passed": 1644,
+      "skipped": 6
+    },
+    "testDurationSeconds": 202.95,
+    "projectTypecheck": "pass",
+    "build": "pass",
+    "postGateBuildConfirmation": "pass",
+    "diffCheck": "pass",
+    "lessonQueue": {
+      "checkedAt": "2026-09-01T17:18:35.187Z",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0
+    }
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "sealed_zero_spend_noharm_pilot_and_freeze_boundary_pending_protected_merge",
+    "scientificAdequacy": "pilot_plan_only_no_results_or_hrp_claim",
+    "releaseAdequacy": "pending_protected_source_merge_no_paid_inference_external_submission_or_production_release"
+  },
+  "nextBoundary": "model or judge execution requires an owner-approved nonzero spend manifest; Terminal-Bench input construction and independent review remain open in issue 172"
+}

@@ -14,6 +14,7 @@ import { canonicalSha256 } from "../evaluation/terminal-bench/verifier-contract.
 import { validateBenchmarkGovernance } from "../evaluation/governance/src/validate.js";
 import { observableEvidenceReviewRequestSchema } from
   "../evaluation/terminal-bench/observable-evidence-review-request-contract.js";
+import { noharmPilotManifestSchema } from "../evaluation/mast/src/noharm-pilot.js";
 
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/u);
 
@@ -163,10 +164,10 @@ async function main(): Promise<void> {
   const root = git(process.cwd(), ["rev-parse", "--show-toplevel"]);
   const task = z.object({
     taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-    status: z.literal("active_terminal_bench_observable_evidence_review_request"),
-    requiredBranch: z.literal("task/terminal-bench-observable-evidence-review-request-v1-20260901"),
+    status: z.literal("active_mast_noharm_pilot_freeze"),
+    requiredBranch: z.literal("task/mast-noharm-pilot-freeze-v1-20260901"),
     currentSlice: z.object({
-      sliceId: z.literal("terminal-bench-observable-evidence-review-request-v1"),
+      sliceId: z.literal("mast-noharm-pilot-analysis-freeze-v1"),
       status: z.literal("ready_for_protected_merge"),
       maximumEstimatedCostUsdBeforeAbort: z.literal(0),
     }).passthrough(),
@@ -188,6 +189,7 @@ async function main(): Promise<void> {
       "terminal-bench-science",
       "observable-evidence-review-request.json",
     ),
+    noharmPilot: join(root, "evaluation", "mast", "noharm-pilot-manifest.json"),
   };
   const requiredCode = [
     "evaluation/mast/src/paired-condition.ts",
@@ -211,6 +213,10 @@ async function main(): Promise<void> {
     "scripts/validate-observable-evidence-review-request.mts",
     "tests/observable-evidence-review-request.test.ts",
     "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-protected-merge.json",
+    "evaluation/mast/src/noharm-pilot.ts",
+    "scripts/validate-mast-noharm-pilot.mts",
+    "tests/mast-noharm-pilot.test.ts",
+    "docs/audits/2026-09-01-terminal-bench-observable-evidence-review-request-protected-merge.json",
   ];
   const findings: string[] = [];
   for (const path of [...Object.values(paths), ...requiredCode.map((path) => join(root, path))]) {
@@ -241,6 +247,7 @@ async function main(): Promise<void> {
     mastPreflight,
     difficultyPreflight,
     observableEvidenceReviewRequest,
+    noharmPilot,
     rightsMd,
   ] = await Promise.all([
     readJson(paths.rights),
@@ -248,6 +255,7 @@ async function main(): Promise<void> {
     readJson(paths.mastPreflight),
     readJson(paths.difficultyPreflight),
     readJson(paths.observableEvidenceReviewRequest),
+    readJson(paths.noharmPilot),
     readFile(paths.rightsMd, "utf8"),
   ]);
   const parsedRights = rightsScanSchema.parse(rights);
@@ -257,6 +265,7 @@ async function main(): Promise<void> {
   const parsedObservableEvidenceReviewRequest = observableEvidenceReviewRequestSchema.parse(
     observableEvidenceReviewRequest,
   );
+  const parsedNoHarmPilot = noharmPilotManifestSchema.parse(noharmPilot);
   for (const prohibited of ["patient name", "date of birth", "latent answer", "real treatment caused"] ) {
     if (rightsMd.toLowerCase().includes(prohibited)) {
       throw new Error(`RIGHTS_SCAN_PROHIBITED_CONTENT value=${prohibited}`);
@@ -335,11 +344,24 @@ async function main(): Promise<void> {
       frontier_probe_blocked:
         parsedObservableEvidenceReviewRequest.releaseGate.frontierProbeBlockedUntilBothPass,
     },
+    noharm_pilot: {
+      state: parsedNoHarmPilot.state,
+      pilot_classification: parsedNoHarmPilot.pilot.classification,
+      pilot_base_cases: parsedNoHarmPilot.pilot.baseCaseIds.length,
+      untouched_confirmation_base_cases:
+        parsedNoHarmPilot.confirmation.untouchedBaseCaseIds.length,
+      confirmation_partial_corpus: parsedNoHarmPilot.confirmation.partialCorpus,
+      analysis_freeze: parsedNoHarmPilot.analysisFreeze.state,
+      model_inference_performed: parsedNoHarmPilot.execution.modelInferencePerformed,
+      judge_inference_performed: parsedNoHarmPilot.execution.judgeInferencePerformed,
+      maximum_estimated_cost_usd_before_abort:
+        parsedNoHarmPilot.execution.maximumEstimatedCostUsdBeforeAbort,
+    },
     completion: {
       typedClaim: "SUBTASK_COMPLETE_PARENT_OPEN",
-      operationalAlignment: "review_request_routed_frontier_probe_blocked",
-      scientificAdequacy: "not_yet_reviewed_agent_input_not_yet_constructed",
-      releaseAdequacy: "pending_protected_merge_no_external_submission_or_production_release",
+      operationalAlignment: "sealed_zero_spend_noharm_pilot_and_freeze_boundary",
+      scientificAdequacy: "pilot_plan_only_no_results_or_hrp_claim",
+      releaseAdequacy: "pending_protected_merge_no_paid_inference_external_submission_or_production_release",
     },
   })}\n`);
 }

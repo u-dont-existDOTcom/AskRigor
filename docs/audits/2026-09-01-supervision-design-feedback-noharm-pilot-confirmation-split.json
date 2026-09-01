@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "packetType": "SUPERVISION_DESIGN_FEEDBACK",
+  "packetId": "askrigor-noharm-pilot-confirmation-split-20260901",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "capturedAt": "2026-09-01T17:12:00Z",
+  "observation": "The approved MAST plan uses a NOHARM pilot to choose numerical margins and freeze the complete-run analysis, then describes the complete open epoch as all thirty base-case families. Reusing pilot families in the primary confirmation statistic would let development data influence and then confirm the same decision rule.",
+  "evidence": {
+    "plan": "evaluation/mast/README.md",
+    "pilotManifest": "evaluation/mast/noharm-pilot-manifest.json",
+    "canonicalClassification": "pilot=DEVELOPMENT_DISCOVERY; untouched families=VALIDATION_CONFIRMATION",
+    "sourceIdentity": "ARISENetwork/mast@57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee"
+  },
+  "implementedNonblockingRepair": {
+    "pilot": "ten outcome-blind families, one per specialty prefix, all eleven variants",
+    "confirmation": "twenty untouched families labeled PARTIAL_CORPUS",
+    "officialFullCorpus": "all thirty families reported separately as DESCRIPTIVE_OFFICIAL_FULL_OPEN_CORPUS",
+    "hrpRepairFromPilotPermitted": false,
+    "freezeBeforeUntouchedConfirmation": true
+  },
+  "questionForSupervisor": "Should this development/confirmation/full-descriptive separation become the canonical interpretation whenever a benchmark pilot is allowed to tune margins or decision rules before a nominal full-corpus run?",
+  "route": {
+    "status": "routed_nonblocking",
+    "url": "https://github.com/u-dont-existDOTcom/AskRigor/issues/174"
+  },
+  "alignment": {
+    "operational": "zero-spend plan remains executable and full-corpus reporting is preserved",
+    "scientific": "prevents pilot-influenced decisions from masquerading as untouched confirmation",
+    "release": "no inference, external submission, production mutation, or protocol mutation"
+  }
+}

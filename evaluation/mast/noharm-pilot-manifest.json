@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "state": "SEALED_NOHARM_PILOT_PLAN_NO_MODEL_RUN",
+  "source": {
+    "repository": "ARISENetwork/mast",
+    "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "tree": "f73e1cb717d3e76353b190abc13739d7f3476798",
+    "artifacts": {
+      "benchmarks/donoharm/dataset/items.jsonl": "a31f0c3aee400d071c16766f7b58cbcfce56a7f899b57bf89428195752b806bd",
+      "benchmarks/donoharm/prompts/default.md": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "benchmarks/donoharm/config/benchmark.yaml": "9f93187d547666cbd6f85a76c24c0316c27e63990e4992cda3b6a884993317e9",
+      "benchmarks/donoharm/data_loader.py": "2a4ea8a110d1fe0fbaf0716524ad259a2a98ac57b007fbede6b2aacd45c34c2f",
+      "benchmarks/donoharm/score.py": "1034f4b53f8df7ec5549f6b67c99ad511c55c5ef5724ade447a514aa54c6e32b",
+      "benchmarks/donoharm/judge/config.py": "b8eaf319623d3122e99426b86b8d223c976811bf0cdce99f01002886aaaa9466",
+      "benchmarks/donoharm/judge/prompts/extract_match.md": "e19c9495dc9a46f462b5a6bf7b28b02f7b7ecc86f7f05b1c3e440fc3eafc500b",
+      "benchmarks/donoharm/judge/prompts/global_match_review.md": "fea79092dc18912e18d4c32311659b60c7af276f9f1183a9a954c59892a17d58"
+    },
+    "rubricInventorySha256": "a953deb67c7381737000dcfa077922b28c3f60737fc45b3393f267a5c64564ac",
+    "guidanceInventorySha256": "3df01dc65988f8e1ff6f7b9f45cbe3995155cc2bf8f3b9b2831dbd4bf8785bd4"
+  },
+  "pilot": {
+    "classification": "DEVELOPMENT_DISCOVERY",
+    "selectionRule": "sha256_minimum_per_specialty_prefix_v1",
+    "selectionSeed": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee:pilot-v1",
+    "baseCaseIds": [
+      "All001",
+      "Card001",
+      "Derm001",
+      "Endo002",
+      "GI004",
+      "Heme010",
+      "ID008",
+      "Nephro005",
+      "Neuro007",
+      "Pulm005"
+    ],
+    "stabilityRepeatCaseIds": [
+      "Derm001",
+      "Neuro007",
+      "ID008"
+    ],
+    "variantsPerBaseCase": 11,
+    "conditions": [
+      "BARE",
+      "HRP"
+    ],
+    "modelResponseCount": 220,
+    "initialJudgedRecordCount": 220,
+    "stabilityRepeatJudgedRecordCount": 66,
+    "outcomeOrRubricContentUsedForSelection": false,
+    "hrpRepairFromPilotPermitted": false
+  },
+  "confirmation": {
+    "classification": "VALIDATION_CONFIRMATION",
+    "untouchedBaseCaseIds": [
+      "All006",
+      "All008",
+      "Card002",
+      "Card005",
+      "Derm006",
+      "Derm009",
+      "Endo007",
+      "Endo009",
+      "GI002",
+      "GI007",
+      "Heme002",
+      "Heme004",
+      "ID003",
+      "ID006",
+      "Nephro003",
+      "Nephro009",
+      "Neuro003",
+      "Neuro004",
+      "Pulm001",
+      "Pulm009"
+    ],
+    "variantsPerBaseCase": 11,
+    "modelResponseCount": 440,
+    "partialCorpus": true,
+    "partialCorpusReason": "ten base-case families reserved for development pilot",
+    "fullThirtyCaseScoreReportedSeparatelyAs": "DESCRIPTIVE_OFFICIAL_FULL_OPEN_CORPUS"
+  },
+  "plannedConditions": {
+    "onlyDeclaredDifference": "system_instructions",
+    "sharedSettings": {
+      "endpoint": "https://api.openai.com/v1/responses",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "xhigh",
+      "maxOutputTokens": 8192,
+      "store": false,
+      "timeoutSeconds": 300,
+      "maximumRetries": 2,
+      "maximumEstimatedCostUsdBeforeAbort": 0,
+      "inputPriceUsdPerMillionTokens": 4,
+      "outputPriceUsdPerMillionTokens": 20
+    },
+    "bareInstructionSha256": "2e839944a96f186dc5dc19efa7d8872ccd119f10ab637b6db5a0f035e44f30d7",
+    "hrpInstructionSha256": "a91746361ff9e4f7897f211c5cca3871222a2767cb8f01e8f01a181939dca324"
+  },
+  "identities": {
+    "selectionSha256": "bba5ce9b5b42118553346b892b543cadd477336cb4d608e7501a9b85bda1b73a",
+    "pairedSharedSettingsSha256": "7d5c6c9225652e1f4e089a43d9d48282282789dd63b572deffa6edc1180530e9",
+    "universalSha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172",
+    "hrpSha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
+    "matchJudge": "gemini/gemini-3-flash-preview",
+    "reviewJudge": "gemini/gemini-3.5-flash",
+    "judgeReasoningEffort": "minimal",
+    "prompt": "default_unprompted",
+    "trials": 1,
+    "maxOutputTokens": 8192
+  },
+  "artifactBoundary": {
+    "rootEnvironmentVariable": "ASKRIGOR_MAST_ARTIFACT_ROOT",
+    "absolutePathOutsideRepositoryRequired": true,
+    "rootMode": "0700",
+    "fileMode": "0600",
+    "symlinksPermitted": false,
+    "rawResponsesWrittenBeforeJudging": true,
+    "conditionLabelMapSealedSeparately": true,
+    "credentialsStoredInArtifacts": false,
+    "contentHashLedgerRequired": true
+  },
+  "analysisFreeze": {
+    "state": "PENDING_PILOT_NO_RESULTS_SEEN",
+    "occursAfterPilotAndBeforeUntouchedConfirmation": true,
+    "requiredFrozenFields": [
+      "primary_f1_weighted_estimand_and_paired_contrast",
+      "smallest_meaningful_benefit",
+      "safety_noninferiority_margin",
+      "severe_harm_margin",
+      "worst_variant_floor_margin",
+      "case_family_regression_rule",
+      "judge_stability_acceptance_rule",
+      "missing_or_failed_judgment_policy",
+      "multiplicity_and_interval_policy",
+      "cost_latency_and_truncation_abort_rules",
+      "blinded_discordance_sampling_rule"
+    ],
+    "freezeReceiptSha256Required": true,
+    "untouchedConfirmationMayInfluenceFreeze": false
+  },
+  "execution": {
+    "modelInferencePerformed": false,
+    "judgeInferencePerformed": false,
+    "pilotResultsObserved": false,
+    "paidInferencePerformed": false,
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "nonzeroSpendRequiresSeparateOwnerApprovedManifest": true,
+    "externalSubmissionPerformed": false
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "sealed_zero_spend_pilot_and_freeze_boundary",
+    "scientificAdequacy": "pilot_plan_only_no_results_or_hrp_claim",
+    "releaseAdequacy": "no_paid_inference_external_submission_or_production_release"
+  }
+}
