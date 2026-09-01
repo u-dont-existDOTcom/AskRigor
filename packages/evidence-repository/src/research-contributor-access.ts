@@ -116,6 +116,7 @@ export interface ResearchContributorAccessStore {
   insertProposal(
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult>;
+  revokeAccount(record: ResearchUseAccountRecord): Promise<number>;
 }
 
 export interface ResearchContributorAccessServiceOptions {
@@ -241,7 +242,7 @@ export class ResearchContributorAccessService {
     const accountKey = this.accountKeyForSubject(subject);
     const prior = await this.store.getAccount(accountKey);
     const at = this.now();
-    await this.store.saveAccount({
+    await this.store.revokeAccount({
       accountKey,
       status: "REVOKED",
       mode: null,
@@ -358,6 +359,13 @@ implements ResearchContributorAccessStore {
   async insertProposal(
     record: ResearchContributionProposalRecord,
   ): Promise<ProposalInsertResult> {
+    const account = this.accounts.get(record.accountKey);
+    if (
+      account === undefined || account.status !== "ACTIVE" ||
+      account.mode !== "FREE_CONTRIBUTOR"
+    ) {
+      throw new Error("RESEARCH_PROPOSAL_ACCOUNT_NOT_FREE_ACTIVE");
+    }
     const replay = [...this.proposals.values()].find((candidate) =>
       candidate.accountKey === record.accountKey &&
       candidate.proposalKind === record.proposalKind &&
@@ -368,6 +376,27 @@ implements ResearchContributorAccessStore {
     }
     this.proposals.set(record.proposalId, structuredClone(record));
     return { status: "inserted", record: structuredClone(record) };
+  }
+
+  async revokeAccount(accountRecord: ResearchUseAccountRecord): Promise<number> {
+    let withdrawn = 0;
+    for (const [proposalId, proposal] of this.proposals) {
+      if (
+        proposal.accountKey !== accountRecord.accountKey ||
+        proposal.status !== "PENDING_REVIEW"
+      ) {
+        continue;
+      }
+      this.proposals.set(proposalId, {
+        ...proposal,
+        status: "WITHDRAWN",
+        reviewedAt: accountRecord.updatedAt,
+        reviewReason: "contributor_access_revoked",
+      });
+      withdrawn += 1;
+    }
+    this.accounts.set(accountRecord.accountKey, structuredClone(accountRecord));
+    return withdrawn;
   }
 
   grantPrivateEntitlement(record: ResearchPrivateEntitlementRecord): void {
@@ -505,6 +534,51 @@ implements ResearchContributorAccessStore {
       status: "idempotent_replay",
       record: proposalFromRow(replay.rows[0]!),
     };
+  }
+
+  async revokeAccount(record: ResearchUseAccountRecord): Promise<number> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO ${this.schema}.research_use_accounts
+          (account_key, status, mode, notice_version, agreement_json,
+           activated_at, revoked_at, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+         ON CONFLICT (account_key) DO UPDATE SET
+           status = EXCLUDED.status,
+           mode = EXCLUDED.mode,
+           notice_version = EXCLUDED.notice_version,
+           agreement_json = EXCLUDED.agreement_json,
+           activated_at = EXCLUDED.activated_at,
+           revoked_at = EXCLUDED.revoked_at,
+           updated_at = EXCLUDED.updated_at`,
+        [
+          record.accountKey,
+          record.status,
+          record.mode,
+          record.noticeVersion,
+          JSON.stringify(record.agreement ?? {}),
+          record.activatedAt,
+          record.revokedAt,
+          record.createdAt,
+          record.updatedAt,
+        ],
+      );
+      const result = await client.query<{ withdrawn_count: number }>(
+        `SELECT ${this.schema}.withdraw_pending_research_contribution_proposals(
+           $1::text, $2::timestamptz
+         ) AS withdrawn_count`,
+        [record.accountKey, record.updatedAt],
+      );
+      await client.query("COMMIT");
+      return result.rows[0]?.withdrawn_count ?? 0;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async close(): Promise<void> {

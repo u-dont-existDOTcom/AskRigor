@@ -208,12 +208,21 @@ describe("research contributor access", () => {
   });
 
   it("blocks all later use after revocation", async () => {
-    const { service } = fixture();
+    const { store, service } = fixture();
     await service.acceptFreeContributor(SUBJECT, agreement());
     await expect(service.requireActive(SUBJECT)).resolves.toBe("FREE_CONTRIBUTOR");
+    await service.submitProposal(SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: partialFrontier(),
+    });
 
     const revoked = await service.revoke(SUBJECT);
     expect(revoked.status).toBe("REVOKED");
+    expect(store.allProposals()).toMatchObject([{
+      status: "WITHDRAWN",
+      reviewReason: "contributor_access_revoked",
+    }]);
     await expect(service.requireActive(SUBJECT)).rejects.toMatchObject({
       code: "RESEARCH_ACCESS_REVOKED",
     });
@@ -382,4 +391,3 @@ function completeSourceAnalysis(): LivingEvidenceContribution {
     receipts: [],
   };
 }
-

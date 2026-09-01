@@ -26,20 +26,23 @@ Persistent database state is
 root filesystem, all capabilities dropped, no-new-privileges, bounded CPU
 and memory, and only its database bind plus two tmpfs paths writable.
 
-Three independent random 32-byte hexadecimal passwords live only in:
+Four independent random 32-byte hexadecimal passwords live only in:
 
 - /opt/askrigor/secrets/living-evidence-migrator-password
 - /opt/askrigor/secrets/living-evidence-reader-password
 - /opt/askrigor/secrets/evidence-gap-intake-password
+- /opt/askrigor/secrets/research-access-password
 
 Both host files are root-owned, group 70, mode 0440 so the non-root PostgreSQL
 process can read the Compose bind-mounted secrets without making them
 world-readable. The evidence-gap role has `SELECT`, `INSERT`, and `UPDATE`
 only on `living_evidence.evidence_gap_submissions`; it has no access to other
 repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
-database-create privilege. The ordinary research service
-receives only the reader URL through the existing root-owned mode-0600
-runtime.env. The one-shot admin profile receives only the migrator URL
+database-create privilege. The research-access role has only the account,
+entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
+permissions documented below. The ordinary research service receives the
+reader, evidence-gap intake, and research-access URLs through the existing
+root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
 through root-owned mode-0600 living-evidence-writer.env. Neither URL or
 password may be printed, checked into Git, copied into a release receipt, or
 placed in Compose.
@@ -47,18 +50,20 @@ placed in Compose.
 ## Reversible activation
 
 1. Record the exact current research image ID/tag, healthy container ID, base
-   Compose hash, public 22-tool inventory, protocol manifests, state-directory
+   Compose hash, public 26-tool inventory, protocol manifests, state-directory
    modes, and a rollback copy of the base Compose file.
 2. Copy the exact reviewed overlay to
    /opt/askrigor/compose.living-evidence.yaml and the exact reviewed init
    and role-provisioning scripts to
    /opt/askrigor/living-evidence/init-reader.sh and
-   /opt/askrigor/living-evidence/provision-evidence-gap-role.sh. Record hashes
+   /opt/askrigor/living-evidence/provision-evidence-gap-role.sh and
+   /opt/askrigor/living-evidence/provision-research-access-role.sh. Record hashes
    and use root ownership/mode 0600 for the overlay and 0555 for each script.
-3. Create the state directory as UID/GID 70 mode 0700; create the three secret
+3. Create the state directory as UID/GID 70 mode 0700; create the four secret
    files atomically under a root umask from independent openssl random-byte
    calls without printing any value, then set root:70 ownership and mode 0440.
-   Create the third independent evidence-gap intake password the same way.
+   The third is the evidence-gap intake password and the fourth is the
+   research-access password.
 4. Create the writer environment and append the four reader configuration
    names to runtime.env with an in-memory, non-echoing editor. The exact
    non-secret settings are schema living_evidence, SSL mode disable on the
@@ -68,17 +73,24 @@ placed in Compose.
    and secret-file references. Start only living-evidence-postgres and wait
    for its health check.
 6. Run the exact merged image's one-shot admin entry point with migrate. Then
-   run `/usr/local/bin/provision-evidence-gap-role` inside only the PostgreSQL
-   service; it reads the mounted secrets, revokes all repository-wide table
-   access, and grants only `SELECT`, `INSERT`, and `UPDATE` on
-   `living_evidence.evidence_gap_submissions`.
+   run `/usr/local/bin/provision-evidence-gap-role` and
+   `/usr/local/bin/provision-research-access-role` inside only the PostgreSQL
+   service. Each reads mounted secrets, revokes repository-wide access, and
+   grants only its documented tables and operations. The research-access role
+   may select/insert/update `research_use_accounts`, select entitlements,
+   select/insert pending proposals, and execute the bounded pending-withdrawal
+   function. It cannot grant entitlements, review proposals, or write canonical
+   evidence.
    Verify migration identity and query the catalog as the migrator to prove
    askrigor_reader has CONNECT, schema USAGE, and SELECT on every table/view,
    has no INSERT/UPDATE/DELETE/TRUNCATE privileges, and defaults to read-only
    transactions. Separately connect as `askrigor_evidence_gap_intake` and prove
    that it can select/insert/update the intake table but cannot delete from it,
    select another repository table, create a persistent or temporary object,
-   or use another schema.
+   or use another schema. Connect separately as `askrigor_research_access` and
+   prove those exact allowlisted operations work while entitlement writes,
+   proposal review-state updates, canonical-table writes, deletes, truncation,
+   temporary objects, and schema creation fail.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
    plus the internal repository network, stays healthy, and does not emit
@@ -99,22 +111,40 @@ high-entropy internal review key. Never print or receipt their values.
 The external authorization server is Auth0. Configure the production tenant
 for the canonical resource `https://mcp.askrigor.com/mcp`, enable Resource
 Parameter Compatibility, Include Issuer in Authorization Responses, and
-offline access. Define only `cases:review`. Use a regular confidential OAuth
+offline access. Define `research:use` for every connected research user and
+`cases:review` only for the owner reviewer. Use a regular confidential OAuth
 application with only authorization-code and refresh-token grants, OpenAI's
-exact callback URL, and a per-application user-delegated grant for that scope.
-Disable public database signups and every application connection except the
-closed database connection containing the sole owner account. Supply the
+exact callback URL, and per-application user-delegated grants for those scopes.
+Enable the reviewed public account connection for ordinary research users;
+keep every unrelated connection disabled. Supply the
 static client ID and secret directly in ChatGPT's OAuth setup; never put the
 secret in Git or the runtime environment. The runtime receives only the
 non-secret Auth0 issuer, JWKS URL, resource URL, exact allowed client ID, and
-stable allowed owner subject. It independently rejects a validly signed token
-from any other client or user. This path avoids Auth0's Enterprise-only
+stable owner-reviewer subject. It rejects a validly signed token from another
+client. The exact owner subject is checked independently only for cross-user
+case review; it is not a global research-user allowlist. This path avoids Auth0's Enterprise-only
 `private_key_jwt` and role-management features.
 
 Before enabling the switches, deploy the public privacy/terms bytes that name
 the case store, OpenAI ChatGPT review, Auth0 reviewer authentication, current
-retention, withdrawal behavior, and redaction limitations. The public form and
-22 research tools remain anonymous; participants do not use Auth0.
+retention, withdrawal behavior, redaction limitations, reciprocal free mode,
+and paid-private alternative. The public evidence-gap form remains separate
+and pseudonymous; connected research uses Auth0.
+
+Provision a distinct 32-byte canonical base64url identity-HMAC secret and add
+the following non-secret research-access configuration to `runtime.env` along
+with the dedicated role URL: `ASKRIGOR_RESEARCH_ACCESS_ENABLED=true`, schema
+`living_evidence`, Docker-internal SSL mode `disable`, and the same Auth0 OAuth
+resource configuration. Never receipt the connection string or identity
+secret. There is no checkout in this release; `PAID_PRIVATE` activates only
+after a maintainer has separately recorded an active entitlement.
+
+When OAuth research access is active, the server omits legacy research Action
+routes so they cannot bypass the mode choice. The separately governed lesson
+Action is unaffected. Verify all 26 MCP operations: the two mode/proposal writes
+are declared non-destructive, the other 24 are read-only, ordinary research
+requires `research:use`, and cross-user case review additionally requires the
+owner subject plus `cases:review`.
 
 Every later Compose command must use both the base and living-evidence overlay;
 otherwise the database remains running but the research container loses its
@@ -133,7 +163,8 @@ emitted in the admin receipt.
 Use the Compose admin profile and stream the object directly over stdin. Do not
 create an import file on the VPS, log stdin, or keep a shell history entry that
 contains source text or a database URL. A failed import emits only a bounded
-error code. Automatic public-run write-through is not part of this release.
+error code. Automatic public-run canonical write-through is not part of this
+release; the free-contributor path can create only a pending proposal.
 
 The separate `import-frontier` command accepts one strict, de-identified formal
 research-frontier contribution. It verifies the exact current HRP and Universal
@@ -159,6 +190,12 @@ the payload.
   and recreate only research-mcp to remove the form and protected review tool
   from the active runtime without deleting participant rows. Revoke the Auth0
   client grant separately if authorization must be disabled immediately.
+- To roll back reciprocal research access, restore the prior reviewed image and
+  runtime configuration, then recreate only research-mcp. Merely disabling the
+  research-access store while OAuth remains enabled intentionally fails
+  research closed; it does not restore anonymous access. Retain account and
+  proposal rows for explicit review/deletion rather than deleting them during
+  code rollback.
 - Stop the database only after the research service no longer selects the
   overlay. Do not delete its state, secrets, or logical exports as part of a
   code rollback.

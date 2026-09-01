@@ -99,3 +99,62 @@ CREATE INDEX IF NOT EXISTS research_contribution_proposals_review_idx
 COMMENT ON TABLE research_contribution_proposals IS
   'Validated deidentified formal-research proposals awaiting separate review. Rows are not canonical evidence merely because they exist here.';
 
+CREATE OR REPLACE FUNCTION enforce_research_contribution_proposal_account()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+DECLARE
+  account_status text;
+  account_mode text;
+BEGIN
+  SELECT status, mode
+    INTO account_status, account_mode
+    FROM research_use_accounts
+   WHERE account_key = NEW.account_key
+   FOR KEY SHARE;
+  IF NOT FOUND OR account_status <> 'ACTIVE' OR account_mode <> 'FREE_CONTRIBUTOR' THEN
+    RAISE EXCEPTION 'RESEARCH_PROPOSAL_ACCOUNT_NOT_FREE_ACTIVE';
+  END IF;
+  RETURN NEW;
+END
+$function$;
+
+DROP TRIGGER IF EXISTS research_contribution_proposal_account_guard
+  ON research_contribution_proposals;
+CREATE TRIGGER research_contribution_proposal_account_guard
+BEFORE INSERT ON research_contribution_proposals
+FOR EACH ROW EXECUTE FUNCTION enforce_research_contribution_proposal_account();
+
+REVOKE ALL ON FUNCTION enforce_research_contribution_proposal_account()
+  FROM PUBLIC;
+
+CREATE OR REPLACE FUNCTION withdraw_pending_research_contribution_proposals(
+  target_account_key text,
+  withdrawal_time timestamptz
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = __SCHEMA__, pg_catalog
+AS $function$
+DECLARE
+  withdrawn_count integer;
+BEGIN
+  IF target_account_key !~ '^[a-f0-9]{64}$' OR withdrawal_time IS NULL THEN
+    RAISE EXCEPTION 'RESEARCH_PROPOSAL_WITHDRAWAL_INPUT_INVALID';
+  END IF;
+  UPDATE research_contribution_proposals
+     SET status = 'WITHDRAWN',
+         reviewed_at = withdrawal_time,
+         review_reason = 'contributor_access_revoked'
+   WHERE account_key = target_account_key
+     AND status = 'PENDING_REVIEW';
+  GET DIAGNOSTICS withdrawn_count = ROW_COUNT;
+  RETURN withdrawn_count;
+END
+$function$;
+
+REVOKE ALL ON FUNCTION withdraw_pending_research_contribution_proposals(
+  text, timestamptz
+) FROM PUBLIC;
