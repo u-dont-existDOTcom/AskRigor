@@ -1,0 +1,100 @@
+name: One-shot zero-spend n8n connectivity receipt
+
+on:
+  push:
+    branches:
+      - hotfix/chat-reasoning-zero-spend-routing-20260901
+    paths:
+      - .github/workflows/n8n-zero-spend-connectivity-one-shot.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: n8n-zero-spend-connectivity-one-shot-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.actor != 'github-actions[bot]'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact hotfix branch
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: hotfix/chat-reasoning-zero-spend-routing-20260901
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run deterministic and live n8n probes without provider credentials
+        shell: bash
+        run: |
+          set +e
+          npm run validate:n8n-pilot > /tmp/n8n-validate.out 2>&1
+          VALIDATE_EXIT=$?
+          npm run test:n8n-pilot > /tmp/n8n-smoke.out 2>&1
+          SMOKE_EXIT=$?
+          set -e
+          export VALIDATE_EXIT SMOKE_EXIT
+          python3 - <<'PY'
+          import datetime
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          env_names = sorted(set(re.findall(r'\bN8N_[A-Z0-9_]+\b', Path('.env.example').read_text(encoding='utf-8'))))
+          env_presence = {name: bool(os.environ.get(name)) for name in env_names}
+
+          def bounded(path):
+              text = Path(path).read_text(encoding='utf-8', errors='replace')
+              text = re.sub(r'(?i)(authorization|token|secret|password|api[_-]?key)(\s*[:=]\s*)\S+', r'\1\2[REDACTED]', text)
+              return text[-6000:]
+
+          validate_exit = int(os.environ['VALIDATE_EXIT'])
+          smoke_exit = int(os.environ['SMOKE_EXIT'])
+          receipt = {
+              'schemaVersion': 1,
+              'receiptType': 'n8n_zero_spend_connectivity_recheck',
+              'capturedAt': datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00', 'Z'),
+              'branch': 'hotfix/chat-reasoning-zero-spend-routing-20260901',
+              'providerModelInferencePerformed': False,
+              'externalSpendUsd': 0,
+              'deterministicWorkflowValidation': {
+                  'exitCode': validate_exit,
+                  'status': 'PASS' if validate_exit == 0 else 'FAIL',
+                  'boundedOutput': bounded('/tmp/n8n-validate.out')
+              },
+              'liveConnectivitySmoke': {
+                  'exitCode': smoke_exit,
+                  'status': 'PASS' if smoke_exit == 0 else 'UNAVAILABLE_OR_FAILED',
+                  'boundedOutput': bounded('/tmp/n8n-smoke.out')
+              },
+              'n8nEnvironmentPresence': env_presence,
+              'semanticExperimentExecuted': False,
+              'limitations': [
+                  'A successful control-plane smoke does not prove prose-state independence or improved humanization.',
+                  'A missing endpoint or credential is a connectivity blocker, not evidence that n8n cannot help.',
+                  'No model API or paid inference is authorized by this probe.'
+              ],
+              'nextAction': 'If connectivity is PASS, run only the preregistered same-model matched isolation arm after owner-authorized zero-spend ChatGPT routing exists. If unavailable, configure the existing self-hosted n8n endpoint without adding provider API spend.'
+          }
+          target = Path('docs/audits/2026-09-01-n8n-zero-spend-connectivity-recheck.json')
+          target.write_text(json.dumps(receipt, indent=2) + '\n', encoding='utf-8')
+          PY
+
+      - name: Commit the bounded connectivity receipt
+        env:
+          TARGET_BRANCH: hotfix/chat-reasoning-zero-spend-routing-20260901
+        run: |
+          git config user.name "askrigor-n8n-probe"
+          git config user.email "askrigor-n8n-probe@users.noreply.github.com"
+          git add docs/audits/2026-09-01-n8n-zero-spend-connectivity-recheck.json
+          git commit -m "docs: record zero-spend n8n connectivity recheck"
+          git push origin "HEAD:${TARGET_BRANCH}"
