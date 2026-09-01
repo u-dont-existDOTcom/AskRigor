@@ -6,6 +6,8 @@ Branch: `task/owner-review-promotion-20260901`
 Baseline: `ef8b713e9b5320d3ebe8e47ec2cea98095431e90`  
 Implementation commit: `7697bcf6d6689533314b5e2a218bd6e602016d50`  
 Implementation tree: `fef404b7fef560fe7c979e7d2a5e3d36ce01e6c1`
+CI acceptance-harness repair: `b0279aca55907751c979491899bf9a74fc17af04`
+Code-candidate tree after repair: `658a856c0509febe2a869484f250ea268b8f344a`
 
 ## Outcome
 
@@ -53,6 +55,7 @@ Gemini catalog remains exactly 22 tools.
 | `npm run owner-review:preflight` | PASS; independently verified 385-byte source-file and 384-byte canonical owner-outcome identities, catalog 27, merge/deploy false |
 | `npm run owner-review:acceptance` | PASS; 7 focused files / 63 tests and real PostgreSQL acceptance |
 | Real PostgreSQL acceptance | PASS; 12 checks including function-only review role, accept+intent atomicity, reject/no intent, concurrent single claim, withdrawal race, both writer routes, and crash recovery by idempotent replay |
+| `npm run living-evidence:local` | PASS after the CI harness repair; 42 migration/database assertions, fixture pilot, canonical dump, destructive disposable-schema wipe, restore verification, and cleanup |
 | `npm run verify` | PASS; typecheck, 125 test files passed / 1 declared skip, 1,610 tests passed / 6 declared skips, build |
 | `npm run test:site` | PASS; 4 pages |
 | `npm run test:site-deploy` | PASS; 28/28 tests |
@@ -60,6 +63,18 @@ Gemini catalog remains exactly 22 tools.
 
 No credential-bound provider test was required: this slice changes local
 review/persistence topology and no provider adapter behavior.
+
+## Protected-check recovery
+
+PR #161's first deterministic run (`33467704229`, job `99730893389`) failed
+because the legacy living-evidence acceptance harness still asserted an exact
+nine-migration chain after migration 0010 was added. The product migration and
+the owner-review PostgreSQL acceptance were already passing. Repair commit
+`b0279aca55907751c979491899bf9a74fc17af04` adds migration 0010 to that exact
+chain expectation and renames the emitted check accordingly. The repaired
+acceptance script SHA-256 is
+`07de1e246c31ea899f370cc6c78eff4feffdf1b40c263fefc7d6ee6761b8258f`.
+The exact local command used by the failed CI path now passes end to end.
 
 ## Supervision closeout
 
@@ -85,7 +100,7 @@ and 0 deletion eligible. The provenance double-identity gap was corrected in
 this task preflight and does not establish a new recurring universal lesson.
 
 No production migration, production role, scheduler, deployment, connector
-refresh, plugin reinstall, or live product acceptance is claimed. The next
-bounded slice is release readiness: protected PR review and exact merge/deploy
-recommendation evidence. Merge, deployment, production provisioning, and
-scheduler activation remain outside this candidate's authority.
+refresh, plugin reinstall, or live product acceptance is claimed. PR #161 is
+the protected release-readiness surface. Merge, deployment, production
+provisioning, and scheduler activation remain outside this candidate's
+authority.

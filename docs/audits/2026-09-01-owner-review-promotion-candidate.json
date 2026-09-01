@@ -6,6 +6,8 @@
   "baselineCommit": "ef8b713e9b5320d3ebe8e47ec2cea98095431e90",
   "implementationCommit": "7697bcf6d6689533314b5e2a218bd6e602016d50",
   "implementationTree": "fef404b7fef560fe7c979e7d2a5e3d36ce01e6c1",
+  "ciAcceptanceHarnessRepairCommit": "b0279aca55907751c979491899bf9a74fc17af04",
+  "codeCandidateTreeAfterRepair": "658a856c0509febe2a869484f250ea268b8f344a",
   "implementationDiff": {
     "filesChanged": 50,
     "insertions": 2693,
@@ -22,7 +24,8 @@
     "reviewServiceSha256": "05e8786b1425df3047d477ddc04b32bdc8b2b660f75a46d27ea436a23e1c264f",
     "ownerToolSha256": "9a1e5377302d859bb3563d3da11d05a0f9813904725abad842c58cf7be9c2535",
     "reviewRoleProvisionerSha256": "064d916d8e7ed6d75b9cb64bdf3b454b1216d29ca85b45ec2cb196717e1f2a91",
-    "skillSha256": "c8e970bc8378791cc93b518cc63c673ffda8bec8ffe6c5b8e7d77c167ac80a72"
+    "skillSha256": "c8e970bc8378791cc93b518cc63c673ffda8bec8ffe6c5b8e7d77c167ac80a72",
+    "livingEvidenceAcceptanceScriptSha256": "07de1e246c31ea899f370cc6c78eff4feffdf1b40c263fefc7d6ee6761b8258f"
   },
   "protocols": {
     "hrpSha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
@@ -34,6 +37,7 @@
     "focusedTestFiles": 7,
     "focusedTestsPassed": 63,
     "postgresChecksPassed": 12,
+    "livingEvidenceLocal": "PASS_42_CHECKS_PILOT_DUMP_WIPE_RESTORE",
     "fullTestFilesPassed": 125,
     "fullTestFilesSkipped": 1,
     "fullTestsPassed": 1610,
@@ -68,6 +72,11 @@
     "newUniversalLesson": false
   },
   "release": {
+    "pullRequest": 161,
+    "initialDeterministicRun": 33467704229,
+    "initialDeterministicJob": 99730893389,
+    "initialDeterministicConclusion": "FAIL_STALE_NINE_MIGRATION_HARNESS_EXPECTATION",
+    "replacementChecks": "PENDING_AT_RECEIPT_UPDATE",
     "mergeAuthorized": false,
     "deploymentAuthorized": false,
     "productionProvisioningPerformed": false,

@@ -30,6 +30,8 @@
   "directiveReceipt": "docs/audits/2026-09-01-owner-review-promotion-directive.json",
   "completionReceipt": "docs/audits/2026-09-01-owner-review-promotion-candidate.json",
   "implementationCommit": "7697bcf6d6689533314b5e2a218bd6e602016d50",
+  "ciAcceptanceHarnessRepairCommit": "b0279aca55907751c979491899bf9a74fc17af04",
+  "pullRequest": 161,
   "preflightCommand": "npm run owner-review:preflight",
   "completionCommand": "npm run owner-review:acceptance",
   "previousCompletedTask": {
@@ -45,5 +47,11 @@
     "operationalAlignment": "green",
     "scientificAdequacy": "preserved_not_expanded",
     "releaseAdequacy": "not_authorized"
+  },
+  "protectedReview": {
+    "initialDeterministicRun": 33467704229,
+    "initialFailure": "stale exact nine-migration acceptance-harness expectation",
+    "localRecovery": "PASS_42_CHECKS_PILOT_DUMP_WIPE_RESTORE",
+    "replacementChecks": "pending"
   }
 }
