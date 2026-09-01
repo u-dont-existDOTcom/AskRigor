@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-01T13:28:44Z",
+  "updatedAt": "2026-09-01T14:13:26Z",
+  "purpose": "Bind AskRigor external-evaluation and contribution decisions to exact source identities while preserving source-specific discrepancies.",
+  "projectBaselines": {
+    "independentConception": {
+      "repository": "u-dont-existDOTcom/AskRigor",
+      "branch": "main",
+      "commit": "c7138eff5dbbce22bb25f727da78006e543fa476",
+      "tree": "ee03c7672601168cfc7390a25e7912c0df1f19fb",
+      "status": "owner-review production release complete; independent conception was fixed against this baseline before the overlap scan"
+    },
+    "schedulerCandidate": {
+      "repository": "u-dont-existDOTcom/AskRigor",
+      "branch": "main",
+      "commit": "f146539db8b794fce79a979980ec9d43da8c92a6",
+      "tree": "66c10838fdc85b7197f2dde4731c3eb668e56210",
+      "status": "promotion-scheduler candidate merged by PR 163; retained as a historical integration identity"
+    },
+    "protectedReview": {
+      "repository": "u-dont-existDOTcom/AskRigor",
+      "branch": "main",
+      "commit": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
+      "tree": "bc3513bbb2edc221a9f0f2217b9bb589e8eed74c",
+      "status": "promotion-scheduler candidate plus Compose-isolation repair from PR 165; scheduler remains the exclusive active release pending VPS activation and immutable closeout; evaluation program is queued next"
+    }
+  },
+  "sources": [
+    {
+      "sourceId": "mast",
+      "kind": "git_repository",
+      "repository": "ARISENetwork/mast",
+      "branch": "main",
+      "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+      "tree": "f73e1cb717d3e76353b190abc13739d7f3476798",
+      "capturedFiles": [
+        {
+          "path": "README.md",
+          "blob": "7e07bf7b918c47cc77de20dbc6d6d6626c81616d"
+        },
+        {
+          "path": "benchmarks/donoharm/README.md",
+          "blob": "9947daa6210fa22fdf1eba66a4c9fbb71f699861"
+        },
+        {
+          "path": "benchmarks/sct/README.md",
+          "blob": "bd8d0b15bec7a3622f5e5eebbef916d24327e7df"
+        }
+      ],
+      "licenses": {
+        "code": "MIT",
+        "donoharmDataAndRubrics": "CC-BY-4.0",
+        "sctData": "see benchmark DATA.md provenance"
+      },
+      "boundedFacts": {
+        "openSctItems": 174,
+        "sctScoring": "deterministic",
+        "openNoharmBaseCases": 30,
+        "openNoharmMaximumItemsAtK11": 330,
+        "noharmScoring": "two-stage Gemini LLM judge against specialist-authored rubrics",
+        "noharmHeadlineMetric": "F1_weighted",
+        "openAiCompatibleEndpoint": true
+      }
+    },
+    {
+      "sourceId": "terminal-bench-science",
+      "kind": "git_repository_and_release_site",
+      "repository": "harbor-framework/terminal-bench-science",
+      "branch": "main",
+      "commit": "7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77",
+      "tree": "0eafc7cc5effd1274882ee6b86fc73b23db5ae0b",
+      "license": "Apache-2.0",
+      "release": {
+        "tag": "v0.1.0",
+        "targetCommit": "f81afac4f11048e77a15dfc8fb1dbfb897fea0ce",
+        "versionDoi": "10.5281/zenodo.22110254",
+        "conceptDoi": "10.5281/zenodo.22110253",
+        "taskCount": 70
+      },
+      "currentCall": {
+        "announcement": "https://www.terminal-bench-science.ai/announcement",
+        "version": "v0.2",
+        "pullRequestDeadline": "2026-10-05",
+        "capturedAt": "2026-09-01",
+        "sourcePrecedence": "current release announcement overrides stale v0.1 deadline text retained in repository and older proposal comments"
+      },
+      "overlapAnchor": {
+        "discussion": 333,
+        "proposal": 178,
+        "title": "Reconstructing a Reproducible Meta-Analysis from Messy Scientific Supplementary Tables",
+        "status": "approved",
+        "url": "https://github.com/harbor-framework/terminal-bench-science/discussions/333"
+      }
+    },
+    {
+      "sourceId": "scicode-verified-repository",
+      "kind": "git_repository",
+      "repository": "flyingwagner/scicode-verified",
+      "branch": "main",
+      "commit": "ddab4a92f8d80a7113ab946628e994b52354d838",
+      "tree": "ed13501712b72bd631540b4e0210bea1513faa89",
+      "capturedFiles": [
+        {
+          "path": "README.md",
+          "blob": "744dbe0da0af6a32f104293258b6ae2751109be3"
+        },
+        {
+          "path": "CLEANING_LOG.md",
+          "role": "human-readable audit and correction log"
+        },
+        {
+          "path": "ledger/R6.jsonl",
+          "blob": "9a134a99bccea6e46d8d7776773423df3d620e17",
+          "role": "sample machine-readable decision ledger"
+        }
+      ],
+      "license": "Apache-2.0 for the derived benchmark/runtime as documented in the repository",
+      "releaseIdentity": {
+        "problems": 64,
+        "scoredSubproblems": 287,
+        "testDataMd5": "2b41a7df40ddc23ce651ec05b8ecb6f8"
+      }
+    },
+    {
+      "sourceId": "scicode-verified-paper",
+      "kind": "paper",
+      "immutableIdentity": "arXiv:2608.04975v1",
+      "submittedAt": "2026-08-05T15:45:55Z",
+      "doi": "10.48550/arXiv.2608.04975",
+      "url": "https://arxiv.org/abs/2608.04975v1",
+      "localByteHash": null,
+      "hashStatus": "version-pinned by immutable arXiv identifier; PDF bytes were not exported into this repository during source pinning"
+    },
+    {
+      "sourceId": "k-bench-paper",
+      "kind": "paper",
+      "immutableIdentity": "arXiv:2608.21601v1",
+      "submittedAt": "2026-08-21T20:06:08Z",
+      "doi": "10.48550/arXiv.2608.21601",
+      "url": "https://arxiv.org/abs/2608.21601v1",
+      "localByteHash": null,
+      "hashStatus": "version-pinned by immutable arXiv identifier; PDF bytes were not exported into this repository during source pinning"
+    },
+    {
+      "sourceId": "cochrane-study-report-guidance",
+      "kind": "living_standard",
+      "publisher": "Cochrane",
+      "capturedAt": "2026-09-01",
+      "urls": [
+        "https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-04",
+        "https://www.cochrane.org/node/97",
+        "https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-06",
+        "https://www.cochrane.org/authors/handbooks-and-manuals/handbook/current/chapter-23"
+      ],
+      "boundedUse": "study rather than report as unit of interest; link multiple reports; avoid shared-participant and shared-control double counting"
+    },
+    {
+      "sourceId": "ich-e9-r1",
+      "kind": "regulatory_guidance",
+      "publisher": "International Council for Harmonisation via FDA",
+      "capturedAt": "2026-09-01",
+      "url": "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/e9r1-statistical-principles-clinical-trials-addendum-estimands-and-sensitivity-analysis-clinical",
+      "boundedUse": "define treatment effect of interest and align estimand, estimator, analysis, and interpretation"
+    }
+  ],
+  "sourceSpecificDiscrepancies": [
+    {
+      "discrepancyId": "tbs-deadline-v01-v02",
+      "sources": [
+        "current terminal-bench-science.ai release announcement",
+        "current repository CONTRIBUTING/README text and older proposal comments"
+      ],
+      "values": [
+        "v0.2 pull-request deadline 2026-10-05",
+        "retained v0.1 deadline 2026-08-17"
+      ],
+      "treatment": "do not reconcile by deletion; use the current release announcement for v0.2 planning and preserve the older value as version-specific historical text"
+    },
+    {
+      "discrepancyId": "scicode-counting-conventions",
+      "sources": [
+        "arXiv:2608.04975v1 abstract",
+        "repository README at ddab4a92f8d80a7113ab946628e994b52354d838",
+        "repository CLEANING_LOG at the same commit"
+      ],
+      "values": [
+        "263 defects in the paper abstract",
+        "262 verified corrections in the README summary",
+        "264 confirmed corrections in the CLEANING_LOG release-specific taxonomy"
+      ],
+      "treatment": "preserve source-specific terminology and counts; do not silently normalize defect, correction, audit-scope, or release-taxonomy denominators"
+    },
+    {
+      "discrepancyId": "askrigor-approval-versus-active-task",
+      "sources": [
+        "owner approval recorded for Phase 2.2",
+        "protected-main tasks/ACTIVE-TASK.json after PR 165"
+      ],
+      "values": [
+        "Phase 2.2 owner-approved",
+        "promotion scheduler remains exclusive active nonterminal release"
+      ],
+      "treatment": "approval establishes the queued program; it does not silently preempt the active release task"
+    }
+  ],
+  "integrityNotes": [
+    "Git commit, tree, and blob identities are preferred over mutable branch names.",
+    "An arXiv version identifier is treated as the immutable paper identity when local PDF bytes are not stored.",
+    "Mutable living standards are capture-dated and must be rechecked before external submission or benchmark execution.",
+    "The independent-conception, scheduler-candidate, and protected-review baselines are all preserved because concurrent scheduler merges occurred after conception and before protected review.",
+    "A fresh protected-main baseline must be resolved again at Phase 2.2 activation; the protected-review baseline does not authorize future activation by itself.",
+    "This registry records provenance; it does not establish scientific correctness of any source."
+  ]
+}
