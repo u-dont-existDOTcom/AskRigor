@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "rights-verifier-and-sealed-mast-preflight-v1",
+  "state": "READY_FOR_PROTECTED_REVIEW",
+  "capturedAt": "2026-09-01T15:38:29Z",
+  "source": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/external-evaluation-phase22-execution-20260901",
+    "activationBaseline": "7964674b8a3dac804620a0e7d1dff62b00a68bf2",
+    "activationMergeCommit": "4556b58e55fc445920f831b7a1451c805283a697",
+    "candidateCommit": "2dab865ae817027c324f689da2aaf738de5c6b30",
+    "candidateTree": "ede95f5a2ab8d7aa2897ca9e56f8922f2aea003a"
+  },
+  "scope": {
+    "canonicalParentProgramPreserved": true,
+    "rightsAndProvenance": true,
+    "nonPublicMiniatureVerifierProof": true,
+    "mastPairedConditionAdapter": true,
+    "sealedDeterministicSctPreflight": true,
+    "paidInference": false,
+    "noharmJudge": false,
+    "externalSubmission": false,
+    "publicLatentFixture": false,
+    "productionMutation": false,
+    "protocolMutation": false
+  },
+  "artifacts": {
+    "rightsJsonSha256": "13b2fc067092fce5196967e15732ab6027eca82ec33aa0c44d442b5336980111",
+    "rightsMarkdownSha256": "2e8032f0dfe72f4e2ddab169999a1f2c7f92b5019e1e6dbc7d4ab26f95fe9a23",
+    "privateProofReceiptSha256": "afccda9e90659ab80711b0a3ab2518932f58633c89c04aea75d2b8ec41a61d58",
+    "verifierSha256": "c49c0ce31fdc23859b97205c2ac632cde0353909e555c3a0bfdc7f9c64f57473",
+    "mastManifestSha256": "f54435f91b0bc341d7abaab89d15c4d5e02ae810370965fa99325c754523229b",
+    "pairedConditionSha256": "207adacea3628fd23bbfdd3c094253037803272dda5901d31cdd206aaafc54a8",
+    "openAiAdapterSha256": "4ea53b216ad2bfdb0ef90c3b2ca5d3192dca725621ff01bf71dd1859d70e8efe",
+    "sctPreflightSha256": "172cd50fc06d7da7e2f1d90c837e65acc47e076542c0fc728aa07a7dec666037"
+  },
+  "rightsDecision": {
+    "sourceCount": 8,
+    "disposition": "transparent_semisynthetic",
+    "publicInputs": "project-authored fictional reports and structured data",
+    "realSourceUse": "methods, structural failure patterns, and provenance only",
+    "copyrightedFullTextRedistributed": false,
+    "identifiablePatientDataUsed": false
+  },
+  "privateMiniatureProof": {
+    "directoryMode": "0700",
+    "outsideRepository": true,
+    "published": false,
+    "correctImplementationsPassed": 2,
+    "invalidImplementationsRejected": 8,
+    "verifierMutantsKilled": 6,
+    "falseAccepts": 0,
+    "falseRejects": 0
+  },
+  "mastPreflight": {
+    "sourceCommit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "model": "gpt-5.6-sol",
+    "reasoningEffort": "xhigh",
+    "endpoint": "https://api.openai.com/v1/responses",
+    "onlyDeclaredDifference": "system_instructions",
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "exampleItemCount": 174,
+    "exampleSctScore": 0.745301952198504,
+    "examplePercentageInExpertSet": 0.9310344827586207,
+    "paidInferencePerformed": false
+  },
+  "validation": {
+    "preflight": "pass",
+    "artifactAcceptance": "pass",
+    "focusedEvaluationTests": "pass_14_tests",
+    "completeDeterministicGate": "pass",
+    "testFiles": {
+      "passed": 129,
+      "skipped": 1
+    },
+    "tests": {
+      "passed": 1628,
+      "skipped": 6
+    },
+    "typecheck": "pass",
+    "build": "pass",
+    "diffCheck": "pass",
+    "lessonQueue": {
+      "checkedAt": "2026-09-01T15:35:56.928Z",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0
+    }
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "pass_bounded_contract_pending_protected_merge",
+    "scientificAdequacy": "pass_miniature_verifier_feasibility_no_benchmark_result_claimed",
+    "releaseAdequacy": "pending_protected_merge_no_production_release"
+  },
+  "parentProgram": {
+    "status": "open",
+    "nextSafeSlices": [
+      "instantiate benchmark-governance schemas against the completed artifacts",
+      "run bounded Terminal-Bench difficulty probe after anti-leakage review",
+      "obtain independent domain review or document the request",
+      "prepare owner-controlled external submission fields",
+      "review a nonzero MAST spend ceiling before any model inference"
+    ]
+  },
+  "rollback": {
+    "productionRollbackRequired": false,
+    "sourceRollback": "revert the protected child merge; PR 168 parent activation remains intact"
+  }
+}

@@ -6,6 +6,7 @@
 **Required branch:** `task/external-evaluation-phase22-execution-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
 **Execution baseline:** `4556b58e55fc445920f831b7a1451c805283a697`
+**Exact tested child candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
@@ -116,6 +117,7 @@ The provisional benchmark manifest and defect-ledger schemas must be instantiate
 - scheduler release receipt: `7964674b8a3dac804620a0e7d1dff62b00a68bf2`
 - Phase 2.2 architecture merge: `e47b122a2dd07d460bd50c008a62407278ccf958`
 - Phase 2.2 activation merge: `4556b58e55fc445920f831b7a1451c805283a697`
+- exact tested bounded child candidate: `2dab865ae817027c324f689da2aaf738de5c6b30`
 - MAST: `57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`
 - Terminal-Bench-Science: `7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77`
 - SciCode-Verified: `ddab4a92f8d80a7113ab946628e994b52354d838`

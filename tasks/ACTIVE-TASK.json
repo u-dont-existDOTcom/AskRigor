@@ -43,6 +43,7 @@
   "currentSlice": {
     "sliceId": "rights-verifier-and-sealed-mast-preflight-v1",
     "status": "ready_for_protected_merge",
+    "candidateReceipt": "docs/audits/2026-09-01-external-evaluation-candidate.json",
     "boundedOutcome": "Complete the source-rights decision, non-public miniature deterministic-verifier proof, and MAST paired-condition adapter with sealed deterministic SCT preflight.",
     "completed": [
       "eight-source rights and redistribution scan selecting project-authored fictional inputs",

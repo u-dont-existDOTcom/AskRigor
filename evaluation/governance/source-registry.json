@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "capturedAt": "2026-09-01T13:28:44Z",
-  "updatedAt": "2026-09-01T15:30:00Z",
+  "updatedAt": "2026-09-01T15:38:29Z",
   "purpose": "Bind AskRigor external-evaluation and contribution decisions to exact source identities while preserving source-specific discrepancies.",
   "projectBaselines": {
     "independentConception": {
@@ -37,6 +37,13 @@
       "commit": "52bc870d40fe8c6ab123d994d6eb3fc2e5497b55",
       "tree": "dcfdddc84fd7e9dbf24e0f214c98ad539ce6d179",
       "status": "initial rights/verifier/MAST-preflight child implementation before final canonical-activation reconciliation and person-time hardening"
+    },
+    "testedBoundedChildCandidate": {
+      "repository": "u-dont-existDOTcom/AskRigor",
+      "branch": "task/external-evaluation-phase22-execution-20260901",
+      "commit": "2dab865ae817027c324f689da2aaf738de5c6b30",
+      "tree": "ede95f5a2ab8d7aa2897ca9e56f8922f2aea003a",
+      "status": "exact full-gate-tested child candidate reconciled onto canonical PR 168 activation; no paid inference, external submission, or production mutation"
     }
   },
   "sources": [
