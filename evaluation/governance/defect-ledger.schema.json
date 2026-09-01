@@ -178,7 +178,7 @@
           "type": "boolean"
         },
         "recheck": {
-          "type": ["object", "null"],
+          "type": "object",
           "additionalProperties": false,
           "required": ["reviewer", "reviewedAt", "decision", "reason"],
           "properties": {
@@ -203,7 +203,7 @@
           }
         },
         "correction": {
-          "type": ["object", "null"],
+          "type": "object",
           "additionalProperties": false,
           "required": ["version", "releasedAt", "artifactHashes"],
           "properties": {
