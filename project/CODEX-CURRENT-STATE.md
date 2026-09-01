@@ -1,9 +1,10 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 free-contributor/private-entitlement slice active
+## 2026-09-01 free-contributor/private-entitlement candidate verified
 
 Task `askrigor-living-evidence-free-contributor-private-entitlement-v1` is
-active on branch `task/free-contributor-private-entitlement-20260901` from
+ready for protected merge on branch
+`task/free-contributor-private-entitlement-20260901` from
 baseline `1a413cb6f9e0cbdcedc84760bb9a9185b663382a`. Run
 `npm run contributor-access:preflight` before resuming and
 `npm run contributor-access:acceptance` for task-specific completion. Ordinary

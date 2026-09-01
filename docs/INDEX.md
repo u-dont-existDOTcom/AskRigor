@@ -155,12 +155,18 @@ complete XML protocol.
 - `youtube-evidence-frontier-held-out-v0.1.0.json`: held-out synthetic
   popularity/clickbait/stage-mismatch/transcript-selection regression
 - `public-submission-packet-v0.1.0.json`: exact 5+3 portal selection, listing
-  handoff, 22-tool inventory binding, non-secret portal readback, and external-
+  handoff, 26-tool inventory binding, non-secret portal readback, and external-
   gate states
 - `public-submission-demo-recording.md`: bounded privacy-safe reviewer recording
   script
 - `public-review-automation.md`: bounded direct-MCP and Responses API review runner
 - `tool-inventory-v0.1.0.json`: generated tool inventory
+- `research-contributor-access.md`: reciprocal free-contributor versus
+  entitled paid-private contract, pseudonymous identity, pending-proposal
+  boundary, least-privilege runtime, and known limitations
+- `audits/2026-09-01-reciprocal-research-access-candidate.md` and `.json`:
+  exact local candidate verification, package receipt, and separate operational,
+  scientific, and release-adequacy states
 - `../project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md`: dedicated compact source
   for the Custom GPT worker/display contract; complete research policy and
   completion authority remain server-side

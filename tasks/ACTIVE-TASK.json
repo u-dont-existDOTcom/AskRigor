@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-free-contributor-private-entitlement-v1",
-  "status": "active",
+  "status": "ready_for_protected_merge",
   "exclusive": true,
   "requiredBranch": "task/free-contributor-private-entitlement-20260901",
   "baselineCommit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a",
@@ -41,11 +41,11 @@
     "releaseReceiptMergeCommit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a"
   },
   "supervision": {
-    "completionClaim": "IMPLEMENTATION_IN_PROGRESS",
+    "completionClaim": "IMPLEMENTATION_VERIFIED",
     "workerToContract": "aligned",
     "contractToOwner": "aligned_after_owner_correction",
-    "operationalAlignment": "pending_local_vertical_slice",
+    "operationalAlignment": "local_candidate_pass",
     "scientificAdequacy": "not_a_scientific_claim",
-    "releaseAdequacy": "not_assessed"
+    "releaseAdequacy": "pending_protected_merge_deployment_and_product_acceptance"
   }
 }

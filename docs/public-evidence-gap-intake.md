@@ -83,12 +83,14 @@ is the canonical MCP URL. Resource Parameter Compatibility, issuer responses,
 offline access, and an exact per-application `cases:review` grant must be
 enabled before release. ChatGPT uses a regular confidential OAuth application
 with static client credentials, authorization code, PKCE, and refresh tokens;
-no Enterprise-only Auth0 feature is required. Public database registration is
-disabled, that application has only the closed database connection, and the
-sole owner account is created with the primary owner email. AskRigor verifies
-JWT signature, issuer, audience, expiry, scope, exact client ID, and exact owner
-subject. Invalid or stale tokens do not disable anonymous research tools; they
-are treated as unauthenticated for the protected tool.
+no Enterprise-only Auth0 feature is required. The reciprocal research-access
+release enables reviewed public connected-account registration for ordinary
+research users; the public evidence-gap form remains separately pseudonymous
+and does not require an account. AskRigor verifies JWT signature, issuer,
+audience, expiry, scope, and exact client ID for connected research. The stable
+allowed owner subject is checked again only for cross-user case review, not as a
+global user allowlist. Invalid or stale tokens fail protected connected research
+closed and do not affect the separate public intake form.
 
 Public mutation routes are JSON-only, same-origin when an Origin header is
 present, request-size limited, rate limited, and honeypot checked. Participant
