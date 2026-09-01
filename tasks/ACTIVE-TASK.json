@@ -53,6 +53,7 @@
   "currentSlice": {
     "sliceId": "benchmark-governance-schema-instantiation-v1",
     "status": "ready_for_protected_merge",
+    "candidateReceipt": "docs/audits/2026-09-01-external-evaluation-governance-candidate.json",
     "boundedOutcome": "Instantiate and mechanically validate the provisional benchmark manifest and defect ledger against the merged MAST deterministic preflight and private Terminal-Bench miniature proof.",
     "completed": [
       "MAST preflight benchmark manifest instantiated without misrepresenting the upstream example as a new model run",
@@ -119,7 +120,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-01T15:14:53.704Z",
+    "checkedAt": "2026-09-01T16:03:12.126Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
