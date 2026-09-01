@@ -1,13 +1,13 @@
 # Owner review and promotion candidate receipt
 
-Date: 2026-09-01  
-Task: `askrigor-owner-review-promotion-v1`  
-Branch: `task/owner-review-promotion-20260901`  
-Baseline: `ef8b713e9b5320d3ebe8e47ec2cea98095431e90`  
-Implementation commit: `7697bcf6d6689533314b5e2a218bd6e602016d50`  
-Implementation tree: `fef404b7fef560fe7c979e7d2a5e3d36ce01e6c1`
-CI acceptance-harness repair: `b0279aca55907751c979491899bf9a74fc17af04`
-Code-candidate tree after repair: `658a856c0509febe2a869484f250ea268b8f344a`
+- Date: 2026-09-01
+- Task: `askrigor-owner-review-promotion-v1`
+- Branch: `task/owner-review-promotion-20260901`
+- Baseline: `ef8b713e9b5320d3ebe8e47ec2cea98095431e90`
+- Implementation commit: `7697bcf6d6689533314b5e2a218bd6e602016d50`
+- Implementation tree: `fef404b7fef560fe7c979e7d2a5e3d36ce01e6c1`
+- CI acceptance-harness repair: `b0279aca55907751c979491899bf9a74fc17af04`
+- Code-candidate tree after repair: `658a856c0509febe2a869484f250ea268b8f344a`
 
 ## Outcome
 

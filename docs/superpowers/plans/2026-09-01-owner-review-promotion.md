@@ -1,11 +1,11 @@
 # Owner review and exact promotion bridge
 
-Date: 2026-09-01  
-Task: `askrigor-owner-review-promotion-v1`  
-Branch: `task/owner-review-promotion-20260901`  
-Baseline: `ef8b713e9b5320d3ebe8e47ec2cea98095431e90`  
-Assurance lane: iteration with targeted authorization, privacy, migration,
-identity, concurrency, idempotency, and rollback gates.
+- Date: 2026-09-01
+- Task: `askrigor-owner-review-promotion-v1`
+- Branch: `task/owner-review-promotion-20260901`
+- Baseline: `ef8b713e9b5320d3ebe8e47ec2cea98095431e90`
+- Assurance lane: iteration with targeted authorization, privacy, migration,
+  identity, concurrency, idempotency, and rollback gates.
 
 ## Owner outcome
 
