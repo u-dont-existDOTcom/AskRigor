@@ -134,7 +134,7 @@ function readJson<T>(path: string): T {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const root = resolve(fileURLToPath(new URL("..", import.meta.url)), "..");
+  const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
   const policy = readJson<ChatWorkPolicy>(resolve(root, "governance/chat-work-authority-policy.json"));
   const directive = readJson<CanonicalDirective>(resolve(root, "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json"));
   const receiptPath = resolve(argument("--receipt") ?? `${root}/docs/audits/2026-09-01-zero-spend-chatgpt-mast-smoke-receipt.json`);
