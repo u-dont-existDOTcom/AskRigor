@@ -164,14 +164,23 @@ describe("public plugin with OAuth-scoped evidence-gap review", () => {
     const review = tools.find(({ name }) =>
       name === "review_evidence_gap_submissions"
     );
+    const contributionReview = tools.find(({ name }) =>
+      name === "review_research_contribution"
+    );
 
     expect(manifest.isError).toBe(true);
-    expect(tools).toHaveLength(26);
+    expect(tools).toHaveLength(27);
     expect(review?._meta).toEqual({
       securitySchemes: [{ type: "oauth2", scopes: [CASE_REVIEW_SCOPE] }],
     });
+    expect(contributionReview?._meta).toEqual({
+      securitySchemes: [{ type: "oauth2", scopes: [CASE_REVIEW_SCOPE] }],
+    });
     expect(tools.filter(({ name }) =>
-      name !== "review_evidence_gap_submissions"
+      ![
+        "review_evidence_gap_submissions",
+        "review_research_contribution",
+      ].includes(name)
     ).every(({ _meta }) => JSON.stringify(_meta) === JSON.stringify({
       securitySchemes: [{ type: "oauth2", scopes: [RESEARCH_USE_SCOPE] }],
     }))).toBe(true);

@@ -22,7 +22,7 @@ describe("deployment, plugin, and Custom GPT completion continuity", () => {
       "source merge is an intermediate state",
       "Custom GPT editor installation",
       "fresh product-interface acceptance",
-      "exact 24-tool MCP catalog",
+      "exact 27-tool MCP catalog",
       "live HRP/Universal manifests",
       "exact installed-package receipt",
       "skills/askrigor/SKILL.md",

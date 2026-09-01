@@ -1,6 +1,25 @@
 
 # AskRigor v0.1.0 release evidence
 
+## 2026-09-01 owner review and promotion candidate — unreleased
+
+The local candidate adds one owner-only `review_research_contribution` MCP
+operation, bringing the standard catalog to 27 operations while leaving the
+compact Gemini catalog at 22. Acceptance records an exact payload hash and
+reason and atomically creates a pending promotion intent; the public server has
+no canonical writer credential. The separate one-shot promoter revalidates and
+routes accepted source analyses/frontiers through the existing idempotent
+writers. Real-PostgreSQL acceptance covers function-only review authority,
+accept/reject, withdrawal race, concurrent workers, and recovery after a writer
+commit precedes receipt commit. Inventory SHA-256 is
+`5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0`;
+synchronization ledger SHA-256 is
+`6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3`;
+the unchanged controlled Instructions remain 4,752 characters with SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+No merge, deployment, scheduler activation, connector refresh, or live product
+acceptance is claimed.
+
 ## 2026-09-01 reciprocal research access candidate — unreleased
 
 The candidate changes connected research from anonymous use to an explicit

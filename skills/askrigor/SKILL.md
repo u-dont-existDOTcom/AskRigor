@@ -40,6 +40,13 @@ because it was submitted. Preserve partial corpora as usable and label them
 partial. If no eligible structured formal-research proposal exists, submit
 nothing.
 
+For an authenticated allowlisted owner's proposal review, call
+`review_research_contribution` and inspect the exact payload/hash first. Accept
+or reject only on explicit instruction with a concise reason.
+`accepted_pending_promotion` is a hash-bound one-shot promotion instruction,
+not a canonical write or scientific validation. Use `status` to confirm its
+exact receipt. Never expose or infer contributor identity.
+
 ## Protocol gate
 
 Load Universal first: `get_protocol_manifest` → `verify_protocol_integrity` (SHA-256; stop-on-failure) → every `load_protocol` chunk. Use its activation boundary. HRP applies unless the health/research task is both very simple and genuinely uncontroversial; if unclear, ask.

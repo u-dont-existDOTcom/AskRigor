@@ -46,6 +46,7 @@
     "manage_research_access",
     "resolve_doi",
     "review_evidence_gap_submissions",
+    "review_research_contribution",
     "search_clinical_trials",
     "search_europe_pmc",
     "search_pubmed",

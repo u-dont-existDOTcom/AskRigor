@@ -9,6 +9,7 @@ import {
   PUBLIC_PROLACTINOMA_GAP_SLUG,
   RESEARCH_USE_NOTICE_VERSION,
   type PublicEvidenceGapIntakeService,
+  type ResearchContributionReviewService,
   type ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
 import {
@@ -89,6 +90,11 @@ import {
   submitResearchContributionInputSchema,
   submitResearchContributionOutputSchema,
 } from "./research-contributor-access-tool.js";
+import {
+  createResearchContributionReviewHandler,
+  researchContributionReviewInputSchema,
+  researchContributionReviewOutputSchema,
+} from "./research-contribution-review-tool.js";
 import {
   researchFrontierInputSchema,
   researchFrontierOutputSchema,
@@ -462,6 +468,7 @@ const OPEN_FULL_TEXT_MCP_OPERATION_NAMES = new Set([
 ]);
 const PRIVATE_MCP_OPERATION_NAMES = new Set([
   "review_evidence_gap_submissions",
+  "review_research_contribution",
 ]);
 const RESEARCH_ACCESS_CONTROL_OPERATION_NAMES = new Set([
   "manage_research_access",
@@ -473,6 +480,7 @@ export interface RegisterToolsOptions {
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
+  researchContributionReviewService?: ResearchContributionReviewService;
   researchAccessRequired?: boolean;
 }
 
@@ -1035,6 +1043,21 @@ function defineResearchOperations(
   );
 
   registrar.registerTool(
+    "review_research_contribution",
+    {
+      description: "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
+      inputSchema: researchContributionReviewInputSchema,
+      outputSchema: researchContributionReviewOutputSchema,
+      annotations: MUTATING_ANNOTATIONS,
+    },
+    createResearchContributionReviewHandler({
+      service: options.researchContributionReviewService,
+      resourceMetadataUrl: options.oauthResourceMetadataUrl,
+      allowedReviewerSubjects: options.allowedReviewerSubjects,
+    }),
+  );
+
+  registrar.registerTool(
     "review_evidence_gap_submissions",
     {
       description: `Retrieve the private, deidentified review projection for submitted cases in the ${PUBLIC_PROLACTINOMA_GAP_SLUG} evidence gap. Requires OAuth scope cases:review. Participant-reported cases remain explicitly unverified and noncausal; partial and comparison cases are retained and labeled.`,
@@ -1233,8 +1256,8 @@ function collectResearchOperations(
   } as unknown as Pick<McpServer, "registerTool">;
 
   defineResearchOperations(registrar, options);
-  if (operations.length !== 26) {
-    throw new Error(`Expected 26 research operations; received ${operations.length}`);
+  if (operations.length !== 27) {
+    throw new Error(`Expected 27 research operations; received ${operations.length}`);
   }
   if (new Set(operations.map(({ name }) => name)).size !== operations.length) {
     throw new Error("Research operation names must be unique");

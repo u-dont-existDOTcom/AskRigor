@@ -159,6 +159,7 @@ export class PostgresEvidenceRepository {
       "0007_community_forum_privacy_provenance_matrix",
       "0008_public_evidence_gap_intake",
       "0009_research_contributor_access",
+      "0010_research_contribution_review",
     ].map(async (migrationId) => ({
       migrationId,
       sql: await readFile(new URL(`../migrations/${migrationId}.sql`, import.meta.url), "utf8"),

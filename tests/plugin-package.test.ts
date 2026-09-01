@@ -91,6 +91,7 @@ describe("AskRigor plugin package", () => {
       "paid private mode",
       "Never infer agreement",
       "`submit_research_contribution`",
+      "`review_research_contribution`",
     ]);
     for (const boundary of [
       "raw chat",
@@ -100,6 +101,8 @@ describe("AskRigor plugin package", () => {
       "YouTube/community data",
       "pending proposal is not canonical evidence",
       "Preserve partial corpora as usable",
+      "accepted_pending_promotion",
+      "not a canonical write or scientific validation",
     ]) {
       expect(access).toContain(boundary);
     }

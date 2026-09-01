@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-owner-review-promotion-v1",
+  "ownerOutcomeId": "ASKRIGOR-PUBLIC-CONTRIBUTOR-LEARNING-WITH-PRIVATE-OWNER-REVIEW",
+  "ownerSource": {
+    "path": "docs/audits/2026-09-01-owner-review-promotion-owner-source.txt",
+    "fileSha256": "23928d3a6c230e17874314b1fbf7fc9545c6884ee2d1fdd39b38ebbfec9b9b4c",
+    "fileBytes": 385,
+    "ownerOutcomeSha256WithoutFinalNewline": "5e77c831c1f86c9d4e9db0009341fcc6877b6ba1f85e7181f54e6b1c2267916c",
+    "ownerOutcomeBytesWithoutFinalNewline": 384,
+    "capturedAt": "2026-09-01T02:54:00Z"
+  },
+  "reasoningChat": {
+    "surface": "primary ordinary ChatGPT Chat",
+    "mode": "Extra High",
+    "conversation": "https://chatgpt.com/c/6a963dc8-b6b0-83ea-a821-557e0ac879a8",
+    "originalDirectiveId": "CHAT-TO-CODEX-EXECUTION-DIRECTIVE-ASKRIGOR-OWNER-REVIEW-BRIDGE-v1.0.0-20260901",
+    "originalResponseSha256": "5c69d794271d7d3d9c6cb5e56a723c293f0c375850eb7d769f70033849b03d0a",
+    "originalResponseBytes": 34278,
+    "correctionDirectiveId": "CHAT-TO-CODEX-EXECUTION-DIRECTIVE-ASKRIGOR-OWNER-REVIEW-BRIDGE-v1.0.1-TOPOLOGY-CORRECTION",
+    "correctionResponseSha256": "3e141e424356c2af6643386a1a9fa0f223daa5dfd51bfe00ca518e1c47f96a7d",
+    "correctionResponseBytes": 9877,
+    "toolSurfaceCorrectionId": "ASKRIGOR-OWNER-REVIEW-TOOL-SURFACE-CORRECTION-v1.0.2",
+    "toolSurfaceCorrectionSha256": "2b15ee0a342b249182a5cbdf62024cabe673ba828246317620992189e4c9142f",
+    "toolSurfaceCorrectionBytes": 1411,
+    "proRequired": false
+  },
+  "baseline": {
+    "commit": "ef8b713e9b5320d3ebe8e47ec2cea98095431e90",
+    "branch": "task/owner-review-promotion-20260901",
+    "standardToolCount": 26,
+    "toolInventorySha256": "d2d88cde0862a9255af240879416da220594e1a016eeaaa7ce4d3bc71828d5f4"
+  },
+  "directive": {
+    "assuranceLane": "iteration",
+    "targetedHardGates": [
+      "owner-only authorization",
+      "privacy and excluded-data preservation",
+      "migration and data integrity",
+      "exact reviewed-payload identity",
+      "promotion receipt",
+      "concurrency and withdrawal safety",
+      "idempotent retry",
+      "rollback safety"
+    ],
+    "objective": "Add the smallest private GPT-assisted owner review bridge over existing structured pending proposals: explicit accept or reject, a hash-bound promotion outbox on accept, and a separate one-shot admin runner that uses the existing strict canonical writers and stores an exact receipt.",
+    "topology": "research-mcp may host owner-only inspect and decide operations through a distinct restricted review role, but receives no canonical-writer credential, Docker socket, or admin launch capability; a separate living-evidence-admin promote-accepted command claims durable accepted intents and performs the exact idempotent canonical write.",
+    "acceptSemantics": "The owner MCP call atomically records ACCEPTED plus one exact proposal/hash/kind-bound pending promotion intent and returns accepted_pending_promotion; it does not claim promotion complete.",
+    "rejectSemantics": "The owner MCP call atomically records REJECTED with a reason and creates no promotion intent or canonical writer call.",
+    "recoverySemantics": "A one-shot retry reuses the exact stored payload and existing idempotent writer, including recovery after canonical commit but before receipt persistence; one successful receipt exists per proposal.",
+    "typedCompletionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "ownerReviewOperation": "review_research_contribution",
+    "candidateStandardToolCount": 27,
+    "mergeOrDeployAuthorized": false
+  },
+  "admission": {
+    "originalDirective": "rejected_until_corrected",
+    "originalFailures": [
+      "invalid typed completion claim",
+      "unresolved public-runtime versus canonical-writer topology contradiction"
+    ],
+    "correctedDirective": "valid_for_bounded_local_execution"
+  },
+  "finalReview": {
+    "reviewId": "FINAL_IMPLEMENTATION_REVIEW-ASKRIGOR-OWNER-REVIEW-PROMOTION-v1",
+    "responseSha256WithoutFileFinalNewline": "091cc5545ba213024bd7623704843d90a97aa5246e17b18f26fa498951e560bc",
+    "responseBytesWithoutFileFinalNewline": 1913,
+    "file": "docs/audits/2026-09-01-owner-review-promotion-final-review.txt",
+    "fileSha256": "480b1ea74a19aef1860255f64337cfd47941e1ad266f408cf7c98880a8441642",
+    "fileBytes": 1914,
+    "directiveVerdict": "PASS",
+    "criticalFindings": 0,
+    "importantFindings": 0,
+    "minorFindings": 0,
+    "operationalAlignment": "GREEN",
+    "scientificAdequacy": "PRESERVED_NOT_EXPANDED",
+    "releaseAdequacy": "NOT_AUTHORIZED",
+    "supervisionDesignFeedback": "NO",
+    "typedCompletionClaim": "SUBTASK_COMPLETE_PARENT_OPEN"
+  }
+}

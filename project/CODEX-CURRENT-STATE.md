@@ -1,5 +1,24 @@
 # AskRigor Codex Current State
 
+## 2026-09-01 owner review and promotion candidate — local only
+
+Task `askrigor-owner-review-promotion-v1` is in local verification on branch
+`task/owner-review-promotion-20260901` from production baseline
+`ef8b713e9b5320d3ebe8e47ec2cea98095431e90`. It adds one owner-only
+`review_research_contribution` MCP operation, a function-only review database
+role, an atomic hash-bound promotion outbox, and a separate one-shot canonical
+promoter. The public runtime receives no canonical writer credential. The
+standard catalog is 27 operations with inventory SHA-256
+`5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0`;
+the compact Gemini catalog remains 22. The synchronization ledger SHA-256 is
+`6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3`;
+the unchanged controlled Instructions remain 4,752 characters with SHA-256
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+No merge, deployment, migration activation, role provisioning, scheduler,
+connector refresh, or live product acceptance is claimed.
+Recovery commands are `npm run owner-review:preflight` and
+`npm run owner-review:acceptance`.
+
 ## 2026-09-01 free-contributor/private-entitlement production release complete
 
 Task `askrigor-living-evidence-free-contributor-private-entitlement-v1` is

@@ -4,9 +4,13 @@ import { join } from "node:path";
 
 const EXPECTED_FILES = [
   "packages/evidence-repository/migrations/0009_research_contributor_access.sql",
+  "packages/evidence-repository/migrations/0010_research_contribution_review.sql",
   "packages/evidence-repository/src/research-contributor-access.ts",
+  "packages/evidence-repository/src/research-contribution-review.ts",
   "apps/research-mcp/src/research-contributor-access-tool.ts",
+  "apps/research-mcp/src/research-contribution-review-tool.ts",
   "infra/living-evidence-production/provision-research-access-role.sh",
+  "infra/living-evidence-production/provision-research-review-role.sh",
   "docs/research-contributor-access.md",
   "site/privacy/index.html",
   "site/terms/index.html",
@@ -23,6 +27,7 @@ async function main(): Promise<void> {
     "test:run",
     "--",
     "tests/research-contributor-access.test.ts",
+    "tests/research-contribution-review.test.ts",
     "tests/research-contributor-config.test.ts",
     "tests/public-gap-oauth-review.test.ts",
     "tests/living-evidence-production-deployment.test.ts",
@@ -38,6 +43,7 @@ async function main(): Promise<void> {
     text: await readFile(join(root, path), "utf8"),
   })));
   const migration = files.find(({ path }) => path.includes("0009_"))!.text;
+  const reviewMigration = files.find(({ path }) => path.includes("0010_"))!.text;
   for (const table of [
     "research_use_accounts",
     "research_private_entitlements",
@@ -49,6 +55,13 @@ async function main(): Promise<void> {
   }
   if (/\b(?:email|raw_oauth_subject|raw_chat|health_narrative)\b/iu.test(migration)) {
     throw new Error("CONTRIBUTOR_ACCESS_PROHIBITED_COLUMN");
+  }
+  if (
+    !reviewMigration.includes("research_contribution_promotions") ||
+    !reviewMigration.includes("inspect_research_contribution_proposal") ||
+    !reviewMigration.includes("decide_research_contribution_proposal")
+  ) {
+    throw new Error("RESEARCH_CONTRIBUTION_REVIEW_MIGRATION_INCOMPLETE");
   }
   const skill = files.find(({ path }) => path === "skills/askrigor/SKILL.md")!.text;
   const privacy = files.find(({ path }) => path === "site/privacy/index.html")!.text;
@@ -68,11 +81,11 @@ async function main(): Promise<void> {
   process.stdout.write(`${JSON.stringify({
     status: "PASS",
     files_checked: files.length,
-    focused_test_files: 6,
-    tables: 3,
+    focused_test_files: 7,
+    tables: 4,
     deterministic_layer: true,
     postgres_acceptance: "runs_next_via_contributor-access:acceptance",
-    canonical_promotion: "separate_review_required",
+    canonical_promotion: "owner_acceptance_then_one_shot_outbox_runner",
     paid_checkout_available: false,
   })}\n`);
 }

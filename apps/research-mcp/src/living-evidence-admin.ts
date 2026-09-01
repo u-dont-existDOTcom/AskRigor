@@ -3,6 +3,7 @@ import { pathToFileURL } from "node:url";
 
 import {
   PostgresEvidenceRepository,
+  PostgresResearchContributionPromotionRunner,
   assertNoProhibitedPersistentKeys,
   researchFrontierContributionSchema,
   stableJson,
@@ -83,8 +84,13 @@ export async function prepareResearchFrontierImport(raw: unknown) {
 
 async function main(): Promise<void> {
   const command = process.argv[2];
-  if (command !== "migrate" && command !== "import-study-audit" && command !== "import-frontier") {
-    throw new Error("usage: living-evidence-admin <migrate|import-study-audit|import-frontier>");
+  if (
+    command !== "migrate" && command !== "import-study-audit" &&
+    command !== "import-frontier" && command !== "promote-accepted"
+  ) {
+    throw new Error(
+      "usage: living-evidence-admin <migrate|import-study-audit|import-frontier|promote-accepted>",
+    );
   }
   const config = adminConfig(process.env);
   const repository = new PostgresEvidenceRepository(config);
@@ -97,6 +103,25 @@ async function main(): Promise<void> {
         status: "complete",
         schema: config.schema,
       });
+      return;
+    }
+    if (command === "promote-accepted") {
+      const runner = new PostgresResearchContributionPromotionRunner(
+        config,
+        repository,
+      );
+      try {
+        const result = await runner.promoteNext();
+        writeReceipt({
+          receipt_schema: "askrigor.living-evidence.admin-receipt.v1",
+          operation: "promote-accepted",
+          status: "complete",
+          schema: config.schema,
+          result,
+        });
+      } finally {
+        await runner.close();
+      }
       return;
     }
     const raw = JSON.parse(await readBoundedStdin());

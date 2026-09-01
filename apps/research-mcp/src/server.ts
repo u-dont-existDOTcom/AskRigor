@@ -12,6 +12,8 @@ import type { PublicEvidenceGapIntakeService } from
   "@askrigor/evidence-repository";
 import {
   PostgresResearchContributorAccessStore,
+  PostgresResearchContributionReviewStore,
+  ResearchContributionReviewService,
   ResearchContributorAccessService,
 } from "@askrigor/evidence-repository";
 
@@ -34,6 +36,7 @@ import {
   publicServerIsEnabled,
   researchFinalizationSigningConfigFromEnv,
   researchContributorAccessConfigFromEnv,
+  researchContributionReviewConfigFromEnv,
   researchSessionCheckpointConfigFromEnv,
   researchActionsAreEnabled,
   SERVER_INSTRUCTIONS,
@@ -102,6 +105,7 @@ export interface AskRigorMcpServerOptions {
   oauthResourceMetadataUrl?: URL;
   allowedReviewerSubjects?: ReadonlySet<string>;
   researchContributorAccessService?: ResearchContributorAccessService;
+  researchContributionReviewService?: ResearchContributionReviewService;
   researchAccessRequired?: boolean;
 }
 
@@ -152,6 +156,7 @@ export interface AskRigorHttpServerOptions {
   publicEvidenceGapReviewService?: PublicEvidenceGapIntakeService;
   oauthResourceServer?: AskRigorOAuthResourceServer;
   researchContributorAccessService?: ResearchContributorAccessService;
+  researchContributionReviewService?: ResearchContributionReviewService;
 }
 
 export interface McpHandshakeDiagnosticRecord {
@@ -351,6 +356,21 @@ export function createAskRigorHttpServer(
           }),
           identitySecret: researchContributorAccessConfig.identitySecret,
         }));
+  const researchContributionReviewConfig =
+    options.researchContributionReviewService === undefined
+      ? researchContributionReviewConfigFromEnv()
+      : undefined;
+  const researchContributionReviewService =
+    options.researchContributionReviewService ??
+    (researchContributionReviewConfig === undefined
+      ? undefined
+      : new ResearchContributionReviewService(
+          new PostgresResearchContributionReviewStore({
+            connectionString: researchContributionReviewConfig.connectionString,
+            schema: researchContributionReviewConfig.schema,
+            ssl: researchContributionReviewConfig.ssl,
+          }),
+        ));
   const researchAccessRequired = oauthResourceServer !== undefined;
   const effectiveActionRoutes = researchAccessRequired
     ? actionRoutes.filter(({ publicResearch, controlledResearch }) =>
@@ -366,6 +386,7 @@ export function createAskRigorHttpServer(
       oauthResourceMetadataUrl,
       allowedReviewerSubjects: oauthResourceServer?.reviewerSubjects,
       researchContributorAccessService,
+      researchContributionReviewService,
       researchAccessRequired,
     }));
 

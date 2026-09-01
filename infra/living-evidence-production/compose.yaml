@@ -19,17 +19,20 @@ services:
       ASKRIGOR_READER_PASSWORD_FILE: /run/secrets/living_evidence_reader_password
       ASKRIGOR_EVIDENCE_GAP_INTAKE_PASSWORD_FILE: /run/secrets/evidence_gap_intake_password
       ASKRIGOR_RESEARCH_ACCESS_PASSWORD_FILE: /run/secrets/research_access_password
+      ASKRIGOR_RESEARCH_REVIEW_PASSWORD_FILE: /run/secrets/research_review_password
       POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
     secrets:
       - living_evidence_migrator_password
       - living_evidence_reader_password
       - evidence_gap_intake_password
       - research_access_password
+      - research_review_password
     volumes:
       - /opt/askrigor/state/living-evidence-postgres:/var/lib/postgresql/data
       - /opt/askrigor/living-evidence/init-reader.sh:/docker-entrypoint-initdb.d/001-askrigor-reader.sh:ro
       - /opt/askrigor/living-evidence/provision-evidence-gap-role.sh:/usr/local/bin/provision-evidence-gap-role:ro
       - /opt/askrigor/living-evidence/provision-research-access-role.sh:/usr/local/bin/provision-research-access-role:ro
+      - /opt/askrigor/living-evidence/provision-research-review-role.sh:/usr/local/bin/provision-research-review-role:ro
     tmpfs:
       - /tmp:size=64m,mode=1777
       - /run/postgresql:size=16m,uid=70,gid=70,mode=0755
@@ -78,6 +81,8 @@ secrets:
     file: /opt/askrigor/secrets/evidence-gap-intake-password
   research_access_password:
     file: /opt/askrigor/secrets/research-access-password
+  research_review_password:
+    file: /opt/askrigor/secrets/research-review-password
 
 networks:
   living_evidence_private:

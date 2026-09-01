@@ -26,12 +26,13 @@ Persistent database state is
 root filesystem, all capabilities dropped, no-new-privileges, bounded CPU
 and memory, and only its database bind plus two tmpfs paths writable.
 
-Four independent random 32-byte hexadecimal passwords live only in:
+Five independent random 32-byte hexadecimal passwords live only in:
 
 - /opt/askrigor/secrets/living-evidence-migrator-password
 - /opt/askrigor/secrets/living-evidence-reader-password
 - /opt/askrigor/secrets/evidence-gap-intake-password
 - /opt/askrigor/secrets/research-access-password
+- /opt/askrigor/secrets/research-review-password
 
 Both host files are root-owned, group 70, mode 0440 so the non-root PostgreSQL
 process can read the Compose bind-mounted secrets without making them
@@ -40,8 +41,10 @@ only on `living_evidence.evidence_gap_submissions`; it has no access to other
 repository tables and no `DELETE`, `TRUNCATE`, schema-create, role-create, or
 database-create privilege. The research-access role has only the account,
 entitlement-read, pending-proposal insert/read, and bounded pending-withdrawal
-permissions documented below. The ordinary research service receives the
-reader, evidence-gap intake, and research-access URLs through the existing
+permissions documented below. The research-review role can execute only the
+two bounded owner-review functions and has no direct table privileges. The
+ordinary research service receives the reader, evidence-gap intake,
+research-access, and research-review URLs through the existing
 root-owned mode-0600 runtime.env. The one-shot admin profile receives only the migrator URL
 through root-owned mode-0600 living-evidence-writer.env. Neither URL or
 password may be printed, checked into Git, copied into a release receipt, or
@@ -50,20 +53,21 @@ placed in Compose.
 ## Reversible activation
 
 1. Record the exact current research image ID/tag, healthy container ID, base
-   Compose hash, public 26-tool inventory, protocol manifests, state-directory
+   Compose hash, public 27-tool inventory, protocol manifests, state-directory
    modes, and a rollback copy of the base Compose file.
 2. Copy the exact reviewed overlay to
    /opt/askrigor/compose.living-evidence.yaml and the exact reviewed init
    and role-provisioning scripts to
    /opt/askrigor/living-evidence/init-reader.sh and
    /opt/askrigor/living-evidence/provision-evidence-gap-role.sh and
-   /opt/askrigor/living-evidence/provision-research-access-role.sh. Record hashes
+   /opt/askrigor/living-evidence/provision-research-access-role.sh and
+   /opt/askrigor/living-evidence/provision-research-review-role.sh. Record hashes
    and use root ownership/mode 0600 for the overlay and 0555 for each script.
-3. Create the state directory as UID/GID 70 mode 0700; create the four secret
+3. Create the state directory as UID/GID 70 mode 0700; create the five secret
    files atomically under a root umask from independent openssl random-byte
    calls without printing any value, then set root:70 ownership and mode 0440.
-   The third is the evidence-gap intake password and the fourth is the
-   research-access password.
+   The third is the evidence-gap intake password, the fourth is the
+   research-access password, and the fifth is the research-review password.
 4. Create the writer environment and append the four reader configuration
    names to runtime.env with an in-memory, non-echoing editor. The exact
    non-secret settings are schema living_evidence, SSL mode disable on the
@@ -74,7 +78,8 @@ placed in Compose.
    for its health check.
 6. Run the exact merged image's one-shot admin entry point with migrate. Then
    run `/usr/local/bin/provision-evidence-gap-role` and
-   `/usr/local/bin/provision-research-access-role` inside only the PostgreSQL
+   `/usr/local/bin/provision-research-access-role` and
+   `/usr/local/bin/provision-research-review-role` inside only the PostgreSQL
    service. Each reads mounted secrets, revokes repository-wide access, and
    grants only its documented tables and operations. The research-access role
    may select/insert/update `research_use_accounts`, select entitlements,
@@ -91,6 +96,9 @@ placed in Compose.
    prove those exact allowlisted operations work while entitlement writes,
    proposal review-state updates, canonical-table writes, deletes, truncation,
    temporary objects, and schema creation fail.
+   Connect separately as `askrigor_research_review` and prove that the exact
+   inspect/decide functions work while direct proposal-table reads or updates,
+   canonical-table reads or writes, temporary objects, and schema creation fail.
 7. Recreate only research-mcp with the combined Compose selection. Verify it
    remains non-root/read-only/capability-free, joins exactly its prior network
    plus the internal repository network, stays healthy, and does not emit
@@ -139,12 +147,18 @@ resource configuration. Never receipt the connection string or identity
 secret. There is no checkout in this release; `PAID_PRIVATE` activates only
 after a maintainer has separately recorded an active entitlement.
 
+Add `ASKRIGOR_RESEARCH_REVIEW_ENABLED=true`, the dedicated review-role URL,
+schema `living_evidence`, and Docker-internal SSL mode `disable` to the same
+mode-0600 runtime environment. The review URL must use
+`askrigor_research_review`, not the access role or migrator. It can call only
+the hash-bound inspect/decide functions and cannot read tables directly.
+
 When OAuth research access is active, the server omits legacy research Action
 routes so they cannot bypass the mode choice. The separately governed lesson
-Action is unaffected. Verify all 26 MCP operations: the two mode/proposal writes
-are declared non-destructive, the other 24 are read-only, ordinary research
-requires `research:use`, and cross-user case review additionally requires the
-owner subject plus `cases:review`.
+Action is unaffected. Verify all 27 MCP operations: the mode, proposal, and
+owner-review operations are declared non-destructive writes, the other 24 are
+read-only, ordinary research requires `research:use`, and cross-user case and
+proposal review additionally require the owner subject plus `cases:review`.
 
 Every later Compose command must use both the base and living-evidence overlay;
 otherwise the database remains running but the research container loses its
@@ -177,6 +191,13 @@ audited source family only when the source classes are compatible and the two
 records share an exact formal identifier. Stream the JSON object over stdin
 using the same one-shot admin profile; do not create a VPS import file or log
 the payload.
+
+After the owner accepts an exact proposal, invoke `promote-accepted` through
+the one-shot admin profile. Each invocation processes at most one pending
+intent and emits only a bounded receipt. Repeat manually until it returns
+`no_pending_promotion`; do not add a scheduler in this slice. A failed process
+after the canonical writer commit leaves the intent pending, and the next
+invocation completes it through the writer's idempotent replay path.
 
 ## Failure and rollback
 
