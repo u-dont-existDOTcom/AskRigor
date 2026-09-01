@@ -19,6 +19,8 @@ const chatReceiptSchema = z.object({
   condition: z.enum(["BARE", "HRP"]).nullable(),
   providerSurface: z.literal("CHATGPT_CONSUMER"),
   modelMode: z.literal("EXTRA_HIGH"),
+  modelNameObserved: z.string().min(1).optional(),
+  thinkingEffortObserved: z.string().min(1).optional(),
   chatLocator: z.string().min(1),
   sourceMessageId: z.string().min(1),
   sentAtSource: timestamp.nullable(),
@@ -102,6 +104,17 @@ export const zeroSpendChatgptSmokeReceiptSchema = z.object({
   }
   if (receipt.evaluatorChat.exactOutputSha256 !== receipt.evaluatorOutput.exactOutputSha256) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["evaluatorOutput", "exactOutputSha256"], message: "evaluator output digest mismatch" });
+  }
+  if (receipt.caseFamilyId !== "All001") {
+    for (const [index, chat] of [...receipt.responseChats, receipt.evaluatorChat].entries()) {
+      if (!chat.modelNameObserved || !chat.thinkingEffortObserved) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: [index < receipt.responseChats.length ? "responseChats" : "evaluatorChat"],
+          message: "continuation families require exact observed model and thinking effort",
+        });
+      }
+    }
   }
 });
 

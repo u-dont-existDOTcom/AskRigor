@@ -23,7 +23,7 @@ function receipt() {
     directiveId: "askrigor-zero-spend-chatgpt-mast-operational-smoke-v1",
     repositoryStartHead: "a".repeat(40),
     repositoryEndHead: "b".repeat(40),
-    caseFamilyId: "pilot-case-family-001",
+    caseFamilyId: "All001",
     deterministicSelectionReceiptSha256: digest("1"),
     packets: {
       bare: { condition: "BARE", packetSha256: digest("2") },
@@ -126,6 +126,23 @@ describe("zero-spend ChatGPT MAST smoke acceptance", () => {
     candidate.execution.paidModelApiCalls = 1 as never;
     candidate.execution.totalExternalSpendUsd = 30 as never;
     expect(() => zeroSpendChatgptSmokeReceiptSchema.parse(candidate)).toThrow();
+  });
+
+  it("requires exact observed model and thinking effort for continuation families", () => {
+    const candidate = receipt();
+    candidate.caseFamilyId = "Card001";
+    expect(() => acceptZeroSpendChatgptSmoke(policy, directive, candidate)).toThrow(
+      /continuation families require exact observed model and thinking effort/,
+    );
+
+    for (const chat of [...candidate.responseChats, candidate.evaluatorChat]) {
+      Object.assign(chat, {
+        modelNameObserved: "GPT-5.6 Sol",
+        thinkingEffortObserved: "Extra High",
+      });
+    }
+    expect(acceptZeroSpendChatgptSmoke(policy, directive, candidate).caseFamilyId)
+      .toBe("Card001");
   });
 
   it("rejects an owner relay or say-send-it handback", () => {
