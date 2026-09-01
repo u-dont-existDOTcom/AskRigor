@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "policyId": "askrigor-chat-work-authority-v1",
+  "effectiveAt": "2026-09-01T20:35:27Z",
+  "ownerAuthority": {
+    "sourceFeedbackSha256": "e8bf17067b25ecbf1af071accc2c4ec3989a0322e1803c06a9b4cabbc9ca64f3",
+    "paidModelInferenceAllowed": false,
+    "maximumModelApiSpendUsd": 0,
+    "internalSupervisorRoutingStandingAuthorization": true
+  },
+  "reasoningAuthorities": [
+    "OWNER",
+    "PROJECT_MANAGER_CHAT",
+    "SPECIALIST_SUPERVISOR_CHAT"
+  ],
+  "executionOnlyActors": [
+    "CODEX",
+    "WORK"
+  ],
+  "reasoningReservedActions": [
+    "AUTHOR_PROPOSAL",
+    "DESIGN_METHODOLOGY",
+    "SET_PRIORITY",
+    "DESIGN_SPEND",
+    "CHOOSE_CONSEQUENTIAL_TRADEOFF",
+    "SCIENTIFIC_INTERPRETATION",
+    "SUPERVISORY_VERDICT",
+    "SELECT_NEXT_STRATEGY"
+  ],
+  "codexWorkAllowedActions": [
+    "ROUTE_EXACT_FACTUAL_PACKET_TO_INTERNAL_SUPERVISOR",
+    "CAPTURE_EXACT_CHAT_RESPONSE_AND_PROVENANCE",
+    "EXECUTE_SOURCE_BOUND_BOUNDED_DIRECTIVE",
+    "RUN_DETERMINISTIC_TESTS",
+    "MUTATE_REPOSITORY_WITHIN_DIRECTIVE",
+    "DEPLOY_WITHIN_DIRECTIVE",
+    "RETURN_EXECUTION_RECEIPTS_TO_REASONING_CHAT"
+  ],
+  "sourceReceiptRequired": {
+    "messageIdentity": true,
+    "exactBodySha256": true,
+    "claimedAndObservedSurfaceMustMatch": true,
+    "unknownOrCodexCopiedReasoningCanAuthorize": false
+  },
+  "internalSupervisorRouting": {
+    "automatic": true,
+    "ownerRelayPermitted": false,
+    "saySendItPermitted": false,
+    "actionTimeConfirmationRequired": false,
+    "scope": [
+      "PROJECT_MANAGER_CHAT",
+      "SPECIALIST_SUPERVISOR_CHAT"
+    ],
+    "externalRecipientsExcluded": true
+  },
+  "spending": {
+    "paidModelApiPathStatus": "CANCELED_BY_OWNER",
+    "codexMayAuthorPaidProposal": false,
+    "workMayAuthorPaidProposal": false,
+    "olderPaidManifestCanRevivePath": false,
+    "newerExplicitOwnerDecisionRequiredForAnyNonzeroSpend": true
+  },
+  "completion": {
+    "default": "CONTINUE_TO_FULL_OWNER_OUTCOME",
+    "greenSubtaskIsStopCondition": false,
+    "allowedStops": [
+      "OWNER_OUTCOME_LIVE_VERIFIED",
+      "GENUINE_OWNER_ONLY_SEMANTIC_CHOICE",
+      "UNAVAILABLE_EXTERNAL_CAPABILITY_AFTER_ALL_NONBLOCKED_WORK",
+      "SAFETY_SECURITY_PRIVACY_OR_IRREVERSIBLE_EXTERNAL_ACTION_BOUNDARY"
+    ]
+  }
+}

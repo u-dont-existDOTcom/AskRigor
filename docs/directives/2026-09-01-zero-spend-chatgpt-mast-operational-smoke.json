@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "directiveType": "chat_authored_bounded_execution_directive",
+  "directiveId": "askrigor-zero-spend-chatgpt-mast-operational-smoke-v1",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "issuedAt": "2026-09-01T20:35:27Z",
+  "reasoningAuthority": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "mode": "EXTRA_HIGH_OR_PRO_CURRENT_CHAT",
+    "provenanceStatus": "OWNER_ATTESTED_CURRENT_CONVERSATION_PENDING_PROVIDER_MESSAGE_ID",
+    "sourceFeedbackSha256": "e8bf17067b25ecbf1af071accc2c4ec3989a0322e1803c06a9b4cabbc9ca64f3"
+  },
+  "executionActors": [
+    "CODEX",
+    "WORK"
+  ],
+  "executionAuthority": "BOUNDED_MECHANICAL_ONLY",
+  "spend": {
+    "maximumExternalSpendUsd": 0,
+    "maximumModelApiSpendUsd": 0,
+    "paidModelApiPath": "CANCELED_BY_OWNER",
+    "providerApiCredentialsPermitted": false
+  },
+  "directiveTextSha256": "ab2d087541b4b4e20fb7ae88ce536a6245236cce4c1b09fd68d796ac3d68431a",
+  "directiveTextUtf8Bytes": 3091,
+  "directiveText": "ASKRIGOR ZERO-SPEND CHATGPT-CONSUMER MAST OPERATIONAL SMOKE — EXECUTION DIRECTIVE\n\nAuthority:\n- Project Manager reasoning surface: current ChatGPT Extra High/Pro conversation.\n- Codex/Work authority: bounded mechanical execution only.\n- Paid model API inference: canceled and forbidden.\n- Maximum external spend: USD 0.\n\nObjective:\nDemonstrate one complete, source-bound, zero-spend MAST workflow using ChatGPT consumer Extra High for response generation and a separate Extra High chat for condition-blind evaluation, without claiming an official MAST result or general HRP efficacy.\n\nRequired execution:\n1. Resolve main at or after AskRigor merge a1d4aaf0fe2010edc5cec13e6c431877a311d074 and validate the sealed NOHARM pilot/freeze artifacts.\n2. Select exactly one pilot case family deterministically from the predeclared development manifest, without observing any model or judge outcome.\n3. Build exactly two response packets from the same case: BARE and HRP. Apart from the instruction condition and necessary opaque identifiers, the packets must be byte-audited for equality.\n4. Open two fresh ChatGPT consumer chats in the owner’s authenticated workspace, visibly set to Extra High. Route one response packet to each chat automatically. Do not ask Joel to paste, relay, approve, or say “send it.”\n5. Capture each exact response, ChatGPT conversation URL or stable locator, visible model/mode evidence, source sent time when exposed, capture time, input/output SHA-256, and any tool or memory state visible. If source identity or mode cannot be verified, mark it unverified; do not infer it.\n6. Randomize the two response labels under a preserved seed. Open a third fresh Extra High ChatGPT chat as the evaluator. Send only the official case/rubric/guidance needed for scoring plus the two randomized outputs. Do not disclose BARE/HRP labels before the verdict is frozen.\n7. Require the evaluator chat to return the official rubric-level scores, strongest uncertainty, and an explicit statement that this is a one-case operational smoke rather than an official benchmark conclusion. Codex must capture the exact evaluator output and may not rewrite, summarize, or decide the result.\n8. Return the three source-bound chat receipts and deterministic packet/hash audit to the Project Manager Chat automatically.\n9. Stop after one case family. Do not scale, tune HRP, change methodology, recommend spending, run an API, run a paid judge, submit externally, or claim scientific adequacy. Any consequential next step belongs to ChatGPT Project Manager/Pro.\n\nRequired checks:\n- zero provider/API credentials used;\n- total spend USD 0;\n- exactly two response chats and one evaluator chat;\n- exact source receipt for every ChatGPT message;\n- no Codex-authored scientific interpretation;\n- no owner relay request;\n- no condition disclosure before frozen evaluation;\n- no official MAST or HRP-effect claim.\n\nCompletion claim:\nSUBTASK_COMPLETE_PARENT_OPEN only after all required receipts exist. Otherwise report the exact transport or provenance blocker and continue every nonblocked step.",
+  "sourceInputs": [
+    {
+      "type": "ASKRIGOR_MAIN_BASELINE",
+      "ref": "a1d4aaf0fe2010edc5cec13e6c431877a311d074"
+    },
+    {
+      "type": "NOHARM_PILOT_MANIFEST",
+      "ref": "evaluation/mast/noharm-pilot-manifest.json"
+    },
+    {
+      "type": "CHAT_WORK_AUTHORITY_POLICY",
+      "ref": "governance/chat-work-authority-policy.json"
+    }
+  ],
+  "requiredOutputs": [
+    "one deterministic BARE packet and SHA-256",
+    "one deterministic HRP packet and SHA-256",
+    "byte-difference audit proving only the instruction condition and opaque identifiers differ",
+    "two source-bound Extra High response receipts",
+    "one source-bound Extra High blinded-evaluator receipt",
+    "zero-spend and zero-API-credential receipt",
+    "factual execution receipt returned automatically to the Project Manager Chat"
+  ],
+  "forbiddenDecisions": [
+    "change methodology",
+    "select a different evaluation strategy",
+    "recommend or authorize spending",
+    "scale beyond one case family",
+    "interpret scientific adequacy",
+    "claim official MAST performance",
+    "claim HRP efficacy or degradation",
+    "ask Joel to relay any internal supervisor packet"
+  ],
+  "stopConditions": [
+    "all required receipts exist",
+    "ChatGPT consumer surface or Extra High mode is inaccessible",
+    "source message identity or provenance cannot be captured after the authorized attempt",
+    "the sealed NOHARM manifest fails deterministic validation",
+    "any nonzero spend or API credential would be required"
+  ],
+  "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN"
+}

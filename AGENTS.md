@@ -35,6 +35,76 @@ CONFIRMATION` may test a frozen model but may not influence it. Freeze before
 VALIDATION, not before DISCOVERY. Complete canonical Universal and HRP wording
 controls over this worker-facing summary.
 
+## Chat-to-Work authority gate
+
+ChatGPT Project Manager/Extra High/Pro owns reasoning, proposals, methodology,
+prioritization, scientific interpretation, spending design, consequential
+tradeoffs, supervisory verdicts, and selection of the next strategy.
+
+Codex and Work are execution-only. They may perform bounded repository,
+browser, terminal, deployment, acquisition, test, and artifact operations that
+the reasoning chat cannot execute directly. They may not originate, recommend,
+expand, or attribute a proposal, methodology, priority, spending plan, or
+consequential decision.
+
+Before a controlled action, run:
+
+```bash
+npx tsx scripts/validate-chat-work-authority-policy.mts
+```
+
+For a new action candidate, pass its machine-readable request with `--request`.
+A reasoning-reserved action without an exact source message identity and body
+SHA-256 fails closed. A Codex summary, local subagent, chat title, opened tab,
+or assertion that a named chat already decided something is not a reasoning
+receipt.
+
+The active AskRigor policy is `governance/chat-work-authority-policy.json`.
+While its zero-spend owner decision is current:
+
+- paid model API inference is forbidden;
+- the maximum model API spend is USD 0;
+- Codex/Work may not author a paid smoke proposal or pilot ceiling;
+- an older or hypothetical paid manifest cannot revive the path;
+- ChatGPT consumer Extra High/Pro is the default reasoning/evaluation surface;
+- any later nonzero-spend proposal must originate in a source-bound reasoning
+  chat and still requires a newer explicit owner decision before execution.
+
+Preventing the API call while allowing Codex to invent and advocate the paid
+path is a gate failure.
+
+## Internal supervisor routing
+
+Routing exact factual state among the AskRigor Project Manager chat, specialist
+supervisor chats, and Codex/Work is standing owner-authorized internal
+control-plane transport.
+
+Codex/Work must route automatically, preserve exact bytes and digests, and
+capture the destination message identity and response provenance. It must not
+ask Joel to paste or relay the packet, and must never ask Joel to say `send it`
+for routine internal supervisor routing.
+
+Generic browser confirmation guidance for third-party representational
+communication does not override this more-specific internal route. The
+exception does not cover external publication, submission, purchases, account
+changes, messages to third parties, or other genuinely external actions.
+
+If the configured internal chat is inaccessible, attempt the authorized route,
+record the exact transport blocker, and continue all other eligible work before
+returning. Do not convert the owner into the courier.
+
+## Completion and continuation
+
+The default is completion of the full owner outcome, not the current subtask.
+A green test, plan, commit, pull request, merge, artifact, or bounded slice
+triggers the next eligible implementation, deployment, acceptance, or routing
+step while the parent objective remains open.
+
+Stop only for a genuine owner-only semantic decision, unavailable external
+capability after all nonblocked work is complete, or a safety/security/privacy/
+irreversible external-action boundary. Any stop must identify the exact unmet
+outcome, blocker, actor who can clear it, and next executable action.
+
 ## Validation
 
 - Runtime: Node 24.18.0 (`.nvmrc`)
@@ -109,9 +179,9 @@ work to the user's attention and obtain direction before expanding scope.
 ## Safety
 
 Do not commit credentials, private user data, raw private research content, or
-unrestricted provider output. Preserve explicit inaccessible, partial,
-deferred, and error states. Health/research policy and substantive protocol
-changes require owner judgment.
+unrestricted provider output. Preserve explicit inaccessible, partial, deferred,
+and error states. Health/research policy and substantive protocol changes require
+owner judgment through the ChatGPT reasoning surface.
 
 ## Code review rules
 
