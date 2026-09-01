@@ -75,6 +75,9 @@ is preserved but not expanded: the timer promotes only an exact intent created
 by explicit owner acceptance and makes no independent scientific conclusion.
 Release adequacy passes.
 
+Receipt-only PR #166 preserves this closeout on protected `main`; its final
+merge identity is attached to the PR after merge.
+
 The final deployment lesson checkpoint at `2026-09-01T14:14:51.714Z` was
 available with zero open candidates, zero needing review, zero accepted but not
 incorporated, four incorporated or closed, and zero deletion-eligible. No

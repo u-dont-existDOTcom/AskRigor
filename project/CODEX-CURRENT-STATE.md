@@ -43,7 +43,7 @@ rollback boundaries, and unchanged public runtime. Scientific adequacy is
 preserved but not expanded: explicit owner acceptance remains the only
 scientific decision. Release adequacy passes. Exact evidence is in
 `../docs/audits/2026-09-01-promotion-scheduler-production-release.json` and
-`.md`.
+`.md`; receipt-only PR #166 preserves the closeout on protected `main`.
 
 ## 2026-09-01 owner review and promotion production release complete
 

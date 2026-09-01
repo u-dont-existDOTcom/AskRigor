@@ -34,7 +34,7 @@
   "completionReceipt": "docs/audits/2026-09-01-promotion-scheduler-candidate.json",
   "productionReleaseReceipt": "docs/audits/2026-09-01-promotion-scheduler-production-release.json",
   "pullRequest": 165,
-  "receiptPullRequest": null,
+  "receiptPullRequest": 166,
   "initialPullRequest": 163,
   "initialMergeCommit": "f146539db8b794fce79a979980ec9d43da8c92a6",
   "repairPullRequest": 165,

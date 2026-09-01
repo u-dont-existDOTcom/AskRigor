@@ -13,7 +13,7 @@
     "repairMergeCommit": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
     "repairMergeTree": "bc3513bbb2edc221a9f0f2217b9bb589e8eed74c",
     "repairMergedAt": "2026-09-01T13:56:05Z",
-    "receiptPullRequest": null
+    "receiptPullRequest": 166
   },
   "productBoundary": {
     "decisionOperation": "review_research_contribution",
@@ -178,6 +178,6 @@
     "releaseAdequacy": "pass"
   },
   "remainingReleaseWork": [
-    "merge this receipt-only closeout through protected main and attach its final immutable merge receipt"
+    "merge receipt-only PR 166 through protected main and attach its final immutable merge receipt"
   ]
 }
