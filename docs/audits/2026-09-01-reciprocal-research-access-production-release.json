@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-living-evidence-free-contributor-private-entitlement-v1",
+  "recordedAt": "2026-09-01T02:33:42Z",
+  "completedAt": "2026-09-01T02:36:34Z",
+  "releaseState": "production_release_complete",
+  "source": {
+    "pullRequest": 159,
+    "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/159",
+    "implementationHead": "1c852e2ac8547644d7caf21a106b652ff65f3348",
+    "mergeCommit": "2559e4d54261bb04fbe45d48d1e5051d6cf6640c",
+    "mergedAt": "2026-09-01T01:19:38Z",
+    "sourceArchiveSha256": "a9a1ebd3fb94041ba09052a0aa0cfdf254c89e94b8a6dec93e4510b1b865d5ab",
+    "siteArchiveSha256": "a791ccbca7fa2e78547aa31050c0665e925dee98146800b2716f8e291cb07519"
+  },
+  "productContract": {
+    "freeMode": "explicit_versioned_contribution_agreement_required",
+    "paidPrivateMode": "active_verified_entitlement_required_and_no_shared_contribution",
+    "paidCheckoutAvailable": false,
+    "proposalInitialStatus": "PENDING_REVIEW",
+    "automaticCanonicalPromotion": false,
+    "partialFormalCorpora": "eligible_and_labeled_partial"
+  },
+  "privacyBoundary": {
+    "rawOauthSubjectStored": false,
+    "accountKey": "HMAC-SHA-256",
+    "rawChatOrPrompts": false,
+    "identityOrContactData": false,
+    "privateHealthNarratives": false,
+    "uploads": false,
+    "rawSourceOrProviderBodies": false,
+    "credentials": false,
+    "youtubeOrCommunityData": false
+  },
+  "deployment": {
+    "imageReference": "askrigor-research:2559e4d54261bb04fbe45d48d1e5051d6cf6640c",
+    "imageId": "sha256:5f2ac653d1676d5234304a83eebb9856c069b18fc923ab661def36241d86998a",
+    "researchContainer": "9967f75cf0c0846e701bcd2783ae1a0fd837db6d3af9fc681d7558c99d0f5f04",
+    "databaseContainer": "77715a8d628448ccfe5754cbc5f4d905879adf8fc842eedc0ec35d8fdc00ba0e",
+    "caddyContainer": "1ed11931452121ba77882006a900d1a703fc26b3a031b035247bfc9d83572326",
+    "migration": "0009_research_contributor_access",
+    "siteRelease": "2559e4d54261bb04fbe45d48d1e5051d6cf6640c",
+    "researchHealthy": true,
+    "databaseHealthy": true,
+    "researchRunsAsNode": true,
+    "databaseRunsAsUidGid": "70:70",
+    "researchReadOnlyFilesystem": true,
+    "databaseReadOnlyFilesystem": true,
+    "capabilitiesDropped": "ALL",
+    "productionLogsAfterAcceptance": "one startup line"
+  },
+  "deploymentArtifactHashes": {
+    "baseComposeSha256": "3b937b0c89e6b72c1ecb88b9ffe9d7df5325653cfeb262ae4501c781061d5c5c",
+    "productionOverlaySha256": "99cb406064cad5054027f20c189295ee3b0690e48e57d78312011bde859eed7b",
+    "runtimeEnvironmentSha256": "4c7ee8b49c168b80633c7b603f781ebabed750359ec4a821b16c5695a198294a",
+    "writerEnvironmentSha256": "24e1c06f62825768db7c77993156e1df85936310c6f1cdab5e57058e8bf53874",
+    "roleProvisionerSha256": "6293861eed7f1e093d81f5366ef30d5ee55e2f473f27fda48d50ba72193d3b2a",
+    "privacyPageSha256": "143369851fd127f70e53a8578d395aef373d4ef39badb6294a658c9b0564a7d7",
+    "termsPageSha256": "edb0fa903c302a6ca309691be6f67f56ff28ae56e59cffdd440c848996ab0029"
+  },
+  "databaseAcceptance": {
+    "migrationSha256": "2689afa745876f9dc0616e6cf8136951bbb9d65bf57ea63971e7bd513256e64a",
+    "rollbackOnlySyntheticTransaction": true,
+    "partialPendingInsert": "pass",
+    "securityDefinerWithdrawalCount": 1,
+    "lateInsertAfterRevocationRejected": true,
+    "entitlementGrantAuthority": false,
+    "canonicalEvidenceWriterAuthority": false,
+    "postAcceptanceAccountCount": 1,
+    "postAcceptanceAccountStatus": "ACTIVE",
+    "postAcceptanceAccountMode": "FREE_CONTRIBUTOR",
+    "postAcceptanceNoticeVersion": "free-contributor-v1-2026-09-01",
+    "postAcceptanceProposalCount": 0
+  },
+  "auth0": {
+    "tenantRegion": "US",
+    "resource": "https://mcp.askrigor.com/mcp",
+    "scopes": [
+      "research:use",
+      "cases:review"
+    ],
+    "reviewerApplication": "AskRigor ChatGPT reviewer",
+    "userDelegatedPermissionsGranted": "2/2",
+    "publicDatabaseSignupsEnabled": true,
+    "signupFormRendered": true,
+    "testAccountCreated": false
+  },
+  "directProductionAcceptance": {
+    "health": "pass_200",
+    "publicPrivacy": "pass_exact_disclosure",
+    "publicTerms": "pass_exact_disclosure",
+    "standardMcpToolCount": 26,
+    "standardCatalogExactSemanticMatch": true,
+    "standardReadOnlyToolCount": 24,
+    "standardNonDestructiveWriteToolCount": 2,
+    "geminiMcpToolCount": 22,
+    "protectedResourceScopesExact": true,
+    "auth0Discovery": "pass",
+    "universal": {
+      "version": "20.5.15",
+      "sha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172"
+    },
+    "hrp": {
+      "version": "20.5.24",
+      "sha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
+    }
+  },
+  "installedCodexPlugin": {
+    "marketplace": "personal",
+    "sourcePath": "/home/joel/plugins/askrigor",
+    "installedPath": "/home/joel/.codex/plugins/cache/personal/askrigor/0.1.0+codex.20260901013905",
+    "version": "0.1.0+codex.20260901013905",
+    "declaredFileCount": 8,
+    "reviewedPreCachebusterPackageSha256": "0da097c582db0482d8c4a6af8f7bc810c706f6352490e0b2b54948ca1ae9ff35",
+    "sourcePackageSha256": "f5579ccc6b8517aba0b9c36886aa619a25d1d4f26ded34164e0dcd232b526ecf",
+    "installedPackageSha256": "f5579ccc6b8517aba0b9c36886aa619a25d1d4f26ded34164e0dcd232b526ecf",
+    "sourceAndInstalledExactMatch": true,
+    "nonManifestFilesMatchReviewedMerge": true,
+    "manifestMatchesReviewedMergeAfterVersionNormalization": true,
+    "priorSourceRollbackPath": "/home/joel/plugins/askrigor.rollback-20260901T013905Z",
+    "pluginValidation": "pass",
+    "askrigorSkillValidation": "pass",
+    "browserArchiveSkillValidation": "pass"
+  },
+  "rollback": {
+    "previousImageId": "sha256:83081706bf905966dd18260c5e5dec2004a2d5be30c352e94a3af1704a097926",
+    "previousImageTag": "askrigor-research:rollback-pre-2559e4d",
+    "rollbackDirectory": "/opt/askrigor/rollbacks/pre-2559e4d54261bb04fbe45d48d1e5051d6cf6640c",
+    "databaseDumpSha256": "a776edeb4e8ac3ee0573b094dfa487e4caa836cc239cb5c601b06d23cdb913e9",
+    "rootOnlyRollbackMaterials": true
+  },
+  "verification": {
+    "localCompleteGate": {
+      "status": "pass",
+      "testFilesPassed": 124,
+      "testFilesSkipped": 1,
+      "testsPassed": 1602,
+      "testsSkipped": 6,
+      "typecheck": "pass",
+      "build": "pass"
+    },
+    "postgresql176Acceptance": "pass",
+    "hostedPullRequestChecks": "all_pass",
+    "closeoutGate": {
+      "runtime": "Node 24.18.0",
+      "command": "npm run typecheck && npm run test:run -- tests/release-packet.test.ts tests/living-evidence-production-deployment.test.ts tests/deployment-installation-continuity.test.ts tests/public-gap-oauth-review.test.ts tests/research-contributor-access.test.ts tests/research-contributor-config.test.ts tests/public-site.test.ts tests/public-site-deployment.test.ts",
+      "status": "pass",
+      "testFilesPassed": 8,
+      "testsPassed": 92,
+      "typecheck": "pass",
+      "jsonParse": "pass",
+      "diffCheck": "pass"
+    },
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-09-01T02:23:27.869Z"
+    }
+  },
+  "primaryChatProductAcceptance": {
+    "account": "primary",
+    "mode": "Extra High",
+    "surface": "fresh ordinary ChatGPT conversation",
+    "connector": "AskRigor Reviewer",
+    "connectorAppId": "asdk_app_6a95f8e846e4819183fbcb5bdd5266a1",
+    "refreshedSchemaToolCount": 26,
+    "refreshedSchemaMissingTools": 0,
+    "conversation": "https://chatgpt.com/c/6a963748-9998-83e9-899b-cf4b18eaae22",
+    "noticeDisplayedBeforeAcceptance": true,
+    "explicitSecondMessageAcceptance": true,
+    "activeMode": "FREE_CONTRIBUTOR",
+    "noticeVersion": "free-contributor-v1-2026-09-01",
+    "universalManifestExact": true,
+    "hrpManifestExact": true,
+    "frontierSearchStatus": "no_match",
+    "frontierCurrency": "not_assessed",
+    "externalEvidenceAbsenceClaimed": false,
+    "authenticatedPubmedProbe": {
+      "status": "complete",
+      "firstPmid": "39082175",
+      "accessLimitations": []
+    },
+    "contributionSubmittedDuringSmoke": false,
+    "status": "pass"
+  },
+  "completion": {
+    "typedClaim": "OUTCOME",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_production_runtime_database_auth0_public_signup_installed_plugin_refreshed_connector_and_primary_chat",
+    "scientificAdequacy": "pass_for_protocol_identity_partial_gap_currentness_and_nonnegative_no_match_semantics_only",
+    "releaseAdequacy": "pass"
+  },
+  "remainingReleaseWork": []
+}
