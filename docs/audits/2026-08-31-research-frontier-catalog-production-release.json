@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-living-evidence-frontier-catalog-discovery-v1",
+  "recordedAt": "2026-08-31T23:53:32Z",
+  "completedAt": "2026-09-01T00:01:54Z",
+  "releaseState": "production_release_complete",
+  "source": {
+    "pullRequest": 157,
+    "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/157",
+    "headCommit": "9730ebdda32e7e899a8df926eba222ce24ed2a4d",
+    "mergeCommit": "388e932e155af5c6000a7e3233ddb4672e3cff8e",
+    "mergedAt": "2026-08-31T23:42:20Z",
+    "sourceArchiveSha256": "0a3aadac80eed4ff75692d2c795d446fcd3b157eef8421c972daccf6fcae1824"
+  },
+  "deployment": {
+    "imageReference": "askrigor-research:388e932e155af5c6000a7e3233ddb4672e3cff8e",
+    "imageId": "sha256:83081706bf905966dd18260c5e5dec2004a2d5be30c352e94a3af1704a097926",
+    "researchContainer": "26cce79dcf6dc0fdcc33cdae8e6b9717e1c6675614c28b0e6a51e42228061c61",
+    "databaseContainer": "4a999c9bc7d253ee48975ba7fecf695299fb9765737aedf7b53c2cffc6b9e172",
+    "caddyContainer": "adf5837f8eaa8ddaaf7f02a4925c76cee04800abe507536bb28d251e842c6057",
+    "migrationAdded": false,
+    "databaseRecreated": false,
+    "siteRecreated": false,
+    "researchHealthy": true,
+    "databaseHealthy": true,
+    "researchRunsAsNode": true,
+    "researchReadOnlyFilesystem": true,
+    "capabilitiesDropped": "ALL",
+    "productionLogsAfterAcceptance": "one startup line"
+  },
+  "deploymentArtifactHashes": {
+    "baseComposeSha256": "3b937b0c89e6b72c1ecb88b9ffe9d7df5325653cfeb262ae4501c781061d5c5c",
+    "productionOverlaySha256": "79ab84deb6eff416150a3854d5c4c336f95b459a2e1ba950f62b5b6a73035f09",
+    "runtimeEnvironmentSha256": "0d9cebf9d5743cf4fc622f786421fbadab4b71c22773354cbd6f85cd214750b3"
+  },
+  "rollback": {
+    "previousImageId": "sha256:59abaee8b3ca08a30a5c4837526c6d84e8a056a9a582c8731a4762ecbffbab77",
+    "previousImageTag": "askrigor-research:rollback-pre-388e932e155af5c6000a7e3233ddb4672e3cff8e",
+    "rollbackDirectory": "/opt/askrigor/rollbacks/pre-388e932e155af5c6000a7e3233ddb4672e3cff8e",
+    "composeHashesMatchPredeployment": true
+  },
+  "directProductionAcceptance": {
+    "health": "pass_200",
+    "publicSite": "pass_200",
+    "standardMcpToolCount": 24,
+    "anonymousStandardToolCount": 23,
+    "standardCatalogIncludesSearchResearchFrontiers": true,
+    "standardCatalogIncludesProtectedCaseReview": true,
+    "geminiMcpToolCount": 22,
+    "geminiOmitsSearchResearchFrontiers": true,
+    "geminiOmitsProtectedCaseReview": true,
+    "universal": {
+      "version": "20.5.15",
+      "sha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172"
+    },
+    "hrp": {
+      "version": "20.5.24",
+      "sha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
+    },
+    "anonymousReadOnlyConnectorProbe": "pass_expected_input_validation_error",
+    "protectedReviewWithoutOauth": "pass_authorization_required_with_resource_metadata_and_cases_review_scope",
+    "frontierSearch": {
+      "query": "prolactinoma spontaneous remission",
+      "result": "no_match",
+      "returned": 0,
+      "frontierCurrency": "not_assessed",
+      "externalEvidenceAbsenceClaimed": false,
+      "currentProductionCatalogContainsNoMatchingStoredFrontier": true
+    }
+  },
+  "installedCodexPlugin": {
+    "marketplace": "personal",
+    "sourcePath": "/home/joel/plugins/askrigor",
+    "installedPath": "/home/joel/.codex/plugins/cache/personal/askrigor/0.1.0+codex.20260831234858",
+    "version": "0.1.0+codex.20260831234858",
+    "declaredFileCount": 8,
+    "reviewedPreCachebusterPackageSha256": "8b6029a31ee878b49d0e71748fc51684ffd161c121e9fc9944dd3536f2050aa5",
+    "sourcePackageSha256": "40fffb1192fa557928ab983cc4ca884c9bfd5db2e4fa139c09d40ce8ffac6713",
+    "installedPackageSha256": "40fffb1192fa557928ab983cc4ca884c9bfd5db2e4fa139c09d40ce8ffac6713",
+    "sourceAndInstalledExactMatch": true,
+    "nonManifestFilesMatchReviewedMerge": true,
+    "manifestMatchesReviewedMergeAfterVersionNormalization": true,
+    "priorSourceRollbackPath": "/home/joel/plugins/askrigor.rollback-20260831T234831Z",
+    "priorVersion": "0.1.0+codex.20260831104512",
+    "priorPackageSha256": "fa45c89437048f12c70ad3af90987d451cbcf7b79a059a923d891487d893653d",
+    "pluginValidation": "pass",
+    "askrigorSkillValidation": "pass",
+    "browserArchiveSkillValidation": "pass"
+  },
+  "verification": {
+    "localCompleteGate": {
+      "status": "pass",
+      "testFilesPassed": 122,
+      "testFilesSkipped": 1,
+      "testsPassed": 1586,
+      "testsSkipped": 6,
+      "typecheck": "pass",
+      "build": "pass"
+    },
+    "hostedPullRequestChecks": "all_pass",
+    "closeoutGate": {
+      "command": "npm run typecheck && npm run test:run -- tests/release-packet.test.ts tests/living-evidence-production-deployment.test.ts tests/deployment-installation-continuity.test.ts",
+      "status": "pass",
+      "testFilesPassed": 3,
+      "testsPassed": 21,
+      "typecheck": "pass",
+      "jsonParse": "pass",
+      "diffCheck": "pass"
+    },
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-09-01T00:02:54.363Z"
+    }
+  },
+  "primaryChatProductAcceptance": {
+    "account": "primary",
+    "mode": "Extra High",
+    "surface": "fresh ordinary ChatGPT conversation",
+    "connector": "AskRigor Reviewer",
+    "connectorAppId": "asdk_app_6a95f8e846e4819183fbcb5bdd5266a1",
+    "refreshedSchemaToolCount": 24,
+    "refreshedSchemaMissingTools": 0,
+    "attempts": [
+      {
+        "conversation": "https://chatgpt.com/c/WEB:2b9df73c-2c76-4815-95a1-ff2990d4c408",
+        "status": "failed_cached_schema",
+        "observed": "ChatGPT reported search_research_frontiers was not exposed and did not substitute another research tool."
+      },
+      {
+        "conversation": "https://chatgpt.com/c/WEB:6044d4f1-db0d-4af8-a0da-1023a234f4e8",
+        "status": "retryable_repository_error_after_schema_refresh",
+        "observed": "ChatGPT called search_research_frontiers exactly once and preserved error/currentness/limitation semantics while simultaneous direct MCP acceptance returned no_match."
+      },
+      {
+        "conversation": "https://chatgpt.com/c/WEB:10e7dd9e-7542-4a2f-9e1a-8eee0c2510ec",
+        "status": "pass",
+        "tool": "AskRigor_Reviewer.search_research_frontiers",
+        "toolCallCount": 1,
+        "request": {
+          "query": "prolactinoma spontaneous remission",
+          "limit": 10
+        },
+        "responseRetrievedAt": "2026-09-01T00:01:15.048Z",
+        "searchStatus": "no_match",
+        "resultCount": 0,
+        "frontierCurrency": "not_assessed",
+        "limitationsPreserved": true,
+        "externalEvidenceAbsenceClaimed": false
+      }
+    ],
+    "status": "pass"
+  },
+  "completion": {
+    "typedClaim": "OUTCOME",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_production_runtime_direct_mcp_installed_plugin_and_primary_chat_product_interface",
+    "scientificAdequacy": "pass_for_bounded_lexical_discovery_partial_gap_currentness_and_nonnegative_no_match_semantics_only",
+    "releaseAdequacy": "pass"
+  },
+  "remainingReleaseWork": []
+}

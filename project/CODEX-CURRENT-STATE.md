@@ -1,12 +1,13 @@
 # AskRigor Codex Current State
 
-## 2026-08-31 research-frontier catalog discovery in progress
+## 2026-09-01 research-frontier catalog production release complete
 
-Task `askrigor-living-evidence-frontier-catalog-discovery-v1` is active on
-branch `task/frontier-catalog-discovery-20260831` from exact baseline
-`27bcfdcdc8b7667eaf1da6076304fe3af4c2bd00`. The previous Auth0/public-
-evidence-gap release remains complete and deployed; this task does not reopen
-or broaden it.
+PR #157 merged task `askrigor-living-evidence-frontier-catalog-discovery-v1`
+as `388e932e155af5c6000a7e3233ddb4672e3cff8e`. That exact source is deployed
+in healthy production image
+`sha256:83081706bf905966dd18260c5e5dec2004a2d5be30c352e94a3af1704a097926`.
+The previous Auth0/public-evidence-gap release remains complete; this task does
+not reopen or broaden it.
 
 The bounded product gap is ordinary-run discovery: `get_research_frontier`
 already retrieves prior work when the conversation knows an exact selector,
@@ -15,7 +16,7 @@ wording. The candidate adds one read-only lexical catalog operation over stored
 topic keys, labels, aliases, questions, and structured dimensions. It returns
 exact selectors with explicit partial, blocked, coverage-gap, and currentness-
 not-assessed state, then leaves detailed retrieval to the existing exact tool.
-The standard ChatGPT/Codex catalog grows to 24 tools. The compact Gemini
+The standard ChatGPT/Codex catalog now exposes 24 tools. The compact Gemini
 catalog remains at 22 because including the new schema exceeds its enforced
 25,000-byte compatibility budget; this task is explicitly prioritized for the
 owner's primary ordinary-Chat plugin.
@@ -23,9 +24,13 @@ owner's primary ordinary-Chat plugin.
 This is not automatic contribution, semantic inference, a vector/graph
 subsystem, YouTube/community persistence, or an institutional research program.
 Focused affected tests pass 129/129 across 10 files. The real PostgreSQL 42-check
-acceptance plus dump/wipe/restore pass. Release adequacy remains pending until
-protected merge, deployment, package sync, and fresh primary ordinary-Chat
-discovery-to-exact-lookup acceptance pass.
+acceptance plus dump/wipe/restore pass. Protected review, deployment, direct
+production acceptance, rollback preservation, and exact eight-file plugin
+synchronization pass. The primary Extra High ChatGPT connector was refreshed
+from its cached 23-tool schema to the exact 24-tool release schema. After one
+retryable repository error, a fresh retry called the new tool exactly once and
+returned the correct zero-result `no_match`, `not_assessed`, limitations, and
+non-absence semantics. Release adequacy passes.
 The candidate generated synchronization ledger SHA-256 is
 `2c9aff7ef7208fd29a3beb7c134930dab39a74c75962cdf8758e3bf5b31d3e72`;
 the controlled Instructions remain 4,752 characters with SHA-256
@@ -34,6 +39,15 @@ The complete deterministic gate passes 122 test files with one declared skip,
 1,586 tests with six declared skips, typecheck, and build. Exact local evidence
 is in
 `../docs/audits/2026-08-31-research-frontier-catalog-discovery.json` and `.md`.
+Production and package evidence is in
+`../docs/audits/2026-08-31-research-frontier-catalog-production-release.json`
+and `.md`.
+
+Typed claim: `OUTCOME`. Operational alignment passes for production, direct
+MCP, the installed plugin package, refreshed connector schema, and primary
+ordinary-Chat interface. Scientific adequacy passes only for the bounded
+lexical catalog and its explicit limitations; no scientific synthesis or
+causal conclusion is claimed. Release adequacy passes.
 
 Recovery authority is
 `../docs/superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md`
