@@ -4,7 +4,7 @@ The exclusive active task is defined by `tasks/ACTIVE-TASK.json`. Its current
 recovery state is
 `docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the Codex/Work
 execution boundary is
-`project/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the controlling plan override
+`docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the controlling plan override
 is
 `docs/superpowers/plans/2026-09-01-chat-work-zero-spend-hotfix-addendum.md`; and
 the current source-bound execution directive is
