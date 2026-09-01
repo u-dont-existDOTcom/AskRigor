@@ -53,6 +53,7 @@
   "currentSlice": {
     "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
     "status": "ready_for_protected_merge",
+    "candidateReceipt": "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-candidate.json",
     "boundedOutcome": "Determine whether the private miniature exposes a scientifically solvable agent-facing evidence packet, enforce the agent/grader anti-leakage boundary, and seal a valid frontier-probe package or an exact blocking finding without invoking a frontier model.",
     "completed": [
       "private miniature inventoried by filename, mode, size, and hash without reading grader-only values",
@@ -120,7 +121,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-01T16:03:12.126Z",
+    "checkedAt": "2026-09-01T16:31:12.692Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
