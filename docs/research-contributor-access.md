@@ -98,15 +98,16 @@ creation of a hash-bound `PENDING` promotion intent occur in the same database
 transaction. Rejection creates no intent. The owner tool returns no account key
 and has no canonical writer credential.
 
-Canonical promotion remains a separate maintainer operation. The one-shot
+Canonical promotion remains a separate privileged operation. The one-shot
 `living-evidence-admin promote-accepted` command locks one pending intent,
 reruns the strict contribution preparation, dispatches to the existing
 `contribute` or `contributeFrontier` writer, and stores an exact stable-JSON
 receipt and SHA-256. A crash after the canonical writer commits but before the
 intent receipt commits leaves the intent pending; retry uses the canonical
 writer's existing idempotency key and then completes the receipt. The command
-processes at most one intent per invocation. Automatic scheduling is outside
-this local slice.
+processes at most one intent per invocation. The deployed hardened five-minute
+timer invokes only this command without arguments or a shell; it does not
+change the review or scientific-decision boundary.
 
 ## Database model
 
@@ -159,14 +160,15 @@ the primary ChatGPT/Codex plugin is the supported surface for this slice.
 ## Known limitations and next slice
 
 - There is no checkout or self-service purchase flow.
-- The protected owner-review and one-shot promotion runner are deployed. A
-  hardened five-minute scheduling candidate is tracked separately; until its
-  production receipt exists, an operator must invoke the one-shot command once
-  per pending intent.
+- The protected owner-review, one-shot promotion runner, and hardened five-
+  minute accepted-intent scheduler are deployed. The timer processes at most
+  one already accepted exact-hash intent per activation; manual invocation
+  remains available for immediate handling or rollback operation.
 - The deterministic privacy screen cannot recognize every indirect identifier.
 - Pending proposal retention is operator-managed rather than automatically
   expiring in this slice.
 
-The current next slice is the bounded scheduler release in
-`research-contribution-promotion-scheduler.md`. It does not alter scientific
-review, proposal contents, or canonical writer semantics.
+The scheduler release evidence is in
+`audits/2026-09-01-promotion-scheduler-production-release.md` and its machine
+JSON. It does not alter scientific review, proposal contents, or canonical
+writer semantics.

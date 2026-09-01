@@ -83,7 +83,7 @@ Pre-attempt activation: `PASS`.
    current-state documentation without changing scientific semantics.
 5. [x] Run focused tests and `systemd-analyze verify`, then inspect the final
    diff and lesson status.
-6. [ ] Run the complete applicable deterministic gate, protected review, merge,
+6. [x] Run the complete applicable deterministic gate, protected review, merge,
    exact VPS installation, manual no-pending acceptance, timer activation,
    next-trigger/readback, and rollback-preserving release closeout.
 
@@ -95,8 +95,10 @@ discovery and the base CLI rejected the Compose-only `--project-name` flag. The
 timer was never enabled and production proposal/promotion counts remained zero.
 The repaired unit invokes the reviewed system Compose plugin directly and sets a
 private empty `DOCKER_CONFIG` runtime directory, retaining the intended home and
-credential isolation. This repair requires its own protected merge before the
-installed unit is replaced and activation resumes.
+credential isolation. PR #165 merged the repair as
+`a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`; manual and real timer-triggered
+production runs then completed with `no_pending_promotion`, exit zero, no
+remaining runner container, and no canonical evidence change.
 
 ## Stop triggers
 

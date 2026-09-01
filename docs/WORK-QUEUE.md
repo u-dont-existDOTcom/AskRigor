@@ -16,7 +16,8 @@ catalog discovery through PR #157 are deployed. Automatic ordinary-run
 contribution and durable multi-user research capture are now active under
 `askrigor-living-evidence-free-contributor-private-entitlement-v1`. Owner-only
 exact-hash review and one-shot canonical promotion are deployed through PR
-#161; the bounded promotion-scheduler slice is active on its dedicated branch.
+#161; the bounded accepted-intent scheduler is deployed through PR #165 and has
+passed both manual and real timer-triggered production acceptance.
 Railway hosting remains optional and unprovisioned.
 
 Source: Joel, 2026-08-29
@@ -60,8 +61,8 @@ evidence exists. Authenticated free-contributor runs can now submit strict
 deidentified formal-frontier or source-analysis proposals; public runtime writes
 stop at pending review. The owner-review bridge can explicitly accept or reject
 the exact proposal hash, and only accepted intents can reach the separate
-canonical promoter. Scheduling that already bounded promoter is the current
-release slice; it does not automate scientific acceptance.
+canonical promoter. The deployed scheduler invokes that already bounded
+promoter every five minutes; it does not automate scientific acceptance.
 
 Local PostgreSQL implementation, protected review, merge, and restore
 acceptance pass. Railway remains
