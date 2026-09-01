@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-living-evidence-promotion-scheduler-v1",
+  "recordedAt": "2026-09-01T13:40:02Z",
+  "branch": "task/promotion-scheduler-20260901",
+  "baselineCommit": "c7138eff5dbbce22bb25f727da78006e543fa476",
+  "redTestCommit": "aa6735d1ca329092d041d370dae2e53feb794855",
+  "implementationCommit": "11ba00dae883e90fddca43ba472e3c3494f64b66",
+  "implementationTree": "8e1cea42d6adcbd6de155ffd96094ee743d482d1",
+  "pullRequest": 163,
+  "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/163",
+  "ownerSource": {
+    "path": "docs/audits/2026-09-01-promotion-scheduler-owner-source.txt",
+    "sha256": "e57ddfe2e11a3ac7cd6def01665f54e3a1944e2c79fab2717795dcb2fa18ca80"
+  },
+  "productBoundary": {
+    "decisionOperation": "review_research_contribution",
+    "scheduledOperation": "living-evidence-admin promote-accepted",
+    "cadence": "five_minutes",
+    "maximumPromotionsPerActivation": 1,
+    "dynamicInputAccepted": false,
+    "shellUsed": false,
+    "imagePullOrBuildPermitted": false,
+    "automaticScientificDecision": false,
+    "publicRuntimeCanonicalWriterAuthority": false,
+    "publicRuntimeDockerOrSystemdAuthority": false,
+    "partialFormalCorpora": "eligible_and_labeled_partial"
+  },
+  "artifacts": {
+    "serviceSha256": "3e1ecc21e0dadfe2566d21382398f6e2357218535e88a106be08ebde80ba6da8",
+    "timerSha256": "873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd",
+    "runbookSha256": "db741cf221f185851abf6a02fd305720285e8969476c131e670bd8624bcffdd8",
+    "preflightSha256": "caa3b7e12d56319d9316cacf4dd1fa56956dc54a2e6796c6f2291bf3e1b583ce",
+    "acceptanceSha256": "22a1b1271c4af3b2df22ecf47e4b12d64460e381ea8b2b2c80ef4d1742453f0d",
+    "testSha256": "7cfc3b8a27432fde15aab037bd1bad51e1a9b63812b12486b7a02f62358278f0"
+  },
+  "serviceContract": {
+    "type": "oneshot",
+    "imageSelectionFile": "/opt/askrigor/living-evidence-image.env",
+    "imageSelectionContents": "one non-secret exact image reference only",
+    "composeFiles": [
+      "/opt/askrigor/compose.yaml",
+      "/opt/askrigor/compose.living-evidence.yaml"
+    ],
+    "profile": "living-evidence-admin",
+    "fixedContainerName": "askrigor-research-promotion-runner",
+    "timeout": "5min",
+    "networkAddressFamilies": [
+      "AF_UNIX"
+    ],
+    "hostHardening": [
+      "NoNewPrivileges",
+      "PrivateDevices",
+      "PrivateNetwork",
+      "PrivateTmp",
+      "ProtectHome",
+      "ProtectSystem=strict",
+      "RestrictNamespaces",
+      "empty capability bounding and ambient sets"
+    ]
+  },
+  "timerContract": {
+    "onCalendar": "*-*-* *:00/5:00 UTC",
+    "randomizedDelay": "15s",
+    "accuracy": "1s",
+    "persistent": true,
+    "serializedBySystemd": true
+  },
+  "privacyBoundary": {
+    "credentialInRepositoryOrUnit": false,
+    "databaseUrlInRepositoryOrUnit": false,
+    "proposalPayloadInUnitOrTimer": false,
+    "rawChatOrPrompt": false,
+    "accountKey": false,
+    "identityOrContactData": false,
+    "privateHealthNarrative": false,
+    "uploads": false,
+    "rawSourceOrProviderContent": false,
+    "youtubeOrCommunityData": false,
+    "boundedJournalReceiptOnly": true
+  },
+  "rollback": {
+    "action": "stop and disable the exact timer, remove or restore only its reviewed unit/image-selection bytes, and daemon-reload",
+    "deletesProposals": false,
+    "deletesPromotionIntents": false,
+    "deletesPromotionReceipts": false,
+    "deletesCanonicalEvidence": false,
+    "restoresManualPromotion": true
+  },
+  "verification": {
+    "redTestCommit": "aa6735d1ca329092d041d370dae2e53feb794855",
+    "redTestResult": "four intended missing-artifact failures",
+    "focusedTests": "pass",
+    "focusedTestFiles": 7,
+    "focusedTestsPassed": 57,
+    "typecheck": "pass",
+    "systemdAnalyzeVerify": "pass",
+    "calendarVerify": "pass",
+    "completeDeterministicGate": {
+      "status": "pass",
+      "testFilesPassed": 126,
+      "testFilesSkipped": 1,
+      "testsPassed": 1614,
+      "testsSkipped": 6,
+      "typecheck": "pass",
+      "build": "pass"
+    },
+    "diffCheck": "pass",
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-09-01T13:36:28.105Z"
+    }
+  },
+  "activeLessonApplication": {
+    "ownerCorrection": "pass_ordinary_reciprocal_product_no_institutional_program",
+    "explicitOwnerDecision": "pass_scheduler_only_invokes_existing_accepted_intent_runner",
+    "privilegedWorkflowSafety": "pass_static_no_input_late_isolated_writer_boundary",
+    "exclusiveTaskLock": "pass_branch_bound_preflight",
+    "developmentAssuranceLane": "pass_full_gate_reserved_for_release_checkpoint",
+    "taskTimeActivation": "pass_evidence_recorded"
+  },
+  "productionActivated": false,
+  "supervisionDesignFeedback": null,
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned_for_bounded_scheduler_candidate",
+    "operationalAlignment": "pass_local_candidate",
+    "scientificAdequacy": "preserved_not_expanded",
+    "releaseAdequacy": "pending_protected_merge_and_production_activation"
+  },
+  "remainingReleaseWork": [
+    "protected pull request and merge",
+    "preserve prior unit and timer state plus exact rollback bytes",
+    "install exact reviewed unit and image-selection bytes on the VPS",
+    "manual no-pending or exact accepted-intent service acceptance",
+    "enable timer and record a future trigger",
+    "verify bounded journal output and unchanged healthy public runtime",
+    "merge immutable production release receipt"
+  ]
+}

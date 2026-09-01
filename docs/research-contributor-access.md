@@ -159,15 +159,14 @@ the primary ChatGPT/Codex plugin is the supported surface for this slice.
 ## Known limitations and next slice
 
 - There is no checkout or self-service purchase flow.
-- Promotion scheduling is not active; an operator must invoke the one-shot
-  command once per pending intent.
+- The protected owner-review and one-shot promotion runner are deployed. A
+  hardened five-minute scheduling candidate is tracked separately; until its
+  production receipt exists, an operator must invoke the one-shot command once
+  per pending intent.
 - The deterministic privacy screen cannot recognize every indirect identifier.
 - Pending proposal retention is operator-managed rather than automatically
   expiring in this slice.
-- This local candidate has not been merged, deployed, or installed into the
-  owner ChatGPT/plugin surface.
 
-The recommended next slice is bounded release synchronization: review and merge
-the candidate, migrate and provision the distinct review role, deploy the exact
-image, invoke one synthetic promotion, and perform fresh owner-interface
-acceptance with rollback receipts.
+The current next slice is the bounded scheduler release in
+`research-contribution-promotion-scheduler.md`. It does not alter scientific
+review, proposal contents, or canonical writer semantics.

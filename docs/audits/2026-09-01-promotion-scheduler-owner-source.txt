@@ -1,0 +1,18 @@
+AskRigor promotion-scheduler owner-source receipt
+Recorded: 2026-09-01
+
+Current owner statements, preserved verbatim:
+
+"you should always continue if there are more slices, unless you have a question for me. fix that also in the mission control worker"
+
+"no the entire purpose is to learn from users. they should agree to this or else pay to use it privately"
+
+"yes and continue with all work slices and improvements don't stop"
+
+Reconciled bounded objective:
+
+Continue the released reciprocal-contribution learning loop by scheduling the
+already implemented one-shot promoter. Only an exact proposal that the owner
+has explicitly accepted may be promoted. Scheduling must not accept a proposal,
+make a scientific judgment, expose a canonical-writer credential to the public
+runtime, or turn AskRigor into an institutional research program.

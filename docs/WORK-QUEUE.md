@@ -14,7 +14,9 @@ frontier ledger deployed through PRs #139 and #141 and accepted under
 frontier read access, the public evidence-gap release, and free-text/topic-
 catalog discovery through PR #157 are deployed. Automatic ordinary-run
 contribution and durable multi-user research capture are now active under
-`askrigor-living-evidence-free-contributor-private-entitlement-v1`.
+`askrigor-living-evidence-free-contributor-private-entitlement-v1`. Owner-only
+exact-hash review and one-shot canonical promotion are deployed through PR
+#161; the bounded promotion-scheduler slice is active on its dedicated branch.
 Railway hosting remains optional and unprovisioned.
 
 Source: Joel, 2026-08-29
@@ -54,8 +56,12 @@ catalog slice adds lexical discovery over stored topic labels, aliases,
 questions, and structured dimensions, returning selectors plus explicit
 partial/blocked/gap state. It does not write an ordinary run back to PostgreSQL,
 perform semantic inference, or claim that a lexical no-match means no external
-evidence exists. Automatic contribution remains the next repository capability
-after new conversations can reliably discover prior work.
+evidence exists. Authenticated free-contributor runs can now submit strict
+deidentified formal-frontier or source-analysis proposals; public runtime writes
+stop at pending review. The owner-review bridge can explicitly accept or reject
+the exact proposal hash, and only accepted intents can reach the separate
+canonical promoter. Scheduling that already bounded promoter is the current
+release slice; it does not automate scientific acceptance.
 
 Local PostgreSQL implementation, protected review, merge, and restore
 acceptance pass. Railway remains
