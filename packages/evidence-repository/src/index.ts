@@ -82,6 +82,30 @@ export {
   type PublicGapSubmissionStatus,
 } from "./public-evidence-gap-intake.js";
 export {
+  contributionPrivacyBoundarySchema,
+  freeContributorAgreementSchema,
+  InMemoryResearchContributorAccessStore,
+  PostgresResearchContributorAccessStore,
+  RESEARCH_USE_NOTICE,
+  RESEARCH_USE_NOTICE_VERSION,
+  ResearchAccessError,
+  ResearchContributorAccessService,
+  researchContributionProposalInputSchema,
+  researchUseModeSchema,
+  type ContributionPrivacyBoundary,
+  type FreeContributorAgreement,
+  type PostgresResearchContributorAccessStoreOptions,
+  type ProposalInsertResult,
+  type ResearchAccessView,
+  type ResearchContributionProposalKind,
+  type ResearchContributionProposalRecord,
+  type ResearchContributorAccessServiceOptions,
+  type ResearchContributorAccessStore,
+  type ResearchPrivateEntitlementRecord,
+  type ResearchUseAccountRecord,
+  type ResearchUseMode,
+} from "./research-contributor-access.js";
+export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,
 } from "./frontier-view.js";
