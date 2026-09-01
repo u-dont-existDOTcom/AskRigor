@@ -13,7 +13,8 @@ frontier ledger deployed through PRs #139 and #141 and accepted under
 `askrigor-living-evidence-research-frontier-v1`; exact-selector ordinary-run
 frontier read access, the public evidence-gap release, and free-text/topic-
 catalog discovery through PR #157 are deployed. Automatic ordinary-run
-contribution and durable multi-user research capture remain queued.
+contribution and durable multi-user research capture are now active under
+`askrigor-living-evidence-free-contributor-private-entitlement-v1`.
 Railway hosting remains optional and unprovisioned.
 
 Source: Joel, 2026-08-29

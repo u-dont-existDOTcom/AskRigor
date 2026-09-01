@@ -1,5 +1,35 @@
 # AskRigor Codex Current State
 
+## 2026-09-01 free-contributor/private-entitlement slice active
+
+Task `askrigor-living-evidence-free-contributor-private-entitlement-v1` is
+active on branch `task/free-contributor-private-entitlement-20260901` from
+baseline `1a413cb6f9e0cbdcedc84760bb9a9185b663382a`. Run
+`npm run contributor-access:preflight` before resuming and
+`npm run contributor-access:acceptance` for task-specific completion. Ordinary
+green tests are prerequisites rather than task completion.
+
+The owner's current product rule supersedes the earlier anonymous-free-tool
+assumption: free AskRigor requires explicit agreement that eligible
+deidentified structured research progress may enter a shared proposal queue;
+non-contributing use is paid private. This remains an ordinary public product,
+not an institutional research program or pilot. No price or provider is chosen,
+so paid-private activation must require an already verified entitlement and
+otherwise fail closed.
+
+The bounded slice adds pseudonymous access-mode state, a reviewed proposal
+inbox using the existing exact formal-frontier and source-analysis schemas, and
+OAuth enforcement for ordinary research use. Raw chat, identity/contact data,
+private health narratives, uploads, raw source/provider bodies, and
+YouTube/community data remain prohibited. Public submissions cannot directly
+mutate canonical evidence. Partial formal corpora remain usable and labeled.
+
+Recovery authority is `../tasks/ACTIVE-TASK.json` and
+`../docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md`.
+The completed catalog, community-forum expansion, evidence-gap expansion, and
+unrelated architecture/release queues are suspended as task selectors until
+this lock reaches a terminal state.
+
 ## 2026-09-01 research-frontier catalog production release complete
 
 PR #157 merged task `askrigor-living-evidence-frontier-catalog-discovery-v1`

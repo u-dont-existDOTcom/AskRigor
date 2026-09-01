@@ -1,49 +1,51 @@
 {
   "schemaVersion": 1,
-  "taskId": "askrigor-living-evidence-frontier-catalog-discovery-v1",
-  "status": "complete",
-  "exclusive": false,
-  "requiredBranch": "task/frontier-catalog-release-receipt-20260831",
-  "implementationBranch": "task/frontier-catalog-discovery-20260831",
-  "baselineCommit": "27bcfdcdc8b7667eaf1da6076304fe3af4c2bd00",
+  "taskId": "askrigor-living-evidence-free-contributor-private-entitlement-v1",
+  "status": "active",
+  "exclusive": true,
+  "requiredBranch": "task/free-contributor-private-entitlement-20260901",
+  "baselineCommit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a",
   "assuranceLane": "iteration",
   "targetedHardGates": [
-    "read-only catalog query and database transaction",
-    "no raw source, provider, personal, or community content",
-    "partial and gapped frontier state remains explicit",
-    "no-match is not negative evidence",
-    "repository currentness remains not assessed"
+    "OAuth-authenticated access mode with owner-only review subject isolation",
+    "free contribution agreement is explicit and versioned",
+    "paid-private mode requires a verified entitlement and has no shared contribution",
+    "no raw chat, identity, private health, source body, provider body, or community data",
+    "public writes stop at a pending proposal and cannot mutate canonical evidence",
+    "partial formal corpora remain usable and labeled"
   ],
-  "ownerObjective": "Make prior AskRigor research discoverable and reusable as the base for further research instead of requiring an already-known exact repository selector.",
-  "boundedOutcome": "A new ordinary conversation can lexically search stored topic/question metadata, receive exact frontier selectors and bounded coverage state, then use get_research_frontier for detailed continuation.",
+  "ownerObjective": "Make free AskRigor a reciprocal product that learns from eligible deidentified structured research progress, while reserving non-contributing use for verified paid-private access.",
+  "boundedOutcome": "An OAuth-authenticated person must activate free-contributor or verified paid-private mode before ordinary research use; a free contributor can submit a sanitized formal research proposal into a non-authoritative review inbox, while paid-private use contributes nothing.",
   "nonGoals": [
-    "automatic ordinary-run write-through",
-    "vector or graph infrastructure",
+    "pricing or payment-provider selection",
+    "automatic canonical evidence promotion",
+    "raw conversation or personal-health storage",
     "YouTube or community persistence",
     "institutional research program or pilot",
     "scientific or causal inference"
   ],
-  "plan": "docs/superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md",
-  "completionCommand": "npm run verify",
-  "implementationCommit": "b15d2b77023a6d85802a49d2511314d458a3f5d7",
-  "localCandidateReceipt": "docs/audits/2026-08-31-research-frontier-catalog-discovery.json",
-  "pullRequest": 157,
-  "mergeCommit": "388e932e155af5c6000a7e3233ddb4672e3cff8e",
-  "productionImage": "sha256:83081706bf905966dd18260c5e5dec2004a2d5be30c352e94a3af1704a097926",
-  "installedPluginVersion": "0.1.0+codex.20260831234858",
-  "productionReceipt": "docs/audits/2026-08-31-research-frontier-catalog-production-release.json",
-  "completedAt": "2026-09-01T00:01:54Z",
+  "plan": "docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md",
+  "preflightCommand": "npm run contributor-access:preflight",
+  "completionCommand": "npm run contributor-access:acceptance",
+  "pullRequest": null,
+  "suspendedTaskSources": [
+    "completed frontier-catalog task",
+    "global work queue selection",
+    "community forum expansion",
+    "evidence-gap network expansion",
+    "unrelated deployment and architecture queues"
+  ],
   "previousCompletedTask": {
-    "taskId": "askrigor-auth0-evidence-gap-release-v1",
-    "releaseCommit": "7c0e589d50325de537ee042b4e3df3ed81adbd4b",
-    "evidenceCloseoutMergeCommit": "27bcfdcdc8b7667eaf1da6076304fe3af4c2bd00"
+    "taskId": "askrigor-living-evidence-frontier-catalog-discovery-v1",
+    "mergeCommit": "388e932e155af5c6000a7e3233ddb4672e3cff8e",
+    "releaseReceiptMergeCommit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a"
   },
   "supervision": {
-    "completionClaim": "OUTCOME",
+    "completionClaim": "IMPLEMENTATION_IN_PROGRESS",
     "workerToContract": "aligned",
-    "contractToOwner": "aligned",
-    "operationalAlignment": "production_runtime_direct_mcp_installed_package_and_primary_chat_pass",
-    "scientificAdequacy": "pass_for_catalog_discovery_semantics_only",
-    "releaseAdequacy": "pass"
+    "contractToOwner": "aligned_after_owner_correction",
+    "operationalAlignment": "pending_local_vertical_slice",
+    "scientificAdequacy": "not_a_scientific_claim",
+    "releaseAdequacy": "not_assessed"
   }
 }
