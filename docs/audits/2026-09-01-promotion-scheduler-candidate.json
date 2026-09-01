@@ -7,8 +7,12 @@
   "redTestCommit": "aa6735d1ca329092d041d370dae2e53feb794855",
   "implementationCommit": "11ba00dae883e90fddca43ba472e3c3494f64b66",
   "implementationTree": "8e1cea42d6adcbd6de155ffd96094ee743d482d1",
-  "pullRequest": 163,
-  "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/163",
+  "initialPullRequest": 163,
+  "initialMergeCommit": "f146539db8b794fce79a979980ec9d43da8c92a6",
+  "repairRedTestCommit": "c899df4118ec1ca4f27899c08825b934d00290da",
+  "repairCommit": "2f90e17aede149d768f0217afd0ae3ea338cbb6b",
+  "repairTree": "5f77279d99ada21efe832e477fad7425443d24cd",
+  "pullRequest": null,
   "ownerSource": {
     "path": "docs/audits/2026-09-01-promotion-scheduler-owner-source.txt",
     "sha256": "e57ddfe2e11a3ac7cd6def01665f54e3a1944e2c79fab2717795dcb2fa18ca80"
@@ -27,12 +31,12 @@
     "partialFormalCorpora": "eligible_and_labeled_partial"
   },
   "artifacts": {
-    "serviceSha256": "3e1ecc21e0dadfe2566d21382398f6e2357218535e88a106be08ebde80ba6da8",
+    "serviceSha256": "a2b32e9c8352883b63a3b0d1aba7acb89f4ce263028fcba777d30de73e3ab3cc",
     "timerSha256": "873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd",
-    "runbookSha256": "db741cf221f185851abf6a02fd305720285e8969476c131e670bd8624bcffdd8",
+    "runbookSha256": "4ec264244b826fb2a33bb0e8b5f54e109886bda1245063f49a6d29038e841e9c",
     "preflightSha256": "caa3b7e12d56319d9316cacf4dd1fa56956dc54a2e6796c6f2291bf3e1b583ce",
     "acceptanceSha256": "22a1b1271c4af3b2df22ecf47e4b12d64460e381ea8b2b2c80ef4d1742453f0d",
-    "testSha256": "7cfc3b8a27432fde15aab037bd1bad51e1a9b63812b12486b7a02f62358278f0"
+    "testSha256": "16a8342b7117870192c1d889c2f05278334b6c7dd1ba9314ac1901af9d5c60ab"
   },
   "serviceContract": {
     "type": "oneshot",
@@ -90,13 +94,15 @@
   "verification": {
     "redTestCommit": "aa6735d1ca329092d041d370dae2e53feb794855",
     "redTestResult": "four intended missing-artifact failures",
+    "repairRedTestCommit": "c899df4118ec1ca4f27899c08825b934d00290da",
+    "repairRedTestResult": "system Compose plugin isolation regression failed before repair",
     "focusedTests": "pass",
     "focusedTestFiles": 7,
     "focusedTestsPassed": 57,
     "typecheck": "pass",
     "systemdAnalyzeVerify": "pass",
     "calendarVerify": "pass",
-    "completeDeterministicGate": {
+    "completeDeterministicGateBeforeProductionRepair": {
       "status": "pass",
       "testFilesPassed": 126,
       "testFilesSkipped": 1,
@@ -105,6 +111,8 @@
       "typecheck": "pass",
       "build": "pass"
     },
+    "repairFocusedGate": "pass_57_tests_and_typecheck",
+    "repairProtectedGate": "pending",
     "diffCheck": "pass",
     "lessonQueue": {
       "status": "available",
@@ -135,7 +143,7 @@
     "releaseAdequacy": "pending_protected_merge_and_production_activation"
   },
   "remainingReleaseWork": [
-    "protected pull request and merge",
+    "protected repair pull request and merge",
     "preserve prior unit and timer state plus exact rollback bytes",
     "install exact reviewed unit and image-selection bytes on the VPS",
     "manual no-pending or exact accepted-intent service acceptance",

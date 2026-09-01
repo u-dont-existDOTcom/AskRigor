@@ -8,7 +8,16 @@ artifact checks failed before implementation. Code-bearing commit
 five-minute persistent timer, task controls, deployment/rollback runbook, and
 privacy/architecture/recovery documentation.
 
-PR #163 is the protected merge and release-readiness surface.
+PR #163 merged the initial candidate as
+`f146539db8b794fce79a979980ec9d43da8c92a6`. Its first production manual run
+failed before any promotion because `ProtectHome=yes` hid Docker's client
+configuration and plugin discovery fell back to the base CLI. The timer remained
+disabled, proposal/promotion counts remained zero, and public production stayed
+healthy. Repair-red commit `c899df4118ec1ca4f27899c08825b934d00290da`
+captures the failure. Repair commit
+`2f90e17aede149d768f0217afd0ae3ea338cbb6b` invokes the reviewed
+system-installed Compose plugin directly and provides a private empty Docker
+configuration directory, preserving `ProtectHome=yes` without warnings.
 
 The scheduler cannot accept, reject, edit, or supply a proposal. It invokes only
 the existing `living-evidence-admin promote-accepted` command, with no shell or
@@ -24,19 +33,22 @@ credential, proposal payload, account key, or private content. The separate
 short-lived admin container continues to receive only its existing root-owned
 writer environment. Journal output is limited to the bounded operation result.
 
-The service SHA-256 is
-`3e1ecc21e0dadfe2566d21382398f6e2357218535e88a106be08ebde80ba6da8`;
+The repaired service SHA-256 is
+`a2b32e9c8352883b63a3b0d1aba7acb89f4ce263028fcba777d30de73e3ab3cc`;
 the timer SHA-256 is
 `873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd`;
-and the runbook SHA-256 is
-`db741cf221f185851abf6a02fd305720285e8969476c131e670bd8624bcffdd8`.
+and the repaired runbook SHA-256 is
+`4ec264244b826fb2a33bb0e8b5f54e109886bda1245063f49a6d29038e841e9c`.
 `systemd-analyze verify` passes both units, and the calendar parser confirms the
 exact five-minute UTC expression.
 
 Focused scheduler, deployment, router, release, and continuity tests pass 57/57
 across seven files. The complete Node 24.18.0 deterministic gate passes 126 test
 files with one declared skip, 1,614 tests with six declared skips, typecheck,
-and build. The final diff passes whitespace validation.
+and build before the production repair. After the repair, the same focused
+57/57 gate, typecheck, and both systemd validators pass; the protected repair
+gate remains the exact full-suite release boundary. The final diff passes
+whitespace validation.
 
 Rollback stops and disables only the exact timer, restores or removes its unit
 and image-selection bytes, and leaves proposals, promotion intents, receipts,

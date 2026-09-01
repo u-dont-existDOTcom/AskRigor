@@ -24,14 +24,25 @@ is `../docs/superpowers/plans/2026-09-01-promotion-scheduler.md`; the independen
 owner-source receipt is
 `../docs/audits/2026-09-01-promotion-scheduler-owner-source.txt`.
 
-Current state: local candidate ready for protected merge. Red contract commit
+Current state: repaired local candidate ready for protected merge. Red contract commit
 `aa6735d1ca329092d041d370dae2e53feb794855` and implementation commit
 `11ba00dae883e90fddca43ba472e3c3494f64b66` preserve test-first provenance.
 Focused coverage passes 57/57, both systemd validators pass, and the complete
 deterministic gate passes 126 files with one declared skip and 1,614 tests with
 six declared skips, followed by build. Exact local evidence is in
 `../docs/audits/2026-09-01-promotion-scheduler-candidate.json` and `.md`.
-PR #163 is the protected merge and release-readiness surface.
+
+PR #163 merged the initial candidate as
+`f146539db8b794fce79a979980ec9d43da8c92a6`. Its first manual production run
+failed before any promotion because the protected host service could not
+discover the Compose plugin through Docker's root client configuration. The
+timer remained disabled, database proposal/promotion counts remained zero, and
+the public runtime stayed healthy. Repair-red commit
+`c899df4118ec1ca4f27899c08825b934d00290da` and repair commit
+`2f90e17aede149d768f0217afd0ae3ea338cbb6b` now bind the system Compose plugin
+directly and give Docker a private empty runtime configuration directory. The
+focused 57/57 gate, typecheck, and systemd validators pass; protected repair
+review and activation remain.
 
 Typed completion claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment
 passes for the local candidate. Scientific adequacy is preserved but not

@@ -87,6 +87,17 @@ Pre-attempt activation: `PASS`.
    exact VPS installation, manual no-pending acceptance, timer activation,
    next-trigger/readback, and rollback-preserving release closeout.
 
+### Production activation recovery
+
+PR #163 merged the initial candidate, but its first manual service run failed
+before the admin container started: `ProtectHome=yes` hid Docker client/plugin
+discovery and the base CLI rejected the Compose-only `--project-name` flag. The
+timer was never enabled and production proposal/promotion counts remained zero.
+The repaired unit invokes the reviewed system Compose plugin directly and sets a
+private empty `DOCKER_CONFIG` runtime directory, retaining the intended home and
+credential isolation. This repair requires its own protected merge before the
+installed unit is replaced and activation resumes.
+
 ## Stop triggers
 
 Stop the affected path if scheduling requires a credential in Git or the unit,
