@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "directiveType": "CHAT_TO_CODEX_EXECUTION_DIRECTIVE",
+  "directiveId": "askrigor-mast-zero-spend-chatgpt-consumer-smoke-v1",
+  "directiveRevision": 1,
+  "status": "ACTIVE",
+  "issuedAt": "2026-09-01T20:35:27Z",
+  "issuedAtBasis": "CURRENT_CHAT_CAPTURE_TIME_NATIVE_MESSAGE_ID_UNAVAILABLE",
+  "reasoningSource": {
+    "surfaceRole": "PROJECT_MANAGER_CHAT",
+    "providerSurface": "CHATGPT_CONSUMER",
+    "model": "GPT-5.6_PRO",
+    "authorityBasis": [
+      "current explicit owner correction requiring Extra High/Pro ChatGPT reasoning and evaluation",
+      "zero-spend owner decision",
+      "this exact committed directive artifact"
+    ],
+    "nativeMessageId": null,
+    "provenanceLimitation": "The current ChatGPT surface does not expose a native provider message ID to the repository writer; the exact directive bytes and Git identity are preserved, but provider-message provenance is not claimed."
+  },
+  "ownerOutcome": "Continue the MAST evaluation program without paid API model inference, using Extra High or Pro ChatGPT for reasoning and evaluation and Codex/Work only for bounded mechanical operations.",
+  "executionObjective": "Prove one complete zero-spend consumer-ChatGPT collection path from sealed MAST case input through exact prompt generation, automatic internal ChatGPT routing, exact response capture, provenance validation, and deterministic non-LLM processing, without making a scientific performance claim.",
+  "whyThisSlice": "The prior plan is sealed and zero-spend, but the next path was incorrectly replaced by Codex-authored API budgets. This slice tests the owner-approved ChatGPT consumer route before any full pilot is attempted.",
+  "allowedActions": [
+    "Read the merged NOHARM pilot manifest and pinned MAST source at the exact current repository head.",
+    "Select exactly three predeclared development-discovery items from three distinct specialty families using a deterministic rule fixed before viewing outputs.",
+    "Generate paired BARE and HRP prompt packets using the existing adapter so every non-instruction byte is identical within each pair.",
+    "Hash and freeze every exact prompt before routing.",
+    "Create or reuse fresh isolated ChatGPT consumer conversations configured for Extra High or Pro reasoning, with no prior candidate, response, judge output, or cross-condition transcript supplied.",
+    "Route all six exact prompts automatically through the configured internal supervisor/worker browser transport; do not ask Joel to copy, paste, repeat, or say send it.",
+    "Capture the complete visible response bytes, conversation URL or immutable locator, source-sent time when exposed, Mission Control capture time, displayed model/mode evidence, and SHA-256.",
+    "Store raw prompt/response artifacts only in the existing private mode-0700 artifact root; commit only non-sensitive hashes and aggregate transport receipts.",
+    "Run deterministic parser and SCT/non-LLM checks that do not require a paid judge.",
+    "Return an exact execution receipt to the Project Manager Chat with transport success/failure, contamination checks, unmatched pairs, timing, and remaining scientific-evaluation needs."
+  ],
+  "forbiddenActions": [
+    "Any paid OpenAI-compatible API model or judge call.",
+    "Any dollar proposal, spending ceiling, or argument for reviving the API path.",
+    "Any change to canonical Universal or HRP protocol bytes.",
+    "Any benchmark-responsive repair of HRP.",
+    "Any full ten-family pilot or untouched confirmation run.",
+    "Any claim that three transport-smoke items measure HRP efficacy.",
+    "Any Codex-authored methodology, scientific interpretation, ranking, or consequential next-step choice.",
+    "Any use of one condition's response, conversation, or critique in the other condition's prompt.",
+    "Any cross-candidate debate, self-refinement, or evaluator feedback to the response-producing chat.",
+    "Any request that Joel act as the routine message courier."
+  ],
+  "fixedControls": {
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "providerSurface": "CHATGPT_CONSUMER_INCLUDED_OWNER_PLAN",
+    "reasoningMode": "EXTRA_HIGH_OR_PRO",
+    "items": 3,
+    "conditionsPerItem": 2,
+    "maximumPromptRoutes": 6,
+    "oneFreshConversationPerPrompt": true,
+    "crossConditionContext": false,
+    "memoryOrPriorTranscriptInjected": false,
+    "paidJudgeCalls": false,
+    "automaticPromotion": false
+  },
+  "requiredEvidence": [
+    "exact repository branch and head",
+    "deterministic item-selection receipt",
+    "six exact prompt hashes and paired-byte equality proof",
+    "six destination conversation identities or explicit transport failures",
+    "source and capture timestamps kept distinct",
+    "six exact response hashes or explicit missing-response records",
+    "contamination and cross-condition isolation checks",
+    "private artifact-root mode and path-hash receipt",
+    "deterministic parser/check results",
+    "zero paid-call and zero-dollar evidence",
+    "no scientific-effect claim"
+  ],
+  "stopAndReviewBoundary": [
+    "Stop after the six-route transport/provenance smoke is complete or an exact external transport blocker is proven.",
+    "Do not proceed to the full development pilot.",
+    "Return factual evidence automatically to the Project Manager Chat.",
+    "The Project Manager or designated specialist supervisor decides whether the consumer-chat path is sufficiently controlled, what evaluator path is scientifically adequate, and whether another zero-spend slice should run."
+  ],
+  "ownerActionRequired": false,
+  "paidApiPath": "CANCELED",
+  "completionClaimAllowed": "BOUNDED_TRANSPORT_AND_PROVENANCE_SMOKE_COMPLETE_PARENT_OPEN"
+}
