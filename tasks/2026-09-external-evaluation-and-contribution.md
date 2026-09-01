@@ -12,7 +12,7 @@
 
 ## Queue policy
 
-The promotion scheduler remains the repository's exclusive active release until VPS installation, end-to-end activation evidence, and immutable closeout are complete. This file registers Phase 2.2 as the next program; it does not supersede `tasks/ACTIVE-TASK.json`.
+The promotion scheduler is installed and active; manual and repeated real timer-triggered runs pass, and receipt-only PR #166 is its immutable protected closeout. This file registers Phase 2.2 as the next program; it does not supersede `tasks/ACTIVE-TASK.json` or activate itself before a fresh post-#166 priority check.
 
 Once activated, MAST is the highest strategic priority for determining whether HRP improves or degrades clinically consequential reasoning. Terminal-Bench-Science has equal calendar urgency until its fixed external deadline. Benchmark-integrity controls are shared infrastructure for both. K-Bench-style authentic-request evaluation remains deferred until the Terminal-Bench submission is secure.
 
@@ -22,7 +22,7 @@ No benchmark case may be used to tune HRP before the first paired evaluation epo
 
 | Priority | Lane | Current state | Next mechanically executable action after activation | Completion boundary |
 | --- | --- | --- | --- | --- |
-| P0.0 | Queue registration | **IN PROTECTED REVIEW / QUEUED NEXT** | Merge the additive queue, conception snapshot, source registry, overlap decision, governance policy, and recovery checkpoint while preserving the active scheduler pointer | GitHub records this program without changing which release is active |
+| P0.0 | Queue registration | **MERGED / QUEUED NEXT** | After scheduler receipt PR #166, resolve protected-main priority and create a separate activation commit if still current | GitHub records this program without changing which release is active |
 | P0.1 | MAST paired HRP evaluation | **SPECIFIED / NOT RUN** | Build the endpoint adapter, condition-equality checks, sealed run manifest, deterministic SCT analysis, and NOHARM pilot declaration | Complete paired SCT and NOHARM epochs with raw artifacts, official scores, and blinded discordance review |
 | P0.2 | Terminal-Bench-Science v0.2 | **PROPOSAL DRAFTED / PROOF PENDING** | Select a redistributable or defensibly semisynthetic report family and build a non-public miniature latent-study fixture plus deterministic verifier proof | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
 | P0.3 | Benchmark integrity governance | **POLICY + SCHEMAS DRAFTED** | Validate the manifest and defect-ledger schemas against the first MAST and Terminal-Bench artifacts | Every result is version-bound, contestable, independently rechecked when consequential, and preserves original versus corrected epochs |

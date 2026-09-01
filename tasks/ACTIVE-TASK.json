@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-promotion-scheduler-v1",
-  "status": "ready_for_protected_merge",
+  "status": "production_release_complete",
   "exclusive": true,
   "requiredBranch": "task/promotion-scheduler-20260901",
   "baselineCommit": "c7138eff5dbbce22bb25f727da78006e543fa476",
@@ -32,11 +32,14 @@
   "ownerSourceReceipt": "docs/audits/2026-09-01-promotion-scheduler-owner-source.txt",
   "ownerSourceSha256": "e57ddfe2e11a3ac7cd6def01665f54e3a1944e2c79fab2717795dcb2fa18ca80",
   "completionReceipt": "docs/audits/2026-09-01-promotion-scheduler-candidate.json",
-  "productionReleaseReceipt": null,
+  "productionReleaseReceipt": "docs/audits/2026-09-01-promotion-scheduler-production-release.json",
   "pullRequest": 165,
+  "receiptPullRequest": 166,
   "initialPullRequest": 163,
   "initialMergeCommit": "f146539db8b794fce79a979980ec9d43da8c92a6",
   "repairPullRequest": 165,
+  "mergeCommit": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
+  "mergeTree": "bc3513bbb2edc221a9f0f2217b9bb589e8eed74c",
   "redTestCommit": "aa6735d1ca329092d041d370dae2e53feb794855",
   "implementationCommit": "11ba00dae883e90fddca43ba472e3c3494f64b66",
   "repairRedTestCommit": "c899df4118ec1ca4f27899c08825b934d00290da",
@@ -61,14 +64,21 @@
     "cadence": "five_minutes",
     "maximumPromotionsPerActivation": 1,
     "automaticScientificDecision": false,
-    "productionActivated": false
+    "productionActivated": true,
+    "installedServiceSha256": "a2b32e9c8352883b63a3b0d1aba7acb89f4ce263028fcba777d30de73e3ab3cc",
+    "installedTimerSha256": "873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd",
+    "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1",
+    "firstAutomaticTriggerAt": "2026-09-01T14:00:13Z",
+    "firstAutomaticResult": "no_pending_promotion",
+    "lastAutomaticTriggerObservedAtCloseout": "2026-09-01T14:15:14Z",
+    "nextAutomaticTriggerObservedAtCloseout": "2026-09-01T14:20:11Z"
   },
   "supervision": {
-    "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "completionClaim": "OUTCOME",
     "workerToContract": "green",
-    "contractToOwner": "aligned_for_bounded_scheduler_slice",
-    "operationalAlignment": "pass_local_candidate",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_exact_units_manual_and_timer_trigger_retry_boundary_rollback_and_unchanged_public_runtime",
     "scientificAdequacy": "preserved_not_expanded",
-    "releaseAdequacy": "pending_protected_merge_and_production_activation"
+    "releaseAdequacy": "pass"
   }
 }

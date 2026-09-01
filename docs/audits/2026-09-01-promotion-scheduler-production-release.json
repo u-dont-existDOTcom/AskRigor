@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-living-evidence-promotion-scheduler-v1",
+  "recordedAt": "2026-09-01T14:16:52Z",
+  "releaseState": "production_release_complete",
+  "source": {
+    "initialPullRequest": 163,
+    "initialHead": "648af89cbf4cc655e1f9f255f5d50a6e204111a0",
+    "initialMergeCommit": "f146539db8b794fce79a979980ec9d43da8c92a6",
+    "initialMergeTree": "66c10838fdc85b7197f2dde4731c3eb668e56210",
+    "repairPullRequest": 165,
+    "repairHead": "a10da84fbbe511755f656d89bf0971a187738bd7",
+    "repairMergeCommit": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
+    "repairMergeTree": "bc3513bbb2edc221a9f0f2217b9bb589e8eed74c",
+    "repairMergedAt": "2026-09-01T13:56:05Z",
+    "receiptPullRequest": 166,
+    "reconciledMainPullRequest": 164,
+    "reconciledMainCommit": "e47b122a2dd07d460bd50c008a62407278ccf958",
+    "reconciliationDisposition": "planning-only queued external-evaluation artifacts preserved; stale scheduler-predecessor wording corrected without activating that program"
+  },
+  "productBoundary": {
+    "decisionOperation": "review_research_contribution",
+    "scheduledOperation": "living-evidence-admin promote-accepted",
+    "cadence": "five_minutes",
+    "maximumPromotionsPerActivation": 1,
+    "dynamicInputAccepted": false,
+    "shellUsed": false,
+    "imagePullOrBuildPermitted": false,
+    "automaticScientificDecision": false,
+    "publicRuntimeCanonicalWriterAuthority": false,
+    "publicRuntimeDockerOrSystemdAuthority": false,
+    "ordinaryPublicProduct": true,
+    "institutionalResearchProgram": false,
+    "partialFormalCorpora": "eligible_and_labeled_partial"
+  },
+  "installedArtifacts": {
+    "servicePath": "/etc/systemd/system/askrigor-research-promotion.service",
+    "serviceSha256": "a2b32e9c8352883b63a3b0d1aba7acb89f4ce263028fcba777d30de73e3ab3cc",
+    "serviceBytes": 1825,
+    "serviceOwnerMode": "root:root_0644",
+    "timerPath": "/etc/systemd/system/askrigor-research-promotion.timer",
+    "timerSha256": "873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd",
+    "timerBytes": 264,
+    "timerOwnerMode": "root:root_0644",
+    "imageSelectionPath": "/opt/askrigor/living-evidence-image.env",
+    "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1",
+    "imageSelectionBytes": 83,
+    "imageSelectionOwnerMode": "root:root_0600",
+    "systemdAnalyzeVerify": "pass",
+    "systemdSecurityExposure": "2.7_OK"
+  },
+  "scheduledImage": {
+    "reference": "askrigor-research:bfc2918476d2c4d5ae9b01df6c3a603fd3418596",
+    "imageId": "sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da",
+    "researchContainer": "4230d0de22d7cda81fbe2a4c9ae1e836ea3b9c9b5de6f312da6c71f886dbac55",
+    "researchHealthy": true,
+    "researchRunsAsNode": true,
+    "researchReadOnlyFilesystem": true,
+    "researchCapabilitiesDropped": "ALL",
+    "researchNoNewPrivileges": true,
+    "databaseContainer": "cf767390e8247d77a035da4582604bd151f43e0495ccb84170043a71c2a85fa6",
+    "databaseHealthy": true,
+    "backendOrPluginBytesChangedBySchedulerRelease": false
+  },
+  "activationRecovery": {
+    "initialAttemptAt": "2026-09-01T13:46:52Z",
+    "initialExitStatus": 125,
+    "initialFailure": "ProtectHome hid Docker client plugin discovery and the base CLI rejected the Compose-only --project-name flag",
+    "timerEnabledDuringFailure": false,
+    "adminContainerStartedDuringFailure": false,
+    "proposalCountAfterFailure": 0,
+    "promotionCountAfterFailure": 0,
+    "repair": "invoke /usr/libexec/docker/cli-plugins/docker-compose directly with a private empty DOCKER_CONFIG RuntimeDirectory",
+    "repairPreservedProtectHome": true,
+    "repairProtectedMergeRequiredAndPassed": true
+  },
+  "manualAcceptance": {
+    "startedAt": "2026-09-01T13:56:49Z",
+    "completedAt": "2026-09-01T13:56:51Z",
+    "result": "no_pending_promotion",
+    "exitStatus": 0,
+    "serviceResult": "success",
+    "runnerContainerRemaining": false
+  },
+  "timerAcceptance": {
+    "enabled": true,
+    "active": true,
+    "subState": "waiting",
+    "firstTriggerAt": "2026-09-01T14:00:13Z",
+    "firstRunCompletedAt": "2026-09-01T14:00:15Z",
+    "firstRunResult": "no_pending_promotion",
+    "firstRunExitStatus": 0,
+    "successfulAutomaticRunsObserved": 4,
+    "lastTriggerObservedAtCloseout": "2026-09-01T14:15:14Z",
+    "lastRunCompletedAtCloseout": "2026-09-01T14:15:17Z",
+    "lastRunResultAtCloseout": "no_pending_promotion",
+    "nextTriggerObservedAtCloseout": "2026-09-01T14:20:11Z",
+    "runnerContainerRemaining": false,
+    "journalPrivacyScan": "safe",
+    "boundedLogNoise": "Compose reports the separately managed askrigor-caddy-1 container as an orphan; no remove-orphans flag is used"
+  },
+  "databaseAcceptance": {
+    "proposalCountBeforeActivation": 0,
+    "promotionCountBeforeActivation": 0,
+    "proposalCountAfterScheduledRun": 0,
+    "promotionCountAfterScheduledRun": 0,
+    "canonicalEvidenceChangedDuringAcceptance": false
+  },
+  "rollback": {
+    "priorServiceState": "not_found",
+    "priorTimerState": "not_found",
+    "priorImageSelectionState": "absent",
+    "rollbackDirectory": "/opt/askrigor/rollbacks/pre-promotion-scheduler-f146539db8b794fce79a979980ec9d43da8c92a6",
+    "action": "stop and disable the exact timer, stop the service, remove the three newly installed scheduler files, daemon-reload, and reset the exact failed unit",
+    "deletesProposals": false,
+    "deletesPromotionIntents": false,
+    "deletesPromotionReceipts": false,
+    "deletesCanonicalEvidence": false,
+    "manualPromotionRemainsAvailable": true
+  },
+  "verification": {
+    "localRepairFocusedGate": {
+      "status": "pass",
+      "testFilesPassed": 7,
+      "testsPassed": 57,
+      "typecheck": "pass",
+      "systemdAnalyzeVerify": "pass",
+      "calendarVerify": "pass"
+    },
+    "initialPullRequestChecks": {
+      "deterministicRun": 33515079181,
+      "deterministicJob": 99880102756,
+      "workflowPolicyRun": 33515079385,
+      "codeqlRun": 33515075278,
+      "status": "all_pass"
+    },
+    "repairPullRequestChecks": {
+      "deterministicRun": 33516075823,
+      "deterministicJob": 99883548842,
+      "workflowPolicyRun": 33516075837,
+      "workflowPolicyJob": 99883303749,
+      "codeqlRun": 33516069879,
+      "codeqlAggregateCheck": 99883485080,
+      "status": "all_pass"
+    },
+    "postMergeMainChecks": {
+      "head": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
+      "deterministicRun": 33516396372,
+      "deterministicJob": 99884387054,
+      "workflowPolicyRun": 33516396205,
+      "workflowPolicyJob": 99884386016,
+      "codeqlRun": 33516396140,
+      "status": "all_pass"
+    },
+    "receiptCloseoutGate": {
+      "node": "24.18.0",
+      "status": "pass",
+      "testFilesPassed": 5,
+      "testsPassed": 40,
+      "typecheck": "pass",
+      "systemdAnalyzeVerify": "pass",
+      "calendarVerify": "pass",
+      "jsonAndDiffCheck": "pass"
+    },
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-09-01T14:14:51.714Z"
+    }
+  },
+  "completion": {
+    "typedClaim": "OUTCOME",
+    "workerToContract": "aligned",
+    "contractToOwner": "aligned",
+    "operationalAlignment": "pass_exact_units_manual_and_timer_trigger_retry_boundary_rollback_and_unchanged_public_runtime",
+    "scientificAdequacy": "preserved_not_expanded_owner_acceptance_remains_the_only_scientific_decision",
+    "releaseAdequacy": "pass"
+  },
+  "remainingReleaseWork": [
+    "merge receipt-only PR 166 through protected main and attach its final immutable merge receipt"
+  ]
+}

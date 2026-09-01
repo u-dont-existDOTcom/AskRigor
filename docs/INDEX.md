@@ -181,6 +181,10 @@ complete XML protocol.
 - `audits/2026-09-01-promotion-scheduler-candidate.md` and its machine JSON:
   test-first hardened systemd candidate, exact one-item accepted-intent
   boundary, credential isolation, deterministic gates, and pending release state
+- `audits/2026-09-01-promotion-scheduler-production-release.md` and its machine
+  JSON: protected initial and repair merges, exact installed unit/image-selector
+  bytes, safe failed-attempt recovery, manual and real timer-triggered
+  acceptance, unchanged production runtime, and rollback evidence
 - `audits/2026-09-01-owner-review-promotion-production-release.md` and its
   machine JSON: PR #161 merge, exact production image and rollback,
   function-only owner review, one-shot hash-bound promotion, 27-tool MCP and

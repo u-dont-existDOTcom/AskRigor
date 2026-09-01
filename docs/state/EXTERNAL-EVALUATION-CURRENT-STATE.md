@@ -12,7 +12,7 @@
 
 The Phase 2.2 program is defined and recoverable in GitHub as a queued-next program. It is not the exclusive active task.
 
-While this program was being prepared, PR #163 merged the promotion-scheduler candidate and PR #165 merged its Compose-isolation repair into protected `main`, producing the protected-review baseline above. That scheduler workstream remains nonterminal until exact VPS installation, end-to-end activation evidence, and immutable release closeout are recorded. This branch is based on that merge series and deliberately preserves `tasks/ACTIVE-TASK.json` without modification.
+While this program was being prepared, PR #163 merged the promotion-scheduler candidate and PR #165 merged its Compose-isolation repair into protected `main`, producing the protected-review baseline above. The scheduler is now installed and active; manual and repeated real timer-triggered production runs pass, and receipt-only PR #166 preserves the exact activation and rollback evidence. This program remains queued and deliberately does not replace `tasks/ACTIVE-TASK.json` during that protected closeout.
 
 This branch changes planning, evaluation-governance, and contribution-design artifacts only. It does not change production behavior, protocols, tools, database state, plugins, connectors, access agreements, public interfaces, the copy-ready ChatGPT Project package, or active release authority.
 
@@ -49,19 +49,16 @@ The task core is report-to-study/cohort lineage, participant dependence, exposur
 - rebased the branch onto the merged promotion-scheduler series and removed the attempted active-task override;
 - located this checkpoint outside `project/`, which is reserved for the exact copy-ready ChatGPT Project package.
 
-## Active predecessor
+## Predecessor closeout
 
 The repository's exclusive active task remains `askrigor-living-evidence-promotion-scheduler-v1`, recorded in `tasks/ACTIVE-TASK.json`.
 
-Its bounded release remains open because production activation has not been evidenced. Its owning workstream must:
-
-1. install the exact scheduler unit/image selection on the VPS using the released installer;
-2. run manual service acceptance;
-3. enable the timer and verify future-trigger readback;
-4. inspect bounded journal output and confirm the public runtime remains unchanged;
-5. write and merge the immutable production release receipt.
-
-This queued program must not represent those actions as complete or silently select itself as the next active task before they close.
+Its bounded production release is operationally complete: the exact unit and
+image selection are installed, manual and automatic acceptance pass, the
+journal is bounded, the public runtime is unchanged, and the immutable receipt
+is in PR #166. This queued program must not silently select itself before that
+receipt reaches protected `main` and a fresh activation commit resolves any
+newer priority.
 
 ## Not completed or claimed
 
@@ -89,7 +86,7 @@ Full identities and discrepancies are in `evaluation/governance/source-registry.
 
 ## Activation boundary
 
-After the promotion-scheduler release closes, resolve protected `main` again. Activate this program only if no newer exclusive task outranks it and the Terminal-Bench deadline remains feasible. The activation commit must:
+After receipt-only PR #166 reaches protected `main`, resolve protected `main` again. Activate this program only if no newer exclusive task outranks it and the Terminal-Bench deadline remains feasible. The activation commit must:
 
 - update `tasks/ACTIVE-TASK.json` from the then-current baseline;
 - preserve the scheduler's final product, deployment, and release-receipt identities as the previous completed task;

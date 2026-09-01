@@ -1,55 +1,49 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 accepted-contribution promotion scheduler active
+## 2026-09-01 accepted-contribution promotion scheduler production release complete
 
-Exclusive task `askrigor-living-evidence-promotion-scheduler-v1` is active on
-branch `task/promotion-scheduler-20260901` from protected-main baseline
-`c7138eff5dbbce22bb25f727da78006e543fa476`. Run
-`npm run promotion-scheduler:preflight` before implementation and
-`npm run promotion-scheduler:acceptance` for task completeness. Ordinary green
-tests are prerequisites, not completion.
+Task `askrigor-living-evidence-promotion-scheduler-v1` is complete. PR #163
+merged the initial candidate as
+`f146539db8b794fce79a979980ec9d43da8c92a6`; PR #165 merged the production-
+discovered execution repair as
+`a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`. Protected checks and the exact
+post-merge deterministic, workflow-policy, and all four CodeQL analyses pass.
 
-The bounded objective is to schedule only the released one-shot
-`promote-accepted` command after explicit owner acceptance. The static hardened
-host unit receives no user input and makes no scientific decision. The public
-runtime keeps no canonical-writer credential, Docker control, or systemd
-authority. Each serialized five-minute activation processes at most one durable
-accepted intent; disabling the timer preserves all research state.
+The first manual production attempt failed safely before the admin container
+started because `ProtectHome=yes` hid Docker client/plugin discovery. The timer
+was never enabled, proposal and promotion counts remained zero, and the healthy
+public runtime was unchanged. The protected repair invokes the reviewed system
+Compose plugin directly with an empty private `DOCKER_CONFIG` runtime directory
+while retaining home isolation. Its manual run completed at
+`2026-09-01T13:56:51Z`; the first actual automatic trigger completed at
+`2026-09-01T14:00:15Z`. Both returned `no_pending_promotion` with exit zero,
+left no runner container, and changed no canonical evidence.
 
-Assurance lane is release with targeted credential, authorization,
-idempotency, concurrency, recovery, and rollback gates. Global queue selection,
-historical next-action sections, optional Railway work, payment choices, and
-YouTube/community persistence are suspended for this exclusive slice. The plan
-is `../docs/superpowers/plans/2026-09-01-promotion-scheduler.md`; the independent
-owner-source receipt is
-`../docs/audits/2026-09-01-promotion-scheduler-owner-source.txt`.
+The root-owned service and timer have SHA-256
+`a2b32e9c8352883b63a3b0d1aba7acb89f4ce263028fcba777d30de73e3ab3cc`
+and `873a8fe6d4ca1b79edcdd5cc851b89ac0a98c7956f36bb89cf2ff6ec902295cd`.
+The root-only exact-image selector has SHA-256
+`6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1`.
+The timer is enabled and active. Each five-minute serialized activation invokes
+only `promote-accepted`, accepts no dynamic input, pulls or builds no image,
+and processes at most one exact owner-accepted durable intent.
 
-Current state: repaired local candidate ready for protected merge. Red contract commit
-`aa6735d1ca329092d041d370dae2e53feb794855` and implementation commit
-`11ba00dae883e90fddca43ba472e3c3494f64b66` preserve test-first provenance.
-Focused coverage passes 57/57, both systemd validators pass, and the complete
-deterministic gate passes 126 files with one declared skip and 1,614 tests with
-six declared skips, followed by build. Exact local evidence is in
-`../docs/audits/2026-09-01-promotion-scheduler-candidate.json` and `.md`.
+Production remains on the unchanged healthy research container
+`4230d0de22d7cda81fbe2a4c9ae1e836ea3b9c9b5de6f312da6c71f886dbac55`
+and image
+`sha256:8bcfc2c8cc60b8f4f8af830a5115e2068e11f1857180ae4ce3156562c3d8a4da`.
+The public runtime keeps no canonical-writer credential, Docker control, or
+systemd authority. Disabling and removing the exact new scheduler artifacts
+stops automation without deleting proposals, intents, receipts, or canonical
+evidence; the manual one-shot path remains available.
 
-PR #163 merged the initial candidate as
-`f146539db8b794fce79a979980ec9d43da8c92a6`. Its first manual production run
-failed before any promotion because the protected host service could not
-discover the Compose plugin through Docker's root client configuration. The
-timer remained disabled, database proposal/promotion counts remained zero, and
-the public runtime stayed healthy. Repair-red commit
-`c899df4118ec1ca4f27899c08825b934d00290da` and repair commit
-`2f90e17aede149d768f0217afd0ae3ea338cbb6b` now bind the system Compose plugin
-directly and give Docker a private empty runtime configuration directory. The
-focused 57/57 gate, typecheck, and systemd validators pass; protected repair
-review in PR #165 and activation remain.
-
-Typed completion claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment
-passes for the local candidate. Scientific adequacy is preserved but not
-expanded; no scientific or causal conclusion is in scope. Release adequacy
-remains pending protected merge, exact VPS unit/image selection installation,
-manual service acceptance, enabled timer/future-trigger readback, bounded
-journal inspection, unchanged public runtime, and immutable release closeout.
+Typed completion claim: `OUTCOME`. Operational alignment passes for the exact
+installed bytes, manual and real timer-triggered execution, durable retry and
+rollback boundaries, and unchanged public runtime. Scientific adequacy is
+preserved but not expanded: explicit owner acceptance remains the only
+scientific decision. Release adequacy passes. Exact evidence is in
+`../docs/audits/2026-09-01-promotion-scheduler-production-release.json` and
+`.md`; receipt-only PR #166 preserves the closeout on protected `main`.
 
 ## 2026-09-01 owner review and promotion production release complete
 
@@ -66,9 +60,10 @@ The public runtime receives no canonical writer credential. Review requires the
 exact `cases:review` scope and configured owner subject; each decision is bound
 to the immutable proposal SHA-256. Acceptance atomically creates only a
 promotion intent, and the one-shot canonical writer stores one idempotent
-receipt. No scheduler is active. The production acceptance found zero pending
-proposals, changed no canonical evidence, and created no contribution,
-decision, or promotion.
+receipt. The later bounded scheduler release is now active. It invokes only the
+existing accepted-intent promoter and makes no scientific decision. The owner-
+review production acceptance itself found zero pending proposals, changed no
+canonical evidence, and created no contribution, decision, or promotion.
 
 AskRigor remains an ordinary public product, not an institutional research
 program or pilot. Eligible deidentified structured progress can enter the

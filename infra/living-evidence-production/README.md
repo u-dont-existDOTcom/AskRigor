@@ -202,6 +202,10 @@ rollback contract is in
 `../../docs/research-contribution-promotion-scheduler.md`. A failed process
 after the canonical writer commit leaves the intent pending, and the next
 invocation completes it through the writer's idempotent replay path.
+The exact production installation, safe first-attempt recovery, manual run, and
+real timer-triggered acceptance are preserved in
+`../../docs/audits/2026-09-01-promotion-scheduler-production-release.md` and its
+machine JSON.
 
 ## Failure and rollback
 
