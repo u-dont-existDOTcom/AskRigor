@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "queued_program_registration",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "ownerApproval": "APPROVED — meta-analysis integrity primary",
+  "queueState": "QUEUED_NEXT_ARCHITECTURE_REGISTERED",
+  "registeredAt": "2026-09-01T14:18:43Z",
+  "repository": "u-dont-existDOTcom/AskRigor",
+  "pullRequest": 164,
+  "reviewedHead": "cb3305a89a026acf0a50979cd0e88ecb268cb2b7",
+  "mergeCommit": "e47b122a2dd07d460bd50c008a62407278ccf958",
+  "mergeTree": "dadcb145ee5a1f8eb44c4ada14c29c96bec0f43a",
+  "independentConceptionBaseline": "c7138eff5dbbce22bb25f727da78006e543fa476",
+  "protectedReviewBaseline": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
+  "validation": {
+    "repositoryWorkflowPolicy": {
+      "runId": 33518246845,
+      "runNumber": 512,
+      "conclusion": "success"
+    },
+    "deterministicVerification": {
+      "runId": 33518246028,
+      "runNumber": 537,
+      "conclusion": "success"
+    },
+    "projectPackageInventoryPreserved": true,
+    "activeTaskPointerModified": false,
+    "finalChangedFileCount": 13
+  },
+  "activePredecessor": {
+    "taskId": "askrigor-living-evidence-promotion-scheduler-v1",
+    "activeTaskBlob": "3186e64e78d3c3aeced0fa8d77e0022154911372",
+    "exclusive": true,
+    "productionActivated": false,
+    "productionReleaseReceipt": null,
+    "requiredBeforePhase22Activation": [
+      "exact VPS installation",
+      "manual service acceptance",
+      "timer enablement and future-trigger readback",
+      "bounded journal and public-runtime verification",
+      "immutable production release receipt"
+    ]
+  },
+  "registeredPrimary": {
+    "workingTitle": "Dependency-Aware Clinical Meta-Analysis from Overlapping Reports",
+    "overlapDisposition": "generic messy-table normalization and conventional pooling are occupied by Terminal-Bench-Science Discussion 333 / Proposal 178 and are reused rather than resubmitted",
+    "retainedCore": [
+      "report-to-study and cohort lineage",
+      "participant dependence and shared controls",
+      "exposure-regime and estimand compatibility",
+      "comparator validity",
+      "corrected synthesis and prespecified sensitivities",
+      "deterministic verifier with alternate-correct and seeded-error tests"
+    ],
+    "fallback": "absolute-risk reconstruction only if the refined primary fails overlap, rights, author-fit, objective-verification, or substantive-difficulty gates"
+  },
+  "registeredLanes": [
+    "MAST paired bare-versus-HRP evaluation",
+    "Terminal-Bench-Science v0.2 contribution",
+    "SciCode-Verified-derived benchmark integrity governance",
+    "deferred K-Bench-inspired authentic-request evaluation"
+  ],
+  "nonClaims": [
+    "Phase 2.2 is not the active task",
+    "MAST has not run",
+    "no paid NOHARM judge call has run",
+    "the Terminal-Bench proposal has not been submitted",
+    "no final benchmark fixture or latent answer has been published",
+    "no production behavior or canonical protocol has changed",
+    "no benchmark performance or clinical conclusion is claimed"
+  ],
+  "nextTransition": "After the active scheduler receives a terminal production release receipt, resolve protected main fresh and activate Phase 2.2 only if no newer exclusive task outranks it and the external deadline remains feasible."
+}
