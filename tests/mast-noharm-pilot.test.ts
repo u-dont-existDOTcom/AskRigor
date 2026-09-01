@@ -1,6 +1,7 @@
 import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -11,7 +12,7 @@ import {
 } from "../evaluation/mast/src/noharm-pilot.js";
 
 const manifestUrl = new URL("../evaluation/mast/noharm-pilot-manifest.json", import.meta.url);
-const repositoryRoot = new URL("../", import.meta.url).pathname;
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 
 async function manifestFixture(): Promise<Record<string, unknown>> {
   return JSON.parse(await readFile(manifestUrl, "utf8")) as Record<string, unknown>;

@@ -14,20 +14,28 @@ describe("external evaluation current-slice contract", () => {
       taskId: "askrigor-external-evaluation-contribution-v1",
       status: "active_mast_noharm_pilot_freeze",
       exclusive: true,
-      requiredBranch: "task/mast-noharm-pilot-freeze-v1-20260901",
-      baselineCommit: "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
+      requiredBranch: "task/mast-noharm-merge-closeout-20260901",
+      baselineCommit: "a1d4aaf0fe2010edc5cec13e6c431877a311d074",
       boundedOutcome: expect.stringContaining("paired MAST evaluation"),
       currentSlice: {
         sliceId: "mast-noharm-pilot-analysis-freeze-v1",
-        status: "ready_for_protected_merge",
+        status: "protected_merge_complete",
         maximumEstimatedCostUsdBeforeAbort: 0,
       },
       preflightCommand: "npm run external-evaluation:preflight",
       completionCommand: "npm run external-evaluation:acceptance",
       lastCompletedSlice: {
-        sliceId: "terminal-bench-observable-evidence-review-request-v1",
-        pullRequest: 173,
-        mergeCommit: "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
+        sliceId: "mast-noharm-pilot-analysis-freeze-v1",
+        pullRequest: 175,
+        mergeCommit: "a1d4aaf0fe2010edc5cec13e6c431877a311d074",
+      },
+      supervision: {
+        ownerCorrection: expect.stringContaining("Chat owns reasoning"),
+        missionControl: {
+          durablePacket:
+            "docs/audits/2026-09-01-supervision-design-feedback-chat-work-authority-gate.json",
+          routeStatus: "sent_response_pending",
+        },
       },
     });
   });

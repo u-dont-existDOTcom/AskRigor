@@ -3,8 +3,8 @@
 **Program:** External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Queue state:** `ACTIVE — zero-spend NOHARM pilot and analysis-freeze plan under protected review`
-**Required branch:** `task/mast-noharm-pilot-freeze-v1-20260901`
+**Queue state:** `ACTIVE — zero-spend NOHARM pilot and analysis-freeze plan merged; paid API path canceled; Chat directive pending`
+**Required branch:** `task/mast-noharm-merge-closeout-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Previous completed task:** `askrigor-living-evidence-promotion-scheduler-v1`  
@@ -25,7 +25,7 @@ Partial corpora remain eligible for evidence review and must be explicitly label
 | Priority | Lane | Current state | Next mechanically executable action | Completion boundary |
 | --- | --- | --- | --- | --- |
 | P0.0 | Activation and queue normalization | **COMPLETE — PR #168** | Preserve canonical activation during child-slice integration | Phase 2.2 is the exclusive protected-main task with the scheduler preserved as previous completed task |
-| P0.1 | MAST paired HRP evaluation | **ZERO-SPEND NOHARM PILOT + FREEZE PLAN READY / EXECUTION GATED** | Complete protected review; any run still requires an owner-approved nonzero spend manifest and clean artifact root | Complete paired SCT and NOHARM epochs with official scores and blinded discordance review |
+| P0.1 | MAST paired HRP evaluation | **ZERO-SPEND NOHARM PILOT + FREEZE PLAN MERGED / PAID API PATH CANCELED** | Execute only the next exact Chat-authored directive using the owner's ChatGPT access; Codex may not design a replacement | Complete paired SCT and NOHARM epochs with official scores and blinded discordance review |
 | P0.2 | Terminal-Bench-Science v0.2 | **DIFFICULTY PREFLIGHT MERGED FAIL-CLOSED / ISSUE #172 AUTHOR + REVIEWER HANDOFF OPEN** | Clean source-layer author constructs the answer-free packet; independent clinical-method reviewer approves it before preflight rerun | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
 | P0.3 | Benchmark integrity governance | **MERGED / CONCRETE TERMINAL FIXTURE DEFECT OPEN** | Preserve the defect until the repaired input passes mechanical and independent review | Every result is version-bound, contestable, independently rechecked when consequential, and preserves original versus corrected epochs |
 | P1 | K-Bench-inspired authentic-request evaluation | **DEFERRED** | Revisit after the Terminal-Bench PR is secure | Small blinded multidimensional study of authentic AskRigor requests without pretending there is one constitutional gold answer |
@@ -135,11 +135,13 @@ Deliverables:
 - OpenAI-compatible endpoint adapter;
 - raw-response preservation and hashing;
 - equality tests for all non-instruction conditions;
-- deterministic SCT dry run using shipped example data before paid inference;
+- deterministic SCT dry run using shipped example data before any later Chat-authored evaluation execution;
 - cost ceiling, retry, timeout, and abort rules;
 - reviewed preflight manifest.
 
-No paid NOHARM judging begins in this slice.
+No paid NOHARM judging begins in this slice. The owner later canceled the paid
+API path entirely; only an exact Chat-authored replacement execution directive
+may advance this lane.
 
 Bounded result on 2026-09-01: complete for this child slice. Exact paired settings, complete protocol hashes, a Responses API adapter, raw-byte preservation, retry/timeout handling, condition-equality tests, and the deterministic 174-item upstream SCT example reproduction pass. The sealed spend ceiling is zero and no inference occurred.
 

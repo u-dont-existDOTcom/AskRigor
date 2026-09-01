@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "mast_noharm_pilot_freeze_protected_merge",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-noharm-pilot-analysis-freeze-v1",
+  "capturedAt": "2026-09-01T21:09:19Z",
+  "source": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "pullRequest": 175,
+    "pullRequestUrl": "https://github.com/u-dont-existDOTcom/AskRigor/pull/175",
+    "mergeReceiptComment": "https://github.com/u-dont-existDOTcom/AskRigor/pull/175#issuecomment-5497760985",
+    "baseCommit": "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
+    "reviewedHead": "117f05b5ea5173fe8ba26415bfbc825baeee909a",
+    "exactTestedCandidate": "cf9465c1d232b39b73c0a2bfa65c8bd00912c85b",
+    "exactTestedTree": "461fcdcb2c68168baf9867a72cf22bf440a370dd",
+    "mergeCommit": "a1d4aaf0fe2010edc5cec13e6c431877a311d074",
+    "mergedAt": "2026-09-01T17:22:46Z"
+  },
+  "protectedChecks": {
+    "allPassed": true,
+    "names": [
+      "Deterministic verification",
+      "workflow-policy",
+      "CodeQL",
+      "Analyze (actions)",
+      "Analyze (javascript-typescript)",
+      "Analyze (python)",
+      "Analyze (ruby)"
+    ],
+    "details": [
+      {
+        "name": "Deterministic verification",
+        "conclusion": "SUCCESS",
+        "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33537201571/job/99954306462"
+      },
+      {
+        "name": "workflow-policy",
+        "conclusion": "SUCCESS",
+        "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33537201604/job/99954305671"
+      },
+      {
+        "name": "CodeQL",
+        "conclusion": "SUCCESS",
+        "url": "https://github.com/u-dont-existDOTcom/AskRigor/runs/99954478535"
+      },
+      {
+        "name": "Analyze (actions)",
+        "conclusion": "SUCCESS",
+        "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33537198633/job/99954301568"
+      },
+      {
+        "name": "Analyze (javascript-typescript)",
+        "conclusion": "SUCCESS",
+        "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33537198633/job/99954301788"
+      },
+      {
+        "name": "Analyze (python)",
+        "conclusion": "SUCCESS",
+        "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33537198633/job/99954301708"
+      },
+      {
+        "name": "Analyze (ruby)",
+        "conclusion": "SUCCESS",
+        "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33537198633/job/99954301557"
+      }
+    ]
+  },
+  "artifacts": {
+    "candidateReceiptJson": "docs/audits/2026-09-01-mast-noharm-pilot-freeze-candidate.json",
+    "candidateReceiptJsonSha256": "238485f00aa1cb4d65438ce42ae13dd369e87049b70ee2e65edc6d5508df3608",
+    "candidateReceiptMarkdown": "docs/audits/2026-09-01-mast-noharm-pilot-freeze-candidate.md",
+    "candidateReceiptMarkdownSha256": "adc740856998052d15bc4b13e5f55eea294a005654be6d16a773cf30673dd560",
+    "pilotManifestSha256": "1777defc697a0c057facdd7553a1340456033701aac486ed131585a5e35f7ff5",
+    "pilotContractSha256": "732f1354835085381e37d48072bba49ae16b8484682f86292d31e8ceb0962550",
+    "pilotValidatorSha256": "2c8e61b1f17bd0ebc312ff27b9751dc0a2787f010aac4bb7f6618ae52ca901f7",
+    "pilotTestsSha256": "e111e206b721886faa9b8ee077bfc92dc2266f91e4a29d7bc537f9700e503d08"
+  },
+  "scope": {
+    "modelInferencePerformed": false,
+    "judgeInferencePerformed": false,
+    "paidInferencePerformed": false,
+    "externalSubmissionPerformed": false,
+    "productionMutation": false,
+    "protocolMutation": false
+  },
+  "ownerCorrection": {
+    "paidApiEvaluationPath": "cancelled",
+    "chatOwnsReasoningAndProposals": true,
+    "codexRole": "bounded_execution_only",
+    "workerAuthoredReplacementPermitted": false,
+    "missionControlPacket": "sent_response_pending"
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "protected_merge_complete_zero_spend_plan_only",
+    "scientificAdequacy": "pilot_plan_only_no_results_or_hrp_claim",
+    "releaseAdequacy": "protected_source_merge_complete_no_paid_inference_external_submission_or_production_release"
+  },
+  "nextBoundary": "retrieve and execute only an exact Chat-authored directive; no paid API path or worker-authored replacement proposal"
+}

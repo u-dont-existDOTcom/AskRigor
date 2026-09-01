@@ -2,15 +2,16 @@
 
 **Checkpoint date:** 2026-09-01  
 **Task:** `askrigor-external-evaluation-contribution-v1`  
-**Status:** `ACTIVE_PARENT / MAST_NOHARM_ZERO_SPEND_PILOT_FREEZE_READY_FOR_PROTECTED_REVIEW`
-**Required branch:** `task/mast-noharm-pilot-freeze-v1-20260901`
+**Status:** `ACTIVE_PARENT / MAST_NOHARM_ZERO_SPEND_PILOT_FREEZE_PROTECTED_MERGE_COMPLETE`
+**Required branch:** `task/mast-noharm-merge-closeout-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
-**Execution baseline:** `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`
+**Execution baseline:** `a1d4aaf0fe2010edc5cec13e6c431877a311d074`
 **Exact tested child candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`
 **Bounded child merge:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
 **Governance merge:** `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
 **Difficulty-preflight merge:** `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`
 **Observable-evidence review-request merge:** `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`
+**NOHARM pilot/freeze merge:** `a1d4aaf0fe2010edc5cec13e6c431877a311d074`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
@@ -25,6 +26,20 @@ The new answer-free bundle contract requires the declared target estimand, obser
 The current bounded slice routes a machine-readable authoring and review request through [AskRigor issue #172](https://github.com/u-dont-existDOTcom/AskRigor/issues/172). A clean source-layer author must construct only the observations a solver should see. A different clinical-epidemiology reviewer must answer eight solvability, estimand, numerical-input, uncertainty, difficulty, and leakage questions without seeing grader-only values. The current implementation worker does not self-certify that review. Mechanical readiness and an independent `PASS` are both required before any frontier invocation.
 
 PR #173 merged that request as `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`. While issue #172 remains open, the current MAST slice seals a zero-spend NOHARM plan: ten outcome-blind pilot families (one per specialty), three predeclared judge-stability repeats, and twenty untouched confirmation families explicitly labeled as a partial corpus. The official all-30-family score remains a separate descriptive layer. Pilot results may set the declared margins but may not repair HRP; an exact analysis freeze is required before any untouched-family result is observed. The reusable pilot/confirmation interpretation question is routed nonblockingly through [AskRigor issue #174](https://github.com/u-dont-existDOTcom/AskRigor/issues/174).
+
+PR #175 merged that exact zero-spend plan to protected `main` as
+`a1d4aaf0fe2010edc5cec13e6c431877a311d074`. The exact full-gate candidate was
+`cf9465c1d232b39b73c0a2bfa65c8bd00912c85b`, tree
+`461fcdcb2c68168baf9867a72cf22bf440a370dd`; all required protected checks
+passed. No model or judge inference, paid call, external submission,
+production mutation, or protocol mutation occurred.
+
+The owner then corrected a supervision failure: Chat owns reasoning,
+proposals, methodology, prioritization, and consequential tradeoffs, while
+Codex executes bounded tasks Chat cannot execute. The worker-authored paid API
+path is canceled because the owner has effectively unlimited Extra High
+ChatGPT use. The failure packet is in the Mission Control chat; no replacement
+evaluation design or spend is authorized while its exact directive is pending.
 
 The active program has four lanes:
 
@@ -66,6 +81,11 @@ The task core is report-to-study/cohort lineage, participant dependence, exposur
 - implemented a current official OpenAI Responses adapter with exact paired-condition equality, raw-byte hashing, and bounded retry/timeout behavior;
 - reproduced the pinned MAST 174-item SCT example score (`0.7453`) and expert-set proportion (`0.9310`) without model inference;
 - sealed `gpt-5.6-sol` with `xhigh` reasoning and a zero spend ceiling.
+- merged the outcome-blind zero-spend NOHARM pilot/freeze plan through PR #175
+  after deterministic verification, workflow policy, and every required CodeQL
+  analysis passed;
+- canceled the subsequent worker-authored paid API path and routed the
+  execution-only authority failure to Mission Control.
 
 ## Previous completed task
 
@@ -105,7 +125,10 @@ Completed actions:
 5. run only deterministic SCT fixture/preflight validation initially;
 6. freeze zero-spend, timeout, retry, and abort rules.
 
-Still pending in the parent program: declare and review the NOHARM pilot subset and analysis-freeze boundary before any paid judging.
+The NOHARM pilot subset and analysis-freeze boundary are now protected-merge
+complete. Any later execution must come from an exact Chat-authored directive.
+The owner canceled the paid API path; Codex may not replace it with a new
+methodology, cost proposal, or prioritization decision.
 
 ## Governance validation
 
@@ -133,6 +156,7 @@ The provisional benchmark manifest and defect-ledger schemas must be instantiate
 - governance merge: `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
 - difficulty-preflight merge: `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`
 - observable-evidence review-request merge: `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`
+- NOHARM pilot/freeze merge: `a1d4aaf0fe2010edc5cec13e6c431877a311d074`
 - MAST: `57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`
 - Terminal-Bench-Science: `7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77`
 - SciCode-Verified: `ddab4a92f8d80a7113ab946628e994b52354d838`
@@ -143,7 +167,10 @@ Full external identities and discrepancies are in `evaluation/governance/source-
 
 ## Next safe action
 
-Complete protected review of the zero-spend NOHARM pilot/freeze plan. Terminal-Bench issue #172 remains open for a clean source-layer author and independent clinical-method reviewer. Any MAST execution requires a separate owner-approved nonzero-spend manifest and clean private artifact root; no frontier or judge inference is currently authorized.
+Retrieve the Mission Control correction and execute only its exact Chat-authored
+bounded directive. Do not originate a replacement evaluation, cost,
+methodology, or prioritization proposal, and do not use paid API inference.
+Terminal-Bench issues #172 and #174 remain open without reviewer comments.
 
 ## Recovery order
 
@@ -163,4 +190,9 @@ Complete protected review of the zero-spend NOHARM pilot/freeze plan. Terminal-B
 
 `SUBTASK_COMPLETE_PARENT_OPEN`
 
-Operational alignment passes for the merged Terminal review handoff and the sealed zero-spend NOHARM pilot/freeze boundary pending protected merge. Scientific adequacy is limited to an outcome-blind plan: no pilot, confirmation, HRP-performance, or clinical result exists. Release adequacy includes no paid inference, external submission, or production release.
+Operational alignment passes for the protected zero-spend NOHARM source merge;
+the later worker-to-owner authority mismatch is recorded and routed to Mission
+Control. Scientific adequacy is limited to an outcome-blind plan: no pilot,
+confirmation, HRP-performance, or clinical result exists. Release adequacy
+includes the protected source merge and no paid inference, external submission,
+or production release.

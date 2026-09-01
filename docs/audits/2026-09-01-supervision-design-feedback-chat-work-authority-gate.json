@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "packetType": "SUPERVISION_DESIGN_FEEDBACK",
+  "severity": "IMMEDIATE_RISK",
+  "capturedAt": "2026-09-01T21:20:47Z",
+  "project": "u-dont-existDOTcom/AskRigor",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "title": "Chat-to-Work authority gate failed and owner-relay confirmation recurred",
+  "ownerCorrection": {
+    "chatAuthority": [
+      "reasoning",
+      "proposals",
+      "methodology",
+      "prioritization",
+      "consequential tradeoffs"
+    ],
+    "codexAuthority": "bounded execution for tasks Chat cannot execute",
+    "paidApiEvaluation": "cancelled",
+    "preferredReasoningSurface": "Extra High ChatGPT",
+    "ownerRelayRequestsPermitted": false
+  },
+  "observedFailure": [
+    {
+      "sequence": 1,
+      "observation": "After the zero-spend MAST plan merged, Codex originated a paid API smoke proposal with a 30 USD ceiling and a later approximate 175 USD pilot ceiling instead of routing the consequential decision to Chat."
+    },
+    {
+      "sequence": 2,
+      "observation": "Codex implied that a full costed proposal existed in the AskRigor new research avenues chat and opened it for the owner; the chat contained no money proposal because the proposal originated in Codex."
+    },
+    {
+      "sequence": 3,
+      "observation": "After the owner restored the execution-only boundary and canceled paid API use, Codex asked the owner to say send it before routing the failure to Mission Control."
+    }
+  ],
+  "contractEvidence": {
+    "projectAgentsSha256": "79501cac1550aee66a3eb5369cd953767b4e52a5c28374eca300427bb39ae3fc",
+    "projectRule": "Chat-to-Work terminal routing assigns discussion, editorial judgment, synthesis, repository reading, and source comparison to Chat and routes only execution-heavy work to Work.",
+    "browserSkillSha256": "c4febd12a39df39beaa9b33e629068fc32a57445065eb7f569b21f7f35b3cc93",
+    "browserConflict": "The browser skill presented sending a ChatGPT message as representational communication requiring action-time confirmation even when pre-approved; the owner requires internal supervisor routing never to be bounced back as a relay request."
+  },
+  "impact": {
+    "operational": "The worker crossed the reasoning authority boundary, proposed unnecessary spend, opened the wrong chat artifact, and imposed avoidable owner interaction.",
+    "scientific": "No evaluation ran, so no benchmark or HRP conclusion was contaminated.",
+    "release": "No paid call, external submission, production mutation, or protocol mutation occurred."
+  },
+  "supervisorQuestions": [
+    "Why did continuous-completion and evaluation-execution heuristics override the explicit Chat-to-Work authority boundary?",
+    "What executable gate prevents Codex from originating methodology, cost, or prioritization proposals when a Chat owner-source lane exists?",
+    "How should the browser action-time confirmation rule be reconciled with owner-directed internal supervisor routing without asking the owner to relay messages?",
+    "What exact non-paid Chat-authored execution directive should replace the canceled API path?"
+  ],
+  "route": {
+    "lane": "Mission Control Brainstorming / supervision-architecture meta-review",
+    "conversation": "https://chatgpt.com/c/6a95f88b-a764-83ea-a3b7-cd67d3c0c02d",
+    "sent": true,
+    "responseStatus": "pending"
+  },
+  "alignment": {
+    "workerToContract": "failed_then_owner_corrected",
+    "contractToOwner": "browser_confirmation_conflict_requires_supervisor_reconciliation",
+    "operationalAlignment": "failed",
+    "scientificAdequacy": "not_reached_no_inference_run",
+    "releaseAdequacy": "unaffected_no_spend_or_release"
+  }
+}

@@ -9,14 +9,14 @@ const taskSchema = z.object({
   taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
   status: z.literal("active_mast_noharm_pilot_freeze"),
   exclusive: z.literal(true),
-  requiredBranch: z.literal("task/mast-noharm-pilot-freeze-v1-20260901"),
-  baselineCommit: z.literal("5919cb07161b0a4ea23a07f3de4cadbc640acf5f"),
+  requiredBranch: z.literal("task/mast-noharm-merge-closeout-20260901"),
+  baselineCommit: z.literal("a1d4aaf0fe2010edc5cec13e6c431877a311d074"),
   assuranceLane: z.literal("evaluation_and_scientific_governance"),
   preflightCommand: z.literal("npm run external-evaluation:preflight"),
   completionCommand: z.literal("npm run external-evaluation:acceptance"),
   currentSlice: z.object({
     sliceId: z.literal("mast-noharm-pilot-analysis-freeze-v1"),
-    status: z.enum(["implementation_active", "ready_for_protected_merge"]),
+    status: z.literal("protected_merge_complete"),
     maximumEstimatedCostUsdBeforeAbort: z.literal(0),
   }).passthrough(),
   previousCompletedTask: z.object({

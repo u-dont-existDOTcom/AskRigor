@@ -145,6 +145,55 @@ const difficultyPreflightReceiptSchema = z.object({
   }).passthrough(),
 }).passthrough();
 
+const mastNoHarmProtectedMergeReceiptSchema = z.object({
+  schemaVersion: z.literal(1),
+  receiptType: z.literal("mast_noharm_pilot_freeze_protected_merge"),
+  taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
+  sliceId: z.literal("mast-noharm-pilot-analysis-freeze-v1"),
+  source: z.object({
+    pullRequest: z.literal(175),
+    reviewedHead: z.literal("117f05b5ea5173fe8ba26415bfbc825baeee909a"),
+    exactTestedCandidate: z.literal("cf9465c1d232b39b73c0a2bfa65c8bd00912c85b"),
+    exactTestedTree: z.literal("461fcdcb2c68168baf9867a72cf22bf440a370dd"),
+    mergeCommit: z.literal("a1d4aaf0fe2010edc5cec13e6c431877a311d074"),
+    mergedAt: z.literal("2026-09-01T17:22:46Z"),
+  }).passthrough(),
+  protectedChecks: z.object({
+    allPassed: z.literal(true),
+    names: z.array(z.string()).min(7),
+  }).passthrough(),
+  scope: z.object({
+    modelInferencePerformed: z.literal(false),
+    judgeInferencePerformed: z.literal(false),
+    paidInferencePerformed: z.literal(false),
+    externalSubmissionPerformed: z.literal(false),
+    productionMutation: z.literal(false),
+    protocolMutation: z.literal(false),
+  }),
+}).passthrough();
+
+const supervisionAuthorityFeedbackSchema = z.object({
+  schemaVersion: z.literal(1),
+  packetType: z.literal("SUPERVISION_DESIGN_FEEDBACK"),
+  severity: z.literal("IMMEDIATE_RISK"),
+  taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
+  ownerCorrection: z.object({
+    codexAuthority: z.literal("bounded execution for tasks Chat cannot execute"),
+    paidApiEvaluation: z.literal("cancelled"),
+    preferredReasoningSurface: z.literal("Extra High ChatGPT"),
+    ownerRelayRequestsPermitted: z.literal(false),
+  }).passthrough(),
+  route: z.object({
+    sent: z.literal(true),
+    responseStatus: z.literal("pending"),
+  }).passthrough(),
+  alignment: z.object({
+    operationalAlignment: z.literal("failed"),
+    scientificAdequacy: z.literal("not_reached_no_inference_run"),
+    releaseAdequacy: z.literal("unaffected_no_spend_or_release"),
+  }).passthrough(),
+}).passthrough();
+
 function git(root: string, args: string[]): string {
   return execFileSync("git", ["-C", root, ...args], {
     encoding: "utf8",
@@ -165,10 +214,10 @@ async function main(): Promise<void> {
   const task = z.object({
     taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
     status: z.literal("active_mast_noharm_pilot_freeze"),
-    requiredBranch: z.literal("task/mast-noharm-pilot-freeze-v1-20260901"),
+    requiredBranch: z.literal("task/mast-noharm-merge-closeout-20260901"),
     currentSlice: z.object({
       sliceId: z.literal("mast-noharm-pilot-analysis-freeze-v1"),
-      status: z.literal("ready_for_protected_merge"),
+      status: z.literal("protected_merge_complete"),
       maximumEstimatedCostUsdBeforeAbort: z.literal(0),
     }).passthrough(),
   }).passthrough().parse(await readJson(join(root, "tasks", "ACTIVE-TASK.json")));
@@ -190,6 +239,18 @@ async function main(): Promise<void> {
       "observable-evidence-review-request.json",
     ),
     noharmPilot: join(root, "evaluation", "mast", "noharm-pilot-manifest.json"),
+    mastNoHarmProtectedMerge: join(
+      root,
+      "docs",
+      "audits",
+      "2026-09-01-mast-noharm-pilot-freeze-protected-merge.json",
+    ),
+    supervisionAuthorityFeedback: join(
+      root,
+      "docs",
+      "audits",
+      "2026-09-01-supervision-design-feedback-chat-work-authority-gate.json",
+    ),
   };
   const requiredCode = [
     "evaluation/mast/src/paired-condition.ts",
@@ -248,6 +309,8 @@ async function main(): Promise<void> {
     difficultyPreflight,
     observableEvidenceReviewRequest,
     noharmPilot,
+    mastNoHarmProtectedMerge,
+    supervisionAuthorityFeedback,
     rightsMd,
   ] = await Promise.all([
     readJson(paths.rights),
@@ -256,6 +319,8 @@ async function main(): Promise<void> {
     readJson(paths.difficultyPreflight),
     readJson(paths.observableEvidenceReviewRequest),
     readJson(paths.noharmPilot),
+    readJson(paths.mastNoHarmProtectedMerge),
+    readJson(paths.supervisionAuthorityFeedback),
     readFile(paths.rightsMd, "utf8"),
   ]);
   const parsedRights = rightsScanSchema.parse(rights);
@@ -266,6 +331,12 @@ async function main(): Promise<void> {
     observableEvidenceReviewRequest,
   );
   const parsedNoHarmPilot = noharmPilotManifestSchema.parse(noharmPilot);
+  const parsedMastNoHarmProtectedMerge = mastNoHarmProtectedMergeReceiptSchema.parse(
+    mastNoHarmProtectedMerge,
+  );
+  const parsedSupervisionAuthorityFeedback = supervisionAuthorityFeedbackSchema.parse(
+    supervisionAuthorityFeedback,
+  );
   for (const prohibited of ["patient name", "date of birth", "latent answer", "real treatment caused"] ) {
     if (rightsMd.toLowerCase().includes(prohibited)) {
       throw new Error(`RIGHTS_SCAN_PROHIBITED_CONTENT value=${prohibited}`);
@@ -319,7 +390,7 @@ async function main(): Promise<void> {
   }
 
   process.stdout.write(`${JSON.stringify({
-    status: "READY_FOR_PROTECTED_MERGE",
+    status: "PROTECTED_MERGE_CLOSEOUT_VERIFIED",
     task_id: task.taskId,
     branch,
     source_count: parsedRights.sources.length,
@@ -357,11 +428,24 @@ async function main(): Promise<void> {
       maximum_estimated_cost_usd_before_abort:
         parsedNoHarmPilot.execution.maximumEstimatedCostUsdBeforeAbort,
     },
+    protected_merge: {
+      pull_request: parsedMastNoHarmProtectedMerge.source.pullRequest,
+      merge_commit: parsedMastNoHarmProtectedMerge.source.mergeCommit,
+      all_checks_passed: parsedMastNoHarmProtectedMerge.protectedChecks.allPassed,
+    },
+    supervision: {
+      packet_type: parsedSupervisionAuthorityFeedback.packetType,
+      paid_api_evaluation: parsedSupervisionAuthorityFeedback.ownerCorrection.paidApiEvaluation,
+      owner_relay_requests_permitted:
+        parsedSupervisionAuthorityFeedback.ownerCorrection.ownerRelayRequestsPermitted,
+      route_sent: parsedSupervisionAuthorityFeedback.route.sent,
+      response_status: parsedSupervisionAuthorityFeedback.route.responseStatus,
+    },
     completion: {
       typedClaim: "SUBTASK_COMPLETE_PARENT_OPEN",
       operationalAlignment: "sealed_zero_spend_noharm_pilot_and_freeze_boundary",
       scientificAdequacy: "pilot_plan_only_no_results_or_hrp_claim",
-      releaseAdequacy: "pending_protected_merge_no_paid_inference_external_submission_or_production_release",
+      releaseAdequacy: "protected_source_merge_complete_no_paid_inference_external_submission_or_production_release",
     },
   })}\n`);
 }
