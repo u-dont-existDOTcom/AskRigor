@@ -147,12 +147,7 @@ The bounded preflight is recorded in `evaluation/mast/preflight-manifest.json` a
 - The JavaScript SCT scorer independently reproduced the pinned 174-item MAST example headline score (`0.7453`) and expert-set proportion (`0.9310`).
 - The sealed cost ceiling is zero, so this artifact authorizes and performs no paid request.
 
-The owner canceled the worker-authored paid SCT/API path. Any replacement
-execution must be specified by Chat, use the owner's ChatGPT access unless Chat
-explicitly directs otherwise, preserve the raw-artifact and exact model-identity
-boundaries, and arrive as an exact bounded directive for Codex execution.
-Codex may not originate a replacement methodology or cost proposal. No
-favorable or unfavorable HRP result exists at this preflight stage.
+Before paid SCT execution, create a separately reviewed run manifest with a nonzero owner-approved aggregate cost ceiling, raw-artifact destination, clean-room command, and exact execution-time model identity. NOHARM additionally requires the pilot declaration, judge identities/configuration, and blinded discordance schema. No favorable or unfavorable HRP result exists at this preflight stage.
 
 ## 8. Sealed NOHARM pilot and confirmation split
 
@@ -165,7 +160,4 @@ favorable or unfavorable HRP result exists at this preflight stage.
 - Pilot results may set the numerical decision margins and abort rules listed in the manifest, but may not repair HRP. The freeze receipt must be hash-sealed before any untouched-family result is observed.
 - Runtime artifacts must use a clean, mode-0700 absolute directory outside the repository, with mode-0600 files, sealed condition-label mapping, response bytes preserved before judging, and no stored credentials.
 
-The manifest retains a zero-dollar ceiling. The owner canceled the paid API
-path after the protected merge. Any later model or judge execution requires an
-exact Chat-authored directive and an exact runtime artifact-root inspection;
-the worker may not replace the canceled path with its own proposal.
+The manifest retains a zero-dollar ceiling. Any model or Gemini judge execution requires a separate owner-approved nonzero-spend run manifest and an exact runtime artifact-root inspection.

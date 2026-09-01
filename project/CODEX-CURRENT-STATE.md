@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 Phase 2.2 zero-spend NOHARM pilot/freeze protected merge complete
+## 2026-09-01 Phase 2.2 zero-spend NOHARM pilot/freeze candidate
 
 PR #168 merged the canonical `askrigor-external-evaluation-contribution-v1`
 parent-program activation as
@@ -10,10 +10,8 @@ rights/verifier/MAST-preflight child as
 schema instantiation as `1d7be7a8703e0bb645805a00e45929bd14a0cf91`.
 PR #171 merged the fail-closed difficulty preflight as
 `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`. PR #173 merged the author/reviewer
-handoff as `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`. PR #175 merged the zero-spend
-NOHARM pilot/freeze plan as
-`a1d4aaf0fe2010edc5cec13e6c431877a311d074`. The current closeout runs on
-`task/mast-noharm-merge-closeout-20260901`. Use
+handoff as `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`. The current MAST child runs on
+`task/mast-noharm-pilot-freeze-v1-20260901`. Use
 `npm run external-evaluation:preflight` and
 `npm run external-evaluation:acceptance` for its branch and artifact gates.
 
@@ -52,27 +50,16 @@ confirmation is observed. The artifact contract requires a clean private root
 outside the repository. Its spend ceiling is zero, so no model or judge call is
 authorized or performed.
 
-After that protected merge, the worker violated the existing Chat-to-Work
-authority boundary by originating a paid API smoke and cost proposal. The owner
-corrected the boundary: Chat owns reasoning, proposals, methodology,
-prioritization, and consequential tradeoffs; Codex executes bounded tasks Chat
-cannot execute. The paid API path is canceled because the owner has effectively
-unlimited Extra High ChatGPT use. The failure was sent directly to Mission
-Control, including the incorrect request that the owner say “send it.” No
-replacement evaluation design, model run, or spend is authorized while the
-exact Chat-authored directive is pending.
-
 The parent program remains open. External proposal submission, a final public
 fixture, frontier-agent difficulty probing, independent domain review, paid SCT
 or NOHARM inference, HRP tuning, production mutation, participant recruitment,
 and institutional workflow are not completed or authorized by this child.
 
 Typed claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment passes for
-the protected zero-spend source merge; the later supervision mismatch is
-recorded and routed for correction. Scientific adequacy is limited to the plan;
-no HRP-performance or clinical result exists. Release adequacy includes the
-protected source merge and no paid inference, external submission, or
-production release.
+the sealed zero-spend pilot and freeze boundary pending protected merge.
+Scientific adequacy is limited to the plan; no HRP-performance or clinical
+result exists. Release adequacy includes no paid inference, external submission,
+or production release.
 
 ## 2026-09-01 accepted-contribution promotion scheduler production release complete
 

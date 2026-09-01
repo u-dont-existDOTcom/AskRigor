@@ -3,10 +3,10 @@
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Program:** Phase 2.2 — External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Branch:** `task/mast-noharm-merge-closeout-20260901`
-**Integration baseline:** `a1d4aaf0fe2010edc5cec13e6c431877a311d074`
+**Branch:** `task/mast-noharm-pilot-freeze-v1-20260901`
+**Integration baseline:** `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
-**Status:** active parent program; Terminal review request merged/open and zero-spend NOHARM pilot/freeze protected merge complete; next execution awaits Chat directive
+**Status:** active parent program; Terminal review request merged/open and zero-spend NOHARM pilot/freeze slice under protected review
 **Completed predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`
 **Assurance lane:** evaluation and scientific-governance iteration; no production mutation
 
