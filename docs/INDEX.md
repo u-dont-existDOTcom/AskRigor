@@ -85,6 +85,10 @@ complete XML protocol.
   JSON: operation-23 local candidate, real-PostgreSQL catalog/restore evidence,
   24-tool standard versus capacity-bounded 22-tool Gemini catalogs, package and
   generated-artifact identities, and separate local versus release adequacy
+- `audits/2026-08-31-research-frontier-catalog-production-release.md` and its
+  machine JSON: PR #157 merge, immutable production image and rollback, direct
+  24/22-tool acceptance, exact cachebuster reinstall, connector-schema refresh,
+  and fresh primary ordinary-Chat product acceptance
 - `audits/2026-08-31-pr148-release-boundary-closeout.md` and its machine JSON:
   issue #150 owner-source adoption, exact current-main production image and
   rollback, synchronized MCP/plugin/package/editor/protocol consumers, fresh

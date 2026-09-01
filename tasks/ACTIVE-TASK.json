@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-living-evidence-frontier-catalog-discovery-v1",
-  "status": "in_progress",
-  "exclusive": true,
-  "requiredBranch": "task/frontier-catalog-discovery-20260831",
+  "status": "complete",
+  "exclusive": false,
+  "requiredBranch": "task/frontier-catalog-release-receipt-20260831",
+  "implementationBranch": "task/frontier-catalog-discovery-20260831",
   "baselineCommit": "27bcfdcdc8b7667eaf1da6076304fe3af4c2bd00",
   "assuranceLane": "iteration",
   "targetedHardGates": [
@@ -26,17 +27,23 @@
   "completionCommand": "npm run verify",
   "implementationCommit": "b15d2b77023a6d85802a49d2511314d458a3f5d7",
   "localCandidateReceipt": "docs/audits/2026-08-31-research-frontier-catalog-discovery.json",
+  "pullRequest": 157,
+  "mergeCommit": "388e932e155af5c6000a7e3233ddb4672e3cff8e",
+  "productionImage": "sha256:83081706bf905966dd18260c5e5dec2004a2d5be30c352e94a3af1704a097926",
+  "installedPluginVersion": "0.1.0+codex.20260831234858",
+  "productionReceipt": "docs/audits/2026-08-31-research-frontier-catalog-production-release.json",
+  "completedAt": "2026-09-01T00:01:54Z",
   "previousCompletedTask": {
     "taskId": "askrigor-auth0-evidence-gap-release-v1",
     "releaseCommit": "7c0e589d50325de537ee042b4e3df3ed81adbd4b",
     "evidenceCloseoutMergeCommit": "27bcfdcdc8b7667eaf1da6076304fe3af4c2bd00"
   },
   "supervision": {
-    "completionClaim": "WORKING",
+    "completionClaim": "OUTCOME",
     "workerToContract": "aligned",
     "contractToOwner": "aligned",
-    "operationalAlignment": "focused_and_real_postgres_acceptance_pass",
+    "operationalAlignment": "production_runtime_direct_mcp_installed_package_and_primary_chat_pass",
     "scientificAdequacy": "pass_for_catalog_discovery_semantics_only",
-    "releaseAdequacy": "pending"
+    "releaseAdequacy": "pass"
   }
 }

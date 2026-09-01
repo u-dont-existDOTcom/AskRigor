@@ -11,10 +11,9 @@ Status: local isolated pilot merged in PR #128; exact production study-audit
 read-through deployed through PRs #130 and #131; durable formal research-
 frontier ledger deployed through PRs #139 and #141 and accepted under
 `askrigor-living-evidence-research-frontier-v1`; exact-selector ordinary-run
-frontier read access and the public evidence-gap release are deployed. Free-
-text/topic-catalog discovery is the active bounded task
-`askrigor-living-evidence-frontier-catalog-discovery-v1`. Automatic ordinary-
-run contribution and durable multi-user research capture remain queued.
+frontier read access, the public evidence-gap release, and free-text/topic-
+catalog discovery through PR #157 are deployed. Automatic ordinary-run
+contribution and durable multi-user research capture remain queued.
 Railway hosting remains optional and unprovisioned.
 
 Source: Joel, 2026-08-29
@@ -49,7 +48,7 @@ read-through was separately authorized on 2026-08-29 and completed on
 and durable YouTube/community records remain outside that completed slice.
 
 The deployed exact read-only slice exposes a known frontier UUID, question
-UUID, or canonical topic key through `get_research_frontier`. The active
+UUID, or canonical topic key through `get_research_frontier`. The deployed
 catalog slice adds lexical discovery over stored topic labels, aliases,
 questions, and structured dimensions, returning selectors plus explicit
 partial/blocked/gap state. It does not write an ordinary run back to PostgreSQL,
