@@ -32,6 +32,7 @@ The generated synchronization ledger SHA-256 is
 the unchanged controlled Instructions remain 4,752 characters with SHA-256
 `2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
 These are candidate bytes, not a deployment or product-interface claim.
+PR #159 carries the protected candidate.
 
 Recovery authority is `../tasks/ACTIVE-TASK.json` and
 `../docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md`.

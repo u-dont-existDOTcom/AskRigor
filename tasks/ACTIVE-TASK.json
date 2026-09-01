@@ -27,7 +27,7 @@
   "plan": "docs/superpowers/plans/2026-09-01-free-contributor-private-entitlement.md",
   "preflightCommand": "npm run contributor-access:preflight",
   "completionCommand": "npm run contributor-access:acceptance",
-  "pullRequest": null,
+  "pullRequest": 159,
   "suspendedTaskSources": [
     "completed frontier-catalog task",
     "global work queue selection",

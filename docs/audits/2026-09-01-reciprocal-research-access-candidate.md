@@ -4,6 +4,7 @@
 - Branch: `task/free-contributor-private-entitlement-20260901`
 - Baseline: `1a413cb6f9e0cbdcedc84760bb9a9185b663382a`
 - Reviewed implementation head: `dc9f0e59b2ae1d3a4c6d738b1d945a21743cd6d9`
+- Pull request: #159
 
 ## Outcome
 

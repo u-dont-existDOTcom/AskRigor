@@ -4,6 +4,7 @@
   "branch": "task/free-contributor-private-entitlement-20260901",
   "baseline_commit": "1a413cb6f9e0cbdcedc84760bb9a9185b663382a",
   "implementation_head": "dc9f0e59b2ae1d3a4c6d738b1d945a21743cd6d9",
+  "pull_request": 159,
   "product_contract": {
     "free_mode": "explicit_versioned_contribution_agreement_required",
     "paid_private_mode": "active_verified_entitlement_required_and_no_shared_contribution",
