@@ -24,6 +24,7 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
   const tools = RESEARCH_OPERATIONS
     .filter(({ name }) => ![
       "review_evidence_gap_submissions",
+      "review_research_contribution",
       "search_research_frontiers",
       "manage_research_access",
       "submit_research_contribution",

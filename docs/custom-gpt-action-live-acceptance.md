@@ -1,5 +1,20 @@
 # Custom GPT Action live acceptance
 
+## 2026-09-01 owner review and promotion candidate — not live-accepted
+
+The local standard plugin candidate adds the owner-only
+`review_research_contribution` operation as tool 27. It records an exact
+accept/reject disposition and can create only a pending promotion intent; a
+separate one-shot administrator performs any canonical write. The compact
+Gemini catalog and five-operation legacy Custom GPT Action remain unchanged.
+The standard inventory SHA-256 is
+`5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0`,
+the synchronization ledger SHA-256 is
+`6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3`,
+and the unchanged 4,752-character Instructions SHA-256 is
+`2ac7368d003e8bef1eee243f9612f39ec88b4b07eb7df6a11125576575a2c514`.
+No deployment, connector refresh, or product-interface acceptance is claimed.
+
 ## 2026-09-01 reciprocal research access candidate — not live-accepted
 
 The standard plugin candidate has 26 MCP operations: 24 reads plus the explicit

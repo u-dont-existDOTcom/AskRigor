@@ -90,6 +90,7 @@ export {
   RESEARCH_USE_NOTICE_VERSION,
   ResearchAccessError,
   ResearchContributorAccessService,
+  prepareResearchContributionProposal,
   researchContributionProposalInputSchema,
   researchUseModeSchema,
   type ContributionPrivacyBoundary,
@@ -105,6 +106,22 @@ export {
   type ResearchUseAccountRecord,
   type ResearchUseMode,
 } from "./research-contributor-access.js";
+export {
+  InMemoryResearchContributionReviewStore,
+  PostgresResearchContributionPromotionRunner,
+  PostgresResearchContributionReviewStore,
+  ResearchContributionReviewError,
+  ResearchContributionReviewService,
+  researchContributionReviewDecisionSchema,
+  type CanonicalResearchContributionWriter,
+  type PostgresResearchContributionReviewStoreOptions,
+  type ResearchContributionPromotionReceipt,
+  type ResearchContributionPromotionResult,
+  type ResearchContributionPromotionView,
+  type ResearchContributionReviewDecision,
+  type ResearchContributionReviewStore,
+  type ResearchContributionReviewView,
+} from "./research-contribution-review.js";
 export {
   renderResearchFrontierViews,
   type ResearchFrontierDerivedViews,

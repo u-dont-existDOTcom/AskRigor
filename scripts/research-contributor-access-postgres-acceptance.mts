@@ -3,17 +3,24 @@ import { Pool } from "pg";
 import {
   PostgresEvidenceRepository,
   PostgresResearchContributorAccessStore,
+  PostgresResearchContributionPromotionRunner,
+  PostgresResearchContributionReviewStore,
   RESEARCH_USE_NOTICE_VERSION,
+  ResearchContributionReviewService,
   ResearchContributorAccessService,
   deterministicUuid,
   type ContributionPrivacyBoundary,
 } from "../packages/evidence-repository/src/index.js";
-import { researchFrontierFixture } from "./living-evidence-task-acceptance.mts";
+import {
+  livingEvidenceFixture,
+  researchFrontierFixture,
+} from "./living-evidence-task-acceptance.mts";
 
 const SCHEMA = "living_evidence";
 const NOW = "2026-09-01T02:00:00.000Z";
 const FREE_SUBJECT = "auth0|synthetic-postgres-free-user";
 const PAID_SUBJECT = "auth0|synthetic-postgres-paid-user";
+const REVIEW_SUBJECT = "auth0|synthetic-postgres-review-user";
 const IDENTITY_SECRET = new TextEncoder().encode(
   "synthetic-postgres-identity-secret-at-least-thirty-two-bytes",
 );
@@ -45,19 +52,28 @@ async function main(): Promise<void> {
       status: "PASS",
       phase: "migrate",
       schema: SCHEMA,
-      migration: "0009_research_contributor_access",
+      migration: "0010_research_contribution_review",
     })}\n`);
     return;
   }
   if (phase !== "verify") {
     throw new Error("EXPECTED_PHASE_MIGRATE_OR_VERIFY");
   }
-  await verify(adminUrl, requiredEnv("ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL"));
+  await verify(
+    adminUrl,
+    requiredEnv("ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL"),
+    requiredEnv("ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL"),
+  );
 }
 
-async function verify(adminUrl: string, accessUrl: string): Promise<void> {
+async function verify(
+  adminUrl: string,
+  accessUrl: string,
+  reviewUrl: string,
+): Promise<void> {
   const admin = new Pool({ connectionString: adminUrl });
   const restricted = new Pool({ connectionString: accessUrl });
+  const reviewRestricted = new Pool({ connectionString: reviewUrl });
   const store = new PostgresResearchContributorAccessStore({
     connectionString: accessUrl,
     schema: SCHEMA,
@@ -71,6 +87,34 @@ async function verify(adminUrl: string, accessUrl: string): Promise<void> {
       return () => deterministicUuid(`research-access-postgres:${sequence++}`);
     })(),
   });
+  const reviewStore = new PostgresResearchContributionReviewStore({
+    connectionString: reviewUrl,
+    schema: SCHEMA,
+  });
+  const reviewService = new ResearchContributionReviewService(reviewStore, {
+    now: (() => {
+      let second = 0;
+      return () => `2026-09-01T03:00:${String(second++).padStart(2, "0")}.000Z`;
+    })(),
+    randomUuid: (() => {
+      let sequence = 0;
+      return () => deterministicUuid(`research-review-promotion:${sequence++}`);
+    })(),
+  });
+  const writer = new PostgresEvidenceRepository({
+    connectionString: adminUrl,
+    schema: SCHEMA,
+  });
+  const runnerA = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    writer,
+    { now: () => "2026-09-01T03:10:00.000Z" },
+  );
+  const runnerB = new PostgresResearchContributionPromotionRunner(
+    { connectionString: adminUrl, schema: SCHEMA },
+    writer,
+    { now: () => "2026-09-01T03:10:01.000Z" },
+  );
   const checks: string[] = [];
   try {
     const migrationRows = await admin.query<{ migration_id: string }>(
@@ -199,15 +243,162 @@ async function verify(adminUrl: string, accessUrl: string): Promise<void> {
       "ACCOUNT_KEY_NOT_HMAC_SHAPED");
     checks.push("only_hmac_identity_persisted");
 
+    const reviewMigrationRows = await admin.query<{ migration_id: string }>(
+      `SELECT migration_id FROM ${SCHEMA}.schema_migrations
+       WHERE migration_id = '0010_research_contribution_review'`,
+    );
+    assert(reviewMigrationRows.rowCount === 1, "MIGRATION_0010_NOT_APPLIED");
+    checks.push("migration_0010_applied");
+
+    await expectPermissionDenied(() => reviewRestricted.query(
+      `SELECT count(*) FROM ${SCHEMA}.research_contribution_proposals`,
+    ));
+    await expectPermissionDenied(() => reviewRestricted.query(
+      `SELECT count(*) FROM ${SCHEMA}.analysis_versions`,
+    ));
+    await expectPermissionDenied(() => reviewRestricted.query(
+      `UPDATE ${SCHEMA}.research_contribution_proposals
+          SET status = 'REJECTED' WHERE true`,
+    ));
+    checks.push("review_role_has_function_only_no_table_or_canonical_authority");
+
+    await service.acceptFreeContributor(REVIEW_SUBJECT, {
+      noticeVersion: RESEARCH_USE_NOTICE_VERSION,
+      eligibleDeidentifiedResearchContributionRequired: true,
+      prohibitedPrivateAndRawContentExcluded: true,
+      proposalReviewAndNoAuthorityAcknowledged: true,
+      paidPrivateAlternativeAcknowledged: true,
+    });
+
+    const sourceProposal = await service.submitProposal(REVIEW_SUBJECT, {
+      proposalKind: "SOURCE_ANALYSIS",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: livingEvidenceFixture("research-review-source"),
+    });
+    const inspected = await reviewService.inspect(sourceProposal.record.proposalId);
+    assert(inspected !== null, "REVIEW_PROPOSAL_NOT_INSPECTABLE");
+    assert(
+      !JSON.stringify(inspected).includes(sourceProposal.record.accountKey),
+      "REVIEW_PROJECTION_LEAKED_ACCOUNT_KEY",
+    );
+    const acceptedSource = await reviewService.decide({
+      proposalId: sourceProposal.record.proposalId,
+      expectedPayloadSha256: sourceProposal.record.payloadSha256,
+      decision: "ACCEPT",
+      reason: "Synthetic exact-hash source analysis accepted.",
+    });
+    assert(acceptedSource.status === "ACCEPTED", "SOURCE_PROPOSAL_NOT_ACCEPTED");
+    assert(acceptedSource.promotion?.status === "PENDING", "SOURCE_PROMOTION_NOT_PENDING");
+    const concurrent = await Promise.all([
+      runnerA.promoteNext(),
+      runnerB.promoteNext(),
+    ]);
+    assert(
+      concurrent.filter(({ status }) => status === "promoted").length === 1 &&
+      concurrent.filter(({ status }) => status === "no_pending_promotion").length === 1,
+      "CONCURRENT_PROMOTION_NOT_SINGLE_CLAIM",
+    );
+    const afterSource = await canonicalCounts(admin);
+    assert(afterSource.analyses === canonicalBefore.analyses + 1, "SOURCE_NOT_PROMOTED");
+    checks.push("source_accept_atomic_intent_and_concurrent_single_promotion");
+
+    const frontierPayload = researchFrontierFixture("research-review-frontier-retry");
+    const frontierProposal = await service.submitProposal(REVIEW_SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: frontierPayload,
+    });
+    await reviewService.decide({
+      proposalId: frontierProposal.record.proposalId,
+      expectedPayloadSha256: frontierProposal.record.payloadSha256,
+      decision: "ACCEPT",
+      reason: "Synthetic exact-hash frontier accepted for retry proof.",
+    });
+    await expectMessage(
+      () => runnerA.promoteNext("after_writer"),
+      "INJECTED_FAILURE_AFTER_PROMOTION_WRITER",
+    );
+    const afterInjectedFailure = await reviewService.inspect(
+      frontierProposal.record.proposalId,
+    );
+    assert(
+      afterInjectedFailure?.promotion?.status === "PENDING",
+      "PROMOTION_INTENT_NOT_RETRYABLE_AFTER_FAILURE",
+    );
+    const retry = await runnerA.promoteNext();
+    assert(retry.status === "promoted", "PROMOTION_RETRY_DID_NOT_COMPLETE");
+    assert(
+      retry.receipt.canonicalWriterReceipt.status === "idempotent_replay",
+      "PROMOTION_RETRY_DID_NOT_USE_WRITER_IDEMPOTENCY",
+    );
+    const afterFrontier = await canonicalCounts(admin);
+    assert(afterFrontier.frontiers === canonicalBefore.frontiers + 1, "FRONTIER_NOT_PROMOTED");
+    checks.push("writer_commit_before_receipt_recovers_by_idempotent_retry");
+
+    const rejectedPayload = researchFrontierFixture("research-review-rejected");
+    const rejectedProposal = await service.submitProposal(REVIEW_SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: rejectedPayload,
+    });
+    const rejectedReview = await reviewService.decide({
+      proposalId: rejectedProposal.record.proposalId,
+      expectedPayloadSha256: rejectedProposal.record.payloadSha256,
+      decision: "REJECT",
+      reason: "Synthetic rejection retains no promotion intent.",
+    });
+    assert(rejectedReview.status === "REJECTED", "PROPOSAL_NOT_REJECTED");
+    assert(rejectedReview.promotion === null, "REJECTED_PROPOSAL_HAS_PROMOTION");
+    assert(
+      (await runnerA.promoteNext()).status === "no_pending_promotion",
+      "REJECTED_PROPOSAL_WAS_PROMOTABLE",
+    );
+    checks.push("reject_has_no_promotion_intent");
+
+    const racePayload = researchFrontierFixture("research-review-withdraw-race");
+    const raceProposal = await service.submitProposal(REVIEW_SUBJECT, {
+      proposalKind: "RESEARCH_FRONTIER",
+      privacyBoundary: PRIVACY_BOUNDARY,
+      payload: racePayload,
+    });
+    await Promise.allSettled([
+      reviewService.decide({
+        proposalId: raceProposal.record.proposalId,
+        expectedPayloadSha256: raceProposal.record.payloadSha256,
+        decision: "ACCEPT",
+        reason: "Synthetic decision racing contributor withdrawal.",
+      }),
+      service.revoke(REVIEW_SUBJECT),
+    ]);
+    const raced = await reviewService.inspect(raceProposal.record.proposalId);
+    assert(raced !== null, "RACED_PROPOSAL_MISSING");
+    assert(
+      (raced.status === "WITHDRAWN" && raced.promotion === null) ||
+      (raced.status === "ACCEPTED" && raced.promotion !== null),
+      "WITHDRAWAL_REVIEW_RACE_BROKE_ATOMICITY",
+    );
+    checks.push("withdrawal_review_race_has_atomic_terminal_state");
+
     process.stdout.write(`${JSON.stringify({
       status: "PASS",
       phase: "verify",
       checks,
       proposal_status_after_revoke: "WITHDRAWN",
-      canonical_counts_unchanged: true,
+      canonical_counts_unchanged_before_owner_acceptance: true,
+      source_promotions: 1,
+      frontier_promotions: 1,
     })}\n`);
   } finally {
-    await Promise.allSettled([store.close(), restricted.end(), admin.end()]);
+    await Promise.allSettled([
+      runnerA.close(),
+      runnerB.close(),
+      writer.close(),
+      reviewStore.close(),
+      store.close(),
+      reviewRestricted.end(),
+      restricted.end(),
+      admin.end(),
+    ]);
   }
 }
 
@@ -262,6 +453,22 @@ async function expectPgErrorMessage(
     throw error;
   }
   throw new Error(`EXPECTED_POSTGRES_ERROR_MISSING expected=${expected}`);
+}
+
+async function expectMessage(
+  action: () => Promise<unknown>,
+  expected: string,
+): Promise<void> {
+  try {
+    await action();
+  } catch (error) {
+    if (
+      typeof error === "object" && error !== null && "message" in error &&
+      String(error.message).includes(expected)
+    ) return;
+    throw error;
+  }
+  throw new Error(`EXPECTED_ERROR_MISSING expected=${expected}`);
 }
 
 function isPgCode(error: unknown, code: string): boolean {

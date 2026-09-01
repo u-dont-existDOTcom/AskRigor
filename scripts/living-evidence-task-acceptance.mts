@@ -31,7 +31,7 @@ const CURRENT_PROTOCOLS: ProtocolManifest[] = [
   { name: "AskRigor HRP", version: "20.5.24", revisionDate: "2026-08-31", sha256: "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1" },
 ];
 
-function fixture(namespace: string): LivingEvidenceContribution {
+export function livingEvidenceFixture(namespace: string): LivingEvidenceContribution {
   const text = `# Complete performed analysis\n\n${"lossless-analysis-content ".repeat(6_000)}\n`;
   const sourceIdentifier = `10.1234/acceptance.${sha256(namespace).slice(0, 16)}`;
   const sourceIdentifiers = [{ scheme: "doi" as const, value: sourceIdentifier }];
@@ -126,7 +126,7 @@ function fixture(namespace: string): LivingEvidenceContribution {
 }
 
 function pendingImpactFixture(namespace: string): LivingEvidenceContribution {
-  const contribution = fixture(namespace);
+  const contribution = livingEvidenceFixture(namespace);
   const questionId = deterministicUuid(`${namespace}:question`);
   const claimId = deterministicUuid(`${namespace}:claim`);
   const claimVersionId = deterministicUuid(`${namespace}:claim-version`);
@@ -623,14 +623,14 @@ async function main(): Promise<void> {
       );
       if (
         migrations.rows.map(({ migration_id: id }) => id).join(",") !==
-        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix,0008_public_evidence_gap_intake,0009_research_contributor_access"
+        "0001_living_evidence,0002_research_frontier,0003_community_forum_synthetic_lab,0004_community_forum_composer_frontier_queues,0005_community_forum_hostile_lifecycle_research,0006_community_forum_closed_loop_hostile,0007_community_forum_privacy_provenance_matrix,0008_public_evidence_gap_intake,0009_research_contributor_access,0010_research_contribution_review"
       ) {
         throw new Error("FRONTIER_MIGRATION_CHAIN_MISMATCH");
       }
     } finally {
       migrationClient.release();
     }
-    checks.push("immutable_nine_migration_chain_applied");
+    checks.push("immutable_ten_migration_chain_applied");
 
     const publicGapSubmission = await publicGapService.start({
       gapSlug: PUBLIC_PROLACTINOMA_GAP_SLUG,
@@ -1046,7 +1046,7 @@ async function main(): Promise<void> {
       throw new Error("REUSABLE_STUDY_AUDIT_REVALIDATION_FAILED");
     }
     checks.push("exact_current_study_audit_lookup_and_revalidation");
-    const initial = fixture(namespace);
+    const initial = livingEvidenceFixture(namespace);
     const prepared = prepareContribution(initial);
     const inserted = await repository.contribute(initial);
     if (inserted.status !== "inserted" || inserted.wholeTextBytes !== prepared.wholeTextBytes || prepared.wholeTextBytes < 100_000) {
@@ -1083,12 +1083,12 @@ async function main(): Promise<void> {
     await expectReject(() => repository.contribute(duplicateInitial), "ANALYSIS_ALREADY_HAS_INITIAL_VERSION");
     checks.push("second_initial_version_rejected");
 
-    const protocolConflict = fixture(`${namespace}:protocol-conflict`);
+    const protocolConflict = livingEvidenceFixture(`${namespace}:protocol-conflict`);
     protocolConflict.run.protocolManifests[0]!.name = "Conflicting manifest name";
     await expectReject(() => repository.contribute(protocolConflict), "PROTOCOL_MANIFEST_CONFLICT");
     checks.push("protocol_hash_metadata_conflict_rejected");
 
-    const sourceConflict = fixture(`${namespace}:source-conflict`);
+    const sourceConflict = livingEvidenceFixture(`${namespace}:source-conflict`);
     sourceConflict.source!.familyId = initial.source!.familyId;
     sourceConflict.source!.versionId = initial.source!.versionId;
     await expectReject(() => repository.contribute(sourceConflict), "SOURCE_FAMILY_ID_CONFLICT");
@@ -1126,7 +1126,7 @@ async function main(): Promise<void> {
     );
     checks.push("evidence_binding_receipt_source_mismatch_rejected");
 
-    const resolutionInitial = fixture(`${namespace}:unknown-resolution`);
+    const resolutionInitial = livingEvidenceFixture(`${namespace}:unknown-resolution`);
     await repository.contribute(resolutionInitial);
     const unknownResolution = clarification(resolutionInitial, `${namespace}:unknown-resolution`);
     unknownResolution.analysis.futureAnalysisItems[0]!.itemId = deterministicUuid(`${namespace}:unknown-resolution:never-opened-item`);
@@ -1203,7 +1203,7 @@ async function main(): Promise<void> {
     checks.push("source_lineage_cycle_rejected");
 
     const beforeRollback = await repository.countRows("analysis_versions");
-    const rollbackFixture = fixture(`${namespace}:rollback`);
+    const rollbackFixture = livingEvidenceFixture(`${namespace}:rollback`);
     await expectReject(() => repository.contribute(rollbackFixture, "after_sections"), "INJECTED_FAILURE_AFTER_SECTIONS");
     if (await repository.countRows("analysis_versions") !== beforeRollback) throw new Error("TRANSACTION_ROLLBACK_FAILED");
     checks.push("injected_failure_rolled_back");

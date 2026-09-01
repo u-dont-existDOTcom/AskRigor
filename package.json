@@ -40,6 +40,8 @@
     "contributor-access:deterministic-acceptance": "tsx scripts/accept-research-contributor-access.mts",
     "contributor-access:acceptance": "npm run contributor-access:deterministic-acceptance && npm run contributor-access:postgres-acceptance",
     "contributor-access:postgres-acceptance": "bash scripts/run-research-contributor-access-postgres-acceptance.sh",
+    "owner-review:preflight": "tsx scripts/owner-review-task-preflight.mts",
+    "owner-review:acceptance": "npm run contributor-access:acceptance",
     "community-forum:lab-validate": "tsx scripts/validate-discourse-synthetic-lab.mts",
     "community-forum:acceptance": "tsx scripts/community-forum-synthetic-acceptance.mts",
     "community-forum:runtime-acceptance": "bash scripts/run-discourse-synthetic-acceptance.sh",

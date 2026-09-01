@@ -304,7 +304,10 @@ export class ResearchContributorAccessService {
     const parsed = researchContributionProposalInputSchema.parse(input);
     assertNoProhibitedPersistentKeys(parsed.payload);
     assertNoObviousPrivateContactText(parsed.payload);
-    const prepared = prepareProposal(parsed.proposalKind, parsed.payload);
+    const prepared = prepareResearchContributionProposal(
+      parsed.proposalKind,
+      parsed.payload,
+    );
     const at = this.now();
     const record: ResearchContributionProposalRecord = {
       proposalId: this.createUuid(),
@@ -635,7 +638,10 @@ function accountFromRow(row: ResearchUseAccountRow): ResearchUseAccountRecord {
 function proposalFromRow(
   row: ResearchContributionProposalRow,
 ): ResearchContributionProposalRecord {
-  const prepared = prepareProposal(row.proposal_kind, row.payload_json);
+  const prepared = prepareResearchContributionProposal(
+    row.proposal_kind,
+    row.payload_json,
+  );
   if (prepared.payloadSha256 !== row.payload_sha256) {
     throw new Error("PROPOSAL_PAYLOAD_SHA256_MISMATCH");
   }
@@ -656,7 +662,7 @@ function proposalFromRow(
   };
 }
 
-function prepareProposal(
+export function prepareResearchContributionProposal(
   kind: ResearchContributionProposalKind,
   payload: unknown,
 ): {

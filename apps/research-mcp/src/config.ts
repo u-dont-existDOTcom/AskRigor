@@ -45,6 +45,12 @@ export interface ResearchContributorAccessConfig {
   identitySecret: Uint8Array;
 }
 
+export interface ResearchContributionReviewConfig {
+  connectionString: string;
+  schema: string;
+  ssl: false | { rejectUnauthorized: false };
+}
+
 export const PUBLIC_RATE_LIMIT = {
   capacity: 60,
   refillTokensPerMinute: 60,
@@ -187,6 +193,38 @@ export function researchContributorAccessConfigFromEnv(
     schema,
     ssl: sslMode === "require" ? { rejectUnauthorized: false } : false,
     identitySecret: Uint8Array.from(identitySecret),
+  };
+}
+
+export function researchContributionReviewConfigFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): ResearchContributionReviewConfig | undefined {
+  if (env.ASKRIGOR_RESEARCH_REVIEW_ENABLED !== "true") return undefined;
+  const connectionString = env.ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL?.trim();
+  const schema = env.ASKRIGOR_RESEARCH_REVIEW_DATABASE_SCHEMA?.trim() ||
+    "living_evidence";
+  const sslMode = env.ASKRIGOR_RESEARCH_REVIEW_DATABASE_SSLMODE?.trim() ||
+    "disable";
+  if (
+    connectionString === undefined || connectionString.length === 0 ||
+    !/^[a-z][a-z0-9_]{0,62}$/u.test(schema) ||
+    !["disable", "require"].includes(sslMode)
+  ) {
+    throw new Error("Research contribution review configuration unavailable");
+  }
+  let databaseUrl: URL;
+  try {
+    databaseUrl = new URL(connectionString);
+  } catch {
+    throw new Error("Research contribution review configuration unavailable");
+  }
+  if (!["postgres:", "postgresql:"].includes(databaseUrl.protocol)) {
+    throw new Error("Research contribution review configuration unavailable");
+  }
+  return {
+    connectionString,
+    schema,
+    ssl: sslMode === "require" ? { rejectUnauthorized: false } : false,
   };
 }
 

@@ -172,7 +172,7 @@ describe("read-only research-frontier catalog search", () => {
   });
 
   it("remains operation 23 while access operations append after both frontier reads", () => {
-    expect(RESEARCH_OPERATIONS).toHaveLength(26);
+    expect(RESEARCH_OPERATIONS).toHaveLength(27);
     expect(RESEARCH_OPERATIONS.at(21)?.name).toBe("get_research_frontier");
     expect(RESEARCH_OPERATIONS.at(22)).toMatchObject({
       name: "search_research_frontiers",

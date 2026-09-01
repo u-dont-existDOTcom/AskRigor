@@ -9528,6 +9528,273 @@
       }
     },
     {
+      "name": "review_research_contribution",
+      "description": "Owner-only review of one deidentified pending research contribution. Inspect the exact payload and hash, then accept or reject with a reason. Acceptance creates a hash-bound pending promotion intent but this public-runtime call never writes canonical evidence; a separate one-shot administrator completes promotion.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "inspect",
+              "status",
+              "accept",
+              "reject"
+            ]
+          },
+          "proposalId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "expectedPayloadSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pending_review",
+              "accepted_pending_promotion",
+              "accepted_promoted",
+              "rejected",
+              "withdrawn",
+              "no_pending_proposal"
+            ]
+          },
+          "proposal": {
+            "type": "object",
+            "properties": {
+              "proposalId": {
+                "type": "string",
+                "format": "uuid",
+                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+              },
+              "proposalKind": {
+                "type": "string",
+                "enum": [
+                  "RESEARCH_FRONTIER",
+                  "SOURCE_ANALYSIS"
+                ]
+              },
+              "payloadSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "payload": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "privacyBoundary": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "boolean"
+                }
+              },
+              "partial": {
+                "type": "boolean"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "PENDING_REVIEW",
+                  "ACCEPTED",
+                  "REJECTED",
+                  "WITHDRAWN"
+                ]
+              },
+              "createdAt": {
+                "type": "string"
+              },
+              "reviewedAt": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reviewReason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "promotion": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "promotionId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "PENDING",
+                          "COMPLETED"
+                        ]
+                      },
+                      "createdAt": {
+                        "type": "string"
+                      },
+                      "completedAt": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "receipt": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string"
+                            },
+                            "additionalProperties": {}
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "receiptSha256": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{64}$"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "promotionId",
+                      "status",
+                      "createdAt",
+                      "completedAt",
+                      "receipt",
+                      "receiptSha256"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "proposalId",
+              "proposalKind",
+              "payloadSha256",
+              "payload",
+              "privacyBoundary",
+              "partial",
+              "status",
+              "createdAt",
+              "reviewedAt",
+              "reviewReason",
+              "promotion"
+            ],
+            "additionalProperties": false
+          },
+          "canonicalEvidenceChangedByThisCall": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "authorization_required",
+                  "insufficient_scope",
+                  "review_service_unavailable",
+                  "proposal_not_found",
+                  "payload_mismatch",
+                  "review_conflict",
+                  "promotion_intent_missing",
+                  "invalid_request"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "additionalProperties": false
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "execution": {
+        "taskSupport": "forbidden"
+      },
+      "_meta": {
+        "securitySchemes": [
+          {
+            "type": "oauth2",
+            "scopes": [
+              "cases:review"
+            ]
+          }
+        ]
+      }
+    },
+    {
       "name": "review_evidence_gap_submissions",
       "description": "Retrieve the private, deidentified review projection for submitted cases in the prolactinoma-spontaneous-remission evidence gap. Requires OAuth scope cases:review. Participant-reported cases remain explicitly unverified and noncausal; partial and comparison cases are retained and labeled.",
       "inputSchema": {

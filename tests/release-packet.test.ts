@@ -42,6 +42,7 @@ const TOOL_NAMES = [
   "search_research_frontiers",
   "manage_research_access",
   "submit_research_contribution",
+  "review_research_contribution",
   "review_evidence_gap_submissions"
 ];
 
@@ -597,11 +598,12 @@ describe("AskRigor public-review packet", () => {
       endpoint: "https://mcp.askrigor.com/mcp"
     });
     expect(inventory.tools.map(({ name }: { name: string }) => name)).toEqual(TOOL_NAMES);
-    expect(inventory.tools).toHaveLength(26);
+    expect(inventory.tools).toHaveLength(27);
 
     for (const tool of inventory.tools) {
       const isWrite = tool.name === "manage_research_access" ||
-        tool.name === "submit_research_contribution";
+        tool.name === "submit_research_contribution" ||
+        tool.name === "review_research_contribution";
       expect(tool).toMatchObject({
         description: expect.any(String),
         inputSchema: { type: "object", $schema: "http://json-schema.org/draft-07/schema#" },
@@ -614,7 +616,10 @@ describe("AskRigor public-review packet", () => {
         execution: { taskSupport: "forbidden" }
       });
       expect(tool.title).toBeUndefined();
-      expect(tool._meta).toEqual(tool.name === "review_evidence_gap_submissions"
+      expect(tool._meta).toEqual([
+        "review_evidence_gap_submissions",
+        "review_research_contribution",
+      ].includes(tool.name)
         ? { securitySchemes: [{ type: "oauth2", scopes: ["cases:review"] }] }
         : { securitySchemes: [{ type: "oauth2", scopes: ["research:use"] }] });
       expect(Object.keys(tool).filter((key) => tool[key] !== undefined).sort()).toEqual([

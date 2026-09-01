@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-owner-review-promotion-v1",
+  "status": "SUBTASK_COMPLETE_PARENT_OPEN",
+  "branch": "task/owner-review-promotion-20260901",
+  "baselineCommit": "ef8b713e9b5320d3ebe8e47ec2cea98095431e90",
+  "implementationCommit": "7697bcf6d6689533314b5e2a218bd6e602016d50",
+  "implementationTree": "fef404b7fef560fe7c979e7d2a5e3d36ce01e6c1",
+  "ciAcceptanceHarnessRepairCommit": "b0279aca88437bed665455521d1f35d89e030aef",
+  "codeCandidateTreeAfterRepair": "658a856c0509febe2a869484f250ea268b8f344a",
+  "implementationDiff": {
+    "filesChanged": 50,
+    "insertions": 2693,
+    "deletions": 118
+  },
+  "catalog": {
+    "standardToolCount": 27,
+    "standardInventorySha256": "5dd514a9e865da0b312a3f9f6a106a4a3d0bd9872e7bfec0e95db6bbe9c7dab0",
+    "geminiToolCount": 22,
+    "syncLedgerSha256": "6d6e86e1b999cc13f5d431281858caf3a489769861351dbb65d0eb0538f17df3"
+  },
+  "coreArtifacts": {
+    "migration0010Sha256": "7729583c6c33479ecec4dfb6e64ee9f94899d109a0df39e10616fa8b16b4ef9a",
+    "reviewServiceSha256": "05e8786b1425df3047d477ddc04b32bdc8b2b660f75a46d27ea436a23e1c264f",
+    "ownerToolSha256": "9a1e5377302d859bb3563d3da11d05a0f9813904725abad842c58cf7be9c2535",
+    "reviewRoleProvisionerSha256": "064d916d8e7ed6d75b9cb64bdf3b454b1216d29ca85b45ec2cb196717e1f2a91",
+    "skillSha256": "c8e970bc8378791cc93b518cc63c673ffda8bec8ffe6c5b8e7d77c167ac80a72",
+    "livingEvidenceAcceptanceScriptSha256": "07de1e246c31ea899f370cc6c78eff4feffdf1b40c263fefc7d6ee6761b8258f"
+  },
+  "protocols": {
+    "hrpSha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
+    "universalSha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172"
+  },
+  "verification": {
+    "npmCi": "PASS_0_VULNERABILITIES",
+    "preflight": "PASS_DUAL_OWNER_SOURCE_IDENTITY",
+    "focusedTestFiles": 7,
+    "focusedTestsPassed": 63,
+    "postgresChecksPassed": 12,
+    "livingEvidenceLocal": "PASS_42_CHECKS_PILOT_DUMP_WIPE_RESTORE",
+    "fullTestFilesPassed": 125,
+    "fullTestFilesSkipped": 1,
+    "fullTestsPassed": 1610,
+    "fullTestsSkipped": 6,
+    "typecheck": "PASS",
+    "build": "PASS",
+    "sitePages": 4,
+    "siteDeploymentTestsPassed": 28,
+    "diffCheck": "PASS"
+  },
+  "supervision": {
+    "reviewVerdict": "PASS",
+    "criticalFindings": 0,
+    "importantFindings": 0,
+    "minorFindings": 0,
+    "operationalAlignment": "GREEN",
+    "scientificAdequacy": "PRESERVED_NOT_EXPANDED",
+    "releaseAdequacy": "NOT_AUTHORIZED",
+    "supervisionDesignFeedback": "NO",
+    "responseSha256WithoutFileFinalNewline": "091cc5545ba213024bd7623704843d90a97aa5246e17b18f26fa498951e560bc",
+    "responseBytesWithoutFileFinalNewline": 1913,
+    "fileSha256": "480b1ea74a19aef1860255f64337cfd47941e1ad266f408cf7c98880a8441642",
+    "fileBytes": 1914
+  },
+  "lessons": {
+    "checkedAt": "2026-09-01T03:47:00.479Z",
+    "openCandidates": 0,
+    "needsReview": 0,
+    "acceptedNotIncorporated": 0,
+    "incorporatedOrClosed": 4,
+    "deletionEligible": 0,
+    "newUniversalLesson": false
+  },
+  "release": {
+    "pullRequest": 161,
+    "initialDeterministicRun": 33467704229,
+    "initialDeterministicJob": 99730893389,
+    "initialDeterministicConclusion": "FAIL_STALE_NINE_MIGRATION_HARNESS_EXPECTATION",
+    "replacementChecks": "PENDING_AT_RECEIPT_UPDATE",
+    "mergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "productionProvisioningPerformed": false,
+    "schedulerActivated": false,
+    "liveProductAcceptanceClaimed": false
+  },
+  "completedAt": "2026-09-01T03:47:28Z"
+}

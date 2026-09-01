@@ -51,11 +51,13 @@ const TOOL_NAMES = [
   "search_research_frontiers",
   "manage_research_access",
   "submit_research_contribution",
+  "review_research_contribution",
   "review_evidence_gap_submissions"
 ];
 const GEMINI_TOOL_NAMES = TOOL_NAMES.filter((name) =>
   ![
     "review_evidence_gap_submissions",
+    "review_research_contribution",
     "search_research_frontiers",
     "manage_research_access",
     "submit_research_contribution",
@@ -88,7 +90,7 @@ afterEach(async () => {
 });
 
 describe("AskRigor MCP tools", () => {
-  it("registers the exact twenty-six-tool catalog with two declared writes", async () => {
+  it("registers the exact twenty-seven-tool catalog with three declared writes", async () => {
     const { client, server } = await createInMemoryClient();
 
     try {
@@ -99,6 +101,7 @@ describe("AskRigor MCP tools", () => {
         TOOL_NAMES.map((name) => [
           "manage_research_access",
           "submit_research_contribution",
+          "review_research_contribution",
         ].includes(name) ? MUTATING_ANNOTATIONS : READ_ONLY_ANNOTATIONS)
       );
       expect(tools.every(({ inputSchema, outputSchema }) =>

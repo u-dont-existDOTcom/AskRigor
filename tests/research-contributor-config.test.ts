@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { researchContributorAccessConfigFromEnv } from
+import {
+  researchContributionReviewConfigFromEnv,
+  researchContributorAccessConfigFromEnv,
+} from
   "../apps/research-mcp/src/config.js";
 
 const secret = Buffer.alloc(32, 23).toString("base64url");
@@ -56,3 +59,43 @@ describe("research contributor access configuration", () => {
   });
 });
 
+describe("research contribution review configuration", () => {
+  it("is disabled unless explicitly enabled", () => {
+    expect(researchContributionReviewConfigFromEnv({})).toBeUndefined();
+  });
+
+  it("accepts only a distinct PostgreSQL review-role URL", () => {
+    expect(researchContributionReviewConfigFromEnv({
+      ASKRIGOR_RESEARCH_REVIEW_ENABLED: "true",
+      ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL:
+        "postgresql://research-review:secret@living-evidence/askrigor",
+      ASKRIGOR_RESEARCH_REVIEW_DATABASE_SCHEMA: "living_evidence",
+      ASKRIGOR_RESEARCH_REVIEW_DATABASE_SSLMODE: "require",
+    })).toEqual({
+      connectionString:
+        "postgresql://research-review:secret@living-evidence/askrigor",
+      schema: "living_evidence",
+      ssl: { rejectUnauthorized: false },
+    });
+  });
+
+  it("fails closed on malformed review configuration", () => {
+    const valid = {
+      ASKRIGOR_RESEARCH_REVIEW_ENABLED: "true",
+      ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL:
+        "postgresql://research-review:secret@living-evidence/askrigor",
+      ASKRIGOR_RESEARCH_REVIEW_DATABASE_SCHEMA: "living_evidence",
+      ASKRIGOR_RESEARCH_REVIEW_DATABASE_SSLMODE: "disable",
+    } satisfies NodeJS.ProcessEnv;
+    for (const override of [
+      { ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL: "https://example.com" },
+      { ASKRIGOR_RESEARCH_REVIEW_DATABASE_SCHEMA: "unsafe-schema" },
+      { ASKRIGOR_RESEARCH_REVIEW_DATABASE_SSLMODE: "prefer" },
+    ]) {
+      expect(() => researchContributionReviewConfigFromEnv({
+        ...valid,
+        ...override,
+      })).toThrow("Research contribution review configuration unavailable");
+    }
+  });
+});

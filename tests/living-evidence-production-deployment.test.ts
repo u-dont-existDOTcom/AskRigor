@@ -46,7 +46,7 @@ describe("production living-evidence deployment", () => {
     );
 
     expect(compose).toMatch(
-      /secrets:\n\s+- living_evidence_migrator_password\n\s+- living_evidence_reader_password\n\s+- evidence_gap_intake_password\n\s+- research_access_password/u,
+      /secrets:\n\s+- living_evidence_migrator_password\n\s+- living_evidence_reader_password\n\s+- evidence_gap_intake_password\n\s+- research_access_password\n\s+- research_review_password/u,
     );
     expect(compose).toContain(
       "ASKRIGOR_EVIDENCE_GAP_INTAKE_PASSWORD_FILE: /run/secrets/evidence_gap_intake_password",
@@ -70,6 +70,42 @@ describe("production living-evidence deployment", () => {
     expect(provision).not.toMatch(/GRANT\s+(?:DELETE|TRUNCATE|CREATE)\b/iu);
     expect(provision).not.toContain("GRANT SELECT ON ALL TABLES");
     expect(provision).not.toContain("set -x");
+  });
+
+  it("provisions a function-only owner review role without table or writer grants", async () => {
+    const compose = await read("infra/living-evidence-production/compose.yaml");
+    const provision = await read(
+      "infra/living-evidence-production/provision-research-review-role.sh",
+    );
+    const migration = await read(
+      "packages/evidence-repository/migrations/0010_research_contribution_review.sql",
+    );
+
+    expect(compose).toContain(
+      "ASKRIGOR_RESEARCH_REVIEW_PASSWORD_FILE: /run/secrets/research_review_password",
+    );
+    expect(compose).toContain(
+      "/opt/askrigor/living-evidence/provision-research-review-role.sh:/usr/local/bin/provision-research-review-role:ro",
+    );
+    expect(provision).toContain(
+      "CREATE ROLE askrigor_research_review LOGIN PASSWORD",
+    );
+    expect(provision).toContain(
+      "REVOKE ALL ON ALL TABLES IN SCHEMA living_evidence FROM askrigor_research_review",
+    );
+    expect(provision).toContain(
+      "GRANT EXECUTE ON FUNCTION living_evidence.inspect_research_contribution_proposal",
+    );
+    expect(provision).toContain(
+      "GRANT EXECUTE ON FUNCTION living_evidence.decide_research_contribution_proposal",
+    );
+    expect(provision).not.toMatch(/GRANT\s+(?:SELECT|INSERT|UPDATE|DELETE|TRUNCATE|CREATE)\s+ON\s+TABLE/iu);
+    expect(provision).not.toContain("GRANT SELECT ON ALL TABLES");
+    expect(provision).not.toContain("set -x");
+    expect(migration).toContain("CREATE TABLE IF NOT EXISTS research_contribution_promotions");
+    expect(migration).toContain("SECURITY DEFINER");
+    expect(migration).toContain("RESEARCH_CONTRIBUTION_REVIEW_PAYLOAD_MISMATCH");
+    expect(migration).toContain("RESEARCH_CONTRIBUTION_REVIEW_CONFLICT");
   });
 
   it("provisions a proposal-only reciprocal research role without canonical writer authority", async () => {
@@ -166,7 +202,7 @@ describe("production living-evidence deployment", () => {
     expect(admin).toContain('command === "import-frontier"');
     expect(admin).toContain("prepareResearchFrontierImport");
     expect(runbook).toContain("Requested and confirmed");
-    expect(registry).toContain("Expected 26 research operations");
+    expect(registry).toContain("Expected 27 research operations");
     expect(registry).toContain('registerTool(\n    "get_research_frontier"');
   });
 });

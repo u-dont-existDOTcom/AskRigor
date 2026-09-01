@@ -14,8 +14,10 @@ trap cleanup EXIT
 umask 077
 openssl rand -hex 32 >"$temporary_dir/migrator-password"
 openssl rand -hex 32 >"$temporary_dir/access-password"
+openssl rand -hex 32 >"$temporary_dir/review-password"
 migrator_password="$(tr -d '\r\n' <"$temporary_dir/migrator-password")"
 access_password="$(tr -d '\r\n' <"$temporary_dir/access-password")"
+review_password="$(tr -d '\r\n' <"$temporary_dir/review-password")"
 
 docker run --detach --name "$container_name" \
   --env POSTGRES_DB=askrigor_living_evidence \
@@ -61,7 +63,19 @@ docker exec \
   --env ASKRIGOR_RESEARCH_ACCESS_PASSWORD_FILE=/tmp/access-password \
   "$container_name" sh /tmp/provision-research-access-role
 
+docker cp infra/living-evidence-production/provision-research-review-role.sh \
+  "$container_name:/tmp/provision-research-review-role"
+docker cp "$temporary_dir/review-password" "$container_name:/tmp/review-password"
+docker exec \
+  --env POSTGRES_USER=askrigor_migrator \
+  --env POSTGRES_DB=askrigor_living_evidence \
+  --env POSTGRES_PASSWORD_FILE=/tmp/migrator-password \
+  --env ASKRIGOR_RESEARCH_REVIEW_PASSWORD_FILE=/tmp/review-password \
+  "$container_name" sh /tmp/provision-research-review-role
+
 access_url="postgresql://askrigor_research_access:${access_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
+review_url="postgresql://askrigor_research_review:${review_password}@127.0.0.1:${host_port}/askrigor_living_evidence"
 DATABASE_URL="$admin_url" \
 ASKRIGOR_RESEARCH_ACCESS_DATABASE_URL="$access_url" \
+ASKRIGOR_RESEARCH_REVIEW_DATABASE_URL="$review_url" \
   npx tsx scripts/research-contributor-access-postgres-acceptance.mts verify

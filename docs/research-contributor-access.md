@@ -46,8 +46,9 @@ containing an account identity.
 
 The configured owner subject is no longer a global allowlist for ordinary
 research users. It remains an independent allowlist inside
-`review_evidence_gap_submissions`; a public user cannot obtain cross-user case
-review merely by carrying `cases:review` in a token.
+`review_evidence_gap_submissions` and `review_research_contribution`; a public
+user cannot obtain cross-user case or proposal review merely by carrying
+`cases:review` in a token.
 
 ## Proposal boundary
 
@@ -91,10 +92,21 @@ analysis, claim, source, assessment, or frontier tables. A proposal does not
 become evidence, raise evidence quality, establish causality, or become current
 knowledge merely because it exists or is repeated.
 
-Canonical promotion is a separate maintainer operation. It must inspect the
-proposal, rerun the existing strict contribution preparation, use the one-shot
-writer, record the disposition, and preserve append-only source/protocol/hash
-lineage. Automatic promotion is outside this slice.
+`review_research_contribution` lets the allowlisted owner inspect one exact
+proposal, query its status, or accept/reject it with a reason. Acceptance and
+creation of a hash-bound `PENDING` promotion intent occur in the same database
+transaction. Rejection creates no intent. The owner tool returns no account key
+and has no canonical writer credential.
+
+Canonical promotion remains a separate maintainer operation. The one-shot
+`living-evidence-admin promote-accepted` command locks one pending intent,
+reruns the strict contribution preparation, dispatches to the existing
+`contribute` or `contributeFrontier` writer, and stores an exact stable-JSON
+receipt and SHA-256. A crash after the canonical writer commits but before the
+intent receipt commits leaves the intent pending; retry uses the canonical
+writer's existing idempotency key and then completes the receipt. The command
+processes at most one intent per invocation. Automatic scheduling is outside
+this local slice.
 
 ## Database model
 
@@ -117,33 +129,45 @@ It cannot grant an entitlement, accept/reject a proposal, write canonical
 evidence, delete/truncate data, create objects, or read unrelated repository
 tables.
 
+Migration `0010_research_contribution_review.sql` adds the
+`research_contribution_promotions` outbox and two security-definer functions.
+The distinct `askrigor_research_review` database role receives only schema use
+and execute permission on those exact inspect/decide functions. It has no
+direct table privilege. The functions omit `account_key`, lock a proposal for
+each decision, require the owner-reviewed payload hash and a nonempty reason,
+and bind an accepted intent to the proposal kind and hash with a composite
+foreign key. The separate admin writer retains its existing canonical write
+authority and processes the outbox independently.
+
 ## Runtime and failure behavior
 
 When the OAuth resource server is configured, every ordinary MCP research
 operation requires `research:use` and an active mode. The two mode/proposal
-operations also require `research:use`; case review retains `cases:review` plus
-the owner-subject allowlist. Invalid/stale tokens, unregistered/revoked access,
+operations also require `research:use`; case and contribution review retain
+`cases:review` plus the owner-subject allowlist. Invalid/stale tokens,
+unregistered/revoked access,
 expired private entitlement, an unavailable access store, and malformed
 proposals fail closed.
 
 Legacy public research Action routes are removed from the effective Action
 catalog when OAuth research access is active so they cannot bypass the mode
 choice. The lesson-feedback Action remains separately governed. The Gemini
-compatibility catalog remains bounded and does not yet expose the two new mode
-and proposal operations; the primary ChatGPT/Codex plugin is the supported
-public enrollment surface for this slice.
+compatibility catalog remains at 22 tools and does not expose the mode,
+proposal-submission, proposal-review, catalog-search, or case-review operations;
+the primary ChatGPT/Codex plugin is the supported surface for this slice.
 
 ## Known limitations and next slice
 
 - There is no checkout or self-service purchase flow.
-- Proposal review and canonical promotion are not yet exposed through the
-  owner ChatGPT interface.
+- Promotion scheduling is not active; an operator must invoke the one-shot
+  command once per pending intent.
 - The deterministic privacy screen cannot recognize every indirect identifier.
 - Pending proposal retention is operator-managed rather than automatically
   expiring in this slice.
-- Accepted deidentified records need a documented request/disposition workflow
-  before broad public launch.
+- This local candidate has not been merged, deployed, or installed into the
+  owner ChatGPT/plugin surface.
 
-The recommended next slice is a private owner review tool that can inspect one
-pending proposal, record accept/reject with a reason, and on acceptance invoke
-the existing one-shot canonical writer with an exact promotion receipt.
+The recommended next slice is bounded release synchronization: review and merge
+the candidate, migrate and provision the distinct review role, deploy the exact
+image, invoke one synthetic promotion, and perform fresh owner-interface
+acceptance with rollback receipts.
