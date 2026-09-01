@@ -71,6 +71,7 @@ describe("external evaluation current-slice contract", () => {
       "governance/chat-work-authority-policy.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
       "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
+      "docs/audits/2026-09-01-mast-noharm-pilot-freeze-protected-merge.json",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();
     }

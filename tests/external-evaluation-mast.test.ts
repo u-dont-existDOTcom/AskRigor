@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
@@ -22,7 +23,7 @@ import {
   scoreSctResponse,
 } from "../evaluation/mast/src/preflight.js";
 
-const repositoryRoot = new URL("../", import.meta.url).pathname;
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const sharedSettings: MastSharedSettings = {
   endpoint: "https://api.openai.com/v1/responses",
   model: "gpt-5.6-sol",
