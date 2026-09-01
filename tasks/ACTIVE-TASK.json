@@ -28,6 +28,8 @@
   "plan": "docs/superpowers/plans/2026-09-01-owner-review-promotion.md",
   "ownerSourceReceipt": "docs/audits/2026-09-01-owner-review-promotion-owner-source.txt",
   "directiveReceipt": "docs/audits/2026-09-01-owner-review-promotion-directive.json",
+  "completionReceipt": "docs/audits/2026-09-01-owner-review-promotion-candidate.json",
+  "implementationCommit": "7697bcf6d6689533314b5e2a218bd6e602016d50",
   "preflightCommand": "npm run owner-review:preflight",
   "completionCommand": "npm run owner-review:acceptance",
   "previousCompletedTask": {

@@ -2,7 +2,7 @@
 
 ## 2026-09-01 owner review and promotion candidate — local only
 
-Task `askrigor-owner-review-promotion-v1` is in local verification on branch
+Task `askrigor-owner-review-promotion-v1` is ready for protected review on branch
 `task/owner-review-promotion-20260901` from production baseline
 `ef8b713e9b5320d3ebe8e47ec2cea98095431e90`. It adds one owner-only
 `review_research_contribution` MCP operation, a function-only review database
@@ -18,6 +18,14 @@ No merge, deployment, migration activation, role provisioning, scheduler,
 connector refresh, or live product acceptance is claimed.
 Recovery commands are `npm run owner-review:preflight` and
 `npm run owner-review:acceptance`.
+
+The bounded implementation is committed as
+`7697bcf6d6689533314b5e2a218bd6e602016d50`; full deterministic and real-
+PostgreSQL gates pass. Extra High final review is `PASS` with typed claim
+`SUBTASK_COMPLETE_PARENT_OPEN`. Exact evidence is in
+`docs/audits/2026-09-01-owner-review-promotion-candidate.json`. Protected PR
+review and release-readiness recommendation are the next slice; no production
+action is implied.
 
 ## 2026-09-01 free-contributor/private-entitlement production release complete
 

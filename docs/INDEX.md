@@ -164,6 +164,15 @@ complete XML protocol.
 - `research-contributor-access.md`: reciprocal free-contributor versus
   entitled paid-private contract, pseudonymous identity, pending-proposal
   boundary, least-privilege runtime, and known limitations
+- `audits/2026-09-01-owner-review-promotion-candidate.md` and `.json`:
+  owner-only exact-hash proposal disposition, function-only review role,
+  one-shot idempotent promotion, real-PostgreSQL and complete-gate evidence,
+  and separate operational/scientific/release adequacy states
+- `audits/2026-09-01-owner-review-promotion-directive.json`,
+  `audits/2026-09-01-owner-review-promotion-owner-source.txt`, and
+  `audits/2026-09-01-owner-review-promotion-final-review.txt`: independent
+  owner-source, corrected Extra High topology/tool-surface, and final PASS
+  review receipts
 - `audits/2026-09-01-reciprocal-research-access-candidate.md` and `.json`:
   exact local candidate verification, package receipt, and separate operational,
   scientific, and release-adequacy states
