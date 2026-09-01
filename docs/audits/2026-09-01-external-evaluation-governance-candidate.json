@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "external_evaluation_governance_candidate",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "benchmark-governance-schema-instantiation-v1",
+  "state": "READY_FOR_PROTECTED_REVIEW",
+  "capturedAt": "2026-09-01T16:09:18Z",
+  "source": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/external-evaluation-governance-v1-20260901",
+    "baselineCommit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
+    "candidateCommit": "61483e7ca4c1db58fdc443a337d87c3db80ed9d2",
+    "candidateTree": "38cc05d68cb28f57354b4b69b161810f7646d24e",
+    "previousSliceMergeReceipt": "docs/audits/2026-09-01-external-evaluation-child-protected-merge.json"
+  },
+  "scope": {
+    "benchmarkManifestSchemaInstantiation": true,
+    "defectLedgerSchemaInstantiation": true,
+    "mastPreflightInstance": true,
+    "terminalBenchPrivateMiniatureInstance": true,
+    "crossArtifactValidation": true,
+    "policyMutationChecks": true,
+    "paidInference": false,
+    "externalSubmission": false,
+    "publicLatentFixture": false,
+    "productionMutation": false,
+    "protocolMutation": false
+  },
+  "artifacts": {
+    "benchmarkManifestSchemaSha256": "1b9d092f3679d896e1c96cb442a3745218fadd65c4e9342d36df4cb7df1f7acb",
+    "defectLedgerSchemaSha256": "b730889d62fd3a67389f50a6361e02da2dfc7cc1271a3b93de60ba7d17934924",
+    "mastManifestSha256": "fecf5e9d1f866f4a7fb862f1a2b4e3a5f3384f03475dc8b757e028052e371850",
+    "mastDefectLedgerSha256": "9b277d6e5ab742df06edfc0652736fed2b13470c2c8c9f5fd0a6e59bf37817ea",
+    "terminalBenchManifestSha256": "8674fdcc4f38ef88993c69f4f21b82201a954339c0af0b5a8656455ac3d47ff9",
+    "terminalBenchDefectLedgerSha256": "7b484964ac1f7f2bb106da9433a4c7e1983a4a072dc5f7167e41f6c4ba92b4c0",
+    "validatorSha256": "cdde95f2cca5cdb9391ea81e89f213c6b566fd04b55fe4b27c8bf4451371c908",
+    "validationCommandSha256": "5e658fb2adb25399a65a146f6d9eddf46f7ebc8b3c5c608a3ed382d0d019d63b",
+    "governanceTestSha256": "cc135df62135bb14b07605fae3029a9d1c1f7ee8e6d468cb9070355ae1edb660",
+    "previousSliceMergeReceiptSha256": "f8fb66a26199a18750aea1e591bfeaee10ce04777b885fb75fce738d207e672d"
+  },
+  "governanceValidation": {
+    "status": "PASS",
+    "manifestCount": 2,
+    "defectLedgerCount": 2,
+    "recordedDefectCount": 0,
+    "noDefectClaimMade": false,
+    "policyMutantsRejected": 4,
+    "crossArtifactBindingsVerified": 25,
+    "paidInferencePerformed": false,
+    "latentAnswersPublished": false
+  },
+  "validation": {
+    "preflight": "pass",
+    "artifactAcceptance": "pass",
+    "focusedEvaluationTests": "pass_17_tests",
+    "completeDeterministicGate": "pass",
+    "testFiles": {
+      "passed": 130,
+      "skipped": 1
+    },
+    "tests": {
+      "passed": 1631,
+      "skipped": 6
+    },
+    "typecheck": "pass",
+    "strictNodeNextGovernanceTypecheck": "pass",
+    "build": "pass",
+    "diffCheck": "pass",
+    "dependencyAudit": "pass_0_vulnerabilities",
+    "testEfficiency": {
+      "elapsedWallSecondsAtSummary": 1339.7,
+      "observedTestSeconds": 291.01,
+      "testWallPercentage": 21.72,
+      "focusedRuns": 7,
+      "focusedFailureDiscoveringRuns": 3,
+      "affectedRuns": 4,
+      "affectedFailureDiscoveringRuns": 2,
+      "fullRuns": 2,
+      "secondFullRunReason": "material NodeNext module-interop repair changed the validator source after the first full gate",
+      "forcedRedundantGreenSeconds": 0,
+      "redundantGreenRunsSkipped": 0
+    },
+    "lessonQueue": {
+      "checkedAt": "2026-09-01T16:03:12.126Z",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0
+    }
+  },
+  "activeLessonApplication": {
+    "universalRepositoryCommit": "e9d5b64292d6c6a2dbb64ba9333d617efbf489fa",
+    "contractFresh": true,
+    "admission": "PASS",
+    "rules": [
+      {
+        "source": "patterns/exclusive-active-task-locks.md",
+        "result": "PASS",
+        "evidence": "branch-bound preflight passed on the exact required governance branch"
+      },
+      {
+        "source": "patterns/external-evaluation-reproducibility.md",
+        "result": "PASS",
+        "evidence": "both evaluator families are bound to immutable subject, evaluator, runtime, manifest, and artifact identities"
+      },
+      {
+        "source": "patterns/test-efficiency-and-verification-budget.md",
+        "result": "PASS",
+        "evidence": "focused and affected failures drove schema and module-interop repairs; two materially different candidate commits received one full gate each with zero forced redundant same-state reruns"
+      },
+      {
+        "source": "patterns/development-assurance-lanes.md",
+        "result": "PASS",
+        "evidence": "release assurance is limited to the protected source-merge boundary; no production, provider, or publication campaign was introduced"
+      },
+      {
+        "source": "patterns/task-time-lesson-activation.md",
+        "result": "PASS",
+        "evidence": "this receipt records the task-specific admission checks and owner-corrected no-institutional-expansion boundary"
+      }
+    ]
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "pass_governance_instances_and_cross_artifact_bindings_pending_protected_merge",
+    "scientificAdequacy": "pass_for_provenance_and_correction_state_controls_only_no_benchmark_or_defect_free_claim",
+    "releaseAdequacy": "pending_protected_merge_no_production_release"
+  },
+  "nextSafeSlice": "bounded Terminal-Bench frontier-agent difficulty probe after anti-leakage review; no external submission"
+}

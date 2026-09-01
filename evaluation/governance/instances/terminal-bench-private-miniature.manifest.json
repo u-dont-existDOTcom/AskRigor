@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "epochId": "terminal-bench-private-miniature-verifier-proof-2026-09-01",
+  "createdAt": "2026-09-01T14:57:00Z",
+  "benchmark": {
+    "id": "terminal-bench-dependency-aware-clinical-meta-analysis-miniature",
+    "version": "private-miniature-v1",
+    "sourceIdentity": {
+      "kind": "GIT_COMMIT",
+      "value": "7d4efa895b629f4036fda05903e173ad20a65cd2",
+      "path": "contributions/terminal-bench-science/task-design.md"
+    },
+    "datasetIdentity": {
+      "kind": "SHA256",
+      "value": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167",
+      "path": null
+    },
+    "license": null
+  },
+  "evaluator": {
+    "id": "askrigor-terminal-bench-verifier-contract",
+    "version": "private-miniature-v1",
+    "sourceIdentity": {
+      "kind": "SHA256",
+      "value": "c49c0ce31fdc23859b97205c2ac632cde0353909e555c3a0bfdc7f9c64f57473",
+      "path": "evaluation/terminal-bench/verifier-contract.ts"
+    },
+    "scoringMode": "DETERMINISTIC",
+    "judgeModels": [],
+    "judgeConfigurationHash": null
+  },
+  "subjectUnderTest": {
+    "kind": "IMPLEMENTATION_SET",
+    "implementations": [
+      {
+        "role": "oracle",
+        "identity": {
+          "kind": "SHA256",
+          "value": "2d0be521d9850134da9bfe8256fb2d087cccf8a6f26799e16cd1b28434256716",
+          "path": null
+        }
+      },
+      {
+        "role": "materially_different_alternate",
+        "identity": {
+          "kind": "SHA256",
+          "value": "6b55eaa063b1078d4297b3ddb358061941c9b8580f45417feb52db3333a29463",
+          "path": null
+        }
+      }
+    ]
+  },
+  "conditions": [],
+  "run": {
+    "startedAt": "2026-09-01T14:57:00Z",
+    "completedAt": "2026-09-01T14:57:00Z",
+    "parameters": {
+      "correctImplementationsPassed": 2,
+      "seededInvalidImplementationsRejected": 8,
+      "verifierMutantsKilled": 6,
+      "falseAccepts": 0,
+      "falseRejects": 0,
+      "privateDirectoryMode": "0700"
+    },
+    "runtimeIdentity": {
+      "kind": "SHA256",
+      "value": "c49c0ce31fdc23859b97205c2ac632cde0353909e555c3a0bfdc7f9c64f57473",
+      "path": "evaluation/terminal-bench/verifier-contract.ts"
+    },
+    "sealedBeforeProtocolRepair": null,
+    "executionMode": "PREFLIGHT",
+    "inferencePerformed": false,
+    "rawOutputsPreserved": false,
+    "cost": 0,
+    "currency": "USD"
+  },
+  "artifacts": [
+    {
+      "role": "private_fixture_identity",
+      "identity": {
+        "kind": "SHA256",
+        "value": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167",
+        "path": null
+      }
+    },
+    {
+      "role": "public_non_answer_bearing_receipt",
+      "identity": {
+        "kind": "SHA256",
+        "value": "afccda9e90659ab80711b0a3ab2518932f58633c89c04aea75d2b8ec41a61d58",
+        "path": "evaluation/terminal-bench/private-miniature-verifier-receipt.json"
+      }
+    }
+  ],
+  "limitations": [
+    "The latent fixture, candidate outputs, and final benchmark answers remain outside the public repository.",
+    "This feasibility proof does not establish frontier-agent difficulty or final verifier validity.",
+    "No clinical or causal conclusion is supported by the fictional semisynthetic inputs."
+  ]
+}

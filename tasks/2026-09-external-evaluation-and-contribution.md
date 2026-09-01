@@ -3,8 +3,8 @@
 **Program:** External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Queue state:** `ACTIVE — bounded rights/verifier/MAST-preflight candidate pending protected merge`
-**Required branch:** `task/external-evaluation-phase22-execution-20260901`
+**Queue state:** `ACTIVE — governance schema-instantiation candidate pending protected merge`
+**Required branch:** `task/external-evaluation-governance-v1-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Previous completed task:** `askrigor-living-evidence-promotion-scheduler-v1`  
@@ -25,9 +25,9 @@ Partial corpora remain eligible for evidence review and must be explicitly label
 | Priority | Lane | Current state | Next mechanically executable action | Completion boundary |
 | --- | --- | --- | --- | --- |
 | P0.0 | Activation and queue normalization | **COMPLETE — PR #168** | Preserve canonical activation during child-slice integration | Phase 2.2 is the exclusive protected-main task with the scheduler preserved as previous completed task |
-| P0.1 | MAST paired HRP evaluation | **ADAPTER + SEALED SCT PREFLIGHT COMPLETE / PAID EPOCH GATED** | Merge bounded candidate; later review a nonzero spend ceiling and artifact destination | Complete paired SCT and NOHARM epochs with official scores and blinded discordance review |
-| P0.2 | Terminal-Bench-Science v0.2 | **RIGHTS + MINIATURE VERIFIER PROOF COMPLETE / SUBMISSION GATED** | Merge bounded candidate; then run difficulty probe and obtain domain review or a documented request | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
-| P0.3 | Benchmark integrity governance | **SCHEMA VALIDATION ACTIVE** | Validate the manifest and defect-ledger schemas against the first MAST and Terminal-Bench artifacts | Every result is version-bound, contestable, independently rechecked when consequential, and preserves original versus corrected epochs |
+| P0.1 | MAST paired HRP evaluation | **ADAPTER + SEALED SCT PREFLIGHT MERGED / PAID EPOCH GATED** | Later review a nonzero spend ceiling and artifact destination | Complete paired SCT and NOHARM epochs with official scores and blinded discordance review |
+| P0.2 | Terminal-Bench-Science v0.2 | **RIGHTS + MINIATURE VERIFIER PROOF MERGED / SUBMISSION GATED** | After governance merge, run difficulty probe and obtain domain review or a documented request | Proposal submitted early and a complete upstream PR opened before 2026-10-05 |
+| P0.3 | Benchmark integrity governance | **ARTIFACT INSTANCES + EXECUTABLE VALIDATION READY** | Complete protected governance merge | Every result is version-bound, contestable, independently rechecked when consequential, and preserves original versus corrected epochs |
 | P1 | K-Bench-inspired authentic-request evaluation | **DEFERRED** | Revisit after the Terminal-Bench PR is secure | Small blinded multidimensional study of authentic AskRigor requests without pretending there is one constitutional gold answer |
 
 ## Activation decision

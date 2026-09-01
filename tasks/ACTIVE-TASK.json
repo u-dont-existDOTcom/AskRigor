@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_bounded_candidate_protected_merge_pending",
+  "status": "active_governance_schema_validation",
   "exclusive": true,
-  "requiredBranch": "task/external-evaluation-phase22-execution-20260901",
-  "baselineCommit": "7964674b8a3dac804620a0e7d1dff62b00a68bf2",
+  "requiredBranch": "task/external-evaluation-governance-v1-20260901",
+  "baselineCommit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
   "activatedAt": "2026-09-01T14:29:00Z",
   "assuranceLane": "evaluation_and_scientific_governance",
   "targetedHardGates": [
@@ -40,18 +40,28 @@
   "activationReceipt": "docs/audits/2026-09-01-external-evaluation-activation.json",
   "preflightCommand": "npm run external-evaluation:preflight",
   "completionCommand": "npm run external-evaluation:acceptance",
-  "currentSlice": {
+  "lastCompletedSlice": {
     "sliceId": "rights-verifier-and-sealed-mast-preflight-v1",
+    "status": "protected_merge_complete",
+    "pullRequest": 169,
+    "exactTestedCandidate": "2dab865ae817027c324f689da2aaf738de5c6b30",
+    "finalHead": "74fab7b9b4f9b94db07dd0b189cd3f875ffc9b5b",
+    "mergeCommit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
+    "mergedAt": "2026-09-01T15:43:50Z",
+    "receipt": "docs/audits/2026-09-01-external-evaluation-child-protected-merge.json"
+  },
+  "currentSlice": {
+    "sliceId": "benchmark-governance-schema-instantiation-v1",
     "status": "ready_for_protected_merge",
-    "candidateReceipt": "docs/audits/2026-09-01-external-evaluation-candidate.json",
-    "boundedOutcome": "Complete the source-rights decision, non-public miniature deterministic-verifier proof, and MAST paired-condition adapter with sealed deterministic SCT preflight.",
+    "candidateReceipt": "docs/audits/2026-09-01-external-evaluation-governance-candidate.json",
+    "boundedOutcome": "Instantiate and mechanically validate the provisional benchmark manifest and defect ledger against the merged MAST deterministic preflight and private Terminal-Bench miniature proof.",
     "completed": [
-      "eight-source rights and redistribution scan selecting project-authored fictional inputs",
-      "mode-0700 non-public miniature with two correct implementations passed",
-      "eight invalid implementations rejected and six verifier mutants killed",
-      "explicit risk-versus-person-time effect-measure and comparator incompatibility checks",
-      "OpenAI Responses adapter with exact condition equality and raw-byte preservation",
-      "pinned 174-item MAST example score reproduced deterministically"
+      "MAST preflight benchmark manifest instantiated without misrepresenting the upstream example as a new model run",
+      "Terminal-Bench private miniature manifest bound only by non-answer-bearing public hashes",
+      "empty defect ledgers bound to exact manifest bytes without claiming the evaluators are defect-free",
+      "Draft 2020-12 schemas compiled and validated against both artifact families",
+      "cross-artifact identities and privacy boundaries checked mechanically",
+      "four correction and independent-recheck policy mutants rejected"
     ],
     "excluded": [
       "paid MAST or NOHARM inference",
@@ -64,27 +74,27 @@
   "childWorkstreams": {
     "terminalBenchScience": {
       "priority": "P0.2_calendar_urgent",
-      "status": "source_rights_and_miniature_verifier_proof_complete_protected_merge_pending",
+      "status": "source_rights_and_miniature_verifier_proof_merged_difficulty_and_review_pending",
       "workingTitle": "Dependency-Aware Clinical Meta-Analysis from Overlapping Reports",
       "externalPullRequestDeadline": "2026-10-05",
       "design": "contributions/terminal-bench-science/task-design.md",
       "proposalDraft": "contributions/terminal-bench-science/proposal-draft.md",
       "overlapScan": "contributions/terminal-bench-science/overlap-scan.md",
-      "nextAction": "complete protected merge, then run a bounded frontier-agent difficulty probe and obtain independent domain review or a documented request before external submission"
+      "nextAction": "after governance schema instantiation merges, run a bounded frontier-agent difficulty probe and obtain independent domain review or a documented request before external submission"
     },
     "mast": {
       "priority": "P0.1_strategic",
-      "status": "adapter_and_sealed_sct_preflight_complete_protected_merge_pending",
+      "status": "adapter_and_sealed_sct_preflight_merged_paid_epoch_gated",
       "path": "evaluation/mast/README.md",
-      "nextAction": "complete protected merge; any paid paired epoch requires a separately reviewed nonzero spend ceiling and raw-artifact destination"
+      "nextAction": "any paid paired epoch requires a separately reviewed nonzero spend ceiling and raw-artifact destination"
     },
     "benchmarkGovernance": {
       "priority": "P0.3_shared",
-      "status": "policy_and_schemas_drafted_validation_active",
+      "status": "artifact_instances_and_executable_validation_ready_for_protected_merge",
       "policy": "evaluation/governance/correction-and-recheck-policy.md",
       "manifestSchema": "evaluation/governance/benchmark-manifest.schema.json",
       "defectLedgerSchema": "evaluation/governance/defect-ledger.schema.json",
-      "nextAction": "validate schemas against the miniature Terminal-Bench and MAST preflight artifacts and revise only in response to concrete defects"
+      "nextAction": "complete protected merge, then keep the schemas stable until a concrete evaluator defect or full benchmark epoch requires another revision"
     },
     "authenticRequestEvaluation": {
       "priority": "P1",
@@ -110,7 +120,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-01T15:14:53.704Z",
+    "checkedAt": "2026-09-01T16:03:12.126Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -118,14 +128,14 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Complete protected review and merge for the bounded rights/verifier/MAST-preflight candidate, then continue the parent program without paid inference or external submission until their separate gates are satisfied.",
+  "nextAction": "Complete protected review and merge for governance schema instantiation, then continue with the bounded Terminal-Bench difficulty probe without external submission.",
   "supervision": {
     "ownerApproval": "APPROVED — meta-analysis integrity primary",
     "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
-    "workerToContract": "complete_for_current_bounded_slice",
+    "workerToContract": "complete_for_governance_instantiation_candidate",
     "contractToOwner": "match_with_overlap_driven_refinement",
-    "operationalAlignment": "artifact_acceptance_pass_pending_protected_merge",
-    "scientificAdequacy": "miniature_verifier_feasibility_pass_no_benchmark_result_claimed",
+    "operationalAlignment": "schema_instances_and_cross_artifact_validation_pass_pending_protected_merge",
+    "scientificAdequacy": "governance_provenance_pass_no_benchmark_or_defect_free_claim_made",
     "releaseAdequacy": "pending_protected_merge_no_production_release"
   }
 }

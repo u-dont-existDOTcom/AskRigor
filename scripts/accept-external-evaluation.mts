@@ -11,6 +11,7 @@ import {
   loadCanonicalHrpInstructions,
 } from "../evaluation/mast/src/paired-condition.js";
 import { canonicalSha256 } from "../evaluation/terminal-bench/verifier-contract.js";
+import { validateBenchmarkGovernance } from "../evaluation/governance/src/validate.js";
 
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/u);
 
@@ -131,8 +132,13 @@ async function main(): Promise<void> {
   const root = git(process.cwd(), ["rev-parse", "--show-toplevel"]);
   const task = z.object({
     taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-    status: z.literal("active_bounded_candidate_protected_merge_pending"),
-    requiredBranch: z.literal("task/external-evaluation-phase22-execution-20260901"),
+    status: z.literal("active_governance_schema_validation"),
+    requiredBranch: z.literal("task/external-evaluation-governance-v1-20260901"),
+    currentSlice: z.object({
+      sliceId: z.literal("benchmark-governance-schema-instantiation-v1"),
+      status: z.literal("ready_for_protected_merge"),
+      maximumEstimatedCostUsdBeforeAbort: z.literal(0),
+    }).passthrough(),
   }).passthrough().parse(await readJson(join(root, "tasks", "ACTIVE-TASK.json")));
   const branch = git(root, ["branch", "--show-current"]);
   if (branch !== task.requiredBranch) {
@@ -152,6 +158,14 @@ async function main(): Promise<void> {
     "evaluation/terminal-bench/verifier-contract.ts",
     "tests/external-evaluation-mast.test.ts",
     "tests/terminal-bench-miniature-verifier.test.ts",
+    "evaluation/governance/benchmark-manifest.schema.json",
+    "evaluation/governance/defect-ledger.schema.json",
+    "evaluation/governance/src/validate.ts",
+    "evaluation/governance/instances/mast-sct-preflight.manifest.json",
+    "evaluation/governance/instances/mast-sct-preflight.defects.json",
+    "evaluation/governance/instances/terminal-bench-private-miniature.manifest.json",
+    "evaluation/governance/instances/terminal-bench-private-miniature.defects.json",
+    "tests/external-evaluation-governance.test.ts",
   ];
   const findings: string[] = [];
   for (const path of [...Object.values(paths), ...requiredCode.map((path) => join(root, path))]) {
@@ -229,6 +243,7 @@ async function main(): Promise<void> {
   ) {
     throw new Error("MAST_PREFLIGHT_CONDITION_HASH_MISMATCH");
   }
+  const governance = await validateBenchmarkGovernance(root);
 
   process.stdout.write(`${JSON.stringify({
     status: "READY_FOR_PROTECTED_MERGE",
@@ -242,10 +257,11 @@ async function main(): Promise<void> {
     verifier_mutants_killed: parsedPrivateReceipt.verification.verifierMutantsKilled,
     mast_state: parsedMastPreflight.state,
     paid_inference_performed: parsedMastPreflight.execution.paidInferencePerformed,
+    governance,
     completion: {
       typedClaim: "SUBTASK_COMPLETE_PARENT_OPEN",
-      operationalAlignment: "pass_bounded_rights_verifier_and_sealed_preflight",
-      scientificAdequacy: "miniature_verifier_validated_no_benchmark_result_claimed",
+      operationalAlignment: "pass_governance_instances_and_cross_artifact_bindings",
+      scientificAdequacy: "governance_provenance_validated_no_benchmark_or_defect_free_claim_made",
       releaseAdequacy: "pending_protected_merge_no_production_release",
     },
   })}\n`);

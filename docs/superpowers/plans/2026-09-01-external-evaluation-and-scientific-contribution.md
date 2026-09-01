@@ -3,10 +3,10 @@
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Program:** Phase 2.2 — External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Branch:** `task/external-evaluation-phase22-execution-20260901`
-**Integration baseline:** `4556b58e55fc445920f831b7a1451c805283a697`
+**Branch:** `task/external-evaluation-governance-v1-20260901`
+**Integration baseline:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
-**Status:** active parent program; rights/verifier and MAST sealed-preflight child slice ready for protected merge
+**Status:** active parent program; governance schema-instantiation child ready for protected merge
 **Completed predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`
 **Assurance lane:** evaluation and scientific-governance iteration; no production mutation
 
@@ -21,7 +21,7 @@ Organize and execute the AskRigor work queue around four linked developments:
 
 The approved Terminal-Bench primary remains meta-analysis integrity. A bounded existing-work scan found a directly overlapping approved proposal for generic reconstruction of a meta-analysis from messy supplementary tables. The owner-approved direction is therefore preserved but narrowed to its unsolved remainder: **clinical report lineage, participant dependence, exposure/estimand compatibility, and comparator validity before pooling**.
 
-This program was approved while another worker completed the promotion-scheduler release. PR #166 preserves its exact VPS activation and immutable closeout, and PR #168 activates this parent program from that protected baseline. The current execution branch preserves that canonical activation while closing only the bounded rights/verifier and MAST sealed-preflight child slice.
+This program was approved while another worker completed the promotion-scheduler release. PR #166 preserves its exact VPS activation and immutable closeout, PR #168 activates this parent program from that protected baseline, and PR #169 merges the bounded rights/verifier and MAST sealed-preflight child. The current branch instantiates the provisional governance schemas against those merged artifacts without expanding the benchmark program.
 
 ## 2. Independent conception preserved
 
@@ -223,6 +223,9 @@ Stop and return to the owner only if:
 8. [x] Use those results to tighten the proposal without prescribing one implementation path.
 9. Submit the proposal once owner-controlled contact fields and external form assent are available.
 10. [x] In parallel after activation, implement the MAST endpoint adapter and sealed paired-run manifest without executing model inference or the paid NOHARM judge run.
+11. [x] Merge the bounded rights/verifier/MAST-preflight child through protected PR #169.
+12. [x] Instantiate the benchmark manifest and defect ledger against both merged preflight artifact families and add executable cross-artifact validation.
+13. [ ] Run the bounded Terminal-Bench difficulty probe after protected governance integration and anti-leakage review.
 
 ## 11. Historical completion boundary for the planning slice
 

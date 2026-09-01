@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "capturedAt": "2026-09-01T13:28:44Z",
-  "updatedAt": "2026-09-01T15:38:29Z",
+  "updatedAt": "2026-09-01T15:43:50Z",
   "purpose": "Bind AskRigor external-evaluation and contribution decisions to exact source identities while preserving source-specific discrepancies.",
   "projectBaselines": {
     "independentConception": {
@@ -44,6 +44,12 @@
       "commit": "2dab865ae817027c324f689da2aaf738de5c6b30",
       "tree": "ede95f5a2ab8d7aa2897ca9e56f8922f2aea003a",
       "status": "exact full-gate-tested child candidate reconciled onto canonical PR 168 activation; no paid inference, external submission, or production mutation"
+    },
+    "boundedChildMerge": {
+      "repository": "u-dont-existDOTcom/AskRigor",
+      "branch": "main",
+      "commit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
+      "status": "PR 169 protected merge of the rights, private miniature-verifier proof, and sealed MAST deterministic-preflight child"
     }
   },
   "sources": [
@@ -232,6 +238,7 @@
     "Mutable living standards are capture-dated and must be rechecked before external submission or benchmark execution.",
     "The independent-conception, scheduler-candidate, scheduler-release, Phase 2.2 activation, and bounded-child identities are preserved separately.",
     "PR 168 resolved fresh protected main before canonical parent-program activation; the bounded child starts from that merge.",
+    "PR 169 merged the bounded child into protected main before governance schemas were instantiated against its artifacts.",
     "This registry records provenance; it does not establish scientific correctness of any source."
   ]
 }

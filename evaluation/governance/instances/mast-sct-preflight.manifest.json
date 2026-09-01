@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "epochId": "mast-sct-example-preflight-2026-09-01",
+  "createdAt": "2026-09-01T14:47:02Z",
+  "benchmark": {
+    "id": "mast-sct",
+    "version": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "sourceIdentity": {
+      "kind": "GIT_COMMIT",
+      "value": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+      "path": null
+    },
+    "datasetIdentity": {
+      "kind": "COMPOSITE",
+      "value": "items=be79bd4d1cdfd95227398d5d7011b4a644f5b0754345dd89608488d177369bd8;rubrics=6b64c27ca34aef765e6edde7dd4d82960325ec3bcd0e4934f1a8a0f06f6b5c13",
+      "path": "benchmarks/sct/dataset"
+    },
+    "license": "MAST repository provenance at the pinned commit; recheck DATA.md before inference"
+  },
+  "evaluator": {
+    "id": "mast-sct-score-py",
+    "version": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "sourceIdentity": {
+      "kind": "SHA256",
+      "value": "d767cc898931a1904e5d4b80934888bc06839d1939f5ad968fece46b795a7a04",
+      "path": "benchmarks/sct/score.py"
+    },
+    "scoringMode": "DETERMINISTIC",
+    "judgeModels": [],
+    "judgeConfigurationHash": null
+  },
+  "subjectUnderTest": {
+    "kind": "FIXTURE_OUTPUTS",
+    "label": "Pinned upstream gpt-5.5 SCT example responses; not a new AskRigor model run",
+    "identity": {
+      "kind": "SHA256",
+      "value": "36acafd5a6424ab018ec581cbff13686e0321ea4519f07e8b4e624a8f82531f5",
+      "path": "benchmarks/sct/examples/gpt-5.5.jsonl"
+    }
+  },
+  "conditions": [
+    {
+      "id": "condition-a",
+      "labelBlindingCode": "A",
+      "instructionIdentity": {
+        "kind": "SHA256",
+        "value": "2e839944a96f186dc5dc19efa7d8872ccd119f10ab637b6db5a0f035e44f30d7",
+        "path": null
+      },
+      "universalProtocolVersion": null,
+      "universalProtocolSha256": null,
+      "hrpVersion": null,
+      "hrpSha256": null
+    },
+    {
+      "id": "condition-b",
+      "labelBlindingCode": "B",
+      "instructionIdentity": {
+        "kind": "SHA256",
+        "value": "a91746361ff9e4f7897f211c5cca3871222a2767cb8f01e8f01a181939dca324",
+        "path": null
+      },
+      "universalProtocolVersion": null,
+      "universalProtocolSha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172",
+      "hrpVersion": null,
+      "hrpSha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
+    }
+  ],
+  "run": {
+    "startedAt": "2026-09-01T14:47:02Z",
+    "completedAt": "2026-09-01T14:47:02Z",
+    "parameters": {
+      "configuredFutureModel": "gpt-5.6-sol",
+      "configuredEndpoint": "https://api.openai.com/v1/responses",
+      "reasoningEffort": "xhigh",
+      "deterministicExampleItemCount": 174,
+      "deterministicExampleScore": 0.745301952198504,
+      "deterministicExamplePercentageInExpertSet": 0.9310344827586207,
+      "maximumEstimatedCostUsdBeforeAbort": 0
+    },
+    "runtimeIdentity": {
+      "kind": "SHA256",
+      "value": "172cd50fc06d7da7e2f1d90c837e65acc47e076542c0fc728aa07a7dec666037",
+      "path": "evaluation/mast/src/preflight.ts"
+    },
+    "sealedBeforeProtocolRepair": true,
+    "executionMode": "PREFLIGHT",
+    "inferencePerformed": false,
+    "rawOutputsPreserved": false,
+    "cost": 0,
+    "currency": "USD"
+  },
+  "artifacts": [
+    {
+      "role": "sealed_preflight_manifest",
+      "identity": {
+        "kind": "SHA256",
+        "value": "f54435f91b0bc341d7abaab89d15c4d5e02ae810370965fa99325c754523229b",
+        "path": "evaluation/mast/preflight-manifest.json"
+      }
+    },
+    {
+      "role": "paired_condition_source",
+      "identity": {
+        "kind": "SHA256",
+        "value": "207adacea3628fd23bbfdd3c094253037803272dda5901d31cdd206aaafc54a8",
+        "path": "evaluation/mast/src/paired-condition.ts"
+      }
+    },
+    {
+      "role": "openai_adapter_source",
+      "identity": {
+        "kind": "SHA256",
+        "value": "4ea53b216ad2bfdb0ef90c3b2ca5d3192dca725621ff01bf71dd1859d70e8efe",
+        "path": "evaluation/mast/src/openai-adapter.ts"
+      }
+    }
+  ],
+  "limitations": [
+    "This epoch validates the deterministic scorer and sealed paired configuration only.",
+    "The scored responses are the pinned upstream gpt-5.5 example, not responses from the configured future gpt-5.6-sol paired run.",
+    "No model inference, provider raw response, HRP performance result, or clinical conclusion exists in this preflight epoch."
+  ]
+}

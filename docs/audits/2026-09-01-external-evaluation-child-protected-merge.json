@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "external_evaluation_bounded_child_protected_merge",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "rights-verifier-and-sealed-mast-preflight-v1",
+  "capturedAt": "2026-09-01T15:43:50Z",
+  "pullRequest": {
+    "number": 169,
+    "url": "https://github.com/u-dont-existDOTcom/AskRigor/pull/169",
+    "base": "main",
+    "head": "74fab7b9b4f9b94db07dd0b189cd3f875ffc9b5b",
+    "exactFullGateCandidate": "2dab865ae817027c324f689da2aaf738de5c6b30",
+    "mergeCommit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
+    "mergedAt": "2026-09-01T15:43:50Z"
+  },
+  "protectedChecks": [
+    {
+      "name": "Deterministic verification",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T15:43:31Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33527274085/job/99921375369"
+    },
+    {
+      "name": "workflow-policy",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T15:41:40Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33527273930/job/99921211770"
+    },
+    {
+      "name": "Analyze (actions)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T15:42:10Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33527264219/job/99921182398"
+    },
+    {
+      "name": "Analyze (javascript-typescript)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T15:42:47Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33527264219/job/99921182265"
+    },
+    {
+      "name": "Analyze (python)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T15:42:20Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33527264219/job/99921182204"
+    },
+    {
+      "name": "Analyze (ruby)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T15:42:16Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33527264219/job/99921181915"
+    }
+  ],
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "protected_merge_complete",
+    "scientificAdequacy": "miniature_verifier_feasibility_only_no_benchmark_result_claimed",
+    "releaseAdequacy": "protected_source_merge_complete_no_production_release"
+  },
+  "nextSlice": "benchmark-governance-schema-instantiation-v1"
+}
