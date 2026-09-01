@@ -105,6 +105,7 @@ function receipt() {
     },
     projectManagerReturnReceipt: {
       messageId: "message:project-manager:return",
+      chatLocator: "https://chatgpt.com/c/project-manager-chat",
       exactPacketSha256: digest("c"),
       capturedAt: "2026-09-01T21:03:00Z",
       provenanceStatus: "VERIFIED",

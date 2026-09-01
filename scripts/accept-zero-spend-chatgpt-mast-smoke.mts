@@ -86,6 +86,7 @@ export const zeroSpendChatgptSmokeReceiptSchema = z.object({
   }),
   projectManagerReturnReceipt: z.object({
     messageId: z.string().min(1),
+    chatLocator: z.string().url(),
     exactPacketSha256: sha256,
     capturedAt: timestamp,
     provenanceStatus: z.enum(["VERIFIED", "OWNER_ATTESTED"]),
