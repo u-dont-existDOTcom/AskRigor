@@ -21,7 +21,7 @@ Recovery commands are `npm run owner-review:preflight` and
 
 The bounded implementation is committed as
 `7697bcf6d6689533314b5e2a218bd6e602016d50`; CI acceptance-harness repair
-`b0279aca55907751c979491899bf9a74fc17af04` updates the legacy exact migration
+`b0279aca88437bed665455521d1f35d89e030aef` updates the legacy exact migration
 chain for migration 0010. Full deterministic, focused real-PostgreSQL, and the
 42-check living-evidence pilot/dump/wipe/restore gates pass. Extra High final
 review is `PASS` with typed claim

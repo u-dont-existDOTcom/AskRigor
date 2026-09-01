@@ -30,7 +30,7 @@
   "directiveReceipt": "docs/audits/2026-09-01-owner-review-promotion-directive.json",
   "completionReceipt": "docs/audits/2026-09-01-owner-review-promotion-candidate.json",
   "implementationCommit": "7697bcf6d6689533314b5e2a218bd6e602016d50",
-  "ciAcceptanceHarnessRepairCommit": "b0279aca55907751c979491899bf9a74fc17af04",
+  "ciAcceptanceHarnessRepairCommit": "b0279aca88437bed665455521d1f35d89e030aef",
   "pullRequest": 161,
   "preflightCommand": "npm run owner-review:preflight",
   "completionCommand": "npm run owner-review:acceptance",

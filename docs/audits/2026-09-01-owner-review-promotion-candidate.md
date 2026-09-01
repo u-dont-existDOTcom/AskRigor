@@ -6,7 +6,7 @@
 - Baseline: `ef8b713e9b5320d3ebe8e47ec2cea98095431e90`
 - Implementation commit: `7697bcf6d6689533314b5e2a218bd6e602016d50`
 - Implementation tree: `fef404b7fef560fe7c979e7d2a5e3d36ce01e6c1`
-- CI acceptance-harness repair: `b0279aca55907751c979491899bf9a74fc17af04`
+- CI acceptance-harness repair: `b0279aca88437bed665455521d1f35d89e030aef`
 - Code-candidate tree after repair: `658a856c0509febe2a869484f250ea268b8f344a`
 
 ## Outcome
@@ -70,7 +70,7 @@ PR #161's first deterministic run (`33467704229`, job `99730893389`) failed
 because the legacy living-evidence acceptance harness still asserted an exact
 nine-migration chain after migration 0010 was added. The product migration and
 the owner-review PostgreSQL acceptance were already passing. Repair commit
-`b0279aca55907751c979491899bf9a74fc17af04` adds migration 0010 to that exact
+`b0279aca88437bed665455521d1f35d89e030aef` adds migration 0010 to that exact
 chain expectation and renames the emitted check accordingly. The repaired
 acceptance script SHA-256 is
 `07de1e246c31ea899f370cc6c78eff4feffdf1b40c263fefc7d6ee6761b8258f`.
