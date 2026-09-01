@@ -166,7 +166,8 @@ Completed in the bounded implementation candidate:
 
 Still required before external submission:
 
-- bounded frontier-agent difficulty probe;
+- construction and independent review of an answer-free observable-evidence layer; the current miniature is verifier-valid but not agent-solvable;
+- bounded frontier-agent difficulty probe only after that input-readiness gate passes;
 - independent domain review or a documented request for one;
 - exact author-controlled submission fields and assent.
 

@@ -2,12 +2,13 @@
 
 **Checkpoint date:** 2026-09-01  
 **Task:** `askrigor-external-evaluation-contribution-v1`  
-**Status:** `ACTIVE_PARENT / GOVERNANCE_INSTANTIATION_READY_FOR_PROTECTED_MERGE`
-**Required branch:** `task/external-evaluation-governance-v1-20260901`
+**Status:** `ACTIVE_PARENT / DIFFICULTY_PREFLIGHT_FAIL_CLOSED_READY_FOR_PROTECTED_MERGE`
+**Required branch:** `task/external-evaluation-difficulty-preflight-v1-20260901`
 **Activation baseline:** `7964674b8a3dac804620a0e7d1dff62b00a68bf2`  
-**Execution baseline:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
+**Execution baseline:** `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
 **Exact tested child candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`
 **Bounded child merge:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
+**Governance merge:** `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`
 
@@ -15,7 +16,9 @@
 
 The scheduler production release is terminal at `7964674b8a3dac804620a0e7d1dff62b00a68bf2`, PR #168 merged the canonical Phase 2.2 parent-program activation as `4556b58e55fc445920f831b7a1451c805283a697`, and PR #169 merged the bounded source-rights, non-public miniature-verifier, MAST adapter, and sealed deterministic SCT-preflight child as `7d4efa895b629f4036fda05903e173ad20a65cd2`.
 
-The current governance slice instantiates the provisional benchmark manifest and defect ledger against both merged preflight artifact families. It distinguishes fixture-output and implementation-set subjects from actual model runs, permits an empty condition set where a deterministic verifier proof has no paired conditions, binds each empty defect ledger to exact manifest bytes, and requires the declared independent recheck before consequential confirmed, refuted, unresolved, or corrected dispositions. Empty ledgers record zero current defect entries; they do not claim either evaluator is defect-free.
+PR #170 merged governance schema instantiation as `1d7be7a8703e0bb645805a00e45929bd14a0cf91`. The current difficulty preflight then found that the verifier-feasibility miniature's only agent-facing file contains six report IDs and fictional-abstract hashes but none of the observed evidence or numerical inputs required to solve the task. A frontier failure on that input would measure missing information rather than task difficulty.
+
+The new answer-free bundle contract requires the declared target estimand, observed report-lineage and estimand clues, raw event or person-time inputs, requested outputs, and sensitivity questions. It rejects grader labels and grader artifact identities. The exact private preflight returns 17 findings, reads no grader-only values, invokes no frontier model, and records one `SUSPECTED / BLOCKER` defect without overwriting the earlier two-correct/eight-invalid verifier-feasibility epoch.
 
 The active program has four lanes:
 
@@ -121,6 +124,7 @@ The provisional benchmark manifest and defect-ledger schemas must be instantiate
 - Phase 2.2 architecture merge: `e47b122a2dd07d460bd50c008a62407278ccf958`
 - Phase 2.2 activation merge: `4556b58e55fc445920f831b7a1451c805283a697`
 - exact tested bounded child candidate: `2dab865ae817027c324f689da2aaf738de5c6b30`
+- governance merge: `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
 - MAST: `57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`
 - Terminal-Bench-Science: `7cf20d48e9db760f5a2fb93f36a717cf9d4f2c77`
 - SciCode-Verified: `ddab4a92f8d80a7113ab946628e994b52354d838`
@@ -131,7 +135,7 @@ Full external identities and discrepancies are in `evaluation/governance/source-
 
 ## Next safe action
 
-Complete protected review/merge of the governance schema-instantiation candidate. Then run the bounded Terminal-Bench difficulty probe after anti-leakage review. Paid inference and external submission remain separately gated.
+Complete protected review/merge of the fail-closed difficulty preflight. Then construct and independently review a non-answer-bearing observable-evidence layer before any frontier-agent invocation. Paid inference and external submission remain separately gated.
 
 ## Recovery order
 
@@ -151,4 +155,4 @@ Complete protected review/merge of the governance schema-instantiation candidate
 
 `SUBTASK_COMPLETE_PARENT_OPEN`
 
-Operational alignment passes for the schema instances, cross-artifact bindings, private-hash boundary, and correction-state policy mutants and is pending protected merge. Scientific adequacy passes only for governance provenance; no benchmark result, defect-free claim, HRP performance claim, or clinical claim exists. Release adequacy is pending protected merge and does not include a production release.
+Operational alignment passes for private inventory, anti-leakage, and fail-closed readiness and is pending protected merge. Scientific adequacy explicitly fails closed for any frontier-difficulty claim until the agent-facing evidence layer is repaired and independently reviewed; the prior verifier-feasibility finding remains valid and separate. Release adequacy is pending protected source merge and includes no external submission or production release.

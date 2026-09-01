@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
+  "capturedAt": "2026-09-01T16:16:44Z",
+  "state": "FRONTIER_PROBE_BLOCKED_AGENT_INPUT_INCOMPLETE",
+  "privateBoundary": {
+    "directoryOutsideRepository": true,
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "fileCount": 7,
+    "agentFacingFiles": [
+      "fixture.json"
+    ],
+    "graderOnlyFiles": [
+      "alternate.json",
+      "generate-and-prove.mts",
+      "invalid-candidates.json",
+      "oracle.json",
+      "proof-result.json",
+      "truth.json"
+    ],
+    "graderOnlyValuesReadByDifficultyEvaluator": false,
+    "graderOnlyStructureInspected": true,
+    "structureInspectionBoundary": "top-level and first-record key names only; no grader-only values",
+    "fixtureSha256": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167"
+  },
+  "readiness": {
+    "ready": false,
+    "findingCount": 17,
+    "codes": [
+      "TASK_INSTRUCTIONS_MISSING",
+      "TARGET_ESTIMAND_MISSING",
+      "REQUESTED_OUTPUTS_MISSING",
+      "REQUESTED_SENSITIVITIES_MISSING",
+      "REPORT_OBSERVED_EVIDENCE_MISSING",
+      "REPORT_NUMERICAL_INPUT_MISSING",
+      "AGENT_BUNDLE_SCHEMA_INVALID"
+    ],
+    "boundedFinding": "The sole agent-facing file exposes six report identifiers and fictional-abstract hashes but no observed report evidence, target estimand, event or person-time inputs, requested outputs, or sensitivity questions. A frontier run would measure context starvation rather than scientific reasoning difficulty."
+  },
+  "execution": {
+    "frontierAgentInvoked": false,
+    "paidInferencePerformed": false,
+    "externalSubmissionPerformed": false,
+    "maximumEstimatedCostUsdBeforeAbort": 0
+  },
+  "repairBoundary": {
+    "required": true,
+    "nextAction": "Construct a non-answer-bearing observable-evidence layer with the declared target estimand and raw numerical inputs, then rerun this preflight before any independent frontier-agent probe.",
+    "mustRemainWithheld": [
+      "latent study and cohort identifiers",
+      "allowed relation labels",
+      "dependency groups",
+      "compatibility verdicts and incompatibility codes",
+      "allowed primary contribution sets",
+      "expected sensitivity inclusion sets",
+      "numeric tolerance",
+      "oracle, alternate, invalid-candidate, and truth values"
+    ],
+    "independentMethodReviewRequired": true
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "pass_for_private_inventory_and_anti_leakage_preflight",
+    "scientificAdequacy": "fail_closed_for_frontier_difficulty_claim_agent_input_incomplete",
+    "releaseAdequacy": "not_applicable_no_external_submission_or_production_release"
+  }
+}

@@ -283,4 +283,6 @@ These are implementation research items, not owner-policy decisions:
 - Which hidden-variant construction best tests generalization without changing the scientific problem?
 - What numerical conclusion threshold is meaningful without incentivizing threshold gaming?
 
-The next work slice is to answer these through a miniature fixture and verifier proof, not by adding more prose to the specification.
+The verifier-feasibility miniature answered the objective-verification question, but the later difficulty preflight found that its only agent-facing file exposes identifiers and hashes rather than the observed evidence required to solve the task. A frontier failure on that packet would measure missing information, not scientific reasoning difficulty.
+
+Before any frontier-agent invocation, construct a separate non-answer-bearing agent input layer containing the declared target estimand, observed report-lineage and estimand clues, raw event or person-time inputs, requested outputs, and requested sensitivity questions. Continue withholding latent study/cohort identifiers, allowed relations, dependency groups, compatibility verdicts, allowed contribution sets, expected sensitivity membership, tolerances, and all oracle/truth values. The sealed contract and exact blocking receipt are under `evaluation/terminal-bench/`.

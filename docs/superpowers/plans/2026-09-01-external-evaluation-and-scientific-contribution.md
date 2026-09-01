@@ -3,10 +3,10 @@
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Program:** Phase 2.2 — External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Branch:** `task/external-evaluation-governance-v1-20260901`
-**Integration baseline:** `7d4efa895b629f4036fda05903e173ad20a65cd2`
+**Branch:** `task/external-evaluation-difficulty-preflight-v1-20260901`
+**Integration baseline:** `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
-**Status:** active parent program; governance schema-instantiation child ready for protected merge
+**Status:** active parent program; Terminal-Bench difficulty preflight fail-closed pending protected merge
 **Completed predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`
 **Assurance lane:** evaluation and scientific-governance iteration; no production mutation
 
@@ -226,6 +226,8 @@ Stop and return to the owner only if:
 11. [x] Merge the bounded rights/verifier/MAST-preflight child through protected PR #169.
 12. [x] Instantiate the benchmark manifest and defect ledger against both merged preflight artifact families and add executable cross-artifact validation.
 13. [ ] Run the bounded Terminal-Bench difficulty probe after protected governance integration and anti-leakage review.
+14. [x] Run the pre-probe anti-leakage and agent-input completeness gate; preserve the exact blocking finding when the current miniature exposes no solvable evidence packet.
+15. [ ] Construct and independently review a non-answer-bearing observable-evidence layer before any frontier-agent invocation.
 
 ## 11. Historical completion boundary for the planning slice
 

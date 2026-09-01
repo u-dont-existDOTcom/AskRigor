@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "packetType": "SUPERVISION_DESIGN_FEEDBACK",
+  "lane": "supervision-architecture/20260901T162500Z",
+  "capturedAt": "2026-09-01T16:25:00Z",
+  "sourceTask": "askrigor-external-evaluation-contribution-v1",
+  "severity": "IMMEDIATE_RISK_OF_INVALID_EVALUATION",
+  "title": "Verifier feasibility must not substitute for subject-facing input completeness",
+  "observation": "The private Terminal-Bench miniature proved that two correct candidates pass, eight invalid candidates fail, and six verifier mutants are killed. The next work state therefore advanced toward a frontier-agent difficulty probe. A later anti-leakage preflight found that the sole agent-facing file contains only six report IDs and hashes, with none of the observed evidence or numerical inputs required to solve the task.",
+  "evidence": {
+    "fixtureSha256": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167",
+    "agentFacingFileCount": 1,
+    "readinessFindingCount": 17,
+    "frontierAgentInvoked": false,
+    "graderOnlyValuesReadByDifficultyEvaluator": false,
+    "defectLedgerEntry": "TB-MINI-001-agent-input-evidence-absent",
+    "receipt": "evaluation/terminal-bench/difficulty-preflight-receipt.json"
+  },
+  "failureMechanism": "Evidence from the grader/verifier layer silently deselected a separate subject-facing solvability requirement. A frontier failure on the current packet would look like benchmark difficulty while actually measuring context starvation.",
+  "ownerImpact": "This could waste frontier inference, misstate task difficulty, and encourage artificial obscurity contrary to the owner's evidence-quality objective.",
+  "designQuestion": "Should recurring supervision require a separate subject-to-contract readiness state before an external evaluation can advance, distinct from verifier-to-contract validity and worker-to-owner alignment?",
+  "candidateControlForMetaReview": [
+    "enumerate the exact subject-facing inputs and their completeness",
+    "enumerate grader-only artifacts and prove the information firewall",
+    "prove the task is solvable from disclosed evidence before any difficulty inference",
+    "keep verifier feasibility, subject-facing solvability, independent-evaluator separation, and owner alignment as separate states",
+    "fail closed when strong evidence from one layer would otherwise deselect a required layer"
+  ],
+  "projectRepair": "AskRigor now has a mechanical answer-free bundle contract, leakage mutants, an exact private preflight, and a versioned SUSPECTED/BLOCKER ledger entry. No frontier run will occur until a non-answer-bearing observable-evidence layer passes and receives independent method review.",
+  "universalRuleMutation": "none; packet requests meta-review rather than silently changing shared supervision rules",
+  "alignment": {
+    "operational": "project repair implemented and passing",
+    "scientific": "frontier difficulty claim fail-closed",
+    "release": "no external submission or production mutation"
+  },
+  "route": {
+    "status": "prepared_for_shared_meta_review",
+    "externalReceipt": null
+  }
+}

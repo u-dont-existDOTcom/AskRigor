@@ -3,5 +3,52 @@
   "benchmarkId": "terminal-bench-dependency-aware-clinical-meta-analysis-miniature",
   "evaluatorVersion": "private-miniature-v1",
   "manifestIdentity": "8674fdcc4f38ef88993c69f4f21b82201a954339c0af0b5a8656455ac3d47ff9",
-  "entries": []
+  "entries": [
+    {
+      "id": "TB-MINI-001-agent-input-evidence-absent",
+      "discoveredAt": "2026-09-01T16:16:44Z",
+      "itemOrPath": "private-miniature-v1/fixture.json",
+      "field": "agent-facing observable evidence packet",
+      "class": "SPECIFICATION_CONTRADICTION",
+      "before": {
+        "representation": "HASH",
+        "value": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167",
+        "sha256": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167"
+      },
+      "proposedAfter": {
+        "representation": "TEXT",
+        "value": "A non-answer-bearing agent input bundle containing the declared target estimand, observed report-lineage and estimand clues, raw event or person-time inputs, requested outputs, and requested sensitivity questions.",
+        "sha256": null
+      },
+      "verdict": "The verifier-feasibility miniature is not yet a solvable frontier-agent difficulty fixture.",
+      "reason": "The sole agent-facing file contains report identifiers and fictional-abstract hashes but no observed evidence or numerical inputs from which a solver could reconstruct lineage, compatibility, effects, or sensitivities.",
+      "evidence": [
+        {
+          "kind": "REPRODUCTION",
+          "value": "The sealed difficulty preflight returns 17 input-readiness findings and withholds frontier invocation.",
+          "artifactHash": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167"
+        },
+        {
+          "kind": "PROVENANCE_CHECK",
+          "value": "A key-only structural inspection confirmed that the withheld truth contains answer labels and numerical inputs rather than a separate observable-evidence layer.",
+          "artifactHash": null
+        }
+      ],
+      "impact": {
+        "affectedItems": [
+          "private-miniature-v1"
+        ],
+        "affectedEpochs": [
+          "terminal-bench-private-miniature-verifier-proof-2026-09-01"
+        ],
+        "scoreMayChange": true,
+        "programConclusionMayChange": true,
+        "boundedStatement": "Any frontier failure on the current input would measure missing information, not task difficulty. The earlier two-correct/eight-invalid verifier feasibility result remains preserved and is not overwritten."
+      },
+      "severity": "BLOCKER",
+      "status": "SUSPECTED",
+      "discoverer": "AskRigor implementation worker",
+      "independentRecheckRequired": true
+    }
+  ]
 }

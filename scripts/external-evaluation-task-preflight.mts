@@ -7,16 +7,16 @@ import { z } from "zod";
 const taskSchema = z.object({
   schemaVersion: z.literal(1),
   taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-  status: z.literal("active_governance_schema_validation"),
+  status: z.literal("active_terminal_bench_difficulty_preflight"),
   exclusive: z.literal(true),
-  requiredBranch: z.literal("task/external-evaluation-governance-v1-20260901"),
-  baselineCommit: z.literal("7d4efa895b629f4036fda05903e173ad20a65cd2"),
+  requiredBranch: z.literal("task/external-evaluation-difficulty-preflight-v1-20260901"),
+  baselineCommit: z.literal("1d7be7a8703e0bb645805a00e45929bd14a0cf91"),
   assuranceLane: z.literal("evaluation_and_scientific_governance"),
   preflightCommand: z.literal("npm run external-evaluation:preflight"),
   completionCommand: z.literal("npm run external-evaluation:acceptance"),
   currentSlice: z.object({
-    sliceId: z.literal("benchmark-governance-schema-instantiation-v1"),
-    status: z.literal("ready_for_protected_merge"),
+    sliceId: z.literal("terminal-bench-difficulty-probe-preflight-v1"),
+    status: z.enum(["implementation_active", "ready_for_protected_merge"]),
     maximumEstimatedCostUsdBeforeAbort: z.literal(0),
   }).passthrough(),
   previousCompletedTask: z.object({
