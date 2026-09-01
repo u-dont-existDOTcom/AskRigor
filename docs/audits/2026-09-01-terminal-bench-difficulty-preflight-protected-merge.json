@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "terminal_bench_difficulty_preflight_protected_merge",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
+  "capturedAt": "2026-09-01T16:39:29Z",
+  "rollback": {
+    "preMergeBase": "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
+    "reviewedHead": "344244370696d8daa51bc284cee48b068fb3bc3a"
+  },
+  "pullRequest": {
+    "number": 171,
+    "url": "https://github.com/u-dont-existDOTcom/AskRigor/pull/171",
+    "base": "main",
+    "head": "344244370696d8daa51bc284cee48b068fb3bc3a",
+    "exactFullGateCandidate": "bbaf97afb1fd6178e43eea3fbfade3460612cbd4",
+    "exactFullGateCandidateTree": "730c9fb753e7cd66017585e68cd3a9b9543406f5",
+    "mergeCommit": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+    "mergedAt": "2026-09-01T16:39:29Z"
+  },
+  "protectedChecks": [
+    {
+      "name": "Deterministic verification",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:36:52Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33532603485/job/99939313346"
+    },
+    {
+      "name": "workflow-policy",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:34:43Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33532603418/job/99939153615"
+    },
+    {
+      "name": "Analyze (actions)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:35:15Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33532599375/job/99939145118"
+    },
+    {
+      "name": "Analyze (javascript-typescript)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:35:52Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33532599375/job/99939145435"
+    },
+    {
+      "name": "Analyze (python)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:35:29Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33532599375/job/99939145367"
+    },
+    {
+      "name": "Analyze (ruby)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:35:22Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33532599375/job/99939145507"
+    },
+    {
+      "name": "CodeQL",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:35:09Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/runs/99939327422"
+    }
+  ],
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "protected_merge_complete_fail_closed_preflight_active",
+    "scientificAdequacy": "frontier_difficulty_claim_fail_closed_agent_input_incomplete",
+    "releaseAdequacy": "protected_source_merge_complete_no_external_submission_or_production_release"
+  },
+  "nextSlice": "terminal-bench-observable-evidence-review-request-v1"
+}

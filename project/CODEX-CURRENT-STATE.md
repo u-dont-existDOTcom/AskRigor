@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 Phase 2.2 difficulty preflight fail-closed candidate
+## 2026-09-01 Phase 2.2 observable-evidence author/reviewer handoff
 
 PR #168 merged the canonical `askrigor-external-evaluation-contribution-v1`
 parent-program activation as
@@ -8,8 +8,9 @@ parent-program activation as
 rights/verifier/MAST-preflight child as
 `7d4efa895b629f4036fda05903e173ad20a65cd2`. PR #170 then merged governance
 schema instantiation as `1d7be7a8703e0bb645805a00e45929bd14a0cf91`.
-The current difficulty-preflight child runs on
-`task/external-evaluation-difficulty-preflight-v1-20260901`. Use
+PR #171 merged the fail-closed difficulty preflight as
+`4a1e740fd239491a18de8c503b4ccf1f2c6143ca`. The current handoff child runs on
+`task/terminal-bench-observable-evidence-review-request-v1-20260901`. Use
 `npm run external-evaluation:preflight` and
 `npm run external-evaluation:acceptance` for its branch and artifact gates.
 
@@ -21,7 +22,7 @@ adapter preserves raw bytes and exact condition equality and reproduces the
 pinned 174-item deterministic example. The sealed spend ceiling is zero, so no
 model request or paid inference occurred.
 
-The current slice proves that the private miniature is not yet a solvable
+The merged preflight proves that the private miniature is not yet a solvable
 frontier-agent input. Its sole agent-facing file contains six report IDs and
 fictional-abstract hashes but no observed report evidence, target estimand,
 event or person-time inputs, requested outputs, or sensitivity questions. The
@@ -31,17 +32,24 @@ scientific reasoning difficulty. One `SUSPECTED / BLOCKER` ledger entry
 preserves the finding without overwriting the earlier verifier-feasibility
 epoch. Grader-only values remain unread by the difficulty evaluator.
 
+The current slice binds a clean source-layer author role and a separate
+clinical-method reviewer role. It requests thirteen categories of agent-visible
+evidence and eight explicit review decisions, while withholding all grader-only
+values from both roles. The current implementation worker does not act as the
+independent reviewer. The frontier probe remains blocked until the repaired
+packet passes the mechanical preflight and the independent review returns
+`PASS`.
+
 The parent program remains open. External proposal submission, a final public
 fixture, frontier-agent difficulty probing, independent domain review, paid SCT
 or NOHARM inference, HRP tuning, production mutation, participant recruitment,
 and institutional workflow are not completed or authorized by this child.
 
-Typed claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment passes the
-private inventory, anti-leakage, and fail-closed readiness contract pending
-protected merge. Scientific adequacy fails closed for any frontier-difficulty
-claim until an answer-free observable-evidence layer exists and is independently
-reviewed. Release adequacy is pending protected source merge; no external
-submission or production release exists.
+Typed claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment passes for
+the merged fail-closed preflight and the routed author/reviewer handoff pending
+protected merge. Scientific adequacy remains not reviewed because the
+agent-visible layer is not yet constructed or independently approved. Release
+adequacy includes no external submission or production release.
 
 ## 2026-09-01 accepted-contribution promotion scheduler production release complete
 

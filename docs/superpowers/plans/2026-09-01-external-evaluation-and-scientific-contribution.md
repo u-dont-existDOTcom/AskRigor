@@ -3,10 +3,10 @@
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Program:** Phase 2.2 — External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Branch:** `task/external-evaluation-difficulty-preflight-v1-20260901`
-**Integration baseline:** `1d7be7a8703e0bb645805a00e45929bd14a0cf91`
+**Branch:** `task/terminal-bench-observable-evidence-review-request-v1-20260901`
+**Integration baseline:** `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
-**Status:** active parent program; Terminal-Bench difficulty preflight fail-closed pending protected merge
+**Status:** active parent program; difficulty preflight merged fail-closed and independent observable-evidence review requested
 **Completed predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`
 **Assurance lane:** evaluation and scientific-governance iteration; no production mutation
 
@@ -225,9 +225,9 @@ Stop and return to the owner only if:
 10. [x] In parallel after activation, implement the MAST endpoint adapter and sealed paired-run manifest without executing model inference or the paid NOHARM judge run.
 11. [x] Merge the bounded rights/verifier/MAST-preflight child through protected PR #169.
 12. [x] Instantiate the benchmark manifest and defect ledger against both merged preflight artifact families and add executable cross-artifact validation.
-13. [ ] Run the bounded Terminal-Bench difficulty probe after protected governance integration and anti-leakage review.
+13. [ ] Run the bounded Terminal-Bench difficulty probe only after agent-input readiness and independent method review pass.
 14. [x] Run the pre-probe anti-leakage and agent-input completeness gate; preserve the exact blocking finding when the current miniature exposes no solvable evidence packet.
-15. [ ] Construct and independently review a non-answer-bearing observable-evidence layer before any frontier-agent invocation.
+15. [ ] Construct and independently review a non-answer-bearing observable-evidence layer before any frontier-agent invocation. The clean author/reviewer handoff is routed through `contributions/terminal-bench-science/observable-evidence-review-request.md`.
 
 ## 11. Historical completion boundary for the planning slice
 

@@ -12,6 +12,8 @@ import {
 } from "../evaluation/mast/src/paired-condition.js";
 import { canonicalSha256 } from "../evaluation/terminal-bench/verifier-contract.js";
 import { validateBenchmarkGovernance } from "../evaluation/governance/src/validate.js";
+import { observableEvidenceReviewRequestSchema } from
+  "../evaluation/terminal-bench/observable-evidence-review-request-contract.js";
 
 const sha256 = z.string().regex(/^[0-9a-f]{64}$/u);
 
@@ -161,10 +163,10 @@ async function main(): Promise<void> {
   const root = git(process.cwd(), ["rev-parse", "--show-toplevel"]);
   const task = z.object({
     taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-    status: z.literal("active_terminal_bench_difficulty_preflight"),
-    requiredBranch: z.literal("task/external-evaluation-difficulty-preflight-v1-20260901"),
+    status: z.literal("active_terminal_bench_observable_evidence_review_request"),
+    requiredBranch: z.literal("task/terminal-bench-observable-evidence-review-request-v1-20260901"),
     currentSlice: z.object({
-      sliceId: z.literal("terminal-bench-difficulty-probe-preflight-v1"),
+      sliceId: z.literal("terminal-bench-observable-evidence-review-request-v1"),
       status: z.literal("ready_for_protected_merge"),
       maximumEstimatedCostUsdBeforeAbort: z.literal(0),
     }).passthrough(),
@@ -180,6 +182,12 @@ async function main(): Promise<void> {
     privateReceipt: join(root, "evaluation", "terminal-bench", "private-miniature-verifier-receipt.json"),
     mastPreflight: join(root, "evaluation", "mast", "preflight-manifest.json"),
     difficultyPreflight: join(root, "evaluation", "terminal-bench", "difficulty-preflight-receipt.json"),
+    observableEvidenceReviewRequest: join(
+      root,
+      "contributions",
+      "terminal-bench-science",
+      "observable-evidence-review-request.json",
+    ),
   };
   const requiredCode = [
     "evaluation/mast/src/paired-condition.ts",
@@ -199,6 +207,10 @@ async function main(): Promise<void> {
     "evaluation/terminal-bench/difficulty-probe-contract.ts",
     "scripts/validate-terminal-bench-difficulty-preflight.mts",
     "tests/terminal-bench-difficulty-preflight.test.ts",
+    "evaluation/terminal-bench/observable-evidence-review-request-contract.ts",
+    "scripts/validate-observable-evidence-review-request.mts",
+    "tests/observable-evidence-review-request.test.ts",
+    "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-protected-merge.json",
   ];
   const findings: string[] = [];
   for (const path of [...Object.values(paths), ...requiredCode.map((path) => join(root, path))]) {
@@ -223,17 +235,28 @@ async function main(): Promise<void> {
     throw new Error(findings.join("\n"));
   }
 
-  const [rights, privateReceipt, mastPreflight, difficultyPreflight, rightsMd] = await Promise.all([
+  const [
+    rights,
+    privateReceipt,
+    mastPreflight,
+    difficultyPreflight,
+    observableEvidenceReviewRequest,
+    rightsMd,
+  ] = await Promise.all([
     readJson(paths.rights),
     readJson(paths.privateReceipt),
     readJson(paths.mastPreflight),
     readJson(paths.difficultyPreflight),
+    readJson(paths.observableEvidenceReviewRequest),
     readFile(paths.rightsMd, "utf8"),
   ]);
   const parsedRights = rightsScanSchema.parse(rights);
   const parsedPrivateReceipt = privateReceiptSchema.parse(privateReceipt);
   const parsedMastPreflight = mastPreflightSchema.parse(mastPreflight);
   const parsedDifficultyPreflight = difficultyPreflightReceiptSchema.parse(difficultyPreflight);
+  const parsedObservableEvidenceReviewRequest = observableEvidenceReviewRequestSchema.parse(
+    observableEvidenceReviewRequest,
+  );
   for (const prohibited of ["patient name", "date of birth", "latent answer", "real treatment caused"] ) {
     if (rightsMd.toLowerCase().includes(prohibited)) {
       throw new Error(`RIGHTS_SCAN_PROHIBITED_CONTENT value=${prohibited}`);
@@ -305,11 +328,18 @@ async function main(): Promise<void> {
       finding_count: parsedDifficultyPreflight.readiness.findingCount,
       frontier_agent_invoked: parsedDifficultyPreflight.execution.frontierAgentInvoked,
     },
+    observable_evidence_review_request: {
+      state: parsedObservableEvidenceReviewRequest.state,
+      issue_url: parsedObservableEvidenceReviewRequest.publicRequest.issueUrl,
+      current_verdict: parsedObservableEvidenceReviewRequest.reviewBoundary.currentVerdict,
+      frontier_probe_blocked:
+        parsedObservableEvidenceReviewRequest.releaseGate.frontierProbeBlockedUntilBothPass,
+    },
     completion: {
       typedClaim: "SUBTASK_COMPLETE_PARENT_OPEN",
-      operationalAlignment: "pass_private_inventory_anti_leakage_and_blocking_finding",
-      scientificAdequacy: "fail_closed_for_frontier_difficulty_claim_agent_input_incomplete",
-      releaseAdequacy: "pending_protected_merge_no_production_release",
+      operationalAlignment: "review_request_routed_frontier_probe_blocked",
+      scientificAdequacy: "not_yet_reviewed_agent_input_not_yet_constructed",
+      releaseAdequacy: "pending_protected_merge_no_external_submission_or_production_release",
     },
   })}\n`);
 }

@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "terminal_bench_observable_evidence_review_request_candidate",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "terminal-bench-observable-evidence-review-request-v1",
+  "state": "READY_FOR_PROTECTED_REVIEW_FRONTIER_PROBE_BLOCKED",
+  "capturedAt": "2026-09-01T16:55:30Z",
+  "source": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/terminal-bench-observable-evidence-review-request-v1-20260901",
+    "baselineCommit": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+    "candidateCommit": "045fda7d7b0d72f3d168f9b6b98b7b526a188e08",
+    "candidateTree": "4096da747c806befae74c3707bd17385c95370a5",
+    "previousSliceMergeReceipt": "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-protected-merge.json"
+  },
+  "reviewRouting": {
+    "issueUrl": "https://github.com/u-dont-existDOTcom/AskRigor/issues/172",
+    "sourceLayerAuthorSeparated": true,
+    "independentClinicalMethodReviewerRequired": true,
+    "currentImplementationWorkerIsIndependentReviewer": false,
+    "requiredEvidenceFieldCount": 13,
+    "requiredReviewQuestionCount": 8,
+    "currentReviewVerdict": "NOT_REVIEWED",
+    "mechanicalPreflightMustPass": true,
+    "independentReviewMustPass": true
+  },
+  "scope": {
+    "difficultyPreflightProtectedMergeBound": true,
+    "publicReviewRequest": true,
+    "answerFreeAuthoringContract": true,
+    "independentReviewContract": true,
+    "observableEvidenceConstructed": false,
+    "independentReviewPerformed": false,
+    "frontierAgentInvocation": false,
+    "paidInference": false,
+    "externalTerminalBenchSubmission": false,
+    "publicLatentFixture": false,
+    "productionMutation": false,
+    "protocolMutation": false
+  },
+  "artifacts": {
+    "reviewRequestJsonSha256": "6c9eae60cbdf9b50b2e5645c82c7851aafecc4b7c331a84f0fc21bc302f9f64c",
+    "reviewRequestMarkdownSha256": "359d50805d88b48cf06d037ccc7012f587853b7667855b3854d57821419f0885",
+    "reviewRequestContractSha256": "03329129be58d09da484286315c90ad90f37d623aa0075a56de190d8bf465e18",
+    "reviewRequestValidatorSha256": "2665272e19ed79f8e1e08056fd6c535472c2d9e0b2e4474f2eddb930a55e1fb5",
+    "reviewRequestTestsSha256": "3dcdba376d4f8d26f704d03c2f547ada18f2b64149534dba3dff83ad9da85587",
+    "previousSliceMergeReceiptSha256": "0c5ac57fd142b9424f0160c15007404da108b9f221eac917768bd06dcdcf5d6f"
+  },
+  "validation": {
+    "dependencyInstall": "pass_0_vulnerabilities",
+    "branchPreflight": "pass",
+    "artifactAcceptance": "pass",
+    "reviewRequestValidation": "pass",
+    "focusedTests": "pass_26_tests_6_files",
+    "strictNodeNextTypecheck": "pass_with_explicit_node_types",
+    "initialAdHocTypecheck": "invalid_invocation_missing_node_types_corrected_before_full_gate",
+    "completeDeterministicGate": "pass",
+    "testFiles": {
+      "passed": 132,
+      "skipped": 1
+    },
+    "tests": {
+      "passed": 1640,
+      "skipped": 6
+    },
+    "testDurationSeconds": 134.72,
+    "projectTypecheck": "pass",
+    "build": "pass",
+    "postGateBuildConfirmation": "pass",
+    "diffCheck": "pass",
+    "lessonQueue": {
+      "checkedAt": "2026-09-01T16:55:11.950Z",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0
+    }
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "review_request_routed_frontier_probe_blocked_pending_protected_merge",
+    "scientificAdequacy": "not_yet_reviewed_agent_input_not_yet_constructed",
+    "releaseAdequacy": "pending_protected_source_merge_no_external_submission_or_production_release"
+  },
+  "nextSafeSlice": "while the independent Terminal-Bench author/reviewer handoff is open, prepare the sealed MAST NOHARM pilot subset and analysis-freeze boundary without model inference or spend"
+}
