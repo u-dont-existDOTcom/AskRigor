@@ -224,7 +224,7 @@ function argument(name: string): string | null {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const root = resolve(fileURLToPath(new URL("..", import.meta.url)), "..");
+  const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
   const policyPath = resolve(argument("--policy") ?? `${root}/governance/chat-work-authority-policy.json`);
   const directivePath = resolve(argument("--directive") ?? `${root}/docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json`);
   const requestPath = argument("--request");
