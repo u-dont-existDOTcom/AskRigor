@@ -1,7 +1,7 @@
 # Terminal-Bench-Science Source-Family and Rights Decision
 
-**Task:** `askrigor-external-evaluation-contribution-v1`  
-**Captured:** 2026-09-01T14:47:02Z  
+**Task:** `askrigor-external-evaluation-contribution-v1`
+**Captured:** 2026-09-01T14:47:02Z
 **Disposition:** transparent semisynthetic fixture
 
 ## Decision

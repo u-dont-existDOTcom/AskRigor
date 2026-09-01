@@ -1,8 +1,8 @@
 # Phase 2.2 Bounded Child Candidate Receipt
 
-**Parent activation:** PR #168 / `4556b58e55fc445920f831b7a1451c805283a697`  
-**Child:** `rights-verifier-and-sealed-mast-preflight-v1`  
-**Exact tested candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`  
+**Parent activation:** PR #168 / `4556b58e55fc445920f831b7a1451c805283a697`
+**Child:** `rights-verifier-and-sealed-mast-preflight-v1`
+**Exact tested candidate:** `2dab865ae817027c324f689da2aaf738de5c6b30`
 **Candidate tree:** `ede95f5a2ab8d7aa2897ca9e56f8922f2aea003a`
 
 ## Outcome
