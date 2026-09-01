@@ -163,6 +163,29 @@ and trail corrections append versions; a stale sibling is rejected. The loop is
 formal-only until a separate policy decision changes the current zero-storage
 YouTube/community boundary.
 
+## Reciprocal contribution promotion loop
+
+```mermaid
+flowchart LR
+    RUN[Authenticated free-contributor research run] --> PREP[Strict deidentified proposal preparation]
+    PREP --> PENDING[(Pending proposal queue)]
+    PENDING --> REVIEW[Owner inspection through GPT]
+    REVIEW -->|reject| REJECTED[Rejected; no canonical write]
+    REVIEW -->|accept exact hash| INTENT[(Pending promotion intent)]
+    TIMER[Hardened five-minute host timer] --> ADMIN[One-shot promote-accepted]
+    INTENT --> ADMIN
+    ADMIN --> VERIFY[Revalidate stored kind, payload, hash, and privacy markers]
+    VERIFY --> CANONICAL[(Canonical evidence repository)]
+    CANONICAL --> RECEIPT[(Exact promotion receipt)]
+    ADMIN -->|failure or interrupted receipt| INTENT
+```
+
+The timer makes no review or scientific decision. It receives no dynamic input
+and can reach only the existing one-shot administrator. The public runtime has
+no canonical-writer credential or scheduler control. Each activation processes
+at most one already accepted intent; retry uses the canonical writer's existing
+idempotency key. Partial formal corpora remain eligible and labeled partial.
+
 ## Evidence lineage and correction propagation
 
 ```mermaid

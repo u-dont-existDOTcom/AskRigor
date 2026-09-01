@@ -75,6 +75,13 @@ package/registration receipt and an explicit rollback path. Never infer
 plugin-package currency from source files, a working connector, or live
 manifests alone.
 
+When the accepted-contribution promotion timer is active, every backend release
+must also bind `/opt/askrigor/living-evidence-image.env` to the exact deployed
+reviewed image, manually run the hardened oneshot service once, and verify the
+future timer trigger before declaring release completion. Rollback must stop and
+disable the exact timer without deleting proposals, intents, receipts, or
+canonical evidence.
+
 ### Lesson-queue checkpoints
 
 Run `npm run lessons:status` using the maintainer's local GitHub authentication:

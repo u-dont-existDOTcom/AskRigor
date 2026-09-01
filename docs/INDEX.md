@@ -164,6 +164,9 @@ complete XML protocol.
 - `research-contributor-access.md`: reciprocal free-contributor versus
   entitled paid-private contract, pseudonymous identity, pending-proposal
   boundary, least-privilege runtime, and known limitations
+- `research-contribution-promotion-scheduler.md`: hardened five-minute
+  scheduling of the separate exact owner-accepted promotion runner, credential
+  isolation, failure visibility, upgrade synchronization, and rollback
 - `audits/2026-09-01-owner-review-promotion-candidate.md` and `.json`:
   owner-only exact-hash proposal disposition, function-only review role,
   one-shot idempotent promotion, real-PostgreSQL and complete-gate evidence,
@@ -173,6 +176,8 @@ complete XML protocol.
   `audits/2026-09-01-owner-review-promotion-final-review.txt`: independent
   owner-source, corrected Extra High topology/tool-surface, and final PASS
   review receipts
+- `superpowers/plans/2026-09-01-promotion-scheduler.md`: exclusive bounded plan
+  for scheduling only the already owner-accepted one-shot promoter
 - `audits/2026-09-01-owner-review-promotion-production-release.md` and its
   machine JSON: PR #161 merge, exact production image and rollback,
   function-only owner review, one-shot hash-bound promotion, 27-tool MCP and

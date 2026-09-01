@@ -194,8 +194,12 @@ the payload.
 
 After the owner accepts an exact proposal, invoke `promote-accepted` through
 the one-shot admin profile. Each invocation processes at most one pending
-intent and emits only a bounded receipt. Repeat manually until it returns
-`no_pending_promotion`; do not add a scheduler in this slice. A failed process
+intent and emits only a bounded receipt. The initial owner-review release used
+manual repetition until `no_pending_promotion`. The separately reviewed
+promotion-scheduler slice installs a hardened five-minute systemd timer that
+invokes this exact command without arguments or a shell; its activation and
+rollback contract is in
+`../../docs/research-contribution-promotion-scheduler.md`. A failed process
 after the canonical writer commit leaves the intent pending, and the next
 invocation completes it through the writer's idempotent replay path.
 

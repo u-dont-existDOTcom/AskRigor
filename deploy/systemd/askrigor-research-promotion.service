@@ -1,0 +1,44 @@
+[Unit]
+Description=Promote one explicitly owner-accepted AskRigor research contribution
+Documentation=https://github.com/u-dont-existDOTcom/AskRigor/blob/main/docs/research-contribution-promotion-scheduler.md
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=/opt/askrigor/living-evidence-image.env
+WorkingDirectory=/opt/askrigor
+ExecStartPre=/usr/bin/test -r /opt/askrigor/compose.yaml
+ExecStartPre=/usr/bin/test -r /opt/askrigor/compose.living-evidence.yaml
+ExecStartPre=/usr/bin/test -r /opt/askrigor/living-evidence-writer.env
+ExecStartPre=-/usr/bin/docker rm -f askrigor-research-promotion-runner
+ExecStart=/usr/bin/docker compose --project-name askrigor --file /opt/askrigor/compose.yaml --file /opt/askrigor/compose.living-evidence.yaml --profile living-evidence-admin run --rm --no-deps --pull never --name askrigor-research-promotion-runner living-evidence-admin promote-accepted
+ExecStopPost=-/usr/bin/docker rm -f askrigor-research-promotion-runner
+TimeoutStartSec=5min
+TimeoutStopSec=1min
+Restart=no
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+ProtectProc=invisible
+ProtectSystem=strict
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

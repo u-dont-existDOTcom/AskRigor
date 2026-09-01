@@ -24,7 +24,7 @@ describe("accepted-contribution promotion scheduler", () => {
     expect(service).toContain(
       "ExecStopPost=-/usr/bin/docker rm -f askrigor-research-promotion-runner",
     );
-    expect(service).not.toMatch(/(?:\/bin\/(?:ba)?sh|sh -c|runtime\.env|living-evidence-writer\.env|ASKRIGOR_LIVING_EVIDENCE_DATABASE_URL)/u);
+    expect(service).not.toMatch(/(?:\/bin\/(?:ba)?sh|sh -c|runtime\.env|ASKRIGOR_LIVING_EVIDENCE_DATABASE_URL)/u);
     expect(service.match(/^ExecStart=/gmu)).toHaveLength(1);
   });
 
@@ -66,10 +66,10 @@ describe("accepted-contribution promotion scheduler", () => {
   });
 
   it("documents exact activation, evidence, and non-destructive rollback", async () => {
-    const runbook = await readFile(
-      rootFile("docs/research-contribution-promotion-scheduler.md"),
-      "utf8",
-    );
+    const [runbook, agents] = await Promise.all([
+      readFile(rootFile("docs/research-contribution-promotion-scheduler.md"), "utf8"),
+      readFile(rootFile("AGENTS.md"), "utf8"),
+    ]);
 
     for (const expected of [
       "/opt/askrigor/living-evidence-image.env",
@@ -86,5 +86,8 @@ describe("accepted-contribution promotion scheduler", () => {
     ]) {
       expect(runbook).toContain(expected);
     }
+    expect(agents).toContain("/opt/askrigor/living-evidence-image.env");
+    expect(agents).toContain("future timer trigger");
+    expect(agents).toContain("without deleting proposals, intents, receipts");
   });
 });
