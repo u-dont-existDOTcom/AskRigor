@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "chat_supervision_zero_spend_routing_hotfix",
+  "receiptId": "askrigor-chat-supervision-zero-spend-routing-hotfix-20260901",
+  "capturedAt": "2026-09-01T20:35:27Z",
+  "timestampBasis": "MISSION_CONTROL_CAPTURE_TIME_NATIVE_SOURCE_TIME_UNAVAILABLE",
+  "ownerCorrection": {
+    "authority": "CURRENT_EXPLICIT_OWNER_CORRECTION",
+    "summary": [
+      "ChatGPT Chat/Pro owns reasoning, proposals, methodology, prioritization, spending design, and consequential tradeoffs.",
+      "Codex/Work is execution-only for bounded tasks Chat cannot execute.",
+      "Paid API model inference is canceled while included Extra High ChatGPT capacity is available.",
+      "Routine internal supervisor routing is automatic; Joel is never asked to relay a prompt or say send it."
+    ],
+    "observedFailure": {
+      "codexAuthoredPaidApiSmokeUsd": 30,
+      "codexAuthoredPilotCeilingUsdApprox": 175,
+      "falseClaimThatProposalCameFromChat": true,
+      "ownerRelayRequestedAfterCancellation": true,
+      "paidApiCallsOccurred": false
+    }
+  },
+  "rootCause": [
+    "The prior zero-dollar execution ceiling blocked calls but did not make Codex-authored spending design itself invalid.",
+    "The reasoning/execution boundary existed as policy but lacked a task-local executable admission gate before proposals and browser routing.",
+    "Reasoning-source identity was not required before claiming that a named ChatGPT chat had already made a proposal.",
+    "A generic browser representational-communication rule overrode a more specific standing authorization for internal supervisor routing.",
+    "Subtask completion and routing friction were allowed to stop the parent outcome instead of forcing the next eligible step."
+  ],
+  "hotfix": {
+    "reasoningAuthority": [
+      "OWNER",
+      "CHATGPT_PROJECT_MANAGER",
+      "CHATGPT_SPECIALIST_SUPERVISOR"
+    ],
+    "executionAuthority": [
+      "CODEX",
+      "WORK"
+    ],
+    "paidModelApiInferenceAllowed": false,
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "preferredReasoningSurface": "CHATGPT_EXTRA_HIGH_OR_PRO_INCLUDED_CAPACITY",
+    "internalSupervisorRoutingPreauthorized": true,
+    "ownerRelayForbidden": true,
+    "sourceReceiptRequiredForChatAttribution": true,
+    "automaticContinuationUntilOutcomeOrExactBoundary": true
+  },
+  "canceledPaths": [
+    "CODEX_AUTHORED_30_USD_API_SMOKE",
+    "CODEX_AUTHORED_APPROX_175_USD_PILOT_CEILING",
+    "ANY_NONZERO_MAST_OR_NOHARM_MODEL_OR_JUDGE_API_CALL_UNDER_CURRENT_OWNER_DECISION"
+  ],
+  "nextDirective": "docs/directives/2026-09-01-mast-zero-spend-chatgpt-execution-directive.json",
+  "alignment": {
+    "operational": "PREVIOUS_FAILURE_RECORDED_HOTFIX_PROPOSED",
+    "scientific": "NOT_REACHED_NO_INFERENCE_RUN",
+    "release": "UNAFFECTED_NO_PAID_RUN_OR_RELEASE"
+  }
+}
