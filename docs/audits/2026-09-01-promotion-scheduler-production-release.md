@@ -78,6 +78,12 @@ Release adequacy passes.
 Receipt-only PR #166 preserves this closeout on protected `main`; its final
 merge identity is attached to the PR after merge.
 
+PR #164 merged a separate planning-only, queued external-evaluation lane while
+this receipt was in review. The receipt branch reconciles its protected-main
+merge `e47b122a2dd07d460bd50c008a62407278ccf958`, preserves all of that lane's
+artifacts, corrects only its stale scheduler-predecessor wording, and does not
+activate or otherwise adopt the queued program.
+
 The final deployment lesson checkpoint at `2026-09-01T14:14:51.714Z` was
 available with zero open candidates, zero needing review, zero accepted but not
 incorporated, four incorporated or closed, and zero deletion-eligible. No

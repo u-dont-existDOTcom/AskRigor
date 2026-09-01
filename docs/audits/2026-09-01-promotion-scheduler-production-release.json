@@ -13,7 +13,10 @@
     "repairMergeCommit": "a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3",
     "repairMergeTree": "bc3513bbb2edc221a9f0f2217b9bb589e8eed74c",
     "repairMergedAt": "2026-09-01T13:56:05Z",
-    "receiptPullRequest": 166
+    "receiptPullRequest": 166,
+    "reconciledMainPullRequest": 164,
+    "reconciledMainCommit": "e47b122a2dd07d460bd50c008a62407278ccf958",
+    "reconciliationDisposition": "planning-only queued external-evaluation artifacts preserved; stale scheduler-predecessor wording corrected without activating that program"
   },
   "productBoundary": {
     "decisionOperation": "review_research_contribution",
