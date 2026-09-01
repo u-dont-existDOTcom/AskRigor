@@ -1,5 +1,37 @@
 # AskRigor Codex Current State
 
+## 2026-09-01 accepted-contribution promotion scheduler active
+
+Exclusive task `askrigor-living-evidence-promotion-scheduler-v1` is active on
+branch `task/promotion-scheduler-20260901` from protected-main baseline
+`c7138eff5dbbce22bb25f727da78006e543fa476`. Run
+`npm run promotion-scheduler:preflight` before implementation and
+`npm run promotion-scheduler:acceptance` for task completeness. Ordinary green
+tests are prerequisites, not completion.
+
+The bounded objective is to schedule only the released one-shot
+`promote-accepted` command after explicit owner acceptance. The static hardened
+host unit receives no user input and makes no scientific decision. The public
+runtime keeps no canonical-writer credential, Docker control, or systemd
+authority. Each serialized five-minute activation processes at most one durable
+accepted intent; disabling the timer preserves all research state.
+
+Assurance lane is release with targeted credential, authorization,
+idempotency, concurrency, recovery, and rollback gates. Global queue selection,
+historical next-action sections, optional Railway work, payment choices, and
+YouTube/community persistence are suspended for this exclusive slice. The plan
+is `../docs/superpowers/plans/2026-09-01-promotion-scheduler.md`; the independent
+owner-source receipt is
+`../docs/audits/2026-09-01-promotion-scheduler-owner-source.txt`.
+
+Current state: red contract scaffold. The systemd templates, preflight,
+artifact-based acceptance, runbook, implementation receipt, protected merge,
+production activation, and immutable release closeout remain incomplete.
+
+Typed completion claim: `INCOMPLETE`. Operational alignment is pending.
+Scientific adequacy is preserved but not expanded; no scientific or causal
+conclusion is in scope. Release adequacy is pending.
+
 ## 2026-09-01 owner review and promotion production release complete
 
 Task `askrigor-owner-review-promotion-v1` is complete. PR #161 merged as
