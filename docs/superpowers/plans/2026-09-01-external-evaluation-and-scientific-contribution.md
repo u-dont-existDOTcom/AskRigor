@@ -3,10 +3,10 @@
 **Task ID:** `askrigor-external-evaluation-contribution-v1`  
 **Program:** Phase 2.2 — External Evaluation, Benchmark Integrity, and Scientific Contribution  
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
-**Branch:** `task/terminal-bench-observable-evidence-review-request-v1-20260901`
-**Integration baseline:** `4a1e740fd239491a18de8c503b4ccf1f2c6143ca`
+**Branch:** `task/mast-noharm-pilot-freeze-v1-20260901`
+**Integration baseline:** `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
-**Status:** active parent program; difficulty preflight merged fail-closed and independent observable-evidence review requested
+**Status:** active parent program; Terminal review request merged/open and zero-spend NOHARM pilot/freeze slice under protected review
 **Completed predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`
 **Assurance lane:** evaluation and scientific-governance iteration; no production mutation
 
@@ -228,6 +228,7 @@ Stop and return to the owner only if:
 13. [ ] Run the bounded Terminal-Bench difficulty probe only after agent-input readiness and independent method review pass.
 14. [x] Run the pre-probe anti-leakage and agent-input completeness gate; preserve the exact blocking finding when the current miniature exposes no solvable evidence packet.
 15. [ ] Construct and independently review a non-answer-bearing observable-evidence layer before any frontier-agent invocation. The clean author/reviewer handoff is routed through `contributions/terminal-bench-science/observable-evidence-review-request.md`.
+16. [x] Seal an outcome-blind NOHARM development pilot, untouched partial confirmation corpus, and post-pilot/pre-confirmation analysis-freeze boundary without inference or spend.
 
 ## 11. Historical completion boundary for the planning slice
 

@@ -49,6 +49,7 @@
     "external-evaluation:governance": "tsx scripts/validate-benchmark-governance.mts",
     "external-evaluation:difficulty-preflight": "tsx scripts/validate-terminal-bench-difficulty-preflight.mts",
     "external-evaluation:review-request": "tsx scripts/validate-observable-evidence-review-request.mts",
+    "external-evaluation:noharm-pilot": "tsx scripts/validate-mast-noharm-pilot.mts",
     "community-forum:lab-validate": "tsx scripts/validate-discourse-synthetic-lab.mts",
     "community-forum:acceptance": "tsx scripts/community-forum-synthetic-acceptance.mts",
     "community-forum:runtime-acceptance": "bash scripts/run-discourse-synthetic-acceptance.sh",

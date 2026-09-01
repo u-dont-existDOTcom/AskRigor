@@ -12,22 +12,22 @@ describe("external evaluation current-slice contract", () => {
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_terminal_bench_observable_evidence_review_request",
+      status: "active_mast_noharm_pilot_freeze",
       exclusive: true,
-      requiredBranch: "task/terminal-bench-observable-evidence-review-request-v1-20260901",
-      baselineCommit: "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+      requiredBranch: "task/mast-noharm-pilot-freeze-v1-20260901",
+      baselineCommit: "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
       boundedOutcome: expect.stringContaining("paired MAST evaluation"),
       currentSlice: {
-        sliceId: "terminal-bench-observable-evidence-review-request-v1",
+        sliceId: "mast-noharm-pilot-analysis-freeze-v1",
         status: "ready_for_protected_merge",
         maximumEstimatedCostUsdBeforeAbort: 0,
       },
       preflightCommand: "npm run external-evaluation:preflight",
       completionCommand: "npm run external-evaluation:acceptance",
       lastCompletedSlice: {
-        sliceId: "terminal-bench-difficulty-probe-preflight-v1",
-        pullRequest: 171,
-        mergeCommit: "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+        sliceId: "terminal-bench-observable-evidence-review-request-v1",
+        pullRequest: 173,
+        mergeCommit: "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
       },
     });
   });

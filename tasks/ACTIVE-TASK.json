@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_terminal_bench_observable_evidence_review_request",
+  "status": "active_mast_noharm_pilot_freeze",
   "exclusive": true,
-  "requiredBranch": "task/terminal-bench-observable-evidence-review-request-v1-20260901",
-  "baselineCommit": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+  "requiredBranch": "task/mast-noharm-pilot-freeze-v1-20260901",
+  "baselineCommit": "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
   "activatedAt": "2026-09-01T14:29:00Z",
   "assuranceLane": "evaluation_and_scientific_governance",
   "targetedHardGates": [
@@ -41,33 +41,34 @@
   "preflightCommand": "npm run external-evaluation:preflight",
   "completionCommand": "npm run external-evaluation:acceptance",
   "lastCompletedSlice": {
-    "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
+    "sliceId": "terminal-bench-observable-evidence-review-request-v1",
     "status": "protected_merge_complete",
-    "pullRequest": 171,
-    "exactTestedCandidate": "bbaf97afb1fd6178e43eea3fbfade3460612cbd4",
-    "finalHead": "344244370696d8daa51bc284cee48b068fb3bc3a",
-    "mergeCommit": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
-    "mergedAt": "2026-09-01T16:39:29Z",
-    "receipt": "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-protected-merge.json"
+    "pullRequest": 173,
+    "exactTestedCandidate": "045fda7d7b0d72f3d168f9b6b98b7b526a188e08",
+    "finalHead": "08ebac0240079d3c7431035847a0e5ecf8e964db",
+    "mergeCommit": "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
+    "mergedAt": "2026-09-01T16:59:00Z",
+    "receipt": "docs/audits/2026-09-01-terminal-bench-observable-evidence-review-request-protected-merge.json"
   },
   "currentSlice": {
-    "sliceId": "terminal-bench-observable-evidence-review-request-v1",
+    "sliceId": "mast-noharm-pilot-analysis-freeze-v1",
     "status": "ready_for_protected_merge",
-    "reviewRequest": "contributions/terminal-bench-science/observable-evidence-review-request.json",
-    "reviewRequestIssue": "https://github.com/u-dont-existDOTcom/AskRigor/issues/172",
-    "boundedOutcome": "Route an exact answer-free agent-input authoring and independent clinical-method review request while keeping the frontier difficulty probe blocked.",
+    "manifest": "evaluation/mast/noharm-pilot-manifest.json",
+    "supervisionFeedback": "https://github.com/u-dont-existDOTcom/AskRigor/issues/174",
+    "boundedOutcome": "Seal an outcome-blind NOHARM development pilot, untouched partial-corpus confirmation set, analysis-freeze boundary, and private raw-artifact policy without inference or spend.",
     "completed": [
-      "difficulty-preflight PR 171 protected merge recorded",
-      "source-layer author and independent reviewer roles separated",
-      "thirteen agent-visible evidence fields and eight review questions bound",
-      "grader-only values withheld from author and reviewer",
-      "mechanical and independent-review gates required before any frontier probe",
-      "public AskRigor review request routed without external benchmark submission"
+      "observable-evidence review-request PR 173 protected merge recorded",
+      "one outcome-blind base-case family selected per each of ten specialties",
+      "three pilot families predeclared for an isolated judge-stability repeat",
+      "twenty untouched base-case families reserved and labeled as a partial confirmation corpus",
+      "full thirty-family official score retained as a separate descriptive layer",
+      "analysis-freeze fields and clean private raw-artifact root policy bound"
     ],
     "excluded": [
       "paid MAST or NOHARM inference",
-      "construction of observable evidence by the saturated implementation worker",
-      "frontier-agent invocation before both readiness and independent review pass",
+      "model or judge inference before a separately owner-approved nonzero spend manifest",
+      "observing pilot or confirmation results",
+      "using pilot cases as independent confirmation after they influence the analysis freeze",
       "external Terminal-Bench proposal submission or upstream pull request",
       "public final benchmark fixture or latent answers",
       "production or canonical protocol mutation"
@@ -87,9 +88,9 @@
     },
     "mast": {
       "priority": "P0.1_strategic",
-      "status": "adapter_and_sealed_sct_preflight_merged_paid_epoch_gated",
+      "status": "sealed_noharm_pilot_and_analysis_freeze_plan_no_model_run",
       "path": "evaluation/mast/README.md",
-      "nextAction": "any paid paired epoch requires a separately reviewed nonzero spend ceiling and raw-artifact destination"
+      "nextAction": "any execution requires a separately reviewed owner-approved nonzero spend manifest and a clean runtime artifact root; pilot results must freeze the analysis before untouched confirmation"
     },
     "benchmarkGovernance": {
       "priority": "P0.3_shared",
@@ -131,14 +132,14 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Obtain a clean source-layer agent packet and independent clinical-method review; invoke no frontier model until both gates pass.",
+  "nextAction": "Complete protected review of the zero-spend NOHARM pilot/freeze plan while the independent Terminal-Bench author/reviewer request remains open.",
   "supervision": {
     "ownerApproval": "APPROVED — meta-analysis integrity primary",
     "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
-    "workerToContract": "complete_for_observable_evidence_review_request_candidate",
+    "workerToContract": "complete_for_mast_noharm_pilot_freeze_candidate",
     "contractToOwner": "match_with_overlap_driven_refinement",
-    "operationalAlignment": "review_request_routed_frontier_probe_blocked_pending_protected_merge",
-    "scientificAdequacy": "not_yet_reviewed_agent_input_not_yet_constructed",
-    "releaseAdequacy": "pending_protected_merge_no_external_submission_or_production_release"
+    "operationalAlignment": "sealed_zero_spend_noharm_pilot_and_freeze_boundary_pending_protected_merge",
+    "scientificAdequacy": "pilot_plan_only_no_results_or_hrp_claim",
+    "releaseAdequacy": "pending_protected_merge_no_paid_inference_external_submission_or_production_release"
   }
 }

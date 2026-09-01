@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "terminal_bench_observable_evidence_review_request_protected_merge",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "terminal-bench-observable-evidence-review-request-v1",
+  "capturedAt": "2026-09-01T16:59:00Z",
+  "rollback": {
+    "preMergeBase": "4a1e740fd239491a18de8c503b4ccf1f2c6143ca",
+    "reviewedHead": "08ebac0240079d3c7431035847a0e5ecf8e964db"
+  },
+  "pullRequest": {
+    "number": 173,
+    "url": "https://github.com/u-dont-existDOTcom/AskRigor/pull/173",
+    "base": "main",
+    "head": "08ebac0240079d3c7431035847a0e5ecf8e964db",
+    "exactFullGateCandidate": "045fda7d7b0d72f3d168f9b6b98b7b526a188e08",
+    "exactFullGateCandidateTree": "4096da747c806befae74c3707bd17385c95370a5",
+    "mergeCommit": "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
+    "mergedAt": "2026-09-01T16:59:00Z"
+  },
+  "protectedChecks": [
+    {
+      "name": "Deterministic verification",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:58:35Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33534866123/job/99946595375"
+    },
+    {
+      "name": "workflow-policy",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:57:12Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33534866125/job/99946595837"
+    },
+    {
+      "name": "Analyze (actions)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:57:50Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33534864073/job/99946591953"
+    },
+    {
+      "name": "Analyze (javascript-typescript)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:58:16Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33534864073/job/99946591699"
+    },
+    {
+      "name": "Analyze (python)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:57:54Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33534864073/job/99946591943"
+    },
+    {
+      "name": "Analyze (ruby)",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:57:54Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/actions/runs/33534864073/job/99946591850"
+    },
+    {
+      "name": "CodeQL",
+      "conclusion": "SUCCESS",
+      "completedAt": "2026-09-01T16:57:42Z",
+      "url": "https://github.com/u-dont-existDOTcom/AskRigor/runs/99946789521"
+    }
+  ],
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "protected_merge_complete_review_request_open",
+    "scientificAdequacy": "not_yet_reviewed_agent_input_not_yet_constructed",
+    "releaseAdequacy": "protected_source_merge_complete_no_external_submission_or_production_release"
+  },
+  "nextSlice": "mast-noharm-pilot-analysis-freeze-v1"
+}

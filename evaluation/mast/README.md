@@ -1,6 +1,6 @@
 # MAST Paired HRP Evaluation
 
-**Status:** adapter and sealed deterministic preflight implemented; no model inference executed
+**Status:** adapter, sealed deterministic preflight, and zero-spend NOHARM pilot/freeze plan implemented; no model or judge inference executed
 **Source pin:** `ARISENetwork/mast@57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee`  
 **Purpose:** test whether the complete HRP instruction path improves or degrades clinically consequential reasoning when the underlying model and execution conditions are held constant
 
@@ -148,3 +148,16 @@ The bounded preflight is recorded in `evaluation/mast/preflight-manifest.json` a
 - The sealed cost ceiling is zero, so this artifact authorizes and performs no paid request.
 
 Before paid SCT execution, create a separately reviewed run manifest with a nonzero owner-approved aggregate cost ceiling, raw-artifact destination, clean-room command, and exact execution-time model identity. NOHARM additionally requires the pilot declaration, judge identities/configuration, and blinded discordance schema. No favorable or unfavorable HRP result exists at this preflight stage.
+
+## 8. Sealed NOHARM pilot and confirmation split
+
+`evaluation/mast/noharm-pilot-manifest.json` binds the pinned 30-family, 330-item open corpus without executing it.
+
+- The development pilot selects one base-case family per each of the ten specialty prefixes using an outcome-blind SHA-256 rule and retains all eleven variants. That is 110 items per condition / 220 model responses.
+- Three pilot families are predeclared for one isolated repeat of both judge stages using the same preserved model responses, producing 66 repeat judged records for stability assessment.
+- The other twenty families remain untouched `VALIDATION_CONFIRMATION` data. They are explicitly a partial corpus because ten families were used for development; partial status does not exclude them from evidence review.
+- The official full 30-family open-corpus score remains reportable as a separate descriptive benchmark layer. It is not mislabeled as untouched confirmation after pilot results influence the analysis freeze.
+- Pilot results may set the numerical decision margins and abort rules listed in the manifest, but may not repair HRP. The freeze receipt must be hash-sealed before any untouched-family result is observed.
+- Runtime artifacts must use a clean, mode-0700 absolute directory outside the repository, with mode-0600 files, sealed condition-label mapping, response bytes preserved before judging, and no stored credentials.
+
+The manifest retains a zero-dollar ceiling. Any model or Gemini judge execution requires a separate owner-approved nonzero-spend run manifest and an exact runtime artifact-root inspection.

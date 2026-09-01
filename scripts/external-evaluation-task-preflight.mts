@@ -7,16 +7,16 @@ import { z } from "zod";
 const taskSchema = z.object({
   schemaVersion: z.literal(1),
   taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-  status: z.literal("active_terminal_bench_observable_evidence_review_request"),
+  status: z.literal("active_mast_noharm_pilot_freeze"),
   exclusive: z.literal(true),
-  requiredBranch: z.literal("task/terminal-bench-observable-evidence-review-request-v1-20260901"),
-  baselineCommit: z.literal("4a1e740fd239491a18de8c503b4ccf1f2c6143ca"),
+  requiredBranch: z.literal("task/mast-noharm-pilot-freeze-v1-20260901"),
+  baselineCommit: z.literal("5919cb07161b0a4ea23a07f3de4cadbc640acf5f"),
   assuranceLane: z.literal("evaluation_and_scientific_governance"),
   preflightCommand: z.literal("npm run external-evaluation:preflight"),
   completionCommand: z.literal("npm run external-evaluation:acceptance"),
   currentSlice: z.object({
-    sliceId: z.literal("terminal-bench-observable-evidence-review-request-v1"),
-    status: z.enum(["review_request_active", "ready_for_protected_merge"]),
+    sliceId: z.literal("mast-noharm-pilot-analysis-freeze-v1"),
+    status: z.enum(["implementation_active", "ready_for_protected_merge"]),
     maximumEstimatedCostUsdBeforeAbort: z.literal(0),
   }).passthrough(),
   previousCompletedTask: z.object({

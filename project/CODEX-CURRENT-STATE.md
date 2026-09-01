@@ -1,6 +1,6 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 Phase 2.2 observable-evidence author/reviewer handoff
+## 2026-09-01 Phase 2.2 zero-spend NOHARM pilot/freeze candidate
 
 PR #168 merged the canonical `askrigor-external-evaluation-contribution-v1`
 parent-program activation as
@@ -9,8 +9,9 @@ rights/verifier/MAST-preflight child as
 `7d4efa895b629f4036fda05903e173ad20a65cd2`. PR #170 then merged governance
 schema instantiation as `1d7be7a8703e0bb645805a00e45929bd14a0cf91`.
 PR #171 merged the fail-closed difficulty preflight as
-`4a1e740fd239491a18de8c503b4ccf1f2c6143ca`. The current handoff child runs on
-`task/terminal-bench-observable-evidence-review-request-v1-20260901`. Use
+`4a1e740fd239491a18de8c503b4ccf1f2c6143ca`. PR #173 merged the author/reviewer
+handoff as `5919cb07161b0a4ea23a07f3de4cadbc640acf5f`. The current MAST child runs on
+`task/mast-noharm-pilot-freeze-v1-20260901`. Use
 `npm run external-evaluation:preflight` and
 `npm run external-evaluation:acceptance` for its branch and artifact gates.
 
@@ -40,16 +41,25 @@ independent reviewer. The frontier probe remains blocked until the repaired
 packet passes the mechanical preflight and the independent review returns
 `PASS`.
 
+The MAST child seals one outcome-blind pilot family per each of ten specialty
+prefixes, three isolated judge-stability repeats, and twenty untouched families
+as an explicitly partial confirmation corpus. The all-30-family official score
+remains descriptive. Pilot results may set the predeclared margins but may not
+repair HRP, and the analysis-freeze receipt must be sealed before untouched
+confirmation is observed. The artifact contract requires a clean private root
+outside the repository. Its spend ceiling is zero, so no model or judge call is
+authorized or performed.
+
 The parent program remains open. External proposal submission, a final public
 fixture, frontier-agent difficulty probing, independent domain review, paid SCT
 or NOHARM inference, HRP tuning, production mutation, participant recruitment,
 and institutional workflow are not completed or authorized by this child.
 
 Typed claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment passes for
-the merged fail-closed preflight and the routed author/reviewer handoff pending
-protected merge. Scientific adequacy remains not reviewed because the
-agent-visible layer is not yet constructed or independently approved. Release
-adequacy includes no external submission or production release.
+the sealed zero-spend pilot and freeze boundary pending protected merge.
+Scientific adequacy is limited to the plan; no HRP-performance or clinical
+result exists. Release adequacy includes no paid inference, external submission,
+or production release.
 
 ## 2026-09-01 accepted-contribution promotion scheduler production release complete
 
