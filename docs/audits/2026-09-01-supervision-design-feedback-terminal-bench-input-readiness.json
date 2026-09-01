@@ -34,7 +34,7 @@
     "release": "no external submission or production mutation"
   },
   "route": {
-    "status": "prepared_for_shared_meta_review",
-    "externalReceipt": null
+    "status": "routed_to_shared_meta_review",
+    "externalReceipt": "https://github.com/u-dont-existDOTcom/universal-dev-architecture/issues/55"
   }
 }
