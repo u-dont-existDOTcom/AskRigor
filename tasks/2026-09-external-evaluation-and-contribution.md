@@ -5,7 +5,7 @@
 **Owner approval:** `APPROVED — meta-analysis integrity primary`  
 **Queue state:** `QUEUED_NEXT`  
 **Planning branch:** `task/external-evaluation-contribution-20260901`  
-**Integration baseline:** `f146539db8b794fce79a979980ec9d43da8c92a6`  
+**Protected-review baseline:** `a8c61cf74b26d4f7f03ab5aec79b166ba32f60d3`  
 **Independent-conception baseline:** `c7138eff5dbbce22bb25f727da78006e543fa476`  
 **Active predecessor:** `askrigor-living-evidence-promotion-scheduler-v1`  
 **Queue date:** 2026-09-01
@@ -98,6 +98,7 @@ The percentages are planning weights, not fixed accounting rules. A correctness 
 Artifacts:
 
 - `docs/superpowers/plans/2026-09-01-external-evaluation-and-scientific-contribution.md`
+- `docs/state/EXTERNAL-EVALUATION-CURRENT-STATE.md`
 - `evaluation/conception/2026-09-01-independent-conception-snapshot.md`
 - `evaluation/governance/source-registry.json`
 - `evaluation/governance/correction-and-recheck-policy.md`
@@ -107,9 +108,9 @@ Artifacts:
 - `contributions/terminal-bench-science/overlap-scan.md`
 - `contributions/terminal-bench-science/task-design.md`
 - `contributions/terminal-bench-science/proposal-draft.md`
-- this queue and `project/EXTERNAL-EVALUATION-CURRENT-STATE.md`.
+- this queue.
 
-This slice must not modify `tasks/ACTIVE-TASK.json`.
+This slice must not modify `tasks/ACTIVE-TASK.json` or the exact copy-ready files under `project/`.
 
 ### Slice B — Terminal-Bench source-family and verifier proof
 
@@ -189,4 +190,4 @@ The exclusive active task remains:
 
 The queued program checkpoint is:
 
-`project/EXTERNAL-EVALUATION-CURRENT-STATE.md`
+`docs/state/EXTERNAL-EVALUATION-CURRENT-STATE.md`
