@@ -44,6 +44,8 @@
     "owner-review:acceptance": "npm run contributor-access:acceptance",
     "promotion-scheduler:preflight": "tsx scripts/promotion-scheduler-task-preflight.mts",
     "promotion-scheduler:acceptance": "tsx scripts/accept-promotion-scheduler.mts",
+    "external-evaluation:preflight": "tsx scripts/external-evaluation-task-preflight.mts",
+    "external-evaluation:acceptance": "tsx scripts/accept-external-evaluation.mts",
     "community-forum:lab-validate": "tsx scripts/validate-discourse-synthetic-lab.mts",
     "community-forum:acceptance": "tsx scripts/community-forum-synthetic-acceptance.mts",
     "community-forum:runtime-acceptance": "bash scripts/run-discourse-synthetic-acceptance.sh",

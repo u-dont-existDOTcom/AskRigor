@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "state": "SEALED_PREFLIGHT_NO_MODEL_RUN",
+  "capturedAt": "2026-09-01T14:47:02Z",
+  "source": {
+    "repository": "ARISENetwork/mast",
+    "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "tree": "f73e1cb717d3e76353b190abc13739d7f3476798",
+    "artifacts": {
+      "benchmarks/sct/examples/gpt-5.5.jsonl": "36acafd5a6424ab018ec581cbff13686e0321ea4519f07e8b4e624a8f82531f5",
+      "benchmarks/sct/examples/gpt-5.5_details.jsonl": "d6a6505f28bbb25d83ca6c81eb144fe5b4f35f24c5a597b81f7f48804f1423e2",
+      "benchmarks/sct/examples/gpt-5.5.csv": "2f151bdcbca8cec122d9106ef5022d8b1825f234bb818733207e3bd7aeb31954",
+      "benchmarks/sct/score.py": "d767cc898931a1904e5d4b80934888bc06839d1939f5ad968fece46b795a7a04",
+      "benchmarks/sct/dataset/rubrics.jsonl": "6b64c27ca34aef765e6edde7dd4d82960325ec3bcd0e4934f1a8a0f06f6b5c13",
+      "benchmarks/sct/dataset/items.jsonl": "be79bd4d1cdfd95227398d5d7011b4a644f5b0754345dd89608488d177369bd8"
+    }
+  },
+  "protocols": {
+    "universalSha256": "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172",
+    "hrpSha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
+    "combinationRule": "complete Universal_Instructions.xml bytes, two LF bytes, complete HRP_Full.xml bytes"
+  },
+  "conditions": {
+    "model": "gpt-5.6-sol",
+    "endpoint": "https://api.openai.com/v1/responses",
+    "sharedSettingsSha256": "d4f243e78c84bf6802aabd306ef728aebc779623c2b496b50ca1dcaea47aeb90",
+    "onlyDeclaredDifference": "system_instructions",
+    "bareInstructionSha256": "2e839944a96f186dc5dc19efa7d8872ccd119f10ab637b6db5a0f035e44f30d7",
+    "hrpInstructionSha256": "a91746361ff9e4f7897f211c5cca3871222a2767cb8f01e8f01a181939dca324",
+    "sharedSettings": {
+      "endpoint": "https://api.openai.com/v1/responses",
+      "model": "gpt-5.6-sol",
+      "reasoningEffort": "xhigh",
+      "maxOutputTokens": 512,
+      "store": false,
+      "timeoutSeconds": 180,
+      "maximumRetries": 2,
+      "maximumEstimatedCostUsdBeforeAbort": 0,
+      "inputPriceUsdPerMillionTokens": 4,
+      "outputPriceUsdPerMillionTokens": 20
+    },
+    "modelAliasMutable": true,
+    "responseModelIdentityMustBeRecorded": true
+  },
+  "officialApiReferences": [
+    "https://developers.openai.com/api/docs/guides/latest-model",
+    "https://developers.openai.com/api/docs/models/gpt-5.6-sol",
+    "https://developers.openai.com/api/reference/typescript/resources/beta/subresources/responses/methods/create"
+  ],
+  "execution": {
+    "paidInferencePerformed": false,
+    "noharmJudgePerformed": false,
+    "rawResponsesStored": false,
+    "deterministicSctExamplePreflight": "pass",
+    "deterministicSctExampleItemCount": 174,
+    "deterministicSctExampleScore": 0.745301952198504,
+    "deterministicSctExamplePercentageInExpertSet": 0.9310344827586207,
+    "timeoutSeconds": 180,
+    "maximumRetries": 2,
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "spendAuthorization": "not_requested_paid_execution_hard_blocked",
+    "runAuthorization": "preflight_only"
+  }
+}
