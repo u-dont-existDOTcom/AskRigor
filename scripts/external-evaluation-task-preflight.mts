@@ -22,7 +22,7 @@ const taskSchema = z.object({
   authorityPolicy: z.literal("governance/chat-work-authority-policy.json"),
   activeDirective: z.literal("docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json"),
   currentState: z.literal("docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md"),
-  codexCurrentState: z.literal("project/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md"),
+  codexCurrentState: z.literal("docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md"),
   preflightCommand: z.literal("npx tsx scripts/validate-chat-work-authority-policy.mts"),
   completionCommand: z.literal("npx tsx scripts/accept-zero-spend-chatgpt-mast-smoke.mts"),
   currentSlice: z.object({
