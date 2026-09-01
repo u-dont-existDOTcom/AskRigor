@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import Ajv2020, { type ErrorObject, type ValidateFunction } from "ajv/dist/2020.js";
-import addFormats from "ajv-formats";
+import { Ajv2020, type AnySchema, type ErrorObject, type ValidateFunction } from "ajv/dist/2020.js";
+import * as formatsModule from "ajv-formats";
+import type { FormatsPlugin } from "ajv-formats";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -35,6 +36,8 @@ const INSTANCE_PAIRS: GovernanceInstancePair[] = [
     ledger: "evaluation/governance/instances/terminal-bench-private-miniature.defects.json",
   },
 ];
+
+const addFormats = (formatsModule as unknown as { default: FormatsPlugin }).default;
 
 function asRecord(value: unknown, label: string): JsonRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -88,8 +91,8 @@ export async function compileGovernanceSchemas(root: string): Promise<{
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   addFormats(ajv);
   return {
-    validateManifest: ajv.compile(manifestSchema),
-    validateLedger: ajv.compile(ledgerSchema),
+    validateManifest: ajv.compile(manifestSchema as AnySchema),
+    validateLedger: ajv.compile(ledgerSchema as AnySchema),
   };
 }
 
