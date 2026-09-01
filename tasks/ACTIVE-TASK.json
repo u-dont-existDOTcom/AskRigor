@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_governance_schema_validation",
+  "status": "active_terminal_bench_difficulty_preflight",
   "exclusive": true,
-  "requiredBranch": "task/external-evaluation-governance-v1-20260901",
-  "baselineCommit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
+  "requiredBranch": "task/external-evaluation-difficulty-preflight-v1-20260901",
+  "baselineCommit": "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
   "activatedAt": "2026-09-01T14:29:00Z",
   "assuranceLane": "evaluation_and_scientific_governance",
   "targetedHardGates": [
@@ -41,30 +41,31 @@
   "preflightCommand": "npm run external-evaluation:preflight",
   "completionCommand": "npm run external-evaluation:acceptance",
   "lastCompletedSlice": {
-    "sliceId": "rights-verifier-and-sealed-mast-preflight-v1",
+    "sliceId": "benchmark-governance-schema-instantiation-v1",
     "status": "protected_merge_complete",
-    "pullRequest": 169,
-    "exactTestedCandidate": "2dab865ae817027c324f689da2aaf738de5c6b30",
-    "finalHead": "74fab7b9b4f9b94db07dd0b189cd3f875ffc9b5b",
-    "mergeCommit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
-    "mergedAt": "2026-09-01T15:43:50Z",
-    "receipt": "docs/audits/2026-09-01-external-evaluation-child-protected-merge.json"
+    "pullRequest": 170,
+    "exactTestedCandidate": "61483e7ca4c1db58fdc443a337d87c3db80ed9d2",
+    "finalHead": "7483757264c7eefae7e4537f079d104859a914c6",
+    "mergeCommit": "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
+    "mergedAt": "2026-09-01T16:12:51Z",
+    "receipt": "docs/audits/2026-09-01-external-evaluation-governance-protected-merge.json"
   },
   "currentSlice": {
-    "sliceId": "benchmark-governance-schema-instantiation-v1",
+    "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
     "status": "ready_for_protected_merge",
-    "candidateReceipt": "docs/audits/2026-09-01-external-evaluation-governance-candidate.json",
-    "boundedOutcome": "Instantiate and mechanically validate the provisional benchmark manifest and defect ledger against the merged MAST deterministic preflight and private Terminal-Bench miniature proof.",
+    "candidateReceipt": "docs/audits/2026-09-01-terminal-bench-difficulty-preflight-candidate.json",
+    "boundedOutcome": "Determine whether the private miniature exposes a scientifically solvable agent-facing evidence packet, enforce the agent/grader anti-leakage boundary, and seal a valid frontier-probe package or an exact blocking finding without invoking a frontier model.",
     "completed": [
-      "MAST preflight benchmark manifest instantiated without misrepresenting the upstream example as a new model run",
-      "Terminal-Bench private miniature manifest bound only by non-answer-bearing public hashes",
-      "empty defect ledgers bound to exact manifest bytes without claiming the evaluators are defect-free",
-      "Draft 2020-12 schemas compiled and validated against both artifact families",
-      "cross-artifact identities and privacy boundaries checked mechanically",
-      "four correction and independent-recheck policy mutants rejected"
+      "private miniature inventoried by filename, mode, size, and hash without reading grader-only values",
+      "sole nominal agent-facing fixture inspected",
+      "agent-facing bundle contract accepts a complete synthetic evidence packet and rejects missing observed evidence",
+      "grader-only field and artifact-identity leakage mutants rejected",
+      "exact private preflight returns seventeen readiness findings and withholds frontier invocation",
+      "input-completeness defect recorded without overwriting the earlier verifier-feasibility epoch"
     ],
     "excluded": [
       "paid MAST or NOHARM inference",
+      "frontier-agent invocation before agent-input readiness passes",
       "external Terminal-Bench proposal submission or upstream pull request",
       "public final benchmark fixture or latent answers",
       "production or canonical protocol mutation"
@@ -74,13 +75,13 @@
   "childWorkstreams": {
     "terminalBenchScience": {
       "priority": "P0.2_calendar_urgent",
-      "status": "source_rights_and_miniature_verifier_proof_merged_difficulty_and_review_pending",
+      "status": "difficulty_probe_preflight_active_agent_input_completeness_under_review",
       "workingTitle": "Dependency-Aware Clinical Meta-Analysis from Overlapping Reports",
       "externalPullRequestDeadline": "2026-10-05",
       "design": "contributions/terminal-bench-science/task-design.md",
       "proposalDraft": "contributions/terminal-bench-science/proposal-draft.md",
       "overlapScan": "contributions/terminal-bench-science/overlap-scan.md",
-      "nextAction": "after governance schema instantiation merges, run a bounded frontier-agent difficulty probe and obtain independent domain review or a documented request before external submission"
+      "nextAction": "validate and seal an answer-free agent-facing input bundle before any frontier-agent invocation"
     },
     "mast": {
       "priority": "P0.1_strategic",
@@ -90,11 +91,11 @@
     },
     "benchmarkGovernance": {
       "priority": "P0.3_shared",
-      "status": "artifact_instances_and_executable_validation_ready_for_protected_merge",
+      "status": "schemas_merged_concrete_terminal_fixture_defect_under_triage",
       "policy": "evaluation/governance/correction-and-recheck-policy.md",
       "manifestSchema": "evaluation/governance/benchmark-manifest.schema.json",
       "defectLedgerSchema": "evaluation/governance/defect-ledger.schema.json",
-      "nextAction": "complete protected merge, then keep the schemas stable until a concrete evaluator defect or full benchmark epoch requires another revision"
+      "nextAction": "record the current miniature input-completeness finding without overwriting the merged verifier-feasibility epoch"
     },
     "authenticRequestEvaluation": {
       "priority": "P1",
@@ -120,7 +121,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-01T16:03:12.126Z",
+    "checkedAt": "2026-09-01T16:31:12.692Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -128,14 +129,14 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Complete protected review and merge for governance schema instantiation, then continue with the bounded Terminal-Bench difficulty probe without external submission.",
+  "nextAction": "Complete the Terminal-Bench anti-leakage and agent-input completeness preflight; invoke no frontier model until the package is scientifically solvable.",
   "supervision": {
     "ownerApproval": "APPROVED — meta-analysis integrity primary",
     "completionClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
-    "workerToContract": "complete_for_governance_instantiation_candidate",
+    "workerToContract": "complete_for_difficulty_probe_preflight_candidate",
     "contractToOwner": "match_with_overlap_driven_refinement",
-    "operationalAlignment": "schema_instances_and_cross_artifact_validation_pass_pending_protected_merge",
-    "scientificAdequacy": "governance_provenance_pass_no_benchmark_or_defect_free_claim_made",
-    "releaseAdequacy": "pending_protected_merge_no_production_release"
+    "operationalAlignment": "private_inventory_anti_leakage_and_blocking_finding_pass_pending_protected_merge",
+    "scientificAdequacy": "frontier_difficulty_claim_fail_closed_agent_input_incomplete",
+    "releaseAdequacy": "pending_protected_merge_no_external_submission_or_production_release"
   }
 }

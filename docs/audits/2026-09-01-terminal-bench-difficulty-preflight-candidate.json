@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "terminal_bench_difficulty_preflight_candidate",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "terminal-bench-difficulty-probe-preflight-v1",
+  "state": "READY_FOR_PROTECTED_REVIEW_FRONTIER_PROBE_NOT_READY",
+  "capturedAt": "2026-09-01T16:31:12Z",
+  "source": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/external-evaluation-difficulty-preflight-v1-20260901",
+    "baselineCommit": "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
+    "candidateCommit": "bbaf97afb1fd6178e43eea3fbfade3460612cbd4",
+    "candidateTree": "730c9fb753e7cd66017585e68cd3a9b9543406f5",
+    "previousSliceMergeReceipt": "docs/audits/2026-09-01-external-evaluation-governance-protected-merge.json"
+  },
+  "scope": {
+    "privateMiniatureInventory": true,
+    "agentInputCompleteness": true,
+    "agentGraderAntiLeakage": true,
+    "inputHashBinding": true,
+    "governanceDefectEntry": true,
+    "frontierAgentInvocation": false,
+    "paidInference": false,
+    "externalSubmission": false,
+    "graderOnlyValuesReadByDifficultyEvaluator": false,
+    "publicLatentFixture": false,
+    "productionMutation": false,
+    "protocolMutation": false
+  },
+  "artifacts": {
+    "difficultyContractSha256": "554668be10b1a0439ebd428b8d4c9e23dd6bbb4aa8e7ff317e76d579080b7b90",
+    "difficultyReceiptSha256": "d751efc2438364edea93fb7644c6742f3301d3d94bb3f68003f55fe602e74192",
+    "terminalDefectLedgerSha256": "c5311e61742b93166590244c567bf5df8059bd3a29d60c5ef0242157b87500f8",
+    "difficultyValidatorSha256": "8d27be0c581c81e63c8d101c1ac00342b9db5d0640d37a119ad008dce81ad3d1",
+    "difficultyTestsSha256": "625bd8aeec298774451ca18619603d2264a59276d831b36181b1c9f92790085d",
+    "supervisionFeedbackSha256": "240e37954630386d0fa13166f5b37e064a115bea050692d0d796bfa88e4707c3",
+    "previousSliceMergeReceiptSha256": "589267bdf7c70c9dcc350f173bc21ad914d0f4e3f970418c7341f4e8ac353422"
+  },
+  "difficultyPreflight": {
+    "status": "FRONTIER_PROBE_BLOCKED_AGENT_INPUT_INCOMPLETE",
+    "fixtureSha256": "a78f3ac7d0a3e31e343fd90a7186be1b78e2886e2c15c8831bc627ca837c5167",
+    "privateDirectoryMode": "0700",
+    "privateFileMode": "0600",
+    "privateFileCount": 7,
+    "agentFacingFileCount": 1,
+    "readinessFindingCount": 17,
+    "frontierAgentInvoked": false,
+    "graderOnlyValuesReadByDifficultyEvaluator": false,
+    "boundedConclusion": "Current agent input measures context starvation, not scientific reasoning difficulty."
+  },
+  "governance": {
+    "recordedDefectCount": 1,
+    "newDefectId": "TB-MINI-001-agent-input-evidence-absent",
+    "newDefectStatus": "SUSPECTED",
+    "newDefectSeverity": "BLOCKER",
+    "priorVerifierFeasibilityEpochOverwritten": false,
+    "independentRecheckRequired": true
+  },
+  "validation": {
+    "preflight": "pass",
+    "privateDifficultyPreflight": "pass_blocking_finding_reproduced",
+    "ciSafeDifficultyReceipt": "pass",
+    "artifactAcceptance": "pass",
+    "focusedEvaluationTests": "pass_22_tests",
+    "strictNodeNextDifficultyTypecheck": "pass",
+    "completeDeterministicGate": "pass",
+    "testFiles": {
+      "passed": 131,
+      "skipped": 1
+    },
+    "tests": {
+      "passed": 1636,
+      "skipped": 6
+    },
+    "typecheck": "pass",
+    "build": "pass",
+    "diffCheck": "pass",
+    "dependencyAudit": "pass_0_vulnerabilities",
+    "testEfficiency": {
+      "elapsedWallSecondsAtSummary": 1018.05,
+      "observedTestSeconds": 170.16,
+      "testWallPercentage": 16.71,
+      "focusedRuns": 8,
+      "affectedRuns": 3,
+      "fullRuns": 1,
+      "forcedRedundantGreenSeconds": 0
+    },
+    "lessonQueue": {
+      "checkedAt": "2026-09-01T16:31:12.692Z",
+      "openCandidates": 0,
+      "needsReview": 0,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0
+    }
+  },
+  "activeLessonApplication": {
+    "universalRepositoryCommit": "e9d5b64292d6c6a2dbb64ba9333d617efbf489fa",
+    "contractFresh": true,
+    "admission": "PASS",
+    "rules": [
+      {
+        "source": "patterns/exclusive-active-task-locks.md",
+        "result": "PASS",
+        "evidence": "exact difficulty-preflight branch and task identity pass preflight"
+      },
+      {
+        "source": "patterns/independent-evaluation-separation.md",
+        "result": "PASS",
+        "evidence": "the saturated implementation worker does not masquerade as an independent difficulty evaluator and no frontier invocation occurs before a sealed information boundary"
+      },
+      {
+        "source": "patterns/transformation-preservation-proof.md",
+        "result": "PASS",
+        "evidence": "agent-facing fields, grader-only fields, disclosure hashes, payload identity, and leakage mutants are checked separately"
+      },
+      {
+        "source": "patterns/external-evaluation-reproducibility.md",
+        "result": "PASS",
+        "evidence": "the exact fixture hash, private modes, finding count, and non-invocation state are preserved"
+      },
+      {
+        "source": "patterns/test-efficiency-and-verification-budget.md",
+        "result": "PASS",
+        "evidence": "focused and affected checks preceded one full merge-ready gate with zero forced redundant full reruns"
+      }
+    ]
+  },
+  "supervisionFeedback": {
+    "lane": "supervision-architecture/20260901T162500Z",
+    "packet": "docs/audits/2026-09-01-supervision-design-feedback-terminal-bench-input-readiness.json",
+    "routeStatus": "routed_to_shared_meta_review",
+    "externalReceipt": "https://github.com/u-dont-existDOTcom/universal-dev-architecture/issues/55"
+  },
+  "completion": {
+    "typedClaim": "SUBTASK_COMPLETE_PARENT_OPEN",
+    "operationalAlignment": "pass_private_inventory_anti_leakage_and_blocking_finding_pending_protected_merge",
+    "scientificAdequacy": "frontier_difficulty_claim_fail_closed_agent_input_incomplete",
+    "releaseAdequacy": "pending_protected_source_merge_no_external_submission_or_production_release"
+  },
+  "nextSafeSlice": "construct and independently review a non-answer-bearing observable-evidence layer before any frontier-agent invocation"
+}

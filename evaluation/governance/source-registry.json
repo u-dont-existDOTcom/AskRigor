@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "capturedAt": "2026-09-01T13:28:44Z",
-  "updatedAt": "2026-09-01T15:43:50Z",
+  "updatedAt": "2026-09-01T16:16:44Z",
   "purpose": "Bind AskRigor external-evaluation and contribution decisions to exact source identities while preserving source-specific discrepancies.",
   "projectBaselines": {
     "independentConception": {
@@ -50,6 +50,12 @@
       "branch": "main",
       "commit": "7d4efa895b629f4036fda05903e173ad20a65cd2",
       "status": "PR 169 protected merge of the rights, private miniature-verifier proof, and sealed MAST deterministic-preflight child"
+    },
+    "governanceMerge": {
+      "repository": "u-dont-existDOTcom/AskRigor",
+      "branch": "main",
+      "commit": "1d7be7a8703e0bb645805a00e45929bd14a0cf91",
+      "status": "PR 170 protected merge of instantiated benchmark manifests, defect ledgers, and executable cross-artifact validation"
     }
   },
   "sources": [
@@ -239,6 +245,7 @@
     "The independent-conception, scheduler-candidate, scheduler-release, Phase 2.2 activation, and bounded-child identities are preserved separately.",
     "PR 168 resolved fresh protected main before canonical parent-program activation; the bounded child starts from that merge.",
     "PR 169 merged the bounded child into protected main before governance schemas were instantiated against its artifacts.",
+    "PR 170 merged governance instantiation before the agent-input difficulty preflight recorded its first concrete Terminal-Bench fixture defect.",
     "This registry records provenance; it does not establish scientific correctness of any source."
   ]
 }

@@ -113,6 +113,35 @@ const mastPreflightSchema = z.object({
   }),
 });
 
+const difficultyPreflightReceiptSchema = z.object({
+  schemaVersion: z.literal(1),
+  taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
+  sliceId: z.literal("terminal-bench-difficulty-probe-preflight-v1"),
+  state: z.literal("FRONTIER_PROBE_BLOCKED_AGENT_INPUT_INCOMPLETE"),
+  privateBoundary: z.object({
+    directoryOutsideRepository: z.literal(true),
+    directoryMode: z.literal("0700"),
+    fileMode: z.literal("0600"),
+    graderOnlyValuesReadByDifficultyEvaluator: z.literal(false),
+    fixtureSha256: sha256,
+  }).passthrough(),
+  readiness: z.object({
+    ready: z.literal(false),
+    findingCount: z.literal(17),
+    codes: z.array(z.string()).min(7),
+  }),
+  execution: z.object({
+    frontierAgentInvoked: z.literal(false),
+    paidInferencePerformed: z.literal(false),
+    externalSubmissionPerformed: z.literal(false),
+    maximumEstimatedCostUsdBeforeAbort: z.literal(0),
+  }),
+  repairBoundary: z.object({
+    required: z.literal(true),
+    independentMethodReviewRequired: z.literal(true),
+  }).passthrough(),
+}).passthrough();
+
 function git(root: string, args: string[]): string {
   return execFileSync("git", ["-C", root, ...args], {
     encoding: "utf8",
@@ -132,10 +161,10 @@ async function main(): Promise<void> {
   const root = git(process.cwd(), ["rev-parse", "--show-toplevel"]);
   const task = z.object({
     taskId: z.literal("askrigor-external-evaluation-contribution-v1"),
-    status: z.literal("active_governance_schema_validation"),
-    requiredBranch: z.literal("task/external-evaluation-governance-v1-20260901"),
+    status: z.literal("active_terminal_bench_difficulty_preflight"),
+    requiredBranch: z.literal("task/external-evaluation-difficulty-preflight-v1-20260901"),
     currentSlice: z.object({
-      sliceId: z.literal("benchmark-governance-schema-instantiation-v1"),
+      sliceId: z.literal("terminal-bench-difficulty-probe-preflight-v1"),
       status: z.literal("ready_for_protected_merge"),
       maximumEstimatedCostUsdBeforeAbort: z.literal(0),
     }).passthrough(),
@@ -150,6 +179,7 @@ async function main(): Promise<void> {
     rightsMd: join(root, "contributions", "terminal-bench-science", "source-family-rights-scan.md"),
     privateReceipt: join(root, "evaluation", "terminal-bench", "private-miniature-verifier-receipt.json"),
     mastPreflight: join(root, "evaluation", "mast", "preflight-manifest.json"),
+    difficultyPreflight: join(root, "evaluation", "terminal-bench", "difficulty-preflight-receipt.json"),
   };
   const requiredCode = [
     "evaluation/mast/src/paired-condition.ts",
@@ -166,6 +196,9 @@ async function main(): Promise<void> {
     "evaluation/governance/instances/terminal-bench-private-miniature.manifest.json",
     "evaluation/governance/instances/terminal-bench-private-miniature.defects.json",
     "tests/external-evaluation-governance.test.ts",
+    "evaluation/terminal-bench/difficulty-probe-contract.ts",
+    "scripts/validate-terminal-bench-difficulty-preflight.mts",
+    "tests/terminal-bench-difficulty-preflight.test.ts",
   ];
   const findings: string[] = [];
   for (const path of [...Object.values(paths), ...requiredCode.map((path) => join(root, path))]) {
@@ -190,15 +223,17 @@ async function main(): Promise<void> {
     throw new Error(findings.join("\n"));
   }
 
-  const [rights, privateReceipt, mastPreflight, rightsMd] = await Promise.all([
+  const [rights, privateReceipt, mastPreflight, difficultyPreflight, rightsMd] = await Promise.all([
     readJson(paths.rights),
     readJson(paths.privateReceipt),
     readJson(paths.mastPreflight),
+    readJson(paths.difficultyPreflight),
     readFile(paths.rightsMd, "utf8"),
   ]);
   const parsedRights = rightsScanSchema.parse(rights);
   const parsedPrivateReceipt = privateReceiptSchema.parse(privateReceipt);
   const parsedMastPreflight = mastPreflightSchema.parse(mastPreflight);
+  const parsedDifficultyPreflight = difficultyPreflightReceiptSchema.parse(difficultyPreflight);
   for (const prohibited of ["patient name", "date of birth", "latent answer", "real treatment caused"] ) {
     if (rightsMd.toLowerCase().includes(prohibited)) {
       throw new Error(`RIGHTS_SCAN_PROHIBITED_CONTENT value=${prohibited}`);
@@ -244,6 +279,12 @@ async function main(): Promise<void> {
     throw new Error("MAST_PREFLIGHT_CONDITION_HASH_MISMATCH");
   }
   const governance = await validateBenchmarkGovernance(root);
+  if (
+    parsedDifficultyPreflight.privateBoundary.fixtureSha256 !== parsedPrivateReceipt.fixtureSha256
+    || governance.recordedDefectCount !== 1
+  ) {
+    throw new Error("DIFFICULTY_PREFLIGHT_GOVERNANCE_BINDING_MISMATCH");
+  }
 
   process.stdout.write(`${JSON.stringify({
     status: "READY_FOR_PROTECTED_MERGE",
@@ -258,10 +299,16 @@ async function main(): Promise<void> {
     mast_state: parsedMastPreflight.state,
     paid_inference_performed: parsedMastPreflight.execution.paidInferencePerformed,
     governance,
+    difficulty_preflight: {
+      state: parsedDifficultyPreflight.state,
+      ready: parsedDifficultyPreflight.readiness.ready,
+      finding_count: parsedDifficultyPreflight.readiness.findingCount,
+      frontier_agent_invoked: parsedDifficultyPreflight.execution.frontierAgentInvoked,
+    },
     completion: {
       typedClaim: "SUBTASK_COMPLETE_PARENT_OPEN",
-      operationalAlignment: "pass_governance_instances_and_cross_artifact_bindings",
-      scientificAdequacy: "governance_provenance_validated_no_benchmark_or_defect_free_claim_made",
+      operationalAlignment: "pass_private_inventory_anti_leakage_and_blocking_finding",
+      scientificAdequacy: "fail_closed_for_frontier_difficulty_claim_agent_input_incomplete",
       releaseAdequacy: "pending_protected_merge_no_production_release",
     },
   })}\n`);

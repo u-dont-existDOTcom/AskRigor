@@ -1,13 +1,15 @@
 # AskRigor Codex Current State
 
-## 2026-09-01 Phase 2.2 governance instantiation ready for protected merge
+## 2026-09-01 Phase 2.2 difficulty preflight fail-closed candidate
 
 PR #168 merged the canonical `askrigor-external-evaluation-contribution-v1`
 parent-program activation as
 `4556b58e55fc445920f831b7a1451c805283a697`, and PR #169 merged the bounded
 rights/verifier/MAST-preflight child as
-`7d4efa895b629f4036fda05903e173ad20a65cd2`. The current governance child runs
-on `task/external-evaluation-governance-v1-20260901`. Use
+`7d4efa895b629f4036fda05903e173ad20a65cd2`. PR #170 then merged governance
+schema instantiation as `1d7be7a8703e0bb645805a00e45929bd14a0cf91`.
+The current difficulty-preflight child runs on
+`task/external-evaluation-difficulty-preflight-v1-20260901`. Use
 `npm run external-evaluation:preflight` and
 `npm run external-evaluation:acceptance` for its branch and artifact gates.
 
@@ -19,11 +21,15 @@ adapter preserves raw bytes and exact condition equality and reproduces the
 pinned 174-item deterministic example. The sealed spend ceiling is zero, so no
 model request or paid inference occurred.
 
-The current slice instantiates both governance schemas against the merged MAST
-preflight and private Terminal-Bench miniature proof. The manifests distinguish
-fixture outputs and implementation sets from actual model runs. Empty defect
-ledgers are hash-bound to their manifests without claiming either evaluator is
-defect-free, and correction/recheck policy mutants fail closed.
+The current slice proves that the private miniature is not yet a solvable
+frontier-agent input. Its sole agent-facing file contains six report IDs and
+fictional-abstract hashes but no observed report evidence, target estimand,
+event or person-time inputs, requested outputs, or sensitivity questions. The
+sealed preflight returns 17 readiness findings and withholds frontier
+invocation; otherwise a failure would measure context starvation rather than
+scientific reasoning difficulty. One `SUSPECTED / BLOCKER` ledger entry
+preserves the finding without overwriting the earlier verifier-feasibility
+epoch. Grader-only values remain unread by the difficulty evaluator.
 
 The parent program remains open. External proposal submission, a final public
 fixture, frontier-agent difficulty probing, independent domain review, paid SCT
@@ -31,10 +37,11 @@ or NOHARM inference, HRP tuning, production mutation, participant recruitment,
 and institutional workflow are not completed or authorized by this child.
 
 Typed claim: `SUBTASK_COMPLETE_PARENT_OPEN`. Operational alignment passes the
-governance artifact and cross-binding contract and is pending protected merge.
-Scientific adequacy passes only for provenance controls; no benchmark result,
-defect-free claim, HRP-performance claim, or clinical claim exists. Release
-adequacy is pending protected merge and includes no production release.
+private inventory, anti-leakage, and fail-closed readiness contract pending
+protected merge. Scientific adequacy fails closed for any frontier-difficulty
+claim until an answer-free observable-evidence layer exists and is independently
+reviewed. Release adequacy is pending protected source merge; no external
+submission or production release exists.
 
 ## 2026-09-01 accepted-contribution promotion scheduler production release complete
 

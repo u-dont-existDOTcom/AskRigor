@@ -19,7 +19,7 @@ describe("external-evaluation benchmark governance", () => {
       schemaVersion: 1,
       manifestCount: 2,
       defectLedgerCount: 2,
-      recordedDefectCount: 0,
+      recordedDefectCount: 1,
       noDefectClaimMade: false,
       policyMutantsRejected: 4,
       crossArtifactBindingsVerified: 25,
