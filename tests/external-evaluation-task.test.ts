@@ -5,34 +5,51 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program while closing only the bounded child slice", async () => {
+  it("preserves the canonical parent program while advancing to the zero-spend ChatGPT child slice", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_mast_noharm_pilot_freeze",
+      status: "active_zero_spend_chatgpt_mast_operational_smoke",
       exclusive: true,
-      requiredBranch: "task/mast-noharm-pilot-freeze-v1-20260901",
-      baselineCommit: "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
-      boundedOutcome: expect.stringContaining("paired MAST evaluation"),
+      requiredBranch: "hotfix/chat-reasoning-zero-spend-routing-20260901",
+      baselineCommit: "a1d4aaf0fe2010edc5cec13e6c431877a311d074",
+      boundedOutcome: expect.stringContaining("zero-spend one-case ChatGPT-consumer MAST operational smoke"),
+      authorityPolicy: "governance/chat-work-authority-policy.json",
+      activeDirective: "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
+      currentState: "docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
+      codexCurrentState: "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
       currentSlice: {
-        sliceId: "mast-noharm-pilot-analysis-freeze-v1",
-        status: "ready_for_protected_merge",
+        sliceId: "zero-spend-chatgpt-mast-operational-smoke-v1",
+        status: "directive_ready_execution_not_started",
         maximumEstimatedCostUsdBeforeAbort: 0,
+        requiredChats: {
+          responseChats: 2,
+          evaluatorChats: 1,
+          mode: "EXTRA_HIGH",
+          automaticRouting: true,
+          ownerRelayPermitted: false,
+        },
       },
-      preflightCommand: "npm run external-evaluation:preflight",
-      completionCommand: "npm run external-evaluation:acceptance",
+      preflightCommand: "npx tsx scripts/validate-chat-work-authority-policy.mts",
+      completionCommand: "npx tsx scripts/accept-zero-spend-chatgpt-mast-smoke.mts",
       lastCompletedSlice: {
-        sliceId: "terminal-bench-observable-evidence-review-request-v1",
-        pullRequest: 173,
-        mergeCommit: "5919cb07161b0a4ea23a07f3de4cadbc640acf5f",
+        sliceId: "mast-noharm-pilot-analysis-freeze-v1",
+        status: "protected_merge_complete",
+        pullRequest: 175,
+        mergeCommit: "a1d4aaf0fe2010edc5cec13e6c431877a311d074",
+      },
+      supervision: {
+        completionClaim: "SUBTASK_COMPLETE_PARENT_OPEN",
+        scientificAdequacy: "not reached; no inference run",
+        releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or release",
       },
     });
   });
 
-  it("provides branch-bound preflight and artifact acceptance commands", async () => {
+  it("provides branch-bound preflight, authority, and fail-closed acceptance commands", async () => {
     const packageJson = JSON.parse(
       await readFile(rootFile("package.json"), "utf8"),
     ) as { scripts?: Record<string, string> };
@@ -43,8 +60,20 @@ describe("external evaluation current-slice contract", () => {
     expect(packageJson.scripts?.["external-evaluation:acceptance"]).toBe(
       "tsx scripts/accept-external-evaluation.mts",
     );
-    await access(rootFile("scripts/external-evaluation-task-preflight.mts"));
-    await access(rootFile("scripts/accept-external-evaluation.mts"));
+    expect(packageJson.scripts?.["validate:chat-work-authority"]).toBe(
+      "tsx scripts/validate-chat-work-authority-policy.mts",
+    );
+    for (const path of [
+      "scripts/external-evaluation-task-preflight.mts",
+      "scripts/accept-external-evaluation.mts",
+      "scripts/validate-chat-work-authority-policy.mts",
+      "scripts/accept-zero-spend-chatgpt-mast-smoke.mts",
+      "governance/chat-work-authority-policy.json",
+      "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
+      "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
+    ]) {
+      await expect(access(rootFile(path))).resolves.toBeUndefined();
+    }
   });
 
   it("requires public rights/provenance and private-fixture receipts without public latent answers", async () => {
