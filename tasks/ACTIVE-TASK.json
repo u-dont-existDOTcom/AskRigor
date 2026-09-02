@@ -81,7 +81,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_retry_extension_activated_attempt_3_ready",
+    "status": "blinded_evaluation_v2_primary_capture_active_30_valid",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -119,7 +119,8 @@
       "the Project Manager source-bound retry-extension directive carries forward all 29 valid judgments, preserves both ordinal 30 failures, and authorizes attempts 3 and 4 with the byte-identical packet and unchanged evaluator semantics",
       "authenticated Mission Control request admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902 returned mayExecute=true and ALLOW_BOUNDED_EXECUTION",
       "the deterministic retry-extension activation retained 29 valid judgments and all three mechanical-failure records, cleared only the superseded halt, and resumed the private progress ledger at SHA-256 c95fa43c0a72277898c76aa3324675e305a162705b1e41f41ade82539b0e41ee",
-      "the mode-0600 private activation receipt has SHA-256 4734f40959ea57a8dc7696b603a9d738267b7d2f4bbf687da0dbb4cd41f04b27; ordinal 30 attempt 3 is ready"
+      "the mode-0600 private activation receipt has SHA-256 4734f40959ea57a8dc7696b603a9d738267b7d2f4bbf687da0dbb4cd41f04b27",
+      "ordinal 30 attempt 3 used the byte-identical packet in a fresh Extra High Chat, passed exact validation with output SHA-256 a74e3a37148badfe4ae4864a6aa0b16cf5bab5cc1683ea874df9e746b7a334ce, and advanced the ledger to 30 valid judgments at SHA-256 0b0acba67b28f5803a238bf0ce9e335055a656839cb65852d3cd94299780c5ba"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -205,13 +206,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Dispatch ordinal 30 attempt 3 with the byte-identical packet, validate mechanically, and either record it or proceed to the one remaining permitted retry.",
+  "nextAction": "Continue primary capture at ordinal 31 after the provider cooldown, preserving the one-fresh-chat, exact-validation, and blinded-content boundaries.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "EVALUATOR_V2_RETRY_EXTENSION_ACTIVATED_ATTEMPT_3_READY",
-    "workerToContract": "SOURCE_BOUND_V2_RETRY_EXTENSION_ACTIVATED",
+    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_30_VALID",
+    "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
-    "operationalAlignment": "v2 halted correctly after ordinal 30 exhausted its original two-attempt ceiling; the Project Manager carry-forward directive preserves 29 valid judgments and both failures, changes only the prospective mechanical ceiling to four, Mission Control returned mayExecute=true, and deterministic activation retained the exact ledger while reopening only ordinal 30 attempt 3",
+    "operationalAlignment": "the admitted retry extension preserved all prior evidence and reopened only ordinal 30; its byte-identical attempt 3 passed exact validation, so the blinded primary ledger now contains 30 valid judgments and advances normally to ordinal 31",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

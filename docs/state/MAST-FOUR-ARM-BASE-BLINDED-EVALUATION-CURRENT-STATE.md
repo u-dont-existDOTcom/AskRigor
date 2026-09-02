@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 23:13 UTC
+**Checkpoint:** 2026-09-02 23:23 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_RETRY_EXTENSION_ACTIVATED / ORDINAL_30_ATTEMPT_3_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 30_VALID`
 
 ## Source-bound authority
 
@@ -129,13 +129,11 @@ redundant green reruns.
 
 ## Next executable action
 
-Dispatch ordinal 30 attempt 3 with the byte-identical packet. The admitted
-retry extension has been activated against the exact halted private ledger and
-the provider cooldown has elapsed.
+Continue primary capture at ordinal 31 after the provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 29 of 192. Both ordinal 30 attempts
+Primary capture is valid through ordinal 30 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -162,7 +160,13 @@ mode-`0600` private activation receipt. The resumed progress SHA-256 is
 `c95fa43c0a72277898c76aa3324675e305a162705b1e41f41ade82539b0e41ee` and
 the activation-receipt SHA-256 is
 `4734f40959ea57a8dc7696b603a9d738267b7d2f4bbf687da0dbb4cd41f04b27`.
-Ordinal 30 attempt 3 is now the exact next action.
+Ordinal 30 attempt 3 used the byte-identical packet in a fresh Extra High Chat,
+produced output SHA-256
+`a74e3a37148badfe4ae4864a6aa0b16cf5bab5cc1683ea874df9e746b7a334ce`,
+passed the exact repository validator, and was recorded without inspecting its
+clinical content. The current progress SHA-256 is
+`0b0acba67b28f5803a238bf0ce9e335055a656839cb65852d3cd94299780c5ba`.
+Ordinal 31 is now the exact next action.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -171,4 +175,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`EVALUATOR_V2_RETRY_EXTENSION_ACTIVATED_ATTEMPT_3_READY`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_30_VALID`.
