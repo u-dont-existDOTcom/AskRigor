@@ -66,7 +66,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-generation-v2",
-    "status": "40_primary_responses_frozen_sequence_41_provider_cooldown",
+    "status": "44_primary_responses_frozen_sequence_45_provider_cooldown",
     "directive": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
     "boundedOutcome": "Capture exactly 96 base-case responses across eight untouched MAST families, four frozen arms, and three fresh ChatGPT consumer trials per arm, then freeze raw outputs and provenance before any rubric/guidance inspection or evaluation.",
     "requiredChats": {
@@ -85,7 +85,7 @@
       "zero-spend execution authority gate passed",
       "96 exact opaque input files frozen outside the repository without reading rubric or guidance content",
       "consumer automatic tool behavior reconciled by a source-bound Project Manager amendment after three first-pass responses",
-      "40 primary first-pass responses frozen privately without clinical-content, rubric, or guidance inspection",
+      "44 primary first-pass responses frozen privately without clinical-content, rubric, or guidance inspection",
       "Project Manager issued the source-bound no-bypass Mission Control admission recovery directive",
       "Project Manager selected the narrow live-lineage admission port and excluded dashboard, owner-auth, database, provider-relay, and MAST changes",
       "Project Manager authorized only the initial scoped MISSION_CONTROL_INGEST_CREDENTIALS bootstrap",
@@ -94,10 +94,10 @@
       "sequences 15 through 23 resumed and froze successfully; 19 of 23 frozen responses show automatic Web-search UI evidence",
       "sequence 24 attempt 1 retained an exact PROVIDER_ERROR receipt after ChatGPT temporarily limited request rate; no assistant response was produced and no denominator was removed",
       "sequence 24 attempt 2 completed in a fresh conversation and was frozen with exact provenance; an unsent sequence-25 shell hit the provider cooldown before composer availability and consumed no schedule attempt",
-      "sequences 25 through 40 completed after bounded provider cooldowns and were frozen with exact provenance; post-completion throttle notices were dismissed only after assistant payload validation"
+      "sequences 25 through 44 completed after bounded provider cooldowns and were frozen with exact provenance; post-completion throttle notices were dismissed only after assistant payload validation"
     ],
     "pending": [
-      "resume sequences 41 through 96 after the provider-requested cooldown",
+      "resume sequences 45 through 96 after the provider-requested cooldown",
       "capture 96 verbatim raw responses with exact chat/message/model/mode/tool/input/output provenance",
       "record automatic model-initiated tool behavior as a descriptive process outcome without conditional retry",
       "retain and mechanically retry only provider/transport, empty, truncated, wrong-mode, dirty-chat, input-capture, or provenance failures",
@@ -175,13 +175,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "After the provider-requested cooldown, dispatch sequence 41 attempt 1 in one fresh Extra High conversation and continue the unchanged schedule without inspecting outputs.",
+  "nextAction": "After the provider-requested cooldown, dispatch sequence 45 attempt 1 in one fresh Extra High conversation and continue the unchanged schedule without inspecting outputs.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
     "completionClaim": "BASE_PILOT_PARENT_OPEN",
     "workerToContract": "GREEN_LIVE_RUNTIME_ADMISSION_ACCEPTED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_CREDENTIAL_BOOTSTRAP_AMENDMENT",
-    "operationalAlignment": "40 primary first-pass responses are frozen contiguously; live Mission Control admission remains accepted, and bounded provider cooldowns are being honored between fresh consumer conversations",
+    "operationalAlignment": "44 primary first-pass responses are frozen contiguously; live Mission Control admission remains accepted, and bounded provider cooldowns are being honored between fresh consumer conversations",
     "scientificAdequacy": "not reached; no untouched-family output has been evaluated or interpreted",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
