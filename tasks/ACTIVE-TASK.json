@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_zero_spend_mast_blinded_evaluation_v2_preflight_accepted",
+  "status": "blocked_zero_spend_mast_blinded_evaluation_v2_unresolved_slot",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -79,7 +79,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_provider_paced_at_ordinal_29",
+    "status": "blinded_evaluation_v2_blocked_unresolved_slot_ordinal_30",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -111,7 +111,9 @@
       "corrected primary capture is valid through ordinal 29; ordinals 21 through 29 all passed on their first attempt with zero web/tool observations",
       "an attempted unattended browser loop was rejected by the browser-control runtime and reset before ordinal 29 submission; no attempt was consumed, the browser was reconnected, and one-chat-at-a-time execution remains active",
       "ordinal 30 attempt 1 was retained as an INVALID_JSON mechanical failure after the exact repository validator rejected the captured assistant output; no later slot was dispatched and the one permitted byte-identical retry remains pending",
-      "capture-progress SHA-256 after ordinal 30 attempt 1 is d32d67d98863870018d143c04ba0f0eb509b89cc7f62b8929335eb8607f40393"
+      "ordinal 30 attempt 2 used the byte-identical sealed packet in a fresh Extra High Chat and was also retained as INVALID_JSON; the source-fixed two-attempt ceiling is exhausted and no later slot was dispatched",
+      "capture-progress SHA-256 at the unresolved-slot boundary is 3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92",
+      "the exact non-secret unresolved-slot receipt is docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -197,13 +199,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "After the four-minute provider cooldown, execute exact ordinal 30 attempt 2 in one fresh Extra High Chat with byte-identical packet input; validate and record it before any later slot.",
+  "nextAction": "Route the exact unresolved-slot factual receipt automatically to the directive-bound ChatGPT Project Manager and resume only from a new versioned source-bound directive plus matching runtime admission.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_29_OF_192_ORDINAL_30_BYTE_IDENTICAL_RETRY_PENDING",
+    "completionClaim": "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT",
     "workerToContract": "SOURCE_BOUND_V2_EXECUTION_ADMITTED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RECOVERY_DIRECTIVE",
-    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 29, ordinal 30 attempt 1 is retained as INVALID_JSON, and its one authorized byte-identical retry is provider-paced and pending",
+    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 29, both byte-identical ordinal 30 attempts are retained as INVALID_JSON, no later slot was dispatched, and the directive-mandated unresolved-slot claim is active pending automatic Project Manager routing",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

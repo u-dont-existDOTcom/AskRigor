@@ -110,6 +110,10 @@ complete XML protocol.
   mechanical retirement of two incomplete-input packet-QA runs with zero valid
   judgments, explicit canonical source option order in every v2 packet, and a
   fresh 96-packet/192-slot blinded preflight with the condition map still sealed
+- `audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json`:
+  exact source-fixed halt after primary ordinal 30 exhausted two byte-identical
+  `INVALID_JSON` attempts, with 29 valid judgments retained, no later dispatch,
+  no unblinding or aggregation, and zero external spend
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/

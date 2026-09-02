@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 22:46 UTC
+**Checkpoint:** 2026-09-02 22:51 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -129,17 +129,21 @@ redundant green reruns.
 
 ## Next executable action
 
-After the four-minute provider cooldown, run the one permitted byte-identical
-retry for primary ordinal 30 in a fresh GPT-5.6 Sol Extra High conversation.
-The exact validator must accept and record that retry before any later slot is
-dispatched.
+Route the exact unresolved-slot factual receipt automatically to the
+directive-bound ChatGPT Project Manager. Resume only from a new versioned,
+source-bound directive and matching runtime admission; the execution worker
+must not choose a methodological workaround.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 29 of 192. Ordinal 30 attempt 1 is
-retained as an `INVALID_JSON` mechanical failure with exact private provenance;
-attempt 2 remains authorized and pending. Capture-progress SHA-256 is
-`d32d67d98863870018d143c04ba0f0eb509b89cc7f62b8929335eb8607f40393`.
+Primary capture is valid through ordinal 29 of 192. Both ordinal 30 attempts
+used the byte-identical sealed packet in separate fresh Extra High Chats, and
+both are retained as `INVALID_JSON` mechanical failures with exact private
+provenance. The two-attempt ceiling is exhausted; no later slot was dispatched.
+Capture-progress SHA-256 is
+`3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92`.
+The non-secret receipt is
+`docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -148,4 +152,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_29_OF_192_ORDINAL_30_BYTE_IDENTICAL_RETRY_PENDING`.
+`FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT`.
