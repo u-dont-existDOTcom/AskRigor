@@ -42,9 +42,10 @@ evaluation, perturbations, tuning, or scientific interpretation.
    tool-process logging, and no cross-run context. The accepted private ledger
    SHA-256 is
    `cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3`.
-10. [ ] Return a factual receipt to the Project Manager automatically.
-11. [ ] Stop at the directive's generation boundary; the next evaluation slice
-   requires the already-frozen plan and a new bounded execution receipt.
+10. [x] Return a factual receipt to the Project Manager automatically.
+11. [x] Stop at the directive's generation boundary; the Project Manager
+   accepted the frozen generation ledger and supplied a new source-bound
+   evaluator directive before evaluation began.
 
 ## Acceptance for this slice
 

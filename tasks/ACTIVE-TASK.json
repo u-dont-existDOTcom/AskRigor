@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_zero_spend_mast_generation_frozen_pending_evaluator_transport_directive",
+  "status": "active_zero_spend_mast_blinded_evaluation_live_admission_accepted",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -36,24 +36,26 @@
     "production deployment or modification of MCP tools, databases, plugins, connectors, access agreements, public forms, or canonical protocols",
     "clinical or causal conclusions from semisynthetic task data"
   ],
-  "plan": "docs/superpowers/plans/2026-09-01-mast-four-arm-eight-family-base-pilot.md",
+  "plan": "docs/superpowers/plans/2026-09-02-mast-four-arm-base-blinded-evaluation.md",
   "queue": "tasks/2026-09-external-evaluation-and-contribution.md",
-  "currentState": "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
-  "codexCurrentState": "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
-  "activeLessonContract": "docs/state/MAST-FOUR-ARM-BASE-PILOT-ACTIVE-LESSON-CONTRACT.json",
+  "currentState": "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
+  "codexCurrentState": "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
+  "activeLessonContract": "docs/state/MAST-FOUR-ARM-BASE-EVALUATION-ACTIVE-LESSON-CONTRACT.json",
   "conceptionSnapshot": "evaluation/conception/2026-09-01-independent-conception-snapshot.md",
   "sourceRegistry": "evaluation/governance/source-registry.json",
   "activationReceipt": "docs/audits/2026-09-01-chat-work-paid-api-gate-failure.json",
   "authorityPolicy": "governance/chat-work-authority-policy.json",
   "activeDirective": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
   "activeDirectiveAmendment": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
+  "activeEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
   "activeRecoveryDirective": "docs/directives/2026-09-02-mast-runtime-admission-recovery.json",
   "activeLiveLineageDirective": "docs/directives/2026-09-02-mast-live-lineage-admission-narrow-port.json",
   "activeCredentialBootstrapDirective": "docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json",
   "liveRuntimeAdmissionReceipt": "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
+  "evaluatorRuntimeAdmissionReceipt": "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
   "runtimeAdmissionBlocker": "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
-  "preflightCommand": "npx tsx scripts/prepare-zero-spend-mast-four-arm-base-pilot.mts --mast-root <PINNED_MAST_ROOT> --artifact-root <EMPTY_MODE_0700_ROOT> --directive <PRIVATE_DIRECTIVE_JSON> --directive-receipt <PRIVATE_DIRECTIVE_RECEIPT_JSON>",
-  "completionCommand": "npx tsx scripts/accept-zero-spend-mast-four-arm-base-generation.mts --artifact-root <PRIVATE_ARTIFACT_ROOT>",
+  "preflightCommand": "npx tsx scripts/prepare-zero-spend-mast-four-arm-base-evaluation.mts --mast-root <PINNED_MAST_ROOT> --artifact-root <PRIVATE_ARTIFACT_ROOT>",
+  "completionCommand": "npx tsx scripts/accept-zero-spend-mast-four-arm-base-evaluation.mts --artifact-root <PRIVATE_ARTIFACT_ROOT>",
   "lastCompletedSlice": {
     "sliceId": "zero-spend-chatgpt-mast-card001-calibration-v1",
     "status": "protected_merge_complete",
@@ -64,48 +66,50 @@
     "mergedAt": "2026-09-01",
     "receipt": "docs/audits/2026-09-01-zero-spend-chatgpt-mast-card001-receipt.json"
   },
-  "currentSlice": {
+  "completedGenerationSlice": {
     "sliceId": "mast-four-arm-eight-family-base-generation-v2",
-    "status": "96_primary_responses_frozen_evaluation_blocked_pending_evaluator_transport_directive",
-    "directive": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
-    "boundedOutcome": "Capture exactly 96 base-case responses across eight untouched MAST families, four frozen arms, and three fresh ChatGPT consumer trials per arm, then freeze raw outputs and provenance before any rubric/guidance inspection or evaluation.",
+    "status": "accepted_and_source_bound_evaluator_directive_received",
+    "checkpoint": "a4ee25f8332d24e5a1b2ef37788def1daf854b40",
+    "primaryResponseCount": 96,
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3",
+    "receipt": "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json"
+  },
+  "currentSlice": {
+    "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
+    "status": "live_admission_accepted_blinded_evaluation_preflight_pending",
+    "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
+    "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
-      "responseChats": 96,
-      "evaluatorChats": 0,
+      "responseChats": 0,
+      "primaryEvaluatorChats": 192,
+      "adjudicatorChats": "0_TO_96",
       "mode": "EXTRA_HIGH",
       "freshContexts": true,
       "automaticRouting": true,
       "ownerRelayPermitted": false
     },
     "completed": [
-      "All001 and Card001 calibration slices protected-merged and excluded from pilot analysis and continuation gate",
-      "paid API path explicitly canceled",
-      "Chat/Work authority policy recorded",
-      "corrected four-arm eight-family directive authored by ChatGPT Project Manager and captured with exact source identity and digest",
-      "zero-spend execution authority gate passed",
-      "96 exact opaque input files frozen outside the repository without reading rubric or guidance content",
-      "consumer automatic tool behavior reconciled by a source-bound Project Manager amendment after three first-pass responses",
-      "96 primary first-pass responses frozen privately without clinical-content, rubric, or guidance inspection",
-      "Project Manager issued the source-bound no-bypass Mission Control admission recovery directive",
-      "Project Manager selected the narrow live-lineage admission port and excluded dashboard, owner-auth, database, provider-relay, and MAST changes",
-      "Project Manager authorized only the initial scoped MISSION_CONTROL_INGEST_CREDENTIALS bootstrap",
-      "exact Mission Control candidate 079881125ccd555cdff4f8502773f7e1b301232d passed 25 focused tests, 100 complete tests, TypeScript, production build, and isolated acceptance under Node v24.18.0",
-      "live probes L1 through L5 passed; L5 returned HTTP 200 and mayExecute=true for the exact source-bound zero-spend sequence-15 resume action",
-      "sequences 15 through 23 resumed and froze successfully; 19 of 23 frozen responses show automatic Web-search UI evidence",
-      "sequence 24 attempt 1 retained an exact PROVIDER_ERROR receipt after ChatGPT temporarily limited request rate; no assistant response was produced and no denominator was removed",
-      "sequence 24 attempt 2 completed in a fresh conversation and was frozen with exact provenance; an unsent sequence-25 shell hit the provider cooldown before composer availability and consumed no schedule attempt",
-      "sequences 25 through 96 completed after bounded provider cooldowns and were frozen with exact provenance; post-completion throttle notices were dismissed only after assistant payload validation",
-      "the private generation ledger passed the dedicated acceptance command with exact parent, input, output, uniqueness, privacy-mode, zero-spend, and no-manual-tool checks"
+      "96-response generation ledger accepted at checkpoint a4ee25f8332d24e5a1b2ef37788def1daf854b40",
+      "factual generation receipt returned automatically to the configured Project Manager Chat",
+      "Project Manager accepted the generation receipt and supplied evaluator directive askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v1 with exact source identity and hashes",
+      "authenticated Mission Control request admission:askrigor:mast:evaluator-v1:20260902 returned mayExecute=true and ALLOW_BOUNDED_EXECUTION"
     ],
     "pending": [
-      "return the factual generation receipt automatically to the Project Manager Chat",
-      "await a source-bound evaluator transport directive before rubric, guidance, clinical-output inspection, or evaluation"
+      "verify the frozen generation ledger and pinned MAST source identities",
+      "implement and test the private evaluator preflight, validator, retry ledger, disagreement detector, metric adapter, and acceptance command",
+      "seal 96 opaque response identities and the deterministic 192-judgment primary order",
+      "execute and freeze 192 primary condition-blind evaluator judgments",
+      "detect predeclared disagreements only after all primaries are frozen and execute every required fresh J3 adjudication",
+      "compute and freeze only blinded per-response NONOFFICIAL_PROJECTED_MAST_METRICS",
+      "return the factual blinded-evaluation receipt automatically to the Project Manager Chat"
     ],
     "excluded": [
-      "paid MAST, NOHARM, model, or judge API inference",
+      "paid MAST, model, or judge API inference",
       "provider API credentials",
       "perturbation generation",
-      "evaluation or unblinding before all 96 primary first-pass responses are frozen",
+      "condition-map disclosure or unblinding",
+      "arm-level or family-level aggregation",
+      "continuation-gate evaluation",
       "benchmark-responsive HRP tuning",
       "Codex-authored methodology or scientific interpretation",
       "owner relay or say-send-it request",
@@ -114,8 +118,9 @@
       "production or canonical protocol mutation"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
-    "acceptanceReceipt": "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json",
-    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3"
+    "runtimeAdmission": "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3",
+    "conditionMapSealed": true
   },
   "childWorkstreams": {
     "terminalBenchScience": {
@@ -174,14 +179,14 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Return the exact factual generation receipt automatically to the directive-bound Project Manager Chat, then await a source-bound evaluator transport directive without inspecting rubric, guidance, or clinical output content.",
+  "nextAction": "Verify the frozen generation ledger and pinned MAST source identities, then implement the deterministic private evaluator preflight and acceptance surfaces before the first evaluator dispatch.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE",
-    "workerToContract": "EXECUTION_ACCEPTED_PENDING_PROJECT_MANAGER_REVIEW",
-    "contractToOwner": "MATCH_AT_SOURCE_BOUND_CREDENTIAL_BOOTSTRAP_AMENDMENT",
-    "operationalAlignment": "the dedicated acceptance command verified all 96 primary records, exact hashes, unique source identities, private modes, zero spend, no manual tool selection, and retained mechanical failure provenance; Project Manager review remains pending",
-    "scientificAdequacy": "not reached; no untouched-family output has been evaluated or interpreted",
+    "completionClaim": "BLINDED_EVALUATION_AUTHORIZED_UNBLINDING_NOT_AUTHORIZED",
+    "workerToContract": "SOURCE_BOUND_EXECUTION_ADMITTED",
+    "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_DIRECTIVE",
+    "operationalAlignment": "the generation receipt was accepted by the Project Manager, the exact evaluator directive is source-bound, and authenticated Mission Control returned mayExecute=true; evaluator preflight and judgments remain pending",
+    "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
 }

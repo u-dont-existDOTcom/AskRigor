@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
+  "compiledAt": "2026-09-02T18:20:25Z",
+  "universalRef": "u-dont-existDOTcom/universal-dev-architecture@9f78b71a13056b31a6daa028767adc5c37fc37b6",
+  "lessons": [
+    {
+      "lessonId": "chat-led-reasoning-codex-execution-separation",
+      "source": "patterns/chat-led-reasoning-codex-execution-separation.md",
+      "trigger": "The Project Manager supplied the complete evaluator methodology and exact bounded directive.",
+      "requiredBehavior": "Codex performs only source-bound packet construction, dispatch, capture, mechanical validation, deterministic metric execution, Git, and factual return; it does not interpret results or alter methodology.",
+      "failureCondition": "Codex changes matching, adjudication, metric, continuation, or scientific rules, or authors a conclusion.",
+      "repairAction": "Stop the semantic action and route exact evidence to the directive-bound reasoning chat.",
+      "enforcement": "semantic"
+    },
+    {
+      "lessonId": "external-evaluation-reproducibility",
+      "source": "patterns/external-evaluation-reproducibility.md",
+      "trigger": "The slice captures 192 primary evaluator judgments and conditional J3 adjudications.",
+      "requiredBehavior": "Preserve exact source pins, packet bytes, identities, model/mode, raw outputs, hashes, retries, and the nonofficial metric label.",
+      "failureCondition": "A frozen judgment lacks exact provenance or is presented as an official MAST result.",
+      "repairAction": "Reject the affected slot or claim and retain the exact mechanical failure receipt.",
+      "enforcement": "mechanical"
+    },
+    {
+      "lessonId": "independent-evaluation-separation",
+      "source": "patterns/independent-evaluation-separation.md",
+      "trigger": "Every response requires two condition-blind independent judgments and sometimes a fresh third adjudication.",
+      "requiredBehavior": "Use one opaque response per fresh chat; withhold arm, sequence, tool, prior-judge, other-response, and condition-map information exactly as directed.",
+      "failureCondition": "An evaluator sees prohibited condition or prior-judgment context, or one chat is reused across judgments.",
+      "repairAction": "Retain the contaminated attempt as invalid and retry only under the directive's mechanical retry rule.",
+      "enforcement": "mechanical"
+    },
+    {
+      "lessonId": "persistent-browser-automation-hygiene",
+      "source": "patterns/persistent-browser-automation-hygiene.md",
+      "trigger": "The zero-spend evaluator uses repeated fresh ChatGPT consumer conversations in signed-in Brave.",
+      "requiredBehavior": "Bind completion to exact user/assistant identities and hashes, recover ambiguous sends before retry, and close completed automation-owned evaluator tabs.",
+      "failureCondition": "A possibly accepted evaluator request is repeated or a judgment comes from a dirty conversation.",
+      "repairAction": "Inspect structural state, preserve the ambiguous attempt, and retry only after proving the original attempt mechanically invalid.",
+      "enforcement": "mechanical"
+    },
+    {
+      "lessonId": "test-efficiency-and-verification-budget",
+      "source": "patterns/test-efficiency-and-verification-budget.md",
+      "trigger": "The evaluator harness and long private execution require iterative checks and a final acceptance gate.",
+      "requiredBehavior": "Use focused tests while building and checkpointing; run the complete deterministic gate only at a durable integration or completion boundary.",
+      "failureCondition": "An unchanged full suite is repeatedly rerun without a decision it can change.",
+      "repairAction": "Return to affected tests and reserve the full gate for the next meaningful checkpoint.",
+      "enforcement": "mechanical"
+    }
+  ],
+  "admission": {
+    "status": "PASS_BLINDED_EVALUATOR_EXECUTION",
+    "evidence": "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
+    "mayExecute": true,
+    "unblindingMayExecute": false
+  }
+}

@@ -2,16 +2,16 @@
 
 The exclusive active task remains `askrigor-external-evaluation-contribution-v1`
 and is defined by `tasks/ACTIVE-TASK.json`. Its current recovery checkpoint is
-`docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md`; its bounded execution
+`docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md`; its bounded execution
 plan is
-`docs/superpowers/plans/2026-09-01-mast-four-arm-eight-family-base-pilot.md`.
+`docs/superpowers/plans/2026-09-02-mast-four-arm-base-blinded-evaluation.md`.
 The task-time enforcement bundle is
-`docs/state/MAST-FOUR-ARM-BASE-PILOT-ACTIVE-LESSON-CONTRACT.json`.
+`docs/state/MAST-FOUR-ARM-BASE-EVALUATION-ACTIVE-LESSON-CONTRACT.json`.
 
 The active branch is `task/mast-four-arm-zero-spend-harness-20260901`, based on
 protected main `88eb6d252d7b7547d3a2039872bddc96707fee9e`. The controlling
-Project Manager directive is source-bound at
-`docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json`.
+Project Manager evaluator directive is source-bound at
+`docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json`.
 
 All001 and Card001 are development calibration only and are excluded from the
 pilot analysis and continuation gate. The current slice contains exactly eight
@@ -28,9 +28,12 @@ amendment at
 preserves constant ambient tool availability: manual tool action remains
 forbidden, while automatic model-initiated tool use is logged as a process
 outcome and does not trigger conditional retry. Paid model APIs and provider
-credentials remain forbidden; external spend is USD 0. The next action is to
-return the exact factual generation receipt to the directive-bound Project
-Manager and await a source-bound evaluator transport directive.
+credentials remain forbidden; external spend is USD 0. The exact factual
+generation receipt was returned to the directive-bound Project Manager, which
+accepted it and authorized the condition-blind evaluation slice. Authenticated
+Mission Control returned `mayExecute:true`. The next action is to verify the
+pinned source and implement the private evaluator preflight before the first
+evaluator dispatch.
 
 All 96 primary first-pass responses are now frozen in the private generation
 ledger: 74 recorded automatic Web-search behavior and 22 did not. This is only a
@@ -62,4 +65,8 @@ the non-sensitive receipt is
 
 The successful generation claim is
 `FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE`.
-The parent remains open, and evaluation is not authorized in this slice.
+The parent remains open. The new slice authorizes 192 primary condition-blind
+evaluator judgments and required J3 adjudication while the condition map stays
+sealed. It does not authorize unblinding, arm/family aggregation, continuation-
+gate application, tuning, scientific interpretation, or official MAST/HRP
+claims.

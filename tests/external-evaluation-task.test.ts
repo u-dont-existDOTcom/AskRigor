@@ -5,14 +5,14 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program while advancing to the four-arm base-generation slice", async () => {
+  it("preserves the canonical parent program while advancing to the admitted blinded-evaluation slice", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_zero_spend_mast_generation_frozen_pending_evaluator_transport_directive",
+      status: "active_zero_spend_mast_blinded_evaluation_live_admission_accepted",
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -21,8 +21,10 @@ describe("external evaluation current-slice contract", () => {
       activeDirective: "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
       activeDirectiveAmendment:
         "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
+      activeEvaluatorDirective:
+        "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
       activeLessonContract:
-        "docs/state/MAST-FOUR-ARM-BASE-PILOT-ACTIVE-LESSON-CONTRACT.json",
+        "docs/state/MAST-FOUR-ARM-BASE-EVALUATION-ACTIVE-LESSON-CONTRACT.json",
       runtimeAdmissionBlocker:
         "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
       activeRecoveryDirective:
@@ -33,22 +35,30 @@ describe("external evaluation current-slice contract", () => {
         "docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json",
       liveRuntimeAdmissionReceipt:
         "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
-      currentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
-      codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
+      evaluatorRuntimeAdmissionReceipt:
+        "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
+      currentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
+      codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
-        sliceId: "mast-four-arm-eight-family-base-generation-v2",
-        status: "96_primary_responses_frozen_evaluation_blocked_pending_evaluator_transport_directive",
+        sliceId: "mast-four-arm-eight-family-base-blinded-evaluation-v1",
+        status: "live_admission_accepted_blinded_evaluation_preflight_pending",
         maximumEstimatedCostUsdBeforeAbort: 0,
+        conditionMapSealed: true,
         requiredChats: {
-          responseChats: 96,
-          evaluatorChats: 0,
+          primaryEvaluatorChats: 192,
+          adjudicatorChats: "0_TO_96",
           mode: "EXTRA_HIGH",
           automaticRouting: true,
           ownerRelayPermitted: false,
         },
       },
-      preflightCommand: expect.stringContaining("prepare-zero-spend-mast-four-arm-base-pilot.mts"),
-      completionCommand: "npx tsx scripts/accept-zero-spend-mast-four-arm-base-generation.mts --artifact-root <PRIVATE_ARTIFACT_ROOT>",
+      preflightCommand: expect.stringContaining("prepare-zero-spend-mast-four-arm-base-evaluation.mts"),
+      completionCommand: "npx tsx scripts/accept-zero-spend-mast-four-arm-base-evaluation.mts --artifact-root <PRIVATE_ARTIFACT_ROOT>",
+      completedGenerationSlice: {
+        status: "accepted_and_source_bound_evaluator_directive_received",
+        checkpoint: "a4ee25f8332d24e5a1b2ef37788def1daf854b40",
+        primaryResponseCount: 96,
+      },
       lastCompletedSlice: {
         sliceId: "zero-spend-chatgpt-mast-card001-calibration-v1",
         status: "protected_merge_complete",
@@ -56,8 +66,8 @@ describe("external evaluation current-slice contract", () => {
         mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: "FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE",
-        scientificAdequacy: "not reached; no untouched-family output has been evaluated or interpreted",
+        completionClaim: "BLINDED_EVALUATION_AUTHORIZED_UNBLINDING_NOT_AUTHORIZED",
+        scientificAdequacy: "not reached; no evaluator judgment or arm/family result has been inspected or computed",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
     });
@@ -90,13 +100,17 @@ describe("external evaluation current-slice contract", () => {
       "docs/directives/2026-09-02-mast-runtime-admission-recovery.json",
       "docs/directives/2026-09-02-mast-live-lineage-admission-narrow-port.json",
       "docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json",
+      "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
       "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
       "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       "docs/state/MAST-FOUR-ARM-BASE-PILOT-ACTIVE-LESSON-CONTRACT.json",
+      "docs/state/MAST-FOUR-ARM-BASE-EVALUATION-ACTIVE-LESSON-CONTRACT.json",
+      "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       "docs/audits/2026-09-01-mast-noharm-pilot-freeze-protected-merge.json",
       "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
       "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
       "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json",
+      "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();
     }

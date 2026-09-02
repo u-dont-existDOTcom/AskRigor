@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "mission_control_blinded_evaluator_live_runtime_admission_accepted",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
+  "completedAt": "2026-09-02T18:20:25Z",
+  "claim": "MISSION_CONTROL_LIVE_ADMISSION_ACCEPTED_BLINDED_EVALUATOR_EXECUTION_AUTHORIZED",
+  "directive": {
+    "id": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v1",
+    "sourceMessageId": "090095aa-ca93-4b58-b528-0f145d665ca3",
+    "sourceBodySha256": "b0a52e51fcd51e789a1050c741e3b3846fcad3e333fc1f2859f75a48b7ab0cfb",
+    "directiveJsonSha256": "0706996bfcd7d9ce6b7e3f6ffd9a2ce2483512e92908016bd7aed20de3ad8383",
+    "repositoryRecordSha256": "a7269184cdf67a6a501fba74e55f7d00ce0014f77471cd44706f9259296d206c",
+    "requiredGenerationCheckpoint": "a4ee25f8332d24e5a1b2ef37788def1daf854b40",
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3"
+  },
+  "liveAdmission": {
+    "requestId": "admission:askrigor:mast:evaluator-v1:20260902",
+    "worker": "askrigor-mast",
+    "action": "EXECUTE_BOUNDED_TASK",
+    "requestBodySha256": "70860f5006cc9c9aa8a68210bc01ef4f2273f3fe0af0c4d71327145946776dd1",
+    "responseBodySha256": "cfc37138885344b10e0bc9c1079b20ecf741bf9e1bb2f472d64f7b617cc564f8",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "httpClientExitCode": 0,
+    "admitted": true,
+    "mayExecute": true,
+    "primaryDecision": "ALLOW_BOUNDED_EXECUTION",
+    "providerDeliveryState": "NOT_REQUIRED",
+    "ownerRelayRequired": false
+  },
+  "executionBoundary": {
+    "maximumExternalSpendUsd": 0,
+    "providerApiCredentialsPermitted": false,
+    "unblindingAuthorized": false,
+    "armOrFamilyLevelAggregationAuthorized": false,
+    "continuationGateEvaluationAuthorized": false,
+    "scientificInterpretationAuthorized": false,
+    "firstAuthorizedResidue": "Verify the frozen generation ledger and pinned MAST source, construct sealed opaque identities, then execute condition-blind evaluator transport exactly as directed."
+  }
+}
