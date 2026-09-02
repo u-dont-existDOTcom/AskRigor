@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 23:54 UTC
+**Checkpoint:** 2026-09-02 23:58 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 35_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 35_VALID / ORDINAL_36_RETRY_PENDING`
 
 ## Source-bound authority
 
@@ -129,7 +129,7 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 36 after the provider cooldown.
+Retry ordinal 36 with the byte-identical packet after a longer provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -173,8 +173,14 @@ Ordinals 33 and 34 also passed exact validation on their first attempts.
 Ordinal 35 attempt 1 reached a fresh conversation but was provider-throttled
 before a prompt or assistant response persisted, so it was retained as
 `PROVIDER_OR_TRANSPORT_FAILURE` with no invented output. The byte-identical
-attempt 2 passed exact validation and was recorded. Ordinal 36 is now the exact
-next action after cooldown.
+attempt 2 passed exact validation and was recorded. Ordinal 36 attempt 1 then
+persisted its user message but was provider-throttled before any assistant
+response, so it is retained as `PROVIDER_OR_TRANSPORT_FAILURE`. The current
+progress SHA-256 is
+`b177b68e03be87a4d685c1e030b37b932e2d8d5526a4d19147846a870d67f4a9`.
+The byte-identical ordinal 36 attempt 2 is now the exact next action after a
+longer provider cooldown; the source-bound account-change stop condition rules
+out switching accounts to bypass the throttle.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -183,4 +189,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_35_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_35_VALID_ORDINAL_36_RETRY_PENDING`.
