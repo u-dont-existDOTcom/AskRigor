@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 23:04 UTC
+**Checkpoint:** 2026-09-02 23:13 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_RETRY_EXTENSION_SOURCE_BOUND / LIVE_ADMISSION_ACCEPTED / ACTIVATION_PENDING`
+**Status:** `V2_RETRY_EXTENSION_ACTIVATED / ORDINAL_30_ATTEMPT_3_READY`
 
 ## Source-bound authority
 
@@ -129,17 +129,18 @@ redundant green reruns.
 
 ## Next executable action
 
-Activate the admitted retry extension against the exact halted private ledger,
-then dispatch ordinal 30 attempt 3 with the byte-identical packet after the
-provider cooldown.
+Dispatch ordinal 30 attempt 3 with the byte-identical packet. The admitted
+retry extension has been activated against the exact halted private ledger and
+the provider cooldown has elapsed.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
 Primary capture is valid through ordinal 29 of 192. Both ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
-provenance. The two-attempt ceiling is exhausted; no later slot was dispatched.
-Capture-progress SHA-256 is
+provenance. The original two-attempt ceiling was exhausted; no later slot was
+dispatched before the source-bound extension was admitted and activated. The
+prior halted capture-progress SHA-256 was
 `3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92`.
 The non-secret receipt is
 `docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json`.
@@ -154,10 +155,14 @@ Mission Control request
 `admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902` returned
 `mayExecute: true` and `ALLOW_BOUNDED_EXECUTION`.
 
-The next exact action is to run
-`scripts/activate-zero-spend-mast-evaluator-v2-retry-extension.mts` against the
-private artifact root. Only after it verifies the halted progress hash,
-directive source, and runtime admission may ordinal 30 attempt 3 be dispatched.
+The deterministic activation verified the halted progress hash, directive
+source, and runtime admission; retained 29 valid judgments and all three
+mechanical-failure records; cleared only the superseded halt; and wrote a
+mode-`0600` private activation receipt. The resumed progress SHA-256 is
+`c95fa43c0a72277898c76aa3324675e305a162705b1e41f41ade82539b0e41ee` and
+the activation-receipt SHA-256 is
+`4734f40959ea57a8dc7696b603a9d738267b7d2f4bbf687da0dbb4cd41f04b27`.
+Ordinal 30 attempt 3 is now the exact next action.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -166,4 +171,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`EVALUATOR_V2_RETRY_EXTENSION_ADMITTED_ACTIVATION_PENDING`.
+`EVALUATOR_V2_RETRY_EXTENSION_ACTIVATED_ATTEMPT_3_READY`.

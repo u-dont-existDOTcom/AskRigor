@@ -81,7 +81,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_retry_extension_admitted_activation_pending",
+    "status": "blinded_evaluation_v2_retry_extension_activated_attempt_3_ready",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -117,7 +117,9 @@
       "capture-progress SHA-256 at the unresolved-slot boundary is 3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92",
       "the exact non-secret unresolved-slot receipt is docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json",
       "the Project Manager source-bound retry-extension directive carries forward all 29 valid judgments, preserves both ordinal 30 failures, and authorizes attempts 3 and 4 with the byte-identical packet and unchanged evaluator semantics",
-      "authenticated Mission Control request admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902 returned mayExecute=true and ALLOW_BOUNDED_EXECUTION"
+      "authenticated Mission Control request admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902 returned mayExecute=true and ALLOW_BOUNDED_EXECUTION",
+      "the deterministic retry-extension activation retained 29 valid judgments and all three mechanical-failure records, cleared only the superseded halt, and resumed the private progress ledger at SHA-256 c95fa43c0a72277898c76aa3324675e305a162705b1e41f41ade82539b0e41ee",
+      "the mode-0600 private activation receipt has SHA-256 4734f40959ea57a8dc7696b603a9d738267b7d2f4bbf687da0dbb4cd41f04b27; ordinal 30 attempt 3 is ready"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -203,13 +205,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Activate the admitted retry extension against the exact halted private ledger, then dispatch ordinal 30 attempt 3 with the byte-identical packet after the provider cooldown.",
+  "nextAction": "Dispatch ordinal 30 attempt 3 with the byte-identical packet, validate mechanically, and either record it or proceed to the one remaining permitted retry.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "EVALUATOR_V2_RETRY_EXTENSION_ADMITTED_ACTIVATION_PENDING",
-    "workerToContract": "SOURCE_BOUND_V2_RETRY_EXTENSION_EXECUTION_ADMITTED",
+    "completionClaim": "EVALUATOR_V2_RETRY_EXTENSION_ACTIVATED_ATTEMPT_3_READY",
+    "workerToContract": "SOURCE_BOUND_V2_RETRY_EXTENSION_ACTIVATED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
-    "operationalAlignment": "v2 halted correctly after ordinal 30 exhausted its original two-attempt ceiling; the Project Manager carry-forward directive preserves 29 valid judgments and both failures, changes only the prospective mechanical ceiling to four, and Mission Control returned mayExecute=true; deterministic activation is pending before attempt 3",
+    "operationalAlignment": "v2 halted correctly after ordinal 30 exhausted its original two-attempt ceiling; the Project Manager carry-forward directive preserves 29 valid judgments and both failures, changes only the prospective mechanical ceiling to four, Mission Control returned mayExecute=true, and deterministic activation retained the exact ledger while reopening only ordinal 30 attempt 3",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
