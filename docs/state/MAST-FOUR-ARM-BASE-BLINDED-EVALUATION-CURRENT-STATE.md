@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 19:37 UTC
+**Checkpoint:** 2026-09-02 22:46 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -129,13 +129,17 @@ redundant green reruns.
 
 ## Next executable action
 
-Checkpoint the verified v2 recovery implementation, then restart primary slot
-1 in a fresh GPT-5.6 Sol Extra High conversation and continue the exact sealed
-schedule.
+After the four-minute provider cooldown, run the one permitted byte-identical
+retry for primary ordinal 30 in a fresh GPT-5.6 Sol Extra High conversation.
+The exact validator must accept and record that retry before any later slot is
+dispatched.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
-source-bound, runtime-admitted, and preflight-accepted with the exact v1 order;
-valid primary judgment capture remains at 0 of 192.
+source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
+Primary capture is valid through ordinal 29 of 192. Ordinal 30 attempt 1 is
+retained as an `INVALID_JSON` mechanical failure with exact private provenance;
+attempt 2 remains authorized and pending. Capture-progress SHA-256 is
+`d32d67d98863870018d143c04ba0f0eb509b89cc7f62b8929335eb8607f40393`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -144,4 +148,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`EVALUATOR_TRANSPORT_V1_RETIRED_V2_RESTART_AUTHORIZED_FROM_ORDINAL_1`.
+`EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_29_OF_192_ORDINAL_30_BYTE_IDENTICAL_RETRY_PENDING`.

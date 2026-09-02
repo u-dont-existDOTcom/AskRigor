@@ -108,8 +108,10 @@
       "corrected primary ordinals 1 through 18 passed exact repository validation on their first attempts with zero web/tool observations",
       "ordinal 19 attempt 1 was retained as a provider/transport failure after the request throttle returned no assistant message; its byte-identical attempt 2 passed exact validation",
       "ordinal 20 produced a complete assistant response before a post-completion throttle dialog appeared; the frozen response passed exact validation",
-      "corrected primary capture is valid through ordinal 28; ordinals 21 through 28 all passed on their first attempt with zero web/tool observations, and capture-progress SHA-256 is 123c6c4b68d8e347fd167fbfa54a2d5e23bb4bbb87139946a381c8f316a8385b",
-      "an attempted unattended browser loop was rejected by the browser-control runtime and reset before ordinal 29 submission; no attempt was consumed, the browser was reconnected, and one-chat-at-a-time execution remains active"
+      "corrected primary capture is valid through ordinal 29; ordinals 21 through 29 all passed on their first attempt with zero web/tool observations",
+      "an attempted unattended browser loop was rejected by the browser-control runtime and reset before ordinal 29 submission; no attempt was consumed, the browser was reconnected, and one-chat-at-a-time execution remains active",
+      "ordinal 30 attempt 1 was retained as an INVALID_JSON mechanical failure after the exact repository validator rejected the captured assistant output; no later slot was dispatched and the one permitted byte-identical retry remains pending",
+      "capture-progress SHA-256 after ordinal 30 attempt 1 is d32d67d98863870018d143c04ba0f0eb509b89cc7f62b8929335eb8607f40393"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -187,7 +189,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-02T17:54:20.236Z",
+    "checkedAt": "2026-09-02T22:40:30.222Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -195,13 +197,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Continue provider-paced one-chat-at-a-time primary capture at exact ordinal 29 attempt 1 after a four-minute creation cooldown, checking each fresh Chat for a completed assistant response before classifying any throttle dialog as a transport failure.",
+  "nextAction": "After the four-minute provider cooldown, execute exact ordinal 30 attempt 2 in one fresh Extra High Chat with byte-identical packet input; validate and record it before any later slot.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_28_OF_192_ONE_RETAINED_TRANSPORT_FAILURE_RESOLVED_BY_RETRY",
+    "completionClaim": "EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_29_OF_192_ORDINAL_30_BYTE_IDENTICAL_RETRY_PENDING",
     "workerToContract": "SOURCE_BOUND_V2_EXECUTION_ADMITTED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RECOVERY_DIRECTIVE",
-    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 28 with one retained provider failure resolved by its authorized byte-identical retry, and four-minute one-chat-at-a-time provider pacing is active before ordinal 29",
+    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 29, ordinal 30 attempt 1 is retained as INVALID_JSON, and its one authorized byte-identical retry is provider-paced and pending",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
