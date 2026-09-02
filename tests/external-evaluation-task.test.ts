@@ -37,7 +37,7 @@ describe("external evaluation current-slice contract", () => {
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       currentSlice: {
         sliceId: "mast-four-arm-eight-family-base-generation-v2",
-        status: "72_primary_responses_frozen_sequence_73_provider_cooldown",
+        status: "76_primary_responses_frozen_sequence_77_provider_cooldown",
         maximumEstimatedCostUsdBeforeAbort: 0,
         requiredChats: {
           responseChats: 96,
