@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 23:32 UTC
+**Checkpoint:** 2026-09-02 23:48 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 32_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 34_VALID / ORDINAL_35_RETRY_PENDING`
 
 ## Source-bound authority
 
@@ -129,11 +129,11 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 33 after the provider cooldown.
+Retry ordinal 35 with the byte-identical packet after the provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 32 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 34 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -168,8 +168,12 @@ clinical content. The progress SHA-256 after ordinal 30 was
 `0b0acba67b28f5803a238bf0ce9e335055a656839cb65852d3cd94299780c5ba`.
 Ordinals 31 and 32 then passed the exact repository validator on their first
 attempts. The current progress SHA-256 is
-`ec5cd68f681bac9fa148b8bac1d1bf4bb910e5ee76759d89fa916b8ef6e1578c`.
-Ordinal 33 is now the exact next action.
+`a6d0da951b846466f7e0df45142fa7a58e3aba98592b219aafd33a5752bee2ed`.
+Ordinals 33 and 34 also passed exact validation on their first attempts.
+Ordinal 35 attempt 1 reached a fresh conversation but was provider-throttled
+before a prompt or assistant response persisted, so it was retained as
+`PROVIDER_OR_TRANSPORT_FAILURE` with no invented output. The byte-identical
+attempt 2 is now the exact next action after cooldown.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -178,4 +182,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_32_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_34_VALID_ORDINAL_35_RETRY_PENDING`.
