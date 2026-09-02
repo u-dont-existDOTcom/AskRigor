@@ -32,8 +32,8 @@ credentials remain forbidden; external spend is USD 0. The next action is
 mechanical capture of every remaining first-pass response in fresh GPT-5.6 Sol
 Extra High ChatGPT consumer conversations with exact provenance.
 
-Fourteen primary first-pass responses are now frozen in the private capture
-ledger: 10 recorded automatic Web-search behavior and 4 did not. This is only a
+Twenty-three primary first-pass responses are now frozen in the private capture
+ledger: 19 recorded automatic Web-search behavior and 4 did not. This is only a
 mechanical process count; no response content has been inspected. The prior
 live runtime-admission 404 is resolved. Project Manager messages
 `e463c10d-6823-4887-af31-83be7269c48f` and
@@ -45,7 +45,11 @@ typecheck, build, isolated acceptance, and live L1-L5. L5 returned HTTP 200 and
 `docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json`. No owner
 relay was requested, no database migration or provider relay was added, and
 external spend remains USD 0. Resume the unchanged opaque schedule at sequence
-15 without rerunning sequences 1 through 14.
+15 without rerunning sequences 1 through 14. Sequences 15 through 23 are now
+also frozen. Sequence 24 attempt 1 produced no assistant response because the
+consumer surface temporarily limited request rate; its `PROVIDER_ERROR` receipt
+is retained, the denominator is unchanged, and attempt 2 will use a fresh
+conversation after the provider-requested pause.
 
 The successful generation claim will be
 `FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE`.

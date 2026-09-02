@@ -1,6 +1,6 @@
 # MAST four-arm base pilot current state
 
-**Checkpoint:** 2026-09-02 01:21 UTC
+**Checkpoint:** 2026-09-02 01:52 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Baseline:** `88eb6d252d7b7547d3a2039872bddc96707fee9e`
 
-**Status:** `FOUR_ARM_BASE_INPUTS_FROZEN / TRANSPORT_AMENDED / 14_PRIMARY_FROZEN / LIVE_ADMISSION_ACCEPTED / RESUME_SEQUENCE_15`
+**Status:** `FOUR_ARM_BASE_INPUTS_FROZEN / TRANSPORT_AMENDED / 23_PRIMARY_FROZEN / LIVE_ADMISSION_ACCEPTED / SEQUENCE_24_PROVIDER_RETRY_PENDING`
 
 ## Authority and boundary
 
@@ -88,15 +88,18 @@ Private artifact root: `/tmp/askrigor-mast-four-arm-base-artifacts.dMzP1H`
 - rubric/guidance inspection: not performed;
 - first three primary responses: reconciled and retained under the exact
   transport amendment;
-- primary generation progress: 14 of 96 first-pass responses frozen, including
-  10 with automatic Web-search UI evidence and 4 without;
+- primary generation progress: 23 of 96 first-pass responses frozen, including
+  19 with automatic Web-search UI evidence and 4 without;
+- genuine provider failures: sequence 24 attempt 1 retained as `PROVIDER_ERROR`
+  after ChatGPT temporarily limited request rate; no assistant output exists,
+  the denominator is unchanged, and attempt 2 must use a fresh conversation;
 - live response/provenance progress: private `capture-progress.json` in the
   artifact root;
 - untouched-family clinical output inspection: not performed.
 
 ## Next executable action
 
-The next unexecuted entry is sequence 15. The exact factual blocker was routed
+The next primary completion is sequence 24 attempt 2. The exact factual blocker was routed
 automatically to the existing ChatGPT Project Manager, which issued the
 no-bypass recovery directive, selected a narrow compatibility port, and
 authorized only the initial two-principal ingestion-credential bootstrap. The
@@ -117,15 +120,17 @@ readback, and HTTP 200 with `mayExecute: true` for the source-bound zero-spend
 sequence-15 resume action. The nonsecret receipt is
 `docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json`.
 
-Resume the opaque schedule at sequence 15. For each entry, open one fresh clean
+After the provider-requested pause, retry sequence 24 once in a fresh clean
+conversation and then resume the opaque schedule at sequence 25. For each entry, open one fresh clean
 ChatGPT conversation, verify GPT-5.6 Sol Extra High, send the exact private input
 with no added instruction or manual tool action, and preserve chat URL, message
 IDs, timestamps or explicit unavailable state, model/mode evidence, input hash,
 verbatim output, output hash, and automatic tool-process measures. Freeze all
 96 primary first-pass records before any evaluator or rubric/guidance access.
 
-Operational alignment: 14 primary responses are frozen; 82 remain, and live
-runtime admission authorizes unchanged dispatch beginning at sequence 15.
+Operational alignment: 23 primary responses are frozen; 73 remain. Live
+runtime admission remains accepted, and one genuine sequence-24 provider error
+is retained pending its allowed attempt-2 retry.
 
 Scientific adequacy: not reached; no untouched output evaluated.
 
