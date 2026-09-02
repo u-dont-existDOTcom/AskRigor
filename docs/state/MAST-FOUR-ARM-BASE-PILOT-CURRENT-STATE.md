@@ -8,7 +8,7 @@
 
 **Baseline:** `88eb6d252d7b7547d3a2039872bddc96707fee9e`
 
-**Status:** `FOUR_ARM_BASE_INPUTS_FROZEN / TRANSPORT_AMENDED / 84_PRIMARY_FROZEN / LIVE_ADMISSION_ACCEPTED / SEQUENCE_85_PROVIDER_COOLDOWN`
+**Status:** `FOUR_ARM_BASE_INPUTS_FROZEN / TRANSPORT_AMENDED / 88_PRIMARY_FROZEN / LIVE_ADMISSION_ACCEPTED / SEQUENCE_89_PROVIDER_COOLDOWN`
 
 ## Authority and boundary
 
@@ -88,14 +88,14 @@ Private artifact root: `/tmp/askrigor-mast-four-arm-base-artifacts.dMzP1H`
 - rubric/guidance inspection: not performed;
 - first three primary responses: reconciled and retained under the exact
   transport amendment;
-- primary generation progress: 84 of 96 first-pass responses frozen, including
-  64 with automatic Web-search UI evidence and 20 without;
+- primary generation progress: 88 of 96 first-pass responses frozen, including
+  68 with automatic Web-search UI evidence and 20 without;
 - genuine provider failures: sequence 24 attempt 1 retained as `PROVIDER_ERROR`
   after ChatGPT temporarily limited request rate; no assistant output exists.
   Attempt 2 completed in a fresh conversation and is frozen. A later empty
   sequence-25 shell encountered the same cooldown before the composer became
   usable, so it was closed without dispatch or attempt consumption. Sequences
-  25 through 84 subsequently completed and are frozen; post-completion throttle
+  25 through 88 subsequently completed and are frozen; post-completion throttle
   notices were dismissed only after substantive payload validation;
 - live response/provenance progress: private `capture-progress.json` in the
   artifact root;
@@ -103,7 +103,7 @@ Private artifact root: `/tmp/askrigor-mast-four-arm-base-artifacts.dMzP1H`
 
 ## Next executable action
 
-The next primary completion is sequence 85 attempt 1. The exact factual blocker was routed
+The next primary completion is sequence 89 attempt 1. The exact factual blocker was routed
 automatically to the existing ChatGPT Project Manager, which issued the
 no-bypass recovery directive, selected a narrow compatibility port, and
 authorized only the initial two-principal ingestion-credential bootstrap. The
@@ -125,14 +125,14 @@ sequence-15 resume action. The nonsecret receipt is
 `docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json`.
 
 After the provider-requested cooldown, resume the opaque schedule at sequence
-85. For each entry, open one fresh clean
+89. For each entry, open one fresh clean
 ChatGPT conversation, verify GPT-5.6 Sol Extra High, send the exact private input
 with no added instruction or manual tool action, and preserve chat URL, message
 IDs, timestamps or explicit unavailable state, model/mode evidence, input hash,
 verbatim output, output hash, and automatic tool-process measures. Freeze all
 96 primary first-pass records before any evaluator or rubric/guidance access.
 
-Operational alignment: 84 primary responses are frozen; 12 remain. Live
+Operational alignment: 88 primary responses are frozen; 8 remain. Live
 runtime admission remains accepted, and the genuine sequence-24 provider error
 is retained alongside its successful attempt-2 replacement.
 
