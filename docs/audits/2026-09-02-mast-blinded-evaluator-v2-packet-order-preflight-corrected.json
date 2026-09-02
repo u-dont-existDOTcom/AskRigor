@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_chatgpt_mast_blinded_evaluator_v2_packet_order_preflight_correction",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-restart",
+  "completedAt": "2026-09-02T20:08:40Z",
+  "claim": "EVALUATOR_V2_PACKET_ORDER_DEFECT_RETIRED_AND_CORRECTED_PREFLIGHT_ACCEPTED",
+  "directiveId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2",
+  "defectivePreflight": {
+    "sourceImplementationCommit": "68fea4f259b067c58ae8a5bb4d08d14520640c8b",
+    "preflightSha256": "4e4c059c9f518b0f209b8969f5bec7ce070616939320e1d17bd42c01d942f4af",
+    "scheduleSha256": "9e331c380d34e437945b5e26fda1b2d2f7a85d79a66963d5938e5360f2820403",
+    "chunkReconstructionReceiptSha256": "663024aeceb9839e1d29b98657d12924b8ff781a065d053b986596cc545d4f8f",
+    "firstPacketSha256": "ebe1ef40aa5d8c9ebd3258dc4771a9be1045428151d0ea843c662415b620a833",
+    "defect": "THE_CONCEPT_GROUPED_RUBRIC_DISPLAY_DID_NOT_DECLARE_THE_DISTINCT_CANONICAL_SOURCE_OPTION_ORDER_REQUIRED_BY_THE_VALIDATOR"
+  },
+  "mechanicalDiagnosis": {
+    "sourceOptionCount": 37,
+    "displayedOptionCount": 37,
+    "eachObservedOptionCount": 37,
+    "twoObservedOrdersIdentical": true,
+    "observedOrderEqualsConceptGroupedDisplayOrder": true,
+    "observedOrderEqualsCanonicalSourceOrder": false,
+    "canonicalSourceOrderSha256": "e13546b10c227682402150889bce9209fb5bdd60394d14fde230002683239901",
+    "conceptGroupedDisplayOrderSha256": "99b51f2499e07d9426b9a8c4b925c668058082c202b400c92947c4a8c22fce35",
+    "clinicalContentInspected": false
+  },
+  "invalidatedPacketQaRuns": {
+    "count": 2,
+    "attempt1OutputSha256": "8f4b27f2d46ae1e0f9a1c12ba5301991803a9ec712bf014245b56bb402e88202",
+    "attempt2OutputSha256": "c2ba17d24440a6f1bd266c95a441a7593ba172882cd3ff3ef5829a2d9134f1b2",
+    "validEvaluatorJudgmentCount": 0,
+    "retryCeilingConsumed": false,
+    "disposition": "PACKET_CONSTRUCTION_QA_INVALIDATED_BEFORE_VALID_JUDGMENT",
+    "privateRetirementReceiptSha256": "574b018bb697a426ed1a86e46f985a28e80cdb5c61e1d5eed359600ec6d9e65a",
+    "rawOutputsAndProvenanceRetainedPrivately": true
+  },
+  "correction": {
+    "directiveChanged": false,
+    "methodologyChanged": false,
+    "packetChange": "EVERY_PACKET_NOW_DECLARES_THE_EXACT_CANONICAL_RUBRIC_SOURCE_OPTION_ID_ORDER",
+    "preflightRequiresEveryDeclaration": true,
+    "declaredPacketCount": 96,
+    "responseCount": 96,
+    "primaryScheduleCount": 192,
+    "v1OpaqueIdsAndExactOrderPreserved": true,
+    "firstCorrectedPacketSha256": "a8ab5ba7f5deb3c0ed7cdf2b2ccf8e880753b2784c6eddc1d343ce844e5dde8c",
+    "chunkReconstructionReceiptSha256": "3f3227e3ccf3940bf49461a76df75cf6e146e900b9f6f3015678b99a94b38d48",
+    "scheduleSha256": "acaaec62e60dc910061a4c1ecef0f8405e5e62b60068b7b11dcb19311431b2f9",
+    "preflightSha256": "2044b816dce38f78cc07708b759ffcb16e7007b00381567a2791decbd4c133a6",
+    "status": "BLINDED_EVALUATION_V2_PREFLIGHT_ACCEPTED"
+  },
+  "executionBoundary": {
+    "restartOrdinal": 1,
+    "restartAttempt": 1,
+    "conditionMapSealed": true,
+    "unblindingAuthorized": false,
+    "armOrFamilyLevelAggregationAuthorized": false,
+    "scientificInterpretationAuthorized": false,
+    "providerApiCredentialsUsed": false,
+    "externalSpendUsd": 0
+  }
+}

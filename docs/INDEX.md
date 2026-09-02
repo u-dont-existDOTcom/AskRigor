@@ -106,6 +106,10 @@ complete XML protocol.
   bootstrap, exact Node v24.18.0 deterministic and isolated gates, and live
   L1-L5 acceptance authorizing zero-spend MAST generation to resume at sequence
   15 without rerunning the first 14 responses
+- `audits/2026-09-02-mast-blinded-evaluator-v2-packet-order-preflight-corrected.json`:
+  mechanical retirement of two incomplete-input packet-QA runs with zero valid
+  judgments, explicit canonical source option order in every v2 packet, and a
+  fresh 96-packet/192-slot blinded preflight with the condition map still sealed
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/

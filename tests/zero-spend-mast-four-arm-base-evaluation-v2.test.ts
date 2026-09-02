@@ -4,6 +4,7 @@ import {
   acceptV2CaptureProgress,
   chunkFrozenResponse,
   parseAndValidateEvaluatorV2Output,
+  renderEvaluatorV2TransportExtension,
 } from "../scripts/zero-spend-mast-four-arm-base-evaluation-v2.mjs";
 
 const rawResponse = "Order alpha now. Do not start beta.";
@@ -46,6 +47,21 @@ function validate(value: unknown) {
 }
 
 describe("zero-spend blinded MAST evaluator transport v2", () => {
+  it("declares canonical source option order independently of concept-grouped display order", () => {
+    const extension = renderEvaluatorV2TransportExtension({
+      primaryEvaluatorTransportV2: {
+        semanticInstructions: "Preserve the evaluator semantics.",
+        serializationInstruction: "Return compact JSON.",
+      },
+      evaluatorOutputSchemaV2: {},
+      mechanicalValidationV2: {
+        rules: ["options contains every rubric option exactly once in source order."],
+      },
+    }, [1, 2, 3, 4]);
+    expect(extension).toContain("canonical rubric source order");
+    expect(extension).toContain("[1,2,3,4]");
+  });
+
   it("chunks by Unicode code point and reconstructs exact frozen bytes", () => {
     const source = `${"a".repeat(159)}🧪${"b".repeat(161)}\n`;
     const observed = chunkFrozenResponse(source);

@@ -40,7 +40,10 @@ sealed order using chunk identifiers and a compact output schema.
    obtain authenticated v2 runtime admission.
 8. [x] Verify v2 chunk reconstruction across all 96 frozen responses, reuse the
    exact v1 order and opaque IDs, and test strict positive/negative v2 parser
-   fixtures.
+   fixtures. Retire the first preflight after two packet-QA runs proved its
+   concept-grouped display omitted the distinct canonical source order required
+   by validation; preserve those runs with zero valid judgments, declare the
+   exact source order in every packet, and pass a fresh 96-packet preflight.
 9. [ ] Execute and freeze 192 primary GPT-5.6 Sol Extra High judgments in fresh
    condition-blind chats, retaining every mechanical failure and automatic tool
    process measure.

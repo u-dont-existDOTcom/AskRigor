@@ -79,7 +79,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-    "status": "blinded_evaluation_v2_preflight_accepted_primary_dispatch_ready",
+    "status": "blinded_evaluation_v2_corrected_preflight_accepted_primary_dispatch_ready",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -102,7 +102,9 @@
       "evaluator v1 halted after two retained invalid-JSON calibration attempts with zero valid judgments and no later dispatch",
       "Project Manager source-bound evaluator v2 and Mission Control returned mayExecute=true for restart from ordinal 1",
       "v2 preflight verified 96 exact Unicode-chunk reconstructions and preserved the exact 192-slot v1 order",
-      "complete post-recovery integration gate passed on Node 24.18.0: 142 files and 1692 tests passed, 1 file and 6 tests skipped, typecheck and build passed"
+      "complete post-recovery integration gate passed on Node 24.18.0: 142 files and 1692 tests passed, 1 file and 6 tests skipped, typecheck and build passed",
+      "two v2 packet-QA runs exposed that the concept-grouped rubric display omitted the distinct canonical source option order required by validation; both raw outputs were retained and excluded with zero valid judgments",
+      "the defective v2 preflight was retired recoverably, every packet now declares exact canonical source order, and the fresh 96-packet preflight passed with receipt SHA-256 2044b816dce38f78cc07708b759ffcb16e7007b00381567a2791decbd4c133a6"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -188,13 +190,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Checkpoint the verified v2 recovery implementation, then restart and mechanically capture primary evaluator slot 1 in a fresh GPT-5.6 Sol Extra High ChatGPT conversation.",
+  "nextAction": "Checkpoint the corrected v2 packet-order preflight, then restart and mechanically capture primary evaluator slot 1 attempt 1 in a fresh GPT-5.6 Sol Extra High ChatGPT conversation.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "EVALUATOR_TRANSPORT_V1_RETIRED_V2_RESTART_AUTHORIZED_FROM_ORDINAL_1",
+    "completionClaim": "EVALUATOR_V2_PACKET_ORDER_DEFECT_RETIRED_CORRECTED_PREFLIGHT_ACCEPTED_FROM_ORDINAL_1_ATTEMPT_1",
     "workerToContract": "SOURCE_BOUND_V2_EXECUTION_ADMITTED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RECOVERY_DIRECTIVE",
-    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound, authenticated Mission Control returned mayExecute=true, and all 96 chunk reconstructions plus the exact 192-slot reused order passed preflight; valid primary judgment capture is ready at 0 of 192",
+    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; valid primary judgment capture is ready at 0 of 192",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

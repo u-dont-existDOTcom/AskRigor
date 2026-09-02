@@ -570,9 +570,13 @@ export function acceptV2CaptureProgress(
   return progress;
 }
 
-function v2TransportExtension(directive: JsonObject): string {
+export function renderEvaluatorV2TransportExtension(
+  directive: JsonObject,
+  rubricSourceOptionIds: number[],
+): string {
   const transport = object(directive.primaryEvaluatorTransportV2, "primaryEvaluatorTransportV2");
   const validation = object(directive.mechanicalValidationV2, "mechanicalValidationV2");
+  const canonicalOptionIds = integerList(rubricSourceOptionIds, "rubric source option IDs");
   return [
     "# AskRigor condition-blind evaluator transport v2",
     "",
@@ -585,6 +589,9 @@ function v2TransportExtension(directive: JsonObject): string {
     "",
     "Mechanical requirements:",
     ...array(validation.rules, "v2 validation rules").map((rule) => `- ${string(rule, "v2 rule")}`),
+    "",
+    "Required `options` array ID order (canonical rubric source order; the rubric display above is concept-grouped and may use a different order):",
+    JSON.stringify(canonicalOptionIds),
     "",
     "Return only the compact JSON object. Do not wrap it in a Markdown code fence.",
     "",
@@ -756,7 +763,19 @@ export async function prepareEvaluationV2Artifacts(input: {
         familyId: caseId,
         responseChunks: chunks,
       }), "v2 rendered evaluator prompt");
-      const packet = `${string(rendered.renderedMatchingPrompt, "v2 matching prompt")}\n\n${v2TransportExtension(directive)}`;
+      const rubricValue = await readJson(
+        resolve(mastRoot, `benchmarks/donoharm/dataset/rubrics/${caseId}.json`),
+      );
+      const rubricSourceOptionIds = rubricOptions(rubricValue, caseId).map(({ id }) => id);
+      const transportExtension = renderEvaluatorV2TransportExtension(
+        directive,
+        rubricSourceOptionIds,
+      );
+      const sourceOrderDeclaration = `${JSON.stringify(rubricSourceOptionIds)}\n`;
+      if (!transportExtension.includes(sourceOrderDeclaration)) {
+        throw new Error("EVALUATOR_V2_CANONICAL_OPTION_ORDER_MISSING");
+      }
+      const packet = `${string(rendered.renderedMatchingPrompt, "v2 matching prompt")}\n\n${transportExtension}`;
       const packetFile = `${evaluatorV2Directory}/packets/${opaqueResponseId}.txt`;
       await writePrivate(resolve(stagingRoot, "packets", `${opaqueResponseId}.txt`), packet);
       responseRecords.push({
@@ -768,6 +787,9 @@ export async function prepareEvaluationV2Artifacts(input: {
         exactChunkFileSha256: sha256(chunkBytes),
         chunkCount: chunks.length,
         reconstructionVerified: chunks.map(({ text }) => text).join("") === rawResponse,
+        rubricSourceOptionIds,
+        rubricSourceOptionOrderSha256: sha256(JSON.stringify(rubricSourceOptionIds)),
+        canonicalOptionOrderDeclared: true,
         packetFile,
         exactPacketSha256: sha256(packet),
         exactPacketUtf8Bytes: Buffer.byteLength(packet, "utf8"),
@@ -804,6 +826,9 @@ export async function prepareEvaluationV2Artifacts(input: {
       unicodeChunkMaximumCodePoints: 160,
       normalization: "NONE",
       allReconstructionsByteExact: responseRecords.every(({ reconstructionVerified }) => reconstructionVerified),
+      allCanonicalOptionOrdersDeclared: responseRecords.every(
+        ({ canonicalOptionOrderDeclared }) => canonicalOptionOrderDeclared,
+      ),
       records: responseRecords,
       conditionMapSealed: true,
     };
