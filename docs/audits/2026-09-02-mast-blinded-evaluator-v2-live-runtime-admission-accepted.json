@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "mission_control_blinded_evaluator_v2_live_runtime_admission_accepted",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-restart",
+  "completedAt": "2026-09-02T19:25:00Z",
+  "claim": "MISSION_CONTROL_LIVE_ADMISSION_ACCEPTED_BLINDED_EVALUATOR_V2_RESTART_AUTHORIZED",
+  "directive": {
+    "id": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2",
+    "sourceMessageId": "8c6aaaed-1d15-4399-b6ef-48eaaaa2b149",
+    "sourceBodySha256": "f79ff0489943d272f4dc3c5ac3027a71349a947f48f56b9e5d2ac4d615a760f9",
+    "directiveJsonSha256": "0b57d63f73127a94a1471dfa115381f1a9053e8639efe8f18a489da4f99d02a4",
+    "requiredStartingCheckpoint": "f7900c7b8ba467551983abbd25909275c49f652e",
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3"
+  },
+  "liveAdmission": {
+    "requestId": "admission:askrigor:mast:evaluator-v2:20260902",
+    "worker": "askrigor-mast",
+    "action": "EXECUTE_BOUNDED_TASK",
+    "requestBodySha256": "c007f14433f3c9ef457f29666ec903a27d3b38ed472c3c68accc9da8663b485d",
+    "responseBodySha256": "6da1b00cc9400ccbd014af9fefa0953dcac86d4d2621ab5f3a88a05114e5e710",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "httpClientExitCode": 0,
+    "admitted": true,
+    "mayExecute": true,
+    "primaryDecision": "ALLOW_BOUNDED_EXECUTION",
+    "providerDeliveryState": "NOT_REQUIRED",
+    "ownerRelayRequired": false
+  },
+  "executionBoundary": {
+    "restartOrdinal": 1,
+    "targetValidPrimaryJudgments": 192,
+    "maximumExternalSpendUsd": 0,
+    "providerApiCredentialsPermitted": false,
+    "conditionMapSealed": true,
+    "unblindingAuthorized": false,
+    "armOrFamilyLevelAggregationAuthorized": false,
+    "continuationGateEvaluationAuthorized": false,
+    "scientificInterpretationAuthorized": false
+  }
+}

@@ -354,7 +354,7 @@ async function assertPrivateDirectory(path: string): Promise<void> {
   }
 }
 
-async function runSourceBridge(
+export async function runSourceBridge(
   repositoryRoot: string,
   command: "render" | "metrics",
   payload: unknown,

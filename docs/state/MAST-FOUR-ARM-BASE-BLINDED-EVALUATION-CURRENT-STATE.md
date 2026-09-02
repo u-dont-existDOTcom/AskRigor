@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 18:51 UTC
+**Checkpoint:** 2026-09-02 19:37 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `GENERATION_ACCEPTED / EVALUATOR_DIRECTIVE_SOURCE_BOUND / LIVE_ADMISSION_ACCEPTED / BLINDED_EVALUATION_PREFLIGHT_ACCEPTED`
+**Status:** `V1_TRANSPORT_RETIRED / V2_SOURCE_BOUND / V2_LIVE_ADMISSION_ACCEPTED / V2_PREFLIGHT_ACCEPTED`
 
 ## Source-bound authority
 
@@ -54,7 +54,7 @@ arm/family aggregation, continuation-gate application, prompt/protocol tuning,
 scientific interpretation, an official MAST claim, or a general HRP-effect
 claim.
 
-## Private evaluator preflight
+## V1 evaluator preflight
 
 The private preflight accepted all 96 frozen responses and sealed 192 primary
 evaluator slots:
@@ -78,14 +78,64 @@ The complete deterministic repository gate passed on Node 24.18.0 after the
 harness integration: 141 test files passed with 1 skipped; 1,687 tests passed
 with 6 skipped; typecheck and build passed.
 
+## V1 transport retirement
+
+Primary slot 1 produced invalid JSON in two fresh Extra High chats with an
+identical sealed packet. Both outputs and complete process receipts remain
+private and byte-preserved. The v1 progress ledger stopped with 0 valid
+judgments, 2 retained failures, and SHA-256
+`35699d353f6a2e9986babc0ebfe15664fe01d865bf9f7c5c2adcc8a9659c620a`.
+No later slot was dispatched and no judgment was repaired, scored, compared,
+or interpreted. The public retirement receipt is
+`docs/audits/2026-09-02-mast-blinded-evaluator-v1-transport-retired.json`.
+
+The Project Manager response `8c6aaaed-1d15-4399-b6ef-48eaaaa2b149`
+(exact body SHA-256
+`f79ff0489943d272f4dc3c5ac3027a71349a947f48f56b9e5d2ac4d615a760f9`)
+retired v1 as pre-run transport calibration and authorized v2. Mission Control
+meta-review independently classified the incident as a structured-output
+syntax boundary failure, not a scientific or alignment result; its exact
+response SHA-256 is
+`bae2bab983a1b3e18b858a219e77bf99a89311f4586d353a8ec46e394b546c56`.
+
+## V2 recovery preflight
+
+Evaluator v2 keeps the same generation ledger, condition mapping, opaque IDs,
+primary order, rubrics, guidance, matching rules, model/mode, retry ceiling,
+metric definitions, and zero-spend boundary. Only serialization and evidence
+referencing change: raw responses are partitioned into at most 160 Unicode
+code-point chunks and the evaluator returns only IDs/enums.
+
+Authenticated Mission Control admission
+`admission:askrigor:mast:evaluator-v2:20260902` returned `mayExecute:true` and
+`ALLOW_BOUNDED_EXECUTION`. The v2 private preflight then accepted:
+
+- 96/96 byte-exact chunk reconstructions;
+- 96 packets and the identical 192-slot v1 order;
+- chunk-reconstruction receipt SHA-256:
+  `663024aeceb9839e1d29b98657d12924b8ff781a065d053b986596cc545d4f8f`;
+- v2 schedule SHA-256:
+  `9e331c380d34e437945b5e26fda1b2d2f7a85d79a66963d5938e5360f2820403`;
+- v2 preflight receipt SHA-256:
+  `4e4c059c9f518b0f209b8969f5bec7ce070616939320e1d17bd42c01d942f4af`;
+- pinned MAST metric-adapter score-0/score-5 probe passed;
+- zero condition-label leakage in packets and correct `0700/0600` modes.
+
+The complete post-recovery integration gate passed on Node 24.18.0: 142 test
+files passed with 1 skipped; 1,692 tests passed with 6 skipped; typecheck and
+build passed. Test-efficiency telemetry recorded two full-suite runs at two
+materially different integration boundaries, 366.72 seconds total, with zero
+redundant green reruns.
+
 ## Next executable action
 
-Dispatch primary slot 1 in a fresh GPT-5.6 Sol Extra High conversation and
-record only mechanical/provenance facts, then continue the sealed schedule.
+Checkpoint the verified v2 recovery implementation, then restart primary slot
+1 in a fresh GPT-5.6 Sol Extra High conversation and continue the exact sealed
+schedule.
 
-Operational alignment: the generation parent is accepted, the evaluator
-directive is source-bound, live runtime admission is accepted, and the blinded
-preflight is sealed; primary judgment capture is ready but remains at 0 of 192.
+Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
+source-bound, runtime-admitted, and preflight-accepted with the exact v1 order;
+valid primary judgment capture remains at 0 of 192.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -93,4 +143,5 @@ has been inspected or computed.
 Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
-Current execution claim: `BLINDED_EVALUATION_AUTHORIZED_UNBLINDING_NOT_AUTHORIZED`.
+Current execution claim:
+`EVALUATOR_TRANSPORT_V1_RETIRED_V2_RESTART_AUTHORIZED_FROM_ORDINAL_1`.

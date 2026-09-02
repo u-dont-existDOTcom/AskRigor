@@ -4,7 +4,10 @@
 
 **Lane:** bounded blinded evaluation
 
-**Directive:**
+**Active directive:**
+`docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json`
+
+**Retired calibration transport:**
 `docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json`
 
 ## Objective
@@ -13,7 +16,9 @@ Execute the Project Manager's source-bound zero-spend blinded evaluator slice:
 two independent judgments for each of the 96 frozen responses, mechanical
 validation, predeclared disagreement detection, conditional fresh J3
 adjudication, and per-response nonofficial projected MAST metrics while the
-condition map remains sealed.
+condition map remains sealed. Evaluator v1 produced two malformed calibration
+outputs and was retired with zero valid judgments; v2 restarts the identical
+sealed order using chunk identifiers and a compact output schema.
 
 ## Steps
 
@@ -30,26 +35,32 @@ condition map remains sealed.
 6. [x] Construct and seal the 96 opaque response identities, 192-item primary
    order, source identity ledger, and exact evaluator packets outside the
    repository.
-7. [ ] Execute and freeze 192 primary GPT-5.6 Sol Extra High judgments in fresh
+7. [x] Preserve the two v1 invalid-JSON attempts, halt at the source-fixed retry
+   boundary, route exact evidence automatically, source-bind evaluator v2, and
+   obtain authenticated v2 runtime admission.
+8. [x] Verify v2 chunk reconstruction across all 96 frozen responses, reuse the
+   exact v1 order and opaque IDs, and test strict positive/negative v2 parser
+   fixtures.
+9. [ ] Execute and freeze 192 primary GPT-5.6 Sol Extra High judgments in fresh
    condition-blind chats, retaining every mechanical failure and automatic tool
    process measure.
-8. [ ] After all 192 primaries are frozen, implement and run the predeclared
+10. [ ] After all 192 primaries are frozen, implement and run the predeclared
    disagreement detector, sealed J3 schedule, J3 capture ledger, and every
    required fresh independent J3 adjudication before inspecting any comparison.
-9. [ ] Construct the fail-closed final acceptance command and final blinded
+11. [ ] Construct the fail-closed final acceptance command and final blinded
    per-response records, compute only the directed
    per-response `NONOFFICIAL_PROJECTED_MAST_METRICS`, and freeze the complete
    blinded evaluation ledger.
-10. [ ] Run the complete applicable deterministic gate, review the final diff,
+12. [ ] Run the complete applicable deterministic gate, review the final diff,
     and return the factual blinded-evaluation receipt automatically to the
     Project Manager.
-11. [ ] Stop before condition-map disclosure, arm/family aggregation,
+13. [ ] Stop before condition-map disclosure, arm/family aggregation,
     continuation-gate application, tuning, or scientific interpretation.
 
 ## Acceptance for this slice
 
-- exactly 192 mechanically valid primary evaluator judgments or the exact
-  unresolved-slot failure claim;
+- exactly 192 mechanically valid v2 primary evaluator judgments or the exact
+  v2 unresolved-slot failure claim;
 - one fresh clean condition-blind conversation per judgment;
 - exact packet/output/source/model/mode provenance and retained retry receipts;
 - all required J3 adjudications executed independently from scratch;

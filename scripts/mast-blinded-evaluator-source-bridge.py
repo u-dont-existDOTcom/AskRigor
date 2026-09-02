@@ -48,13 +48,18 @@ def json_metric(value):
 def render(payload: dict) -> dict:
     mast_root = Path(payload["mastRoot"]).resolve()
     family_id = str(payload["familyId"])
-    response_path = Path(payload["responsePath"]).resolve()
     _, helpers = import_mast(mast_root)
     rubric_path = mast_root / "benchmarks" / "donoharm" / "dataset" / "rubrics" / f"{family_id}.json"
     template_path = mast_root / "benchmarks" / "donoharm" / "judge" / "prompts" / "extract_match.md"
     rubric = json.loads(rubric_path.read_text(encoding="utf-8"))
     template = template_path.read_text(encoding="utf-8")
-    response = response_path.read_text(encoding="utf-8")
+    if "responseChunks" in payload:
+        response = json.dumps(
+            payload["responseChunks"], ensure_ascii=False, indent=2
+        )
+    else:
+        response_path = Path(payload["responsePath"]).resolve()
+        response = response_path.read_text(encoding="utf-8")
     guidance = helpers.load_guidance(family_id)
     rendered = (
         template.replace("{CASE_PRESENTATION}", rubric.get("case", {}).get("presentation", ""))

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-  "compiledAt": "2026-09-02T18:20:25Z",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-restart",
+  "compiledAt": "2026-09-02T19:37:00Z",
   "universalRef": "u-dont-existDOTcom/universal-dev-architecture@9f78b71a13056b31a6daa028767adc5c37fc37b6",
   "lessons": [
     {
@@ -49,11 +49,20 @@
       "failureCondition": "An unchanged full suite is repeatedly rerun without a decision it can change.",
       "repairAction": "Return to affected tests and reserve the full gate for the next meaningful checkpoint.",
       "enforcement": "mechanical"
+    },
+    {
+      "lessonId": "structured-output-syntax-failure-boundary",
+      "source": "docs/audits/2026-09-02-mast-blinded-evaluator-v1-transport-retired.json",
+      "trigger": "Evaluator v1 exhausted two source-fixed attempts with the same invalid-JSON failure class before any valid judgment existed.",
+      "requiredBehavior": "Preserve raw outputs and parser receipts, halt at the controlling ceiling, route evidence upstream automatically, and resume only under a new source-bound directive and runtime admission.",
+      "failureCondition": "Codex repairs malformed output, performs another v1 attempt, scores or compares the invalid artifact, or treats a serialization failure as a scientific result.",
+      "repairAction": "Retire the contaminated execution path, preserve its bytes, and request a source-bound recovery transport without unblinding.",
+      "enforcement": "mechanical_and_semantic"
     }
   ],
   "admission": {
-    "status": "PASS_BLINDED_EVALUATOR_EXECUTION",
-    "evidence": "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
+    "status": "PASS_BLINDED_EVALUATOR_V2_RESTART",
+    "evidence": "docs/audits/2026-09-02-mast-blinded-evaluator-v2-live-runtime-admission-accepted.json",
     "mayExecute": true,
     "unblindingMayExecute": false
   }
