@@ -32,8 +32,8 @@ credentials remain forbidden; external spend is USD 0. The next action is
 mechanical capture of every remaining first-pass response in fresh GPT-5.6 Sol
 Extra High ChatGPT consumer conversations with exact provenance.
 
-Twenty-four primary first-pass responses are now frozen in the private capture
-ledger: 20 recorded automatic Web-search behavior and 4 did not. This is only a
+Twenty-eight primary first-pass responses are now frozen in the private capture
+ledger: 23 recorded automatic Web-search behavior and 5 did not. This is only a
 mechanical process count; no response content has been inspected. The prior
 live runtime-admission 404 is resolved. Project Manager messages
 `e463c10d-6823-4887-af31-83be7269c48f` and
@@ -53,6 +53,8 @@ conversation after the provider-requested pause. Attempt 2 completed and is
 frozen with exact provenance; its first-attempt provider-error receipt remains
 retained. An unsent sequence-25 shell encountered the provider cooldown before
 the composer was usable and was closed without consuming a schedule attempt.
+Sequences 25 through 28 then completed and were frozen after bounded cooldowns;
+post-completion throttle notices did not replace their verified payloads.
 
 The successful generation claim will be
 `FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE`.
