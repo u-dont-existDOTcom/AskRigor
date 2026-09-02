@@ -33,11 +33,11 @@ evaluation, perturbations, tuning, or scientific interpretation.
    zero-spend MAST directive and transport amendment. Candidate
    `079881125ccd555cdff4f8502773f7e1b301232d` passed isolated and live L1-L5
    acceptance; L5 returned `mayExecute: true`.
-8. [ ] Capture the remaining 73 primary first-pass GPT-5.6 Sol Extra High
+8. [ ] Capture the remaining 72 primary first-pass GPT-5.6 Sol Extra High
    responses, logging automatic tool behavior without conditional retry. The
-   first 23 are frozen and preserved without rerun. Sequence 24 attempt 1 is a
-   retained provider-rate-limit failure with no assistant output; retry it once
-   after the provider-requested pause, then continue the frozen schedule.
+   first 24 are frozen and preserved without rerun. Sequence 24 attempt 1 is a
+   retained provider-rate-limit failure with no assistant output; attempt 2 is
+   frozen as valid. Resume at sequence 25 after the provider cooldown.
 9. [ ] Freeze the exact raw-output/provenance ledger and validate completeness,
    uniqueness, modes, hashes, zero spend, no manual tools, complete automatic
    tool-process logging, and no cross-run context.
