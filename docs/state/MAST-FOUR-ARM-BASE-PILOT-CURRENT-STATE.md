@@ -1,6 +1,6 @@
 # MAST four-arm base pilot current state
 
-**Checkpoint:** 2026-09-01 23:20 UTC
+**Checkpoint:** 2026-09-02 01:21 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Baseline:** `88eb6d252d7b7547d3a2039872bddc96707fee9e`
 
-**Status:** `FOUR_ARM_BASE_INPUTS_FROZEN / GENERATION_PENDING`
+**Status:** `FOUR_ARM_BASE_INPUTS_FROZEN / TRANSPORT_AMENDED / 14_PRIMARY_FROZEN / LIVE_ADMISSION_ACCEPTED / RESUME_SEQUENCE_15`
 
 ## Authority and boundary
 
@@ -26,6 +26,23 @@ It may not change methodology, inspect results scientifically, tune Universal or
 HRP, evaluate before the freeze boundary, spend money, use provider APIs, or
 ask Joel to relay an internal packet.
 
+After the first three responses, the consumer model automatically invoked Web
+search in sequences 1 and 3 despite no manual tool selection. The exact
+Project Manager corrective amendment is source-bound as follows:
+
+- user message: `8d486a1d-4858-44d2-b3cb-3fe542238401`;
+- assistant message: `e7c9ac9f-9499-4487-b158-5d4497242a67`;
+- exact private output SHA-256:
+  `853ee731cfddd1f7f347ec945e979e40a1d4b801a68fb4be8dba7f4e2ad1fd78`;
+- amendment ID:
+  `askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot-v2-consumer-tool-transport-amendment-v1`.
+
+The amendment treats automatic tool use as a logged process outcome under
+constant ambient availability. Manual tool selection/suppression and
+conditional retry for automatic tool use are forbidden. The first three
+first-pass outputs remain primary; the two original invalid receipts and the
+already-started sequence-1 retry remain preserved separately.
+
 ## Frozen generation design
 
 - Development calibration only: `All001`, `Card001`.
@@ -35,7 +52,8 @@ ask Joel to relay an internal packet.
 - Trials: three independent fresh chats per family-arm.
 - Total: 8 × 4 × 3 = 96 responses.
 - Provider: ChatGPT consumer chat, GPT-5.6 Sol, Extra High.
-- Tools/browsing: forbidden.
+- Manual tools/browsing: forbidden; automatic model-initiated use is permitted
+  and logged without content inspection or conditional retry.
 - Spend/API credentials: zero/forbidden.
 - Retry: mechanical failures only, with the invalid receipt retained.
 
@@ -68,22 +86,51 @@ Private artifact root: `/tmp/askrigor-mast-four-arm-base-artifacts.dMzP1H`
 - complete deterministic gate: 1,675 tests passed and 6 declared skips across
   140 passing files and 1 skipped file; typecheck and build passed;
 - rubric/guidance inspection: not performed;
-- untouched-family response generation: not started.
+- first three primary responses: reconciled and retained under the exact
+  transport amendment;
+- primary generation progress: 14 of 96 first-pass responses frozen, including
+  10 with automatic Web-search UI evidence and 4 without;
+- live response/provenance progress: private `capture-progress.json` in the
+  artifact root;
+- untouched-family clinical output inspection: not performed.
 
 ## Next executable action
 
-Process the opaque schedule in order. For each entry, open one fresh clean
-ChatGPT conversation, verify GPT-5.6 Sol Extra High, send the exact private input
-with no added instruction, reject tool/browsing runs, and preserve chat URL,
-message IDs, timestamps or explicit unavailable state, model/mode evidence,
-input hash, verbatim output, and output hash. Freeze all 96 valid records before
-any evaluator or rubric/guidance access.
+The next unexecuted entry is sequence 15. The exact factual blocker was routed
+automatically to the existing ChatGPT Project Manager, which issued the
+no-bypass recovery directive, selected a narrow compatibility port, and
+authorized only the initial two-principal ingestion-credential bootstrap. The
+source receipts are captured in:
 
-Operational alignment: inputs frozen and ready; generation pending.
+- `docs/directives/2026-09-02-mast-runtime-admission-recovery.json`;
+- `docs/directives/2026-09-02-mast-live-lineage-admission-narrow-port.json`;
+- `docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json`.
+
+Mission Control candidate
+`079881125ccd555cdff4f8502773f7e1b301232d` passed 25/25 focused admission
+tests, 100/100 complete tests, TypeScript, production build, and isolated
+runtime acceptance under Node v24.18.0. It is running against the preserved
+live database and existing internal token/seed profile. Live L1 through L5
+passed: unauthenticated 401, wrong-scope 403, a denied synthetic semantic action
+durably queued without a provider-delivery claim, authenticated exact event
+readback, and HTTP 200 with `mayExecute: true` for the source-bound zero-spend
+sequence-15 resume action. The nonsecret receipt is
+`docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json`.
+
+Resume the opaque schedule at sequence 15. For each entry, open one fresh clean
+ChatGPT conversation, verify GPT-5.6 Sol Extra High, send the exact private input
+with no added instruction or manual tool action, and preserve chat URL, message
+IDs, timestamps or explicit unavailable state, model/mode evidence, input hash,
+verbatim output, output hash, and automatic tool-process measures. Freeze all
+96 primary first-pass records before any evaluator or rubric/guidance access.
+
+Operational alignment: 14 primary responses are frozen; 82 remain, and live
+runtime admission authorizes unchanged dispatch beginning at sequence 15.
 
 Scientific adequacy: not reached; no untouched output evaluated.
 
 Release adequacy: unaffected; no release, deployment, API inference, spend, or
 external submission.
 
-Typed claim: `FOUR_ARM_BASE_INPUTS_FROZEN_GENERATION_PENDING`.
+Typed successful-generation claim:
+`FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE`.

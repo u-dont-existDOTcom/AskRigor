@@ -12,18 +12,32 @@ describe("external evaluation current-slice contract", () => {
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_zero_spend_chatgpt_mast_four_arm_base_generation",
+      status: "active_zero_spend_mast_generation_live_admission_accepted",
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       boundedOutcome: expect.stringContaining("zero-spend 96-response four-arm base-generation pilot"),
       authorityPolicy: "governance/chat-work-authority-policy.json",
       activeDirective: "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
+      activeDirectiveAmendment:
+        "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
+      activeLessonContract:
+        "docs/state/MAST-FOUR-ARM-BASE-PILOT-ACTIVE-LESSON-CONTRACT.json",
+      runtimeAdmissionBlocker:
+        "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
+      activeRecoveryDirective:
+        "docs/directives/2026-09-02-mast-runtime-admission-recovery.json",
+      activeLiveLineageDirective:
+        "docs/directives/2026-09-02-mast-live-lineage-admission-narrow-port.json",
+      activeCredentialBootstrapDirective:
+        "docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json",
+      liveRuntimeAdmissionReceipt:
+        "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
       currentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       currentSlice: {
         sliceId: "mast-four-arm-eight-family-base-generation-v2",
-        status: "inputs_frozen_generation_pending",
+        status: "14_primary_responses_frozen_live_admission_accepted_resume_at_sequence_15",
         maximumEstimatedCostUsdBeforeAbort: 0,
         requiredChats: {
           responseChats: 96,
@@ -72,9 +86,16 @@ describe("external evaluation current-slice contract", () => {
       "scripts/accept-zero-spend-mast-four-arm-base-generation.mts",
       "governance/chat-work-authority-policy.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
+      "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
+      "docs/directives/2026-09-02-mast-runtime-admission-recovery.json",
+      "docs/directives/2026-09-02-mast-live-lineage-admission-narrow-port.json",
+      "docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json",
       "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
       "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
+      "docs/state/MAST-FOUR-ARM-BASE-PILOT-ACTIVE-LESSON-CONTRACT.json",
       "docs/audits/2026-09-01-mast-noharm-pilot-freeze-protected-merge.json",
+      "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
+      "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();
     }

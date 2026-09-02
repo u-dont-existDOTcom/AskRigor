@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "mission_control_live_runtime_admission_accepted",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-generation-v2",
+  "completedAt": "2026-09-02T01:20:59.742Z",
+  "claim": "MISSION_CONTROL_INGEST_CREDENTIAL_BOOTSTRAP_AND_LIVE_ADMISSION_ACCEPTED_MAST_RESUME_AUTHORIZED_AT_SEQUENCE_15",
+  "directiveChain": [
+    "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot-v2",
+    "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot-v2-consumer-tool-transport-amendment-v1",
+    "askrigor-zero-spend-mast-runtime-admission-recovery-v1",
+    "askrigor-zero-spend-mast-live-lineage-admission-narrow-port-v1",
+    "askrigor-zero-spend-mast-live-admission-credential-bootstrap-v1"
+  ],
+  "deployment": {
+    "liveBaselineCommit": "86ee808b8cb66b48f453be23fa206f8d69e29128",
+    "candidateCommit": "079881125ccd555cdff4f8502773f7e1b301232d",
+    "runningCheckout": "/tmp/mission-control-admission-control-recovery-20260902",
+    "nodeVersion": "v24.18.0",
+    "databaseMigrationPerformed": false,
+    "dashboardReconciliationPerformed": false,
+    "ownerAuthIntegrationPerformed": false,
+    "providerRelayState": "NOT_CONNECTED",
+    "providerDeliveredClaim": false
+  },
+  "credentialConfiguration": {
+    "fingerprintWithoutBearerValues": "11bac5441e338ae2c5c434184d3869389c533b79d05880efb45baf9955c8a8d4",
+    "bearerSecretsRecorded": false,
+    "existingVariablesPreserved": true,
+    "onlyNewVariable": "MISSION_CONTROL_INGEST_CREDENTIALS"
+  },
+  "liveProbes": [
+    {
+      "id": "L1_UNAUTHENTICATED",
+      "requestBodySha256": "d82b5eb13bc564fb707b8f9a46b99b1a3b4fc41cd8f9531d046c734f9b6b954c",
+      "httpStatus": 401,
+      "responseBodySha256": "f3251b24d499a1eb8d07e403c6757c407e8b8e4d76127399fa5904264fb5d864"
+    },
+    {
+      "id": "L2_WRONG_SCOPE",
+      "requestBodySha256": "d82b5eb13bc564fb707b8f9a46b99b1a3b4fc41cd8f9531d046c734f9b6b954c",
+      "httpStatus": 403,
+      "responseBodySha256": "f3251b24d499a1eb8d07e403c6757c407e8b8e4d76127399fa5904264fb5d864"
+    },
+    {
+      "id": "L3_DENIED_DURABLE_ROUTE",
+      "requestBodySha256": "6cb7e2e12f36615ddf4e54ecc64e1536d93dd306b27aab8f61a03ec92428e79a",
+      "httpStatus": 409,
+      "responseBodySha256": "df67adaf45f383a387d51a3d9567f8174448476e2729eacdd4855cfbab87d376",
+      "mayExecute": false,
+      "providerDeliveryState": "QUEUED_FOR_PROVIDER_RELAY"
+    },
+    {
+      "id": "L4_AUTHENTICATED_IDEMPOTENT_READBACK",
+      "requestBodySha256": "7c3bbbc86642537afbb8de8f67a5593e0ca95521bab4fb93ec91bc13e7f74fe2",
+      "httpStatus": 201,
+      "responseBodySha256": "0e7efe26fceed9b752509afd6d48090aaaed9e885bbb2a4467f74731d52bdbfe",
+      "eventId": "supervision-route-request:1cc6ef03-1c1a-4867-947f-992fc4ee8cb9",
+      "eventHash": "65c293b7901d19986ad421349734176cf1145d7d7776772d8914e66ef9a6b2f6"
+    },
+    {
+      "id": "L5_SOURCE_BOUND_RESUME_ADMISSION",
+      "requestBodySha256": "d82b5eb13bc564fb707b8f9a46b99b1a3b4fc41cd8f9531d046c734f9b6b954c",
+      "httpStatus": 200,
+      "responseBodySha256": "3ff9e17571ac339eb7bcd5e98e6e2ca916f6da501e04b03fba5f37f68902fc05",
+      "mayExecute": true,
+      "spendBoundaryUsd": 0
+    }
+  ],
+  "liveClient": {
+    "exitCode": 0,
+    "stdoutSha256": "01ec715185f4327ef25c06e84f1093ae4d3f661473ec17f79972b7ab7869139f",
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "mast": {
+    "primaryResponsesFrozen": 14,
+    "resumeAuthorizedAtSequence": 15,
+    "remainingPrimaryResponses": 82,
+    "rerunSequences1Through14": false,
+    "rubricGuidanceEmbargoRemains": true,
+    "maximumExternalSpendUsd": 0
+  }
+}

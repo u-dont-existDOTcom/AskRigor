@@ -99,6 +99,13 @@ complete XML protocol.
   equal-weight non-remission comparator, lifecycle propagation, linked research
   boundary, headless Brave acceptance, and separate operational, bounded-
   scientific, and no-public-release verdicts
+- `directives/2026-09-02-mast-live-lineage-admission-narrow-port.json`,
+  `directives/2026-09-02-mast-live-admission-credential-bootstrap.json`, and
+  `audits/2026-09-02-mast-live-runtime-admission-accepted.json`: source-bound
+  narrow Mission Control compatibility port, two-principal secret-safe ingest
+  bootstrap, exact Node v24.18.0 deterministic and isolated gates, and live
+  L1-L5 acceptance authorizing zero-spend MAST generation to resume at sequence
+  15 without rerunning the first 14 responses
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/
@@ -192,6 +199,12 @@ complete XML protocol.
 - `audits/2026-09-01-reciprocal-research-access-candidate.md` and `.json`:
   exact local candidate verification, package receipt, and separate operational,
   scientific, and release-adequacy states
+- `state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md`, its active lesson contract,
+  `directives/2026-09-02-mast-runtime-admission-recovery.json`, and
+  `audits/2026-09-02-mast-runtime-admission-unavailable.json`: source-bound
+  zero-spend ChatGPT consumer MAST generation state, the no-evaluation embargo,
+  14-response private freeze boundary, and the scoped live Mission Control
+  admission-endpoint 404 blocker before sequence 15
 - `../project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md`: dedicated compact source
   for the Custom GPT worker/display contract; complete research policy and
   completion authority remain server-side
