@@ -79,7 +79,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_provider_paced_at_ordinal_26",
+    "status": "blinded_evaluation_v2_primary_capture_active_provider_paced_at_ordinal_29",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -108,7 +108,8 @@
       "corrected primary ordinals 1 through 18 passed exact repository validation on their first attempts with zero web/tool observations",
       "ordinal 19 attempt 1 was retained as a provider/transport failure after the request throttle returned no assistant message; its byte-identical attempt 2 passed exact validation",
       "ordinal 20 produced a complete assistant response before a post-completion throttle dialog appeared; the frozen response passed exact validation",
-      "corrected primary capture is valid through ordinal 25; ordinals 21 through 25 all passed on their first attempt with zero web/tool observations, and capture-progress SHA-256 is dd05ab86137f4bb94735fda09b15ad7d75b782637c8753a5547ddd114dc94da9"
+      "corrected primary capture is valid through ordinal 28; ordinals 21 through 28 all passed on their first attempt with zero web/tool observations, and capture-progress SHA-256 is 123c6c4b68d8e347fd167fbfa54a2d5e23bb4bbb87139946a381c8f316a8385b",
+      "an attempted unattended browser loop was rejected by the browser-control runtime and reset before ordinal 29 submission; no attempt was consumed, the browser was reconnected, and one-chat-at-a-time execution remains active"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -194,13 +195,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Continue provider-paced primary capture at exact ordinal 26 attempt 1 after a four-minute creation cooldown, checking each fresh Chat for a completed assistant response before classifying any throttle dialog as a transport failure.",
+  "nextAction": "Continue provider-paced one-chat-at-a-time primary capture at exact ordinal 29 attempt 1 after a four-minute creation cooldown, checking each fresh Chat for a completed assistant response before classifying any throttle dialog as a transport failure.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_25_OF_192_ONE_RETAINED_TRANSPORT_FAILURE_RESOLVED_BY_RETRY",
+    "completionClaim": "EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_28_OF_192_ONE_RETAINED_TRANSPORT_FAILURE_RESOLVED_BY_RETRY",
     "workerToContract": "SOURCE_BOUND_V2_EXECUTION_ADMITTED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RECOVERY_DIRECTIVE",
-    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 25 with one retained provider failure resolved by its authorized byte-identical retry, and four-minute provider pacing is active before ordinal 26",
+    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 28 with one retained provider failure resolved by its authorized byte-identical retry, and four-minute one-chat-at-a-time provider pacing is active before ordinal 29",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
