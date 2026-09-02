@@ -114,6 +114,9 @@ complete XML protocol.
   exact source-fixed halt after primary ordinal 30 exhausted two byte-identical
   `INVALID_JSON` attempts, with 29 valid judgments retained, no later dispatch,
   no unblinding or aggregation, and zero external spend
+- `audits/2026-09-02-context-checkpoint-terminal-handoff-supervision-feedback.json`:
+  automatic delivery of the worker-stop control defect to Mission Control and
+  the provider-throttled, retry-required response state without evaluator content
 - `directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json`
   plus its source and runtime-admission receipts: exact Project Manager carry-
   forward directive, source identity, four-attempt mechanical completion

@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 23:23 UTC
+**Checkpoint:** 2026-09-02 23:32 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 30_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 32_VALID`
 
 ## Source-bound authority
 
@@ -129,11 +129,11 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 31 after the provider cooldown.
+Continue primary capture at ordinal 33 after the provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 30 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 32 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -164,9 +164,12 @@ Ordinal 30 attempt 3 used the byte-identical packet in a fresh Extra High Chat,
 produced output SHA-256
 `a74e3a37148badfe4ae4864a6aa0b16cf5bab5cc1683ea874df9e746b7a334ce`,
 passed the exact repository validator, and was recorded without inspecting its
-clinical content. The current progress SHA-256 is
+clinical content. The progress SHA-256 after ordinal 30 was
 `0b0acba67b28f5803a238bf0ce9e335055a656839cb65852d3cd94299780c5ba`.
-Ordinal 31 is now the exact next action.
+Ordinals 31 and 32 then passed the exact repository validator on their first
+attempts. The current progress SHA-256 is
+`ec5cd68f681bac9fa148b8bac1d1bf4bb910e5ee76759d89fa916b8ef6e1578c`.
+Ordinal 33 is now the exact next action.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -175,4 +178,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_30_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_32_VALID`.

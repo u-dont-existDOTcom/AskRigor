@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "supervision_design_feedback_delivery",
+  "capturedAt": "2026-09-02T23:32:56Z",
+  "packetType": "SUPERVISION_DESIGN_FEEDBACK",
+  "lane": "supervision-architecture/20260902T225300Z",
+  "title": "Context/checkpoint pressure incorrectly became a terminal handoff",
+  "missionControlChatLocator": "https://chatgpt.com/c/6a97740b-71dc-83ea-875e-b0f01e98d20d",
+  "requestMessageId": "2d07a528-a43a-41ef-bfb4-85a44e35d1c0",
+  "exactPrivatePacketSha256": "bcb5778970e7ae0471b2bfffab41e6e19bf2d43cb9086ebe0d899ffcc0235576",
+  "exactPrivatePacketUtf8Bytes": 2871,
+  "deliveryState": "DELIVERED_RESPONSE_THROTTLED_AFTER_NONPERSISTED_PARTIAL",
+  "requestVisibleInMissionControlChat": true,
+  "responseCaptured": false,
+  "retryRequired": true,
+  "ownerRelayRequired": false,
+  "taskBlocking": false,
+  "privacy": {
+    "clinicalEvaluatorContentIncluded": false,
+    "privateArtifactIncluded": false,
+    "credentialIncluded": false
+  }
+}
