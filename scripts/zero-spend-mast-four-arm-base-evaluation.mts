@@ -199,15 +199,31 @@ const validPrimaryCaptureRecordSchema = primaryCaptureIdentitySchema.extend({
 const mechanicalFailureReceiptSchema = primaryCaptureIdentitySchema.extend({
   status: z.literal("INVALID_MECHANICAL"),
   reason: z.enum(evaluatorMechanicalFailureReasons),
+  providerSurface: z.literal("CHATGPT_CONSUMER_CHAT"),
+  modelNameObserved: z.string().min(1),
+  thinkingEffortObserved: z.string().min(1),
+  modelSlugObserved: z.string().min(1).nullable(),
   capturedAt: timestampSchema,
   chatLocator: z.string().url().nullable(),
   conversationId: z.string().min(1).nullable(),
   userMessageId: z.string().min(1).nullable(),
   assistantMessageId: z.string().min(1).nullable(),
+  toolsInvoked: z.boolean(),
+  browsingInvoked: z.boolean(),
+  manualToolSelection: z.literal(false),
+  automaticToolInvocationObserved: z.boolean(),
+  visibleToolType: z.literal("WEB_SEARCH").nullable(),
+  webCitationUiArtifactCount: z.number().int().min(0),
+  freshConversation: z.literal(true),
+  exactInputCaptured: z.literal(true),
+  inputFile: relativePrivateFileSchema,
   exactInputSha256: sha256Schema,
   outputFile: relativePrivateFileSchema.nullable(),
   exactOutputSha256: sha256Schema.nullable(),
   exactOutputUtf8Bytes: z.number().int().nonnegative().nullable(),
+  exactOutputStoredPrivately: z.boolean(),
+  provenanceStatus: z.enum(["VERIFIED", "PARTIAL"]),
+  transport: z.enum(["INLINE", "PASTED_TEXT_ATTACHMENT"]),
   retainedPrivately: z.literal(true),
 }).strict().superRefine((receipt, context) => {
   const outputFields = [
@@ -221,6 +237,23 @@ const mechanicalFailureReceiptSchema = primaryCaptureIdentitySchema.extend({
       code: "custom",
       path: ["outputFile"],
       message: "mechanical-failure output provenance must be complete or wholly absent",
+    });
+  }
+  if (receipt.exactOutputStoredPrivately !== (receipt.outputFile !== null)) {
+    context.addIssue({
+      code: "custom",
+      path: ["exactOutputStoredPrivately"],
+      message: "mechanical-failure output storage flag is inconsistent",
+    });
+  }
+  if (receipt.toolsInvoked !== receipt.automaticToolInvocationObserved
+    || receipt.browsingInvoked !== receipt.automaticToolInvocationObserved
+    || (receipt.visibleToolType !== null && !receipt.automaticToolInvocationObserved)
+    || (receipt.webCitationUiArtifactCount > 0 && !receipt.automaticToolInvocationObserved)) {
+    context.addIssue({
+      code: "custom",
+      path: ["automaticToolInvocationObserved"],
+      message: "mechanical-failure automatic tool process measures are inconsistent",
     });
   }
 });
@@ -545,6 +578,9 @@ export function acceptPrimaryCaptureProgress(
     assertCaptureIdentityMatchesSchedule(failure, expected);
     if (failure.exactInputSha256 !== expected.exactPacketSha256) {
       throw new Error("EVALUATION_CAPTURE_FAILURE_INPUT_HASH_MISMATCH");
+    }
+    if (failure.inputFile !== expected.packetFile) {
+      throw new Error("EVALUATION_CAPTURE_FAILURE_INPUT_FILE_MISMATCH");
     }
     const existing = failuresByOrdinal.get(failure.ordinal) ?? [];
     existing.push(failure);
