@@ -12,7 +12,7 @@ describe("external evaluation current-slice contract", () => {
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_zero_spend_mast_generation_live_admission_accepted",
+      status: "active_zero_spend_mast_generation_frozen_pending_evaluator_transport_directive",
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -37,7 +37,7 @@ describe("external evaluation current-slice contract", () => {
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       currentSlice: {
         sliceId: "mast-four-arm-eight-family-base-generation-v2",
-        status: "92_primary_responses_frozen_sequence_93_provider_cooldown",
+        status: "96_primary_responses_frozen_evaluation_blocked_pending_evaluator_transport_directive",
         maximumEstimatedCostUsdBeforeAbort: 0,
         requiredChats: {
           responseChats: 96,
@@ -56,7 +56,7 @@ describe("external evaluation current-slice contract", () => {
         mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: "BASE_PILOT_PARENT_OPEN",
+        completionClaim: "FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE",
         scientificAdequacy: "not reached; no untouched-family output has been evaluated or interpreted",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
@@ -96,6 +96,7 @@ describe("external evaluation current-slice contract", () => {
       "docs/audits/2026-09-01-mast-noharm-pilot-freeze-protected-merge.json",
       "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
       "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
+      "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();
     }

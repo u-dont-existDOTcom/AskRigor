@@ -20,7 +20,7 @@ and 96 responses. Exact inputs and a deterministic randomized dispatch schedule
 are frozen in the private mode-0700 root
 `/tmp/askrigor-mast-four-arm-base-artifacts.dMzP1H`.
 
-Untouched-family outputs are being generated and frozen privately, but none has
+Untouched-family outputs have been generated and frozen privately, but none has
 been evaluated or interpreted for scientific content. Rubric and guidance content remains behind
 the frozen generation boundary. The source-bound Project Manager transport
 amendment at
@@ -28,12 +28,12 @@ amendment at
 preserves constant ambient tool availability: manual tool action remains
 forbidden, while automatic model-initiated tool use is logged as a process
 outcome and does not trigger conditional retry. Paid model APIs and provider
-credentials remain forbidden; external spend is USD 0. The next action is
-mechanical capture of every remaining first-pass response in fresh GPT-5.6 Sol
-Extra High ChatGPT consumer conversations with exact provenance.
+credentials remain forbidden; external spend is USD 0. The next action is to
+return the exact factual generation receipt to the directive-bound Project
+Manager and await a source-bound evaluator transport directive.
 
-Ninety-two primary first-pass responses are now frozen in the private capture
-ledger: 71 recorded automatic Web-search behavior and 21 did not. This is only a
+All 96 primary first-pass responses are now frozen in the private generation
+ledger: 74 recorded automatic Web-search behavior and 22 did not. This is only a
 mechanical process count; no response content has been inspected. The prior
 live runtime-admission 404 is resolved. Project Manager messages
 `e463c10d-6823-4887-af31-83be7269c48f` and
@@ -53,9 +53,13 @@ conversation after the provider-requested pause. Attempt 2 completed and is
 frozen with exact provenance; its first-attempt provider-error receipt remains
 retained. An unsent sequence-25 shell encountered the provider cooldown before
 the composer was usable and was closed without consuming a schedule attempt.
-Sequences 25 through 92 then completed and were frozen after bounded cooldowns;
-post-completion throttle notices did not replace their verified payloads.
+Sequences 25 through 96 then completed and were frozen after bounded cooldowns;
+post-completion throttle notices did not replace their verified payloads. The
+complete ledger passed the dedicated acceptance command with SHA-256
+`cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3`;
+the non-sensitive receipt is
+`docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json`.
 
-The successful generation claim will be
+The successful generation claim is
 `FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE`.
 The parent remains open, and evaluation is not authorized in this slice.

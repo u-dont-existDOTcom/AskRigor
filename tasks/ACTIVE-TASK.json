@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_zero_spend_mast_generation_live_admission_accepted",
+  "status": "active_zero_spend_mast_generation_frozen_pending_evaluator_transport_directive",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -66,7 +66,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-generation-v2",
-    "status": "92_primary_responses_frozen_sequence_93_provider_cooldown",
+    "status": "96_primary_responses_frozen_evaluation_blocked_pending_evaluator_transport_directive",
     "directive": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
     "boundedOutcome": "Capture exactly 96 base-case responses across eight untouched MAST families, four frozen arms, and three fresh ChatGPT consumer trials per arm, then freeze raw outputs and provenance before any rubric/guidance inspection or evaluation.",
     "requiredChats": {
@@ -85,7 +85,7 @@
       "zero-spend execution authority gate passed",
       "96 exact opaque input files frozen outside the repository without reading rubric or guidance content",
       "consumer automatic tool behavior reconciled by a source-bound Project Manager amendment after three first-pass responses",
-      "92 primary first-pass responses frozen privately without clinical-content, rubric, or guidance inspection",
+      "96 primary first-pass responses frozen privately without clinical-content, rubric, or guidance inspection",
       "Project Manager issued the source-bound no-bypass Mission Control admission recovery directive",
       "Project Manager selected the narrow live-lineage admission port and excluded dashboard, owner-auth, database, provider-relay, and MAST changes",
       "Project Manager authorized only the initial scoped MISSION_CONTROL_INGEST_CREDENTIALS bootstrap",
@@ -94,15 +94,12 @@
       "sequences 15 through 23 resumed and froze successfully; 19 of 23 frozen responses show automatic Web-search UI evidence",
       "sequence 24 attempt 1 retained an exact PROVIDER_ERROR receipt after ChatGPT temporarily limited request rate; no assistant response was produced and no denominator was removed",
       "sequence 24 attempt 2 completed in a fresh conversation and was frozen with exact provenance; an unsent sequence-25 shell hit the provider cooldown before composer availability and consumed no schedule attempt",
-      "sequences 25 through 92 completed after bounded provider cooldowns and were frozen with exact provenance; post-completion throttle notices were dismissed only after assistant payload validation"
+      "sequences 25 through 96 completed after bounded provider cooldowns and were frozen with exact provenance; post-completion throttle notices were dismissed only after assistant payload validation",
+      "the private generation ledger passed the dedicated acceptance command with exact parent, input, output, uniqueness, privacy-mode, zero-spend, and no-manual-tool checks"
     ],
     "pending": [
-      "resume sequences 93 through 96 after the provider-requested cooldown",
-      "capture 96 verbatim raw responses with exact chat/message/model/mode/tool/input/output provenance",
-      "record automatic model-initiated tool behavior as a descriptive process outcome without conditional retry",
-      "retain and mechanically retry only provider/transport, empty, truncated, wrong-mode, dirty-chat, input-capture, or provenance failures",
-      "freeze the complete generation ledger before any untouched-family rubric or guidance inspection",
-      "return the factual generation receipt automatically to the Project Manager Chat"
+      "return the factual generation receipt automatically to the Project Manager Chat",
+      "await a source-bound evaluator transport directive before rubric, guidance, clinical-output inspection, or evaluation"
     ],
     "excluded": [
       "paid MAST, NOHARM, model, or judge API inference",
@@ -116,7 +113,9 @@
       "external Terminal-Bench proposal submission or upstream pull request",
       "production or canonical protocol mutation"
     ],
-    "maximumEstimatedCostUsdBeforeAbort": 0
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "acceptanceReceipt": "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json",
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3"
   },
   "childWorkstreams": {
     "terminalBenchScience": {
@@ -167,7 +166,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-02T00:10:08.016Z",
+    "checkedAt": "2026-09-02T17:54:20.236Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -175,13 +174,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "After the provider-requested cooldown, dispatch sequence 93 attempt 1 in one fresh Extra High conversation and continue the unchanged schedule without inspecting outputs.",
+  "nextAction": "Return the exact factual generation receipt automatically to the directive-bound Project Manager Chat, then await a source-bound evaluator transport directive without inspecting rubric, guidance, or clinical output content.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BASE_PILOT_PARENT_OPEN",
-    "workerToContract": "GREEN_LIVE_RUNTIME_ADMISSION_ACCEPTED",
+    "completionClaim": "FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE",
+    "workerToContract": "EXECUTION_ACCEPTED_PENDING_PROJECT_MANAGER_REVIEW",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_CREDENTIAL_BOOTSTRAP_AMENDMENT",
-    "operationalAlignment": "92 primary first-pass responses are frozen contiguously; live Mission Control admission remains accepted, and bounded provider cooldowns are being honored between fresh consumer conversations",
+    "operationalAlignment": "the dedicated acceptance command verified all 96 primary records, exact hashes, unique source identities, private modes, zero spend, no manual tool selection, and retained mechanical failure provenance; Project Manager review remains pending",
     "scientificAdequacy": "not reached; no untouched-family output has been evaluated or interpreted",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

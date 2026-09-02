@@ -33,15 +33,15 @@ evaluation, perturbations, tuning, or scientific interpretation.
    zero-spend MAST directive and transport amendment. Candidate
    `079881125ccd555cdff4f8502773f7e1b301232d` passed isolated and live L1-L5
    acceptance; L5 returned `mayExecute: true`.
-8. [ ] Capture the remaining 4 primary first-pass GPT-5.6 Sol Extra High
-   responses, logging automatic tool behavior without conditional retry. The
-   first 24 are frozen and preserved without rerun. Sequence 24 attempt 1 is a
-   retained provider-rate-limit failure with no assistant output; attempt 2 is
-   frozen as valid. Sequences 25 through 92 are also frozen; resume at sequence
-   93 after the provider cooldown.
-9. [ ] Freeze the exact raw-output/provenance ledger and validate completeness,
+8. [x] Capture all 96 primary first-pass GPT-5.6 Sol Extra High responses,
+   logging automatic tool behavior without conditional retry. Sequence 24
+   attempt 1 is retained as a provider-rate-limit failure with no assistant
+   output; attempt 2 is frozen as valid. Sequences 25 through 96 are frozen.
+9. [x] Freeze the exact raw-output/provenance ledger and validate completeness,
    uniqueness, modes, hashes, zero spend, no manual tools, complete automatic
-   tool-process logging, and no cross-run context.
+   tool-process logging, and no cross-run context. The accepted private ledger
+   SHA-256 is
+   `cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3`.
 10. [ ] Return a factual receipt to the Project Manager automatically.
 11. [ ] Stop at the directive's generation boundary; the next evaluation slice
    requires the already-frozen plan and a new bounded execution receipt.

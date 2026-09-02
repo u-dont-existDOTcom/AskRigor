@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_chatgpt_mast_four_arm_base_generation_acceptance",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-generation-v2",
+  "acceptedAt": "2026-09-02T17:57:54Z",
+  "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+  "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
+  "privateArtifactBoundary": {
+    "location": "outside_repository",
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "preflightSha256": "77950b8ec54a03c6be43d26b9b90c081bd9aa74ee5c0480feadb91ac8528c141",
+    "dispatchMapSha256": "8f1eedb3df5bcbecd4f708b264b4bda81e62a9bd450b5427706b4f23bfa4b5a2",
+    "transportAmendmentSha256": "853ee731cfddd1f7f347ec945e979e40a1d4b801a68fb4be8dba7f4e2ad1fd78",
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3"
+  },
+  "generation": {
+    "validPrimaryFirstPassResponses": 96,
+    "expectedPrimaryFirstPassResponses": 96,
+    "automaticWebSearchObserved": 74,
+    "automaticWebSearchNotObserved": 22,
+    "originalInvalidMechanicalReceiptsRetained": 2,
+    "additionalMechanicalFailureReceiptsRetained": 1,
+    "supersededRecoveryAttemptsRetained": 1,
+    "denominatorShrinkage": false
+  },
+  "integrity": {
+    "recordsContiguous": true,
+    "freshConversationPerPrimaryResponse": true,
+    "exactInputAndOutputHashesVerified": true,
+    "recordIdentitiesUnique": true,
+    "manualToolSelection": false,
+    "rubricsOrGuidanceInspectedBeforeFreeze": false,
+    "clinicalOutputContentInspectedBeforeFreeze": false,
+    "evaluationPerformedBeforeFreeze": false,
+    "perturbationsGenerated": false,
+    "promptOrProtocolTuned": false
+  },
+  "execution": {
+    "providerApiCredentialsUsed": false,
+    "paidModelApiCalls": 0,
+    "totalExternalSpendUsd": 0,
+    "codexAuthoredScientificInterpretation": false,
+    "ownerRelayRequested": false,
+    "officialMastClaimMade": false,
+    "generalHrpEffectClaimMade": false
+  },
+  "acceptanceCommand": "npx tsx scripts/accept-zero-spend-mast-four-arm-base-generation.mts --artifact-root <PRIVATE_ARTIFACT_ROOT>",
+  "acceptanceStatus": "FOUR_ARM_BASE_GENERATION_ACCEPTED",
+  "verification": {
+    "completedAt": "2026-09-02T18:04:04Z",
+    "focusedCommand": "npx vitest run tests/external-evaluation-task.test.ts tests/zero-spend-mast-four-arm-base-generation-acceptance.test.ts",
+    "focusedResult": "2 files passed; 12 tests passed",
+    "completeGateCommand": "npm run verify",
+    "typecheck": "passed",
+    "tests": "140 files passed, 1 file skipped; 1678 tests passed, 6 tests skipped",
+    "build": "passed",
+    "testEfficiency": {
+      "focusedRuns": 1,
+      "fullRuns": 1,
+      "failureDiscoveringRuns": 0,
+      "redundantGreenRunsSkipped": 0,
+      "forcedRedundantGreenSeconds": 0,
+      "observedTestWallSeconds": 213.523982
+    }
+  },
+  "completionClaim": "FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE",
+  "nextBoundary": "Return this factual receipt to the directive-bound ChatGPT Project Manager and await a source-bound evaluator transport directive before inspecting rubric, guidance, or clinical output content."
+}
