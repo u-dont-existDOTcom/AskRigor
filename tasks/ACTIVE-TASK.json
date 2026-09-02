@@ -79,7 +79,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_temporary_provider_throttle_at_ordinal_17",
+    "status": "blinded_evaluation_v2_primary_capture_active_provider_paced_at_ordinal_21",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -105,7 +105,9 @@
       "complete post-recovery integration gate passed on Node 24.18.0: 142 files and 1692 tests passed, 1 file and 6 tests skipped, typecheck and build passed",
       "two v2 packet-QA runs exposed that the concept-grouped rubric display omitted the distinct canonical source option order required by validation; both raw outputs were retained and excluded with zero valid judgments",
       "the defective v2 preflight was retired recoverably, every packet now declares exact canonical source order, and the fresh 96-packet preflight passed with receipt SHA-256 2044b816dce38f78cc07708b759ffcb16e7007b00381567a2791decbd4c133a6",
-      "corrected primary ordinals 1 through 16 passed exact repository validation on their first attempts with zero mechanical failures, zero web/tool observations, and capture-progress SHA-256 4ec56a549ad5d945e909911c7f7391d49b5b243a0097b8d6682380607028465"
+      "corrected primary ordinals 1 through 18 passed exact repository validation on their first attempts with zero web/tool observations",
+      "ordinal 19 attempt 1 was retained as a provider/transport failure after the request throttle returned no assistant message; its byte-identical attempt 2 passed exact validation",
+      "ordinal 20 produced a complete assistant response before a post-completion throttle dialog appeared; the frozen response passed exact validation and the current capture-progress SHA-256 is 1b03fc4ee590d0db56672d3a8b4f50f7567d1b54bfb0bf6d1fc2f36f858bbeb4"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -191,13 +193,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Monitor the temporary ChatGPT request throttle at roughly one-minute intervals and resume exact primary evaluator ordinal 17 attempt 1 as soon as fresh Chat access returns.",
+  "nextAction": "Continue provider-paced primary capture at exact ordinal 21 attempt 1, checking each fresh Chat for a completed assistant response before classifying any throttle dialog as a transport failure.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_16_OF_192_TEMPORARY_PROVIDER_THROTTLE_AT_ORDINAL_17",
+    "completionClaim": "EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_20_OF_192_ONE_RETAINED_TRANSPORT_FAILURE_RESOLVED_BY_RETRY",
     "workerToContract": "SOURCE_BOUND_V2_EXECUTION_ADMITTED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RECOVERY_DIRECTIVE",
-    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 16 with zero failures and is paused before ordinal 17 only by a temporary provider request throttle",
+    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; two incomplete-input packet-QA runs were preserved but excluded with zero valid judgments; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 20 with one retained provider failure resolved by its authorized byte-identical retry, and provider pacing is active before ordinal 21",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
