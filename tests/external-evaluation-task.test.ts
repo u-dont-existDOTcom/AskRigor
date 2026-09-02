@@ -12,7 +12,7 @@ describe("external evaluation current-slice contract", () => {
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_zero_spend_mast_blinded_evaluation_live_admission_accepted",
+      status: "active_zero_spend_mast_blinded_evaluation_preflight_accepted",
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -41,7 +41,7 @@ describe("external evaluation current-slice contract", () => {
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
         sliceId: "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-        status: "live_admission_accepted_blinded_evaluation_preflight_pending",
+        status: "blinded_evaluation_preflight_accepted_primary_dispatch_ready",
         maximumEstimatedCostUsdBeforeAbort: 0,
         conditionMapSealed: true,
         requiredChats: {
@@ -94,6 +94,11 @@ describe("external evaluation current-slice contract", () => {
       "scripts/accept-zero-spend-chatgpt-mast-smoke.mts",
       "scripts/prepare-zero-spend-mast-four-arm-base-pilot.mts",
       "scripts/accept-zero-spend-mast-four-arm-base-generation.mts",
+      "scripts/zero-spend-mast-four-arm-base-evaluation.mts",
+      "scripts/prepare-zero-spend-mast-four-arm-base-evaluation.mts",
+      "scripts/validate-zero-spend-mast-evaluator-output.mts",
+      "scripts/record-zero-spend-mast-evaluator-attempt.mts",
+      "scripts/mast-blinded-evaluator-source-bridge.py",
       "governance/chat-work-authority-policy.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",

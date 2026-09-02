@@ -357,7 +357,7 @@ async function assertPrivateTreeModes(root: string): Promise<void> {
   await visit(root);
 }
 
-async function acceptArtifactRoot(repositoryRoot: string, artifactRoot: string): Promise<{
+export async function acceptArtifactRoot(repositoryRoot: string, artifactRoot: string): Promise<{
   status: "FOUR_ARM_BASE_GENERATION_ACCEPTED";
   validResponseCount: 96;
   automaticToolResponseCount: number;

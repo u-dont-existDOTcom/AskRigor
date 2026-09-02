@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 18:20 UTC
+**Checkpoint:** 2026-09-02 18:51 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `GENERATION_ACCEPTED / EVALUATOR_DIRECTIVE_SOURCE_BOUND / LIVE_ADMISSION_ACCEPTED / BLINDED_EVALUATION_PREFLIGHT_PENDING`
+**Status:** `GENERATION_ACCEPTED / EVALUATOR_DIRECTIVE_SOURCE_BOUND / LIVE_ADMISSION_ACCEPTED / BLINDED_EVALUATION_PREFLIGHT_ACCEPTED`
 
 ## Source-bound authority
 
@@ -54,15 +54,38 @@ arm/family aggregation, continuation-gate application, prompt/protocol tuning,
 scientific interpretation, an official MAST claim, or a general HRP-effect
 claim.
 
+## Private evaluator preflight
+
+The private preflight accepted all 96 frozen responses and sealed 192 primary
+evaluator slots:
+
+- source identity SHA-256:
+  `1723c73da0a4ea69fe48defc558baeb9dc64a10dad2a3075d6b553c3e28bbcc3`;
+- sealed opaque-map SHA-256:
+  `1d2e935f5c03fec9aa4e3707bd2eab987d9060a4a742d481a521d218a6ee5a57`;
+- primary schedule SHA-256:
+  `0647b6bba44780d45cd50c7ed818bb01428612807d16410f000295e83802d5ae`;
+- preflight receipt SHA-256:
+  `3b5746017c72dbdf49a97b0b560b3277ee72cf00f190ee4c9da83bb07f153a21`.
+
+All evaluator packet bytes are private, mode `0600`, exact-hash verified, and
+free of arm labels, generation sequence identifiers, and ChatGPT locators. The
+capture ledger enforces the exact schedule prefix, fresh conversation identity,
+at most two byte-identical attempts, permitted mechanical retry reasons only,
+and the unresolved-slot stop claim after a second invalid attempt.
+
+The complete deterministic repository gate passed on Node 24.18.0 after the
+harness integration: 141 test files passed with 1 skipped; 1,687 tests passed
+with 6 skipped; typecheck and build passed.
+
 ## Next executable action
 
-Verify the private generation ledger and pinned MAST source identities, then
-implement the deterministic private evaluator preflight and acceptance surfaces
-before the first evaluator dispatch.
+Dispatch primary slot 1 in a fresh GPT-5.6 Sol Extra High conversation and
+record only mechanical/provenance facts, then continue the sealed schedule.
 
 Operational alignment: the generation parent is accepted, the evaluator
-directive is source-bound, and live runtime admission is accepted; evaluator
-preflight artifacts and judgments do not yet exist.
+directive is source-bound, live runtime admission is accepted, and the blinded
+preflight is sealed; primary judgment capture is ready but remains at 0 of 192.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.

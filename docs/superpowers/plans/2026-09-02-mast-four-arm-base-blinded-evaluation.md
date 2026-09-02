@@ -22,20 +22,22 @@ condition map remains sealed.
    the exact evaluator directive source receipt.
 3. [x] Obtain authenticated Mission Control `mayExecute:true` for the exact
    evaluator directive.
-4. [ ] Verify the generation ledger and pinned MAST commit/tree and source-file
+4. [x] Verify the generation ledger and pinned MAST commit/tree and source-file
    identities.
-5. [ ] Implement and test the private evaluator packet builder, schema
-   validator, retry ledger, disagreement detector, J3 schedule, metric adapter,
-   and fail-closed acceptance command.
-6. [ ] Construct and seal the 96 opaque response identities, 192-item primary
+5. [x] Implement and test the private evaluator packet builder, strict output
+   validator, byte-identical retry ledger, metric adapter, and fail-closed
+   primary-capture recorder.
+6. [x] Construct and seal the 96 opaque response identities, 192-item primary
    order, source identity ledger, and exact evaluator packets outside the
    repository.
 7. [ ] Execute and freeze 192 primary GPT-5.6 Sol Extra High judgments in fresh
    condition-blind chats, retaining every mechanical failure and automatic tool
    process measure.
-8. [ ] After all 192 primaries are frozen, detect only the predeclared
-   disagreements and run every required fresh independent J3 adjudication.
-9. [ ] Construct final blinded per-response records, compute only the directed
+8. [ ] After all 192 primaries are frozen, implement and run the predeclared
+   disagreement detector, sealed J3 schedule, J3 capture ledger, and every
+   required fresh independent J3 adjudication before inspecting any comparison.
+9. [ ] Construct the fail-closed final acceptance command and final blinded
+   per-response records, compute only the directed
    per-response `NONOFFICIAL_PROJECTED_MAST_METRICS`, and freeze the complete
    blinded evaluation ledger.
 10. [ ] Run the complete applicable deterministic gate, review the final diff,

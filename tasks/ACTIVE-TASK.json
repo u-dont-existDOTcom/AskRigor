@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_zero_spend_mast_blinded_evaluation_live_admission_accepted",
+  "status": "active_zero_spend_mast_blinded_evaluation_preflight_accepted",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -76,7 +76,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-    "status": "live_admission_accepted_blinded_evaluation_preflight_pending",
+    "status": "blinded_evaluation_preflight_accepted_primary_dispatch_ready",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -92,14 +92,16 @@
       "96-response generation ledger accepted at checkpoint a4ee25f8332d24e5a1b2ef37788def1daf854b40",
       "factual generation receipt returned automatically to the configured Project Manager Chat",
       "Project Manager accepted the generation receipt and supplied evaluator directive askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v1 with exact source identity and hashes",
-      "authenticated Mission Control request admission:askrigor:mast:evaluator-v1:20260902 returned mayExecute=true and ALLOW_BOUNDED_EXECUTION"
+      "authenticated Mission Control request admission:askrigor:mast:evaluator-v1:20260902 returned mayExecute=true and ALLOW_BOUNDED_EXECUTION",
+      "private source identity, 96-packet opaque map, and 192-slot primary schedule sealed with preflight receipt SHA-256 3b5746017c72dbdf49a97b0b560b3277ee72cf00f190ee4c9da83bb07f153a21",
+      "strict primary output validator and fail-closed capture/retry ledger tested",
+      "complete deterministic evaluator-harness gate passed on Node 24.18.0: 141 files and 1687 tests passed, 1 file and 6 tests skipped, typecheck and build passed"
     ],
     "pending": [
-      "verify the frozen generation ledger and pinned MAST source identities",
-      "implement and test the private evaluator preflight, validator, retry ledger, disagreement detector, metric adapter, and acceptance command",
-      "seal 96 opaque response identities and the deterministic 192-judgment primary order",
       "execute and freeze 192 primary condition-blind evaluator judgments",
-      "detect predeclared disagreements only after all primaries are frozen and execute every required fresh J3 adjudication",
+      "after all primaries are frozen, implement and run the predeclared disagreement detector and sealed J3 capture ledger before inspecting any comparison",
+      "execute every required fresh J3 adjudication",
+      "implement and run the final fail-closed acceptance command",
       "compute and freeze only blinded per-response NONOFFICIAL_PROJECTED_MAST_METRICS",
       "return the factual blinded-evaluation receipt automatically to the Project Manager Chat"
     ],
@@ -179,13 +181,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Verify the frozen generation ledger and pinned MAST source identities, then implement the deterministic private evaluator preflight and acceptance surfaces before the first evaluator dispatch.",
+  "nextAction": "Dispatch and mechanically capture primary evaluator slot 1 in a fresh GPT-5.6 Sol Extra High ChatGPT conversation, then continue the sealed schedule.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
     "completionClaim": "BLINDED_EVALUATION_AUTHORIZED_UNBLINDING_NOT_AUTHORIZED",
     "workerToContract": "SOURCE_BOUND_EXECUTION_ADMITTED",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_DIRECTIVE",
-    "operationalAlignment": "the generation receipt was accepted by the Project Manager, the exact evaluator directive is source-bound, and authenticated Mission Control returned mayExecute=true; evaluator preflight and judgments remain pending",
+    "operationalAlignment": "the generation receipt was accepted by the Project Manager, the exact evaluator directive is source-bound, authenticated Mission Control returned mayExecute=true, and the private blinded-evaluation preflight is accepted; primary judgment capture is ready at 0 of 192",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
