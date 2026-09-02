@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-restart",
-  "compiledAt": "2026-09-02T19:37:00Z",
-  "universalRef": "u-dont-existDOTcom/universal-dev-architecture@9f78b71a13056b31a6daa028767adc5c37fc37b6",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
+  "compiledAt": "2026-09-02T23:04:05Z",
+  "universalRef": "u-dont-existDOTcom/universal-dev-architecture@e9d5b64292d6c6a2dbb64ba9333d617efbf489fa",
   "lessons": [
     {
       "lessonId": "chat-led-reasoning-codex-execution-separation",
@@ -52,17 +52,17 @@
     },
     {
       "lessonId": "structured-output-syntax-failure-boundary",
-      "source": "docs/audits/2026-09-02-mast-blinded-evaluator-v1-transport-retired.json",
-      "trigger": "Evaluator v1 exhausted two source-fixed attempts with the same invalid-JSON failure class before any valid judgment existed.",
-      "requiredBehavior": "Preserve raw outputs and parser receipts, halt at the controlling ceiling, route evidence upstream automatically, and resume only under a new source-bound directive and runtime admission.",
-      "failureCondition": "Codex repairs malformed output, performs another v1 attempt, scores or compares the invalid artifact, or treats a serialization failure as a scientific result.",
-      "repairAction": "Retire the contaminated execution path, preserve its bytes, and request a source-bound recovery transport without unblinding.",
+      "source": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
+      "trigger": "Ordinal 30 exhausted two invalid-JSON attempts under evaluator v2 and the Project Manager issued a source-bound carry-forward recovery.",
+      "requiredBehavior": "Carry forward all 29 valid judgments, preserve both failed attempts, clear only the superseded two-attempt halt through the exact activation gate, use the byte-identical packet for attempts 3 and 4, and halt after a fourth mechanical failure.",
+      "failureCondition": "Codex repairs or interprets a failed output, changes packet or evaluator semantics, rejudges a valid slot, advances before ordinal 30 resolves, exceeds four attempts, or executes without matching runtime admission.",
+      "repairAction": "Stop the semantic action, retain every artifact, and return the exact new controlling boundary to the directive-bound reasoning chat.",
       "enforcement": "mechanical_and_semantic"
     }
   ],
   "admission": {
-    "status": "PASS_BLINDED_EVALUATOR_V2_RESTART",
-    "evidence": "docs/audits/2026-09-02-mast-blinded-evaluator-v2-live-runtime-admission-accepted.json",
+    "status": "PASS_BLINDED_EVALUATOR_V2_RETRY_EXTENSION",
+    "evidence": "docs/audits/2026-09-02-mast-blinded-evaluator-v2-retry-extension-runtime-admission-accepted.json",
     "mayExecute": true,
     "unblindingMayExecute": false
   }

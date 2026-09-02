@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "blocked_zero_spend_mast_blinded_evaluation_v2_unresolved_slot",
+  "status": "active_zero_spend_mast_blinded_evaluation_v2_retry_extension_admitted",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -47,13 +47,15 @@
   "authorityPolicy": "governance/chat-work-authority-policy.json",
   "activeDirective": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
   "activeDirectiveAmendment": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
-  "activeEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
+  "activeEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
+  "parentEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
   "retiredEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
   "activeRecoveryDirective": "docs/directives/2026-09-02-mast-runtime-admission-recovery.json",
   "activeLiveLineageDirective": "docs/directives/2026-09-02-mast-live-lineage-admission-narrow-port.json",
   "activeCredentialBootstrapDirective": "docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json",
   "liveRuntimeAdmissionReceipt": "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
-  "evaluatorRuntimeAdmissionReceipt": "docs/audits/2026-09-02-mast-blinded-evaluator-v2-live-runtime-admission-accepted.json",
+  "evaluatorRuntimeAdmissionReceipt": "docs/audits/2026-09-02-mast-blinded-evaluator-v2-retry-extension-runtime-admission-accepted.json",
+  "parentEvaluatorRuntimeAdmissionReceipt": "docs/audits/2026-09-02-mast-blinded-evaluator-v2-live-runtime-admission-accepted.json",
   "retiredEvaluatorRuntimeAdmissionReceipt": "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
   "retiredEvaluatorTransportReceipt": "docs/audits/2026-09-02-mast-blinded-evaluator-v1-transport-retired.json",
   "runtimeAdmissionBlocker": "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
@@ -78,9 +80,9 @@
     "receipt": "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json"
   },
   "currentSlice": {
-    "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-    "status": "blinded_evaluation_v2_blocked_unresolved_slot_ordinal_30",
-    "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
+    "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
+    "status": "blinded_evaluation_v2_retry_extension_admitted_activation_pending",
+    "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
       "responseChats": 0,
@@ -113,7 +115,9 @@
       "ordinal 30 attempt 1 was retained as an INVALID_JSON mechanical failure after the exact repository validator rejected the captured assistant output; no later slot was dispatched and the one permitted byte-identical retry remains pending",
       "ordinal 30 attempt 2 used the byte-identical sealed packet in a fresh Extra High Chat and was also retained as INVALID_JSON; the source-fixed two-attempt ceiling is exhausted and no later slot was dispatched",
       "capture-progress SHA-256 at the unresolved-slot boundary is 3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92",
-      "the exact non-secret unresolved-slot receipt is docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json"
+      "the exact non-secret unresolved-slot receipt is docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json",
+      "the Project Manager source-bound retry-extension directive carries forward all 29 valid judgments, preserves both ordinal 30 failures, and authorizes attempts 3 and 4 with the byte-identical packet and unchanged evaluator semantics",
+      "authenticated Mission Control request admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902 returned mayExecute=true and ALLOW_BOUNDED_EXECUTION"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -138,7 +142,7 @@
       "production or canonical protocol mutation"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
-    "runtimeAdmission": "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
+    "runtimeAdmission": "docs/audits/2026-09-02-mast-blinded-evaluator-v2-retry-extension-runtime-admission-accepted.json",
     "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3",
     "conditionMapSealed": true
   },
@@ -199,13 +203,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Route the exact unresolved-slot factual receipt automatically to the directive-bound ChatGPT Project Manager and resume only from a new versioned source-bound directive plus matching runtime admission.",
+  "nextAction": "Activate the admitted retry extension against the exact halted private ledger, then dispatch ordinal 30 attempt 3 with the byte-identical packet after the provider cooldown.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT",
-    "workerToContract": "SOURCE_BOUND_V2_EXECUTION_ADMITTED",
-    "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RECOVERY_DIRECTIVE",
-    "operationalAlignment": "v1 halted correctly at its attempt ceiling; v2 is source-bound and admitted; every corrected packet declares canonical source order and all 96 chunk reconstructions plus the exact 192-slot reused order passed fresh preflight; corrected primary capture is valid through ordinal 29, both byte-identical ordinal 30 attempts are retained as INVALID_JSON, no later slot was dispatched, and the directive-mandated unresolved-slot claim is active pending automatic Project Manager routing",
+    "completionClaim": "EVALUATOR_V2_RETRY_EXTENSION_ADMITTED_ACTIVATION_PENDING",
+    "workerToContract": "SOURCE_BOUND_V2_RETRY_EXTENSION_EXECUTION_ADMITTED",
+    "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
+    "operationalAlignment": "v2 halted correctly after ordinal 30 exhausted its original two-attempt ceiling; the Project Manager carry-forward directive preserves 29 valid judgments and both failures, changes only the prospective mechanical ceiling to four, and Mission Control returned mayExecute=true; deterministic activation is pending before attempt 3",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

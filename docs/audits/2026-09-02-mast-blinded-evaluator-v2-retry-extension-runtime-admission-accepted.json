@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "mission_control_blinded_evaluator_v2_retry_extension_runtime_admission_accepted",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
+  "completedAt": "2026-09-02T23:04:05Z",
+  "claim": "MISSION_CONTROL_LIVE_ADMISSION_ACCEPTED_BLINDED_EVALUATOR_V2_RETRY_EXTENSION_AUTHORIZED",
+  "directive": {
+    "id": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2-retry-extension-v1",
+    "sourceMessageId": "db3747c7-63fb-4fc2-b765-40ea9577ab4c",
+    "sourceBodySha256": "2bc685a68567ba24b0e49f570da4eee5ef1af4ec62fb17caa607e42f9de7fb4f",
+    "directiveJsonSha256": "456cbb7534675a31aea7f7e516ebb9e9e308b9a057c174653d9d4d524f5173b5",
+    "requiredStartingCheckpoint": "e14260ee5982c22919f72ead797466e37ace8c97",
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3",
+    "captureProgressSha256": "3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92",
+    "carryForwardValidPrimaryJudgments": 29,
+    "resumeOrdinal": 30,
+    "resumeAttempt": 3
+  },
+  "liveAdmission": {
+    "requestId": "admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902",
+    "worker": "askrigor-mast",
+    "action": "EXECUTE_BOUNDED_TASK",
+    "requestBodySha256": "19ab1a20de7f5e5f14696089536024137478037efead58840494175e05eb2d6d",
+    "responseBodySha256": "0c1cb846a349533ec83a7090d99d752b083d5e2ed5f144843fe92b4e2246bb7b",
+    "httpStatus": 200,
+    "httpClientExitCode": 0,
+    "admitted": true,
+    "mayExecute": true,
+    "primaryDecision": "ALLOW_BOUNDED_EXECUTION",
+    "providerDeliveryState": "NOT_REQUIRED",
+    "ownerRelayRequired": false
+  },
+  "executionBoundary": {
+    "maximumAttemptsPerEvaluatorReplicate": 4,
+    "attemptsAlreadyConsumedForOrdinal30": 2,
+    "nextAttempt": 3,
+    "maximumExternalSpendUsd": 0,
+    "providerApiCredentialsPermitted": false,
+    "conditionMapSealed": true,
+    "unblindingAuthorized": false,
+    "armOrFamilyLevelAggregationAuthorized": false,
+    "continuationGateEvaluationAuthorized": false,
+    "scientificInterpretationAuthorized": false
+  }
+}

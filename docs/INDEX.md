@@ -114,6 +114,10 @@ complete XML protocol.
   exact source-fixed halt after primary ordinal 30 exhausted two byte-identical
   `INVALID_JSON` attempts, with 29 valid judgments retained, no later dispatch,
   no unblinding or aggregation, and zero external spend
+- `directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json`
+  plus its source and runtime-admission receipts: exact Project Manager carry-
+  forward directive, source identity, four-attempt mechanical completion
+  ceiling, and Mission Control `mayExecute: true` for ordinal 30 attempt 3
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/

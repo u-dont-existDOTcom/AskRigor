@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   acceptV2CaptureProgress,
+  applyV2RetryExtensionToProgress,
   chunkFrozenResponse,
   parseAndValidateEvaluatorV2Output,
   renderEvaluatorV2TransportExtension,
@@ -142,5 +143,129 @@ describe("zero-spend blinded MAST evaluator transport v2", () => {
       haltedClaim: null,
     };
     expect(acceptV2CaptureProgress(schedule, progress).records).toHaveLength(0);
+  });
+
+  it("carries 29 valid judgments forward and reopens only ordinal 30 under the four-attempt extension", () => {
+    const records = Array.from({ length: 192 }, (_, index) => ({
+      ordinal: index + 1,
+      opaqueResponseId: `EVAL-${(index + 1).toString(16).padStart(24, "0")}`,
+      caseId: "Derm001",
+      evaluatorReplicate: ((index % 2) + 1) as 1 | 2,
+      orderDigest: (index + 1).toString(16).padStart(64, "0"),
+      packetFile: `evaluation-v2/packets/${index + 1}.txt`,
+      exactPacketSha256: (index + 1000).toString(16).padStart(64, "0"),
+    }));
+    const schedule = {
+      schemaVersion: 1,
+      directiveId: "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2",
+      conditionMapSealed: true,
+      records,
+    };
+    const common = (ordinal: number, attempt: 1 | 2 | 3 | 4, suffix: string) => ({
+      ordinal,
+      opaqueResponseId: records[ordinal - 1]!.opaqueResponseId,
+      caseId: "Derm001",
+      evaluatorReplicate: records[ordinal - 1]!.evaluatorReplicate,
+      attempt,
+      providerSurface: "CHATGPT_CONSUMER_CHAT",
+      modelNameObserved: "GPT-5.6 Sol",
+      thinkingEffortObserved: "Extra High, 4 of 5",
+      modelSlugObserved: "gpt-5-6-thinking",
+      capturedAt: "2026-09-02T22:50:13.871Z",
+      chatLocator: `https://chatgpt.com/c/${ordinal}-${attempt}-${suffix}`,
+      conversationId: `${ordinal}-${attempt}-${suffix}`,
+      userMessageId: `user-${ordinal}-${attempt}-${suffix}`,
+      assistantMessageId: `assistant-${ordinal}-${attempt}-${suffix}`,
+      toolsInvoked: false,
+      browsingInvoked: false,
+      manualToolSelection: false,
+      automaticToolInvocationObserved: false,
+      visibleToolType: null,
+      webCitationUiArtifactCount: 0,
+      freshConversation: true,
+      exactInputCaptured: true,
+      inputFile: records[ordinal - 1]!.packetFile,
+      exactInputSha256: records[ordinal - 1]!.exactPacketSha256,
+      transport: "PASTED_TEXT_ATTACHMENT",
+    });
+    const valid = (ordinal: number, attempt: 1 | 2 | 3 | 4) => ({
+      ...common(ordinal, attempt, "valid"),
+      status: "VALID",
+      sentAtSource: null,
+      sentAtSourceStatus: "UNAVAILABLE",
+      provenanceStatus: "VERIFIED",
+      outputFile: `evaluation-v2/judgments/${ordinal}-${attempt}.txt`,
+      exactOutputSha256: ordinal.toString(16).padStart(64, "0"),
+      exactOutputUtf8Bytes: 1,
+      exactOutputStoredPrivately: true,
+    });
+    const invalid = (ordinal: number, attempt: 1 | 2 | 3 | 4, reason: "INVALID_JSON" | "PROVIDER_OR_TRANSPORT_FAILURE") => ({
+      ...common(ordinal, attempt, "invalid"),
+      status: "INVALID_MECHANICAL",
+      reason,
+      outputFile: `evaluation-v2/judgments/${ordinal}-${attempt}-invalid.txt`,
+      exactOutputSha256: (ordinal + attempt + 500).toString(16).padStart(64, "0"),
+      exactOutputUtf8Bytes: 1,
+      exactOutputStoredPrivately: true,
+      provenanceStatus: "VERIFIED",
+      retainedPrivately: true,
+    });
+    const progress = {
+      schemaVersion: 1,
+      receiptType: "zero_spend_chatgpt_mast_four_arm_base_v2_primary_capture_progress",
+      directiveId: "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2",
+      createdAt: "2026-09-02T19:25:00Z",
+      updatedAt: "2026-09-02T22:50:13.871Z",
+      primaryJudgmentTarget: 192,
+      validJudgmentCount: 29,
+      mechanicalFailureCount: 3,
+      records: Array.from({ length: 29 }, (_, index) => valid(index + 1, index + 1 === 19 ? 2 : 1)),
+      mechanicalFailures: [
+        invalid(19, 1, "PROVIDER_OR_TRANSPORT_FAILURE"),
+        invalid(30, 1, "INVALID_JSON"),
+        invalid(30, 2, "INVALID_JSON"),
+      ],
+      haltedClaim: "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT",
+    };
+
+    const resumed = applyV2RetryExtensionToProgress(
+      schedule,
+      progress,
+      "2026-09-02T23:04:05Z",
+    );
+
+    expect(resumed).toMatchObject({
+      validJudgmentCount: 29,
+      mechanicalFailureCount: 3,
+      haltedClaim: null,
+      updatedAt: "2026-09-02T23:04:05Z",
+    });
+    expect(resumed.records).toEqual(progress.records);
+    expect(resumed.mechanicalFailures).toEqual(progress.mechanicalFailures);
+    expect(() => acceptV2CaptureProgress(schedule, progress))
+      .toThrow("EVALUATOR_V2_HALT_STATE_INVALID");
+
+    const afterAttempt3Failure = {
+      ...resumed,
+      mechanicalFailureCount: 4,
+      mechanicalFailures: [...resumed.mechanicalFailures, invalid(30, 3, "INVALID_JSON")],
+    };
+    expect(acceptV2CaptureProgress(schedule, afterAttempt3Failure).haltedClaim).toBeNull();
+
+    const afterAttempt4Failure = {
+      ...afterAttempt3Failure,
+      mechanicalFailureCount: 5,
+      mechanicalFailures: [...afterAttempt3Failure.mechanicalFailures, invalid(30, 4, "INVALID_JSON")],
+      haltedClaim: "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_AFTER_FOUR_MECHANICAL_ATTEMPTS",
+    };
+    expect(acceptV2CaptureProgress(schedule, afterAttempt4Failure).haltedClaim)
+      .toBe("FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_AFTER_FOUR_MECHANICAL_ATTEMPTS");
+
+    const afterAttempt3Success = {
+      ...resumed,
+      validJudgmentCount: 30,
+      records: [...resumed.records, valid(30, 3)],
+    };
+    expect(acceptV2CaptureProgress(schedule, afterAttempt3Success).records.at(-1)?.attempt).toBe(3);
   });
 });

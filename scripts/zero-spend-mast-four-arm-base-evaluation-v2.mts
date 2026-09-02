@@ -29,6 +29,8 @@ import {
 
 export const evaluatorV2DirectiveId =
   "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2";
+export const evaluatorV2RetryExtensionDirectiveId =
+  "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2-retry-extension-v1";
 export const evaluatorV2Directory = "evaluation-v2";
 const evaluatorV1Directory = "evaluation-v1";
 const evaluatorV1ProgressSha256 =
@@ -45,6 +47,20 @@ const evaluatorV1FailureReceiptSha256 = [
 ];
 const v2DirectivePath =
   "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json";
+const v2RetryExtensionDirectivePath =
+  "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json";
+const v2RetryExtensionSourceReceiptPath =
+  "docs/audits/2026-09-02-mast-blinded-evaluator-v2-retry-extension-source.json";
+const v2RetryExtensionAdmissionReceiptPath =
+  "docs/audits/2026-09-02-mast-blinded-evaluator-v2-retry-extension-runtime-admission-accepted.json";
+const v2RetryExtensionDirectiveSha256 =
+  "456cbb7534675a31aea7f7e516ebb9e9e308b9a057c174653d9d4d524f5173b5";
+const v2RetryExtensionStartingProgressSha256 =
+  "3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92";
+const legacyTwoAttemptHaltClaim =
+  "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT";
+const extendedFourAttemptHaltClaim =
+  "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_AFTER_FOUR_MECHANICAL_ATTEMPTS";
 const opaquePattern = /^EVAL-[a-f0-9]{24}$/u;
 const digestPattern = /^[a-f0-9]{64}$/u;
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
@@ -103,7 +119,7 @@ const captureIdentityShape = {
   opaqueResponseId: z.string().regex(opaquePattern),
   caseId: z.enum(evaluatorFamilies),
   evaluatorReplicate: z.union([z.literal(1), z.literal(2)]),
-  attempt: z.union([z.literal(1), z.literal(2)]),
+  attempt: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
 };
 const transportShape = {
   providerSurface: z.literal("CHATGPT_CONSUMER_CHAT"),
@@ -231,12 +247,13 @@ export const v2CaptureProgressSchema = z.object({
   updatedAt: timestampSchema,
   primaryJudgmentTarget: z.literal(192),
   validJudgmentCount: z.number().int().min(0).max(192),
-  mechanicalFailureCount: z.number().int().min(0).max(384),
+  mechanicalFailureCount: z.number().int().min(0).max(768),
   records: z.array(validV2CaptureSchema).max(192),
-  mechanicalFailures: z.array(failedV2CaptureSchema).max(384),
-  haltedClaim: z.literal(
-    "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT",
-  ).nullable(),
+  mechanicalFailures: z.array(failedV2CaptureSchema).max(768),
+  haltedClaim: z.union([
+    z.literal(legacyTwoAttemptHaltClaim),
+    z.literal(extendedFourAttemptHaltClaim),
+  ]).nullable(),
 }).strict();
 
 export type V2CaptureProgress = z.infer<typeof v2CaptureProgressSchema>;
@@ -516,6 +533,7 @@ function sameSlot(
 export function acceptV2CaptureProgress(
   scheduleValue: unknown,
   progressValue: unknown,
+  attemptPolicy: "LEGACY_TWO_ATTEMPT" | "EXTENDED_FOUR_ATTEMPT" = "EXTENDED_FOUR_ATTEMPT",
 ): V2CaptureProgress {
   const schedule = v2ScheduleRecords(scheduleValue);
   const progress = v2CaptureProgressSchema.parse(progressValue);
@@ -551,23 +569,50 @@ export function acceptV2CaptureProgress(
       || record.exactInputSha256 !== expected.exactPacketSha256) {
       throw new Error("EVALUATOR_V2_NOT_SCHEDULE_PREFIX");
     }
-    if ((record.attempt === 1 && failures.length !== 0)
-      || (record.attempt === 2 && (failures.length !== 1 || failures[0]!.attempt !== 1))) {
+    if (failures.length !== record.attempt - 1
+      || failures.some((failure, failureIndex) => failure.attempt !== failureIndex + 1)) {
       throw new Error("EVALUATOR_V2_ATTEMPT_HISTORY_INVALID");
     }
   }
   const nextOrdinal = progress.records.length + 1;
+  const maximumAttempts = attemptPolicy === "LEGACY_TWO_ATTEMPT" ? 2 : 4;
   for (const [ordinal, failures] of failuresByOrdinal) {
-    if (ordinal > nextOrdinal || failures.length > 2
+    if (ordinal > nextOrdinal || failures.length > maximumAttempts
       || failures.some((failure, index) => failure.attempt !== index + 1)) {
       throw new Error("EVALUATOR_V2_FAILURE_ORDER_INVALID");
     }
   }
-  const shouldHalt = (failuresByOrdinal.get(nextOrdinal) ?? []).length === 2;
-  if ((progress.haltedClaim !== null) !== shouldHalt) {
+  const shouldHalt = (failuresByOrdinal.get(nextOrdinal) ?? []).length === maximumAttempts;
+  const expectedHaltClaim = attemptPolicy === "LEGACY_TWO_ATTEMPT"
+    ? legacyTwoAttemptHaltClaim
+    : extendedFourAttemptHaltClaim;
+  if (progress.haltedClaim !== (shouldHalt ? expectedHaltClaim : null)) {
     throw new Error("EVALUATOR_V2_HALT_STATE_INVALID");
   }
   return progress;
+}
+
+export function applyV2RetryExtensionToProgress(
+  scheduleValue: unknown,
+  progressValue: unknown,
+  activatedAt: string,
+): V2CaptureProgress {
+  const progress = acceptV2CaptureProgress(scheduleValue, progressValue, "LEGACY_TWO_ATTEMPT");
+  const unresolvedFailures = progress.mechanicalFailures.filter(({ ordinal }) => ordinal === 30);
+  if (progress.validJudgmentCount !== 29
+    || progress.mechanicalFailureCount !== 3
+    || progress.records.at(-1)?.ordinal !== 29
+    || unresolvedFailures.length !== 2
+    || unresolvedFailures.some((failure, index) => failure.attempt !== index + 1
+      || failure.reason !== "INVALID_JSON")
+    || progress.haltedClaim !== legacyTwoAttemptHaltClaim) {
+    throw new Error("EVALUATOR_V2_RETRY_EXTENSION_STARTING_STATE_INVALID");
+  }
+  return acceptV2CaptureProgress(scheduleValue, {
+    ...progress,
+    updatedAt: timestampSchema.parse(activatedAt),
+    haltedClaim: null,
+  }, "EXTENDED_FOUR_ATTEMPT");
 }
 
 export function renderEvaluatorV2TransportExtension(
@@ -971,6 +1016,109 @@ export async function validateEvaluatorV2OutputFile(input: {
   };
 }
 
+export async function activateEvaluatorV2RetryExtension(input: {
+  repositoryRoot: string;
+  artifactRoot: string;
+}): Promise<{
+  status: "BLINDED_EVALUATOR_V2_RETRY_EXTENSION_ACTIVATED";
+  validJudgmentCount: 29;
+  mechanicalFailureCount: 3;
+  nextOrdinal: 30;
+  nextAttempt: 3;
+  priorProgressSha256: string;
+  resumedProgressSha256: string;
+  activationReceiptSha256: string;
+}> {
+  const repositoryRoot = await realpath(input.repositoryRoot);
+  const artifactRoot = await realpath(input.artifactRoot);
+  const evaluationRoot = resolve(artifactRoot, evaluatorV2Directory);
+  await assertPrivateDirectory(artifactRoot);
+  await assertPrivateDirectory(evaluationRoot);
+  const [directiveBytes, sourceReceiptValue, admissionReceiptValue, scheduleValue, progressBytes] =
+    await Promise.all([
+      readFile(resolve(repositoryRoot, v2RetryExtensionDirectivePath)),
+      readJson(resolve(repositoryRoot, v2RetryExtensionSourceReceiptPath)),
+      readJson(resolve(repositoryRoot, v2RetryExtensionAdmissionReceiptPath)),
+      readJson(resolve(evaluationRoot, "primary-evaluation-schedule.json")),
+      readFile(resolve(evaluationRoot, "primary-capture-progress.json")),
+    ]);
+  if (sha256(directiveBytes) !== v2RetryExtensionDirectiveSha256
+    || sha256(progressBytes) !== v2RetryExtensionStartingProgressSha256) {
+    throw new Error("EVALUATOR_V2_RETRY_EXTENSION_SOURCE_IDENTITY_INVALID");
+  }
+  const directive = object(JSON.parse(directiveBytes.toString("utf8")), "v2 retry extension directive");
+  const sourceReceipt = object(sourceReceiptValue, "v2 retry extension source receipt");
+  const source = object(sourceReceipt.source, "v2 retry extension source");
+  const admissionReceipt = object(admissionReceiptValue, "v2 retry extension admission receipt");
+  const liveAdmission = object(admissionReceipt.liveAdmission, "v2 retry extension live admission");
+  const directiveReceipt = object(admissionReceipt.directive, "v2 retry extension admission directive");
+  if (directive.directiveId !== evaluatorV2RetryExtensionDirectiveId
+    || object(directive.retryPolicyAmendment, "v2 retry policy amendment")
+      .replacementMaximumAttemptsPerEvaluatorReplicate !== 4
+    || object(directive.ordinal30Recovery, "ordinal 30 recovery").nextAction !== "DISPATCH_ATTEMPT_3"
+    || source.exactResponseBodySha256 !== directiveReceipt.sourceBodySha256
+    || source.exactDirectiveJsonSha256 !== v2RetryExtensionDirectiveSha256
+    || directiveReceipt.directiveJsonSha256 !== v2RetryExtensionDirectiveSha256
+    || liveAdmission.mayExecute !== true
+    || liveAdmission.admitted !== true
+    || liveAdmission.primaryDecision !== "ALLOW_BOUNDED_EXECUTION") {
+    throw new Error("EVALUATOR_V2_RETRY_EXTENSION_AUTHORITY_INVALID");
+  }
+  const activatedAt = new Date().toISOString();
+  const resumedProgress = applyV2RetryExtensionToProgress(
+    scheduleValue,
+    JSON.parse(progressBytes.toString("utf8")),
+    activatedAt,
+  );
+  const resumedProgressBytes = jsonBytes(resumedProgress);
+  const resumedProgressSha256 = sha256(resumedProgressBytes);
+  const receipt = {
+    schemaVersion: 1,
+    receiptType: "zero_spend_chatgpt_mast_blinded_evaluator_v2_retry_extension_activation",
+    taskId: "askrigor-external-evaluation-contribution-v1",
+    directiveId: evaluatorV2RetryExtensionDirectiveId,
+    activatedAt,
+    directiveSha256: v2RetryExtensionDirectiveSha256,
+    sourceMessageId: source.assistantMessageId,
+    sourceBodySha256: source.exactResponseBodySha256,
+    runtimeAdmissionRequestId: liveAdmission.requestId,
+    runtimeAdmissionResponseSha256: liveAdmission.responseBodySha256,
+    runtimeAdmissionMayExecute: true,
+    priorProgressSha256: v2RetryExtensionStartingProgressSha256,
+    resumedProgressSha256,
+    carriedForwardValidJudgmentCount: 29,
+    retainedMechanicalFailureCount: 3,
+    nextOrdinal: 30,
+    nextAttempt: 3,
+    maximumAttemptsPerEvaluatorReplicate: 4,
+    packetBytesChanged: false,
+    scheduleChanged: false,
+    conditionMapSealed: true,
+    externalSpendUsd: 0,
+  };
+  const receiptBytes = jsonBytes(receipt);
+  const activationReceiptPath = resolve(evaluationRoot, "retry-extension-v1-activation-receipt.json");
+  const progressPath = resolve(evaluationRoot, "primary-capture-progress.json");
+  const receiptTemporary = resolve(evaluationRoot, `.retry-extension-v1-activation.${process.pid}.${Date.now()}.tmp`);
+  const progressTemporary = resolve(evaluationRoot, `.primary-capture-progress.${process.pid}.${Date.now()}.tmp`);
+  await writePrivate(receiptTemporary, receiptBytes);
+  await writePrivate(progressTemporary, resumedProgressBytes);
+  await rename(receiptTemporary, activationReceiptPath);
+  await chmod(activationReceiptPath, 0o600);
+  await rename(progressTemporary, progressPath);
+  await chmod(progressPath, 0o600);
+  return {
+    status: "BLINDED_EVALUATOR_V2_RETRY_EXTENSION_ACTIVATED",
+    validJudgmentCount: 29,
+    mechanicalFailureCount: 3,
+    nextOrdinal: 30,
+    nextAttempt: 3,
+    priorProgressSha256: v2RetryExtensionStartingProgressSha256,
+    resumedProgressSha256,
+    activationReceiptSha256: sha256(receiptBytes),
+  };
+}
+
 export async function recordEvaluatorV2Attempt(input: {
   mastRoot: string;
   artifactRoot: string;
@@ -978,7 +1126,7 @@ export async function recordEvaluatorV2Attempt(input: {
 }): Promise<{
   status: "VALID_RECORDED" | "MECHANICAL_FAILURE_RECORDED" | "UNRESOLVED_SLOT_RECORDED";
   ordinal: number;
-  attempt: 1 | 2;
+  attempt: 1 | 2 | 3 | 4;
   validJudgmentCount: number;
   mechanicalFailureCount: number;
   haltedClaim: V2CaptureProgress["haltedClaim"];
@@ -1001,7 +1149,7 @@ export async function recordEvaluatorV2Attempt(input: {
   const expectedOrdinal = progress.records.length + 1;
   const expected = schedule[expectedOrdinal - 1]!;
   const failures = progress.mechanicalFailures.filter(({ ordinal }) => ordinal === expectedOrdinal);
-  const expectedAttempt = failures.length === 0 ? 1 : 2;
+  const expectedAttempt = failures.length + 1;
   if (receipt.ordinal !== expectedOrdinal || receipt.attempt !== expectedAttempt
     || !sameSlot(receipt, expected)
     || receipt.inputFile !== expected.packetFile
@@ -1035,9 +1183,8 @@ export async function recordEvaluatorV2Attempt(input: {
       );
     }
     progress.mechanicalFailures.push(receipt);
-    if (receipt.attempt === 2) {
-      progress.haltedClaim =
-        "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT";
+    if (receipt.attempt === 4) {
+      progress.haltedClaim = extendedFourAttemptHaltClaim;
       status = "UNRESOLVED_SLOT_RECORDED";
     } else {
       status = "MECHANICAL_FAILURE_RECORDED";

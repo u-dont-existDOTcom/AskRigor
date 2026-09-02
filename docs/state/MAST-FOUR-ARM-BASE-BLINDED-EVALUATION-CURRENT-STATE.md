@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-02 22:51 UTC
+**Checkpoint:** 2026-09-02 23:04 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V1_TRANSPORT_RETIRED / V2_SOURCE_BOUND / V2_LIVE_ADMISSION_ACCEPTED / V2_PREFLIGHT_ACCEPTED`
+**Status:** `V2_RETRY_EXTENSION_SOURCE_BOUND / LIVE_ADMISSION_ACCEPTED / ACTIVATION_PENDING`
 
 ## Source-bound authority
 
@@ -129,10 +129,9 @@ redundant green reruns.
 
 ## Next executable action
 
-Route the exact unresolved-slot factual receipt automatically to the
-directive-bound ChatGPT Project Manager. Resume only from a new versioned,
-source-bound directive and matching runtime admission; the execution worker
-must not choose a methodological workaround.
+Activate the admitted retry extension against the exact halted private ledger,
+then dispatch ordinal 30 attempt 3 with the byte-identical packet after the
+provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -145,6 +144,21 @@ Capture-progress SHA-256 is
 The non-secret receipt is
 `docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json`.
 
+The Project Manager returned the source-bound retry extension in response
+`db3747c7-63fb-4fc2-b765-40ea9577ab4c` (exact body SHA-256
+`2bc685a68567ba24b0e49f570da4eee5ef1af4ec62fb17caa607e42f9de7fb4f`).
+It carries all 29 valid judgments forward, preserves the two ordinal 30
+failures, leaves the packet and evaluator semantics unchanged, and raises only
+the prospective mechanical completion ceiling to four attempts. Authenticated
+Mission Control request
+`admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902` returned
+`mayExecute: true` and `ALLOW_BOUNDED_EXECUTION`.
+
+The next exact action is to run
+`scripts/activate-zero-spend-mast-evaluator-v2-retry-extension.mts` against the
+private artifact root. Only after it verifies the halted progress hash,
+directive source, and runtime admission may ordinal 30 attempt 3 be dispatched.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
@@ -152,4 +166,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT`.
+`EVALUATOR_V2_RETRY_EXTENSION_ADMITTED_ACTIVATION_PENDING`.
