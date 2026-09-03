@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 16:03 UTC
+**Checkpoint:** 2026-09-03 16:21 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 68_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 70_VALID`
 
 ## Source-bound authority
 
@@ -129,12 +129,12 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 69 in a fresh ChatGPT consumer conversation
-using the sealed, byte-verified ordinal 69 packet.
+Continue primary capture at ordinal 71 in a fresh ChatGPT consumer conversation
+using the sealed, byte-verified ordinal 71 packet.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 68 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 70 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -234,9 +234,13 @@ progress SHA-256 at that checkpoint was
 `e5ad55d47fe5816c1771e1ca90b081b907090ffc66ebeb961d945342d04c255f`.
 Ordinals 67 and 68 then passed exact validation on their first attempts in fresh
 GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
-The current progress SHA-256 is
+The progress SHA-256 at that checkpoint was
 `f5ec80837dc68515ed42cf016747bb2f4c7fdee274cd19aa71349e8ec7965038`.
-Ordinal 69 is the exact next action.
+Ordinals 69 and 70 then passed exact validation on their first attempts in fresh
+GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
+The current progress SHA-256 is
+`2432fa3d37af03033f968f0f7db4eae340ae37caf8eb939792ee8a6223387f04`.
+Ordinal 71 is the exact next action.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -245,4 +249,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_68_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_70_VALID`.
