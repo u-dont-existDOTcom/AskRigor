@@ -81,7 +81,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_76_valid",
+    "status": "blinded_evaluation_v2_primary_capture_blocked_77_valid_signed_in_session_unavailable",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -145,6 +145,8 @@
       "ordinals 71 and 72 passed exact validation on their first attempts in fresh GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts; ordinal 72 completed after a longer normal generation and the blinded primary ledger now contains 72 valid judgments at SHA-256 48de8ae6e60789a3fab2a815bd37f41f68be093702df6552a1499f4d7519f854",
       "ordinals 73 and 74 passed exact validation on their first attempts in fresh GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts; ordinal 74's Enter command timed out only after its user message persisted and generation started, so it was not resent, and the blinded primary ledger now contains 74 valid judgments at SHA-256 8ecde61daef392046c3df70056d0d9da11b6879b651e0991a19796a076c7a524",
       "ordinals 75 and 76 passed exact validation on their first attempts in fresh GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts; both Enter commands timed out only after submission started, ordinal 76's exact-text insertion timed out only after all staged bytes were present, none was resent, and the blinded primary ledger now contains 76 valid judgments at SHA-256 2809af24d3993848d0bebfcb3794d121754dbb16b45a8cad162a0551e44749d5",
+      "ordinal 77 passed exact validation on its first attempt in a fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts; the blinded primary ledger now contains 77 valid judgments at SHA-256 d3050db5ccaaf4731a26aecd6ee9215cf0115783167a37695e879210ea551d29",
+      "the browser process closed while ordinal 78 was being staged; no message was sent and no attempt was consumed; extension-bearing Default-profile recovery and crash-session restore succeeded, but the live ChatGPT UI is logged out and does not expose Extra High, while the only other configured Brave profile lacks the control extension; no login or account switch was attempted",
       "the context-checkpoint terminal-handoff failure packet was delivered automatically to Mission Control as request 2d07a528-a43a-41ef-bfb4-85a44e35d1c0; its persisted response b1e416d4-9c1a-4774-a1b5-4c0a3e4db2b5 was captured privately with SHA-256 b345977b94b3e91dafa931ece6d37b3868caf8b2b34a4c3c5e34a0fe4de49c26"
     ],
     "pending": [
@@ -231,13 +233,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Continue primary capture at ordinal 77 in a fresh ChatGPT consumer conversation using the sealed packet with exact SHA-256 fe64f7205de8328300998bfacee9977f5420bd4371e20e02c394e744b456693b, preserving the signed-in account, GPT-5.6 Sol / Extra High 4 of 5 mode, ten-minute send interval, exact validation, and blinded-content boundaries.",
+  "nextAction": "Owner restores the same ChatGPT consumer account sign-in in the extension-bearing Brave Default profile; then continue ordinal 78 in a fresh conversation using the sealed packet with exact SHA-256 b92cb078888d5da67c377b52eb94ade4a17b0f26c69eb237635d8bff799a1474, preserving GPT-5.6 Sol / Extra High 4 of 5 mode, the ten-minute send interval, exact validation, and blinded-content boundaries. No ordinal 78 attempt has been consumed.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_76_VALID",
+    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_BLOCKED_77_VALID_SIGNED_IN_SESSION_UNAVAILABLE",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
-    "operationalAlignment": "the blinded ledger contains 76 valid judgments; ordinals 37 through 76 passed exact validation under the longer provider interval, while every earlier failure remains preserved; ordinal 77 is next",
+    "operationalAlignment": "the blinded ledger contains 77 valid judgments and preserves every earlier failure; ordinal 78 was not sent and consumed no attempt; execution is blocked until the same ChatGPT consumer account sign-in is restored in the extension-bearing Brave Default profile",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
