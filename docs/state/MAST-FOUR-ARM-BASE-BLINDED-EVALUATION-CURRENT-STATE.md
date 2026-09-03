@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 17:45 UTC
+**Checkpoint:** 2026-09-03 18:14 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_BLOCKED / 77_VALID / SIGNED_IN_CHATGPT_SESSION_UNAVAILABLE`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 78_VALID / ORDINAL_79_READY`
 
 ## Source-bound authority
 
@@ -129,14 +129,14 @@ redundant green reruns.
 
 ## Next executable action
 
-Restore the same signed-in ChatGPT consumer account in the extension-bearing
-Brave `Default` profile, then continue primary capture at ordinal 78 in a fresh
-conversation using the sealed, byte-verified ordinal 78 packet. Do not use the
-logged-out state or another browser profile/account.
+After the approximately ten-minute inter-send interval, continue primary
+capture at ordinal 79 in a fresh GPT-5.6 Sol / Extra High conversation using
+the sealed packet with exact SHA-256
+`b244b89a2cd2906c3db8e86ec7f01a7e4d07c8a3ea271ae5c2b5d2561a8c3d88`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 77 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 78 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -260,17 +260,22 @@ Their Enter commands timed out only after submission had started, and ordinal
 none was resent. The progress SHA-256 at that checkpoint was
 `2809af24d3993848d0bebfcb3794d121754dbb16b45a8cad162a0551e44749d5`.
 Ordinal 77 then passed exact validation on its first attempt in a fresh GPT-5.6
-Sol / Extra High conversation with zero tool or citation artifacts. The current
-progress SHA-256 is
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
 `d3050db5ccaaf4731a26aecd6ee9215cf0115783167a37695e879210ea551d29`.
 
 The browser process closed while ordinal 78 was being staged. No ordinal 78
 message was sent and no attempt was consumed. Headless and off-screen recovery
 restored the extension-bearing Brave `Default` profile, including its crashed
-session, but the live ChatGPT UI is logged out and does not expose Extra High.
-The only other configured Brave profile lacks the required control extension.
-No login, account switch, or ordinal 78 dispatch was attempted. The owner must
-restore the same ChatGPT account sign-in before ordinal 78 can execute.
+session. After the same consumer account sign-in was restored, ordinal 78 was
+re-read from the durable private packet set, byte-verified, and staged once in a
+brand-new conversation. Its exact-text insertion and Enter commands timed out
+only after all bytes were present and submission had started, so neither action
+was repeated. The response passed exact repository validation on its first
+attempt with zero tool or citation artifacts. The blinded ledger now contains
+78 valid judgments, preserves five mechanical failures, has no halted claim,
+and has SHA-256
+`f3f23e4e89b715c0e065a4c303a738197d0a04803d755ac7e608ffefa496e4fe`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -279,4 +284,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_BLOCKED_77_VALID_SIGNED_IN_SESSION_UNAVAILABLE`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_78_VALID_ORDINAL_79_READY`.
