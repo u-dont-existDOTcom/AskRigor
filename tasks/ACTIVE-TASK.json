@@ -81,7 +81,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_35_valid_ordinal_36_retry_pending",
+    "status": "blinded_evaluation_v2_primary_capture_active_36_valid",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -126,6 +126,7 @@
       "ordinal 35 attempt 1 reached a fresh Extra High conversation but was provider-throttled before a user or assistant message persisted; it was retained as PROVIDER_OR_TRANSPORT_FAILURE with no output artifact and the ledger now has 34 valid judgments and four mechanical failures at SHA-256 a6d0da951b846466f7e0df45142fa7a58e3aba98592b219aafd33a5752bee2ed",
       "ordinal 35 attempt 2 used the byte-identical packet, passed exact validation, and advanced the ledger to 35 valid judgments at SHA-256 8b1b7eaeeb15fc4229f3642ab5a1d42d1620575134c46f457cce393977265c5e",
       "ordinal 36 attempt 1 persisted its user message but was provider-throttled before any assistant response; it was retained as PROVIDER_OR_TRANSPORT_FAILURE and the ledger remains at 35 valid judgments with five mechanical failures at SHA-256 b177b68e03be87a4d685c1e030b37b932e2d8d5526a4d19147846a870d67f4a9",
+      "ordinal 36 attempt 2 used the byte-identical packet in the same signed-in consumer account and restored Extra High 4 of 5 mode, passed exact validation after a longer cooldown, and advanced the ledger to 36 valid judgments at SHA-256 95e4392834f108fbb9e0a3d0347fe0db18930d66f98a9edc56bc0c9065e9a650",
       "the context-checkpoint terminal-handoff failure packet was delivered automatically to Mission Control as request 2d07a528-a43a-41ef-bfb4-85a44e35d1c0; its response was provider-throttled after a nonpersisted partial and remains retry-required without blocking evaluation"
     ],
     "pending": [
@@ -212,13 +213,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Retry ordinal 36 with the byte-identical packet after a longer provider cooldown, preserving the signed-in account, exact validation, and blinded-content boundaries; retry Mission Control response capture opportunistically without blocking evaluation.",
+  "nextAction": "Continue primary capture at ordinal 37 after the longer provider cooldown, preserving the signed-in account, Extra High 4 of 5 mode, exact validation, and blinded-content boundaries; retry Mission Control response capture opportunistically without blocking evaluation.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_35_VALID_ORDINAL_36_RETRY_PENDING",
+    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_36_VALID",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
-    "operationalAlignment": "the blinded ledger contains 35 valid judgments; ordinal 36 attempt 1 is retained as a pre-answer provider/transport failure and its byte-identical attempt 2 is pending after a longer cooldown without changing the source-bound signed-in account",
+    "operationalAlignment": "the blinded ledger contains 36 valid judgments; ordinal 36 attempt 1 remains retained as a pre-answer provider/transport failure and its same-account, byte-identical attempt 2 passed exact validation after the longer cooldown",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
