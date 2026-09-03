@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 00:53 UTC
+**Checkpoint:** 2026-09-03 01:34 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 40_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 44_VALID`
 
 ## Source-bound authority
 
@@ -129,11 +129,11 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 41 after the longer provider cooldown.
+Continue primary capture at ordinal 45 after the longer provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 40 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 44 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -190,7 +190,10 @@ progress SHA-256 is
 Ordinals 39 and 40 then passed exact validation on their first attempts. The
 current progress SHA-256 is
 `267dee7b757b20ea49f74be9143aefb22462a69ab31ff3c5a8204a627c5c18de`.
-Ordinal 41 is now the exact next action after the longer cooldown.
+Ordinals 41 through 44 then passed exact validation on their first attempts.
+The current progress SHA-256 is
+`edb6a9e940216c296e538a635358f86051824ae6501914e7e06842577d41fc8e`.
+Ordinal 45 is now the exact next action after the longer cooldown.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -199,4 +202,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_40_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_44_VALID`.

@@ -81,7 +81,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_40_valid",
+    "status": "blinded_evaluation_v2_primary_capture_active_44_valid",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -129,6 +129,7 @@
       "ordinal 36 attempt 2 used the byte-identical packet in the same signed-in consumer account and restored Extra High 4 of 5 mode, passed exact validation after a longer cooldown, and advanced the ledger to 36 valid judgments at SHA-256 95e4392834f108fbb9e0a3d0347fe0db18930d66f98a9edc56bc0c9065e9a650",
       "ordinals 37 and 38 passed exact validation on their first attempts using the longer interval; ordinal 38's throttle notice appeared only after completion, so its exact output remained valid and the ledger advanced to 38 valid judgments at SHA-256 b32a9dadf2d149811151a108517971c61b8013f8a36a5150b6991cbadf7e2c87",
       "ordinals 39 and 40 passed exact validation on their first attempts; the blinded primary ledger now contains 40 valid judgments at SHA-256 267dee7b757b20ea49f74be9143aefb22462a69ab31ff3c5a8204a627c5c18de",
+      "ordinals 41 through 44 passed exact validation on their first attempts; the blinded primary ledger now contains 44 valid judgments at SHA-256 edb6a9e940216c296e538a635358f86051824ae6501914e7e06842577d41fc8e",
       "the context-checkpoint terminal-handoff failure packet was delivered automatically to Mission Control as request 2d07a528-a43a-41ef-bfb4-85a44e35d1c0; its response was provider-throttled after a nonpersisted partial and remains retry-required without blocking evaluation"
     ],
     "pending": [
@@ -215,13 +216,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Continue primary capture at ordinal 41 after the longer provider cooldown, preserving the signed-in account, Extra High 4 of 5 mode, exact validation, and blinded-content boundaries; retry Mission Control response capture opportunistically without blocking evaluation.",
+  "nextAction": "Continue primary capture at ordinal 45 after the longer provider cooldown, preserving the signed-in account, Extra High 4 of 5 mode, exact validation, and blinded-content boundaries; retry Mission Control response capture opportunistically without blocking evaluation.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_40_VALID",
+    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_44_VALID",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
-    "operationalAlignment": "the blinded ledger contains 40 valid judgments; ordinals 37 through 40 passed exact validation under the longer provider interval, while every earlier failure remains preserved",
+    "operationalAlignment": "the blinded ledger contains 44 valid judgments; ordinals 37 through 44 passed exact validation under the longer provider interval, while every earlier failure remains preserved",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
