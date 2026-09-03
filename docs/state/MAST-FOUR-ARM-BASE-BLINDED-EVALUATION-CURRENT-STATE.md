@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 17:03 UTC
+**Checkpoint:** 2026-09-03 17:24 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 74_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 76_VALID`
 
 ## Source-bound authority
 
@@ -129,12 +129,12 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 75 in a fresh ChatGPT consumer conversation
-using the sealed, byte-verified ordinal 75 packet.
+Continue primary capture at ordinal 77 in a fresh ChatGPT consumer conversation
+using the sealed, byte-verified ordinal 77 packet.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 74 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 76 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -248,9 +248,16 @@ SHA-256 at that checkpoint was
 Ordinals 73 and 74 then passed exact validation on their first attempts in fresh
 GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
 Ordinal 74's Enter command timed out only after the user message had persisted
-and generation started, so it was not resent. The current progress SHA-256 is
+and generation started, so it was not resent. The progress SHA-256 at that
+checkpoint was
 `8ecde61daef392046c3df70056d0d9da11b6879b651e0991a19796a076c7a524`.
-Ordinal 75 is the exact next action.
+Ordinals 75 and 76 then passed exact validation on their first attempts in fresh
+GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
+Their Enter commands timed out only after submission had started, and ordinal
+76's exact-text insertion timed out only after all staged bytes were present;
+none was resent. The current progress SHA-256 is
+`2809af24d3993848d0bebfcb3794d121754dbb16b45a8cad162a0551e44749d5`.
+Ordinal 77 is the exact next action.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -259,4 +266,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_74_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_76_VALID`.
