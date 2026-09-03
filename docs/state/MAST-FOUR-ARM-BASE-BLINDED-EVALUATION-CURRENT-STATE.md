@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 21:33 UTC
+**Checkpoint:** 2026-09-03 21:53 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 95_VALID / ORDINAL_96_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 97_VALID / ORDINAL_98_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 96 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 98 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`80fb6e1a14f3f24efd1620e2a367a656a913441cb0138e760e4fc1ce2498abd9`.
+`31f4fcd0f29e552729b344f271c344d5b476f9229b3cdf3a73f0a4bc962867d7`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 95 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 97 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -355,6 +355,14 @@ Ordinal 95 passed exact validation on its first dispatched attempt in a verified
 fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
 The current progress SHA-256 is
 `b224d16d76a4979ebb17bda98a9b628fe9ce4d6fda1d9d07c5a8b2e8ea453cca`.
+Ordinal 96 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`ef6e60ec428ff615c710f5365b37892fae292eb10cd07084896a9e5ddbf4aec0`.
+Ordinal 97 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`fe7913ff8b4b6dee9ef138515ee681e8686524baaf9d4a2c7e66b5eebbb10442`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
