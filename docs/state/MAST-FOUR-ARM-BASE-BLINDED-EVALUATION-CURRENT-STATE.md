@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 02:57 UTC
+**Checkpoint:** 2026-09-03 03:18 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 52_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 54_VALID`
 
 ## Source-bound authority
 
@@ -129,11 +129,11 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 53 after the longer provider cooldown.
+Continue primary capture at ordinal 55 after the longer provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 52 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 54 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -200,9 +200,14 @@ Ordinals 49 and 50 then passed exact validation on their first attempts. The
 progress SHA-256 at that checkpoint was
 `1ac1c8ce0a671bac9bd3c814293b8eb5e8d043b47372303d443b2bfda1f982f9`.
 Ordinals 51 and 52 then passed exact validation on their first attempts. The
-current progress SHA-256 is
+progress SHA-256 at that checkpoint was
 `65cc1af5c47d4c724183f1201e4ab5362702f1462e462ccb9e3feaf37a27998a`.
-Ordinal 53 is now the exact next action after the longer cooldown.
+Ordinals 53 and 54 then passed exact validation on their first attempts. A
+provider throttle notice appeared only after each complete assistant output,
+so both exact outputs remained valid and were recorded. The current progress
+SHA-256 is
+`40b7315afc3658ee3252deab0ae16a55b2ce0415c2cea03c675676a1ec15a1bb`.
+Ordinal 55 is now the exact next action after the longer cooldown.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -211,4 +216,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_52_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_54_VALID`.
