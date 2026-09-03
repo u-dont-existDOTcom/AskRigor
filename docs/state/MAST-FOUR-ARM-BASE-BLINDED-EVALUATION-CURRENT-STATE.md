@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 19:53 UTC
+**Checkpoint:** 2026-09-03 20:14 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 87_VALID / ORDINAL_88_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 89_VALID / ORDINAL_90_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 88 in a fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 90 in a fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`d3881f653045758283870ba524d92a30d9ab64cf49d036bd90f9f113b9c21031`.
+`ff39741a503c27337545df46b53510f32e1841a424b646291bca6e50bc86c98f`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 87 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 89 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -312,9 +312,17 @@ first attempt with zero tool or citation artifacts. The current progress
 SHA-256 at that checkpoint was
 `2d7e76588bf9f986aa14259a57caba9ff3f9f9b57b24252876f38d440206c80e`.
 Ordinal 87 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`96e3cf9daa57dc94b08ce7e5ecf1ea43df3335d33c8dfab7612325ddb7af3acb`.
+Ordinal 88 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`f8f6fd4e6e8a524e0f96cb8ea454ec977b0037a17c7da5d15b0603a301f52419`.
+Ordinal 89 then passed exact validation on its first attempt in a fresh GPT-5.6
 Sol / Extra High conversation with zero tool or citation artifacts. The current
 progress SHA-256 is
-`96e3cf9daa57dc94b08ce7e5ecf1ea43df3335d33c8dfab7612325ddb7af3acb`.
+`a8d4d52d40040e4c0a03a8c95aa7cca084755e899da1008ce560855f5e04e686`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -323,4 +331,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_87_VALID_ORDINAL_88_READY`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_89_VALID_ORDINAL_90_READY`.
