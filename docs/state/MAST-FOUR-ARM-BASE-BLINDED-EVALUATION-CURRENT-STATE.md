@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 03:18 UTC
+**Checkpoint:** 2026-09-03 03:41 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 54_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 56_VALID`
 
 ## Source-bound authority
 
@@ -129,11 +129,11 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 55 after the longer provider cooldown.
+Continue primary capture at ordinal 57 after the longer provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 54 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 56 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -205,9 +205,14 @@ progress SHA-256 at that checkpoint was
 Ordinals 53 and 54 then passed exact validation on their first attempts. A
 provider throttle notice appeared only after each complete assistant output,
 so both exact outputs remained valid and were recorded. The current progress
-SHA-256 is
+SHA-256 at that checkpoint was
 `40b7315afc3658ee3252deab0ae16a55b2ce0415c2cea03c675676a1ec15a1bb`.
-Ordinal 55 is now the exact next action after the longer cooldown.
+Ordinals 55 and 56 then passed exact validation on their first attempts. The
+ordinal 56 response took longer to generate but completed normally; a later
+notice blocked only the first new-chat click and was cleared before ordinal 57
+was staged, consuming no evaluator attempt. The current progress SHA-256 is
+`8d768f6d4755628919dca7083959d4819e959aec335e3ec0aea8b2550f996d04`.
+Ordinal 57 is now the exact next action after the longer cooldown.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -216,4 +221,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_54_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_56_VALID`.
