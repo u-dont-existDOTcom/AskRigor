@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 05:02 UTC
+**Checkpoint:** 2026-09-03 15:19 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 64_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 66_VALID`
 
 ## Source-bound authority
 
@@ -129,11 +129,13 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 65 after the longer provider cooldown.
+Continue primary capture at ordinal 67. Reconstruct a fresh ChatGPT consumer
+conversation from the sealed ordinal 67 packet before dispatch if the prior
+staged browser state is unavailable after the Codex transport restart.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 64 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 66 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -226,9 +228,14 @@ invalidate the judgment. The progress SHA-256 at that checkpoint was
 `5d7f64cd1a99b074b26ece3cee891276cd7d13221d4751850c7e727511743c14`.
 Ordinals 63 and 64 then passed exact validation on their first attempts. The
 ordinal 63 provider notice appeared only after its complete output and did not
-invalidate the judgment. The current progress SHA-256 is
+invalidate the judgment. The progress SHA-256 at that checkpoint was
 `75ec391a468acbbf22f10d7f4fee75bc06bd29ca02d04d9ba1922b1cc5db2d40`.
-Ordinal 65 is now the exact next action after the longer cooldown.
+Ordinals 65 and 66 then passed exact validation on their first attempts. The
+current progress SHA-256 is
+`e5ad55d47fe5816c1771e1ca90b081b907090ffc66ebeb961d945342d04c255f`.
+Ordinal 67 is the exact next action. It was staged once in the prior browser
+session but was not dispatched before the Codex response-endpoint 404; a fresh
+continuation must verify the private ledger and browser state before sending.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -237,4 +244,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_64_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_66_VALID`.
