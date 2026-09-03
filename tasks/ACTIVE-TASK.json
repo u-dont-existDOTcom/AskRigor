@@ -133,7 +133,7 @@
       "ordinals 45 through 48 passed exact validation on their first attempts; the blinded primary ledger now contains 48 valid judgments at SHA-256 d97f1a22bae84a7b0cd5ebc6a2d798a94945c904d7364993a83d4de58512353a",
       "ordinals 49 and 50 passed exact validation on their first attempts; the blinded primary ledger now contains 50 valid judgments at SHA-256 1ac1c8ce0a671bac9bd3c814293b8eb5e8d043b47372303d443b2bfda1f982f9",
       "ordinals 51 and 52 passed exact validation on their first attempts; the blinded primary ledger now contains 52 valid judgments at SHA-256 65cc1af5c47d4c724183f1201e4ab5362702f1462e462ccb9e3feaf37a27998a",
-      "the context-checkpoint terminal-handoff failure packet was delivered automatically to Mission Control as request 2d07a528-a43a-41ef-bfb4-85a44e35d1c0; its response was provider-throttled after a nonpersisted partial and remains retry-required without blocking evaluation"
+      "the context-checkpoint terminal-handoff failure packet was delivered automatically to Mission Control as request 2d07a528-a43a-41ef-bfb4-85a44e35d1c0; its persisted response b1e416d4-9c1a-4774-a1b5-4c0a3e4db2b5 was captured privately with SHA-256 b345977b94b3e91dafa931ece6d37b3868caf8b2b34a4c3c5e34a0fe4de49c26"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -219,7 +219,7 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Continue primary capture at ordinal 53 after the longer provider cooldown, preserving the signed-in account, Extra High 4 of 5 mode, exact validation, and blinded-content boundaries; retry Mission Control response capture opportunistically without blocking evaluation.",
+  "nextAction": "Continue primary capture at ordinal 53 after the longer provider cooldown, preserving the signed-in account, Extra High 4 of 5 mode, exact validation, and blinded-content boundaries.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
     "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_52_VALID",
