@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 20:52 UTC
+**Checkpoint:** 2026-09-03 21:14 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 91_VALID / ORDINAL_92_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 93_VALID / ORDINAL_94_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 92 in a fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 94 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`43fc8e38d6f62ff97e96d1a57443f27ecaf85e45d8064f58f2bb56fe0765e579`.
+`207d28bf20aa4d4d31275adb2e4695c8efbb29595a9e85698c1e8f3fca0fc44d`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 91 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 93 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -335,6 +335,18 @@ staged once to its exact hash, and ordinal 91 then passed exact validation on
 its first dispatched attempt with zero tool or citation artifacts. The current
 progress SHA-256 is
 `29a21646cf69d2adacfa64271c5991bd146fe10a76091c0e8b5565b575c53f14`.
+The fresh ordinal 92 root initially restored an unsent prior draft. That state
+was rejected and cleared to a verified zero-byte, zero-message composer before
+the durable ordinal 92 packet was re-read and staged once to its exact hash.
+Ordinal 92 passed exact validation on its first dispatched attempt with zero
+tool or citation artifacts. The current progress SHA-256 is
+`3cda7b4098ba9b0c68a4f0fe701bef1c4fe9c9fe8ab6dac6f97de7294aad67f7`.
+Ordinal 93 began from a verified zero-byte, zero-message fresh root. Its exact-text
+insertion command timed out only after every sealed packet byte was present; the
+editor reconstruction matched the durable packet, so insertion was not repeated.
+Ordinal 93 passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. The current progress SHA-256 is
+`ba737d53662a75a7e6ded5ba860ffc60e018d7eb4ff2a3684a8e6178be7dc546`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -343,4 +355,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_91_VALID_ORDINAL_92_READY`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_92_VALID_ORDINAL_93_READY`.
