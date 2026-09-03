@@ -81,7 +81,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_89_valid_ordinal_90_ready",
+    "status": "blinded_evaluation_v2_primary_capture_active_91_valid_ordinal_92_ready",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -159,7 +159,9 @@
       "before ordinal 86 was staged, its fresh chat exposed Pro 5 of 5 instead of the required mode; the visible control was returned to Extra High 4 of 5 and verified with zero messages, so no attempt was consumed by the correction; ordinal 86 then passed exact validation on its first attempt with zero tool or citation artifacts and advanced the ledger to 86 valid judgments at SHA-256 2d7e76588bf9f986aa14259a57caba9ff3f9f9b57b24252876f38d440206c80e",
       "ordinal 87 passed exact validation on its first attempt in a fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts; the blinded ledger now contains 87 valid judgments with five preserved mechanical failures and no halted claim at SHA-256 96e3cf9daa57dc94b08ce7e5ecf1ea43df3335d33c8dfab7612325ddb7af3acb",
       "ordinal 88 passed exact validation on its first attempt in a fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts; the blinded ledger now contains 88 valid judgments with five preserved mechanical failures and no halted claim at SHA-256 f8f6fd4e6e8a524e0f96cb8ea454ec977b0037a17c7da5d15b0603a301f52419",
-      "ordinal 89 passed exact validation on its first attempt in a fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts; the blinded ledger now contains 89 valid judgments with five preserved mechanical failures and no halted claim at SHA-256 a8d4d52d40040e4c0a03a8c95aa7cca084755e899da1008ce560855f5e04e686"
+      "ordinal 89 passed exact validation on its first attempt in a fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts; the blinded ledger now contains 89 valid judgments with five preserved mechanical failures and no halted claim at SHA-256 a8d4d52d40040e4c0a03a8c95aa7cca084755e899da1008ce560855f5e04e686",
+      "ordinal 90 passed exact validation on its first attempt in a fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts; the blinded ledger now contains 90 valid judgments with five preserved mechanical failures and no halted claim at SHA-256 551f83485cb8a650f1e38d935b925cd9d134fd04e0bd44db7ee0250ca56c8f6d",
+      "ordinal 91 staging encountered a browser-process restart and duplicated packet bytes restored into unsent root-tab drafts; every affected draft was discarded before dispatch and consumed zero evaluator attempts; after isolating a verified-empty zero-message root and re-reading the durable packet, ordinal 91 was staged once to its exact hash, passed validation on its first dispatched attempt with zero tool or citation artifacts, and advanced the ledger to 91 valid judgments at SHA-256 29a21646cf69d2adacfa64271c5991bd146fe10a76091c0e8b5565b575c53f14"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -245,13 +247,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "After the approximately ten-minute inter-send interval, continue ordinal 90 in a fresh conversation using the sealed packet with exact SHA-256 ff39741a503c27337545df46b53510f32e1841a424b646291bca6e50bc86c98f, preserving GPT-5.6 Sol / Extra High 4 of 5 mode, exact validation, and blinded-content boundaries.",
+  "nextAction": "After the approximately ten-minute inter-send interval, continue ordinal 92 in a verified-empty fresh conversation using the sealed packet with exact SHA-256 43fc8e38d6f62ff97e96d1a57443f27ecaf85e45d8064f58f2bb56fe0765e579, preserving GPT-5.6 Sol / Extra High 4 of 5 mode, exact validation, and blinded-content boundaries.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_89_VALID_ORDINAL_90_READY",
+    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_91_VALID_ORDINAL_92_READY",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
-    "operationalAlignment": "the blinded ledger contains 89 valid judgments, preserves all five earlier mechanical failures, and has no halted claim; the same signed-in ChatGPT consumer account is available in the extension-bearing Brave Default profile and ordinal 90 is next after the required cooldown",
+    "operationalAlignment": "the blinded ledger contains 91 valid judgments, preserves all five earlier mechanical failures, and has no halted claim; the same signed-in ChatGPT consumer account is available in the extension-bearing Brave Default profile and ordinal 92 is next after the required cooldown",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
