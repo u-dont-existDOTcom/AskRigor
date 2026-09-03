@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 23:19 UTC
+**Checkpoint:** 2026-09-03 23:40 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 105_VALID / ORDINAL_106_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 107_VALID / ORDINAL_108_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 106 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 108 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`fe64f7205de8328300998bfacee9977f5420bd4371e20e02c394e744b456693b`.
+`4d7a08b55455ee8a750e24b77a2d1468eb0fb28e191e76a46338b7c52060a6de`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 105 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 107 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -399,6 +399,16 @@ Ordinal 105 reused the same physical browser tab but opened a fresh zero-message
 conversation, passed exact validation on its first dispatched attempt, and showed
 zero tool or citation artifacts. The current progress SHA-256 is
 `7dc7bd42c665e4bf6014d73d634d54ba3b1fb83101f3d0c1574cceb13775ea06`.
+Ordinal 106 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its send command timed out only after the user message persisted, so it
+was not repeated; the completed response passed exact validation on that first attempt
+with zero tool or citation artifacts. The current progress SHA-256 is
+`48f4ab3f7771462ba6418002da9a6b58561ee410481ae9da27de9a34f487a93c`.
+Ordinal 107 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its insertion timed out only after the complete packet was present and
+therefore was not repeated; the response passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. The current progress SHA-256 is
+`58d09e53b55dd4e9530ec24091cf19bacc459b59948441328c78a08614394131`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
