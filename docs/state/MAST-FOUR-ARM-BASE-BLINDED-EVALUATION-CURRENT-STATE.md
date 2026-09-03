@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-03 00:33 UTC
+**Checkpoint:** 2026-09-03 00:53 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 38_VALID`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 40_VALID`
 
 ## Source-bound authority
 
@@ -129,11 +129,11 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue primary capture at ordinal 39 after the longer provider cooldown.
+Continue primary capture at ordinal 41 after the longer provider cooldown.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 38 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 40 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -187,7 +187,10 @@ the longer interval. A throttle notice appeared only after ordinal 38 had fully
 completed, so its exact output remained valid and was recorded. The current
 progress SHA-256 is
 `b32a9dadf2d149811151a108517971c61b8013f8a36a5150b6991cbadf7e2c87`.
-Ordinal 39 is now the exact next action after the longer cooldown.
+Ordinals 39 and 40 then passed exact validation on their first attempts. The
+current progress SHA-256 is
+`267dee7b757b20ea49f74be9143aefb22462a69ab31ff3c5a8204a627c5c18de`.
+Ordinal 41 is now the exact next action after the longer cooldown.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -196,4 +199,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_38_VALID`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_40_VALID`.
