@@ -81,7 +81,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_primary_capture_active_131_valid_ordinal_132_ready",
+    "status": "blinded_evaluation_v2_primary_capture_active_133_valid_ordinal_134_ready",
     "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -201,7 +201,10 @@
       "ordinal 128 reused the same physical browser tab after a short provider-cooldown idle, opened a fresh zero-message conversation, passed exact validation on its first dispatched attempt with zero tool or citation artifacts, and advanced the ledger to 128 valid judgments at SHA-256 75df2ee6539815bc51c8e0cf65d5e210796d3bc8dbc5154d5b2f1db7e062dc3a",
       "ordinal 129 used the same delayed one-tab navigation pattern, opened a fresh zero-message conversation, passed exact validation on its first dispatched attempt with zero tool or citation artifacts, and advanced the ledger to 129 valid judgments at SHA-256 0f104276133d78ddde7c549875dd6e7bb12eb26b61353202d7540a545c93c512",
       "ordinal 130 used the same delayed one-tab navigation pattern, opened a fresh zero-message conversation, passed exact validation on its first dispatched attempt with zero tool or citation artifacts, and advanced the ledger to 130 valid judgments at SHA-256 b29eb49148a47194947123d2b3d08d8fb4e0add01068500bf516b84b23636b52",
-      "ordinal 131 used the same delayed one-tab navigation pattern, opened a fresh zero-message conversation, passed exact validation on its first dispatched attempt with zero tool or citation artifacts, and advanced the ledger to 131 valid judgments at SHA-256 e05017df35efb798a85469d8d39f5a1e080a27e5c00853370305e0103483a9c8"
+      "ordinal 131 used the same delayed one-tab navigation pattern, opened a fresh zero-message conversation, passed exact validation on its first dispatched attempt with zero tool or citation artifacts, and advanced the ledger to 131 valid judgments at SHA-256 e05017df35efb798a85469d8d39f5a1e080a27e5c00853370305e0103483a9c8",
+      "ordinal 132 attempt 1 was retained as a PROVIDER_OR_TRANSPORT_FAILURE after sequential entry treated the first line break as submission and persisted only 135 input bytes; the sealed packet remained unchanged and the progress SHA-256 became ac980a2e2f0dcd8dab82f6d5ba68ef3457adb3bf8469f8c4df400a924b1b9035",
+      "ordinal 132 attempt 2 used a fresh conversation and the byte-identical sealed packet, passed exact validation with zero tool or citation artifacts, and advanced the ledger to 132 valid judgments with six preserved mechanical failures at SHA-256 f23528653265ba76768e1dc78f998278a6b5b3d6827f744e483d2aa7ae2eb391",
+      "ordinal 133 reused the same physical browser tab, opened a fresh zero-message conversation, passed exact validation on its first dispatched attempt with zero tool or citation artifacts, and advanced the ledger to 133 valid judgments with six preserved mechanical failures at SHA-256 083333e078bf25c63f69ec77ad58ebc689b75963fddf0733370ced371eded36c"
     ],
     "pending": [
       "execute and freeze 192 primary condition-blind evaluator v2 judgments",
@@ -287,13 +290,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "After the approximately ten-minute inter-send interval, continue ordinal 132 in a verified-empty fresh conversation using the sealed packet with exact SHA-256 ff39741a503c27337545df46b53510f32e1841a424b646291bca6e50bc86c98f, preserving GPT-5.6 Sol / Extra High 4 of 5 mode, exact validation, blinded-content boundaries, and one physical browser tab.",
+  "nextAction": "After the approximately ten-minute inter-send interval, continue ordinal 134 in a verified-empty fresh conversation using the sealed packet with exact SHA-256 232c18b30f864c9b9635aceefb3529131a88792fcdc7a28da1efbe74b8867ae5, preserving GPT-5.6 Sol / Extra High 4 of 5 mode, exact validation, blinded-content boundaries, and one physical browser tab.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_131_VALID_ORDINAL_132_READY",
+    "completionClaim": "BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_133_VALID_ORDINAL_134_READY",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "MATCH_AT_SOURCE_BOUND_EVALUATOR_V2_RETRY_EXTENSION_DIRECTIVE",
-    "operationalAlignment": "the blinded ledger contains 131 valid judgments, preserves all five earlier mechanical failures, and has no halted claim; the same signed-in ChatGPT consumer account is available, one physical tab is reused for fresh conversations, and ordinal 132 is next after the required cooldown",
+    "operationalAlignment": "the blinded ledger contains 133 valid judgments, preserves all six mechanical failures, and has no halted claim; the same signed-in ChatGPT consumer account is available, one physical tab is reused for fresh conversations, and ordinal 134 is next after the required cooldown",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

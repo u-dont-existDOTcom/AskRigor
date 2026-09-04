@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-04 03:48 UTC
+**Checkpoint:** 2026-09-04 12:33 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 131_VALID / ORDINAL_132_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 133_VALID / ORDINAL_134_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 132 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 134 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`ff39741a503c27337545df46b53510f32e1841a424b646291bca6e50bc86c98f`.
+`232c18b30f864c9b9635aceefb3529131a88792fcdc7a28da1efbe74b8867ae5`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 131 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 133 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -520,6 +520,18 @@ fresh zero-message conversation, passed exact validation on its first dispatched
 attempt, and showed zero tool or citation artifacts. The progress SHA-256 values became
 `b29eb49148a47194947123d2b3d08d8fb4e0add01068500bf516b84b23636b52`
 and then `e05017df35efb798a85469d8d39f5a1e080a27e5c00853370305e0103483a9c8`.
+Ordinal 132 attempt 1 was retained as a `PROVIDER_OR_TRANSPORT_FAILURE` after
+sequential entry treated the first line break as submission and persisted only 135
+input bytes. The sealed packet remained private and unchanged, and the progress SHA-256
+became `ac980a2e2f0dcd8dab82f6d5ba68ef3457adb3bf8469f8c4df400a924b1b9035`.
+Attempt 2 used a fresh conversation and the byte-identical sealed packet, passed exact
+validation with zero tool or citation artifacts, and advanced the ledger to 132 valid
+judgments with six preserved mechanical failures at SHA-256
+`f23528653265ba76768e1dc78f998278a6b5b3d6827f744e483d2aa7ae2eb391`.
+Ordinal 133 then reused the same physical browser tab, opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts, and advanced the ledger to 133 valid judgments at SHA-256
+`083333e078bf25c63f69ec77ad58ebc689b75963fddf0733370ced371eded36c`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -528,4 +540,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_92_VALID_ORDINAL_93_READY`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_133_VALID_ORDINAL_134_READY`.
