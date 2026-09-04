@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-04 03:06 UTC
+**Checkpoint:** 2026-09-04 03:27 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 127_VALID / ORDINAL_128_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 129_VALID / ORDINAL_130_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 128 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 130 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`c49ad01c7a95cafd6f8d566182b71ca3f5afeec364521bc3ff31cbb29716d3a1`.
+`277a4e26b134f2ea1d3a8d7df77b8b4df70c9865781c173323159e322709b322`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 127 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 129 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -507,6 +507,14 @@ SHA-256 and zero messages. After the notice was dismissed and the cooldown was a
 to clear, the packet was staged exactly once and the first dispatched attempt passed
 exact validation with zero tool or citation artifacts. The current progress SHA-256 is
 `8063cd32dd841b8e51945d21f9b7075119810b83524f0d527f9ff1a3fca29845`.
+Ordinal 128 reused the same physical browser tab after a short provider-cooldown idle,
+opened a fresh zero-message conversation, passed exact validation on its first
+dispatched attempt, and showed zero tool or citation artifacts. The progress SHA-256
+became `75df2ee6539815bc51c8e0cf65d5e210796d3bc8dbc5154d5b2f1db7e062dc3a`.
+Ordinal 129 used the same delayed one-tab navigation pattern, opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed zero
+tool or citation artifacts. The current progress SHA-256 is
+`0f104276133d78ddde7c549875dd6e7bb12eb26b61353202d7540a545c93c512`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
