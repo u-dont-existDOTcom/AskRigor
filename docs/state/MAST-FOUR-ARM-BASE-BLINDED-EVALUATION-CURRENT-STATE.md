@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-04 21:26 UTC
+**Checkpoint:** 2026-09-04 21:47 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 149_VALID / ORDINAL_150_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 151_VALID / ORDINAL_152_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 150 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 152 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`2a276b852debaef2b3cefdd87e850c7375620432f82f5734fa24f85709917de8`.
+`2a2bc6f5511b20e484da67da86b2c40beca79a6e240685ff4ccdda799cc61fd3`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 149 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 151 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -612,6 +612,19 @@ passed exact validation on its first dispatched attempt with zero tool or citati
 artifacts, and advanced the ledger to 149 valid judgments. The ledger preserves six
 mechanical failures, has no halted claim, and has SHA-256
 `fca9528bf5a574cc02d416dfaa70e763a92c6af438bb486d80b6934fe749c99e`.
+Ordinal 150 reused the same physical tab and a fresh zero-message conversation. An
+unexpected 181-byte unsent draft matched neither the preceding nor current packet
+prefix, so it was cleared before staging. The response passed exact validation on its
+first dispatched attempt with zero tool or citation artifacts and advanced the ledger
+to 150 valid judgments at SHA-256
+`7e138b124cb660d9fc0959448380458c52eb4dccd04d2ada314643edfd17721a`.
+Before ordinal 151 staging, fail-closed preflight detected that the fresh editor's model
+selector had drifted to `Latest / High`; no packet was inserted. GPT-5.6 Sol and Extra
+High 4 of 5 were restored and verified with Chat on and Work off. Ordinal 151 was then
+staged byte-exactly, sent once, and passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. The ledger now contains 151 valid
+judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
+`4bc090688882220de947085288be5e35bce078463441d5cfd1ecd68397a86529`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -620,4 +633,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_149_VALID_ORDINAL_150_READY`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_151_VALID_ORDINAL_152_READY`.
