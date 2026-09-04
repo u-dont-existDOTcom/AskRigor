@@ -65,7 +65,7 @@
     "@modelcontextprotocol/sdk": "1.30.0",
     "fast-xml-parser": "5.10.1",
     "jose": "6.2.8",
-    "zod": "4.4.3"
+    "zod": "4.5.4"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
