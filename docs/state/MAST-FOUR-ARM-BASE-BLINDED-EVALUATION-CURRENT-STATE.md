@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-04 20:27 UTC
+**Checkpoint:** 2026-09-04 20:45 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 143_VALID / ORDINAL_144_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 145_VALID / ORDINAL_146_READY`
 
 ## Source-bound authority
 
@@ -130,13 +130,13 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 144 in the verified-empty fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 146 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`f28566a5409fdc496a95de0c6e31011b7c6a13f733d22fd5cfeefbc6644e055b`.
+`cabe89acb332a5d9b7aef36257946414632b340723e48341155711a183867c25`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
-Primary capture is valid through ordinal 143 of 192. Both original ordinal 30 attempts
+Primary capture is valid through ordinal 145 of 192. Both original ordinal 30 attempts
 used the byte-identical sealed packet in separate fresh Extra High Chats, and
 both are retained as `INVALID_JSON` mechanical failures with exact private
 provenance. The original two-attempt ceiling was exhausted; no later slot was
@@ -578,6 +578,19 @@ send was repeated. The response passed exact validation on its first dispatched
 attempt with zero tool or citation artifacts. The ledger now contains 143 valid
 judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
 `ba2070d5b4883e86ab2715c55c86604232ef2692e1ec4b556f05cf6a1fa387b1`.
+Ordinal 144 reused the same physical tab and a fresh zero-message conversation. Its
+exact-text insertion was recovered after another control-kernel reset, and the staged
+bytes matched the sealed packet before the one permitted send. The response passed
+exact validation on its first dispatched attempt with zero tool or citation artifacts
+and advanced the ledger to 144 valid judgments at SHA-256
+`f17cc9dd0dca84621844aaf8cb7bc7b4faf4bc142ed542b1fc0afe9995486f49`.
+Ordinal 145 reused the same physical tab and another fresh zero-message conversation.
+Its send command timed out only after one user and one generating assistant message
+were present, so it was not repeated. The response passed exact validation on its first
+dispatched attempt with zero tool or citation artifacts. The ledger now contains 145
+valid judgments, preserves six mechanical failures, has no halted claim, and has
+SHA-256
+`520d7f81c7bfbcb4c648cdda9d7f0112172dd9e7fbadace71cf7e70dac7e408e`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -586,4 +599,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_143_VALID_ORDINAL_144_READY`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_145_VALID_ORDINAL_146_READY`.
