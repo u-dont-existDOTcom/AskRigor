@@ -1084,6 +1084,26 @@ The ordinal-15 and ordinal-16 valid receipt SHA-256 values are respectively
 `caf908e54c0e026da49358e3a200d4aeaf5b1c57965789afeb413953c6ecbc2c`
 and `b3b0c7c004941e9306b24491f6731d407d139930124bca88c233f5a23d472217`.
 
+Latest restart ordinal 17 followed the same verified one-tab path, passed the
+strict validator on its first attempt with zero tool or citation artifacts,
+and advanced the active series to 17 valid judgments at progress SHA-256
+`78625232c65183c937abf53fc5ee40af37481dc550a137e26343a1d5a979f89b`.
+Its valid receipt SHA-256 is
+`732a4cf596edd11be0bac0fb1d1baffbf205bb17ae7c4b65a5069fd362be8395`.
+
+Ordinal 18 attempt 1 passed the live pre-send gate with checked `Latest` and
+observed `Pro, 5 of 5.`, was staged at its exact 31,215-byte packet identity,
+and was sent once. The conversation persisted at a stable locator, but after
+generation the exact physical tab's renderer became unreachable through every
+available browser-control read and in-place recovery path, so no response bytes
+or message IDs could be captured and no resend occurred. The attempt is retained
+as `PROVIDER_OR_TRANSPORT_FAILURE` with partial provenance. Its private failure
+receipt SHA-256 is
+`c20352c5d703beb0f82b69d38a8baca5ff0d65f0c4c913ab4785d69a84e41590`.
+The active series now has 17 of 41 valid judgments, one mechanical failure, no
+halted claim, and progress SHA-256
+`1ceb66e3eb0980b4219a8a74ce9b276ce3880d3eddcbbc5bb1f81bc8f5e7907c`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
@@ -1091,4 +1111,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_16_OF_41_ORDINAL_17_READY`.
+`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_17_OF_41_ORDINAL_18_ATTEMPT_2_BROWSER_CONTROL_BLOCKED`.
