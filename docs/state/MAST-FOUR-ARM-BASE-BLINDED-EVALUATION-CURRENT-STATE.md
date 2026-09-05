@@ -1008,6 +1008,17 @@ The ordinal-1 valid receipt SHA-256 is
 the ordinal-2 valid receipt SHA-256 is
 `5a73d094d73fb6a5dec45e5e905a492cd7a3ebc95c0970c0ec510a94253603f6`.
 
+Latest restart ordinals 3 and 4 likewise used separate fresh zero-message Chat
+conversations in the same physical tab with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate and strict output validator
+on their first dispatched attempts with zero tool or citation artifacts. The
+active series now has 4 of 41 valid judgments, zero mechanical failures, no
+halted claim, and progress SHA-256
+`97fcd2cb815b568eda31087ffc1621e6cd3f1ee6ca4d4567aa5ce52bdf6659e4`.
+The ordinal-3 and ordinal-4 valid receipt SHA-256 values are respectively
+`674b4d6a7280be9d1abc67f60e82c9b8aca8c36a34d07d23b5966d92e13c1685`
+and `761bc7c8c00da18e972c2ba9af5c67f85286082bdc8c8608b4574a114e05f579`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
@@ -1015,4 +1026,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_2_OF_41_ORDINAL_3_READY`.
+`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_4_OF_41_ORDINAL_5_READY`.
