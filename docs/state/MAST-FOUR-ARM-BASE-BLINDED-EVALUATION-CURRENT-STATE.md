@@ -1029,6 +1029,17 @@ The ordinal-5 and ordinal-6 valid receipt SHA-256 values are respectively
 `bd32ef3a5ae6e65a74ef222215c4ad6c394581118dfbd705f1e1fd852abb67af`
 and `170ede95347b094937e1f02f5f81e452b93781e17257d5a76ee29eb921a554c7`.
 
+Latest restart ordinals 7 and 8 also used separate fresh zero-message Chat
+conversations in physical tab `663931037`, with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the pre-send gate and strict output validator on
+their first attempts with zero tool or citation artifacts. The active series
+now has 8 of 41 valid judgments, zero mechanical failures, no halted claim, and
+progress SHA-256
+`c171fc8c48afc1a68e1f917890746610280e3858706628102462d80fad85aec7`.
+The ordinal-7 and ordinal-8 valid receipt SHA-256 values are respectively
+`ca83a303ca0af5e2f2542f14fd74c0ac07b362fbd6c47caae69215d93455fdec`
+and `332020adaba135f11ce8b87b56e8153fe8415f87cc18bdafd9ccc8cc81466afc`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
@@ -1036,4 +1047,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_6_OF_41_ORDINAL_7_READY`.
+`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_8_OF_41_ORDINAL_9_READY`.
