@@ -37,6 +37,7 @@ import {
 
 const execFileAsync = promisify(execFile);
 const digestPattern = /^[a-f0-9]{64}$/u;
+const gitCommitPattern = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/u;
 const opaquePattern = /^EVAL-[a-f0-9]{24}$/u;
 const timestampPattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const relativeFileSchema = z.string().min(1).refine(
@@ -44,6 +45,7 @@ const relativeFileSchema = z.string().min(1).refine(
   "private artifact path must be relative and contained",
 );
 const digestSchema = z.string().regex(digestPattern);
+const gitCommitSchema = z.string().regex(gitCommitPattern);
 const timestampSchema = z.string().regex(timestampPattern);
 export const latestJ3RootDirectory = `${evaluatorV2Directory}/j3-latest-restart`;
 export const latestJ3SeriesId = "J3_LATEST_RESTART";
@@ -185,9 +187,9 @@ const latestJ3ExecutionProvenanceShape = {
   attempt_number: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   attempt_ceiling: z.literal(4),
   execution_repository_branch: z.literal(latestJ3RepositoryBranch),
-  execution_repository_commit: digestSchema,
-  local_head_at_record: digestSchema,
-  github_head_at_record: digestSchema,
+  execution_repository_commit: gitCommitSchema,
+  local_head_at_record: gitCommitSchema,
+  github_head_at_record: gitCommitSchema,
   local_github_head_match: z.literal(true),
   structural_pre_send_verification_status: z.literal("PASSED"),
   condition_map_access_status: z.literal("SEALED_NOT_INSPECTED"),
@@ -331,8 +333,8 @@ const j3CaptureProgressSchema = z.object({
   providerModelSlugStatus: z.literal("UNAVAILABLE_NOT_GUESSED"),
   sourceSupersededInventorySha256: z.literal(supersededJ3InventorySha256),
   executionRepositoryBranch: z.literal(latestJ3RepositoryBranch),
-  initialExecutionRepositoryCommit: digestSchema,
-  latestExecutionRepositoryCommit: digestSchema,
+  initialExecutionRepositoryCommit: gitCommitSchema,
+  latestExecutionRepositoryCommit: gitCommitSchema,
   createdAt: timestampSchema,
   updatedAt: timestampSchema,
   sourcePrimaryProgressSha256: digestSchema,
@@ -383,8 +385,8 @@ const latestJ3SeriesManifestSchema = z.object({
   supersededSolInventorySha256: z.literal(supersededJ3InventorySha256),
   initializedAt: timestampSchema,
   executionRepositoryBranch: z.literal(latestJ3RepositoryBranch),
-  executionRepositoryCommit: digestSchema,
-  githubHeadAtInitialization: digestSchema,
+  executionRepositoryCommit: gitCommitSchema,
+  githubHeadAtInitialization: gitCommitSchema,
   localGithubHeadMatch: z.literal(true),
   selectorLabel: z.literal(latestJ3SelectorLabel),
   reasoningUiLabelRule: z.literal("HIGHEST_AUTHORIZED_EXACT_UI_LABEL_AT_SEND_TIME"),
@@ -407,7 +409,7 @@ const latestJ3CheckpointPointerSchema = z.object({
   validJudgmentCount: z.number().int().min(0).max(41),
   checkpointFile: relativeFileSchema,
   checkpointSha256: digestSchema,
-  executionRepositoryCommit: digestSchema,
+  executionRepositoryCommit: gitCommitSchema,
 }).strict();
 
 const latestJ3PreSendReceiptSchema = z.object({
@@ -431,9 +433,9 @@ const latestJ3PreSendReceiptSchema = z.object({
   attempt_number: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   attempt_ceiling: z.literal(4),
   execution_repository_branch: z.literal(latestJ3RepositoryBranch),
-  execution_repository_commit: digestSchema,
-  local_head_at_record: digestSchema,
-  github_head_at_record: digestSchema,
+  execution_repository_commit: gitCommitSchema,
+  local_head_at_record: gitCommitSchema,
+  github_head_at_record: gitCommitSchema,
   local_github_head_match: z.literal(true),
   structural_pre_send_verification_status: z.literal("PASSED"),
   condition_map_access_status: z.literal("SEALED_NOT_INSPECTED"),
@@ -511,9 +513,11 @@ async function requireLocalGitHubHead(repositoryRoot: string): Promise<{
     `refs/heads/${latestJ3RepositoryBranch}`,
   );
   const githubHead = remote.split(/\s+/u)[0] ?? "";
-  if (branch !== latestJ3RepositoryBranch || !digestPattern.test(localHead)
+  if (branch !== latestJ3RepositoryBranch || !gitCommitPattern.test(localHead)
     || localHead !== githubHead) {
-    throw new Error("EVALUATOR_V2_J3_LATEST_LOCAL_GITHUB_HEAD_MISMATCH");
+    throw new Error(
+      `EVALUATOR_V2_J3_LATEST_LOCAL_GITHUB_HEAD_MISMATCH branch=${branch} local=${localHead} github=${githubHead}`,
+    );
   }
   return { branch: latestJ3RepositoryBranch, localHead, githubHead };
 }

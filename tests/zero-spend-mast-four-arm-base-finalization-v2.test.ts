@@ -52,8 +52,8 @@ const latestProgressMetadata = {
   sourceSupersededInventorySha256:
     "7128b22b65289870c75a5c2cc118f50e6979c4e4bbf8e32da7b38805f2bc71b9",
   executionRepositoryBranch: "task/mast-four-arm-zero-spend-harness-20260901",
-  initialExecutionRepositoryCommit: "4".repeat(64),
-  latestExecutionRepositoryCommit: "4".repeat(64),
+  initialExecutionRepositoryCommit: "4".repeat(40),
+  latestExecutionRepositoryCommit: "4".repeat(40),
 } as const;
 
 const latestReceiptProvenance = (input: {
@@ -80,9 +80,9 @@ const latestReceiptProvenance = (input: {
   attempt_number: input.attempt,
   attempt_ceiling: 4,
   execution_repository_branch: "task/mast-four-arm-zero-spend-harness-20260901",
-  execution_repository_commit: "4".repeat(64),
-  local_head_at_record: "4".repeat(64),
-  github_head_at_record: "4".repeat(64),
+  execution_repository_commit: "4".repeat(40),
+  local_head_at_record: "4".repeat(40),
+  github_head_at_record: "4".repeat(40),
   local_github_head_match: true,
   structural_pre_send_verification_status: "PASSED",
   condition_map_access_status: "SEALED_NOT_INSPECTED",
