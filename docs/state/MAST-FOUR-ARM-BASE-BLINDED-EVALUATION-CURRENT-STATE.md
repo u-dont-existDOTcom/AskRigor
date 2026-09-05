@@ -1051,6 +1051,17 @@ The ordinal-9 and ordinal-10 valid receipt SHA-256 values are respectively
 `48dd1764f0c3b59ad8041f5f522a7a4adb72506734de1d36b7e3737cba218ae5`
 and `0fbac645047ecbfecd17d25528eed31b90a635f9fa34e3c14457bd1ffafea7b5`.
 
+Latest restart ordinals 11 and 12 followed the same checked-`Latest`, observed
+`Pro, 5 of 5.`, one-tab, fresh-Chat path and passed the strict validator on
+their first attempts with zero tool or citation artifacts. Ordinal 12 had a
+brief post-send user-turn persistence delay while generation was already
+active; no resend occurred. The active series now has 12 of 41 valid judgments,
+zero mechanical failures, no halted claim, and progress SHA-256
+`e2b40ccde6d27964e3b9a0ef1aefddb4c1e13cf65509f34762ba22c2154e5c10`.
+The ordinal-11 and ordinal-12 valid receipt SHA-256 values are respectively
+`296d6c273f999c481e71af2ca15ff24573a6dae440abeddf6bb2245b48e264cc`
+and `0aa33031e48bb17c64f33817335ff3d153742b7055ac02a3d8cef8f40d39c67f`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
@@ -1058,4 +1069,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_10_OF_41_ORDINAL_11_READY`.
+`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_12_OF_41_ORDINAL_13_READY`.
