@@ -56,7 +56,8 @@ sealed order using chunk identifiers and a compact output schema.
    The detector and unchanged 41-slot schedule are frozen. The first 23 Sol J3
    judgments are preserved as superseded private audit evidence. Restart the
    complete J3 series at ordinal 1 under consumer selector `Latest`, using the
-   highest authorized reasoning setting observed in the UI at each send.
+   highest authorized reasoning setting observed in the UI at each send. The
+   empty `J3_LATEST_RESTART` tree is initialized and ordinal 1 is ready.
 11. [ ] Construct the fail-closed final acceptance command and final blinded
    per-response records, compute only the directed
    per-response `NONOFFICIAL_PROJECTED_MAST_METRICS`, and freeze the complete

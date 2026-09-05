@@ -45,7 +45,7 @@ describe("external evaluation current-slice contract", () => {
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
         sliceId: "mast-four-arm-eight-family-base-blinded-evaluation-v2-j3-latest-restart",
-        status: "blinded_evaluation_v2_j3_latest_restart_harness_validated_pending_initialization",
+        status: "blinded_evaluation_v2_j3_latest_restart_initialized_0_of_41_ordinal_1_ready",
         maximumEstimatedCostUsdBeforeAbort: 0,
         conditionMapSealed: true,
         requiredChats: {
@@ -71,7 +71,7 @@ describe("external evaluation current-slice contract", () => {
       },
       supervision: {
         completionClaim:
-          "BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_AUTHORIZED_HARNESS_VALIDATED_PENDING_INITIALIZATION",
+          "BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_INITIALIZED_0_OF_41_ORDINAL_1_READY",
         scientificAdequacy: "not reached; no evaluator judgment or arm/family result has been inspected or computed",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },

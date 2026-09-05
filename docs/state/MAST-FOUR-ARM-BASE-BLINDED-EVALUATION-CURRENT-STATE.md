@@ -979,8 +979,21 @@ keeps the four-attempt ceiling and exact packet retry identity, and rejects
 incomplete or mixed finalization. The focused contract has 9 passing tests.
 After restoring lockfile dependencies, the complete deterministic gate passed
 on Node 24.18.0 with 143 test files and 1,699 tests passing, 1 file and 6 tests
-skipped, and typecheck and build passing. The active restart tree has not yet
-been initialized and no Latest evaluator attempt has been staged or sent.
+skipped, and typecheck and build passing.
+
+The active `J3_LATEST_RESTART` tree was then initialized after local and GitHub
+HEAD both reached execution commit
+`7d672bff3c01372aecb6b581e44000c8bc173b05`. It copied the unchanged frozen
+41-slot schedule byte-for-byte at SHA-256
+`dccf2af3b21f3180d0813be67f6aaec488f25e5861ae87c8c2936e75fddea9c6`.
+Initial progress has zero valid judgments, zero mechanical failures, no halted
+claim, and SHA-256
+`b552f1fa9ef0e823828174ddd2ed2359b69083dd8bd3dcaf04f643eac5066d31`.
+All active private directories are mode `0700` and files are mode `0600`. The
+finalizer rejected the incomplete Latest series with
+`EVALUATOR_V2_REQUIRED_J3_LATEST_SERIES_NOT_COMPLETE` and created no final
+directory. No Latest packet has been staged or sent and no attempt has been
+consumed.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -989,4 +1002,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_AUTHORIZED_HARNESS_VALIDATED_PENDING_COMMIT_AND_INITIALIZATION`.
+`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_INITIALIZED_0_OF_41_ORDINAL_1_READY`.
