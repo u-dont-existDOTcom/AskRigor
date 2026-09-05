@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-05 04:55 UTC
+**Checkpoint:** 2026-09-05 05:07 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_COMPLETE / 192_VALID / DISAGREEMENT_DETECTOR_NEXT`
+**Status:** `V2_J3_CAPTURE_ACTIVE / 0_OF_41_VALID / J3_ORDINAL_1_READY`
 
 ## Source-bound authority
 
@@ -129,9 +129,9 @@ redundant green reruns.
 
 ## Next executable action
 
-Implement and run the predeclared deterministic J1/J2 disagreement detector,
-sealed J3 schedule, and fail-closed J3 capture ledger while the condition map
-remains sealed and before inspecting any comparison or result.
+Continue J3 capture at J3 ordinal 1 in a verified-empty fresh GPT-5.6 Sol / Extra High
+conversation using the original condition-blind packet with exact SHA-256
+`a8ab5ba7f5deb3c0ed7cdf2b2ccf8e880753b2784c6eddc1d343ce844e5dde8c`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -835,6 +835,16 @@ conversation. After a normal provider-side queue delay, it passed exact validati
 first dispatched attempt with zero tool or citation artifacts. The primary ledger is now
 frozen with 192 valid judgments, six preserved mechanical failures, no halted claim, and
 SHA-256 `a638f53dca915a88f74a2f2baf7fe084d228f3710dad389492963caf5a2eb045`.
+The source-bound post-primary harness is implemented with focused tests covering exact
+agreement, extraction-only non-trigger behavior, each independent J3 trigger, and an empty
+source-bound J3 schedule. The real deterministic detector then froze a 41-slot J3 schedule
+without exposing judgments or metrics. Private artifact identities are: disagreement ledger
+SHA-256 `637c4ea77e8f6e6f6ee69639e5b029bb4b90925513fc239d5d79340dd5e7b5b2`,
+J3 schedule SHA-256 `dccf2af3b21f3180d0813be67f6aaec488f25e5861ae87c8c2936e75fddea9c6`,
+and empty J3 progress SHA-256
+`b663de2a53a5269a0b6195911656f4a2e8b2954b9273d2c7d77d94d983704f2c`.
+The fail-closed finalizer was exercised before J3 capture and correctly rejected the incomplete
+state with `EVALUATOR_V2_REQUIRED_J3_NOT_FROZEN`; no final directory was written.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -843,4 +853,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_COMPLETE_192_VALID_DISAGREEMENT_DETECTOR_NEXT`.
+`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_0_OF_41_VALID_J3_ORDINAL_1_READY`.

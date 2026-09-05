@@ -974,6 +974,30 @@ export async function validateEvaluatorV2OutputFile(input: {
   exactOutputSha256: string;
   exactOutputUtf8Bytes: number;
 }> {
+  const validated = await readValidatedEvaluatorV2OutputFile(input);
+  return {
+    status: "VALID",
+    caseId: validated.caseId,
+    opaqueResponseId: validated.opaqueResponseId,
+    exactOutputSha256: validated.exactOutputSha256,
+    exactOutputUtf8Bytes: validated.exactOutputUtf8Bytes,
+  };
+}
+
+export async function readValidatedEvaluatorV2OutputFile(input: {
+  mastRoot: string;
+  artifactRoot: string;
+  opaqueResponseId: string;
+  outputFile: string;
+}): Promise<{
+  status: "VALID";
+  caseId: string;
+  opaqueResponseId: string;
+  exactOutputSha256: string;
+  exactOutputUtf8Bytes: number;
+  output: EvaluatorV2Output;
+  reconstructedJudgment: EvaluatorJudgment;
+}> {
   const chunkReceipt = object(
     await readJson(resolve(input.artifactRoot, evaluatorV2Directory, "chunk-reconstruction-receipt.json")),
     "v2 chunk receipt",
@@ -999,7 +1023,7 @@ export async function validateEvaluatorV2OutputFile(input: {
     const chunk = object(entry, `chunks[${index}]`);
     return { id: integer(chunk.id, "chunk id"), text: typeof chunk.text === "string" ? chunk.text : "" };
   });
-  parseAndValidateEvaluatorV2Output({
+  const parsed = parseAndValidateEvaluatorV2Output({
     rawOutput,
     rawResponse,
     chunks,
@@ -1013,6 +1037,8 @@ export async function validateEvaluatorV2OutputFile(input: {
     opaqueResponseId: input.opaqueResponseId,
     exactOutputSha256: sha256(rawOutput),
     exactOutputUtf8Bytes: Buffer.byteLength(rawOutput, "utf8"),
+    output: parsed.output,
+    reconstructedJudgment: parsed.reconstructedJudgment,
   };
 }
 
