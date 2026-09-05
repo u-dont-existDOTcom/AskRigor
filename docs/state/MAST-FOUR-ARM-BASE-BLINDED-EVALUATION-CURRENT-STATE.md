@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-05 05:21 UTC
+**Checkpoint:** 2026-09-05 05:42 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_J3_CAPTURE_ACTIVE / 2_OF_41_VALID / J3_ORDINAL_3_READY`
+**Status:** `V2_J3_CAPTURE_ACTIVE / 4_OF_41_VALID / J3_ORDINAL_5_READY`
 
 ## Source-bound authority
 
@@ -129,9 +129,9 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue J3 capture at J3 ordinal 3 in a verified-empty fresh GPT-5.6 Sol / Extra High
+Continue J3 capture at J3 ordinal 5 in a verified-empty fresh GPT-5.6 Sol / Extra High
 conversation using the original condition-blind packet with exact SHA-256
-`99cdd0e5eedddfcae2ecb20cab01a783a0e4675df847a83a4b80837940cbb5ce`.
+`4737dea2ecbb8909d1430518bb11834a97cb5cdebdc6920a628a4cc81372d42f`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -853,6 +853,13 @@ receipt helper now joins case identity without surfacing it in worker output. J3
 `1f51dd27987919dc26bd8697afa882e6f7f5cc012fe1ace46e7fe495c40ddc82`;
 the intermediate one-valid progress SHA-256 was
 `0231ad21181bd87b8c2d0db3f3ae9b1994fbc351b35ceea76a1c880b06579616`.
+J3 ordinals 3 and 4 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. J3 progress is now 4 of 41 valid with zero mechanical failures, no
+halted claim, and SHA-256
+`d60d8a3c681788e08fcd1ed6c89b51cfad718ebe760a053c29bb80feeb401491`;
+the intermediate three-valid progress SHA-256 was
+`d72bbcc857b9916ba14832bae73e16349cde2eabb0f3036f62e9a02c7faba049`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -861,4 +868,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_2_OF_41_VALID_J3_ORDINAL_3_READY`.
+`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_4_OF_41_VALID_J3_ORDINAL_5_READY`.
