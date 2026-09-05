@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_J3_CAPTURE_ACTIVE / 20_OF_41_VALID / J3_ORDINAL_21_READY`
+**Status:** `V2_J3_CAPTURE_ACTIVE / 22_OF_41_VALID / J3_ORDINAL_23_READY`
 
 ## Source-bound authority
 
@@ -920,6 +920,15 @@ with zero mechanical failures, no halted claim, and SHA-256
 `ea22ccbf2f700867aa30d95da3c95646c06796cf08ebfc11b76cead112cb3bc5`;
 the intermediate nineteen-valid progress SHA-256 was
 `0feaf2d7116cf5e8929db451929e921e9d617926d2799bdeb1863141d2e651c4`.
+J3 ordinals 21 and 22 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts after normal provider queue delays. A temporary provider rate-limit
+notice appeared only after ordinal 21 had completed; dismissal preserved the single
+user/assistant pair and did not consume another attempt. J3 progress is now 22 of 41 valid
+with zero mechanical failures, no halted claim, and SHA-256
+`b630609ab0b7766ce530082660f2c9ea6b3a0315f09ce88696d20fdc425fee89`;
+the intermediate twenty-one-valid progress SHA-256 was
+`c884fb972bd11e13b043b77f98e9f648d0a4b96ba419faebc17df467f8de05f2`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -928,4 +937,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_20_OF_41_VALID_J3_ORDINAL_21_READY`.
+`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_22_OF_41_VALID_J3_ORDINAL_23_READY`.
