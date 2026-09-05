@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-05 05:42 UTC
+**Checkpoint:** 2026-09-05 14:54 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_J3_CAPTURE_ACTIVE / 22_OF_41_VALID / J3_ORDINAL_23_READY`
+**Status:** `V2_J3_CAPTURE_PAUSED_OWNER_MODEL_TRANSITION / 23_OF_41_VALID / J3_ORDINAL_24_UNSENT`
 
 ## Source-bound authority
 
@@ -129,9 +129,14 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue J3 capture at J3 ordinal 5 in a verified-empty fresh GPT-5.6 Sol / Extra High
-conversation using the original condition-blind packet with exact SHA-256
-`4737dea2ecbb8909d1430518bb11834a97cb5cdebdc6920a628a4cc81372d42f`.
+Do not dispatch J3 ordinal 24 until the owner selects a clean model-transition path.
+J3 ordinals 1 through 23 are frozen as GPT-5.6 Sol / Extra High judgments. The
+owner subsequently requested GPT 6 through the consumer selector's `Latest`
+option. The existing single evaluator tab now has `Latest` selected, but ordinal
+24 has no staged packet, no persisted message, and no consumed attempt. Continue
+only after choosing either a complete J3 restart under `Latest` or restoration of
+GPT-5.6 Sol for the remaining frozen J3 series; do not create a mixed 23/18 J3
+series by default.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -930,6 +935,28 @@ with zero mechanical failures, no halted claim, and SHA-256
 the intermediate twenty-one-valid progress SHA-256 was
 `c884fb972bd11e13b043b77f98e9f648d0a4b96ba419faebc17df467f8de05f2`.
 
+J3 ordinal 23 then reused the same physical tab and a fresh zero-message GPT-5.6
+Sol / Extra High conversation. It passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. J3 progress is now 23 of 41 valid
+with zero mechanical failures, no halted claim, and SHA-256
+`3316c9eea3b164b1c1a66fca3de831e97740a3e2acdf8fc5b8f03b98e60dc537`.
+The private ordinal-23 receipt has SHA-256
+`9ecba3d2910c5b50770d6a7fa05ecc87b938987b58f052c1e02362fb6706da93`.
+
+The owner then requested GPT 6 through the consumer model selector's exact
+`Latest` label in source turn `01a071f8-ae18-7922-ac49-fcb1f187dc75`, exact-body
+SHA-256 `6af7417baa5c34a277d07e0d9db6dc105713930d476102e847dad1788e4387a6`.
+The authority gate passed with zero model API spend. The existing evaluator tab
+`663931037` was changed directly from checked `GPT-5.6 Sol` to checked `Latest`;
+no new browser tab was opened. J3 ordinal 24 remains unsent and consumed no
+attempt. Its opaque response ID is `EVAL-28ee06fdb08e40e0b61ace2e`, its private
+packet is 34,352 UTF-8 bytes at
+`evaluation-v2/packets/EVAL-28ee06fdb08e40e0b61ace2e.txt`, and its exact packet
+SHA-256 is `94edc4efadc0399991bfdf0b90a38bee42bdc56ccb93d484e2e60cf752b6252e`.
+Because the first 23 J3 judgments used GPT-5.6 Sol, further dispatch is paused
+for an explicit clean-series choice; no clinical content, rubric meaning,
+condition mapping, family, arm, judgment, or result was inspected.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
@@ -937,4 +964,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_22_OF_41_VALID_J3_ORDINAL_23_READY`.
+`BLINDED_EVALUATOR_V2_J3_CAPTURE_PAUSED_OWNER_MODEL_TRANSITION_23_OF_41_VALID_J3_ORDINAL_24_UNSENT`.
