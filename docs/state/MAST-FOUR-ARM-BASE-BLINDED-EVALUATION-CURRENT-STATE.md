@@ -986,14 +986,27 @@ HEAD both reached execution commit
 `7d672bff3c01372aecb6b581e44000c8bc173b05`. It copied the unchanged frozen
 41-slot schedule byte-for-byte at SHA-256
 `dccf2af3b21f3180d0813be67f6aaec488f25e5861ae87c8c2936e75fddea9c6`.
-Initial progress has zero valid judgments, zero mechanical failures, no halted
+Initial progress had zero valid judgments, zero mechanical failures, no halted
 claim, and SHA-256
 `b552f1fa9ef0e823828174ddd2ed2359b69083dd8bd3dcaf04f643eac5066d31`.
 All active private directories are mode `0700` and files are mode `0600`. The
 finalizer rejected the incomplete Latest series with
 `EVALUATOR_V2_REQUIRED_J3_LATEST_SERIES_NOT_COMPLETE` and created no final
-directory. No Latest packet has been staged or sent and no attempt has been
-consumed.
+directory.
+
+Latest restart ordinals 1 and 2 then reused physical browser tab `663931037`
+in separate fresh zero-message Chat conversations. Both pre-send gates verified
+checked `Latest`, observed highest reasoning label `Pro, 5 of 5.`, exact packet
+bytes, unchanged account continuity, and matching local/GitHub execution HEAD.
+Both outputs passed the strict repository validator on their first dispatched
+attempts with zero tool or citation artifacts. The active series now has 2 of
+41 valid judgments, zero mechanical failures, no halted claim, and progress
+SHA-256
+`1e3bc922ffd882a23a66ad1196194b9e0961c2343c06ffdc085c423e51df5190`.
+The ordinal-1 valid receipt SHA-256 is
+`4e1a04ce78702efd8c38f4879bd275f9f221dce058adcf702a68835b4548a48c`;
+the ordinal-2 valid receipt SHA-256 is
+`5a73d094d73fb6a5dec45e5e905a492cd7a3ebc95c0970c0ec510a94253603f6`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -1002,4 +1015,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_INITIALIZED_0_OF_41_ORDINAL_1_READY`.
+`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_2_OF_41_ORDINAL_3_READY`.

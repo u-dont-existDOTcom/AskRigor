@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-j3-latest-restart",
-    "status": "blinded_evaluation_v2_j3_latest_restart_initialized_0_of_41_ordinal_1_ready",
+    "status": "blinded_evaluation_v2_j3_latest_restart_valid_2_of_41_ordinal_3_ready",
     "directive": "docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -282,10 +282,11 @@
       "owner source turn 01a071f8-ae18-7922-ac49-fcb1f187dc75 requested GPT 6 through the consumer selector's Latest option at exact-body SHA-256 6af7417baa5c34a277d07e0d9db6dc105713930d476102e847dad1788e4387a6; the authority gate passed at zero model API spend, the same evaluator tab was changed to checked Latest, and J3 ordinal 24 remained unstaged and unsent with no attempt consumed",
       "the owner selected restart all; the exact source-bound replacement directive is 12738 UTF-8 bytes at SHA-256 8f1c7f4af517060445aaf42498f6efac1ca8abd9460aae02d0295196d8f634f9 and authorizes a homogeneous 41-slot J3_LATEST_RESTART series from ordinal 1",
       "the complete 23-valid GPT-5.6 Sol J3 tree was preserved as superseded private audit evidence, reverified against a 53-entry deterministic inventory, and bound to inventory SHA-256 7128b22b65289870c75a5c2cc118f50e6979c4e4bbf8e32da7b38805f2bc71b9; no ordinal-24 attempt existed or was consumed",
-      "the J3_LATEST_RESTART private tree was initialized at execution commit 7d672bff3c01372aecb6b581e44000c8bc173b05 with the unchanged 41-slot schedule SHA-256 dccf2af3b21f3180d0813be67f6aaec488f25e5861ae87c8c2936e75fddea9c6 and empty progress SHA-256 b552f1fa9ef0e823828174ddd2ed2359b69083dd8bd3dcaf04f643eac5066d31; it has zero valid judgments, zero failures, no halt, correct private modes, and the incomplete-state finalizer failed closed without creating final artifacts"
+      "the J3_LATEST_RESTART private tree was initialized at execution commit 7d672bff3c01372aecb6b581e44000c8bc173b05 with the unchanged 41-slot schedule SHA-256 dccf2af3b21f3180d0813be67f6aaec488f25e5861ae87c8c2936e75fddea9c6 and empty progress SHA-256 b552f1fa9ef0e823828174ddd2ed2359b69083dd8bd3dcaf04f643eac5066d31; it has zero valid judgments, zero failures, no halt, correct private modes, and the incomplete-state finalizer failed closed without creating final artifacts",
+      "J3_LATEST_RESTART ordinals 1 and 2 reused physical browser tab 663931037, used separate fresh zero-message Chat conversations with checked Latest and observed highest reasoning label Pro, 5 of 5., passed exact repository validation on their first attempts with zero tool or citation artifacts, and advanced the active series to 2 of 41 valid with zero mechanical failures, no halted claim, and SHA-256 1e3bc922ffd882a23a66ad1196194b9e0961c2343c06ffdc085c423e51df5190; valid receipt SHA-256 values are 4e1a04ce78702efd8c38f4879bd275f9f221dce058adcf702a68835b4548a48c and 5a73d094d73fb6a5dec45e5e905a492cd7a3ebc95c0970c0ec510a94253603f6"
     ],
     "pending": [
-      "execute and freeze all 41 required fresh J3_LATEST_RESTART adjudications from ordinal 1",
+      "execute and freeze fresh J3_LATEST_RESTART adjudications 3 through 41",
       "implement and run the final fail-closed acceptance command",
       "compute and freeze only blinded per-response NONOFFICIAL_PROJECTED_MAST_METRICS",
       "return the factual blinded-evaluation receipt automatically to the Project Manager Chat"
@@ -366,13 +367,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Commit and push this zero-valid initialization checkpoint, verify the signed-in consumer UI still exposes checked Latest and its highest authorized reasoning setting in the existing evaluator tab, run the live structural pre-send verifier, and dispatch J3_LATEST_RESTART ordinal 1.",
+  "nextAction": "After the approximately ten-minute post-send interval, verify the signed-in consumer UI still exposes checked Latest and Pro, 5 of 5. in the existing evaluator tab, open a fresh zero-message Chat conversation, run the live structural pre-send verifier against the new local/GitHub checkpoint HEAD, and dispatch J3_LATEST_RESTART ordinal 3.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
     "completionClaim": "BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_INITIALIZED_0_OF_41_ORDINAL_1_READY",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "OWNER_RESTART_ALL_SOURCE_BOUND_TO_HOMOGENEOUS_LATEST_SERIES",
-    "operationalAlignment": "the blinded primary ledger remains frozen at 192 valid judgments and six preserved mechanical failures; the 23-valid GPT-5.6 Sol J3 tree is preserved as superseded private audit evidence; the active J3_LATEST_RESTART tree is initialized with the unchanged 41-slot schedule, zero valid judgments, zero failures, and no halt; ordinal 1 must use checked Latest, the highest authorized reasoning UI setting observed at send time, the same evaluator tab, a fresh conversation, zero paid API use, and no condition-map or clinical-content inspection",
+    "operationalAlignment": "the blinded primary ledger remains frozen at 192 valid judgments and six preserved mechanical failures; the 23-valid GPT-5.6 Sol J3 tree remains preserved as superseded private audit evidence; the active homogeneous J3_LATEST_RESTART tree has 2 of 41 valid judgments, zero failures, no halt, and progress SHA-256 1e3bc922ffd882a23a66ad1196194b9e0961c2343c06ffdc085c423e51df5190; ordinal 3 must use checked Latest, observed Pro, 5 of 5., the same evaluator tab, a fresh zero-message Chat conversation, zero paid API use, and no condition-map or clinical-content inspection",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }
