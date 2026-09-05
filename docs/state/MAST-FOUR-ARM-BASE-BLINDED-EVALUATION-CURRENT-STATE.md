@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-05 05:07 UTC
+**Checkpoint:** 2026-09-05 05:21 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_J3_CAPTURE_ACTIVE / 0_OF_41_VALID / J3_ORDINAL_1_READY`
+**Status:** `V2_J3_CAPTURE_ACTIVE / 2_OF_41_VALID / J3_ORDINAL_3_READY`
 
 ## Source-bound authority
 
@@ -129,9 +129,9 @@ redundant green reruns.
 
 ## Next executable action
 
-Continue J3 capture at J3 ordinal 1 in a verified-empty fresh GPT-5.6 Sol / Extra High
+Continue J3 capture at J3 ordinal 3 in a verified-empty fresh GPT-5.6 Sol / Extra High
 conversation using the original condition-blind packet with exact SHA-256
-`a8ab5ba7f5deb3c0ed7cdf2b2ccf8e880753b2784c6eddc1d343ce844e5dde8c`.
+`99cdd0e5eedddfcae2ecb20cab01a783a0e4675df847a83a4b80837940cbb5ce`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -845,6 +845,14 @@ and empty J3 progress SHA-256
 `b663de2a53a5269a0b6195911656f4a2e8b2954b9273d2c7d77d94d983704f2c`.
 The fail-closed finalizer was exercised before J3 capture and correctly rejected the incomplete
 state with `EVALUATOR_V2_REQUIRED_J3_NOT_FROZEN`; no final directory was written.
+J3 ordinals 1 and 2 each reused the same physical browser tab, opened separate fresh
+zero-message GPT-5.6 Sol / Extra High conversations, and passed exact validation on their
+first dispatched attempts with zero tool or citation artifacts. A schedule-derived private
+receipt helper now joins case identity without surfacing it in worker output. J3 progress is
+2 of 41 valid with zero mechanical failures, no halted claim, and SHA-256
+`1f51dd27987919dc26bd8697afa882e6f7f5cc012fe1ace46e7fe495c40ddc82`;
+the intermediate one-valid progress SHA-256 was
+`0231ad21181bd87b8c2d0db3f3ae9b1994fbc351b35ceea76a1c880b06579616`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -853,4 +861,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_0_OF_41_VALID_J3_ORDINAL_1_READY`.
+`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_2_OF_41_VALID_J3_ORDINAL_3_READY`.
