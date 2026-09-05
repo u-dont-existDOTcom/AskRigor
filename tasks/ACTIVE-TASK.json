@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_zero_spend_mast_blinded_evaluation_v2_retry_extension_admitted",
+  "status": "active_zero_spend_mast_blinded_evaluation_v2_j3_latest_restart_authorized",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -47,7 +47,9 @@
   "authorityPolicy": "governance/chat-work-authority-policy.json",
   "activeDirective": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot.json",
   "activeDirectiveAmendment": "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
-  "activeEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
+  "activeEvaluatorDirective": "docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json",
+  "supersededJ3EvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
+  "latestRestartSourceReceipt": "docs/audits/2026-09-05-mast-j3-latest-restart-source-receipt.json",
   "parentEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
   "retiredEvaluatorDirective": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
   "activeRecoveryDirective": "docs/directives/2026-09-02-mast-runtime-admission-recovery.json",
@@ -80,15 +82,15 @@
     "receipt": "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json"
   },
   "currentSlice": {
-    "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
-    "status": "blinded_evaluation_v2_j3_capture_active_4_of_41_valid_j3_ordinal_5_ready",
-    "directive": "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
+    "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-j3-latest-restart",
+    "status": "blinded_evaluation_v2_j3_latest_restart_harness_validated_pending_initialization",
+    "directive": "docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
       "responseChats": 0,
       "primaryEvaluatorChats": 192,
       "adjudicatorChats": "0_TO_96",
-      "mode": "EXTRA_HIGH",
+      "mode": "LATEST_HIGHEST_AUTHORIZED_OBSERVED_UI_SETTING",
       "freshContexts": true,
       "automaticRouting": true,
       "ownerRelayPermitted": false
@@ -277,12 +279,13 @@
       "J3 ordinals 19 and 20 reused the same physical browser tab, used separate fresh zero-message GPT-5.6 Sol / Extra High conversations, passed exact validation on their first attempts with zero tool or citation artifacts after normal provider queue delays, and advanced the J3 ledger to 20 of 41 valid with zero mechanical failures, no halted claim, and SHA-256 ea22ccbf2f700867aa30d95da3c95646c06796cf08ebfc11b76cead112cb3bc5",
       "J3 ordinals 21 and 22 reused the same physical browser tab, used separate fresh zero-message GPT-5.6 Sol / Extra High conversations, passed exact validation on their first attempts with zero tool or citation artifacts after normal provider queue delays, and advanced the J3 ledger to 22 of 41 valid with zero mechanical failures, no halted claim, and SHA-256 b630609ab0b7766ce530082660f2c9ea6b3a0315f09ce88696d20fdc425fee89; a temporary provider rate-limit notice appeared only after ordinal 21 completed and its dismissal preserved the completed first attempt",
       "J3 ordinal 23 reused the same physical browser tab, used a fresh zero-message GPT-5.6 Sol / Extra High conversation, passed exact validation on its first attempt with zero tool or citation artifacts, and advanced the J3 ledger to 23 of 41 valid with zero mechanical failures, no halted claim, and SHA-256 3316c9eea3b164b1c1a66fca3de831e97740a3e2acdf8fc5b8f03b98e60dc537",
-      "owner source turn 01a071f8-ae18-7922-ac49-fcb1f187dc75 requested GPT 6 through the consumer selector's Latest option at exact-body SHA-256 6af7417baa5c34a277d07e0d9db6dc105713930d476102e847dad1788e4387a6; the authority gate passed at zero model API spend, the same evaluator tab was changed to checked Latest, and J3 ordinal 24 remained unstaged and unsent with no attempt consumed"
+      "owner source turn 01a071f8-ae18-7922-ac49-fcb1f187dc75 requested GPT 6 through the consumer selector's Latest option at exact-body SHA-256 6af7417baa5c34a277d07e0d9db6dc105713930d476102e847dad1788e4387a6; the authority gate passed at zero model API spend, the same evaluator tab was changed to checked Latest, and J3 ordinal 24 remained unstaged and unsent with no attempt consumed",
+      "the owner selected restart all; the exact source-bound replacement directive is 12738 UTF-8 bytes at SHA-256 8f1c7f4af517060445aaf42498f6efac1ca8abd9460aae02d0295196d8f634f9 and authorizes a homogeneous 41-slot J3_LATEST_RESTART series from ordinal 1",
+      "the complete 23-valid GPT-5.6 Sol J3 tree was preserved as superseded private audit evidence, reverified against a 53-entry deterministic inventory, and bound to inventory SHA-256 7128b22b65289870c75a5c2cc118f50e6979c4e4bbf8e32da7b38805f2bc71b9; no ordinal-24 attempt existed or was consumed"
     ],
     "pending": [
-      "execute and freeze 192 primary condition-blind evaluator v2 judgments",
-      "after all primaries are frozen, implement and run the predeclared disagreement detector and sealed J3 capture ledger before inspecting any comparison",
-      "execute every required fresh J3 adjudication",
+      "commit and push the validated Latest-only J3 harness, then initialize the active restart tree from the unchanged frozen 41-slot schedule",
+      "execute and freeze all 41 required fresh J3_LATEST_RESTART adjudications from ordinal 1",
       "implement and run the final fail-closed acceptance command",
       "compute and freeze only blinded per-response NONOFFICIAL_PROJECTED_MAST_METRICS",
       "return the factual blinded-evaluation receipt automatically to the Project Manager Chat"
@@ -363,13 +366,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Do not dispatch J3 ordinal 24 until the owner selects a clean model-transition path: either restart the complete 41-slot J3 series under Latest or restore GPT-5.6 Sol for the remaining frozen J3 series. Ordinal 24 is unstaged and unsent, consumed no attempt, and has packet SHA-256 94edc4efadc0399991bfdf0b90a38bee42bdc56ccb93d484e2e60cf752b6252e.",
+  "nextAction": "Commit and push the validated Latest-only restart harness, initialize the empty J3_LATEST_RESTART tree from the unchanged frozen 41-slot schedule, run the live structural pre-send verifier, and dispatch restart ordinal 1 in the existing reusable evaluator tab.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BLINDED_EVALUATOR_V2_J3_CAPTURE_PAUSED_OWNER_MODEL_TRANSITION_23_OF_41_VALID_J3_ORDINAL_24_UNSENT",
+    "completionClaim": "BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_AUTHORIZED_HARNESS_VALIDATED_PENDING_INITIALIZATION",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
-    "contractToOwner": "OWNER_MODEL_TRANSITION_REQUIRES_CLEAN_SERIES_CHOICE",
-    "operationalAlignment": "the blinded primary ledger is frozen with all 192 valid judgments and six preserved mechanical failures; the 41-slot J3 schedule remains sealed, J3 progress has 23 valid GPT-5.6 Sol judgments with zero mechanical failures and no halt, no case identity or judgment result has been surfaced, the same evaluator tab is selected to Latest at the owner's request, and J3 ordinal 24 is unstaged and unsent pending a clean-series model choice",
+    "contractToOwner": "OWNER_RESTART_ALL_SOURCE_BOUND_TO_HOMOGENEOUS_LATEST_SERIES",
+    "operationalAlignment": "the blinded primary ledger remains frozen at 192 valid judgments and six preserved mechanical failures; the 23-valid GPT-5.6 Sol J3 tree is preserved as superseded private audit evidence; the unchanged 41-slot schedule will restart from ordinal 1 under Latest with a null unguessed provider slug, the highest authorized reasoning UI label observed at each send, the same evaluator tab, fresh conversations, zero paid API use, and no condition-map or clinical-content inspection",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

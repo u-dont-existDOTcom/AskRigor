@@ -4,6 +4,8 @@ import { sha256 } from "../scripts/zero-spend-mast-four-arm-base-evaluation.mjs"
 import {
   acceptJ3CaptureProgress,
   detectV2Disagreement,
+  latestJ3RootDirectory,
+  requireCompleteLatestJ3Series,
   type ProjectedMetricResult,
 } from "../scripts/zero-spend-mast-four-arm-base-finalization-v2.mjs";
 
@@ -37,6 +39,60 @@ const metrics: ProjectedMetricResult = {
   },
   responseLevelSevereCommission: false,
 };
+
+const latestProgressMetadata = {
+  schemaVersion: 2,
+  receiptType: "zero_spend_chatgpt_mast_four_arm_base_v2_j3_latest_restart_capture_progress",
+  sourceBoundRestartDirectiveSha256:
+    "8f1c7f4af517060445aaf42498f6efac1ca8abd9460aae02d0295196d8f634f9",
+  seriesId: "J3_LATEST_RESTART",
+  evaluatorSelectorLabel: "Latest",
+  providerModelSlug: null,
+  providerModelSlugStatus: "UNAVAILABLE_NOT_GUESSED",
+  sourceSupersededInventorySha256:
+    "7128b22b65289870c75a5c2cc118f50e6979c4e4bbf8e32da7b38805f2bc71b9",
+  executionRepositoryBranch: "task/mast-four-arm-zero-spend-harness-20260901",
+  initialExecutionRepositoryCommit: "4".repeat(64),
+  latestExecutionRepositoryCommit: "4".repeat(64),
+} as const;
+
+const latestReceiptProvenance = (input: {
+  ordinal: number;
+  opaqueResponseId: string;
+  packetSha256: string;
+  attempt: 1 | 2 | 3 | 4;
+  capturedAt: string;
+}) => ({
+  series_id: "J3_LATEST_RESTART",
+  series_ordinal: input.ordinal,
+  frozen_schedule_slot_id:
+    `J3-${String(input.ordinal).padStart(3, "0")}:${input.opaqueResponseId}`,
+  evaluator_selector_label: "Latest",
+  evaluator_reasoning_ui_label_observed: "TEST_MAXIMUM_UI_LABEL",
+  provider_model_slug: null,
+  provider_model_slug_status: "UNAVAILABLE_NOT_GUESSED",
+  consumer_account_continuity_status: "UNCHANGED",
+  chat_mode_status: "Chat",
+  fresh_conversation_status: "FRESH_ZERO_MESSAGE_AT_SEND",
+  physical_tab_reuse_status: "SAME_REUSABLE_PHYSICAL_TAB",
+  physical_tab_id: "663931037",
+  packet_sha256: input.packetSha256,
+  attempt_number: input.attempt,
+  attempt_ceiling: 4,
+  execution_repository_branch: "task/mast-four-arm-zero-spend-harness-20260901",
+  execution_repository_commit: "4".repeat(64),
+  local_head_at_record: "4".repeat(64),
+  github_head_at_record: "4".repeat(64),
+  local_github_head_match: true,
+  structural_pre_send_verification_status: "PASSED",
+  condition_map_access_status: "SEALED_NOT_INSPECTED",
+  clinical_content_inspection_status: "NOT_INSPECTED",
+  paid_api_use_status: "ZERO",
+  receipt_created_at: input.capturedAt,
+  previous_valid_checkpoint_sha256: "5".repeat(64),
+  pre_send_receipt_file: `evaluation-v2/j3-latest-restart/pre-send-receipts/${input.ordinal}.json`,
+  pre_send_receipt_sha256: "6".repeat(64),
+} as const);
 
 describe("zero-spend blinded MAST evaluator v2 finalization", () => {
   it("does not adjudicate exact J1/J2 agreement", () => {
@@ -120,8 +176,7 @@ describe("zero-spend blinded MAST evaluator v2 finalization", () => {
       records: [],
     };
     const progress = {
-      schemaVersion: 1,
-      receiptType: "zero_spend_chatgpt_mast_four_arm_base_v2_j3_capture_progress",
+      ...latestProgressMetadata,
       directiveId: schedule.directiveId,
       retryExtensionDirectiveId: schedule.retryExtensionDirectiveId,
       createdAt: schedule.createdAt,
@@ -150,6 +205,11 @@ describe("zero-spend blinded MAST evaluator v2 finalization", () => {
       haltedClaim: null,
     } as const;
     expect(acceptJ3CaptureProgress(schedule, progress, primary).records).toEqual([]);
+    expect(latestJ3RootDirectory).toBe("evaluation-v2/j3-latest-restart");
+    expect(() => requireCompleteLatestJ3Series(
+      schedule as never,
+      acceptJ3CaptureProgress(schedule, progress, primary),
+    )).toThrow("EVALUATOR_V2_REQUIRED_J3_LATEST_SERIES_NOT_COMPLETE");
   });
 
   it("requires the exact halt claim at the fourth mechanical J3 failure", () => {
@@ -185,9 +245,9 @@ describe("zero-spend blinded MAST evaluator v2 finalization", () => {
       status: "INVALID_MECHANICAL",
       reason: "INVALID_JSON",
       providerSurface: "CHATGPT_CONSUMER_CHAT",
-      modelNameObserved: "GPT-5.6 Sol",
-      thinkingEffortObserved: "Extra High, 4 of 5",
-      modelSlugObserved: "gpt-5-6-thinking",
+      modelNameObserved: "Latest",
+      thinkingEffortObserved: "TEST_MAXIMUM_UI_LABEL",
+      modelSlugObserved: null,
       capturedAt: "2026-09-05T05:00:00Z",
       chatLocator: `https://chatgpt.com/c/failure-${attempt}`,
       conversationId: `failure-${attempt}`,
@@ -210,6 +270,13 @@ describe("zero-spend blinded MAST evaluator v2 finalization", () => {
       provenanceStatus: "VERIFIED",
       transport: "PASTED_TEXT_ATTACHMENT",
       retainedPrivately: true,
+      ...latestReceiptProvenance({
+        ordinal: 1,
+        opaqueResponseId: schedule.records[0].opaqueResponseId,
+        packetSha256: schedule.records[0].exactPacketSha256,
+        attempt,
+        capturedAt: "2026-09-05T05:00:00Z",
+      }),
     } as const);
     const primary = {
       schemaVersion: 1,
@@ -225,8 +292,7 @@ describe("zero-spend blinded MAST evaluator v2 finalization", () => {
       haltedClaim: null,
     } as const;
     const baseProgress = {
-      schemaVersion: 1,
-      receiptType: "zero_spend_chatgpt_mast_four_arm_base_v2_j3_capture_progress",
+      ...latestProgressMetadata,
       directiveId: schedule.directiveId,
       retryExtensionDirectiveId: schedule.retryExtensionDirectiveId,
       createdAt: schedule.createdAt,
@@ -245,6 +311,22 @@ describe("zero-spend blinded MAST evaluator v2 finalization", () => {
       haltedClaim: null,
     };
     expect(acceptJ3CaptureProgress(schedule, threeFailures, primary).haltedClaim).toBeNull();
+    expect(() => acceptJ3CaptureProgress(schedule, {
+      ...baseProgress,
+      mechanicalFailureCount: 1,
+      mechanicalFailures: [{ ...failure(1), modelNameObserved: "GPT-5.6 Sol" }],
+      haltedClaim: null,
+    }, primary)).toThrow();
+    expect(() => acceptJ3CaptureProgress(schedule, {
+      ...baseProgress,
+      mechanicalFailureCount: 1,
+      mechanicalFailures: [{
+        ...failure(1),
+        modelSlugObserved: "gpt-5-6-thinking",
+        provider_model_slug: "gpt-5-6-thinking",
+      }],
+      haltedClaim: null,
+    }, primary)).toThrow();
 
     const fourFailuresWithoutHalt = {
       ...baseProgress,

@@ -953,9 +953,34 @@ attempt. Its opaque response ID is `EVAL-28ee06fdb08e40e0b61ace2e`, its private
 packet is 34,352 UTF-8 bytes at
 `evaluation-v2/packets/EVAL-28ee06fdb08e40e0b61ace2e.txt`, and its exact packet
 SHA-256 is `94edc4efadc0399991bfdf0b90a38bee42bdc56ccb93d484e2e60cf752b6252e`.
-Because the first 23 J3 judgments used GPT-5.6 Sol, further dispatch is paused
+Because the first 23 J3 judgments used GPT-5.6 Sol, further dispatch was paused
 for an explicit clean-series choice; no clinical content, rubric meaning,
 condition mapping, family, arm, judgment, or result was inspected.
+
+The owner then chose `restart all`. The exact source-bound replacement directive
+is stored at
+`docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json`;
+its 12,738 UTF-8 bytes match the completed supervisor response at SHA-256
+`8f1c7f4af517060445aaf42498f6efac1ca8abd9460aae02d0295196d8f634f9`
+and assistant message ID `3d620ff6-96d3-4343-924e-35068cde74c8`. The complete
+23-valid Sol J3 tree was copied into a protected superseded private-audit
+namespace and reverified byte-for-byte against a 53-entry deterministic
+inventory. The inventory is 10,108 bytes at SHA-256
+`7128b22b65289870c75a5c2cc118f50e6979c4e4bbf8e32da7b38805f2bc71b9`.
+The preserved series remains ineligible for Latest finalization, and no
+ordinal-24 attempt exists or was consumed.
+
+The replacement harness now uses the explicit private series root
+`evaluation-v2/j3-latest-restart`, requires series identity
+`J3_LATEST_RESTART`, binds every attempt to a live pre-send local/GitHub HEAD
+match and the existing physical tab `663931037`, captures the exact observed
+highest authorized reasoning UI label, records no guessed provider slug,
+keeps the four-attempt ceiling and exact packet retry identity, and rejects
+incomplete or mixed finalization. The focused contract has 9 passing tests.
+After restoring lockfile dependencies, the complete deterministic gate passed
+on Node 24.18.0 with 143 test files and 1,699 tests passing, 1 file and 6 tests
+skipped, and typecheck and build passing. The active restart tree has not yet
+been initialized and no Latest evaluator attempt has been staged or sent.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -964,4 +989,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_CAPTURE_PAUSED_OWNER_MODEL_TRANSITION_23_OF_41_VALID_J3_ORDINAL_24_UNSENT`.
+`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_AUTHORIZED_HARNESS_VALIDATED_PENDING_COMMIT_AND_INITIALIZATION`.

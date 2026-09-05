@@ -12,7 +12,7 @@ describe("external evaluation current-slice contract", () => {
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_zero_spend_mast_blinded_evaluation_v2_preflight_accepted",
+      status: "active_zero_spend_mast_blinded_evaluation_v2_j3_latest_restart_authorized",
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -22,7 +22,11 @@ describe("external evaluation current-slice contract", () => {
       activeDirectiveAmendment:
         "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
       activeEvaluatorDirective:
-        "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
+        "docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json",
+      supersededJ3EvaluatorDirective:
+        "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json",
+      latestRestartSourceReceipt:
+        "docs/audits/2026-09-05-mast-j3-latest-restart-source-receipt.json",
       activeLessonContract:
         "docs/state/MAST-FOUR-ARM-BASE-EVALUATION-ACTIVE-LESSON-CONTRACT.json",
       runtimeAdmissionBlocker:
@@ -36,18 +40,18 @@ describe("external evaluation current-slice contract", () => {
       liveRuntimeAdmissionReceipt:
         "docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json",
       evaluatorRuntimeAdmissionReceipt:
-        "docs/audits/2026-09-02-mast-blinded-evaluator-v2-live-runtime-admission-accepted.json",
+        "docs/audits/2026-09-02-mast-blinded-evaluator-v2-retry-extension-runtime-admission-accepted.json",
       currentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
-        sliceId: "mast-four-arm-eight-family-base-blinded-evaluation-v1",
-        status: "blinded_evaluation_v2_preflight_accepted_primary_dispatch_ready",
+        sliceId: "mast-four-arm-eight-family-base-blinded-evaluation-v2-j3-latest-restart",
+        status: "blinded_evaluation_v2_j3_latest_restart_harness_validated_pending_initialization",
         maximumEstimatedCostUsdBeforeAbort: 0,
         conditionMapSealed: true,
         requiredChats: {
           primaryEvaluatorChats: 192,
           adjudicatorChats: "0_TO_96",
-          mode: "EXTRA_HIGH",
+          mode: "LATEST_HIGHEST_AUTHORIZED_OBSERVED_UI_SETTING",
           automaticRouting: true,
           ownerRelayPermitted: false,
         },
@@ -66,7 +70,8 @@ describe("external evaluation current-slice contract", () => {
         mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: "EVALUATOR_TRANSPORT_V1_RETIRED_V2_RESTART_AUTHORIZED_FROM_ORDINAL_1",
+        completionClaim:
+          "BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_AUTHORIZED_HARNESS_VALIDATED_PENDING_INITIALIZATION",
         scientificAdequacy: "not reached; no evaluator judgment or arm/family result has been inspected or computed",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
@@ -103,6 +108,9 @@ describe("external evaluation current-slice contract", () => {
       "scripts/prepare-zero-spend-mast-four-arm-base-evaluation-v2.mts",
       "scripts/validate-zero-spend-mast-evaluator-output-v2.mts",
       "scripts/record-zero-spend-mast-evaluator-attempt-v2.mts",
+      "scripts/initialize-zero-spend-mast-j3-latest-restart-v2.mts",
+      "scripts/verify-zero-spend-mast-j3-latest-pre-send-v2.mts",
+      "scripts/capture-zero-spend-mast-j3-valid-v2.mts",
       "governance/chat-work-authority-policy.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
@@ -111,6 +119,7 @@ describe("external evaluation current-slice contract", () => {
       "docs/directives/2026-09-02-mast-live-admission-credential-bootstrap.json",
       "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json",
       "docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json",
+      "docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json",
       "docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md",
       "docs/state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md",
       "docs/state/MAST-FOUR-ARM-BASE-PILOT-ACTIVE-LESSON-CONTRACT.json",
@@ -123,6 +132,7 @@ describe("external evaluation current-slice contract", () => {
       "docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json",
       "docs/audits/2026-09-02-mast-blinded-evaluator-v1-transport-retired.json",
       "docs/audits/2026-09-02-mast-blinded-evaluator-v2-live-runtime-admission-accepted.json",
+      "docs/audits/2026-09-05-mast-j3-latest-restart-source-receipt.json",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();
     }

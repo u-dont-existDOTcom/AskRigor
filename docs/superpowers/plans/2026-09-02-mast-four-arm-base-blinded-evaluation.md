@@ -5,7 +5,10 @@
 **Lane:** bounded blinded evaluation
 
 **Active directive:**
-`docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport-v2-recovery.json`
+`docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json`
+
+**Superseded J3 execution directive:**
+`docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json`
 
 **Retired calibration transport:**
 `docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json`
@@ -50,6 +53,10 @@ sealed order using chunk identifiers and a compact output schema.
 10. [ ] After all 192 primaries are frozen, implement and run the predeclared
    disagreement detector, sealed J3 schedule, J3 capture ledger, and every
    required fresh independent J3 adjudication before inspecting any comparison.
+   The detector and unchanged 41-slot schedule are frozen. The first 23 Sol J3
+   judgments are preserved as superseded private audit evidence. Restart the
+   complete J3 series at ordinal 1 under consumer selector `Latest`, using the
+   highest authorized reasoning setting observed in the UI at each send.
 11. [ ] Construct the fail-closed final acceptance command and final blinded
    per-response records, compute only the directed
    per-response `NONOFFICIAL_PROJECTED_MAST_METRICS`, and freeze the complete
@@ -67,6 +74,8 @@ sealed order using chunk identifiers and a compact output schema.
 - one fresh clean condition-blind conversation per judgment;
 - exact packet/output/source/model/mode provenance and retained retry receipts;
 - all required J3 adjudications executed independently from scratch;
+- exactly one homogeneous 41-valid `J3_LATEST_RESTART` series; no superseded Sol
+  output may count toward it or enter finalization;
 - final metrics are response-level only and labeled
   `NONOFFICIAL_PROJECTED_MAST_METRICS`;
 - condition mapping remains sealed and no arm/family result is computed;
