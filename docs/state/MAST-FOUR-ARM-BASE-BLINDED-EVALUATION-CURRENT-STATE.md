@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-04 23:55 UTC
+**Checkpoint:** 2026-09-05 00:15 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 163_VALID / ORDINAL_164_READY`
+**Status:** `V2_PRIMARY_CAPTURE_ACTIVE / 165_VALID / ORDINAL_166_READY`
 
 ## Source-bound authority
 
@@ -130,9 +130,9 @@ redundant green reruns.
 ## Next executable action
 
 After the approximately ten-minute inter-send interval, continue primary
-capture at ordinal 164 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
+capture at ordinal 166 in a verified-empty fresh GPT-5.6 Sol / Extra High conversation using
 the sealed packet with exact SHA-256
-`d63716b08213cf58c53089f396b89fdda4d37f4f2e9112804c49925aebfe5e62`.
+`f6dd999d1bb0fd192675eff62f3c58a95c6e663440c124c4dd3f9594b533c0ef`.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -687,6 +687,17 @@ normal generation, and passed exact validation on its first dispatched attempt w
 tool or citation artifacts. The ledger now contains 163 valid judgments, preserves six
 mechanical failures, has no halted claim, and has SHA-256
 `c074a592216c4053991eb47ae74bb3d5d44c6f1d11a29ceb596e57f91762e156`.
+Ordinal 164's first staging action inserted only a verified 65-byte packet prefix. The
+incomplete draft was discarded in a fresh zero-message conversation without a send or
+attempt; the full packet was then staged byte-exactly. The response passed exact validation
+on its first dispatched attempt with zero tool or citation artifacts and advanced the ledger
+to 164 valid judgments at SHA-256
+`c8f749a509fb26d735955d8866001d870ee81fcc309fce766140924b5e850f6d`.
+Ordinal 165 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. It passed exact validation on its first dispatched attempt with zero
+tool or citation artifacts. The ledger now contains 165 valid judgments, preserves six
+mechanical failures, has no halted claim, and has SHA-256
+`4ca8330c91befa2da82794cf7be42058ec7a9843024d7d58b7eb62e8189ae30b`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -695,4 +706,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_163_VALID_ORDINAL_164_READY`.
+`BLINDED_EVALUATOR_V2_PRIMARY_CAPTURE_ACTIVE_165_VALID_ORDINAL_166_READY`.
