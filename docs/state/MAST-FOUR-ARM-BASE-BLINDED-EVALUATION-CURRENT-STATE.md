@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_J3_CAPTURE_ACTIVE / 6_OF_41_VALID / J3_ORDINAL_7_READY`
+**Status:** `V2_J3_CAPTURE_ACTIVE / 8_OF_41_VALID / J3_ORDINAL_9_READY`
 
 ## Source-bound authority
 
@@ -867,6 +867,13 @@ halted claim, and SHA-256
 `8970cb7f8dd52c0f8fbfc8faf6da1ecbd9b3ca7774b03f8024ec0d03d279b103`;
 the intermediate five-valid progress SHA-256 was
 `f440b7ab08c5d4c49ea2466b44055754ab2f40544ddafb735a3463d2d55a1296`.
+J3 ordinals 7 and 8 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. J3 progress is now 8 of 41 valid with zero mechanical failures, no
+halted claim, and SHA-256
+`30a33d507e0bb328595a098838ad2374978b3bf7582e322b461516fa275ff7eb`;
+the intermediate seven-valid progress SHA-256 was
+`98e91c5b57350e5bb544b64deca385e8a23dd0b039d29dc46b11d7bdfcbb57a5`.
 
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
@@ -875,4 +882,4 @@ Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_6_OF_41_VALID_J3_ORDINAL_7_READY`.
+`BLINDED_EVALUATOR_V2_J3_CAPTURE_ACTIVE_8_OF_41_VALID_J3_ORDINAL_9_READY`.
