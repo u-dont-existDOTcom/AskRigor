@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_post_gate_evidence_delivered_byte_identity_verified_parent_open",
+  "status": "active_private_source_access_metadata_returned_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -82,6 +82,36 @@
     "receipt": "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json"
   },
   "currentSlice": {
+    "sliceId": "askrigor-post-delivery-source-access-provenance-v1",
+    "status": "bounded_metadata_collection_returned_project_manager_response_pending_parent_open",
+    "boundedOutcome": "Collect only source-bound existing attachment and citation reference metadata for three fixed targets, preserve explicit unavailable fields, and return a private operational receipt to the Project Manager.",
+    "completed": [
+      "new source-bound Project Manager directive and fresh runtime admission",
+      "retained source-record identity checks for all three fixed targets",
+      "one metadata-only browser visit per target with explicit unavailable fields",
+      "private metadata receipt validated and returned once to the Project Manager"
+    ],
+    "pending": [
+      "capture the Project Manager response and continue its separate source-bound operational direction or exact owner-only question"
+    ],
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "fixedTargetCount": 3,
+    "browserVisitsUsed": 3,
+    "browserVisitsRemaining": 0,
+    "newTargetMessages": 0,
+    "newUploads": 0,
+    "sourceDocumentFetches": 0,
+    "runtimeAdmission": {
+      "messageId": "9353d770-e9a6-4a59-a12f-cbdc2e004777",
+      "exactBodySha256": "99cba31c06a14521b376a44bd3baae586b867807a0b95dd0ffff9dc0bc0a8fd1",
+      "mayExecute": true
+    },
+    "receipt": "docs/audits/2026-09-06-mast-source-access-provenance-collected.json",
+    "privateMetadataReceiptSha256": "580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91",
+    "returnMessageId": "1e1e4347-e836-46b5-bf05-b2d3d1b08650",
+    "ownerDecisionRequired": false
+  },
+  "completedEvidenceExportSlice": {
     "sliceId": "mast-four-arm-base-post-gate-evidence-export-v1",
     "status": "private_archive_and_receipt_delivered_byte_identity_verified_slice_complete_parent_open",
     "boundedOutcome": "Preserve the private determinate post-gate disposition and package all existing frozen evidence for authenticated Project Manager diagnostic review without new inference, rescoring, tuning, public result disclosure, or external spend.",
@@ -96,9 +126,7 @@
       "receipt and archive each uploaded once and submitted together in one persisted destination message",
       "source-bound receiving-side receipt verifies both received file byte counts and SHA-256 identities"
     ],
-    "pending": [
-      "Project Manager substantive evidence review and any separate source-bound direction for further worker execution"
-    ],
+    "pending": [],
     "excluded": [
       "new generation",
       "new judge calls",
@@ -218,7 +246,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-06T17:23:31.229Z",
+    "checkedAt": "2026-09-06T18:29:38.910Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -226,18 +254,19 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "The authorized transport slice is complete. Preserve all source artifacts and failed/successful delivery receipts unchanged. The Project Manager has both attachments and returned a source-bound matching-byte-identity receipt. Substantive evidence review remains with the Project Manager; further worker execution requires a separate source-bound directive. Do not resend attachments, initiate analysis, or request owner relay.",
+  "nextAction": "Capture the Project Manager response and continue only its source-bound operational directive or exact owner-only question. The three target browser visits are exhausted; do not revisit or widen collection.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED_BYTE_IDENTITY_VERIFIED_PARENT_OPEN",
-    "workerToContract": "MATCH_AT_PRESERVED_ARCHIVE_DELIVERY_AND_RECIPIENT_BYTE_IDENTITY_VERIFICATION",
+    "completionClaim": "BOUNDED_METADATA_COLLECTION_RETURNED_PROJECT_MANAGER_RESPONSE_PENDING_PARENT_OPEN",
+    "workerToContract": "MATCH_AT_BOUNDED_METADATA_COLLECTION_AND_PRIVATE_RETURN",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "all frozen source artifacts and earlier failures remain preserved; after the owner enabled extension file access, a new source-bound directive and fresh runtime admission authorized one receipt upload, one archive upload, and one submission; both provider-bound attachments persist in the exact Project Manager conversation; the receiving-side source receipt reports matching file IDs, byte counts, and SHA-256 values without payload inspection; transport is complete and the parent objective remains open",
+    "operationalAlignment": "all three exact targets were verified against retained metadata, visited once each, and represented in a validated private receipt; unavailable identifiers remain unknown; target messages, uploads, document fetches, and paid operations remain zero; no source relationship was interpreted; the exact receipt was returned once and the Project Manager response is pending",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-06T18:12:24.864092+00:00",
+  "updatedAt": "2026-09-06T19:10:33.774417+00:00",
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
   "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
-  "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json"
+  "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",
+  "sourceAccessProvenanceReceipt": "docs/audits/2026-09-06-mast-source-access-provenance-collected.json"
 }

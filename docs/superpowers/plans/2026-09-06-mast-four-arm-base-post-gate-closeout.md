@@ -48,6 +48,13 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
 11. [x] Uploaded the receipt once and the preserved archive once, submitted both
     in one authorized message, verified persisted provider attachment bindings,
     and captured the receiving-side matching-SHA-256 receipt.
+12. [x] Captured a separate source-bound metadata-collection directive and fresh
+    runtime admission; verified all three fixed target identities against retained
+    metadata and completed exactly one permitted browser visit per target.
+13. [x] Validated and returned the private operational receipt once, retaining
+    explicit unavailable fields and withholding detailed references from Git.
+14. [ ] Capture the Project Manager response and follow its next source-bound
+    operational directive or exact owner-only question. No target visits remain.
 
 Read-only follow-up on 2026-09-06 identified a likely missing extension file-access
 prerequisite. The installed runtime, persisted allowlisted setting, official
@@ -57,8 +64,10 @@ change and bounded delivery supersede that pending checkpoint. The follow-up
 uses the actual `newAllowFileAccess` setting; the earlier legacy-key scan did not
 independently establish the historical cause. Delivery evidence is recorded in
 `docs/audits/2026-09-06-mast-preserved-archive-delivered.json`. All failed receipts
-and completed source artifacts remain unchanged. Further worker execution needs
-separate source-bound Project Manager direction.
+and completed source artifacts remain unchanged. The subsequent metadata follow-up
+is recorded in
+`docs/audits/2026-09-06-mast-source-access-provenance-collected.json`; its exact
+private receipt has been returned and the Project Manager response is pending.
 
 ## Acceptance
 

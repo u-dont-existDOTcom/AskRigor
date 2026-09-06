@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 18:12 UTC
+**Checkpoint:** 2026-09-06 19:10 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,33 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED / RECIPIENT_BYTE_IDENTITY_VERIFIED / TRANSPORT_SLICE_COMPLETE / PARENT_OPEN`
+**Status:** `BOUNDED_METADATA_COLLECTION_RETURNED / PROJECT_MANAGER_RESPONSE_PENDING / PARENT_OPEN`
+
+## Latest source-access metadata follow-up
+
+Project Manager message `21b89257-03e1-4662-ba65-0d3dedfb9cd5`, exact-body
+SHA-256 `5fa773c9a66cff9d11e2a761c9cd996ae0abc7ca32669512d440de1bb3c33542`,
+authorized metadata-only collection for three fixed targets. Fresh Mission
+Control admission, message `9353d770-e9a6-4a59-a12f-cbdc2e004777`, exact-body
+SHA-256 `99cba31c06a14521b376a44bd3baae586b867807a0b95dd0ffff9dc0bc0a8fd1`,
+returned `mayExecute:true`.
+
+All three target identities match retained capture receipts and the generation
+ledger. One browser visit per target collected permitted attributes, with
+unavailable fields explicitly unknown. All three visit allowances are consumed.
+No target messages, uploads, source-document fetches, clinical-content inspection,
+source-relationship interpretation, or paid operations occurred. Source receipt
+and ledger hashes remain unchanged. Detailed reference metadata stays private.
+
+The validated private return receipt is 10,603 bytes, SHA-256
+`580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91`.
+It was returned once to the Project Manager as message
+`1e1e4347-e836-46b5-bf05-b2d3d1b08650`. The response is pending; no owner decision
+is currently required. The non-secret operational receipt is
+`docs/audits/2026-09-06-mast-source-access-provenance-collected.json`.
+
+The metadata checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
 
 ## Latest attachment delivery
 
@@ -220,12 +246,7 @@ redundant green reruns.
 
 ## Next executable action
 
-The authorized transport slice is complete. Preserve the delivered archive,
-manifest, packaging receipt, source artifacts, and all failed and successful
-transport receipts without modification. Substantive evidence review remains
-with the Project Manager; any further worker execution needs a separate
-source-bound directive. Do not resend the attachments, initiate analysis,
-or request owner relay.
+Capture the Project Manager response and continue only its source-bound operational directive or exact owner-only question. The three target browser visits are exhausted; do not revisit or widen collection. Preserve the delivered archive and all prior artifacts and receipts unchanged. Detailed metadata and the exact return receipt remain under the durable private `supervision-routing` directory.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
