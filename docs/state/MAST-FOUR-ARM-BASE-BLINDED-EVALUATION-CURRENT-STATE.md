@@ -1104,6 +1104,19 @@ The active series now has 17 of 41 valid judgments, one mechanical failure, no
 halted claim, and progress SHA-256
 `1ceb66e3eb0980b4219a8a74ce9b276ce3880d3eddcbbc5bb1f81bc8f5e7907c`.
 
+The owner then authorized reopening the evaluator tab. The exact current owner
+body is 75 UTF-8 bytes at SHA-256
+`a8d4307d974ae1e063db54124f54741656006ddfdda1dd08d9e10c3bee5610c1`.
+The persisted physical tab `663931037` was reclaimed without reading clinical
+content, but both a structural read and an in-place reload remained unreachable.
+A single replacement tab `663931483` was therefore opened in the same signed-in
+Brave Personnel profile. It is a fresh zero-message Chat with an empty composer,
+checked `Latest`, and observed highest reasoning label `Pro, 5 of 5.`. The
+harness now accepts exactly one owner-authorized tab transition after the retained
+provider/transport failure, records both physical tab IDs and the exact owner-body
+digest, and rejects an unbound or second transition. No evaluator attempt was
+consumed. The focused contract has 13 passing tests and typecheck passes.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 

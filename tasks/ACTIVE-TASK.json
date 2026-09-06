@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-j3-latest-restart",
-    "status": "blinded_evaluation_v2_j3_latest_restart_valid_17_of_41_ordinal_18_attempt_2_browser_control_blocked",
+    "status": "blinded_evaluation_v2_j3_latest_restart_valid_17_of_41_ordinal_18_attempt_2_replacement_tab_verified",
     "directive": "docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json",
     "boundedOutcome": "Execute two independent condition-blind evaluations for each of 96 frozen responses, mechanically validate and freeze them, run predeclared J3 adjudications, and compute only per-response nonofficial projected MAST metrics while the condition map remains sealed.",
     "requiredChats": {
@@ -291,10 +291,11 @@
       "J3_LATEST_RESTART ordinals 11 and 12 reused physical browser tab 663931037, used separate fresh zero-message Chat conversations with checked Latest and observed highest reasoning label Pro, 5 of 5., passed exact repository validation on their first attempts with zero tool or citation artifacts, and advanced the active series to 12 of 41 valid with zero mechanical failures, no halted claim, and SHA-256 e2b40ccde6d27964e3b9a0ef1aefddb4c1e13cf65509f34762ba22c2154e5c10; ordinal 12 had a brief post-send user-turn persistence delay while generation was active and was not resent; valid receipt SHA-256 values are 296d6c273f999c481e71af2ca15ff24573a6dae440abeddf6bb2245b48e264cc and 0aa33031e48bb17c64f33817335ff3d153742b7055ac02a3d8cef8f40d39c67f",
       "J3_LATEST_RESTART ordinals 13 and 14 reused physical browser tab 663931037, used separate fresh zero-message Chat conversations with checked Latest and observed highest reasoning label Pro, 5 of 5., passed exact repository validation on their first attempts with zero tool or citation artifacts, and advanced the active series to 14 of 41 valid with zero mechanical failures, no halted claim, and SHA-256 0cc3cd7eca0a71586a3535f2a793b5d01c01b662da22a0f2b1eaee1234f50a47; ordinal 14 had a brief post-send user-turn persistence delay while generation was active and was not resent; valid receipt SHA-256 values are d7502258d885bc00b08403ecce0c2f042a456944e04b7b9cc4054c60e9906dd6 and 82d5c95c14a058a11d4037879610e8485504d3dcad39a32c15c916caf50d7f59",
       "J3_LATEST_RESTART ordinals 15 and 16 reused physical browser tab 663931037, used separate fresh zero-message Chat conversations with checked Latest and observed highest reasoning label Pro, 5 of 5., passed exact repository validation on their first attempts with zero tool or citation artifacts, and advanced the active series to 16 of 41 valid with zero mechanical failures, no halted claim, and SHA-256 a8280945838f2ee361809855fff271eed723f00d58434edc2786b59bc4405b3f; both had brief post-send user-turn persistence delays while generation was active and neither was resent; valid receipt SHA-256 values are caf908e54c0e026da49358e3a200d4aeaf5b1c57965789afeb413953c6ecbc2c and b3b0c7c004941e9306b24491f6731d407d139930124bca88c233f5a23d472217",
-      "J3_LATEST_RESTART ordinal 17 reused physical browser tab 663931037 in a fresh zero-message Chat with checked Latest and observed highest reasoning label Pro, 5 of 5., passed exact repository validation on its first attempt with zero tool or citation artifacts, and advanced the active series to 17 valid judgments at SHA-256 78625232c65183c937abf53fc5ee40af37481dc550a137e26343a1d5a979f89b with valid receipt SHA-256 732a4cf596edd11be0bac0fb1d1baffbf205bb17ae7c4b65a5069fd362be8395; ordinal 18 attempt 1 passed the pre-send gate, was staged byte-exactly and sent once, but the exact tab renderer became unreachable after generation through every available same-tab browser-control read and recovery path, so no output bytes or message IDs were captured and no resend occurred; it was retained as PROVIDER_OR_TRANSPORT_FAILURE with partial provenance at private receipt SHA-256 c20352c5d703beb0f82b69d38a8baca5ff0d65f0c4c913ab4785d69a84e41590, leaving 17 valid judgments, one mechanical failure, no halt, and progress SHA-256 1ceb66e3eb0980b4219a8a74ce9b276ce3880d3eddcbbc5bb1f81bc8f5e7907c"
+      "J3_LATEST_RESTART ordinal 17 reused physical browser tab 663931037 in a fresh zero-message Chat with checked Latest and observed highest reasoning label Pro, 5 of 5., passed exact repository validation on its first attempt with zero tool or citation artifacts, and advanced the active series to 17 valid judgments at SHA-256 78625232c65183c937abf53fc5ee40af37481dc550a137e26343a1d5a979f89b with valid receipt SHA-256 732a4cf596edd11be0bac0fb1d1baffbf205bb17ae7c4b65a5069fd362be8395; ordinal 18 attempt 1 passed the pre-send gate, was staged byte-exactly and sent once, but the exact tab renderer became unreachable after generation through every available same-tab browser-control read and recovery path, so no output bytes or message IDs were captured and no resend occurred; it was retained as PROVIDER_OR_TRANSPORT_FAILURE with partial provenance at private receipt SHA-256 c20352c5d703beb0f82b69d38a8baca5ff0d65f0c4c913ab4785d69a84e41590, leaving 17 valid judgments, one mechanical failure, no halt, and progress SHA-256 1ceb66e3eb0980b4219a8a74ce9b276ce3880d3eddcbbc5bb1f81bc8f5e7907c",
+      "owner authorized reopening the evaluator tab at exact-body SHA-256 a8d4307d974ae1e063db54124f54741656006ddfdda1dd08d9e10c3bee5610c1; persisted tab 663931037 remained unreachable after structural read and reload attempts, so one replacement tab 663931483 was opened in the same signed-in Brave Personnel profile and verified as a fresh zero-message Chat with checked Latest and observed Pro, 5 of 5.; the harness binds exactly one transition after the retained transport failure and rejects unbound or second transitions; no evaluator attempt was consumed"
     ],
     "pending": [
-      "recover physical browser tab 663931037 without switching accounts, then execute byte-identical J3_LATEST_RESTART ordinal 18 attempt 2 and continue through ordinal 41",
+      "run the live pre-send gate on replacement tab 663931483, execute byte-identical J3_LATEST_RESTART ordinal 18 attempt 2, and continue through ordinal 41",
       "implement and run the final fail-closed acceptance command",
       "compute and freeze only blinded per-response NONOFFICIAL_PROJECTED_MAST_METRICS",
       "return the factual blinded-evaluation receipt automatically to the Project Manager Chat"
@@ -367,7 +368,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-05T04:35:31.658Z",
+    "checkedAt": "2026-09-06T01:08:21.249Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -375,13 +376,13 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Joel must manually reload physical browser tab 663931037 or restart the existing signed-in Brave Personnel browser session without switching accounts; after the tab is responsive, Codex must verify a fresh zero-message Latest / Pro, 5 of 5. Chat, wait the required interval, run the live structural pre-send verifier against the new local/GitHub checkpoint HEAD, and dispatch byte-identical J3_LATEST_RESTART ordinal 18 attempt 2.",
+  "nextAction": "commit and push the tested one-time replacement-tab provenance control; then run the live pre-send verifier for byte-identical J3_LATEST_RESTART ordinal 18 attempt 2 against physical tab 663931483 and continue automatically",
   "supervision": {
-    "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_17_OF_41_ORDINAL_18_ATTEMPT_2_BROWSER_CONTROL_BLOCKED",
+    "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
+    "completionClaim": "BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_17_OF_41_ORDINAL_18_ATTEMPT_2_REPLACEMENT_TAB_VERIFIED",
     "workerToContract": "MATCH_AT_ACTIVE_BLINDED_PRIMARY_CAPTURE",
     "contractToOwner": "OWNER_RESTART_ALL_SOURCE_BOUND_TO_HOMOGENEOUS_LATEST_SERIES",
-    "operationalAlignment": "the blinded primary ledger remains frozen at 192 valid judgments and six preserved mechanical failures; the 23-valid GPT-5.6 Sol J3 tree remains preserved as superseded private audit evidence; the active homogeneous J3_LATEST_RESTART tree has 17 of 41 valid judgments, one retained PROVIDER_OR_TRANSPORT_FAILURE at ordinal 18 attempt 1, no halt, and progress SHA-256 1ceb66e3eb0980b4219a8a74ce9b276ce3880d3eddcbbc5bb1f81bc8f5e7907c; physical tab 663931037 must be manually made responsive before byte-identical ordinal 18 attempt 2 can use checked Latest, observed Pro, 5 of 5., a fresh zero-message Chat, zero paid API use, and no condition-map or clinical-content inspection",
+    "operationalAlignment": "the blinded primary ledger remains frozen at 192 valid judgments and six preserved mechanical failures; the 23-valid GPT-5.6 Sol J3 tree remains preserved as superseded private audit evidence; the active homogeneous J3_LATEST_RESTART tree has 17 of 41 valid judgments, one retained PROVIDER_OR_TRANSPORT_FAILURE at ordinal 18 attempt 1, no halt, and progress SHA-256 1ceb66e3eb0980b4219a8a74ce9b276ce3880d3eddcbbc5bb1f81bc8f5e7907c; owner-authorized replacement tab 663931483 in the same signed-in Personnel profile is verified fresh with checked Latest and observed Pro, 5 of 5.; byte-identical ordinal 18 attempt 2 remains unsent and will carry an exact one-time tab-transition receipt without condition-map or clinical-content inspection",
     "scientificAdequacy": "not reached; no evaluator judgment or arm/family result has been inspected or computed",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   }

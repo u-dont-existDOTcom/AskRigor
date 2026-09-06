@@ -51,7 +51,10 @@ export const latestJ3RootDirectory = `${evaluatorV2Directory}/j3-latest-restart`
 export const latestJ3SeriesId = "J3_LATEST_RESTART";
 export const latestJ3RepositoryBranch = "task/mast-four-arm-zero-spend-harness-20260901";
 export const latestJ3SelectorLabel = "Latest";
-export const latestJ3PhysicalTabId = "663931037";
+export const latestJ3InitialPhysicalTabId = "663931037";
+export const latestJ3PhysicalTabId = latestJ3InitialPhysicalTabId;
+const latestJ3ReplacementAuthorizationSha256 =
+  "a8d4307d974ae1e063db54124f54741656006ddfdda1dd08d9e10c3bee5610c1";
 const latestJ3SourceDirectiveSha256 =
   "8f1c7f4af517060445aaf42498f6efac1ca8abd9460aae02d0295196d8f634f9";
 const latestJ3PrimaryProgressSha256 =
@@ -170,6 +173,20 @@ const commonJ3Identity = {
   attempt: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
 };
 
+const physicalTabIdSchema = z.string().regex(/^\d+$/u);
+const physicalTabReuseStatusSchema = z.enum([
+  "SAME_REUSABLE_PHYSICAL_TAB",
+  "AUTHORIZED_REPLACEMENT_PHYSICAL_TAB",
+]);
+const physicalTabTransitionSchema = z.object({
+  authorization_source: z.literal("CURRENT_OWNER_CHAT"),
+  owner_message_identity: z.null(),
+  owner_message_identity_status: z.literal("UNAVAILABLE_EXACT_BODY_HASH_BOUND"),
+  owner_exact_body_sha256: z.literal(latestJ3ReplacementAuthorizationSha256),
+  prior_physical_tab_id: physicalTabIdSchema,
+  prior_tab_control_status: z.literal("UNREACHABLE_AFTER_RELOAD_AND_STRUCTURAL_READ"),
+}).strict();
+
 const latestJ3ExecutionProvenanceShape = {
   series_id: z.literal(latestJ3SeriesId),
   series_ordinal: z.number().int().positive(),
@@ -181,8 +198,9 @@ const latestJ3ExecutionProvenanceShape = {
   consumer_account_continuity_status: z.literal("UNCHANGED"),
   chat_mode_status: z.literal("Chat"),
   fresh_conversation_status: z.literal("FRESH_ZERO_MESSAGE_AT_SEND"),
-  physical_tab_reuse_status: z.literal("SAME_REUSABLE_PHYSICAL_TAB"),
-  physical_tab_id: z.literal(latestJ3PhysicalTabId),
+  physical_tab_reuse_status: physicalTabReuseStatusSchema,
+  physical_tab_id: physicalTabIdSchema,
+  physical_tab_transition: physicalTabTransitionSchema.optional(),
   packet_sha256: digestSchema,
   attempt_number: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
   attempt_ceiling: z.literal(4),
@@ -426,8 +444,9 @@ const latestJ3PreSendReceiptSchema = z.object({
   consumer_account_continuity_status: z.literal("UNCHANGED"),
   chat_mode_status: z.literal("Chat"),
   fresh_conversation_status: z.literal("FRESH_ZERO_MESSAGE_AT_SEND"),
-  physical_tab_reuse_status: z.literal("SAME_REUSABLE_PHYSICAL_TAB"),
-  physical_tab_id: z.literal(latestJ3PhysicalTabId),
+  physical_tab_reuse_status: physicalTabReuseStatusSchema,
+  physical_tab_id: physicalTabIdSchema,
+  physical_tab_transition: physicalTabTransitionSchema.optional(),
   packet_file: relativeFileSchema,
   packet_sha256: digestSchema,
   attempt_number: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
@@ -716,12 +735,30 @@ export function acceptJ3CaptureProgress(
   if (new Set(conversations).size !== conversations.length) {
     throw new Error("EVALUATOR_V2_J3_CONVERSATION_REUSE_DETECTED");
   }
-  const physicalTabs = [
-    ...progress.records.map(({ physical_tab_id }) => physical_tab_id),
-    ...progress.mechanicalFailures.map(({ physical_tab_id }) => physical_tab_id),
-  ];
-  if (new Set(physicalTabs).size > 1) {
-    throw new Error("EVALUATOR_V2_J3_PHYSICAL_TAB_REUSE_VIOLATION");
+  const attemptsInOrder = [...progress.records, ...progress.mechanicalFailures]
+    .sort((left, right) => left.j3Ordinal - right.j3Ordinal || left.attempt - right.attempt);
+  let activePhysicalTabId = latestJ3InitialPhysicalTabId;
+  let transitionCount = 0;
+  for (const [index, attempt] of attemptsInOrder.entries()) {
+    if (attempt.physical_tab_reuse_status === "SAME_REUSABLE_PHYSICAL_TAB") {
+      if (attempt.physical_tab_id !== activePhysicalTabId || attempt.physical_tab_transition !== undefined) {
+        throw new Error("EVALUATOR_V2_J3_PHYSICAL_TAB_REUSE_VIOLATION");
+      }
+      continue;
+    }
+    const previous = attemptsInOrder[index - 1];
+    if (transitionCount !== 0
+      || attempt.physical_tab_id === activePhysicalTabId
+      || attempt.physical_tab_transition?.prior_physical_tab_id !== activePhysicalTabId
+      || !previous
+      || previous.status !== "INVALID_MECHANICAL"
+      || previous.reason !== "PROVIDER_OR_TRANSPORT_FAILURE"
+      || previous.j3Ordinal !== attempt.j3Ordinal
+      || previous.attempt + 1 !== attempt.attempt) {
+      throw new Error("EVALUATOR_V2_J3_PHYSICAL_TAB_REPLACEMENT_INVALID");
+    }
+    transitionCount += 1;
+    activePhysicalTabId = attempt.physical_tab_id;
   }
   const nextOrdinal = progress.records.length + 1;
   const nextFailureCount = (failuresByOrdinal.get(nextOrdinal) ?? []).length;
@@ -1034,20 +1071,47 @@ export async function createLatestJ3PreSendReceipt(input: {
     || input.consumerAccountContinuityStatus !== "UNCHANGED"
     || input.chatModeStatus !== "Chat"
     || input.freshConversationStatus !== "FRESH_ZERO_MESSAGE_AT_SEND"
-    || input.physicalTabReuseStatus !== "SAME_REUSABLE_PHYSICAL_TAB"
-    || input.physicalTabId !== latestJ3PhysicalTabId) {
+    || !physicalTabReuseStatusSchema.safeParse(input.physicalTabReuseStatus).success
+    || !physicalTabIdSchema.safeParse(input.physicalTabId).success) {
     throw new Error("EVALUATOR_V2_J3_LATEST_UI_PROVENANCE_INVALID");
   }
   const priorAttempts = [...progress.records, ...progress.mechanicalFailures];
+  let physicalTabTransition: z.infer<typeof physicalTabTransitionSchema> | undefined;
   if (priorAttempts.length > 0) {
     const latest = priorAttempts.reduce((left, right) =>
       Date.parse(left.receipt_created_at) > Date.parse(right.receipt_created_at) ? left : right);
     if (Date.now() - Date.parse(latest.receipt_created_at) < 9 * 60 * 1000) {
       throw new Error("EVALUATOR_V2_J3_LATEST_SEND_SPACING_NOT_REACHED");
     }
-    if (latest.physical_tab_id !== input.physicalTabId) {
+    if (input.physicalTabReuseStatus === "SAME_REUSABLE_PHYSICAL_TAB"
+      && latest.physical_tab_id !== input.physicalTabId) {
       throw new Error("EVALUATOR_V2_J3_PHYSICAL_TAB_REUSE_VIOLATION");
     }
+    if (input.physicalTabReuseStatus === "AUTHORIZED_REPLACEMENT_PHYSICAL_TAB") {
+      const priorTransitions = priorAttempts.filter(
+        ({ physical_tab_reuse_status }) =>
+          physical_tab_reuse_status === "AUTHORIZED_REPLACEMENT_PHYSICAL_TAB",
+      );
+      if (priorTransitions.length !== 0
+        || latest.status !== "INVALID_MECHANICAL"
+        || latest.reason !== "PROVIDER_OR_TRANSPORT_FAILURE"
+        || latest.j3Ordinal !== input.j3Ordinal
+        || latest.attempt + 1 !== input.attempt
+        || latest.physical_tab_id === input.physicalTabId) {
+        throw new Error("EVALUATOR_V2_J3_PHYSICAL_TAB_REPLACEMENT_INVALID");
+      }
+      physicalTabTransition = {
+        authorization_source: "CURRENT_OWNER_CHAT",
+        owner_message_identity: null,
+        owner_message_identity_status: "UNAVAILABLE_EXACT_BODY_HASH_BOUND",
+        owner_exact_body_sha256: latestJ3ReplacementAuthorizationSha256,
+        prior_physical_tab_id: latest.physical_tab_id,
+        prior_tab_control_status: "UNREACHABLE_AFTER_RELOAD_AND_STRUCTURAL_READ",
+      };
+    }
+  } else if (input.physicalTabReuseStatus !== "SAME_REUSABLE_PHYSICAL_TAB"
+    || input.physicalTabId !== latestJ3InitialPhysicalTabId) {
+    throw new Error("EVALUATOR_V2_J3_PHYSICAL_TAB_REUSE_VIOLATION");
   }
   const packetBytes = await readFile(resolve(artifactRoot, expected.packetFile));
   const packetInfo = await lstat(resolve(artifactRoot, expected.packetFile));
@@ -1071,8 +1135,9 @@ export async function createLatestJ3PreSendReceipt(input: {
     consumer_account_continuity_status: "UNCHANGED",
     chat_mode_status: "Chat",
     fresh_conversation_status: "FRESH_ZERO_MESSAGE_AT_SEND",
-    physical_tab_reuse_status: "SAME_REUSABLE_PHYSICAL_TAB",
+    physical_tab_reuse_status: input.physicalTabReuseStatus,
     physical_tab_id: input.physicalTabId,
+    physical_tab_transition: physicalTabTransition,
     packet_file: expected.packetFile,
     packet_sha256: expected.exactPacketSha256,
     attempt_number: input.attempt,

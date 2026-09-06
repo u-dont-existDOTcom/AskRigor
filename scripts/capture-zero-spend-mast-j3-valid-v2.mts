@@ -153,6 +153,7 @@ if (!mastRoot || !artifactRoot || !j3OrdinalRaw || !attemptRaw || !chatLocator
       fresh_conversation_status: preSend.fresh_conversation_status,
       physical_tab_reuse_status: preSend.physical_tab_reuse_status,
       physical_tab_id: preSend.physical_tab_id,
+      physical_tab_transition: preSend.physical_tab_transition,
       packet_sha256: preSend.packet_sha256,
       attempt_number: preSend.attempt_number,
       attempt_ceiling: preSend.attempt_ceiling,
