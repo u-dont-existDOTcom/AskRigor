@@ -114,6 +114,11 @@ complete XML protocol.
   exact source-fixed halt after primary ordinal 30 exhausted two byte-identical
   `INVALID_JSON` attempts, with 29 valid judgments retained, no later dispatch,
   no unblinding or aggregation, and zero external spend
+- `audits/2026-09-06-mast-post-gate-evidence-export-blocked.json` and
+  `superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md`:
+  source-bound deterministic post-gate closeout, exact private archive and
+  manifest receipts, accepted browser attachment blocker, preserved private
+  result boundary, zero external spend, and the new-directive reopening rule
 - `audits/2026-09-02-context-checkpoint-terminal-handoff-supervision-feedback.json`:
   automatic delivery of the worker-stop control defect to Mission Control and
   the provider-throttled, retry-required response state without evaluator content

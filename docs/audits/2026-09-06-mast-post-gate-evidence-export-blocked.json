@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_mast_post_gate_private_evidence_export_blocker_closeout",
+  "createdAt": "2026-09-06T17:11:43Z",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+  "executionHead": "b6d7a5495fe72b9e5c0cf4e63e135cf806c6b5a2",
+  "privateResultBoundary": {
+    "mappingDisclosureState": "DISCLOSED_ONCE_IN_PRIVATE_EXECUTION_AND_PRESERVED",
+    "initialArtifactSha256": "0f317577dc966237c69c04df852e12da84ae4a83973fa31237778b9177d89444",
+    "correctedArtifactSha256": "aafe67b3e006093f6e6b24357ffe4f49fbb3b65dfe22936f012c93582e53a561",
+    "correctedDisposition": "DETERMINATE_PRIVATE_PROJECT_MANAGER_ACCEPTED",
+    "publicOutcomeIncluded": false,
+    "scientificInterpretationByWorker": false
+  },
+  "sourceReceipts": {
+    "unblindDirectiveMessageId": "aef6c639-35fd-4ba1-a096-f3f16e5ed319",
+    "unblindDirectiveBodySha256": "41ce0dbb5b155da7b7d3828fdf95144b518dbf7d40cfd75a3e699b9e167edb3e",
+    "repairDirectiveMessageId": "0dbaee95-7045-4d99-9650-cd3fa638890f",
+    "repairDirectiveBodySha256": "2fc66c5353842e33b26737fefab4780d3f741ab7f52b81b033c9f0d1dd728bca",
+    "exportDirectiveMessageId": "97e54000-2145-466b-b3ab-3127e0912b00",
+    "exportDirectiveBodySha256": "72cec6c338f031afa079a227926ece9c933fa239e367f118f6f480f3d332cc93"
+  },
+  "runtimeAdmission": {
+    "messageId": "42035c1c-f799-49e2-8fb3-586672f21e17",
+    "exactBodySha256": "9f432ea2673bef57e8347aa6b423ad683e051c9fe4a3d1f7b522744099b289a8",
+    "mayExecute": true,
+    "primaryDecision": "ALLOW_BOUNDED_EXECUTION",
+    "executionSurface": "SOURCE_WORK_CODEX_ENVIRONMENT",
+    "ownerRelayRequested": false
+  },
+  "privateArchive": {
+    "locator": "WITHHELD_PRIVATE_ARTIFACT_ROOT",
+    "archiveSha256": "0c238f5f61f45164bb0b8f2e44dec324db09614f9bab611653b68330c8294124",
+    "archiveUtf8Bytes": 10567954,
+    "manifestSha256": "aba51f6fad52abb15a8b182f400cd73065e3fd27df3966161a8d167de5c263b6",
+    "packagingReceiptSha256": "e00e4adf882f46527bc1cd9a8a63c0160309a54e3f9409419aabdcb57af50692",
+    "packagingReceiptUtf8Bytes": 2296,
+    "packagedFileCount": 1781,
+    "responseIndexCount": 96,
+    "primaryJudgmentCount": 192,
+    "activeJ3JudgmentCount": 41,
+    "supersededJ3JudgmentCount": 23,
+    "directoryMode": "0700",
+    "fileMode": "0600",
+    "manifestCoveragePassed": true,
+    "safeArchivePathsPassed": true,
+    "preservationRequired": true
+  },
+  "delivery": {
+    "attempted": true,
+    "delivered": false,
+    "attemptCount": 3,
+    "blockerCode": "CUA_FILE_CHOOSER_SET_FILES_NOT_ALLOWED",
+    "providerCode": -32000,
+    "temporaryWorkspaceStagingRemoved": true,
+    "blockerPacketMessageId": "f09bf7f6-b6a7-4bea-bc80-3540dd7131c3",
+    "blockerPacketSha256": "cc57be71d314401a12d8930dbb97a74932ace70e5044adbca56e3c4af8c9daf7",
+    "projectManagerRulingMessageId": "02fefcda-fc99-4d41-9bcb-219f82e2c8b1",
+    "projectManagerRulingBodySha256": "7837b51ca7c064df5624fdca43a2c049e5dc3929b1734405060983354e0bdde6",
+    "projectManagerRuling": "ACCEPT_EXACT_DELIVERY_BLOCKER_AND_PRESERVED_ARCHIVE_CLOSEOUT",
+    "additionalUploadAttemptsAuthorized": false,
+    "alternativeInternalTransportAuthorized": false,
+    "ownerRelayRequested": false
+  },
+  "verification": {
+    "nodeVersion": "24.18.0",
+    "typecheckPassed": true,
+    "testFilesPassed": 146,
+    "testFilesSkipped": 1,
+    "testsPassed": 1711,
+    "testsSkipped": 6,
+    "buildPassed": true
+  },
+  "restrictions": {
+    "newModelInferenceUsed": false,
+    "newJudgeCallsUsed": false,
+    "rescoringUsed": false,
+    "protocolOrGateChangesUsed": false,
+    "providerApiCredentialsUsed": false,
+    "externalSpendUsd": 0,
+    "publicResultPublicationAuthorized": false
+  },
+  "closeout": {
+    "currentExportSlice": "CLOSED_WITH_ACCEPTED_DELIVERY_BLOCKER",
+    "parentObjective": "OPEN",
+    "automaticRetryAuthorized": false,
+    "futureReopeningRequires": "SEPARATELY_VERIFIED_AUTHORIZED_INTERNAL_TRANSPORT_AND_NEW_SOURCE_BOUND_DIRECTIVE_WITH_ANY_REQUIRED_RUNTIME_ADMISSION",
+    "completionClaim": "PRIVATE_POST_GATE_EVIDENCE_EXPORT_PRESERVED_DELIVERY_BLOCKER_ACCEPTED_PARENT_OPEN"
+  }
+}

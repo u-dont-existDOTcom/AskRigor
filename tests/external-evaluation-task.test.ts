@@ -5,14 +5,14 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program while advancing to the admitted blinded-evaluation slice", async () => {
+  it("preserves the canonical parent program after the private post-gate export blocker closeout", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_zero_spend_mast_blinded_evaluation_v2_j3_latest_restart_authorized",
+      status: "active_private_post_gate_evidence_export_preserved_delivery_blocker_parent_open",
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -44,15 +44,15 @@ describe("external evaluation current-slice contract", () => {
       currentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
-        sliceId: "mast-four-arm-eight-family-base-blinded-evaluation-v2-j3-latest-restart",
-        status: expect.stringMatching(/^blinded_evaluation_v2_j3_latest_restart_/u),
+        sliceId: "mast-four-arm-base-post-gate-evidence-export-v1",
+        status: "private_archive_complete_delivery_blocker_accepted_slice_closed_parent_open",
         maximumEstimatedCostUsdBeforeAbort: 0,
-        conditionMapSealed: true,
-        requiredChats: {
-          primaryEvaluatorChats: 192,
-          adjudicatorChats: "0_TO_96",
-          mode: "LATEST_HIGHEST_AUTHORIZED_OBSERVED_UI_SETTING",
-          automaticRouting: true,
+        conditionMapSealed: false,
+        delivery: {
+          attempted: true,
+          delivered: false,
+          blockerCode: "CUA_FILE_CHOOSER_SET_FILES_NOT_ALLOWED",
+          additionalUploadAttemptsAuthorized: false,
           ownerRelayPermitted: false,
         },
       },
@@ -70,8 +70,8 @@ describe("external evaluation current-slice contract", () => {
         mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: expect.stringMatching(/^BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_/u),
-        scientificAdequacy: "not reached; no evaluator judgment or arm/family result has been inspected or computed",
+        completionClaim: "PRIVATE_POST_GATE_EVIDENCE_EXPORT_PRESERVED_DELIVERY_BLOCKER_ACCEPTED_PARENT_OPEN",
+        scientificAdequacy: "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
     });
@@ -110,6 +110,12 @@ describe("external evaluation current-slice contract", () => {
       "scripts/initialize-zero-spend-mast-j3-latest-restart-v2.mts",
       "scripts/verify-zero-spend-mast-j3-latest-pre-send-v2.mts",
       "scripts/capture-zero-spend-mast-j3-valid-v2.mts",
+      "scripts/zero-spend-mast-four-arm-base-unblind-gate-v1.mts",
+      "scripts/unblind-zero-spend-mast-four-arm-base-gate-v1.mts",
+      "scripts/zero-spend-mast-four-arm-base-unblind-join-repair-v1.mts",
+      "scripts/repair-zero-spend-mast-four-arm-base-unblind-join-v1.mts",
+      "scripts/zero-spend-mast-post-gate-evidence-export-v1.mts",
+      "scripts/export-zero-spend-mast-post-gate-evidence-v1.mts",
       "governance/chat-work-authority-policy.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",
@@ -132,6 +138,9 @@ describe("external evaluation current-slice contract", () => {
       "docs/audits/2026-09-02-mast-blinded-evaluator-v1-transport-retired.json",
       "docs/audits/2026-09-02-mast-blinded-evaluator-v2-live-runtime-admission-accepted.json",
       "docs/audits/2026-09-05-mast-j3-latest-restart-source-receipt.json",
+      "docs/audits/2026-09-06-mast-blinded-evaluation-v2-final-accepted.json",
+      "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
+      "docs/superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();
     }

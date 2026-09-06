@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 07:13 UTC
+**Checkpoint:** 2026-09-06 17:11 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,46 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_FINAL_BLINDED_EVALUATION_ACCEPTED_AND_ROUTED / SOURCE_RESPONSE_CAPTURED / UNBLINDING_BLOCKED`
+**Status:** `PRIVATE_POST_GATE_EVIDENCE_ARCHIVE_COMPLETE / DELIVERY_BLOCKER_ACCEPTED / EXPORT_SLICE_CLOSED / PARENT_OPEN`
+
+## Latest post-gate closeout
+
+The source-bound deterministic unblinding and one metadata-join repair are
+complete. The frozen mapping was disclosed once in private execution and remains
+unchanged. The initial structurally indeterminate artifact and the corrected
+determinate artifact are preserved outside Git with SHA-256 values
+`0f317577dc966237c69c04df852e12da84ae4a83973fa31237778b9177d89444`
+and `aafe67b3e006093f6e6b24357ffe4f49fbb3b65dfe22936f012c93582e53a561`.
+No private result or worker-authored scientific interpretation is recorded here.
+
+The Project Manager authorized a read-only export of existing evidence in
+message `97e54000-2145-466b-b3ab-3127e0912b00` with exact-body SHA-256
+`72cec6c338f031afa079a227926ece9c933fa239e367f118f6f480f3d332cc93`.
+Authenticated Mission Control response
+`42035c1c-f799-49e2-8fb3-586672f21e17` returned `mayExecute:true` and
+`ALLOW_BOUNDED_EXECUTION`; its exact-body SHA-256 is
+`9f432ea2673bef57e8347aa6b423ad683e051c9fe4a3d1f7b522744099b289a8`.
+
+The resulting private source-indexed archive covers all 96 frozen responses,
+192 primary judgments, 41 active J3 judgments, and 23 superseded audit-only J3
+judgments. It contains 1,781 indexed files, is 10,567,954 bytes, and has SHA-256
+`0c238f5f61f45164bb0b8f2e44dec324db09614f9bab611653b68330c8294124`.
+The manifest SHA-256 is
+`aba51f6fad52abb15a8b182f400cd73065e3fd27df3966161a8d167de5c263b6`;
+the packaging-receipt SHA-256 is
+`e00e4adf882f46527bc1cd9a8a63c0160309a54e3f9409419aabdcb57af50692`.
+Independent checks passed for manifest coverage, every packaged file hash,
+safe archive paths, exact source preservation, and `0700`/`0600` modes.
+
+Direct attachment failed three times at the browser file-chooser boundary with
+provider code `-32000` (`Not allowed`). No archive bytes reached the Project
+Manager. The exact blocker was routed as message
+`f09bf7f6-b6a7-4bea-bc80-3540dd7131c3`. Project Manager response
+`02fefcda-fc99-4d41-9bcb-219f82e2c8b1`, exact-body SHA-256
+`7837b51ca7c064df5624fdca43a2c049e5dc3929b1734405060983354e0bdde6`,
+accepts the blocker, requires the archive and receipts to remain unchanged,
+prohibits additional upload attempts and automatic retry, and closes this export
+slice with the parent objective open.
 
 ## Source-bound authority
 
@@ -129,12 +168,13 @@ redundant green reruns.
 
 ## Next executable action
 
-The bounded blinded-evaluation execution slice is complete. The exact factual
-acceptance receipt was routed automatically to the configured Project Manager
-chat and the source response was captured privately. Further action is reserved
-to the Project Manager and owner because condition-map disclosure, arm/family
-aggregation, continuation-gate application, tuning, and scientific
-interpretation remain outside this worker's authority.
+There is no currently authorized controlled execution. Preserve the completed
+private archive, manifest, packaging receipt, source artifacts, and failed
+delivery receipts without modification. Reopen only after a separately verified
+authorized internal transport capability and a new source-bound Project Manager
+directive with any required runtime admission. Do not infer authorization from a
+configured chat locator or an available upload interface, retry automatically,
+or request owner relay.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -1336,13 +1376,13 @@ continuation-gate application, tuning, or scientific interpretation followed.
 The non-secret final receipt is
 `docs/audits/2026-09-06-mast-blinded-evaluation-v2-final-accepted.json`.
 
-Scientific adequacy: reserved for Project Manager review; one completed blinded
-evaluator output was exposed by the recorded post-freeze transport incident,
-but no condition map or arm/family result was disclosed, aggregated, or
-interpreted.
+Scientific adequacy: reserved for the Project Manager. The private determinate
+disposition is accepted without public outcome disclosure or worker-authored
+interpretation. The private evidence archive has not reached the receiving
+surface because of the accepted attachment blocker.
 
 Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_FINAL_ACCEPTED_AND_PROJECT_MANAGER_ROUTING_COMPLETE`.
+`PRIVATE_POST_GATE_EVIDENCE_EXPORT_PRESERVED_DELIVERY_BLOCKER_ACCEPTED_PARENT_OPEN`.
