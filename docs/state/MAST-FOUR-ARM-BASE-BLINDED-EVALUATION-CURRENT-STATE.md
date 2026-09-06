@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 22:20 UTC
+**Checkpoint:** 2026-09-06 22:54 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,9 +8,34 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `SYNTHETIC_RECOVERY_PRE_ATTEMPT_ACCEPTED / SETUP_2_RESERVED / PARENT_OPEN`
+**Status:** `UPLOAD_MENU_DIAGNOSTIC_ADMITTED / DETERMINISTIC_GATE_PASSED / PROBES_STOPPED / PARENT_OPEN`
 
-## Active one-time pre-submission recovery
+## Current empty-composer diagnostic
+
+Project Manager message `4df4c392-3d55-43e4-b0be-0584861fc6ef`, 14,858 bytes,
+SHA-256 `b0fb26f02e7aeda2cc3154464f15840e41c19698447c2d8aaac36bdedddabbf6`,
+accepted the exhausted recovery and authorized a separate bounded diagnostic.
+`docs/directives/2026-09-06-upload-menu-diagnostic.json` controls. Fresh Mission
+Control admission is accepted: message `0ddfcfc0-0d5b-4b1b-9129-422226b92d38`,
+1,431 bytes, SHA-256
+`92700d42e3eb5e6ee1d6bf7a19495dbabbfc340ab932a0a9973cc969d65c6829`.
+Its request persisted exactly under `b76f1469-41de-413b-be34-7e7a463934cd` at
+22:51:41 UTC; preserve approximately ten minutes between consumer sends.
+It permits one empty-composer attachment-menu opening and at most
+three bounded metadata samples, with no chooser wait, upload-item activation,
+file assignment, prompt fill, probe submission, repair, or timeout increase.
+The stopped probes and all prior evidence remain unchanged. A single operational
+return will carry the diagnostic evidence and the completed runtime correction.
+The following recovery sections preserve the earlier sequence; their pending
+statements are superseded by this current source.
+
+The diagnostic code passed the complete gate under explicit Node 24.18.0:
+148 test files and 1,778 tests passed; one file and six tests skipped; typecheck
+and build passed. The initial run found a stale current-slice checkpoint assertion;
+its failed result is preserved and the updated contract enforces the diagnostic's
+zero-upload limits. No live diagnostic sample or opening call has occurred yet.
+
+## Preserved one-time pre-submission recovery
 
 Project Manager message `b2932286-cd17-4716-b53c-167049da8fbb`, 16,580 bytes,
 SHA-256 `bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4`,
@@ -39,6 +64,30 @@ bounded timeouts, uniquely verified interactive controls, and one coordinated
 invocation. Do not search document-wide text, inspect scripts/application state,
 substitute transport, or repeat a failed operation. A new return has one submission
 call maximum. No second recovery is authorized.
+
+Setup attempt 2 stopped during bounded upload-control verification with
+`Timed out after 3000ms evaluating selector internal:text="Add photos & files"s:
+Playwright selector deadline exceeded`. Post-failure metadata showed no open
+attachment menu and zero messages. No recovery chooser wait, chooser trigger,
+file assignment, or probe submission occurred. The private setup-event SHA-256 is
+`335d48908826eef2037976881f10fca0537210d291ca824ee1fc7a3d9e99592e`;
+the separate recovery P01 metadata SHA-256 is
+`820db1d2ed8d74a38a8961e36d1776354050e5236faf91984b7edbb5e77910fa`.
+The 7,476-byte operational return, SHA-256
+`5054663c0f5c3c36ce39afa96730389871eddb5353486eadabf722980e2c09b6`,
+was submitted once as message `032833b9-29f4-4967-ba99-52a68bce5c3c`.
+The provider removed exactly one terminal LF: 7,475 submitted bytes, SHA-256
+`f24d6949a5aebcc0a734606d3f165e86381de4c52d39cae1a1e392a24bbaa205`.
+The supervisor response is pending; no further recovery or repeat return is
+authorized. See `docs/audits/2026-09-06-synthetic-recovery-exhausted.json`.
+
+A subsequent runtime check found the shell using Node `v26.8.1`, while the
+repository pins `v24.18.0`. The earlier passing test result is preserved, but
+the required runtime had not been established before the readiness attempt.
+The full gate subsequently passed with an explicit Node 24.18.0 executable path: 147 test files and 1,759 tests passed; one file and six tests skipped; typecheck and build passed.
+No chooser wait, file assignment, or probe request occurred during recovery.
+Record the version correction and its final verification; do not retroactively
+claim the pinned-runtime gate preceded the failed readiness attempt.
 
 ## Active nonclinical synthetic preflight
 
@@ -372,9 +421,9 @@ redundant green reruns.
 
 ## Next executable action
 
-Use only the reserved P01 setup attempt 2 and unchanged six probes under the
-exact recovery directive and accepted pre-attempt checks. Preserve every prior
-failure and stop at the specified bounds.
+Submit the one authorized factual recovery return, capture the Project Manager
+disposition, and continue only under its next exact directive or surface its
+owner-only question. Do not retry either preserved setup attempt.
 
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is

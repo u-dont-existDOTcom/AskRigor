@@ -5,14 +5,14 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program during the bounded synthetic transport preflight", async () => {
+  it("preserves the canonical parent program during the bounded upload-menu diagnostic", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: expect.stringContaining("private_synthetic_transport_preflight"),
+      status: expect.stringContaining("private_upload_menu_diagnostic"),
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -44,13 +44,20 @@ describe("external evaluation current-slice contract", () => {
       currentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
-        sliceId: "askrigor-nonclinical-consumer-transport-preflight-v1",
-        status: expect.stringContaining("synthetic_transport_preflight"),
+        sliceId: "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
+        status: expect.stringContaining("upload_menu_diagnostic"),
         maximumEstimatedCostUsdBeforeAbort: 0,
-        maximumModelRequests: 6,
-        maximumPerProbe: 1,
-        maximumSyntheticFileSelections: 3,
-        maximumReadinessChecksPerChat: 3,
+        attemptCeiling: {
+          emptyComposerMenuOpeningCalls: 1,
+          boundedStateSamples: 3,
+          chooserWaitRegistrations: 0,
+          chooserTriggerCalls: 0,
+          fileAssignmentCalls: 0,
+          fileUploads: 0,
+          composerPromptFills: 0,
+          newProbeModelRequests: 0,
+          priorProbeAttemptCeilingsReset: false,
+        },
         ownerDecisionRequired: false,
       },
       completedSourceReferenceCensusSlice: {
@@ -101,7 +108,7 @@ describe("external evaluation current-slice contract", () => {
         mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: expect.stringContaining("SYNTHETIC_TRANSPORT_PREFLIGHT"),
+        completionClaim: expect.stringContaining("UPLOAD_MENU_DIAGNOSTIC"),
         scientificAdequacy: "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
