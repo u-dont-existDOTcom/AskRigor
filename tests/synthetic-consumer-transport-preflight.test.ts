@@ -6,6 +6,7 @@ import { dirname, join, resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   captureSyntheticTransportProbe, captureSyntheticTransportProbeFromFiles,
+  initializeSyntheticTransportRecovery, SYNTHETIC_RECOVERY_NAMESPACE,
   parseSyntheticTransportOutput, prepareSyntheticTransportPreflight,
   SYNTHETIC_PROBES, SYNTHETIC_PROMPT_TEMPLATE, verifySyntheticTransportPreflight,
 } from "../scripts/synthetic-consumer-transport-preflight.mts";
@@ -63,6 +64,141 @@ describe("synthetic transport comparison parser", () => {
     const raw = Buffer.from([0xff, 0x20, 0x0a]);
     expect(parseSyntheticTransportOutput(raw, markers)).toMatchObject({ exactOutputSha256: digest(raw), exactOutputBytes: 3, formatValid: false });
     expect([...raw]).toEqual([0xff, 0x20, 0x0a]);
+  });
+});
+
+async function recoveryReady() {
+  const run = await prepared();
+  const failure = await captureSyntheticTransportProbe({ ...run, probeId: "P01", rawResponse: null,
+    uiMetadata: { transportErrors: ["SYNTHETIC_PRESUBMISSION_SETUP_FAILURE"] } });
+  const request = { manifestPath: run.manifestPath, manifestSha256: run.manifestSha256,
+    recoveryDirectivePath: join(run.root, "test-recovery-directive.json"), recoverySourcePath: join(run.root, "test-recovery-source.txt"),
+    priorTransportEventPath: join(run.root, "test-prior-transport-event.json"), priorOperationalReturnPath: join(run.root, "test-prior-return.json") };
+  const event = { probeId: "P01", setFilesCalls: 0, syntheticFileSelections: 0, modelRequestSubmissionCalls: 0,
+    messageCountBeforeAndAfter: 0, laterProbesAttempted: 0, fileChooserWaitCalls: 1, fileChooserAssigned: false };
+  await writeFile(request.priorTransportEventPath, JSON.stringify(event), { mode: 0o600 });
+  await writeFile(request.priorOperationalReturnPath, "synthetic opaque prior return bytes", { mode: 0o600 });
+  const directive = {
+    directiveId: "askrigor-synthetic-preflight-presubmission-chooser-recovery-v1",
+    directiveType: "SOURCE_BOUND_PRE_SUBMISSION_ATTACHMENT_COORDINATION_RECOVERY",
+    status: "ONE_ADDITIONAL_P01_SETUP_ATTEMPT_AUTHORIZED_SUBJECT_TO_FRESH_ADMISSION_AND_READINESS",
+    runtimeAdmissionRequired: true, maximumExternalSpendUsd: 0, paidApiInferenceAuthorized: false,
+    limitedSupersession: { fixturePromptAndProbePlan: "UNCHANGED", automaticFurtherRecoveryAuthorization: false },
+    immutableBindings: {
+      fixtureManifestSha256: run.manifestSha256, P01ExactInputSha256: run.manifest.probes[0].prompt.sha256,
+      priorProbeMetadataSha256: failure.metadataSha256,
+      priorTransportEventSha256: digest(await readFile(request.priorTransportEventPath)),
+      priorOperationalReturnSha256: digest(await readFile(request.priorOperationalReturnPath)),
+      preserveAllPriorReceiptsWithoutOverwrite: true, regenerateRunIdOrMarkers: false,
+      changeFixtureNamesOrBytes: false, changePromptBytes: false, changeProbeOrderOrModes: false, createOrUploadAbsentFixture: false,
+    },
+    attemptCeiling: { additionalP01SetupAttempts: 1, maximumP01SetupAttemptsIncludingPreservedFailure: 2,
+      maximumSubmittedModelRequestsAcrossParentAndRecovery: 6, maximumSubmittedModelRequestsPerProbe: 1,
+      modelRetriesRegenerationsOrFollowups: 0, laterProbeBeforeP01Completion: false },
+  };
+  const bindSource = async () => {
+    const bytes = Buffer.from(`${JSON.stringify(directive)}\n\n[1]: https://example.invalid/synthetic-reference\n`);
+    await writeFile(request.recoverySourcePath, bytes, { mode: 0o600 });
+    await writeFile(request.recoveryDirectivePath, JSON.stringify(directive), { mode: 0o600 });
+    return { messageId: "11111111-2222-3333-4444-555555555555", exactBodySha256: digest(bytes) };
+  };
+  return { ...run, request, failure, event, directive, bindSource, recoveryAuthority: await bindSource(), namespace: SYNTHETIC_RECOVERY_NAMESPACE };
+}
+
+describe("one source-bound pre-submission recovery", () => {
+  it("preserves the original failure and frozen files while capturing six explicitly selected recovery probes", async () => {
+    const run = await recoveryReady();
+    const preservedPaths = [run.manifestPath, run.failure.metadataPath, run.request.priorTransportEventPath, run.request.priorOperationalReturnPath,
+      run.request.recoveryDirectivePath, run.request.recoverySourcePath,
+      ...["seed", "local"].map((kind) => join(run.directory, run.manifest.files[kind].filename)),
+      ...run.manifest.probes.map((probe: any) => join(run.directory, probe.prompt.filename))];
+    const preservedBytes = await Promise.all(preservedPaths.map((path) => readFile(path)));
+    const initialization = await initializeSyntheticTransportRecovery(run.request, run.recoveryAuthority);
+    expect(initialization).toMatchObject({ namespace: "recovery-01", recoveryNumber: 1, reservedP01SetupAttemptNumber: 2, capturedCount: 0, unexecutedCount: 6 });
+    const receipt = JSON.parse(await readFile(initialization.initializationPath, "utf8"));
+    expect(receipt.sourceReceipt).toMatchObject(run.recoveryAuthority);
+    expect(receipt.sourceReceipt.exactBodySha256).not.toBe(receipt.parsedDirectiveSha256);
+    expect((await lstat(dirname(initialization.initializationPath))).mode & 0o777).toBe(0o700);
+    expect((await lstat(initialization.initializationPath)).mode & 0o777).toBe(0o600);
+    await expect(captureSyntheticTransportProbe({ ...run, namespace: undefined, probeId: "P01", rawResponse: Buffer.from("NOT_AVAILABLE"), uiMetadata: {} })).rejects.toThrow("TRANSPORT_STOP_REQUIRED");
+    await expect(captureSyntheticTransportProbe({ ...run, probeId: "P02", rawResponse: Buffer.from("NOT_AVAILABLE"), uiMetadata: {} })).rejects.toThrow("PROBE_DUPLICATE_OR_OUT_OF_ORDER");
+    for (const { probeId } of SYNTHETIC_PROBES) {
+      const output = probeId === "P01" ? "Unexpected synthetic recovery prose" : "NOT_AVAILABLE";
+      const summary = await captureSyntheticTransportProbe({ ...run, probeId, rawResponse: Buffer.from(output), uiMetadata: { observedSelectorLabel: "PRIVATE_TEST_UI" } });
+      expect(summary.namespace).toBe("recovery-01");
+      expect(summary.metadataPath).toContain(`/recovery-01/captures/${probeId}/`);
+      expect(JSON.stringify(summary)).not.toMatch(/MarkerExactMatch|notAvailableExactMatch|PRIVATE_TEST_UI|Unexpected synthetic recovery prose/);
+    }
+    expect(await verifySyntheticTransportPreflight(run.manifestPath, run.manifestSha256, run.namespace, run.recoveryAuthority)).toMatchObject({ namespace: "recovery-01", capturedCount: 6, unexecutedCount: 0 });
+    expect((await verifySyntheticTransportPreflight(run.manifestPath, run.manifestSha256)).probes[0]).toEqual({ probeId: "P01", state: "TRANSPORT_FAILED" });
+    expect(await Promise.all(preservedPaths.map((path) => readFile(path)))).toEqual(preservedBytes);
+    await expect(initializeSyntheticTransportRecovery(run.request, run.recoveryAuthority)).rejects.toThrow("RECOVERY_ALREADY_INITIALIZED");
+    await expect(captureSyntheticTransportProbe({ ...run, probeId: "P01", rawResponse: Buffer.from("replacement"), uiMetadata: {} })).rejects.toThrow("PROBE_DUPLICATE_OR_OUT_OF_ORDER");
+    await expect(verifySyntheticTransportPreflight(run.manifestPath, run.manifestSha256, "recovery-02", run.recoveryAuthority)).rejects.toThrow("CAPTURE_NAMESPACE_INVALID");
+  });
+  it("stops after another failure and cannot initialize another recovery", async () => {
+    const run = await recoveryReady();
+    await initializeSyntheticTransportRecovery(run.request, run.recoveryAuthority);
+    await captureSyntheticTransportProbe({ ...run, probeId: "P01", rawResponse: null, uiMetadata: { transportErrors: ["SYNTHETIC_SECOND_SETUP_FAILURE"] } });
+    await expect(captureSyntheticTransportProbe({ ...run, probeId: "P02", rawResponse: Buffer.from("NOT_AVAILABLE"), uiMetadata: {} })).rejects.toThrow("TRANSPORT_STOP_REQUIRED");
+    await expect(initializeSyntheticTransportRecovery(run.request, run.recoveryAuthority)).rejects.toThrow("RECOVERY_ALREADY_INITIALIZED");
+    const state = await verifySyntheticTransportPreflight(run.manifestPath, run.manifestSha256, run.namespace, run.recoveryAuthority);
+    expect(state).toMatchObject({ capturedCount: 0, unexecutedCount: 5 });
+    expect(state.probes[0].state).toBe("TRANSPORT_FAILED");
+  });
+  it.each(["manifest", "prompt", "metadata", "raw", "later", "event", "return", "source", "directive", "partial-initialization"])("rejects changed or ineligible %s without creating a recovery", async (kind) => {
+    const run = await recoveryReady();
+    if (kind === "raw") await writeFile(join(dirname(run.failure.metadataPath), "response.raw.txt"), "prior output", { mode: 0o600 });
+    else if (kind === "later") await mkdir(join(run.directory, "captures/P02"), { mode: 0o700 });
+    else if (kind === "partial-initialization") await mkdir(join(run.directory, "recovery-01"), { mode: 0o700 });
+    else {
+      const path = { manifest: run.manifestPath, prompt: join(run.directory, "prompts/P01.txt"), metadata: run.failure.metadataPath,
+        event: run.request.priorTransportEventPath, return: run.request.priorOperationalReturnPath,
+        source: run.request.recoverySourcePath, directive: run.request.recoveryDirectivePath }[kind];
+      await writeFile(path!, "changed synthetic evidence");
+    }
+    await expect(initializeSyntheticTransportRecovery(run.request, run.recoveryAuthority)).rejects.toThrow();
+    if (kind !== "partial-initialization") expect(await readdir(run.directory)).not.toContain("recovery-01");
+  });
+  it.each(["directive-id", "manifest-binding", "prompt-binding", "setup-ceiling", "assignment", "submission", "unknown-assignment", "model-output-metadata"])("fails closed on source-bound but ineligible %s", async (kind) => {
+    const run = await recoveryReady();
+    if (kind === "directive-id") run.directive.directiveId = "different-directive";
+    else if (kind === "manifest-binding") run.directive.immutableBindings.fixtureManifestSha256 = "0".repeat(64);
+    else if (kind === "prompt-binding") run.directive.immutableBindings.P01ExactInputSha256 = "0".repeat(64);
+    else if (kind === "setup-ceiling") run.directive.attemptCeiling.additionalP01SetupAttempts = 2;
+    else if (kind === "model-output-metadata") {
+      const metadata = JSON.parse(await readFile(run.failure.metadataPath, "utf8"));
+      metadata.assistantMessageId = "synthetic-prior-model-message";
+      await writeFile(run.failure.metadataPath, JSON.stringify(metadata));
+      run.directive.immutableBindings.priorProbeMetadataSha256 = digest(await readFile(run.failure.metadataPath));
+    } else {
+      if (kind === "assignment") run.event.setFilesCalls = 1;
+      else if (kind === "submission") run.event.modelRequestSubmissionCalls = 1;
+      else (run.event as any).fileChooserAssigned = null;
+      await writeFile(run.request.priorTransportEventPath, JSON.stringify(run.event));
+      run.directive.immutableBindings.priorTransportEventSha256 = digest(await readFile(run.request.priorTransportEventPath));
+    }
+    await expect(initializeSyntheticTransportRecovery(run.request, await run.bindSource())).rejects.toThrow();
+    expect(await readdir(run.directory)).not.toContain("recovery-01");
+  });
+  it("rechecks preserved original receipts during recovery and keeps the CLI authority fixed", async () => {
+    const run = await recoveryReady();
+    await initializeSyntheticTransportRecovery(run.request, run.recoveryAuthority);
+    const fixedAuthority = spawnSync(process.execPath, ["--import", "tsx", cli, "verify", "--manifest", run.manifestPath,
+      "--manifest-sha256", run.manifestSha256, "--namespace", run.namespace], { encoding: "utf8" });
+    expect(fixedAuthority.status).toBe(1);
+    expect(fixedAuthority.stdout).toBe("");
+    expect(fixedAuthority.stderr).toBe('{"error":"RECOVERY_SOURCE_SHA256_MISMATCH"}\n');
+    await writeFile(run.request.priorOperationalReturnPath, "changed private synthetic return");
+    await expect(captureSyntheticTransportProbe({ ...run, probeId: "P01", rawResponse: Buffer.from("NOT_AVAILABLE"), uiMetadata: {} })).rejects.toThrow("RECOVERY_PRIOR_OPERATIONAL_RETURN_CHANGED");
+    expect(await readdir(join(run.directory, "recovery-01/captures"))).toEqual([]);
+  });
+  it("rejects a valid parsed directive whose operational fields differ from the exact source", async () => {
+    const run = await recoveryReady();
+    run.directive.attemptCeiling.additionalP01SetupAttempts = 2;
+    await writeFile(run.request.recoveryDirectivePath, JSON.stringify(run.directive));
+    await expect(initializeSyntheticTransportRecovery(run.request, run.recoveryAuthority)).rejects.toThrow("RECOVERY_DIRECTIVE_SOURCE_MISMATCH");
+    expect(await readdir(run.directory)).not.toContain("recovery-01");
   });
 });
 

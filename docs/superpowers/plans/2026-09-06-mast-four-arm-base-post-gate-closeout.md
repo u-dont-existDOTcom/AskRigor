@@ -69,8 +69,14 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     were selected and zero probe requests sent; P02-P06 remain unexecuted.
     The exact private blocker return also hit a browser command timeout; its
     persisted delivery is unconfirmed and no second send was attempted.
-20. [ ] Capture the Project Manager response and follow its next source-bound
-    instruction or exact owner-only question. No census visits remain.
+20. [x] Returned the preserved blocker and captured the one-time pre-submission
+    recovery directive; fresh Mission Control admission accepted.
+21. [x] Verified separate recovery accounting, fresh admission, browser readiness,
+    and the complete deterministic gate; reserved setup attempt 2 with every
+    original input unchanged. No recovery chooser or model request yet.
+22. [ ] If setup succeeds, complete the six fixed probes and return one new
+    operational receipt; capture the next directive or exact owner-only question.
+    No census visits or additional setup recoveries are authorized.
 
 Read-only follow-up on 2026-09-06 identified a likely missing extension file-access
 prerequisite. The installed runtime, persisted allowlisted setting, official

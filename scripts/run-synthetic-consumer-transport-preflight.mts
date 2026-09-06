@@ -1,6 +1,7 @@
 import { parseArgs } from "node:util";
 import {
   captureSyntheticTransportProbeFromFiles,
+  initializeSyntheticTransportRecovery,
   prepareSyntheticTransportPreflight,
   SyntheticPreflightError,
   verifySyntheticTransportPreflight,
@@ -14,6 +15,9 @@ try {
       "artifact-root": { type: "string" }, manifest: { type: "string" },
       "manifest-sha256": { type: "string" }, probe: { type: "string" },
       "raw-file": { type: "string" }, "metadata-file": { type: "string" },
+      namespace: { type: "string" }, "recovery-directive": { type: "string" },
+      "recovery-source": { type: "string" }, "prior-transport-event": { type: "string" },
+      "prior-operational-return": { type: "string" },
     },
   });
   const need = (key: keyof typeof values) => {
@@ -26,13 +30,20 @@ try {
   let output: unknown;
   if (command === "prepare") {
     output = await prepareSyntheticTransportPreflight(need("artifact-root"));
+  } else if (command === "initialize-recovery") {
+    output = await initializeSyntheticTransportRecovery({
+      manifestPath: need("manifest"), manifestSha256: need("manifest-sha256"), recoveryDirectivePath: need("recovery-directive"),
+      recoverySourcePath: need("recovery-source"), priorTransportEventPath: need("prior-transport-event"),
+      priorOperationalReturnPath: need("prior-operational-return"),
+    });
   } else if (command === "verify") {
-    output = await verifySyntheticTransportPreflight(need("manifest"), need("manifest-sha256"));
+    output = await verifySyntheticTransportPreflight(need("manifest"), need("manifest-sha256"), values.namespace);
   } else if (command === "capture" || command === "stop") {
     if (command === "stop" && values["raw-file"]) throw new SyntheticPreflightError("STOP_DOES_NOT_ACCEPT_RAW_FILE");
     output = await captureSyntheticTransportProbeFromFiles({
       manifestPath: need("manifest"), manifestSha256: need("manifest-sha256"), probeId: need("probe"),
       metadataPath: need("metadata-file"), rawPath: command === "capture" ? need("raw-file") : undefined,
+      namespace: values.namespace,
     });
   } else throw new SyntheticPreflightError("COMMAND_INVALID");
   process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);

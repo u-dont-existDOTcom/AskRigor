@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
   "recordedAt": "2026-09-06T21:23:24.746271+00:00",
-  "status": "SYNTHETIC_TRANSPORT_PREFLIGHT_PRE_SUBMISSION_BLOCKED_RETURN_UNCONFIRMED_PARENT_OPEN",
+  "status": "SYNTHETIC_PREFLIGHT_STOP_PRESERVED_RETURN_RECEIVED_SEPARATE_RECOVERY_DIRECTIVE_ADMITTED",
   "executionRepositoryHead": "90839da0d07013b16f6053994a96f5137535ee20",
   "directive": {
     "path": "docs/directives/2026-09-06-nonclinical-consumer-transport-preflight.json",
@@ -65,5 +65,26 @@
     "retryOrReplacementPerformed": false,
     "ownerRelayRequested": false
   },
-  "nextAction": "Resolve the external browser-control blocker, establish operational-return persistence before any additional send, then obtain a new source-bound Project Manager disposition. No probe retry is authorized."
+  "nextAction": "Execute only the separate recovery directive after its fresh admission and pre-attempt readiness; preserve this original failed setup unchanged.",
+  "returnRecovery": {
+    "recordedAt": "2026-09-06T21:58:51.407927+00:00",
+    "currentRepositoryHead": "833115d1efd9dc48ad557135757c660c35989cb0",
+    "priorNonDeliveryRechecked": true,
+    "ownerReportedFilePickerContextPreservedPrivately": true,
+    "bodyArtifactBytes": 9302,
+    "bodyArtifactSha256": "0c75a9bb8fb28f198fdc80ec976544a60187c2f9230f15554f0dec23456ad229",
+    "confirmedMessageId": "de0dc908-2a06-4687-a29e-f7341df87066",
+    "totalReturnClickCalls": 3,
+    "confirmedReturnMessages": 1,
+    "documentedLocatorTimeoutMs": 15000,
+    "clickErrorAfterWhichPersistenceWasConfirmed": "Timed out after 967ms waiting for CDP command Input.dispatchMouseEvent.",
+    "noResendAfterConfirmedPersistence": true,
+    "privateRoutingReceiptSha256": "99be1efae4cbf7b658096ac09af5b5f4c5df8255ba22b0bf9a69a4adad98112b",
+    "responseStatus": "SOURCE_BOUND_RECOVERY_DIRECTIVE_RECEIVED",
+    "responseReceipt": {
+      "messageId": "b2932286-cd17-4716-b53c-167049da8fbb",
+      "exactBodyBytes": 16580,
+      "exactBodySha256": "bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4"
+    }
+  }
 }

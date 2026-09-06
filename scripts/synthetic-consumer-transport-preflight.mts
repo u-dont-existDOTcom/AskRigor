@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import { constants } from "node:fs";
-import { chmod, lstat, mkdir, open } from "node:fs/promises";
+import { chmod, lstat, mkdir, open, readdir } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 
 export const SYNTHETIC_PROMPT_TEMPLATE = "Read only the file named {FILE_NAME}. Return the exact value of its payload_marker field as one lowercase hexadecimal string, or return NOT_AVAILABLE if that file or field is not accessible. Do not use a different file, quote other sources, browse the web, or add explanation.";
 export const SYNTHETIC_PROBES = [
@@ -13,6 +14,16 @@ export const SYNTHETIC_PROBES = [
   { probeId: "P06", chatMode: "TEMPORARY_NON_PERSONALIZED", attachment: null, requestedFile: "absent" },
 ] as const;
 export type ProbeId = typeof SYNTHETIC_PROBES[number]["probeId"];
+export const SYNTHETIC_RECOVERY_NAMESPACE = "recovery-01";
+export const SYNTHETIC_RECOVERY_AUTHORITY = {
+  messageId: "b2932286-cd17-4716-b53c-167049da8fbb",
+  exactBodySha256: "bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4",
+} as const;
+type RecoveryAuthority = { messageId: string; exactBodySha256: string };
+type RecoveryRequest = {
+  manifestPath: string; manifestSha256: string; recoveryDirectivePath: string;
+  recoverySourcePath: string; priorTransportEventPath: string; priorOperationalReturnPath: string;
+};
 type FixtureKind = "seed" | "local" | "absent";
 type Markers = { seed: string; local: string };
 type FileReceipt = { filename: string; sha256: string; bytes: number };
@@ -197,10 +208,125 @@ async function captureStates(directory: string) {
   return states;
 }
 
-export async function verifySyntheticTransportPreflight(manifestPath: string, manifestSha256: string) {
-  const { directory } = await loadFrozen(manifestPath, manifestSha256);
-  const probes = await captureStates(directory);
-  return { manifestPath: resolve(manifestPath), manifestSha256, fixtureCount: 2, promptCount: 6, probes,
+// Read only the leading source JSON object; reference links after it are not JSON.
+function leadingJsonObject(bytes: Buffer): Record<string, any> {
+  const text = bytes.toString("utf8");
+  const start = text.search(/\S/);
+  requireState(text[start] === "{", "RECOVERY_SOURCE_JSON_INVALID");
+  let depth = 0, quoted = false, escaped = false;
+  for (let index = start; index < text.length; index++) {
+    const character = text[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === "\\") escaped = true;
+      else if (character === '"') quoted = false;
+    } else if (character === '"') quoted = true;
+    else if (character === "{") depth++;
+    else if (character === "}" && --depth === 0) {
+      try { return JSON.parse(text.slice(start, index + 1)); }
+      catch { break; }
+    }
+  }
+  throw new SyntheticPreflightError("RECOVERY_SOURCE_JSON_INVALID");
+}
+
+async function recoveryBinding(request: RecoveryRequest, directory: string, manifest: FrozenManifest, authority: RecoveryAuthority) {
+  const sourceBytes = await privateRead(request.recoverySourcePath);
+  requireState(sha256(sourceBytes) === authority.exactBodySha256, "RECOVERY_SOURCE_SHA256_MISMATCH");
+  const source = leadingJsonObject(sourceBytes);
+  const directiveBytes = await privateRead(request.recoveryDirectivePath);
+  let directive: Record<string, any>;
+  try { directive = JSON.parse(directiveBytes.toString("utf8")); }
+  catch { throw new SyntheticPreflightError("RECOVERY_DIRECTIVE_JSON_INVALID"); }
+  const operationalKeys = ["directiveId", "directiveType", "status", "limitedSupersession", "runtimeAdmissionRequired", "immutableBindings", "attemptCeiling", "maximumExternalSpendUsd", "paidApiInferenceAuthorized"];
+  requireState(operationalKeys.every((key) => isDeepStrictEqual(source[key], directive[key])), "RECOVERY_DIRECTIVE_SOURCE_MISMATCH");
+  requireState(directive.directiveId === "askrigor-synthetic-preflight-presubmission-chooser-recovery-v1"
+    && directive.directiveType === "SOURCE_BOUND_PRE_SUBMISSION_ATTACHMENT_COORDINATION_RECOVERY"
+    && directive.status === "ONE_ADDITIONAL_P01_SETUP_ATTEMPT_AUTHORIZED_SUBJECT_TO_FRESH_ADMISSION_AND_READINESS"
+    && directive.runtimeAdmissionRequired === true
+    && directive.maximumExternalSpendUsd === 0 && directive.paidApiInferenceAuthorized === false
+    && directive.limitedSupersession?.fixturePromptAndProbePlan === "UNCHANGED"
+    && directive.limitedSupersession?.automaticFurtherRecoveryAuthorization === false, "RECOVERY_DIRECTIVE_INVALID");
+  const ceiling = directive.attemptCeiling;
+  requireState(ceiling?.additionalP01SetupAttempts === 1 && ceiling.maximumP01SetupAttemptsIncludingPreservedFailure === 2
+    && ceiling.maximumSubmittedModelRequestsAcrossParentAndRecovery === 6 && ceiling.maximumSubmittedModelRequestsPerProbe === 1
+    && ceiling.modelRetriesRegenerationsOrFollowups === 0 && ceiling.laterProbeBeforeP01Completion === false, "RECOVERY_CEILING_INVALID");
+  const binding = directive.immutableBindings;
+  requireState(binding?.fixtureManifestSha256 === request.manifestSha256
+    && binding.P01ExactInputSha256 === manifest.probes[0].prompt.sha256
+    && binding.preserveAllPriorReceiptsWithoutOverwrite === true
+    && ["regenerateRunIdOrMarkers", "changeFixtureNamesOrBytes", "changePromptBytes", "changeProbeOrderOrModes", "createOrUploadAbsentFixture"].every((key) => binding[key] === false), "RECOVERY_IMMUTABLE_BINDING_INVALID");
+  const originalCaptureRoot = join(directory, "captures");
+  requireState(isDeepStrictEqual(await readdir(originalCaptureRoot), ["P01"]), "RECOVERY_PRIOR_CAPTURE_STATE_INVALID");
+  await privateDirectory(join(originalCaptureRoot, "P01"));
+  requireState(isDeepStrictEqual(await readdir(join(originalCaptureRoot, "P01")), ["metadata.json"]), "RECOVERY_PRIOR_OUTPUT_OR_EXTRA_CAPTURE");
+  const metadataBytes = await privateRead(join(originalCaptureRoot, "P01/metadata.json"));
+  requireState(sha256(metadataBytes) === binding.priorProbeMetadataSha256, "RECOVERY_PRIOR_METADATA_CHANGED");
+  const metadata = JSON.parse(metadataBytes.toString("utf8"));
+  requireState(metadata.probeId === "P01" && metadata.exactInputSha256 === binding.P01ExactInputSha256
+    && ["exactOutputSha256", "exactOutputBytes", "seedMarkerExactMatch", "localMarkerExactMatch", "notAvailableExactMatch", "formatValid", "userMessageId", "assistantMessageId"].every((key) => metadata[key] === null)
+    && Array.isArray(metadata.transportErrors) && metadata.transportErrors.length > 0
+    && isDeepStrictEqual(metadata.attachedSyntheticFileIdentifiersWhenExposed, []), "RECOVERY_PRIOR_FAILURE_NOT_PRESUBMISSION");
+  const eventBytes = await privateRead(request.priorTransportEventPath);
+  requireState(sha256(eventBytes) === binding.priorTransportEventSha256, "RECOVERY_PRIOR_TRANSPORT_EVENT_CHANGED");
+  const event = JSON.parse(eventBytes.toString("utf8"));
+  const requiredEvent = { probeId: "P01", setFilesCalls: 0, syntheticFileSelections: 0, modelRequestSubmissionCalls: 0,
+    messageCountBeforeAndAfter: 0, laterProbesAttempted: 0, fileChooserWaitCalls: 1, fileChooserAssigned: false };
+  requireState(Object.entries(requiredEvent).every(([key, value]) => event[key] === value), "RECOVERY_PRIOR_ASSIGNMENT_OR_SUBMISSION");
+  const returnBytes = await privateRead(request.priorOperationalReturnPath);
+  requireState(sha256(returnBytes) === binding.priorOperationalReturnSha256, "RECOVERY_PRIOR_OPERATIONAL_RETURN_CHANGED");
+  return {
+    directiveId: directive.directiveId,
+    sourceReceipt: { messageId: authority.messageId, exactBodySha256: authority.exactBodySha256, exactBodyBytes: sourceBytes.length },
+    parsedDirectiveSha256: sha256(directiveBytes),
+    immutableBindings: binding,
+  };
+}
+
+/** One source-bound namespace for the preserved P01 setup failure; no reset path. */
+export async function initializeSyntheticTransportRecovery(request: RecoveryRequest, authority: RecoveryAuthority = SYNTHETIC_RECOVERY_AUTHORITY) {
+  const { directory, manifest } = await loadFrozen(request.manifestPath, request.manifestSha256);
+  const recoveryDirectory = join(directory, SYNTHETIC_RECOVERY_NAMESPACE);
+  requireState(!await exists(recoveryDirectory), "RECOVERY_ALREADY_INITIALIZED");
+  const absoluteRequest = { ...request, manifestPath: resolve(request.manifestPath), recoveryDirectivePath: resolve(request.recoveryDirectivePath),
+    recoverySourcePath: resolve(request.recoverySourcePath), priorTransportEventPath: resolve(request.priorTransportEventPath), priorOperationalReturnPath: resolve(request.priorOperationalReturnPath) };
+  const binding = await recoveryBinding(absoluteRequest, directory, manifest, authority);
+  const initialization = { schemaVersion: 1, namespace: SYNTHETIC_RECOVERY_NAMESPACE, recoveryNumber: 1,
+    reservedP01SetupAttemptNumber: 2, initializedAt: new Date().toISOString(), request: absoluteRequest, ...binding };
+  await newPrivateDirectory(recoveryDirectory);
+  await newPrivateDirectory(join(recoveryDirectory, "captures"));
+  const initializationPath = join(recoveryDirectory, "initialization.json");
+  const initializationBytes = bytesOf(initialization);
+  await exclusiveWrite(initializationPath, initializationBytes);
+  return { namespace: SYNTHETIC_RECOVERY_NAMESPACE, recoveryNumber: 1, reservedP01SetupAttemptNumber: 2,
+    initializationPath, initializationSha256: sha256(initializationBytes), manifestSha256: request.manifestSha256,
+    fixtureCount: 2, promptCount: 6, capturedCount: 0, unexecutedCount: 6 };
+}
+
+async function captureNamespace(directory: string, manifest: FrozenManifest, manifestSha256: string,
+  namespace = "original", authority: RecoveryAuthority = SYNTHETIC_RECOVERY_AUTHORITY) {
+  if (namespace === "original") return directory;
+  requireState(namespace === SYNTHETIC_RECOVERY_NAMESPACE, "CAPTURE_NAMESPACE_INVALID");
+  const recoveryDirectory = join(directory, SYNTHETIC_RECOVERY_NAMESPACE);
+  await privateDirectory(recoveryDirectory);
+  await privateDirectory(join(recoveryDirectory, "captures"));
+  const initializationBytes = await privateRead(join(recoveryDirectory, "initialization.json"));
+  const initialization = JSON.parse(initializationBytes.toString("utf8"));
+  requireState(initialization.request?.manifestPath === join(directory, "manifest.json")
+    && initialization.request.manifestSha256 === manifestSha256, "RECOVERY_MANIFEST_MISMATCH");
+  const binding = await recoveryBinding(initialization.request, directory, manifest, authority);
+  requireState(initializationBytes.equals(bytesOf({ schemaVersion: 1, namespace: SYNTHETIC_RECOVERY_NAMESPACE,
+    recoveryNumber: 1, reservedP01SetupAttemptNumber: 2, initializedAt: initialization.initializedAt,
+    request: initialization.request, ...binding })), "RECOVERY_INITIALIZATION_CHANGED");
+  return recoveryDirectory;
+}
+
+export async function verifySyntheticTransportPreflight(manifestPath: string, manifestSha256: string,
+  namespace = "original", recoveryAuthority: RecoveryAuthority = SYNTHETIC_RECOVERY_AUTHORITY) {
+  const { directory, manifest } = await loadFrozen(manifestPath, manifestSha256);
+  const captureRoot = await captureNamespace(directory, manifest, manifestSha256, namespace, recoveryAuthority);
+  const probes = await captureStates(captureRoot);
+  return { manifestPath: resolve(manifestPath), manifestSha256, namespace, fixtureCount: 2, promptCount: 6, probes,
     capturedCount: probes.filter((probe) => probe.state === "CAPTURED").length,
     unexecutedCount: probes.filter((probe) => probe.state === "UNEXECUTED").length };
 }
@@ -208,19 +334,20 @@ export async function verifySyntheticTransportPreflight(manifestPath: string, ma
 /** Caller supplies the first completed response. A failed/incomplete capture stops continuation. */
 export async function captureSyntheticTransportProbe(options: {
   manifestPath: string; manifestSha256: string; probeId: string;
-  rawResponse: Buffer | null; uiMetadata: unknown;
+  rawResponse: Buffer | null; uiMetadata: unknown; namespace?: string; recoveryAuthority?: RecoveryAuthority;
 }) {
   const { directory, manifest } = await loadFrozen(options.manifestPath, options.manifestSha256);
+  const captureRoot = await captureNamespace(directory, manifest, options.manifestSha256, options.namespace, options.recoveryAuthority);
   const uiMetadata = normalizeUiMetadata(options.uiMetadata);
   const failed = (uiMetadata.transportErrors as string[]).length > 0;
   requireState(options.rawResponse !== null || failed, "RAW_RESPONSE_OR_TRANSPORT_ERROR_REQUIRED");
-  const states = await captureStates(directory);
+  const states = await captureStates(captureRoot);
   requireState(!states.some((probe) => probe.state === "TRANSPORT_FAILED" || probe.state === "CAPTURE_INCOMPLETE"), "TRANSPORT_STOP_REQUIRED");
   const next = states.findIndex((probe) => probe.state === "UNEXECUTED");
   requireState(next >= 0 && states[next].probeId === options.probeId, "PROBE_DUPLICATE_OR_OUT_OF_ORDER");
   requireState(states.slice(next).every((probe) => probe.state === "UNEXECUTED"), "PROBE_STATE_ORDER_INVALID");
   const probe = manifest.probes[next];
-  const captureDirectory = join(directory, "captures", probe.probeId);
+  const captureDirectory = join(captureRoot, "captures", probe.probeId);
   // The exclusive directory is the reservation; interrupted writes are never retried.
   await newPrivateDirectory(captureDirectory);
   let parsed: ReturnType<typeof parseSyntheticTransportOutput> | null = null;
@@ -237,7 +364,7 @@ export async function captureSyntheticTransportProbe(options: {
   const metadataBytes = bytesOf(metadata);
   await exclusiveWrite(join(captureDirectory, "metadata.json"), metadataBytes);
   return {
-    probeId: probe.probeId, state: failed ? "TRANSPORT_FAILED" : "CAPTURED",
+    probeId: probe.probeId, namespace: options.namespace ?? "original", state: failed ? "TRANSPORT_FAILED" : "CAPTURED",
     metadataPath: join(captureDirectory, "metadata.json"), metadataSha256: sha256(metadataBytes),
     exactInputSha256: probe.prompt.sha256, exactOutputSha256: parsed?.exactOutputSha256 ?? null,
     exactOutputBytes: parsed?.exactOutputBytes ?? null, formatValid: parsed?.formatValid ?? null,
@@ -247,6 +374,7 @@ export async function captureSyntheticTransportProbe(options: {
 
 export async function captureSyntheticTransportProbeFromFiles(options: {
   manifestPath: string; manifestSha256: string; probeId: string; rawPath?: string; metadataPath: string;
+  namespace?: string; recoveryAuthority?: RecoveryAuthority;
 }) {
   const uiBytes = await privateRead(options.metadataPath);
   let uiMetadata: unknown;

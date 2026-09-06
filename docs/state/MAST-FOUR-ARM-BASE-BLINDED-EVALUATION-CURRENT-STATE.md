@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 21:23 UTC
+**Checkpoint:** 2026-09-06 22:20 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,37 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `SYNTHETIC_TRANSPORT_PREFLIGHT_PRE_SUBMISSION_BLOCKED / RETURN_UNCONFIRMED / PARENT_OPEN`
+**Status:** `SYNTHETIC_RECOVERY_PRE_ATTEMPT_ACCEPTED / SETUP_2_RESERVED / PARENT_OPEN`
+
+## Active one-time pre-submission recovery
+
+Project Manager message `b2932286-cd17-4716-b53c-167049da8fbb`, 16,580 bytes,
+SHA-256 `bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4`,
+authorizes one additional P01 setup attempt, with all six frozen prompts,
+fixture names/bytes, modes, order, and parser unchanged. The directive is
+`docs/directives/2026-09-06-synthetic-presubmission-chooser-recovery.json`.
+The stopped original P01 receipt remains immutable. No recovery setup has begun.
+
+Fresh Mission Control admission is accepted: message
+`1c2d1486-a422-4a91-87dd-0a607ba59264`, 1,489 bytes, SHA-256
+`84ac026314101e5d2611b4989ca848eaaac858b5447e38bae2bf5072f6bb2059`.
+The request persisted with exact matching 16,039-byte body under message
+`c52d05ea-4645-43ef-b1d0-0a70fa21d123`. The last consumer send was
+2026-09-06 22:10:53 UTC; preserve approximately ten minutes between sends.
+
+Recovery accounting uses a separately initialized `recovery-01` namespace under
+the same private run. Initialization binds the exact new source and every prior
+failure digest; no run ID, marker, fixture, or prompt is regenerated. The complete applicable gate passed: 147 test files and 1,759 tests, with
+one file and six tests skipped, plus typecheck and build. Setup attempt 2 is
+reserved under initialization SHA-256
+`7c438232ff851d4e627fd593043c6411357763f3b45981d0602965ccbc7badbe`.
+No recovery chooser wait, file assignment, or model request has occurred.
+The installed client documents `waitForEvent("filechooser", {timeoutMs:10000})`
+before the activating click, then one `chooser.setFiles(...)`. Use supported
+bounded timeouts, uniquely verified interactive controls, and one coordinated
+invocation. Do not search document-wide text, inspect scripts/application state,
+substitute transport, or repeat a failed operation. A new return has one submission
+call maximum. No second recovery is authorized.
 
 ## Active nonclinical synthetic preflight
 
@@ -55,6 +85,16 @@ The operational return, attempt, and persistence-check receipts share that
 `supervision-routing` prefix. The single reusable tab remains at Project
 Manager with the return draft staged. The owned loopback server is stopped
 at handoff; restart its existing fixed-route script only when control resumes.
+
+Recovery at 21:57 UTC confirmed the factual return as message
+`de0dc908-2a06-4687-a29e-f7341df87066`. The 9,302-byte return artifact, SHA-256
+`0c75a9bb8fb28f198fdc80ec976544a60187c2f9230f15554f0dec23456ad229`,
+preserves the prior receipt and the owner's factual file-picker report. A
+documented 15-second locator timeout reached a persisted message despite a
+mouse-event timeout; no resend followed. The Project Manager response is
+pending. The stopped synthetic run remains immutable, with zero requests
+and zero file selections. The existing loopback capture server is running
+again on its fixed routes during response capture.
 
 ## Completed fixed-population metadata census
 
@@ -332,7 +372,10 @@ redundant green reruns.
 
 ## Next executable action
 
-Resolve the external browser-control blocker, establish return persistence before another send, and capture the Project Manager disposition. Continue only under a new source-bound directive or surface its exact owner-only question. The existing six-probe directive authorizes no retry after this transport failure.
+Use only the reserved P01 setup attempt 2 and unchanged six probes under the
+exact recovery directive and accepted pre-attempt checks. Preserve every prior
+failure and stop at the specified bounds.
+
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
