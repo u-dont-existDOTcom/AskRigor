@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_blocked_return_delivered_parent_open",
+  "status": "active_private_upload_menu_diagnostic_model_independent_correction_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_control_blocked_return_delivered_response_pending",
+    "status": "upload_menu_diagnostic_model_independent_correction_admission_pending",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,7 +109,9 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "capture Project Manager response and follow its source-bound operational disposition"
+      "fresh correction admission",
+      "one model-independent empty-composer menu observation",
+      "one operational return and supervisor disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -164,7 +166,37 @@
       "responseStatus": "PENDING",
       "noResendAuthorized": true
     },
-    "receipt": "docs/audits/2026-09-06-upload-menu-diagnostic-blocked.json"
+    "receipt": "docs/audits/2026-09-06-upload-menu-diagnostic-blocked.json",
+    "priorDiagnosticResponseReceipt": {
+      "messageId": "230d07c7-ea6e-47a4-b9a4-3f4b527a3d19",
+      "exactBodyBytes": 11691,
+      "exactBodySha256": "69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555"
+    },
+    "activeCorrection": {
+      "directive": "docs/directives/2026-09-06-model-independent-upload-menu-diagnostic.json",
+      "directiveId": "askrigor-empty-composer-model-independent-diagnostic-v1",
+      "sourceReceipt": {
+        "messageId": "230d07c7-ea6e-47a4-b9a4-3f4b527a3d19",
+        "exactBodyBytes": 11691,
+        "exactBodySha256": "69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555"
+      },
+      "attemptCeiling": {
+        "newMenuOpeningCalls": 1,
+        "menuOpeningCallsAcrossParentDiagnosticAndThisCorrection": 1,
+        "boundedStateSamples": 3,
+        "taskOwnedMenuCleanupCalls": 1,
+        "newDedicatedTabs": 1,
+        "modelOrReasoningControlInteractions": 0,
+        "chooserWaitsOrTriggers": 0,
+        "fileAssignmentsOrUploads": 0,
+        "promptFills": 0,
+        "probeSubmissions": 0,
+        "retriesAfterFailedInteraction": 0,
+        "ifAnAdditionalPriorMenuOpeningIsDiscovered": "Stop because the reported unused diagnostic allowance is no longer established."
+      },
+      "status": "FRESH_ADMISSION_PENDING",
+      "projectionAndTestsUnchanged": true
+    }
   },
   "completedEvidenceExportSlice": {
     "sliceId": "mast-four-arm-base-post-gate-evidence-export-v1",
@@ -309,7 +341,7 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Capture the Project Manager response to the confirmed diagnostic return. No retry, attachment menu opening, chooser operation or probe is authorized under the exhausted diagnostic execution.",
+  "nextAction": "Obtain fresh admission for the model-independent diagnostic correction, use the unchanged reviewed projection through documented string-form evaluation, and make at most one currently grounded menu-opening call. No model control interaction, chooser, prompt, upload or probe.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
     "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_BLOCKED_RETURN_DELIVERED_PARENT_OPEN",
@@ -319,7 +351,7 @@
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-06T23:05:27.866203+00:00",
+  "updatedAt": "2026-09-06T23:13:34.659217+00:00",
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
   "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
   "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",

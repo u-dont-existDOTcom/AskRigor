@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "recordedAt": "2026-09-06T23:05:27.866203+00:00",
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "UPLOAD_MENU_DIAGNOSTIC_MODEL_PRECONDITION_BLOCKED_RETURN_DELIVERED_RESPONSE_PENDING",
+  "status": "UPLOAD_MENU_DIAGNOSTIC_BLOCKER_RECEIPT_ACCEPTED_MODEL_INDEPENDENT_CORRECTION_AUTHORIZED",
   "executionRepositoryHead": "d8c9e1f163e06900ae365e565c97e3d33099b22f",
   "sourceReceipt": {
     "messageId": "4df4c392-3d55-43e4-b0be-0584861fc6ef",
@@ -55,8 +55,13 @@
     "exactBodyBytes": 10235,
     "exactBodySha256": "e2497d671d8c354a80ca023d45c3f1e88e6c16df1f69059f2d5d6eed4630ea9c",
     "persistedExactMatch": true,
-    "responseStatus": "PENDING",
-    "noResendAuthorized": true
+    "responseStatus": "CAPTURED",
+    "noResendAuthorized": true,
+    "responseReceipt": {
+      "messageId": "230d07c7-ea6e-47a4-b9a4-3f4b527a3d19",
+      "exactBodyBytes": 11691,
+      "exactBodySha256": "69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555"
+    }
   },
   "validation": {
     "recordedAt": "2026-09-06T22:59:57.465045+00:00",

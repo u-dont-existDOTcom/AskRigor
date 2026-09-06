@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 23:05 UTC
+**Checkpoint:** 2026-09-06 23:14 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,29 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `UPLOAD_MENU_DIAGNOSTIC_CONTROL_BLOCKED / RETURN_DELIVERED / RESPONSE_PENDING / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `MODEL_INDEPENDENT_DIAGNOSTIC_CORRECTION / FRESH_ADMISSION_PENDING / PROBES_STOPPED / PARENT_OPEN`
+
+## Current model-independent diagnostic correction
+
+Project Manager message `230d07c7-ea6e-47a4-b9a4-3f4b527a3d19`, 11,691 bytes,
+SHA-256 `69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555`,
+accepted the prior diagnostic blocker with limits and removed the model-control
+prerequisite for this empty-composer observation. Use
+`docs/directives/2026-09-06-model-independent-upload-menu-diagnostic.json`.
+Fresh admission is pending. The new directive prohibits model or reasoning
+control interactions, retains one menu-opening call across both diagnostics,
+and does not authorize probes, uploads, chooser operations, prompt fills,
+repairs, another precondition-recovery loop, or visual capture.
+
+Reuse the unchanged reviewed projection as an offline-prepared plain JavaScript
+string through documented read-only `evaluate`. The installed API contract
+SHA-256 must remain `fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f`.
+The module SHA-256 is `afbefbfde16b6f84897894488859f0f81d64dfcfdfe43c9199e899ff8ac2631d`;
+the compiled function SHA-256 is `1bf46f047cb49eb8e6ad1ad9ca6682f5c4795c989bec85415b40502cc82ebfe6`.
+Use fresh observed counts and supported locator visibility/enabled checks in
+each bounded sample. Do not use `eval` or `Function` constructors in CUA.
+The existing full Node 24.18 gate remains applicable because projection and tests
+are unchanged. Do not repeat the historical command collection.
 
 ## Current empty-composer diagnostic
 

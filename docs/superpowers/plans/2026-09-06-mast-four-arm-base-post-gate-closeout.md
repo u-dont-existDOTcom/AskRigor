@@ -90,7 +90,13 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     precondition and read-only post-failure metadata with no retry.
 27. [x] Returned the exact private diagnostic blocker once and verified its
     persisted message identity and byte equality.
-28. [ ] Capture the next source-bound Project Manager disposition. No chooser, upload, prompt fill, probe request, repair,
+28. [x] Captured the model-independent diagnostic correction. It removes model
+    verification only for this no-inference observation and preserves all probe
+    limits, the unused one-menu-opening allowance, and prior evidence.
+29. [ ] Obtain fresh correction admission, collect the bounded empty-composer
+    menu observations through the unchanged reviewed projection, and return once.
+    No model-control interaction or additional precondition-recovery loop is
+    authorized. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.
 
 Read-only follow-up on 2026-09-06 identified a likely missing extension file-access
