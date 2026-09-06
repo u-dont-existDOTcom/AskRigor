@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_synthetic_transport_preflight_running_parent_open",
+  "status": "active_private_synthetic_transport_preflight_blocker_return_pending_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-nonclinical-consumer-transport-preflight-v1",
-    "status": "synthetic_transport_preflight_frozen_pre_dispatch_accepted_parent_open",
+    "status": "synthetic_transport_preflight_pre_submission_blocked_return_unconfirmed_parent_open",
     "boundedOutcome": "Execute only the six source-bound fixed nonclinical fixture probes through the existing consumer transport, preserve exact private outputs, and return deterministic metadata without source-access interpretation.",
     "directive": "docs/directives/2026-09-06-nonclinical-consumer-transport-preflight.json",
     "directiveMessageId": "2860eb48-c1b0-47f0-a592-7cf12b24baf9",
@@ -108,8 +108,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "execute P01-P06 in fixed order with no retries and approximately ten minutes between sends",
-      "return the private operational receipt to the Project Manager"
+      "resolve external browser-control blocker and establish return persistence before another send",
+      "obtain Project Manager source-bound disposition; do not retry synthetic probes"
     ],
     "frozenManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
     "preDispatchAcceptanceSha256": "bff79b4ec884b9b1422688274b803434e6e7c76c743c53a90bdbd9729b0036c7",
@@ -119,6 +119,21 @@
       "testFilesSkipped": 1,
       "testsPassed": 1737,
       "testsSkipped": 6
+    },
+    "failedPreSubmissionSetupCount": 1,
+    "blockerCode": "FILE_CHOOSER_TIMEOUT_BEFORE_FILE_SELECTION",
+    "blockerText": "Timed out after 3000ms waiting for file chooser.",
+    "retryAuthorized": false,
+    "operationalReturnSha256": "d5550d28f31ab2800aa1ee9b3b589b155a5158e173d7b88e11455520a212558f",
+    "operationalReturnBytes": 8163,
+    "receipt": "docs/audits/2026-09-06-synthetic-transport-preflight-blocked.json",
+    "returnDelivery": {
+      "sendClickCalls": 1,
+      "confirmedMessageId": null,
+      "newMessageObservedAfterSameConversationReload": false,
+      "draftRemainsStaged": true,
+      "blockerCode": "CDP_RUNTIME_EVALUATE_TIMEOUT",
+      "anotherSendAttempted": false
     }
   },
   "completedEvidenceExportSlice": {
@@ -267,7 +282,7 @@
   "nextAction": "Complete the fixed synthetic builder/parser and deterministic gate, freeze all fixtures and prompts, then execute only P01-P06 under the exact source directive. Stop for a mode, permission, identity, submission, or capture failure; do not retry or replace a submitted probe.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "SYNTHETIC_TRANSPORT_PREFLIGHT_FROZEN_PRE_DISPATCH_ACCEPTED_PARENT_OPEN",
+    "completionClaim": "SYNTHETIC_TRANSPORT_PREFLIGHT_PRE_SUBMISSION_BLOCKED_RETURN_UNCONFIRMED_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
     "operationalAlignment": "the Project Manager verified the returned census bytes and authorized only six new nonclinical fixture probes; fresh admission is accepted; Latest is checked, Pro5of5 is observed, and Temporary Chat explicitly shows Unpersonalized; no probe is sent and no fixture uploaded; builder/parser and deterministic gate remain pending",

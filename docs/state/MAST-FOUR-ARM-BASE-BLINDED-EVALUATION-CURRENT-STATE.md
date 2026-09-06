@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 21:14 UTC
+**Checkpoint:** 2026-09-06 21:23 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `SYNTHETIC_TRANSPORT_PREFLIGHT_ADMITTED / FIXTURES_FROZEN / PRE_DISPATCH_ACCEPTED / PARENT_OPEN`
+**Status:** `SYNTHETIC_TRANSPORT_PREFLIGHT_PRE_SUBMISSION_BLOCKED / RETURN_UNCONFIRMED / PARENT_OPEN`
 
 ## Active nonclinical synthetic preflight
 
@@ -32,6 +32,29 @@ private source identities, and 20 pinned MAST source identities matched.
 The two fixtures and six prompts are frozen under manifest SHA-256
 `20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4`.
 Raw outputs, runtime markers, and detailed browser receipts remain private.
+
+P01 stopped during file-chooser setup with literal error
+`Timed out after 3000ms waiting for file chooser.` No `setFiles` call, file
+selection, or model request occurred. P02-P06 remain unexecuted. No retry or
+transport substitution was attempted. The private operational return is 8,163
+bytes, SHA-256
+`d5550d28f31ab2800aa1ee9b3b589b155a5158e173d7b88e11455520a212558f`.
+The return send hit `Timed out after 3000ms waiting for CDP command
+Runtime.evaluate.` Three metadata checks, including one same-conversation
+reload, found no new message identity; the draft remains staged. No second
+send was attempted. The external browser-control blocker must be resolved,
+then persistence established before any further send. The next Project
+Manager disposition remains unavailable. See
+`docs/audits/2026-09-06-synthetic-transport-preflight-blocked.json`.
+
+Private recovery starts from
+`supervision-routing/2026-09-06-synthetic-preflight-preparation-receipt.json`
+under the existing private artifact root. It binds the exact run manifest;
+the exclusive P01 capture is a pre-submission transport stop. Preserve it.
+The operational return, attempt, and persistence-check receipts share that
+`supervision-routing` prefix. The single reusable tab remains at Project
+Manager with the return draft staged. The owned loopback server is stopped
+at handoff; restart its existing fixed-route script only when control resumes.
 
 ## Completed fixed-population metadata census
 
@@ -309,7 +332,7 @@ redundant green reruns.
 
 ## Next executable action
 
-Execute only P01-P06 under the exact source directive and frozen manifest. Stop for a mode, permission, identity, submission, or capture failure; do not retry or replace a submitted probe.
+Resolve the external browser-control blocker, establish return persistence before another send, and capture the Project Manager disposition. Continue only under a new source-bound directive or surface its exact owner-only question. The existing six-probe directive authorizes no retry after this transport failure.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.

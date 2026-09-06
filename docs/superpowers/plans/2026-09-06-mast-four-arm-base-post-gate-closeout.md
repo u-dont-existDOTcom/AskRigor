@@ -65,8 +65,10 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     required Latest / Pro / Unpersonalized Temporary Chat controls.
 18. [x] Complete fixed fixture-builder/parser tests and the deterministic gate;
     freeze the two fixture files, six prompt identities, and fixed order.
-19. [ ] Execute P01-P06 exactly once each under the source-defined transport and
-    capability limits; preserve raw outputs privately and return only metadata.
+19. [ ] BLOCKED before P01 submission: file-chooser setup timed out. Zero files
+    were selected and zero probe requests sent; P02-P06 remain unexecuted.
+    The exact private blocker return also hit a browser command timeout; its
+    persisted delivery is unconfirmed and no second send was attempted.
 20. [ ] Capture the Project Manager response and follow its next source-bound
     instruction or exact owner-only question. No census visits remain.
 
