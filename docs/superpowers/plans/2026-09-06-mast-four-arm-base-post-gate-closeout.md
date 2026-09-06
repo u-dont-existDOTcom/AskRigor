@@ -60,8 +60,15 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     records, and all timeout evidence without revisiting consumed targets.
 16. [x] Verified full identity coverage, standalone receipt hashes, and preserved
     source bindings; returned the private metadata inventory once with its digest.
-17. [ ] Capture the Project Manager response and follow its next source-bound
-    operational directive or exact owner-only question. No census visits remain.
+17. [x] Captured census receiving-byte verification and the separate six-probe
+    nonclinical preflight directive, obtained fresh admission, and verified the
+    required Latest / Pro / Unpersonalized Temporary Chat controls.
+18. [x] Complete fixed fixture-builder/parser tests and the deterministic gate;
+    freeze the two fixture files, six prompt identities, and fixed order.
+19. [ ] Execute P01-P06 exactly once each under the source-defined transport and
+    capability limits; preserve raw outputs privately and return only metadata.
+20. [ ] Capture the Project Manager response and follow its next source-bound
+    instruction or exact owner-only question. No census visits remain.
 
 Read-only follow-up on 2026-09-06 identified a likely missing extension file-access
 prerequisite. The installed runtime, persisted allowlisted setting, official
@@ -76,7 +83,8 @@ is recorded in
 `docs/audits/2026-09-06-mast-source-access-provenance-collected.json`; its exact
 private receipt was accepted. The fixed-population follow-up and its explicit
 limits are recorded in `docs/audits/2026-09-06-mast-source-reference-census-returned.json`;
-the final inventory has been returned and the Project Manager response is pending.
+the final inventory was received and byte-verified. The separately authorized
+nonclinical preflight is active; no study rerun or interpretation is authorized.
 
 ## Acceptance
 

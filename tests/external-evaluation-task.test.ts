@@ -5,14 +5,14 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program during private metadata follow-up", async () => {
+  it("preserves the canonical parent program during the bounded synthetic transport preflight", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_private_source_reference_census_returned_parent_open",
+      status: expect.stringContaining("private_synthetic_transport_preflight"),
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -44,8 +44,18 @@ describe("external evaluation current-slice contract", () => {
       currentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
+        sliceId: "askrigor-nonclinical-consumer-transport-preflight-v1",
+        status: expect.stringContaining("synthetic_transport_preflight"),
+        maximumEstimatedCostUsdBeforeAbort: 0,
+        maximumModelRequests: 6,
+        maximumPerProbe: 1,
+        maximumSyntheticFileSelections: 3,
+        maximumReadinessChecksPerChat: 3,
+        ownerDecisionRequired: false,
+      },
+      completedSourceReferenceCensusSlice: {
         sliceId: "askrigor-post-delivery-source-reference-census-v1",
-        status: "metadata_census_partial_with_explicit_limits_returned_project_manager_response_pending_parent_open",
+        status: "census_received_byte_identity_verified_followup_directive_received_parent_open",
         maximumEstimatedCostUsdBeforeAbort: 0,
         fixedTargetCount: 96,
         carriedForwardCount: 3,
@@ -91,7 +101,7 @@ describe("external evaluation current-slice contract", () => {
         mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: "FIXED_SOURCE_REFERENCE_CENSUS_PARTIAL_WITH_EXPLICIT_LIMITS_RETURNED_PARENT_OPEN",
+        completionClaim: expect.stringContaining("SYNTHETIC_TRANSPORT_PREFLIGHT"),
         scientificAdequacy: "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
@@ -137,6 +147,10 @@ describe("external evaluation current-slice contract", () => {
       "scripts/repair-zero-spend-mast-four-arm-base-unblind-join-v1.mts",
       "scripts/zero-spend-mast-post-gate-evidence-export-v1.mts",
       "scripts/export-zero-spend-mast-post-gate-evidence-v1.mts",
+      "scripts/synthetic-consumer-transport-preflight.mts",
+      "scripts/run-synthetic-consumer-transport-preflight.mts",
+      "tests/synthetic-consumer-transport-preflight.test.ts",
+      "docs/directives/2026-09-06-nonclinical-consumer-transport-preflight.json",
       "governance/chat-work-authority-policy.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json",
       "docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json",

@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 20:23 UTC
+**Checkpoint:** 2026-09-06 21:14 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,9 +8,32 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `FIXED_METADATA_CENSUS_PARTIAL_WITH_EXPLICIT_LIMITS_RETURNED / PROJECT_MANAGER_RESPONSE_PENDING / PARENT_OPEN`
+**Status:** `SYNTHETIC_TRANSPORT_PREFLIGHT_ADMITTED / FIXTURES_FROZEN / PRE_DISPATCH_ACCEPTED / PARENT_OPEN`
 
-## Active fixed-population metadata census
+## Active nonclinical synthetic preflight
+
+Project Manager message `2860eb48-c1b0-47f0-a592-7cf12b24baf9`, exact-body
+SHA-256 `dbb4e35fefc2e96c300db002712c983dfdc65cab1178bdfe4e2c9ff9540f2c2a`,
+verified the census receipt and authorized a separate fixed six-probe synthetic
+preflight. The committed operational directive is
+`docs/directives/2026-09-06-nonclinical-consumer-transport-preflight.json`.
+Fresh Mission Control admission, message `3694e9c1-4b64-451b-98ab-ae616f8c74da`,
+exact-body SHA-256
+`5c1d1f32d98b178a20bbff0ae19e45c7db4f645a868b640a0d0e2fb6ddefd79c`,
+returned `mayExecute:true`.
+
+The same browser/profile exposes checked **Latest**, **Pro, 5 of 5**, and an
+explicit **Unpersonalized** control in an empty Temporary Chat. No global
+account setting changed. No probe has been sent and no synthetic fixture has
+been uploaded. The fixed fixture builder/parser passed the complete deterministic
+gate: 147 test files and 1,737 tests passed, with one file and six tests skipped;
+typecheck and build passed. All 1,781 packaged file identities, 1,730 preserved
+private source identities, and 20 pinned MAST source identities matched.
+The two fixtures and six prompts are frozen under manifest SHA-256
+`20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4`.
+Raw outputs, runtime markers, and detailed browser receipts remain private.
+
+## Completed fixed-population metadata census
 
 Project Manager message `4a1b5d17-9628-4313-8f14-9040b28ad8a8`, exact-body
 SHA-256 `becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5`,
@@ -33,7 +56,8 @@ The final private inventory is 224,777 bytes, SHA-256
 `80e2b7cf86b59824cb259785b6c08dddcebed1b8c4934d5a7650749e6370a90c`.
 It was returned once as message `1ccc24de-7d62-4e86-bbd3-d2a7ac5b3ba4`, with
 an operational cover binding the byte count and digest. The Project Manager
-response is pending. The non-secret receipt is
+response verified the received bytes and authorized the separate synthetic
+preflight above. The non-secret receipt is
 `docs/audits/2026-09-06-mast-source-reference-census-returned.json`.
 
 The census checkpoint passed the complete deterministic gate: 146 test files
@@ -285,7 +309,7 @@ redundant green reruns.
 
 ## Next executable action
 
-Capture the Project Manager response and continue its next separate source-bound operational directive or exact owner-only question. No census target revisit is authorized.
+Execute only P01-P06 under the exact source directive and frozen manifest. Stop for a mode, permission, identity, submission, or capture failure; do not retry or replace a submitted probe.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.

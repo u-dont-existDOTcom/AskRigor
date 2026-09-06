@@ -1,0 +1,259 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-nonclinical-consumer-transport-preflight-v1",
+  "directiveType": "SOURCE_BOUND_SYNTHETIC_TEMPORARY_CHAT_TRANSPORT_PREFLIGHT",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "CENSUS_BYTES_VERIFIED_SYNTHETIC_TRANSPORT_PREFLIGHT_AUTHORIZED_SUBJECT_TO_FRESH_ADMISSION",
+  "nextActionOwner": "CODEX_WORK_FOR_FIXED_SYNTHETIC_PREFLIGHT_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "purpose": "Test an existing documented per-conversation transport option with newly generated nonclinical fixtures. This is a separate operational preflight, not a resumption or replacement of the preserved study.",
+  "limitedAuthorization": {
+    "newConsumerRequestsAuthorized": "Only the six fixed synthetic requests in this directive.",
+    "earlierNoNewModelWorkRestriction": "Superseded only for this operational preflight; every other restriction remains in force.",
+    "ordinarySyntheticChatAndFileCreationAuthorized": true,
+    "perConversationTemporaryModeSelectionAuthorized": true,
+    "existingPrivateDataOrGlobalAccountConfigurationChangesAuthorized": false
+  },
+  "existingWorkDecision": {
+    "choice": "ADAPT_DOCUMENTED_TEMPORARY_CHAT_AND_REUSE_EXISTING_CAPTURE_HARNESS",
+    "officialSources": [
+      {
+        "source": "Temporary Chat FAQ",
+        "url": "https://help.openai.com/en/articles/8914046-temp"
+      },
+      {
+        "source": "File storage and Library in ChatGPT",
+        "url": "https://help.openai.com/en/articles/20001052-library-for-chatgpt"
+      }
+    ],
+    "documentationIsLocalCapabilityProof": false,
+    "documentationOrProbeResultsAreHistoricalAccessProof": false,
+    "documentationLimit": "Safety/security context exceptions and account restrictions remain; no universal source-isolation guarantee is presumed.",
+    "newTransferServiceOrProviderIntegrationAuthorized": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reusePriorAdmission": false,
+    "requestedAction": "EXECUTE_SIX_FIXED_NONCLINICAL_CONSUMER_TRANSPORT_PROBES_WITH_NEW_SYNTHETIC_FIXTURES_AND_RETURN_METADATA_ONLY_RECEIPTS",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256 and bind admission to them and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "existingScopedMissionControlAuthenticationPermitted": true,
+    "newCredentialOrCredentialChangeAuthorized": false,
+    "failureAction": "Stop before any new upload or model request if admission is unavailable, invalid, denied, expired, or mismatched."
+  },
+  "repositoryBoundary": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "reportedHead": "6aa04e6d6cd316936105f36b097991661cc82c43",
+    "recordActualHead": true,
+    "resetOrCheckoutChangeAuthorized": false,
+    "reuse": "Use the existing fresh-conversation, exact-byte capture, admission, and private-receipt mechanisms.",
+    "permittedCodeChanges": "Only the fixed synthetic-fixture builder, metadata-only parser, and their deterministic tests.",
+    "persistence": "Commit the non-sensitive directive, reusable builder/parser, tests, and redacted checkpoint under existing conventions. Keep runtime markers, browser identifiers, raw responses, and detailed receipts private.",
+    "productionDeploymentAuthorized": false
+  },
+  "environment": {
+    "surface": "CHATGPT_CONSUMER_BROWSER",
+    "browserProfile": "SAME_AUTHORIZED_BRAVE_PROFILE",
+    "account": "SAME_AUTHORIZED_SIGNED_IN_ACCOUNT",
+    "selectorLabelRequired": "Latest",
+    "reasoningUiLabelRequired": "Pro, 5 of 5.",
+    "inferBackendModelFromSelectorLabel": false,
+    "sameObservedSelectionAcrossAllProbes": true,
+    "projectOrCustomGptSurfacePermitted": false,
+    "normalProbeChats": "Fresh ordinary chats outside any project, with account settings unchanged.",
+    "temporaryProbeChats": "Fresh Temporary Chats explicitly observed as non-personalized before the first submission.",
+    "perConversationTemporaryAndNonPersonalizedSelectionAuthorized": true,
+    "globalMemoryPersonalizationPermissionOrAccountChangesAuthorized": false,
+    "ifRequiredTemporaryStateCannotBeVerified": "Stop and return the literal UI capability blocker; do not substitute ordinary or personalized chat.",
+    "manualToolSelectionPermitted": false,
+    "automaticToolUse": "Record observed behavior without retrying or manually changing tool availability."
+  },
+  "syntheticFixtures": {
+    "privateRoot": "A new isolated subdirectory of the existing private artifact root; directory mode 0700 and files mode 0600.",
+    "runId": "Generate one 16-byte cryptographically random value and encode it as 32 lowercase hexadecimal characters.",
+    "markers": "Generate two distinct independent 16-byte random values, seedMarker and localMarker, each encoded as 32 lowercase hexadecimal characters. These are nonsecret test data, not credentials.",
+    "seedFilename": "transport-fixture-{runId}-seed.txt",
+    "seedFileBytes": "UTF8('payload_marker=' + seedMarker + '\n')",
+    "localFilename": "transport-fixture-{runId}-local.txt",
+    "localFileBytes": "UTF8('payload_marker=' + localMarker + '\n')",
+    "absentFilename": "transport-fixture-{runId}-absent.txt",
+    "absentFile": "Never create or upload this file.",
+    "preDispatchFreeze": "Freeze names, exact file bytes and hashes, probe order, rendered prompts, and expected marker bindings before P01.",
+    "runtimeMarkersMayBeIncludedInPromptText": false,
+    "reuseExistingPrivateDocuments": false,
+    "persistentFootprint": "P01 and P02 are new ordinary synthetic chats; the seed upload may persist in Library. Their creation is authorized. Do not change or delete any pre-existing chat, file, or memory, and do not request that these fixtures be remembered."
+  },
+  "exactPromptTemplate": "Read only the file named {FILE_NAME}. Return the exact value of its payload_marker field as one lowercase hexadecimal string, or return NOT_AVAILABLE if that file or field is not accessible. Do not use a different file, quote other sources, browse the web, or add explanation.",
+  "promptConstruction": "Replace {FILE_NAME} once with the probe's frozen filename. Send this short prompt as ordinary composer text, with no extra wrapper. Attach only the file explicitly listed for that probe.",
+  "fixedProbeOrder": [
+    {
+      "probeId": "P01",
+      "chatMode": "ORDINARY",
+      "attachment": "seedFilename",
+      "requestedFile": "seedFilename"
+    },
+    {
+      "probeId": "P02",
+      "chatMode": "ORDINARY",
+      "attachment": null,
+      "requestedFile": "seedFilename"
+    },
+    {
+      "probeId": "P03",
+      "chatMode": "TEMPORARY_NON_PERSONALIZED",
+      "attachment": null,
+      "requestedFile": "seedFilename"
+    },
+    {
+      "probeId": "P04",
+      "chatMode": "TEMPORARY_NON_PERSONALIZED",
+      "attachment": "localFilename",
+      "requestedFile": "localFilename"
+    },
+    {
+      "probeId": "P05",
+      "chatMode": "TEMPORARY_NON_PERSONALIZED",
+      "attachment": "localFilename",
+      "requestedFile": "seedFilename"
+    },
+    {
+      "probeId": "P06",
+      "chatMode": "TEMPORARY_NON_PERSONALIZED",
+      "attachment": null,
+      "requestedFile": "absentFilename"
+    }
+  ],
+  "captureAndParsing": {
+    "oneFreshConversationPerProbe": true,
+    "oneModelRequestPerProbe": true,
+    "retainFirstCompletedResponseRegardlessOfContent": true,
+    "rawResponseHandling": "Capture exact bytes privately before leaving each chat. Do not display response prose to the worker.",
+    "parser": "For comparison only, remove surrounding ASCII space, tab, carriage-return and line-feed characters. Do not remove fences, citations, or internal characters.",
+    "allowedMetadataOutputs": [
+      "probeId",
+      "observedChatMode",
+      "observedPersonalizationState",
+      "observedSelectorLabel",
+      "observedReasoningLabel",
+      "conversationOrSessionIdentifier",
+      "identifierAvailability",
+      "userMessageId",
+      "assistantMessageId",
+      "attachedSyntheticFileIdentifiersWhenExposed",
+      "exactInputSha256",
+      "exactOutputSha256",
+      "exactOutputBytes",
+      "seedMarkerExactMatch",
+      "localMarkerExactMatch",
+      "notAvailableExactMatch",
+      "formatValid",
+      "automaticToolUseObserved",
+      "literalCitationTargetIdentifiersWhenExposed",
+      "capturedAt",
+      "transportErrors"
+    ],
+    "formatValidDefinition": "The comparison string is exactly NOT_AVAILABLE or matches ^[0-9a-f]{32}$.",
+    "unavailableProviderIdentifiers": "Record null with the availability reason. A local capture identifier must be labeled local, not represented as a provider message or conversation ID.",
+    "temporaryChatCapture": "Preserve exact input/output and UI-state receipts while the chat is open. Do not save or convert it to an ordinary chat to obtain persistence.",
+    "unexpectedProse": "Retain privately without semantic inspection, set formatValid=false, and do not repair or repeat the response.",
+    "workerMayInterpretSourceAccess": false,
+    "workerMayOpenCitedTargets": false,
+    "workerMaySearchLibrary": false
+  },
+  "attemptCeiling": {
+    "maximumModelRequests": 6,
+    "maximumPerProbe": 1,
+    "maximumSyntheticFileSelections": 3,
+    "maximumReadinessChecksPerChat": 3,
+    "modelRetriesRegenerationsAndFollowups": 0,
+    "outcomeDependentReorderingOrReplacement": false,
+    "continueAfterUnexpectedCompletedAnswer": true,
+    "transportFailure": "Preserve the failed attempt and stop; do not replace a submitted probe or switch transport.",
+    "submissionAmbiguity": "Inspect only existing message metadata to establish whether submission persisted. If unresolved, stop without another send."
+  },
+  "preDispatchAcceptance": [
+    "Fresh runtime admission is valid for this directive.",
+    "The existing private source artifacts remain unchanged.",
+    "The two fixture files and all six rendered prompts are frozen with hashes.",
+    "Each prompt contains its intended filename and neither marker value.",
+    "The absent fixture has not been created or uploaded.",
+    "Synthetic parser tests cover both marker matches, NOT_AVAILABLE, unexpected text, empty output, and unchanged raw-byte preservation.",
+    "The required consumer selection and non-personalized Temporary Chat option are available without changing global settings.",
+    "Applicable existing repository deterministic verification gates pass for any harness changes."
+  ],
+  "authorizedActions": [
+    "Verify and preserve the received census and its explicit availability limits without repeating collection.",
+    "After fresh admission, prepare and test only the specified synthetic preflight using the existing harness.",
+    "Execute P01 through P06 in order, subject to transport and capability stop conditions.",
+    "Capture raw responses privately and emit only the fixed deterministic metadata fields.",
+    "Return one private operational receipt to the exact Project Manager destination and stop."
+  ],
+  "interpretationBoundary": {
+    "probeResultsAreOperationalObservationsOnly": true,
+    "completeIsolationCertificationAuthorized": false,
+    "historicalAccessInferenceAuthorized": false,
+    "largePayloadQualificationAuthorized": false,
+    "automaticAuthorizationForFurtherWork": false,
+    "substantiveInterpretationOwner": "PROJECT_MANAGER_REASONING_SURFACE",
+    "ifOrdinaryRetrievalDoesNotRecoverTheSeed": "Report the literal observation. Do not treat a negative temporary result as a demonstrated isolation contrast.",
+    "ifLocalTemporaryReadDoesNotRecoverTheLocalMarker": "Report the literal observation. Do not describe Temporary Chat as a usable replacement transport."
+  },
+  "prohibitedActions": [
+    "Use preserved study materials, private protocols, or other existing documents as probe payloads.",
+    "Inspect old response prose, source contents, private settings text, or unrelated conversations as the worker.",
+    "Read or display unexpected response prose; open cited targets; infer missing historical metadata.",
+    "Alter any preserved study artifact, recorded decision, source mapping, or protocol.",
+    "Run additional probes, resume existing study execution, or launch another evaluator.",
+    "Create a new account, switch profile, change global settings, or bypass a permission denial.",
+    "Use provider API inference, new credentials, external storage, or public publication.",
+    "Save a Temporary Chat, duplicate-upload the delivered archive, or ask the owner to relay materials."
+  ],
+  "exactDestination": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "conversationUrl": "[https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66](https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66)",
+    "transport": "Existing authorized internal operational-JSON routing.",
+    "ownerRelayRequested": false,
+    "queueRecordIsDeliveryEvidence": false
+  },
+  "completionEvidence": [
+    "Current directive source receipt and fresh runtime-admission receipt.",
+    "Actual execution HEAD and deterministic test receipt.",
+    "Frozen fixture and prompt manifest hash without printing marker values.",
+    "Metadata record for each completed probe and explicit status for each unexecuted probe.",
+    "Exact raw-capture hashes, observed mode labels, and unavailable-identifier reasons.",
+    "Confirmation that old artifacts and account settings were unchanged.",
+    "Confirmed destination message identity or exact delivery blocker."
+  ],
+  "stopConditions": [
+    "Admission is unavailable, denied, expired, or mismatched.",
+    "A fixture or prompt fails its frozen identity check.",
+    "The required account, profile, model selection, reasoning mode, or chat mode cannot be confirmed.",
+    "Execution requires a new permission, global settings change, or prohibited access.",
+    "A submission or capture fails or remains ambiguous.",
+    "All six probes and the factual operational return are complete."
+  ],
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "completionClaims": {
+    "complete": "SYNTHETIC_CONSUMER_TRANSPORT_PREFLIGHT_CAPTURED_PROJECT_MANAGER_REVIEW_REQUIRED",
+    "capabilityBlocked": "SYNTHETIC_CONSUMER_TRANSPORT_PREFLIGHT_BLOCKED_REQUIRED_MODE_UNAVAILABLE",
+    "admissionBlocked": "SYNTHETIC_CONSUMER_TRANSPORT_PREFLIGHT_BLOCKED_RUNTIME_ADMISSION",
+    "transportBlocked": "SYNTHETIC_CONSUMER_TRANSPORT_PREFLIGHT_PARTIAL_WITH_EXACT_TRANSPORT_BLOCKER"
+  },
+  "sourceReceipt": {
+    "messageId": "2860eb48-c1b0-47f0-a592-7cf12b24baf9",
+    "exactBodyBytes": 15734,
+    "exactBodySha256": "dbb4e35fefc2e96c300db002712c983dfdc65cab1178bdfe4e2c9ff9540f2c2a",
+    "claimedSurface": "CHATGPT_PROJECT_MANAGER",
+    "observedSurface": "CHATGPT_PROJECT_MANAGER",
+    "provenanceStatus": "VERIFIED"
+  },
+  "sourcePrivacy": "Runtime markers, browser/provider identifiers, raw responses, and detailed receipts are private. The committed directive contains only fixed synthetic instructions and operational authority."
+}
