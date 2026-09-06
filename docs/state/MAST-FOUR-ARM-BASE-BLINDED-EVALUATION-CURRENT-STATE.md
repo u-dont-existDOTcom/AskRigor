@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-05 14:54 UTC
+**Checkpoint:** 2026-09-06 07:01 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_J3_CAPTURE_PAUSED_OWNER_MODEL_TRANSITION / 23_OF_41_VALID / J3_ORDINAL_24_UNSENT`
+**Status:** `V2_FINAL_BLINDED_EVALUATION_ACCEPTED / PROJECT_MANAGER_ROUTING_PENDING`
 
 ## Source-bound authority
 
@@ -129,14 +129,10 @@ redundant green reruns.
 
 ## Next executable action
 
-Do not dispatch J3 ordinal 24 until the owner selects a clean model-transition path.
-J3 ordinals 1 through 23 are frozen as GPT-5.6 Sol / Extra High judgments. The
-owner subsequently requested GPT 6 through the consumer selector's `Latest`
-option. The existing single evaluator tab now has `Latest` selected, but ordinal
-24 has no staged packet, no persisted message, and no consumed attempt. Continue
-only after choosing either a complete J3 restart under `Latest` or restoration of
-GPT-5.6 Sol for the remaining frozen J3 series; do not create a mixed 23/18 J3
-series by default.
+Route the factual blinded-evaluation acceptance receipt automatically to the
+configured Project Manager chat and capture exact transport provenance. Do not
+disclose the condition map, aggregate by arm or family, apply the continuation
+gate, tune, or interpret the blinded records.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -1301,13 +1297,26 @@ mechanical failure, no halted claim, and progress SHA-256
 `be523f9fdd08e14e5862be70ee77cd9e2233b90fa51a05f59db187cf24e19603`.
 The private ordinal-41 valid receipt SHA-256 is
 `5ac6e9a41358965f425c87cf5e461ac09402e85cb237378984f6d20349e75474`.
-Finalization and final acceptance have not yet run.
+The finalizer froze 96 blinded per-response records and the complete blinded
+evaluation ledger. The fail-closed acceptance command then copied the private
+artifact tree into an isolated sibling directory, reran deterministic finalization
+at the frozen timestamp, and required byte-for-byte equality for all three final
+artifacts. It accepted 41 active J3 judgments while preserving the superseded
+23-judgment Sol series as excluded audit evidence. The final-records SHA-256 is
+`30b05cd55d43e33391fcc2d6ef26cf218d43b9c6085e248949d798ef98b61f61`,
+the blinded-ledger SHA-256 is
+`c85544651f2db14bb89f0d4486b3960a213639dbf74d9ebecaa550fd3e286e08`,
+and the acceptance-receipt SHA-256 is
+`f04ce263cb5df927530a4155ff2d0cfcc5250b486fc8d7ed622b30b50788729c`.
+The condition map remains sealed and external spend remains USD 0. The complete
+deterministic gate passed on Node 24.18.0 with 143 test files and 1,700 tests
+passing, 1 file and 6 tests skipped, plus typecheck and build.
 
-Scientific adequacy: not reached; no evaluator judgment or arm/family result
-has been inspected or computed.
+Scientific adequacy: reserved for Project Manager review; no evaluator judgment
+or arm/family result has been inspected, aggregated, or interpreted.
 
 Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_J3_LATEST_RESTART_VALID_17_OF_41_ORDINAL_18_ATTEMPT_2_BROWSER_CONTROL_BLOCKED`.
+`BLINDED_EVALUATOR_V2_FINAL_ACCEPTANCE_PASSED_PROJECT_MANAGER_ROUTING_PENDING`.

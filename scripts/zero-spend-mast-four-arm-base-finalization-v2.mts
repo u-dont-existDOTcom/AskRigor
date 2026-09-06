@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import {
   chmod,
+  cp,
   lstat,
   mkdir,
   mkdtemp,
@@ -1648,6 +1649,7 @@ export async function finalizeV2BlindedEvaluation(input: {
   repositoryRoot: string;
   mastRoot: string;
   artifactRoot: string;
+  finalizedAt?: string;
 }): Promise<{
   status: typeof completionClaim;
   responseCount: 96;
@@ -1772,7 +1774,9 @@ export async function finalizeV2BlindedEvaluation(input: {
     || new Set(finalRecords.map(({ opaqueResponseId }) => opaqueResponseId)).size !== 96) {
     throw new Error("EVALUATOR_V2_FINAL_RESPONSE_COVERAGE_INVALID");
   }
-  const finalizedAt = new Date().toISOString();
+  const finalizedAt = input.finalizedAt === undefined
+    ? new Date().toISOString()
+    : timestampSchema.parse(input.finalizedAt);
   const finalRecordsValue = {
     schemaVersion: 1,
     receiptType: "zero_spend_chatgpt_mast_four_arm_base_v2_final_blinded_response_records",
@@ -1903,4 +1907,103 @@ export async function finalizeV2BlindedEvaluation(input: {
     conditionMapSealed: true,
     externalSpendUsd: 0,
   };
+}
+
+const finalAcceptanceStatus =
+  "FOUR_ARM_EIGHT_FAMILY_BASE_BLINDED_EVALUATION_ACCEPTED_UNBLINDING_BLOCKED_PENDING_PROJECT_MANAGER_REVIEW";
+const finalArtifactFiles = [
+  "acceptance-receipt.json",
+  "blinded-evaluation-ledger.json",
+  "blinded-response-records.json",
+] as const;
+
+export async function acceptV2BlindedEvaluation(input: {
+  repositoryRoot: string;
+  mastRoot: string;
+  artifactRoot: string;
+}): Promise<{
+  status: typeof finalAcceptanceStatus;
+  responseCount: 96;
+  j3JudgmentCount: number;
+  finalRecordsSha256: string;
+  blindedEvaluationLedgerSha256: string;
+  acceptanceReceiptSha256: string;
+  conditionMapSealed: true;
+  externalSpendUsd: 0;
+}> {
+  const [repositoryRoot, mastRoot, artifactRoot] = await Promise.all([
+    realpath(input.repositoryRoot),
+    realpath(input.mastRoot),
+    realpath(input.artifactRoot),
+  ]);
+  await Promise.all([
+    acceptArtifactRoot(repositoryRoot, artifactRoot),
+    validatePinnedMastRoot(mastRoot),
+    verifySupersededJ3Preservation(artifactRoot),
+  ]);
+
+  const finalRoot = resolve(artifactRoot, finalRootDirectory);
+  const finalRootInfo = await lstat(finalRoot);
+  if (!finalRootInfo.isDirectory() || finalRootInfo.isSymbolicLink()
+    || (finalRootInfo.mode & 0o777) !== 0o700) {
+    throw new Error("EVALUATOR_V2_FINAL_ACCEPTANCE_DIRECTORY_INVALID");
+  }
+  const entries = (await readdir(finalRoot, { withFileTypes: true }))
+    .sort((left, right) => left.name.localeCompare(right.name));
+  if (entries.length !== finalArtifactFiles.length
+    || entries.some((entry, index) => entry.name !== finalArtifactFiles[index]
+      || !entry.isFile() || entry.isSymbolicLink())) {
+    throw new Error("EVALUATOR_V2_FINAL_ACCEPTANCE_ARTIFACT_SET_INVALID");
+  }
+  const originalFiles = new Map<string, Buffer>();
+  for (const name of finalArtifactFiles) {
+    const path = resolve(finalRoot, name);
+    const info = await lstat(path);
+    if (!info.isFile() || info.isSymbolicLink() || (info.mode & 0o777) !== 0o600) {
+      throw new Error("EVALUATOR_V2_FINAL_ACCEPTANCE_ARTIFACT_MODE_INVALID");
+    }
+    originalFiles.set(name, await readFile(path));
+  }
+  const acceptanceBytes = originalFiles.get("acceptance-receipt.json")!;
+  const { finalizedAt } = z.object({ finalizedAt: timestampSchema }).passthrough()
+    .parse(JSON.parse(acceptanceBytes.toString("utf8")));
+
+  const temporaryParent = await mkdtemp(resolve(dirname(artifactRoot), ".evaluation-acceptance-"));
+  await chmod(temporaryParent, 0o700);
+  const temporaryArtifactRoot = resolve(temporaryParent, "artifact-root");
+  try {
+    await cp(artifactRoot, temporaryArtifactRoot, {
+      recursive: true,
+      preserveTimestamps: true,
+      filter: (source) => {
+        const sourceRelative = relative(artifactRoot, source);
+        return sourceRelative !== finalRootDirectory
+          && !sourceRelative.startsWith(`${finalRootDirectory}/`);
+      },
+    });
+    const recomputed = await finalizeV2BlindedEvaluation({
+      repositoryRoot,
+      mastRoot,
+      artifactRoot: temporaryArtifactRoot,
+      finalizedAt,
+    });
+    for (const name of finalArtifactFiles) {
+      const expected = await readFile(resolve(temporaryArtifactRoot, finalRootDirectory, name));
+      if (!originalFiles.get(name)!.equals(expected)) {
+        throw new Error("EVALUATOR_V2_FINAL_ACCEPTANCE_RECOMPUTATION_MISMATCH");
+      }
+    }
+    return {
+      status: finalAcceptanceStatus,
+      responseCount: recomputed.responseCount,
+      j3JudgmentCount: recomputed.j3JudgmentCount,
+      finalRecordsSha256: recomputed.finalRecordsSha256,
+      blindedEvaluationLedgerSha256: recomputed.blindedEvaluationLedgerSha256,
+      acceptanceReceiptSha256: sha256(acceptanceBytes),
+      conditionMapSealed: true,
+      externalSpendUsd: 0,
+    };
+  } finally {
+    await rm(temporaryParent, { recursive: true, force: true });
+  }
 }

@@ -50,7 +50,7 @@ sealed order using chunk identifiers and a compact output schema.
 9. [x] Execute and freeze 192 primary GPT-5.6 Sol Extra High judgments in fresh
    condition-blind chats, retaining every mechanical failure and automatic tool
    process measure.
-10. [ ] After all 192 primaries are frozen, implement and run the predeclared
+10. [x] After all 192 primaries are frozen, implement and run the predeclared
    disagreement detector, sealed J3 schedule, J3 capture ledger, and every
    required fresh independent J3 adjudication before inspecting any comparison.
    The detector and unchanged 41-slot schedule are frozen. The first 23 Sol J3
@@ -58,7 +58,7 @@ sealed order using chunk identifiers and a compact output schema.
    complete J3 series at ordinal 1 under consumer selector `Latest`, using the
    highest authorized reasoning setting observed in the UI at each send. The
    empty `J3_LATEST_RESTART` tree is initialized and ordinal 1 is ready.
-11. [ ] Construct the fail-closed final acceptance command and final blinded
+11. [x] Construct the fail-closed final acceptance command and final blinded
    per-response records, compute only the directed
    per-response `NONOFFICIAL_PROJECTED_MAST_METRICS`, and freeze the complete
    blinded evaluation ledger.
