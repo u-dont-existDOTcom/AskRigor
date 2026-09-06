@@ -1131,6 +1131,22 @@ Ordinal 19 remains unsent while the required interval elapses; its exact packet 
 33,855 UTF-8 bytes at SHA-256
 `2cb8ac17d9b7129f755ccd71b3e6a236d07a78dcbb6f7596d5538526930222f4`.
 
+J3 Latest restart ordinals 19 and 20 then reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate and strict validator on their
+first attempts with zero tool or citation artifacts. The active series now has
+20 of 41 valid judgments, one preserved mechanical failure, no halted claim, and
+progress SHA-256
+`ba798960edccc518bbe70f50a8bdb780346e4f138acb09ad9bb58c9d58433875`.
+Their private valid receipt SHA-256 values are respectively
+`190c5de8f57de82ca61c6bc307bb3466773ca5e94d1249f7e314749ab1b7b676`
+and `43b2f5ce8771c7e771e868d62518e86f796caf870dd954cd68f4ecbbd6a58f1b`.
+The complete deterministic gate passed on Node 24.18.0 with 143 test files and
+1,700 tests passing, 1 file and 6 tests skipped, and typecheck and build passing.
+Ordinal 21 remains unsent during the required interval; its exact packet is
+33,738 UTF-8 bytes at SHA-256
+`9004fc4b0cbc3d6ba94fd58cc57866361f3150d2ef03606b5adbcb8458503d89`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
