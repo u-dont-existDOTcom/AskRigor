@@ -119,6 +119,10 @@ complete XML protocol.
   source-bound deterministic post-gate closeout, exact private archive and
   manifest receipts, accepted browser attachment blocker, preserved private
   result boundary, zero external spend, and the new-directive reopening rule
+- `audits/2026-09-06-mast-preserved-archive-delivered.json`:
+  owner-restored file access, fresh source-bound authorization and admission,
+  one submission of both preserved files, persisted provider attachment bindings,
+  and a receiving-side matching-SHA-256 receipt; no payload inspection or spend
 - `audits/2026-09-02-context-checkpoint-terminal-handoff-supervision-feedback.json`:
   automatic delivery of the worker-stop control defect to Mission Control and
   the provider-throttled, retry-required response state without evaluator content

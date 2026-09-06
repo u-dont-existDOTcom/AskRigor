@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_post_gate_evidence_export_preserved_delivery_blocker_parent_open",
+  "status": "active_private_post_gate_evidence_delivered_byte_identity_verified_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,17 +83,21 @@
   },
   "currentSlice": {
     "sliceId": "mast-four-arm-base-post-gate-evidence-export-v1",
-    "status": "private_archive_complete_delivery_blocker_accepted_slice_closed_parent_open",
+    "status": "private_archive_and_receipt_delivered_byte_identity_verified_slice_complete_parent_open",
     "boundedOutcome": "Preserve the private determinate post-gate disposition and package all existing frozen evidence for authenticated Project Manager diagnostic review without new inference, rescoring, tuning, public result disclosure, or external spend.",
     "completed": [
       "source-bound deterministic unblinding and private disposition receipt",
       "source-bound identifier/alias join repair with all frozen source bytes unchanged",
       "authenticated runtime admission for read-only existing-evidence export",
       "private source-indexed archive and independent manifest/hash/mode verification",
-      "exact attachment blocker routed and accepted by the Project Manager"
+      "exact attachment blocker routed and accepted by the Project Manager",
+      "owner-enabled extension file access verified and source-bound bounded retry directive captured",
+      "fresh authenticated runtime admission for the exact preserved-file delivery",
+      "receipt and archive each uploaded once and submitted together in one persisted destination message",
+      "source-bound receiving-side receipt verifies both received file byte counts and SHA-256 identities"
     ],
     "pending": [
-      "separately verified authorized internal transport and a new source-bound directive before reopening"
+      "Project Manager substantive evidence review and any separate source-bound direction for further worker execution"
     ],
     "excluded": [
       "new generation",
@@ -109,8 +113,8 @@
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
-      "messageId": "42035c1c-f799-49e2-8fb3-586672f21e17",
-      "exactBodySha256": "9f432ea2673bef57e8347aa6b423ad683e051c9fe4a3d1f7b522744099b289a8",
+      "messageId": "38fb4c3e-f56b-4e41-a9c7-6d3b337f43b3",
+      "exactBodySha256": "b92173b16aa5d1e217857a73f41efc2f77a22932d984e6821b09fdd5574b357a",
       "mayExecute": true,
       "primaryDecision": "ALLOW_BOUNDED_EXECUTION"
     },
@@ -130,6 +134,30 @@
       "preservationRequired": true
     },
     "delivery": {
+      "attempted": true,
+      "delivered": true,
+      "blockerCode": null,
+      "providerCode": null,
+      "projectManagerDirectiveMessageId": "abc4f35e-68cc-4d10-82c5-81963bf7782b",
+      "projectManagerDirectiveBodySha256": "15564045950748690f658e24743d6432b769bb550d7e9171a86509bb50782266",
+      "destinationMessageId": "963b57a3-ce89-4c92-b22d-7ca66a3c63bd",
+      "providerAttachmentCount": 2,
+      "persistedAfterNavigation": true,
+      "recipientByteIdentityVerified": true,
+      "recipientVerificationSource": "SOURCE_BOUND_RECEIVING_SIDE_RECEIPT",
+      "recipientReceiptMessageId": "11624049-1afa-4c19-af43-eff5111c31ff",
+      "recipientReceiptBodySha256": "6308ae8162d279babcdd91d4fac7845aa75ae7d91b3ce8fc3e925c23b9cc1f83",
+      "additionalUploadAttemptsAuthorized": false,
+      "alternativeInternalTransportAuthorized": false,
+      "ownerRelayPermitted": false
+    },
+    "priorExportRuntimeAdmission": {
+      "messageId": "42035c1c-f799-49e2-8fb3-586672f21e17",
+      "exactBodySha256": "9f432ea2673bef57e8347aa6b423ad683e051c9fe4a3d1f7b522744099b289a8",
+      "mayExecute": true,
+      "primaryDecision": "ALLOW_BOUNDED_EXECUTION"
+    },
+    "priorDeliveryBlocker": {
       "attempted": true,
       "delivered": false,
       "blockerCode": "CUA_FILE_CHOOSER_SET_FILES_NOT_ALLOWED",
@@ -198,17 +226,18 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Preserve the completed private archive, manifest, packaging receipt, source artifacts, and failed delivery receipts without modification. Read-only diagnosis found a likely missing ChatGPT extension file-access prerequisite. Obtain owner authorization before expanding that permission, verify any authorized change, and route exact structural evidence to the Project Manager for a new source-bound directive and any required runtime admission before a transport probe or delivery attempt. Do not automatically retry or request owner relay.",
+  "nextAction": "The authorized transport slice is complete. Preserve all source artifacts and failed/successful delivery receipts unchanged. The Project Manager has both attachments and returned a source-bound matching-byte-identity receipt. Substantive evidence review remains with the Project Manager; further worker execution requires a separate source-bound directive. Do not resend attachments, initiate analysis, or request owner relay.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "PRIVATE_POST_GATE_EVIDENCE_EXPORT_PRESERVED_DELIVERY_BLOCKER_ACCEPTED_PARENT_OPEN",
-    "workerToContract": "MATCH_AT_PRIVATE_ARCHIVE_COMPLETE_AND_ACCEPTED_DELIVERY_BLOCKER_CLOSEOUT",
+    "completionClaim": "PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED_BYTE_IDENTITY_VERIFIED_PARENT_OPEN",
+    "workerToContract": "MATCH_AT_PRESERVED_ARCHIVE_DELIVERY_AND_RECIPIENT_BYTE_IDENTITY_VERIFICATION",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "the accepted blinded records and private mapping remain byte-preserved; deterministic post-gate processing produced a private determinate disposition; the read-only evidence archive covers all 96 responses, 192 primary judgments, 41 active J3 judgments, and 23 superseded audit-only J3 judgments; all manifest, hash, safe-path, and restrictive-mode checks pass; direct attachment was blocked by the browser permission boundary and the Project Manager accepted the exact blocker, prohibited retries, and left the parent objective open",
+    "operationalAlignment": "all frozen source artifacts and earlier failures remain preserved; after the owner enabled extension file access, a new source-bound directive and fresh runtime admission authorized one receipt upload, one archive upload, and one submission; both provider-bound attachments persist in the exact Project Manager conversation; the receiving-side source receipt reports matching file IDs, byte counts, and SHA-256 values without payload inspection; transport is complete and the parent objective remains open",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-06T17:29:33Z",
+  "updatedAt": "2026-09-06T18:12:24.864092+00:00",
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
-  "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json"
+  "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
+  "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json"
 }

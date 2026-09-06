@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-06T18:10:56.894660+00:00",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "executionRepositoryHead": "64912f79d89c0c797adb19e880db1069fcb4cfc9",
+  "status": "PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED_BYTE_IDENTITY_VERIFIED_PARENT_OPEN",
+  "priorBlockerReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
+  "priorDiagnosisReceipt": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
+  "permissionRestoration": {
+    "performedBy": "OWNER",
+    "workerChangedPermissions": false,
+    "sameAuthorizedProfile": true,
+    "accountSwitched": false,
+    "extensionVersion": "1.26.901.11451",
+    "verifiedSetting": "newAllowFileAccess",
+    "verifiedValue": true,
+    "priorDiagnosticLimitation": "The earlier scan checked legacy setting names. The current check uses the actual persisted setting; the original cause was not independently established by the earlier scan.",
+    "fileChooserPermissionDenialRecurred": false
+  },
+  "directive": {
+    "directiveId": "askrigor-preserved-archive-restored-attachment-delivery-v1",
+    "messageId": "abc4f35e-68cc-4d10-82c5-81963bf7782b",
+    "exactBodyBytes": 11297,
+    "exactBodySha256": "15564045950748690f658e24743d6432b769bb550d7e9171a86509bb50782266",
+    "limitedSupersessionOfPriorNoRetryRuling": true,
+    "repositoryAuthorityGate": "PASS"
+  },
+  "freshRuntimeAdmission": {
+    "requestMessageId": "e7efeb36-8ed8-4e5c-af5d-ee9ad75bbd07",
+    "requestBodySha256": "a9fda1d9b0d06de898b99aee04ae5385f9f155d941ef1de06add26b0c2182fad",
+    "responseMessageId": "38fb4c3e-f56b-4e41-a9c7-6d3b337f43b3",
+    "responseBodyBytes": 749,
+    "responseBodySha256": "b92173b16aa5d1e217857a73f41efc2f77a22932d984e6821b09fdd5574b357a",
+    "mayExecute": true,
+    "primaryDecision": "ALLOW_BOUNDED_EXECUTION",
+    "previousAdmissionReused": false
+  },
+  "delivery": {
+    "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "messageId": "963b57a3-ce89-4c92-b22d-7ca66a3c63bd",
+    "receiptFileSelectionCalls": 1,
+    "archiveFileSelectionCalls": 1,
+    "messageSubmissionCalls": 1,
+    "bothUploadsReadyBeforeSubmission": true,
+    "submissionHttpStatus": 200,
+    "providerAttachmentCount": 2,
+    "providerAttachmentIdsBoundToSubmittedMessage": true,
+    "bothAttachmentsPersistedAfterNavigation": true,
+    "privateAttemptJournalBytes": 3647,
+    "privateAttemptJournalSha256": "17c0475bbd998f7be36604b6df1bde92f26802452d6de39b295061770dfeb2f6"
+  },
+  "files": {
+    "archive": {
+      "bytes": 10567954,
+      "sha256": "0c238f5f61f45164bb0b8f2e44dec324db09614f9bab611653b68330c8294124"
+    },
+    "packagingReceipt": {
+      "bytes": 2296,
+      "sha256": "e00e4adf882f46527bc1cd9a8a63c0160309a54e3f9409419aabdcb57af50692"
+    },
+    "manifestSha256": "aba51f6fad52abb15a8b182f400cd73065e3fd27df3966161a8d167de5c263b6",
+    "preUploadHashesSizesAndModesVerified": true,
+    "postAttemptSourceHashesUnchanged": true
+  },
+  "receivingSideVerification": {
+    "messageId": "11624049-1afa-4c19-af43-eff5111c31ff",
+    "exactBodyBytes": 1361,
+    "exactBodySha256": "6308ae8162d279babcdd91d4fac7845aa75ae7d91b3ce8fc3e925c23b9cc1f83",
+    "evidence": "SOURCE_BOUND_RECEIVING_SIDE_ATTACHMENT_BYTE_IDENTITY_VERIFICATION_RECEIPT",
+    "reportedMethod": "SHA256_COMPUTED_DIRECTLY_OVER_RECEIVED_FILE_BYTES_WITHOUT_ARCHIVE_DECOMPRESSION",
+    "bothFileIdsMatchSubmissionMetadata": true,
+    "bothReceivedByteCountsMatchBindings": true,
+    "bothComputedSha256ValuesMatchBindings": true,
+    "workerIndependentlyAccessedReceivingSideBytes": false,
+    "archiveContentsInspected": false,
+    "substantiveAnalysisPerformed": false
+  },
+  "boundary": {
+    "transportSliceComplete": true,
+    "parentObjective": "OPEN",
+    "additionalUploadOrSubmissionAuthorized": false,
+    "ownerRelayRequested": false,
+    "newJudgments": 0,
+    "paidApiCalls": 0,
+    "externalSpendUsd": 0,
+    "privatePayloadPublishedToGit": false,
+    "nextAction": "Preserve all artifacts and receipts. Substantive evidence review remains with the Project Manager and requires a separate source-bound directive before further worker execution."
+  },
+  "validation": {
+    "targetedCurrentSliceTestsPassed": 4,
+    "completeDeterministicGate": "npm run verify",
+    "exitCode": 0,
+    "typecheck": "PASS",
+    "testFilesPassed": 146,
+    "testFilesSkipped": 1,
+    "testsPassed": 1711,
+    "testsSkipped": 6,
+    "build": "PASS",
+    "publicReceiptBindingsToPrivateSources": "PASS",
+    "diffWhitespace": "PASS"
+  }
+}

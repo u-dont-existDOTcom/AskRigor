@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 17:29 UTC
+**Checkpoint:** 2026-09-06 18:12 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,9 +8,42 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `PRIVATE_POST_GATE_EVIDENCE_ARCHIVE_COMPLETE / DELIVERY_BLOCKER_ACCEPTED / EXPORT_SLICE_CLOSED / PARENT_OPEN`
+**Status:** `PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED / RECIPIENT_BYTE_IDENTITY_VERIFIED / TRANSPORT_SLICE_COMPLETE / PARENT_OPEN`
 
-## Latest post-gate closeout
+## Latest attachment delivery
+
+Joel enabled the existing extension's file-access setting. The worker verified
+`newAllowFileAccess:true` in the same authorized Brave profile and received a new
+Project Manager directive, message `abc4f35e-68cc-4d10-82c5-81963bf7782b`, exact-body
+SHA-256 `15564045950748690f658e24743d6432b769bb550d7e9171a86509bb50782266`.
+It narrowly supersedes the earlier no-retry ruling. Fresh Mission Control
+admission, message `38fb4c3e-f56b-4e41-a9c7-6d3b337f43b3`, exact-body SHA-256
+`b92173b16aa5d1e217857a73f41efc2f77a22932d984e6821b09fdd5574b357a`,
+returned `mayExecute:true`; the prior admission was not reused.
+
+One receipt file selection, one archive file selection, and one message
+submission succeeded. Both provider attachment IDs were bound to destination
+message `963b57a3-ce89-4c92-b22d-7ca66a3c63bd` and both attachment names remained
+associated with that message after navigation. Source hashes, sizes, and modes
+passed preflight, and both source-file hashes remained unchanged afterward.
+
+The source-bound receiving-side receipt, message
+`11624049-1afa-4c19-af43-eff5111c31ff`, exact-body SHA-256
+`6308ae8162d279babcdd91d4fac7845aa75ae7d91b3ce8fc3e925c23b9cc1f83`,
+reports SHA-256 computation over the received file bytes without archive
+decompression. Both file IDs, byte counts, and computed hashes match the delivery
+bindings. This receiving-side report is preserved separately from the worker's
+sender-side hash checks. No archive content or substantive analysis was exposed.
+
+The non-secret receipt is
+`docs/audits/2026-09-06-mast-preserved-archive-delivered.json`. All earlier failed
+attempts and diagnostic evidence remain preserved. The transport slice is
+complete; the parent objective remains open for Project Manager direction.
+
+The delivery checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+## Earlier post-gate closeout and attachment blocker
 
 The source-bound deterministic unblinding and one metadata-join repair are
 complete. The frozen mapping was disclosed once in private execution and remains
@@ -62,11 +95,11 @@ The error is not established as an automatic approval-review rejection.
 
 The non-secret evidence and limits are in
 `docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json`.
-Owner authorization is pending for expanding the existing extension's local-file
-permission. After any authorized setting change, verify it and route the exact
-structural evidence to the Project Manager for a new directive and any required
-runtime admission before a transport probe or delivery attempt. The existing
-no-retry and archive-preservation ruling remains active.
+At that checkpoint, owner authorization for the permission change was pending.
+The later owner-performed change and bounded delivery above supersede that
+pending state. The earlier scan checked legacy setting names; the follow-up
+verified the actual `newAllowFileAccess` setting. The original diagnostic claim
+remains explicitly limited rather than treated as a proven historical cause.
 
 ## Source-bound authority
 
@@ -187,12 +220,11 @@ redundant green reruns.
 
 ## Next executable action
 
-There is no currently authorized controlled execution. Preserve the completed
-private archive, manifest, packaging receipt, source artifacts, and failed
-delivery receipts without modification. Reopen only after a separately verified
-authorized internal transport capability and a new source-bound Project Manager
-directive with any required runtime admission. Do not infer authorization from a
-configured chat locator or an available upload interface, retry automatically,
+The authorized transport slice is complete. Preserve the delivered archive,
+manifest, packaging receipt, source artifacts, and all failed and successful
+transport receipts without modification. Substantive evidence review remains
+with the Project Manager; any further worker execution needs a separate
+source-bound directive. Do not resend the attachments, initiate analysis,
 or request owner relay.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
@@ -1397,11 +1429,11 @@ The non-secret final receipt is
 
 Scientific adequacy: reserved for the Project Manager. The private determinate
 disposition is accepted without public outcome disclosure or worker-authored
-interpretation. The private evidence archive has not reached the receiving
-surface because of the accepted attachment blocker.
+interpretation. The private evidence archive and packaging receipt reached the
+receiving surface, which returned a source-bound matching-byte-identity receipt.
 
 Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`PRIVATE_POST_GATE_EVIDENCE_EXPORT_PRESERVED_DELIVERY_BLOCKER_ACCEPTED_PARENT_OPEN`.
+`PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED_BYTE_IDENTITY_VERIFIED_PARENT_OPEN`.

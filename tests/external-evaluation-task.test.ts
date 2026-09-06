@@ -5,14 +5,14 @@ import { describe, expect, it } from "vitest";
 const rootFile = (path: string) => new URL(`../${path}`, import.meta.url);
 
 describe("external evaluation current-slice contract", () => {
-  it("preserves the canonical parent program after the private post-gate export blocker closeout", async () => {
+  it("preserves the canonical parent program after verified private archive delivery", async () => {
     const task = JSON.parse(
       await readFile(rootFile("tasks/ACTIVE-TASK.json"), "utf8"),
     ) as Record<string, unknown>;
 
     expect(task).toMatchObject({
       taskId: "askrigor-external-evaluation-contribution-v1",
-      status: "active_private_post_gate_evidence_export_preserved_delivery_blocker_parent_open",
+      status: "active_private_post_gate_evidence_delivered_byte_identity_verified_parent_open",
       exclusive: true,
       requiredBranch: "task/mast-four-arm-zero-spend-harness-20260901",
       baselineCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -45,15 +45,23 @@ describe("external evaluation current-slice contract", () => {
       codexCurrentState: "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
       currentSlice: {
         sliceId: "mast-four-arm-base-post-gate-evidence-export-v1",
-        status: "private_archive_complete_delivery_blocker_accepted_slice_closed_parent_open",
+        status: "private_archive_and_receipt_delivered_byte_identity_verified_slice_complete_parent_open",
         maximumEstimatedCostUsdBeforeAbort: 0,
         conditionMapSealed: false,
         delivery: {
           attempted: true,
+          delivered: true,
+          blockerCode: null,
+          providerAttachmentCount: 2,
+          persistedAfterNavigation: true,
+          recipientByteIdentityVerified: true,
+          additionalUploadAttemptsAuthorized: false,
+          ownerRelayPermitted: false,
+        },
+        priorDeliveryBlocker: {
           delivered: false,
           blockerCode: "CUA_FILE_CHOOSER_SET_FILES_NOT_ALLOWED",
           additionalUploadAttemptsAuthorized: false,
-          ownerRelayPermitted: false,
         },
       },
       preflightCommand: expect.stringContaining("prepare-zero-spend-mast-four-arm-base-evaluation-v2.mts"),
@@ -70,7 +78,7 @@ describe("external evaluation current-slice contract", () => {
         mergeCommit: "88eb6d252d7b7547d3a2039872bddc96707fee9e",
       },
       supervision: {
-        completionClaim: "PRIVATE_POST_GATE_EVIDENCE_EXPORT_PRESERVED_DELIVERY_BLOCKER_ACCEPTED_PARENT_OPEN",
+        completionClaim: "PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED_BYTE_IDENTITY_VERIFIED_PARENT_OPEN",
         scientificAdequacy: "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
         releaseAdequacy: "unaffected; no paid run, external submission, protocol mutation, or production release",
       },
@@ -140,6 +148,7 @@ describe("external evaluation current-slice contract", () => {
       "docs/audits/2026-09-05-mast-j3-latest-restart-source-receipt.json",
       "docs/audits/2026-09-06-mast-blinded-evaluation-v2-final-accepted.json",
       "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
+      "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",
       "docs/superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md",
     ]) {
       await expect(access(rootFile(path))).resolves.toBeUndefined();

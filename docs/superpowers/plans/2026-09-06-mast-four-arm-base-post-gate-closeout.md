@@ -43,15 +43,22 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
    source-bound ruling that accepts the blocker, preserves the archive, closes
    this export slice, prohibits automatic retry, and leaves the parent objective
    open.
-10. [ ] Reopen only after a separately verified internal transport capability and
-    a new source-bound directive with any required runtime admission.
+10. [x] Verified the owner-enabled extension file-access setting, captured a new
+    source-bound Project Manager directive, and obtained fresh runtime admission.
+11. [x] Uploaded the receipt once and the preserved archive once, submitted both
+    in one authorized message, verified persisted provider attachment bindings,
+    and captured the receiving-side matching-SHA-256 receipt.
 
 Read-only follow-up on 2026-09-06 identified a likely missing extension file-access
 prerequisite. The installed runtime, persisted allowlisted setting, official
 documentation, and limits are recorded in
-`docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json`. Owner
-authorization for the permission change is pending. No upload was retried;
-the completed archive and the Project Manager reopening boundary remain intact.
+`docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json`. The later owner
+change and bounded delivery supersede that pending checkpoint. The follow-up
+uses the actual `newAllowFileAccess` setting; the earlier legacy-key scan did not
+independently establish the historical cause. Delivery evidence is recorded in
+`docs/audits/2026-09-06-mast-preserved-archive-delivered.json`. All failed receipts
+and completed source artifacts remain unchanged. Further worker execution needs
+separate source-bound Project Manager direction.
 
 ## Acceptance
 
@@ -63,5 +70,6 @@ the completed archive and the Project Manager reopening boundary remain intact.
 - no new generation, judge calls, rescoring, tuning, threshold changes, paid API
   use, owner relay, scientific interpretation, public result publication, or
   production change;
-- final durable state records the accepted delivery blocker and exact reopening
-  boundary without publishing private results.
+- final durable state records confirmed delivery and receiving-side byte identity,
+  preserves the earlier blocker history, and leaves substantive evidence review
+  with the Project Manager without publishing private results.
