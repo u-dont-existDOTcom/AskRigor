@@ -1292,6 +1292,17 @@ Ordinal 41 remains unsent during the required interval; its exact packet is
 35,265 UTF-8 bytes at SHA-256
 `a290756c07d0dfb87ee4573d7b09b32095f0234a81357afb4e1399696a980ea3`.
 
+J3 Latest restart ordinal 41 reused replacement physical tab `663931483` in a
+fresh zero-message Chat with checked `Latest` and observed `Pro, 5 of 5.`. It
+passed the live pre-send gate, sentinel-backed clipboard capture, and strict
+validator on its first attempt with zero tool or citation artifacts. The active
+homogeneous series is complete at 41 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`be523f9fdd08e14e5862be70ee77cd9e2233b90fa51a05f59db187cf24e19603`.
+The private ordinal-41 valid receipt SHA-256 is
+`5ac6e9a41358965f425c87cf5e461ac09402e85cb237378984f6d20349e75474`.
+Finalization and final acceptance have not yet run.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
