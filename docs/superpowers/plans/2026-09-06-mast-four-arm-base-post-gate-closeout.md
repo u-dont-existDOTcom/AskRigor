@@ -85,10 +85,12 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
 25. [x] Obtained fresh diagnostic runtime admission and recorded the fixed
     existing command metadata. The indexed receipts do not retain full historical
     browser command bodies; missing details remain unavailable.
-26. [ ] Complete applicable verification, then perform at most one empty-composer
-    in-page menu opening with three bounded state samples.
-27. [ ] Return one private operational diagnostic receipt and capture the next
-    source-bound directive. No chooser, upload, prompt fill, probe request, repair,
+26. [x] Completed the applicable pinned-runtime gate. Required-model control
+    verification failed before the attachment-menu opening; preserved the empty
+    precondition and read-only post-failure metadata with no retry.
+27. [x] Returned the exact private diagnostic blocker once and verified its
+    persisted message identity and byte equality.
+28. [ ] Capture the next source-bound Project Manager disposition. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.
 
 Read-only follow-up on 2026-09-06 identified a likely missing extension file-access

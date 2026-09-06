@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_ready_probes_stopped_parent_open",
+  "status": "active_private_upload_menu_diagnostic_blocked_return_delivered_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_ready",
+    "status": "upload_menu_diagnostic_control_blocked_return_delivered_response_pending",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,8 +109,7 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "one empty-composer menu transition",
-      "private operational return and supervisor disposition"
+      "capture Project Manager response and follow its source-bound operational disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -136,7 +135,36 @@
       "initialDiagnosticGateFailedOnStaleCurrentSliceTest": true,
       "initialFailedGatePreserved": true,
       "liveSuccessClaimed": false
-    }
+    },
+    "counts": {
+      "attachmentMenuOpeningCalls": 0,
+      "boundedPreconditionStateReads": 2,
+      "diagnosticProjectionCalls": 0,
+      "modelControlVerificationClickCalls": 1,
+      "chooserWaits": 0,
+      "chooserTriggers": 0,
+      "fileAssignments": 0,
+      "uploads": 0,
+      "promptFills": 0,
+      "probeSubmissions": 0,
+      "retryCalls": 0
+    },
+    "browserReceiptSha256": "d266ab6c31cd8c7922277ee3311da29b13c5bf765591cb088b06772e1dd3b69b",
+    "operationalReturnSha256": "e2497d671d8c354a80ca023d45c3f1e88e6c16df1f69059f2d5d6eed4630ea9c",
+    "operationalReturn": {
+      "recordedAt": "2026-09-06T23:05:27.866203+00:00",
+      "directiveId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
+      "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+      "attemptedAt": "2026-09-06T23:04:12.628Z",
+      "submissionCalls": 1,
+      "messageId": "1c4f5e4b-7d7c-4b0b-a514-b2e44c41c2f8",
+      "exactBodyBytes": 10235,
+      "exactBodySha256": "e2497d671d8c354a80ca023d45c3f1e88e6c16df1f69059f2d5d6eed4630ea9c",
+      "persistedExactMatch": true,
+      "responseStatus": "PENDING",
+      "noResendAuthorized": true
+    },
+    "receipt": "docs/audits/2026-09-06-upload-menu-diagnostic-blocked.json"
   },
   "completedEvidenceExportSlice": {
     "sliceId": "mast-four-arm-base-post-gate-evidence-export-v1",
@@ -281,17 +309,17 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Capture at most three bounded samples around one positively identified empty-composer in-page menu opening, then return the private receipt once. Do not stage a prompt, fixture, chooser or probe.",
+  "nextAction": "Capture the Project Manager response to the confirmed diagnostic return. No retry, attachment menu opening, chooser operation or probe is authorized under the exhausted diagnostic execution.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_ADMITTED_PROBES_STOPPED_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_BLOCKED_RETURN_DELIVERED_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "Fresh source-bound runtime admission accepted for metadata-only empty-composer diagnostic. Both prior setup failures remain immutable and probes remain stopped.",
+    "operationalAlignment": "Required-model control verification failed before attachment-menu interaction. The exact diagnostic blocker return is confirmed; next supervisor disposition is pending.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-06T22:48:36.060803+00:00",
+  "updatedAt": "2026-09-06T23:05:27.866203+00:00",
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
   "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
   "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",

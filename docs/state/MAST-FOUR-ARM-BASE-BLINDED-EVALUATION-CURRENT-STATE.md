@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 22:54 UTC
+**Checkpoint:** 2026-09-06 23:05 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `UPLOAD_MENU_DIAGNOSTIC_ADMITTED / DETERMINISTIC_GATE_PASSED / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `UPLOAD_MENU_DIAGNOSTIC_CONTROL_BLOCKED / RETURN_DELIVERED / RESPONSE_PENDING / PROBES_STOPPED / PARENT_OPEN`
 
 ## Current empty-composer diagnostic
 
@@ -33,7 +33,17 @@ The diagnostic code passed the complete gate under explicit Node 24.18.0:
 148 test files and 1,778 tests passed; one file and six tests skipped; typecheck
 and build passed. The initial run found a stale current-slice checkpoint assertion;
 its failed result is preserved and the updated contract enforces the diagnostic's
-zero-upload limits. No live diagnostic sample or opening call has occurred yet.
+zero-upload limits. The empty ordinary-chat precondition showed zero messages, zero attachments,
+and zero composer content. Required-model control verification then failed with
+a selector/Runtime.evaluate timeout before any attachment-menu opening or
+projection. One permitted read-only post-failure observation remained empty.
+No click retry, chooser operation, upload, prompt fill, or probe request occurred.
+The exact blocker and missing historical command details were returned once as
+message `1c4f5e4b-7d7c-4b0b-a514-b2e44c41c2f8` at 23:04:12 UTC: 10,235 bytes,
+SHA-256 `e2497d671d8c354a80ca023d45c3f1e88e6c16df1f69059f2d5d6eed4630ea9c`.
+The persisted body matched exactly. Capture the next Project Manager response;
+do not repeat this return or diagnostic. See
+`docs/audits/2026-09-06-upload-menu-diagnostic-blocked.json`.
 
 ## Preserved one-time pre-submission recovery
 
