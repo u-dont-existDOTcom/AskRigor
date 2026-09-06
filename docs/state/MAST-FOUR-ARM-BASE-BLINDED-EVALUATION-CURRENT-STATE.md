@@ -1264,6 +1264,20 @@ Ordinal 37 remains unsent during the required interval; its exact packet is
 32,902 UTF-8 bytes at SHA-256
 `f28566a5409fdc496a95de0c6e31011b7c6a13f733d22fd5cfeefbc6644e055b`.
 
+J3 Latest restart ordinals 37 and 38 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 38 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`99fda84bc64e24feac2290263578b3d1eaed97df77e3c86268562b2cad3b6079`.
+Their private valid receipt SHA-256 values are respectively
+`804665166bbc780b92af76977a1e456c8ebc4e9b899041c4ac327202f5e0b426`
+and `b6e4fd7ed0d3912ea2f61c303af60fe23244157c2bd9168371322c43fb046d93`.
+Ordinal 39 remains unsent during the required interval; its exact packet is
+33,327 UTF-8 bytes at SHA-256
+`12e5b30931dce04199464a9bbaab467ad678fdba19d8051e6270ce4e9d4529fc`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
