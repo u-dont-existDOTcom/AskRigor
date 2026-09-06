@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 07:01 UTC
+**Checkpoint:** 2026-09-06 07:13 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_FINAL_BLINDED_EVALUATION_ACCEPTED / PROJECT_MANAGER_ROUTING_PENDING`
+**Status:** `V2_FINAL_BLINDED_EVALUATION_ACCEPTED_AND_ROUTED / SOURCE_RESPONSE_CAPTURED / UNBLINDING_BLOCKED`
 
 ## Source-bound authority
 
@@ -129,10 +129,12 @@ redundant green reruns.
 
 ## Next executable action
 
-Route the factual blinded-evaluation acceptance receipt automatically to the
-configured Project Manager chat and capture exact transport provenance. Do not
-disclose the condition map, aggregate by arm or family, apply the continuation
-gate, tune, or interpret the blinded records.
+The bounded blinded-evaluation execution slice is complete. The exact factual
+acceptance receipt was routed automatically to the configured Project Manager
+chat and the source response was captured privately. Further action is reserved
+to the Project Manager and owner because condition-map disclosure, arm/family
+aggregation, continuation-gate application, tuning, and scientific
+interpretation remain outside this worker's authority.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -1312,11 +1314,35 @@ The condition map remains sealed and external spend remains USD 0. The complete
 deterministic gate passed on Node 24.18.0 with 143 test files and 1,700 tests
 passing, 1 file and 6 tests skipped, plus typecheck and build.
 
-Scientific adequacy: reserved for Project Manager review; no evaluator judgment
-or arm/family result has been inspected, aggregated, or interpreted.
+The exact 2,631-byte factual routing request at SHA-256
+`60446463cc3df7c19d5cd3df5ae35036bcf0f3f7e9af6b26476eb0d73b064e6d`
+was sent once from repository/GitHub HEAD
+`915ac2b5696292de4ee6b09226e7b4641a004497` as user message
+`b43c2876-a904-42fe-ad1e-e69359abda42` in the configured Project Manager chat.
+The 15,612-byte exact visible assistant body was preserved privately at SHA-256
+`41ce0dbb5b155da7b7d3828fdf95144b518dbf7d40cfd75a3e699b9e167edb3e`
+from assistant message `aef6c639-35fd-4ba1-a096-f3f16e5ed319`. The consumer UI
+had checked `Latest` and highest available reasoning label `High`; the response
+DOM exposed model attribute `gpt-5-6-thinking`, which is recorded without
+guessing beyond that observed attribute. The private transport-receipt SHA-256
+is `756a35613b6d48c5ee461701e38a83d9ee53b53ab12a535fc5768349ff5cc05c`.
+
+Attaching browser control to the completed evaluator tab before navigation
+unexpectedly caused its accessibility snapshot to expose the prior completed
+blinded evaluator output. This post-freeze transport incident is recorded in
+the exact routing request and transport receipt. It occurred after final
+acceptance; the condition map was not disclosed, and no arm/family aggregation,
+continuation-gate application, tuning, or scientific interpretation followed.
+The non-secret final receipt is
+`docs/audits/2026-09-06-mast-blinded-evaluation-v2-final-accepted.json`.
+
+Scientific adequacy: reserved for Project Manager review; one completed blinded
+evaluator output was exposed by the recorded post-freeze transport incident,
+but no condition map or arm/family result was disclosed, aggregated, or
+interpreted.
 
 Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_FINAL_ACCEPTANCE_PASSED_PROJECT_MANAGER_ROUTING_PENDING`.
+`BLINDED_EVALUATOR_V2_FINAL_ACCEPTED_AND_PROJECT_MANAGER_ROUTING_COMPLETE`.
