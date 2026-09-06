@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 19:10 UTC
+**Checkpoint:** 2026-09-06 20:23 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,45 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `BOUNDED_METADATA_COLLECTION_RETURNED / PROJECT_MANAGER_RESPONSE_PENDING / PARENT_OPEN`
+**Status:** `FIXED_METADATA_CENSUS_PARTIAL_WITH_EXPLICIT_LIMITS_RETURNED / PROJECT_MANAGER_RESPONSE_PENDING / PARENT_OPEN`
+
+## Active fixed-population metadata census
+
+Project Manager message `4a1b5d17-9628-4313-8f14-9040b28ad8a8`, exact-body
+SHA-256 `becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5`,
+authorized the same metadata-only collection across the fixed 96-record ledger.
+Fresh admission message `99314278-e534-4a67-b2ff-5773e27161c8`, exact-body
+SHA-256 `786e274f8da8523f357c829a67964854b97314e7a7ef0f635091ac9a4cfced33`,
+returned `mayExecute:true`. All 96 identities and source hashes match the preserved
+index; the three carry-forward receipt hashes and message identities match.
+The frozen private inventory is 58,608 bytes, SHA-256
+`c42e4560da9e551dd52f528ce2935ad959f3a263616c9e37c0a6022b44030a2c`.
+
+All 96 records are accounted for: three exact carry-forward receipts, ninety
+new browser observations, and three explicit unavailable observations. One
+unavailable target exhausted its readiness checks; two observations could not
+be safely retained after a browser-command timeout. The later command timeouts
+recovered within the same visit. No consumed target was revisited. This is full
+identity coverage with partial observation, not a complete-observation claim.
+
+The final private inventory is 224,777 bytes, SHA-256
+`80e2b7cf86b59824cb259785b6c08dddcebed1b8c4934d5a7650749e6370a90c`.
+It was returned once as message `1ccc24de-7d62-4e86-bbd3-d2a7ac5b3ba4`, with
+an operational cover binding the byte count and digest. The Project Manager
+response is pending. The non-secret receipt is
+`docs/audits/2026-09-06-mast-source-reference-census-returned.json`.
+
+The census checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+Recover exact progress and timeout evidence from private
+`supervision-routing/2026-09-06-source-reference-census-journal.json`, not from
+this public checkpoint. All 93 new visit allowances are consumed, and the three
+prior targets cannot be revisited. Each new visit used at most three readiness
+checks.
+Keep reference metadata, conversation locators, and detailed receipts private.
+No response prose, document contents, source interpretation, target messages,
+uploads, citation-target fetches, or paid inference are authorized.
 
 ## Latest source-access metadata follow-up
 
@@ -29,8 +67,9 @@ and ledger hashes remain unchanged. Detailed reference metadata stays private.
 The validated private return receipt is 10,603 bytes, SHA-256
 `580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91`.
 It was returned once to the Project Manager as message
-`1e1e4347-e836-46b5-bf05-b2d3d1b08650`. The response is pending; no owner decision
-is currently required. The non-secret operational receipt is
+`1e1e4347-e836-46b5-bf05-b2d3d1b08650`. The response accepted the receipt and
+authorized a separate fixed-population metadata census; no owner decision is
+currently required. The non-secret operational receipt is
 `docs/audits/2026-09-06-mast-source-access-provenance-collected.json`.
 
 The metadata checkpoint passed the complete deterministic gate: 146 test files
@@ -246,7 +285,7 @@ redundant green reruns.
 
 ## Next executable action
 
-Capture the Project Manager response and continue only its source-bound operational directive or exact owner-only question. The three target browser visits are exhausted; do not revisit or widen collection. Preserve the delivered archive and all prior artifacts and receipts unchanged. Detailed metadata and the exact return receipt remain under the durable private `supervision-routing` directory.
+Capture the Project Manager response and continue its next separate source-bound operational directive or exact owner-only question. No census target revisit is authorized.
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.

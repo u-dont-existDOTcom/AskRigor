@@ -53,8 +53,15 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     metadata and completed exactly one permitted browser visit per target.
 13. [x] Validated and returned the private operational receipt once, retaining
     explicit unavailable fields and withholding detailed references from Git.
-14. [ ] Capture the Project Manager response and follow its next source-bound
-    operational directive or exact owner-only question. No target visits remain.
+14. [x] Captured the Project Manager acceptance and separate 96-record census
+    directive; obtained fresh runtime admission and verified the fixed inventory.
+15. [x] Carried forward the three exact receipts and completed the 93 permitted
+    new visits. Preserved 90 new observations, three explicit unavailability
+    records, and all timeout evidence without revisiting consumed targets.
+16. [x] Verified full identity coverage, standalone receipt hashes, and preserved
+    source bindings; returned the private metadata inventory once with its digest.
+17. [ ] Capture the Project Manager response and follow its next source-bound
+    operational directive or exact owner-only question. No census visits remain.
 
 Read-only follow-up on 2026-09-06 identified a likely missing extension file-access
 prerequisite. The installed runtime, persisted allowlisted setting, official
@@ -67,7 +74,9 @@ independently establish the historical cause. Delivery evidence is recorded in
 and completed source artifacts remain unchanged. The subsequent metadata follow-up
 is recorded in
 `docs/audits/2026-09-06-mast-source-access-provenance-collected.json`; its exact
-private receipt has been returned and the Project Manager response is pending.
+private receipt was accepted. The fixed-population follow-up and its explicit
+limits are recorded in `docs/audits/2026-09-06-mast-source-reference-census-returned.json`;
+the final inventory has been returned and the Project Manager response is pending.
 
 ## Acceptance
 

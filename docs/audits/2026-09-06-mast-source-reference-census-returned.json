@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-06T20:23:04.269168+00:00",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "executionRepositoryHead": "6aa04e6d6cd316936105f36b097991661cc82c43",
+  "status": "FIXED_SOURCE_REFERENCE_CENSUS_PARTIAL_WITH_EXPLICIT_LIMITS_RETURNED_PARENT_OPEN",
+  "directive": {
+    "directiveId": "askrigor-post-delivery-source-reference-census-v1",
+    "messageId": "4a1b5d17-9628-4313-8f14-9040b28ad8a8",
+    "exactBodySha256": "becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5",
+    "exactBodyBytes": 13567,
+    "repositoryAuthorityGate": "PASS"
+  },
+  "freshRuntimeAdmission": {
+    "requestMessageId": "c4dc0a95-21c4-4ab3-b47c-1251e119f607",
+    "responseMessageId": "99314278-e534-4a67-b2ff-5773e27161c8",
+    "responseBodySha256": "786e274f8da8523f357c829a67964854b97314e7a7ef0f635091ac9a4cfced33",
+    "responseBodyBytes": 1125,
+    "mayExecute": true,
+    "previousAdmissionReused": false
+  },
+  "targetInventory": {
+    "bytes": 58608,
+    "sha256": "c42e4560da9e551dd52f528ce2935ad959f3a263616c9e37c0a6022b44030a2c",
+    "uniquePrimaryRecordCount": 96,
+    "sourceIndexIdentityAndHashMatches": 96,
+    "conditionMappingInspected": false
+  },
+  "coverage": {
+    "fixedTargetCount": 96,
+    "carriedForwardTargets": 3,
+    "retainedMetadataOnlyTargets": 0,
+    "newBrowserObservedTargets": 90,
+    "unavailableTargets": 3,
+    "unattemptedTargets": 0,
+    "newBrowserVisits": 93,
+    "readinessChecks": 194,
+    "newTargetModelMessages": 0,
+    "newSourceUploads": 0,
+    "citationTargetFetches": 0,
+    "paidOperations": 0
+  },
+  "completeIdentityCoverage": true,
+  "completeObservationClaimed": false,
+  "privateInventory": {
+    "bytes": 224777,
+    "sha256": "80e2b7cf86b59824cb259785b6c08dddcebed1b8c4934d5a7650749e6370a90c"
+  },
+  "privateJournal": {
+    "bytes": 40481,
+    "sha256": "0b04732104b9ae3c2173485f5a0da9271e35ee35bd6f743d470026c16c9154f6"
+  },
+  "operationalLimits": {
+    "readinessUnavailableTargets": 1,
+    "uncapturedObservationsAfterTimeout": 2,
+    "browserCommandTimeouts": 3,
+    "laterTimeoutsRecoveredWithinVisitCeiling": 2,
+    "additionalRecoveredSelectorDeadline": 1,
+    "consumedTargetsRevisited": 0,
+    "deniedOperationsRetried": 0,
+    "earlierUndispatchedInventoryPreserved": true,
+    "standaloneTargetRecordsUnchangedBySupplementalErrorEnvelope": true
+  },
+  "returnRouting": {
+    "requestMessageId": "1ccc24de-7d62-4e86-bbd3-d2a7ac5b3ba4",
+    "messageSubmissionCalls": 1,
+    "renderedAttachmentGroups": 1,
+    "responseStatus": "PENDING"
+  },
+  "boundary": {
+    "parentObjective": "OPEN",
+    "ownerDecisionRequired": false,
+    "sourceArtifactsAndPriorReceiptsUnchanged": true,
+    "responseOrDocumentContentsInspected": false,
+    "privateSettingsInspected": false,
+    "sourceRelationshipsInterpreted": false,
+    "accountOrProfileChanged": false,
+    "archiveResubmitted": false,
+    "detailedReferencesPublished": false,
+    "nextAction": "Capture the Project Manager response and continue its next separate source-bound operational directive or exact owner-only question. No census target revisit is authorized."
+  },
+  "validation": {
+    "targetInventoryCoverage": "PASS",
+    "standaloneMetadataReceiptHashesVerified": 96,
+    "carryForwardExactBytesVerified": 3,
+    "sourceBindingsUnchanged": "PASS",
+    "privateModes": "PASS",
+    "completeDeterministicGate": "npm run verify",
+    "independentCoverageHashOrderAndNullChecks": "PASS",
+    "publicDetailedReferenceExclusion": "PASS",
+    "targetedCurrentSliceTestsPassed": 4,
+    "exitCode": 0,
+    "typecheck": "PASS",
+    "testFilesPassed": 146,
+    "testFilesSkipped": 1,
+    "testsPassed": 1711,
+    "testsSkipped": 6,
+    "build": "PASS",
+    "diffWhitespace": "PASS"
+  }
+}

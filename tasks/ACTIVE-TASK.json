@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_source_access_metadata_returned_parent_open",
+  "status": "active_private_source_reference_census_returned_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -82,34 +82,52 @@
     "receipt": "docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json"
   },
   "currentSlice": {
-    "sliceId": "askrigor-post-delivery-source-access-provenance-v1",
-    "status": "bounded_metadata_collection_returned_project_manager_response_pending_parent_open",
-    "boundedOutcome": "Collect only source-bound existing attachment and citation reference metadata for three fixed targets, preserve explicit unavailable fields, and return a private operational receipt to the Project Manager.",
-    "completed": [
-      "new source-bound Project Manager directive and fresh runtime admission",
-      "retained source-record identity checks for all three fixed targets",
-      "one metadata-only browser visit per target with explicit unavailable fields",
-      "private metadata receipt validated and returned once to the Project Manager"
-    ],
-    "pending": [
-      "capture the Project Manager response and continue its separate source-bound operational direction or exact owner-only question"
-    ],
+    "sliceId": "askrigor-post-delivery-source-reference-census-v1",
+    "status": "metadata_census_partial_with_explicit_limits_returned_project_manager_response_pending_parent_open",
+    "boundedOutcome": "Extend the same metadata-only collection to all 96 primary source records in the hash-bound generation ledger, carrying forward three exact receipts without revisits.",
     "maximumEstimatedCostUsdBeforeAbort": 0,
-    "fixedTargetCount": 3,
-    "browserVisitsUsed": 3,
-    "browserVisitsRemaining": 0,
+    "fixedTargetCount": 96,
+    "carriedForwardCount": 3,
+    "maximumNewBrowserVisits": 93,
+    "maximumReadinessChecksPerVisit": 3,
     "newTargetMessages": 0,
     "newUploads": 0,
-    "sourceDocumentFetches": 0,
+    "citationTargetFetches": 0,
+    "ownerDecisionRequired": false,
+    "directiveMessageId": "4a1b5d17-9628-4313-8f14-9040b28ad8a8",
+    "directiveBodySha256": "becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5",
     "runtimeAdmission": {
-      "messageId": "9353d770-e9a6-4a59-a12f-cbdc2e004777",
-      "exactBodySha256": "99cba31c06a14521b376a44bd3baae586b867807a0b95dd0ffff9dc0bc0a8fd1",
+      "messageId": "99314278-e534-4a67-b2ff-5773e27161c8",
+      "exactBodySha256": "786e274f8da8523f357c829a67964854b97314e7a7ef0f635091ac9a4cfced33",
       "mayExecute": true
     },
-    "receipt": "docs/audits/2026-09-06-mast-source-access-provenance-collected.json",
-    "privateMetadataReceiptSha256": "580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91",
-    "returnMessageId": "1e1e4347-e836-46b5-bf05-b2d3d1b08650",
-    "ownerDecisionRequired": false
+    "targetInventorySha256": "c42e4560da9e551dd52f528ce2935ad959f3a263616c9e37c0a6022b44030a2c",
+    "targetInventoryBytes": 58608,
+    "privateJournal": "WITHHELD_PRIVATE_ARTIFACT_ROOT/supervision-routing/2026-09-06-source-reference-census-journal.json",
+    "pending": [
+      "capture the Project Manager response and follow its separate source-bound operational directive or exact owner-only question"
+    ],
+    "coverage": {
+      "fixedTargetCount": 96,
+      "carriedForwardTargets": 3,
+      "retainedMetadataOnlyTargets": 0,
+      "newBrowserObservedTargets": 90,
+      "unavailableTargets": 3,
+      "unattemptedTargets": 0,
+      "newBrowserVisits": 93,
+      "readinessChecks": 194,
+      "newTargetModelMessages": 0,
+      "newSourceUploads": 0,
+      "citationTargetFetches": 0,
+      "paidOperations": 0
+    },
+    "browserVisitsRemaining": 0,
+    "completeIdentityCoverage": true,
+    "completeObservationClaimed": false,
+    "receipt": "docs/audits/2026-09-06-mast-source-reference-census-returned.json",
+    "metadataInventoryBytes": 224777,
+    "metadataInventorySha256": "80e2b7cf86b59824cb259785b6c08dddcebed1b8c4934d5a7650749e6370a90c",
+    "returnMessageId": "1ccc24de-7d62-4e86-bbd3-d2a7ac5b3ba4"
   },
   "completedEvidenceExportSlice": {
     "sliceId": "mast-four-arm-base-post-gate-evidence-export-v1",
@@ -254,19 +272,49 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Capture the Project Manager response and continue only its source-bound operational directive or exact owner-only question. The three target browser visits are exhausted; do not revisit or widen collection.",
+  "nextAction": "Capture the Project Manager response and continue its next separate source-bound operational directive or exact owner-only question. No census target revisit is authorized.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "BOUNDED_METADATA_COLLECTION_RETURNED_PROJECT_MANAGER_RESPONSE_PENDING_PARENT_OPEN",
-    "workerToContract": "MATCH_AT_BOUNDED_METADATA_COLLECTION_AND_PRIVATE_RETURN",
+    "completionClaim": "FIXED_SOURCE_REFERENCE_CENSUS_PARTIAL_WITH_EXPLICIT_LIMITS_RETURNED_PARENT_OPEN",
+    "workerToContract": "MATCH_AT_FIXED_CENSUS_COVERAGE_WITH_EXPLICIT_UNAVAILABLE_OBSERVATIONS_AND_PRIVATE_RETURN",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "all three exact targets were verified against retained metadata, visited once each, and represented in a validated private receipt; unavailable identifiers remain unknown; target messages, uploads, document fetches, and paid operations remain zero; no source relationship was interpreted; the exact receipt was returned once and the Project Manager response is pending",
+    "operationalAlignment": "all 96 fixed records are accounted for: three exact carry-forward receipts, 90 new browser observations, and three explicit unavailable observations; 93 one-time browser visits and their readiness checks are preserved; command timeouts and recovery limits remain private and explicit; the exact metadata inventory was returned once; no owner decision is pending",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-06T19:10:33.774417+00:00",
+  "updatedAt": "2026-09-06T20:23:04.269168+00:00",
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
   "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
   "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",
-  "sourceAccessProvenanceReceipt": "docs/audits/2026-09-06-mast-source-access-provenance-collected.json"
+  "sourceAccessProvenanceReceipt": "docs/audits/2026-09-06-mast-source-access-provenance-collected.json",
+  "completedSourceAccessMetadataSlice": {
+    "sliceId": "askrigor-post-delivery-source-access-provenance-v1",
+    "status": "metadata_receipt_accepted_followup_directive_received_parent_open",
+    "boundedOutcome": "Collect only source-bound existing attachment and citation reference metadata for three fixed targets, preserve explicit unavailable fields, and return a private operational receipt to the Project Manager.",
+    "completed": [
+      "new source-bound Project Manager directive and fresh runtime admission",
+      "retained source-record identity checks for all three fixed targets",
+      "one metadata-only browser visit per target with explicit unavailable fields",
+      "private metadata receipt validated and returned once to the Project Manager",
+      "Project Manager accepted the metadata receipt and issued a separate fixed-population census directive"
+    ],
+    "pending": [],
+    "maximumEstimatedCostUsdBeforeAbort": 0,
+    "fixedTargetCount": 3,
+    "browserVisitsUsed": 3,
+    "browserVisitsRemaining": 0,
+    "newTargetMessages": 0,
+    "newUploads": 0,
+    "sourceDocumentFetches": 0,
+    "runtimeAdmission": {
+      "messageId": "9353d770-e9a6-4a59-a12f-cbdc2e004777",
+      "exactBodySha256": "99cba31c06a14521b376a44bd3baae586b867807a0b95dd0ffff9dc0bc0a8fd1",
+      "mayExecute": true
+    },
+    "receipt": "docs/audits/2026-09-06-mast-source-access-provenance-collected.json",
+    "privateMetadataReceiptSha256": "580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91",
+    "returnMessageId": "1e1e4347-e836-46b5-bf05-b2d3d1b08650",
+    "ownerDecisionRequired": false
+  },
+  "sourceReferenceCensusReceipt": "docs/audits/2026-09-06-mast-source-reference-census-returned.json"
 }

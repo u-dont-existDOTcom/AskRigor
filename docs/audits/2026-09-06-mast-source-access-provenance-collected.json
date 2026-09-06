@@ -3,7 +3,7 @@
   "recordedAt": "2026-09-06T19:10:33.774417+00:00",
   "taskId": "askrigor-external-evaluation-contribution-v1",
   "executionRepositoryHead": "b4bd7b4a24b2cdc6ba34d39a3c6e4aaaef6b6d59",
-  "status": "BOUNDED_METADATA_COLLECTION_RETURNED_PROJECT_MANAGER_RESPONSE_PENDING_PARENT_OPEN",
+  "status": "BOUNDED_METADATA_RECEIPT_ACCEPTED_SOURCE_BOUND_CENSUS_DIRECTIVE_RECEIVED_PARENT_OPEN",
   "directive": {
     "directiveId": "askrigor-post-delivery-source-access-provenance-v1",
     "messageId": "21b89257-03e1-4662-ba65-0d3dedfb9cd5",
@@ -47,7 +47,11 @@
   "returnRouting": {
     "destinationMessageId": "1e1e4347-e836-46b5-bf05-b2d3d1b08650",
     "messageSubmissionCalls": 1,
-    "responseStatus": "PENDING"
+    "responseStatus": "RECEIPT_ACCEPTED_FOLLOWUP_DIRECTIVE_RECEIVED",
+    "responseMessageId": "4a1b5d17-9628-4313-8f14-9040b28ad8a8",
+    "responseBodyBytes": 13567,
+    "responseBodySha256": "becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5",
+    "followupDirectiveId": "askrigor-post-delivery-source-reference-census-v1"
   },
   "boundary": {
     "parentObjective": "OPEN",
@@ -60,7 +64,7 @@
     "referenceMetadataPublishedToGit": false,
     "paidApiCalls": 0,
     "externalSpendUsd": 0,
-    "nextAction": "Capture the Project Manager response and continue only its source-bound operational directive or exact owner-only question. The three target browser visits are exhausted; do not revisit or widen collection."
+    "nextAction": "Continue only the separately source-bound and freshly admitted fixed-population metadata census. Carry forward the three existing observations unchanged; no revisits to these three targets are authorized."
   },
   "validation": {
     "privateRecordHashes": "PASS",
