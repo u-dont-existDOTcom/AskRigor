@@ -1117,6 +1117,20 @@ provider/transport failure, records both physical tab IDs and the exact owner-bo
 digest, and rejects an unbound or second transition. No evaluator attempt was
 consumed. The focused contract has 13 passing tests and typecheck passes.
 
+J3 Latest restart ordinal 18 attempt 2 then used the byte-identical sealed packet
+in replacement tab `663931483`. Its pre-send receipt bound the one-time physical-tab
+transition to the exact owner-body digest and matching local/GitHub execution HEAD
+`d9d6a414c80fa442c2ce519bcd9eb7ded061f055`. The output passed strict validation
+with zero tool or citation artifacts and was recorded as valid. The active series now
+has 18 of 41 valid judgments, one preserved mechanical failure, no halted claim, and
+progress SHA-256
+`92ba88c1b1de1fbe6665397326f40fe07b00d2d7351247c86d4fd10a55a6bdf8`.
+The private ordinal-18 valid receipt has SHA-256
+`83d9462bf5d2c8a8e9859ad074811ec8b5b0e515700ac7e2f0836113250184df`.
+Ordinal 19 remains unsent while the required interval elapses; its exact packet is
+33,855 UTF-8 bytes at SHA-256
+`2cb8ac17d9b7129f755ccd71b3e6a236d07a78dcbb6f7596d5538526930222f4`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
