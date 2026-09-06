@@ -46,6 +46,13 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
 10. [ ] Reopen only after a separately verified internal transport capability and
     a new source-bound directive with any required runtime admission.
 
+Read-only follow-up on 2026-09-06 identified a likely missing extension file-access
+prerequisite. The installed runtime, persisted allowlisted setting, official
+documentation, and limits are recorded in
+`docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json`. Owner
+authorization for the permission change is pending. No upload was retried;
+the completed archive and the Project Manager reopening boundary remain intact.
+
 ## Acceptance
 
 - immutable generation, evaluation, mapping, and gate-artifact hashes verified;

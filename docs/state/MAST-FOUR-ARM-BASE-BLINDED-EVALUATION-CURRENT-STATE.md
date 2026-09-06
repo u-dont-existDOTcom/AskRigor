@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 17:11 UTC
+**Checkpoint:** 2026-09-06 17:29 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -48,6 +48,25 @@ Manager. The exact blocker was routed as message
 accepts the blocker, requires the archive and receipts to remain unchanged,
 prohibits additional upload attempts and automatic retry, and closes this export
 slice with the parent objective open.
+
+## Read-only attachment diagnosis
+
+The 17:29 UTC diagnosis found no enabled file-access setting for the ChatGPT
+extension in the authorized Brave profile. The installed runtime maps the
+observed `Not allowed` error to the extension's **Allow access to file URLs**
+prerequisite; [OpenAI's upload documentation](https://learn.chatgpt.com/docs/chrome-extension#upload-files)
+documents the same prerequisite. This is a likely cause, not a verified
+successful transport. The live settings UI has not been checked. No new upload
+attempt, permission change, account change, or archive modification occurred.
+The error is not established as an automatic approval-review rejection.
+
+The non-secret evidence and limits are in
+`docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json`.
+Owner authorization is pending for expanding the existing extension's local-file
+permission. After any authorized setting change, verify it and route the exact
+structural evidence to the Project Manager for a new directive and any required
+runtime admission before a transport probe or delivery attempt. The existing
+no-retry and archive-preservation ruling remains active.
 
 ## Source-bound authority
 

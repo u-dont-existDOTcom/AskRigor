@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-09-06T17:29:33Z",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "repositoryHeadAtDiagnosis": "9810f96579eb694379a141a3aaf7b9169ce6ce08",
+  "scope": "Read-only diagnosis of the preserved browser attachment error; no clinical content inspection or transport retry.",
+  "status": "LIKELY_EXTENSION_FILE_ACCESS_PREREQUISITE_MISSING_PERMISSION_CHANGE_PENDING",
+  "observedError": {
+    "operation": "fileChooser.setFiles",
+    "providerCode": -32000,
+    "providerMessage": "Not allowed",
+    "priorAttemptCount": 3,
+    "newAttemptCount": 0,
+    "automaticApprovalReviewRejectionEstablished": false
+  },
+  "localEvidence": {
+    "browserFamily": "brave",
+    "sameAuthorizedProfileOnly": true,
+    "extensionName": "ChatGPT",
+    "extensionVersion": "1.26.901.11451",
+    "persistedFileAccessSetting": "UNSET",
+    "fileAccessEnabledInPersistedSettings": false,
+    "liveSettingsUiChecked": false,
+    "browserRuntimeVersion": "26.901.41600",
+    "browserServiceBytes": 1308334,
+    "browserServiceSha256": "dc26e1673cc4e28ff9bb668359c0f2465e0d318cef17feb331405cf88de3c74e",
+    "runtimeBehavior": "The documented file chooser implementation calls DOM.setFileInputFiles after its upload security check. Its Not allowed error handler directs the user to enable Allow access to file URLs for the ChatGPT extension.",
+    "errorFormattingInference": "The handler matches a bare Not allowed message. The recorded error includes a JSON envelope, which may explain why the actionable guidance was not displayed. This is a static-source inference, not a reproduced runtime diagnosis."
+  },
+  "officialDocumentation": {
+    "url": "https://learn.chatgpt.com/docs/chrome-extension#upload-files",
+    "documentedPrerequisite": "Enable Allow access to file URLs in the browser extension details before starting an upload task again."
+  },
+  "limitations": [
+    "The persisted setting and installed runtime strongly support the missing-permission diagnosis; no live settings UI or successful upload probe has confirmed it.",
+    "No browser permission, account, extension package, archive, manifest, or packaging receipt was changed.",
+    "No transport capability or successful evidence delivery is claimed."
+  ],
+  "preservedArchive": {
+    "bytes": 10567954,
+    "sha256": "0c238f5f61f45164bb0b8f2e44dec324db09614f9bab611653b68330c8294124",
+    "manifestSha256": "aba51f6fad52abb15a8b182f400cd73065e3fd27df3966161a8d167de5c263b6",
+    "packagingReceiptSha256": "e00e4adf882f46527bc1cd9a8a63c0160309a54e3f9409419aabdcb57af50692"
+  },
+  "authorityBoundary": {
+    "projectManagerMessageId": "02fefcda-fc99-4d41-9bcb-219f82e2c8b1",
+    "projectManagerBodySha256": "7837b51ca7c064df5624fdca43a2c049e5dc3929b1734405060983354e0bdde6",
+    "additionalUploadAttemptsAuthorized": false,
+    "alternativeTransportAuthorized": false,
+    "newPermissionChangeAuthorized": false,
+    "ownerRelayPermitted": false,
+    "parentObjective": "OPEN",
+    "nextStep": "Obtain owner authorization before expanding the existing extension's local-file permission. Verify any authorized setting change, then route exact structural evidence to the Project Manager for a new source-bound directive and any required runtime admission before a transport probe or delivery attempt."
+  }
+}

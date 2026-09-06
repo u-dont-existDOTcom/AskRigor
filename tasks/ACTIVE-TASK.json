@@ -190,7 +190,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-06T17:14:52.263Z",
+    "checkedAt": "2026-09-06T17:23:31.229Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -198,7 +198,7 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Preserve the completed private archive, manifest, packaging receipt, source artifacts, and failed delivery receipts without modification. Reopen only after a separately verified authorized internal transport capability and a new source-bound Project Manager directive with any required runtime admission; do not automatically retry or request owner relay.",
+  "nextAction": "Preserve the completed private archive, manifest, packaging receipt, source artifacts, and failed delivery receipts without modification. Read-only diagnosis found a likely missing ChatGPT extension file-access prerequisite. Obtain owner authorization before expanding that permission, verify any authorized change, and route exact structural evidence to the Project Manager for a new source-bound directive and any required runtime admission before a transport probe or delivery attempt. Do not automatically retry or request owner relay.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED — CHATGPT CHAT/PRO REASONING AUTHORITY — AUTOMATIC INTERNAL ROUTING",
     "completionClaim": "PRIVATE_POST_GATE_EVIDENCE_EXPORT_PRESERVED_DELIVERY_BLOCKER_ACCEPTED_PARENT_OPEN",
@@ -208,6 +208,7 @@
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-06T17:14:52Z",
-  "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json"
+  "updatedAt": "2026-09-06T17:29:33Z",
+  "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
+  "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json"
 }
