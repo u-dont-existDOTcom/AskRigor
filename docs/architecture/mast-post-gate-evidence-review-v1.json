@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "architectureId": "mast-post-gate-evidence-review-v1",
+  "purpose": "Preserve a frozen exploratory gate disposition while preparing existing evidence for source-grounded Project Manager review.",
+  "role": "REUSABLE_CONTROL_PLANE_ARCHITECTURE_NOT_AN_EXECUTION_AUTHORIZATION",
+  "publicContentBoundary": "This file contains no study outcomes, clinical responses, judgments, condition mapping, credentials, or private artifact locators.",
+  "reuse": "Use the existing accepted generation/evaluation ledgers, canonical serializers, private-artifact controls, and Chat-owned runtime admission. Do not build a parallel evaluator or redefine a metric.",
+  "authority": {
+    "required": "A current source-bound Chat-authored directive specifying the exact artifact identities and population.",
+    "beforeWorkerExecution": "Authenticated runtime admission must return mayExecute:true for that directive.",
+    "workerRole": "Deterministic verification, byte-preserving packaging, provenance indexing, and authorized internal routing only.",
+    "projectManagerRole": "Scientific interpretation, diagnosis of failure mechanisms, and decisions about later development."
+  },
+  "invariants": [
+    "Preserve the original gate result, thresholds, family denominator, judgments, condition mapping, and superseded audit evidence.",
+    "Do not regenerate responses, rejudge, tune protocols, change match rules, or reopen the gate under this architecture.",
+    "Data inspected to design future changes are development data for those changes; retain the original frozen evaluation as a historical result.",
+    "Post-result diagnostic prioritization is exploratory and cannot justify exclusion or a different pass/fail threshold.",
+    "A genuine integrity defect must be reported with source evidence, not silently repaired or promoted into a favorable score."
+  ],
+  "evidencePackage": {
+    "coverage": "Index the complete frozen response population and include existing raw outputs, evaluator records, final metrics, source case/rubric/guidance bytes, and provenance.",
+    "trialAndArmBalance": "For any prioritized family, include all frozen arms and trials, not only the weakest answer.",
+    "judges": "Keep primary replicates, selected adjudications, excluded superseded series, prompt versions, and model/mode observations distinct.",
+    "unmatchedActions": "Keep any separately defined safety overlay distinct from source benchmark metrics.",
+    "privacy": "Package privately outside Git using restrictive directory/file permissions. Commit only non-sensitive architecture, tests, and approved redacted receipts.",
+    "noModelInferenceForPackaging": true
+  },
+  "diagnosticQuestions": [
+    "What actions and omissions explain the observed score differences?",
+    "Does each scored judgment follow the frozen matching and evidence-reference contract?",
+    "Are apparent differences stable across existing trials and grader replicates?",
+    "Do transport, response completeness, and recorded tool/model behavior offer competing explanations?",
+    "Which conclusions remain unsupported by the available source records?"
+  ],
+  "delivery": {
+    "destination": "The source-bound authorized internal Project Manager surface only.",
+    "ownerRelay": false,
+    "queueIsDelivery": false,
+    "requireExactDeliveryReceipt": true,
+    "ifUnavailable": "Preserve the package and report the exact internal-transport blocker; do not ask the owner to relay it."
+  },
+  "defaultExclusions": [
+    "new benchmark runs",
+    "perturbation generation",
+    "new judge calls",
+    "new API spend",
+    "external publication or submission",
+    "protocol edits",
+    "unannounced rescoring"
+  ]
+}
