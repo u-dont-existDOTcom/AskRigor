@@ -1194,6 +1194,20 @@ Ordinal 27 remains unsent during the required interval; its exact packet is
 30,576 UTF-8 bytes at SHA-256
 `d3ff8ba56fdb519b150699096d98b902720cd405db32a8db0b028bb4740fcb22`.
 
+J3 Latest restart ordinals 27 and 28 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 28 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`b5853984b09bf0e84c08d4f0ba13d135882c9f6af5c33c1c9ed4cbb88d2b1096`.
+Their private valid receipt SHA-256 values are respectively
+`945cf30661617023f4159f61ab026afaad10b8a7f8b597796b00b7c38edfd60d`
+and `692938f9a5f44331de4ec27dc19383d399461a68235a25fd5bee04a6ec22bacc`.
+Ordinal 29 remains unsent during the required interval; its exact packet is
+31,324 UTF-8 bytes at SHA-256
+`f6dd999d1bb0fd192675eff62f3c58a95c6e663440c124c4dd3f9594b533c0ef`.
+
 Scientific adequacy: not reached; no evaluator judgment or arm/family result
 has been inspected or computed.
 
