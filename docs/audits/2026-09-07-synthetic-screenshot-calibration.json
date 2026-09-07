@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T03:00:16.232766+00:00",
+  "directiveId": "askrigor-screenshot-synthetic-calibration-and-region-capture-v1",
+  "sourceReceipt": {
+    "messageId": "006fe3f4-0f58-4c70-88a9-2929f3f27c11",
+    "exactBodyBytes": 15368,
+    "exactBodySha256": "e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1"
+  },
+  "runtimeAdmission": {
+    "messageId": "d6e60be0-bc70-4ac5-8391-a1bc3550c057",
+    "exactBodyBytes": 2211,
+    "exactBodySha256": "68994fa3746bc9028c7d3c5e08dc7c26dfc31bff1a5c58072605e7619e20ffcb",
+    "mayExecute": true,
+    "requestId": "admission:askrigor:synthetic-screenshot-calibration-v1:20260907"
+  },
+  "status": "SOURCE_AND_CODE_FROZEN_BEFORE_SYNTHETIC_NAVIGATION",
+  "code": {
+    "scripts/synthetic_screenshot_calibration.py": {
+      "bytes": 15900,
+      "sha256": "e60a28e2f2297a9faadb8f11450787e075fb6652e5eb0e07cd32dc5ee3046b59"
+    },
+    "scripts/screenshot-calibration-browser.mjs": {
+      "bytes": 3838,
+      "sha256": "3d1a900f1abd2e26110ed164bd3bbcb5c02bed0e17a64846ec4ce2f4d9cbfd27"
+    },
+    "tests/test_synthetic_screenshot_calibration.py": {
+      "bytes": 14031,
+      "sha256": "dcaf035874bda0b170eda356abf40f6ebcc44d980bd137c08791403ec85e0b62"
+    }
+  },
+  "tests": {
+    "command": "python3 -m unittest discover -s tests -p test_synthetic_screenshot_calibration.py -v",
+    "passed": true,
+    "testsPassed": 17,
+    "pythonVersion": "3.12.3",
+    "pillowVersion": "10.2.0",
+    "nodeSyntaxCommand": "node --check scripts/screenshot-calibration-browser.mjs",
+    "nodeVersion": "v24.18.0",
+    "nodeSyntaxPassed": true,
+    "rootReview": "FIXED_SOURCE_CHECKS_NO_EXTRA_MAPPING_NO_PRIVATE_PIXELS_NO_RETRY",
+    "unchangedFullGateRepeated": false
+  },
+  "frozenControl": {
+    "bytes": 8418,
+    "sha256": "8d19b6e2021c9ef468a415becc97f29a94fd5b5a5b491ab805efbf7275ea241b"
+  },
+  "preflightVerification": {
+    "bytes": 1414,
+    "sha256": "abe7bdf2dc72ae05f673d2fa981f4b89a1f1fa681031447a83389e8d062a4499"
+  },
+  "counts": {
+    "newTabs": 0,
+    "syntheticPageNavigations": 0,
+    "syntheticScreenshotCalls": 0,
+    "privateScreenshotCalls": 0,
+    "privateUiOpeningCalls": 0,
+    "uploads": 0,
+    "probeSubmissions": 0,
+    "paidOperations": 0
+  },
+  "ownerDecisionRequired": false,
+  "ownerRelayRequested": false,
+  "priorFailuresPreserved": true
+}

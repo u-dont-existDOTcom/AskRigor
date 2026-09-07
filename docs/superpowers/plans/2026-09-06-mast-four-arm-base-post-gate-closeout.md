@@ -110,8 +110,11 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     installed-contract audit; its required private-region mapping is not established.
 35. [x] Captured fresh admission and returned the exact capability blocker once
     after required spacing; persisted body identity is verified.
-36. [ ] Capture the Project Manager disposition. No screenshot, opening, resend
-    or probe is authorized while the capture gate is unresolved.
+36. [x] Captured the fixed synthetic-calibration directive; prior blocker remains
+    preserved and the new bounded empirical check is explicitly source-authorized.
+37. [ ] Obtain fresh admission, verify/freeze the fixed builder/checker and tests,
+    run the exact synthetic calibration and conditionally private clips, then
+    return one operational receipt and capture the Project Manager disposition.
     No model-control interaction or additional precondition-recovery loop is
     authorized. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.

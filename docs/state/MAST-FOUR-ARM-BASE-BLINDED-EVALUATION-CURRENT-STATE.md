@@ -1,6 +1,8 @@
+> Calibration preflight: fresh admission captured; 17 synthetic tests and pinned Node syntax check pass. Exact source/code/arguments are frozen in the private control; live navigation and screenshots have not started. See `docs/audits/2026-09-07-synthetic-screenshot-calibration.json`.
+
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-07 02:24 UTC
+**Checkpoint:** 2026-09-07 02:51 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,9 +10,40 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `VISUAL_CAPABILITY_BLOCKER_DELIVERED / SUPERVISOR_RESPONSE_PENDING / ZERO_CAPTURES / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `SYNTHETIC_CALIBRATION_PREPARING / ADMISSION_RESPONSE_PENDING / ZERO_NEW_CAPTURES / PROBES_STOPPED / PARENT_OPEN`
 
-## Current visual-evidence capability blocker
+## Current synthetic screenshot calibration
+
+Project Manager source `006fe3f4-0f58-4c70-88a9-2929f3f27c11`, 15,368 bytes,
+SHA-256 `e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1`,
+explicitly replaces the previous documentation-only prerequisites with a fixed
+synthetic calibration. Use `docs/directives/2026-09-07-synthetic-screenshot-calibration.json`.
+The earlier blocker remains immutable and must not be relabeled success.
+
+The source permits one new static data-URL page in the authorized profile, exactly
+two synthetic screenshot calls through documented `Tab.screenshot`, and Pillow
+checks limited to scales 1 and observed devicePixelRatio. Only after all fixed
+checks pass may the same calibrated tab take the two previously authorized
+private central-region clips. No private full viewport, image interpretation,
+OCR, upload, probe, model-control interaction, dependency or new service is allowed.
+The new calibration tab will replace the old task-owned tab after admission is
+preserved, keeping one physical task tab and leaving conversation contents and
+drafts unchanged. The exact authorized browser handle is available through the
+existing documented browser client; do not use the unrelated default handle.
+
+The fixed page builder/checker and tests are being prepared in
+`scripts/synthetic_screenshot_calibration.py` and
+`tests/test_synthetic_screenshot_calibration.py`. Review, applicable verification
+and exact source/page/argument freeze must precede the first screenshot.
+No calibration tab, navigation or screenshot has occurred.
+
+Fresh admission request was submitted once as `73bfa8d2-819a-4260-8941-e5ba223fffe2`
+at 2026-09-07 02:48:12 UTC. The persisted body matches: 17,240 bytes, SHA-256
+`236259e48015bf6d9acc92ede44b0c74e9284c635e309b117e14abb44ae5c5c2`.
+Capture its response privately before controlled work. Preserve approximately
+ten minutes between consumer sends. No owner answer or relay is pending.
+
+## Preserved visual-evidence capability blocker
 
 The Project Manager response is message `7ff47789-3352-4054-8567-9d6a67a14d44`,
 17,074 bytes, SHA-256 `6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c`.

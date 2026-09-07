@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_visual_blocker_return_delivered_parent_open",
+  "status": "active_private_upload_menu_diagnostic_synthetic_screenshot_calibration_preparing_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_visual_capability_blocker_return_delivered_response_pending",
+    "status": "upload_menu_diagnostic_synthetic_calibration_frozen_ready",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,8 +109,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "capture Project Manager response to the delivered capability blocker",
-      "continue only from valid source-bound disposition"
+      "bounded synthetic calibration and conditional private captures",
+      "one operational return and Project Manager disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -399,7 +399,7 @@
         "exactBodyBytes": 17074,
         "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
       },
-      "status": "CAPTURE_CAPABILITY_BLOCKER_RETURN_DELIVERED_RESPONSE_PENDING",
+      "status": "CAPABILITY_BLOCKER_RECEIVED_NEXT_SYNTHETIC_CALIBRATION_SOURCE_CAPTURED",
       "privateCapabilityReceipt": {
         "bytes": 4018,
         "sha256": "8769867479291b699e06f042693c8f2819547a0364315b791a097d675466b8d4"
@@ -451,7 +451,82 @@
       "returnMessageId": "720da0ab-9cd9-4e74-bfe6-516c8586e803",
       "persistedExactBodyMatch": true,
       "lastConsumerSend": "2026-09-07T02:22:51.252Z",
-      "privateRoutingReceiptSha256": "4888e73a954b9a58e159de5b126459012bd977725c57a33956b0a979e87f484c"
+      "privateRoutingReceiptSha256": "4888e73a954b9a58e159de5b126459012bd977725c57a33956b0a979e87f484c",
+      "responseReceipt": {
+        "messageId": "006fe3f4-0f58-4c70-88a9-2929f3f27c11",
+        "exactBodyBytes": 15368,
+        "exactBodySha256": "e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1"
+      }
+    },
+    "activeScreenshotCalibration": {
+      "directiveId": "askrigor-screenshot-synthetic-calibration-and-region-capture-v1",
+      "directive": "docs/directives/2026-09-07-synthetic-screenshot-calibration.json",
+      "sourceReceipt": {
+        "messageId": "006fe3f4-0f58-4c70-88a9-2929f3f27c11",
+        "exactBodyBytes": 15368,
+        "exactBodySha256": "e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1"
+      },
+      "status": "SOURCE_AND_CODE_FROZEN_BEFORE_SYNTHETIC_NAVIGATION",
+      "admissionSubmission": {
+        "schemaVersion": 1,
+        "recordedAt": "2026-09-07T02:51:14.883968+00:00",
+        "directiveId": "askrigor-screenshot-synthetic-calibration-and-region-capture-v1",
+        "requestId": "admission:askrigor:synthetic-screenshot-calibration-v1:20260907",
+        "submissionCalls": 1,
+        "attemptedAt": "2026-09-07T02:48:12.413Z",
+        "messageId": "73bfa8d2-819a-4260-8941-e5ba223fffe2",
+        "exactBodyBytes": 17240,
+        "exactBodySha256": "236259e48015bf6d9acc92ede44b0c74e9284c635e309b117e14abb44ae5c5c2",
+        "persistedExactBodyMatch": true,
+        "responseStatus": "CAPTURED_ACCEPTED",
+        "newTabs": 0,
+        "screenshotCalls": 0
+      },
+      "privateAdmissionSubmissionReceiptSha256": "d92e4682647a9bf0c7702c97b3a6d593e5623f45d1a4ffbe8c402d902136012a",
+      "newTabs": 0,
+      "syntheticScreenshotCalls": 0,
+      "privateScreenshotCalls": 0,
+      "controlledCalibrationStarted": false,
+      "ownerDecisionRequired": false,
+      "ownerRelayRequested": false,
+      "runtimeAdmission": {
+        "messageId": "d6e60be0-bc70-4ac5-8391-a1bc3550c057",
+        "exactBodyBytes": 2211,
+        "exactBodySha256": "68994fa3746bc9028c7d3c5e08dc7c26dfc31bff1a5c58072605e7619e20ffcb",
+        "mayExecute": true,
+        "requestId": "admission:askrigor:synthetic-screenshot-calibration-v1:20260907"
+      },
+      "freeze": {
+        "bytes": 8418,
+        "sha256": "8d19b6e2021c9ef468a415becc97f29a94fd5b5a5b491ab805efbf7275ea241b"
+      },
+      "receipt": "docs/audits/2026-09-07-synthetic-screenshot-calibration.json",
+      "code": {
+        "scripts/synthetic_screenshot_calibration.py": {
+          "bytes": 15900,
+          "sha256": "e60a28e2f2297a9faadb8f11450787e075fb6652e5eb0e07cd32dc5ee3046b59"
+        },
+        "scripts/screenshot-calibration-browser.mjs": {
+          "bytes": 3838,
+          "sha256": "3d1a900f1abd2e26110ed164bd3bbcb5c02bed0e17a64846ec4ce2f4d9cbfd27"
+        },
+        "tests/test_synthetic_screenshot_calibration.py": {
+          "bytes": 14031,
+          "sha256": "dcaf035874bda0b170eda356abf40f6ebcc44d980bd137c08791403ec85e0b62"
+        }
+      },
+      "tests": {
+        "command": "python3 -m unittest discover -s tests -p test_synthetic_screenshot_calibration.py -v",
+        "passed": true,
+        "testsPassed": 17,
+        "pythonVersion": "3.12.3",
+        "pillowVersion": "10.2.0",
+        "nodeSyntaxCommand": "node --check scripts/screenshot-calibration-browser.mjs",
+        "nodeVersion": "v24.18.0",
+        "nodeSyntaxPassed": true,
+        "rootReview": "FIXED_SOURCE_CHECKS_NO_EXTRA_MAPPING_NO_PRIVATE_PIXELS_NO_RETRY",
+        "unchangedFullGateRepeated": false
+      }
     }
   },
   "completedEvidenceExportSlice": {
@@ -600,10 +675,10 @@
   "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_VISUAL_BLOCKER_RETURN_DELIVERED_RESPONSE_PENDING_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_SYNTHETIC_CALIBRATION_FROZEN_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "The source-required capability blocker was delivered once and matched exactly against the persisted message. No capture or opening occurred. Capture the next Project Manager disposition; no owner reply, receipt resend, diagnostic retry or probe resumption is currently required or authorized.",
+    "operationalAlignment": "Fresh source and admission are bound; fixed builder, checker, and invocation are reviewed and frozen with 17 passing synthetic tests. No calibration tab or screenshot has occurred. Private capture remains conditional.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
