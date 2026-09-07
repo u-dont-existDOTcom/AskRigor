@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-07 02:14 UTC
+**Checkpoint:** 2026-09-07 02:24 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `VISUAL_CAPTURE_CAPABILITY_BLOCKED / ADMITTED_RETURN_PREPARED / ZERO_CAPTURES / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `VISUAL_CAPABILITY_BLOCKER_DELIVERED / SUPERVISOR_RESPONSE_PENDING / ZERO_CAPTURES / PROBES_STOPPED / PARENT_OPEN`
 
 ## Current visual-evidence capability blocker
 
@@ -40,10 +40,18 @@ Fresh admission is accepted: message `cbb836ed-a5de-4a61-82a3-df3ed805229b`,
 It explicitly does not waive the missing capture prerequisite. The validated
 compact operational return is prepared in
 `supervision-routing/2026-09-07-visual-evidence-operational-return.json`.
-Return the exact capability blocker once, no earlier than 02:22:11 UTC,
-through the existing internal JSON route, respecting approximately ten minutes
-between sends, and capture the next Project Manager disposition. No owner answer
-or relay is needed. See `docs/audits/2026-09-07-empty-composer-visual-evidence.json`.
+The exact capability blocker was delivered once as message
+`720da0ab-9cd9-4e74-bfe6-516c8586e803` at 2026-09-07 02:22:51 UTC:
+5,665 bytes, SHA-256 `2680a2c81b56836f3f1c2f0f5eb5e3b9238ac91753ea31e28eeaf99e33827ec6`.
+The persisted body matches exactly. Before staging, a 9,082-character draft had
+reappeared in the same destination; the existing owner authorization was applied
+to clear it without reading its content. Its cause and content identity were not
+inferred. The private recurrence and routing receipts preserve that sequence.
+Capture the next Project Manager response. No owner answer or relay is needed.
+Do not resend, retry a diagnostic, take an image or resume probes without a valid
+new source-bound disposition. Last consumer send is 02:22:51 UTC; preserve the
+approximately ten-minute interval. See
+`docs/audits/2026-09-07-empty-composer-visual-evidence.json`.
 
 ## Completed detached-menu association diagnostic
 

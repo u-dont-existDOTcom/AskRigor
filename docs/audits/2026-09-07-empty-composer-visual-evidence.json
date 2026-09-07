@@ -32,7 +32,7 @@
   "independentReadOnlyReviewConfirmedSameDocumentationGaps": true,
   "implementationInternalsInspected": false,
   "methodGuessedOrBypassed": false,
-  "status": "CAPTURE_CAPABILITY_BLOCKED_ADMITTED_RETURN_PREPARED",
+  "status": "CAPTURE_CAPABILITY_BLOCKER_RETURN_DELIVERED_RESPONSE_PENDING",
   "blockedBeforeOpening": true,
   "counts": {
     "openingCalls": 0,
@@ -49,7 +49,7 @@
     "paidOperations": 0
   },
   "uncroppedImageBytesReadRetainedDisplayedOrTransferred": false,
-  "returnStatus": "PENDING_FRESH_ADMISSION_RESULT_AND_REQUIRED_SEND_SPACING",
+  "returnStatus": "DELIVERED_RESPONSE_PENDING",
   "privateCapabilityReceipt": {
     "bytes": 4018,
     "sha256": "8769867479291b699e06f042693c8f2819547a0364315b791a097d675466b8d4"
@@ -79,8 +79,12 @@
   "operationalReturn": {
     "bytes": 5665,
     "sha256": "2680a2c81b56836f3f1c2f0f5eb5e3b9238ac91753ea31e28eeaf99e33827ec6",
-    "submissionCalls": 0,
-    "staged": false
+    "submissionCalls": 1,
+    "staged": false,
+    "messageId": "720da0ab-9cd9-4e74-bfe6-516c8586e803",
+    "persistedExactBodyMatch": true,
+    "attemptedAt": "2026-09-07T02:22:51.252Z",
+    "privateRoutingReceiptSha256": "4888e73a954b9a58e159de5b126459012bd977725c57a33956b0a979e87f484c"
   },
   "returnValidationReceiptSha256": "1a225d7bcf01d01ea41fa9511a6a10a5ff0d0d5db47de8af41557d129e643e71"
 }

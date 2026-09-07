@@ -108,9 +108,10 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     persisted message identity is verified.
 34. [x] Captured the valid visual-evidence directive and completed the read-only
     installed-contract audit; its required private-region mapping is not established.
-35. [ ] Capture fresh admission, return the exact capability blocker once after
-    required spacing, and capture the Project Manager disposition. No screenshot,
-    opening or probe is authorized while that gate is unresolved.
+35. [x] Captured fresh admission and returned the exact capability blocker once
+    after required spacing; persisted body identity is verified.
+36. [ ] Capture the Project Manager disposition. No screenshot, opening, resend
+    or probe is authorized while the capture gate is unresolved.
     No model-control interaction or additional precondition-recovery loop is
     authorized. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.

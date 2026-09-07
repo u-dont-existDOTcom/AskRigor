@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_visual_capture_capability_blocker_parent_open",
+  "status": "active_private_upload_menu_diagnostic_visual_blocker_return_delivered_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_visual_capture_capability_blocked_return_prepared",
+    "status": "upload_menu_diagnostic_visual_capability_blocker_return_delivered_response_pending",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,8 +109,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "send exact capability blocker once after 2026-09-07 02:22:11 UTC",
-      "capture Project Manager source-bound disposition"
+      "capture Project Manager response to the delivered capability blocker",
+      "continue only from valid source-bound disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -399,7 +399,7 @@
         "exactBodyBytes": 17074,
         "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
       },
-      "status": "CAPTURE_CAPABILITY_BLOCKED_ADMITTED_RETURN_PREPARED",
+      "status": "CAPTURE_CAPABILITY_BLOCKER_RETURN_DELIVERED_RESPONSE_PENDING",
       "privateCapabilityReceipt": {
         "bytes": 4018,
         "sha256": "8769867479291b699e06f042693c8f2819547a0364315b791a097d675466b8d4"
@@ -433,7 +433,7 @@
         "responseStatus": "CAPTURED_ACCEPTED_WITH_PREREQUISITES",
         "newControlledVisualActionCalls": 0
       },
-      "returnSubmissionCalls": 0,
+      "returnSubmissionCalls": 1,
       "ownerDecisionRequired": false,
       "ownerRelayRequested": false,
       "receipt": "docs/audits/2026-09-07-empty-composer-visual-evidence.json",
@@ -447,7 +447,11 @@
       },
       "operationalReturnBytes": 5665,
       "operationalReturnSha256": "2680a2c81b56836f3f1c2f0f5eb5e3b9238ac91753ea31e28eeaf99e33827ec6",
-      "returnValidationReceiptSha256": "1a225d7bcf01d01ea41fa9511a6a10a5ff0d0d5db47de8af41557d129e643e71"
+      "returnValidationReceiptSha256": "1a225d7bcf01d01ea41fa9511a6a10a5ff0d0d5db47de8af41557d129e643e71",
+      "returnMessageId": "720da0ab-9cd9-4e74-bfe6-516c8586e803",
+      "persistedExactBodyMatch": true,
+      "lastConsumerSend": "2026-09-07T02:22:51.252Z",
+      "privateRoutingReceiptSha256": "4888e73a954b9a58e159de5b126459012bd977725c57a33956b0a979e87f484c"
     }
   },
   "completedEvidenceExportSlice": {
@@ -585,10 +589,10 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-07T00:36:00.748Z",
-    "totalCandidates": 4,
-    "open": 0,
-    "needsReview": 0,
+    "checkedAt": "2026-09-07T02:17:45.956Z",
+    "totalCandidates": 5,
+    "open": 1,
+    "needsReview": 1,
     "acceptedNotIncorporated": 0,
     "terminal": 4,
     "deletionEligible": 0
@@ -596,10 +600,10 @@
   "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_VISUAL_CAPABILITY_BLOCKED_RETURN_PENDING_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_VISUAL_BLOCKER_RETURN_DELIVERED_RESPONSE_PENDING_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "Fresh admission explicitly retains the unresolved capture-coordinate and privacy gates. The exact source-required blocker is prepared as validated compact JSON with documentation excerpts and zero captures/openings. Send it once after the required interval, then capture the next Project Manager disposition.",
+    "operationalAlignment": "The source-required capability blocker was delivered once and matched exactly against the persisted message. No capture or opening occurred. Capture the next Project Manager disposition; no owner reply, receipt resend, diagnostic retry or probe resumption is currently required or authorized.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
