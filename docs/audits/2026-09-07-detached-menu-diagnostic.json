@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T01:05:37.964240+00:00",
+  "directiveId": "askrigor-detached-menu-association-diagnostic-v1",
+  "sourceReceipt": {
+    "messageId": "3935f7f5-ec47-408a-9b4c-30176efbfa42",
+    "exactBodyBytes": 17703,
+    "exactBodySha256": "42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836"
+  },
+  "runtimeAdmission": {
+    "messageId": "f77ee30f-5cb9-4902-8c12-7c3778c56255",
+    "exactBodyBytes": 1837,
+    "exactBodySha256": "f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911",
+    "mayExecute": true
+  },
+  "nodeVersion": "v24.18.0",
+  "focusedTestsPassed": 22,
+  "fullGate": {
+    "command": "npm run verify with explicit pinned Node PATH",
+    "passed": true,
+    "exitCode": 0,
+    "testFilesPassed": 149,
+    "testFilesSkipped": 1,
+    "testsPassed": 1800,
+    "testsSkipped": 6,
+    "typecheckPassed": true,
+    "buildPassed": true,
+    "logSha256": "94745997f92a5ae28d485e84ec628ff3810052b75ee913a6ecc2c0844cda456d"
+  },
+  "freeze": {
+    "moduleSha256": "9fbc8e9e0534b69266e38adbd1717113bad461c807eb06659474150bc491f4f2",
+    "testSha256": "e3086cb80487b35d582ba9d3dd6ffd5b85a79786105dbb2c05ca20b82f677875",
+    "projectionSha256": "32c9f26f3145c62ad3ddaf600a1fbe87cfc0476945796602dec2ae89e03bad65",
+    "projectionBytes": 15025,
+    "recorderSha256": "7472e7040968700604d9da0d8404041218383ef0f0b81f66ff14acca4e741b88",
+    "recorderBytes": 3597,
+    "operationSequence": [
+      "CLOSED_BASELINE",
+      "OPEN_ONCE",
+      "OPEN_OBSERVATION_1",
+      "OPEN_OBSERVATION_2",
+      "CLOSE_OWN_MENU_ONCE",
+      "CLOSURE_VERIFICATION"
+    ],
+    "timeouts": {
+      "projectionMs": 3000,
+      "controlOperationMs": 15000
+    }
+  },
+  "controlPacket": {
+    "bytes": 20555,
+    "sha256": "f52a17cb76078a61bad19d2b6c2fc5c798c3b618371b042707c4d0c8f1b60110"
+  },
+  "preservedIdentitiesVerified": true,
+  "precedingBrowserReceiptSha256": "1ffb674119f8e688fb917e5ad7074c2407e44c176a647227bc2ecdf823457cfd",
+  "frozenManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+  "installedApiContractSha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f",
+  "priorModuleSha256": "afbefbfde16b6f84897894488859f0f81d64dfcfdfe43c9199e899ff8ac2631d",
+  "initialFailedGateReceiptSha256": "e58915e15b5ae61dd2cfaf43569e467f5dbccf8bb79910971a48aff1711dab1f",
+  "initialFailureCorrection": "Restored required parent-task completion token; implementation and tests unchanged.",
+  "newLiveSequenceStarted": false,
+  "liveAcceptanceClaimed": false,
+  "status": "VERIFIED_AND_FROZEN_BEFORE_LIVE_SEQUENCE",
+  "privateObservationsCommitted": false
+}

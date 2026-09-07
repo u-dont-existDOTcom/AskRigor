@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "recordedAt": "2026-09-07T00:27:23.947959+00:00",
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "NEXT_SUPERVISOR_DIRECTIVE_JSON_BLOCKED_CORRECTION_REQUEST_DELIVERED",
+  "status": "VALID_SYNTAX_ONLY_REPLACEMENT_CAPTURED_MALFORMED_SOURCE_PRESERVED",
   "sourceReceipt": {
     "messageId": "be2497b2-5281-4d4d-9353-69766aeb24c8",
     "exactBodyBytes": 16816,
@@ -23,7 +23,7 @@
     "exactBodyBytes": 1500,
     "exactBodySha256": "1cf0a1827cf1896471590ddcf851212db58bd7a0a6e9cc19472498d3532d39da",
     "persistedExactMatch": true,
-    "responseStatus": "PENDING",
+    "responseStatus": "CAPTURED_VALID_JSON",
     "sourceBodyRepairedByWorker": false,
     "newDiagnosticExecuted": false
   },
@@ -36,5 +36,10 @@
     "paidApiInferenceCalls": 0,
     "ownerRelayRequested": false,
     "parentObjective": "OPEN"
+  },
+  "replacementSourceReceipt": {
+    "messageId": "3935f7f5-ec47-408a-9b4c-30176efbfa42",
+    "exactBodyBytes": 17703,
+    "exactBodySha256": "42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836"
   }
 }

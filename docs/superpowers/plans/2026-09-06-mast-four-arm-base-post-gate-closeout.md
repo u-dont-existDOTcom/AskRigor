@@ -98,8 +98,11 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     association fields. Returned the exact private receipt once.
 30. [x] Captured the next source response. Its full JSON failed parsing; preserved
     exact bytes and routed the parser error once without worker repair or execution.
-31. [ ] Capture a complete valid replacement directive and follow its source-bound
-    operational requirements after fresh admission.
+31. [x] Captured a complete valid syntax-only replacement source; preserved the
+    malformed original and correction route unchanged.
+32. [ ] Implement and verify the exact detached-menu projection/transition
+    extension, obtain fresh admission, freeze source/tests, execute its one bounded
+    closed-open-closed sequence and return the private receipt once.
     No model-control interaction or additional precondition-recovery loop is
     authorized. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.
@@ -133,3 +136,5 @@ nonclinical preflight is active; no study rerun or interpretation is authorized.
 - final durable state records confirmed delivery and receiving-side byte identity,
   preserves the earlier blocker history, and leaves substantive evidence review
   with the Project Manager without publishing private results.
+
+Detached-menu pre-live checkpoint: the new extension and recorder pass 22 focused tests and the complete pinned-runtime gate (149 files / 1,800 tests). Exact sources and sequence are frozen before live use; the previous projection is unchanged. Execute the admitted bounded sequence and route one operational receipt.

@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-07 00:26 UTC
+**Checkpoint:** 2026-09-07 01:05 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,9 +8,35 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `OBSERVATION_RETURNED / NEXT_SOURCE_JSON_CORRECTION_PENDING / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `DETACHED_MENU_VERIFIED_AND_FROZEN / LIVE_SEQUENCE_PENDING / PROBES_STOPPED / PARENT_OPEN`
 
-## Current source-syntax blocker
+## Current detached-menu association diagnostic
+
+The complete valid syntax-only replacement is message
+`3935f7f5-ec47-408a-9b4c-30176efbfa42`, 17,703 bytes, SHA-256
+`42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836`.
+Use `docs/directives/2026-09-07-detached-menu-association-diagnostic.json`.
+The malformed earlier source remains immutable and superseded.
+
+The new source permits a bounded extension of the existing projection for at
+most eight role-menu containers in the current document, with no unassociated
+text reads. It requires one closed baseline, one opening, two open observations,
+one targeted cleanup and one closure-verification sample. Item metadata is
+allowed only for a candidate selected by the exact fixed source rules. No model
+controls, chooser activity, uploads, prompts, probes, visual capture or retries
+are authorized. The prior projection remains unchanged. The new bounded extension and its
+focused tests are complete. Complete applicable Node 24.18 verification and
+exact source freeze must precede live action.
+Fresh admission is accepted: message `f77ee30f-5cb9-4902-8c12-7c3778c56255`,
+1,837 bytes, SHA-256 `f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911`.
+The request persisted exactly as `c68e30de-b31d-45fc-b98d-454b37f8acd8` at
+00:37:44 UTC: 17,789 bytes, SHA-256
+`ef45bcdee75d066beffb517a7e05c74887d84bd56738d79a72a2fe2e8b8eb9fc`.
+Preserve approximately ten minutes between consumer sends.
+
+The new extension passed 22 focused tests and the complete Node 24.18.0 gate: 149 test files and 1,800 tests passed, with one file and six tests skipped, plus typecheck and build. Its exact source, tests, compiled functions and operation order are frozen in the private control packet. See `docs/audits/2026-09-07-detached-menu-diagnostic.json`. No new live observation has occurred yet. The initial full gate found one checkpoint-label mismatch; its failure is preserved, the existing parent-task token was restored, and the complete gate then passed.
+
+## Preserved source-syntax blocker
 
 The Project Manager response to the completed observation is message
 `be2497b2-5281-4d4d-9353-69766aeb24c8`, 16,816 bytes, SHA-256
@@ -23,11 +49,11 @@ source, and did not execute the independently parsed directive identifier
 The exact parser error was returned once through the standing internal route as
 message `0e5ec66d-239f-4a8e-bff4-6ebeb42f019a` at 00:25:42 UTC: 1,500 bytes,
 SHA-256 `1cf0a1827cf1896471590ddcf851212db58bd7a0a6e9cc19472498d3532d39da`.
-Its persisted body matched exactly. Capture the replacement response and require
-complete valid source JSON plus fresh admission before new controlled action.
+Its persisted body matched exactly. The complete valid replacement and fresh
+admission are recorded in the current section above.
 No owner relay is needed. See `docs/audits/2026-09-07-supervisor-directive-json-blocker.json`.
 
-## Current model-independent diagnostic correction
+## Completed model-independent diagnostic
 
 Project Manager message `230d07c7-ea6e-47a4-b9a4-3f4b527a3d19`, 11,691 bytes,
 SHA-256 `69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555`,
@@ -61,10 +87,10 @@ Private observation receipt: 7,927 bytes, SHA-256
 The 9,586-byte operational return was delivered exactly as message
 `7465a65e-5b13-4ac1-96af-0f29c3805231` at 2026-09-07 00:12:53 UTC, SHA-256
 `aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0`.
-Capture the next supervisor response; do not repeat the return or diagnostic.
-See `docs/audits/2026-09-07-model-independent-menu-observation.json`.
+The next response and its syntax-only correction are preserved above. Do not
+repeat this return or diagnostic. See `docs/audits/2026-09-07-model-independent-menu-observation.json`.
 
-## Current empty-composer diagnostic
+## Preserved empty-composer precondition diagnostic
 
 Project Manager message `4df4c392-3d55-43e4-b0be-0584861fc6ef`, 14,858 bytes,
 SHA-256 `b0fb26f02e7aeda2cc3154464f15840e41c19698447c2d8aaac36bdedddabbf6`,

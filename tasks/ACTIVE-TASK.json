@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_next_source_json_blocked_parent_open",
+  "status": "active_private_upload_menu_diagnostic_detached_association_extension_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_observation_accepted_next_directive_json_blocked",
+    "status": "detached_association_verified_and_frozen_live_pending",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,7 +109,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "source JSON correction routing and replacement-source capture"
+      "four-sample closed-open-closed transition",
+      "one operational return and supervisor disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -250,7 +251,7 @@
       "nextDirectiveExecuted": false,
       "correctionPacketBytes": 1500,
       "correctionPacketSha256": "1cf0a1827cf1896471590ddcf851212db58bd7a0a6e9cc19472498d3532d39da",
-      "status": "CORRECTION_REQUEST_DELIVERED_RESPONSE_PENDING",
+      "status": "VALID_SYNTAX_ONLY_REPLACEMENT_CAPTURED",
       "routing": {
         "recordedAt": "2026-09-07T00:27:23.947959+00:00",
         "packetType": "EXACT_SOURCE_JSON_PARSE_BLOCKER",
@@ -264,7 +265,91 @@
         "sourceBodyRepairedByWorker": false,
         "newDiagnosticExecuted": false
       },
-      "receipt": "docs/audits/2026-09-07-supervisor-directive-json-blocker.json"
+      "receipt": "docs/audits/2026-09-07-supervisor-directive-json-blocker.json",
+      "replacementSourceReceipt": {
+        "messageId": "3935f7f5-ec47-408a-9b4c-30176efbfa42",
+        "exactBodyBytes": 17703,
+        "exactBodySha256": "42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836"
+      }
+    },
+    "activeDetachedAssociationDiagnostic": {
+      "directive": "docs/directives/2026-09-07-detached-menu-association-diagnostic.json",
+      "directiveId": "askrigor-detached-menu-association-diagnostic-v1",
+      "sourceReceipt": {
+        "messageId": "3935f7f5-ec47-408a-9b4c-30176efbfa42",
+        "exactBodyBytes": 17703,
+        "exactBodySha256": "42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836"
+      },
+      "attemptCeiling": {
+        "newDedicatedTabs": 1,
+        "newMenuOpeningCalls": 1,
+        "boundedStateSamples": 4,
+        "taskOwnedMenuCleanupCalls": 1,
+        "repeatedOpeningAfterFailure": 0,
+        "modelControlInteractions": 0,
+        "chooserWaitsOrTriggers": 0,
+        "fileAssignmentsOrUploads": 0,
+        "promptFills": 0,
+        "probeRequests": 0,
+        "visualCaptures": 0,
+        "priorProbeSetupAllowanceRestored": false,
+        "successfulObservationCreatesFurtherExecutionAllowance": false
+      },
+      "status": "VERIFIED_AND_FROZEN_LIVE_SEQUENCE_PENDING",
+      "newDiagnosticStarted": false,
+      "admissionSubmission": {
+        "requestId": "admission:askrigor:detached-menu-association-diagnostic-v1:20260907",
+        "attemptedAt": "2026-09-07T00:37:44.236Z",
+        "submissionCalls": 1,
+        "messageId": "c68e30de-b31d-45fc-b98d-454b37f8acd8",
+        "exactBodyBytes": 17789,
+        "exactBodySha256": "ef45bcdee75d066beffb517a7e05c74887d84bd56738d79a72a2fe2e8b8eb9fc",
+        "persistedExactMatch": true,
+        "modelControlInteractions": 0,
+        "pastedTextRestoredBeforeSubmission": true,
+        "responseStatus": "CAPTURED_ACCEPTED"
+      },
+      "runtimeAdmission": {
+        "messageId": "f77ee30f-5cb9-4902-8c12-7c3778c56255",
+        "exactBodyBytes": 1837,
+        "exactBodySha256": "f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911",
+        "mayExecute": true,
+        "executionSurface": "SOURCE_WORK_CODEX_ENVIRONMENT"
+      },
+      "verificationReceiptSha256": "e45ba1975afb92ee4f6b0d47c2da4eec0b7d9d66c1dfde3519a72187377712be",
+      "fullGate": {
+        "command": "npm run verify with explicit pinned Node PATH",
+        "passed": true,
+        "exitCode": 0,
+        "testFilesPassed": 149,
+        "testFilesSkipped": 1,
+        "testsPassed": 1800,
+        "testsSkipped": 6,
+        "typecheckPassed": true,
+        "buildPassed": true,
+        "logSha256": "94745997f92a5ae28d485e84ec628ff3810052b75ee913a6ecc2c0844cda456d"
+      },
+      "freeze": {
+        "moduleSha256": "9fbc8e9e0534b69266e38adbd1717113bad461c807eb06659474150bc491f4f2",
+        "testSha256": "e3086cb80487b35d582ba9d3dd6ffd5b85a79786105dbb2c05ca20b82f677875",
+        "projectionSha256": "32c9f26f3145c62ad3ddaf600a1fbe87cfc0476945796602dec2ae89e03bad65",
+        "projectionBytes": 15025,
+        "recorderSha256": "7472e7040968700604d9da0d8404041218383ef0f0b81f66ff14acca4e741b88",
+        "recorderBytes": 3597,
+        "operationSequence": [
+          "CLOSED_BASELINE",
+          "OPEN_ONCE",
+          "OPEN_OBSERVATION_1",
+          "OPEN_OBSERVATION_2",
+          "CLOSE_OWN_MENU_ONCE",
+          "CLOSURE_VERIFICATION"
+        ],
+        "timeouts": {
+          "projectionMs": 3000,
+          "controlOperationMs": 15000
+        }
+      },
+      "receipt": "docs/audits/2026-09-07-detached-menu-diagnostic.json"
     }
   },
   "completedEvidenceExportSlice": {
@@ -402,7 +487,7 @@
     "imageSelectionSha256": "6e0d9e009acc0bd9077b714c28d03ba3e5e911bb049fe229da821f39203d77e1"
   },
   "lessonQueue": {
-    "checkedAt": "2026-09-06T18:29:38.910Z",
+    "checkedAt": "2026-09-07T00:36:00.748Z",
     "totalCandidates": 4,
     "open": 0,
     "needsReview": 0,
@@ -410,17 +495,17 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Capture the response to the confirmed syntax-correction request, require a complete valid source JSON directive and fresh runtime admission before any new controlled browser action. Preserve the malformed source unchanged.",
+  "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_OBSERVATION_RETURNED_NEXT_SOURCE_JSON_CORRECTION_PENDING_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_DETACHED_VERIFIED_AND_FROZEN_LIVE_PENDING_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "Completed observation is delivered. The next source directive failed JSON parsing; exact error routed once. No worker repair or new diagnostic execution.",
+    "operationalAlignment": "The new bounded extension passed focused tests and complete pinned-runtime verification. Exact source, tests and sequence are frozen before one closed-open-closed diagnostic. Probes remain stopped.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-07T00:27:23.947959+00:00",
+  "updatedAt": "2026-09-07T00:34:00.577929+00:00",
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
   "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
   "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",
