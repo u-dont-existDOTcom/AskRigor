@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T16:24:41.747Z",
+  "directiveId": "askrigor-calibration-policy-block-closeout-v1",
+  "repositoryHeadAtSubmission": "276f2d403c34ba378d6dc2e18dd5f805e6f3a2c2",
+  "priorCloseoutReceipt": "docs/audits/2026-09-07-calibration-policy-block-closeout.json",
+  "status": "OFFLINE_CLOSEOUT_RETURN_DELIVERED_PARENT_DISPOSITION_PENDING",
+  "return": {
+    "submissionCalls": 1,
+    "exactBodyBytes": 5078,
+    "exactBodySha256": "758af2319e39b50a9220d688180136b428d1f604d087fcdd2951eacd5b9f9369",
+    "persistedExactBodyMatch": true,
+    "destinationMessageIdentityPreservedPrivately": true,
+    "postSendComposerContentLength": 0,
+    "responseStatus": "PENDING",
+    "noResendAuthorized": true
+  },
+  "resumedVerification": {
+    "sourceAndAdmissionFileIdentitiesMatch": true,
+    "allSevenPreservedReceiptAndCodeBindingsMatch": true,
+    "authorityGatePassedWithExactSourceBoundRequest": true,
+    "nodeVersion": "v24.18.0",
+    "checkpointCommand": "npm run test:run -- tests/external-evaluation-task.test.ts",
+    "checkpointTestsPassed": 4,
+    "unchangedFullVerificationRepeated": false
+  },
+  "separateHostedCheckObservation": {
+    "runId": 34079276856,
+    "jobId": 101611335626,
+    "status": "FAILURE",
+    "failedTests": 8,
+    "failedFiles": 6,
+    "passedTests": 1792,
+    "mergeTestUniversalVersion": "20.5.16",
+    "localHeadUniversalVersion": "20.5.15",
+    "observedMismatch": "Retained version and digest assertions expect the earlier Universal identity; the frontier import also reports FRONTIER_PROTOCOL_MANIFEST_MISMATCH.",
+    "mainObservedDuringRecovery": "2f551c762cf1b48b5fbf105b039c68d4f13984e1",
+    "logBytes": 471391,
+    "logSha256": "e7271a4e32656c120d392ca989702a895ae3c13ad3f948d3fc60a64ae18ca54a",
+    "routedWithCloseout": true,
+    "unrelatedCodeOrProtocolChanged": false
+  },
+  "newDiagnosticOperations": 0,
+  "newScreenshots": 0,
+  "newUploads": 0,
+  "newProbeRequests": 0,
+  "workarounds": 0,
+  "paidOperations": 0,
+  "priorEvidenceAndAttemptCountsUnchanged": true,
+  "parentObjectiveOpen": true,
+  "ownerRelayRequested": false,
+  "nextSubstantiveOwner": "PROJECT_MANAGER_REASONING_SURFACE"
+}
