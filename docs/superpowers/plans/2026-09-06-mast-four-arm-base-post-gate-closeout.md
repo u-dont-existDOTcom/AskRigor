@@ -154,3 +154,5 @@ Detached-menu pre-live checkpoint: the new extension and recorder pass 22 focuse
 Detached-menu observation checkpoint: all permitted operations are complete. The validated return is prepared, but the exact destination has an unidentified existing draft. Preserve it until the pending owner draft decision is answered. No diagnostic repetition or probe resumption is authorized.
 
 Delivery recovery checkpoint: owner-authorized draft discard and exact compact JSON delivery are complete. The Project Manager response is pending; no owner answer is needed.
+
+38. Synthetic screenshot calibration is frozen and its 17 tests pass. The sole data-URL navigation was rejected by browser URL security policy before any structural sample or screenshot. Preserve the literal rejection; no workaround is authorized. The exact operational blocker was delivered once with persisted equality. Capture the Project Manager response privately and follow only its next valid, source-bound instruction.

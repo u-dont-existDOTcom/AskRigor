@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_synthetic_screenshot_calibration_preparing_parent_open",
+  "status": "active_private_upload_menu_diagnostic_synthetic_url_policy_blocker_delivered_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_synthetic_calibration_frozen_ready",
+    "status": "upload_menu_diagnostic_synthetic_url_policy_blocker_delivered_response_pending",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,8 +109,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "bounded synthetic calibration and conditional private captures",
-      "one operational return and Project Manager disposition"
+      "capture Project Manager response privately",
+      "execute only a valid next source-bound instruction"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -466,7 +466,7 @@
         "exactBodyBytes": 15368,
         "exactBodySha256": "e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1"
       },
-      "status": "SOURCE_AND_CODE_FROZEN_BEFORE_SYNTHETIC_NAVIGATION",
+      "status": "SYNTHETIC_URL_POLICY_BLOCKER_DELIVERED_RESPONSE_PENDING",
       "admissionSubmission": {
         "schemaVersion": 1,
         "recordedAt": "2026-09-07T02:51:14.883968+00:00",
@@ -483,10 +483,10 @@
         "screenshotCalls": 0
       },
       "privateAdmissionSubmissionReceiptSha256": "d92e4682647a9bf0c7702c97b3a6d593e5623f45d1a4ffbe8c402d902136012a",
-      "newTabs": 0,
+      "newTabs": 1,
       "syntheticScreenshotCalls": 0,
       "privateScreenshotCalls": 0,
-      "controlledCalibrationStarted": false,
+      "controlledCalibrationStarted": true,
       "ownerDecisionRequired": false,
       "ownerRelayRequested": false,
       "runtimeAdmission": {
@@ -526,7 +526,60 @@
         "nodeSyntaxPassed": true,
         "rootReview": "FIXED_SOURCE_CHECKS_NO_EXTRA_MAPPING_NO_PRIVATE_PIXELS_NO_RETRY",
         "unchangedFullGateRepeated": false
-      }
+      },
+      "counts": {
+        "newTabs": 1,
+        "syntheticPageNavigations": 1,
+        "conditionalAccountPageNavigations": 0,
+        "syntheticScreenshotCalls": 0,
+        "privateScreenshotCalls": 0,
+        "openingCalls": 0,
+        "cleanupCalls": 0,
+        "syntheticStructuralSamples": 0,
+        "privateStructuralSamples": 0,
+        "chooserOperations": 0,
+        "fileAssignments": 0,
+        "uploads": 0,
+        "probeSubmissions": 0,
+        "modelControlInteractions": 0,
+        "retriesAfterFailure": 0,
+        "paidOperations": 0
+      },
+      "browserReceipt": {
+        "bytes": 2174,
+        "sha256": "ec6c75534639436a44bac0e7cb8cf87d88ddb823d4a2e6525c4c9ded7ce30637"
+      },
+      "operationalReturn": {
+        "bytes": 15824,
+        "sha256": "16d9b6ff83a3eaa27330f7083c1a8047876d8f446299619a118a5b46e92d8f30"
+      },
+      "returnValidation": {
+        "bytes": 380,
+        "sha256": "dc04cdde0edffbe7b173971b0eaffe753af30a0cd79bf2f5a8ba5b18026ca995"
+      },
+      "exactBlockerCode": "SYNTHETIC_DATA_URL_REJECTED_BY_BROWSER_URL_SECURITY_POLICY",
+      "actualExecutionHead": "cc7eb1c1717841a8c286ec5b1f3adf5cd1077cf7",
+      "operationalReturnRouting": {
+        "schemaVersion": 1,
+        "recordedAt": "2026-09-07T03:06:29.171127+00:00",
+        "directiveId": "askrigor-screenshot-synthetic-calibration-and-region-capture-v1",
+        "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+        "attemptedAt": "2026-09-07T03:04:30.358Z",
+        "submissionCalls": 1,
+        "messageId": "54855e85-12c1-47ab-aedd-a48d10efa3de",
+        "exactBodyBytes": 15824,
+        "exactBodySha256": "16d9b6ff83a3eaa27330f7083c1a8047876d8f446299619a118a5b46e92d8f30",
+        "persistedExactBodyMatch": true,
+        "postSendComposerContentLength": 0,
+        "attachments": 0,
+        "responseStatus": "PENDING",
+        "noResendAuthorized": true
+      },
+      "privateRoutingReceipt": {
+        "bytes": 568,
+        "sha256": "6c15bdc8fce1865a4e4cd63d3ea76324ca819de117000fa2b55a4c38ca934bb9"
+      },
+      "returnSubmissionCalls": 1
     }
   },
   "completedEvidenceExportSlice": {
@@ -675,10 +728,10 @@
   "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_SYNTHETIC_CALIBRATION_FROZEN_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_SYNTHETIC_URL_POLICY_BLOCKER_DELIVERED_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "Fresh source and admission are bound; fixed builder, checker, and invocation are reviewed and frozen with 17 passing synthetic tests. No calibration tab or screenshot has occurred. Private capture remains conditional.",
+    "operationalAlignment": "The browser URL policy rejected the sole synthetic data-page navigation. Zero screenshots or private diagnostic navigation occurred; no workaround was attempted. The exact 15824-byte blocker was delivered once with persisted equality, and Project Manager response is pending.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },

@@ -14,7 +14,7 @@
     "mayExecute": true,
     "requestId": "admission:askrigor:synthetic-screenshot-calibration-v1:20260907"
   },
-  "status": "SOURCE_AND_CODE_FROZEN_BEFORE_SYNTHETIC_NAVIGATION",
+  "status": "SYNTHETIC_URL_POLICY_BLOCKER_DELIVERED_RESPONSE_PENDING",
   "code": {
     "scripts/synthetic_screenshot_calibration.py": {
       "bytes": 15900,
@@ -50,16 +50,65 @@
     "sha256": "abe7bdf2dc72ae05f673d2fa981f4b89a1f1fa681031447a83389e8d062a4499"
   },
   "counts": {
-    "newTabs": 0,
-    "syntheticPageNavigations": 0,
+    "newTabs": 1,
+    "syntheticPageNavigations": 1,
+    "conditionalAccountPageNavigations": 0,
     "syntheticScreenshotCalls": 0,
     "privateScreenshotCalls": 0,
-    "privateUiOpeningCalls": 0,
+    "openingCalls": 0,
+    "cleanupCalls": 0,
+    "syntheticStructuralSamples": 0,
+    "privateStructuralSamples": 0,
+    "chooserOperations": 0,
+    "fileAssignments": 0,
     "uploads": 0,
     "probeSubmissions": 0,
+    "modelControlInteractions": 0,
+    "retriesAfterFailure": 0,
     "paidOperations": 0
   },
   "ownerDecisionRequired": false,
   "ownerRelayRequested": false,
-  "priorFailuresPreserved": true
+  "priorFailuresPreserved": true,
+  "browserReceipt": {
+    "bytes": 2174,
+    "sha256": "ec6c75534639436a44bac0e7cb8cf87d88ddb823d4a2e6525c4c9ded7ce30637"
+  },
+  "fixedCheckReceipt": {
+    "bytes": 8546,
+    "sha256": "012a079ab4323e77daae9ed3431bc24bfa6f909eeeea488778f97c09f545659b"
+  },
+  "operationalReturn": {
+    "bytes": 15824,
+    "sha256": "16d9b6ff83a3eaa27330f7083c1a8047876d8f446299619a118a5b46e92d8f30"
+  },
+  "returnValidation": {
+    "bytes": 380,
+    "sha256": "dc04cdde0edffbe7b173971b0eaffe753af30a0cd79bf2f5a8ba5b18026ca995"
+  },
+  "exactBlockerCode": "SYNTHETIC_DATA_URL_REJECTED_BY_BROWSER_URL_SECURITY_POLICY",
+  "screenshotsTaken": 0,
+  "workaroundAttempted": false,
+  "actualExecutionHead": "cc7eb1c1717841a8c286ec5b1f3adf5cd1077cf7",
+  "returnSubmissionCalls": 1,
+  "operationalReturnRouting": {
+    "schemaVersion": 1,
+    "recordedAt": "2026-09-07T03:06:29.171127+00:00",
+    "directiveId": "askrigor-screenshot-synthetic-calibration-and-region-capture-v1",
+    "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "attemptedAt": "2026-09-07T03:04:30.358Z",
+    "submissionCalls": 1,
+    "messageId": "54855e85-12c1-47ab-aedd-a48d10efa3de",
+    "exactBodyBytes": 15824,
+    "exactBodySha256": "16d9b6ff83a3eaa27330f7083c1a8047876d8f446299619a118a5b46e92d8f30",
+    "persistedExactBodyMatch": true,
+    "postSendComposerContentLength": 0,
+    "attachments": 0,
+    "responseStatus": "PENDING",
+    "noResendAuthorized": true
+  },
+  "privateRoutingReceipt": {
+    "bytes": 568,
+    "sha256": "6c15bdc8fce1865a4e4cd63d3ea76324ca819de117000fa2b55a4c38ca934bb9"
+  }
 }

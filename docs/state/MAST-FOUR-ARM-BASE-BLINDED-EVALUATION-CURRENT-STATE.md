@@ -1,3 +1,7 @@
+> Latest routing: the synthetic URL-policy blocker was delivered once at 2026-09-07T03:04:30.358Z, message `54855e85-12c1-47ab-aedd-a48d10efa3de`; 15,824 exact bytes, SHA-256 `16d9b6ff83a3eaa27330f7083c1a8047876d8f446299619a118a5b46e92d8f30`, persisted match verified. Project Manager response is pending. No screenshots, account diagnostic navigation, or workarounds occurred.
+
+> Current calibration outcome: the single synthetic `data:` navigation was rejected by Browser Use URL security policy. One replacement task tab; zero screenshots, account diagnostic navigation, openings, uploads, or probes. No workaround attempted. The validated exact blocker return is ready for one authorized Project Manager submission.
+
 > Calibration preflight: fresh admission captured; 17 synthetic tests and pinned Node syntax check pass. Exact source/code/arguments are frozen in the private control; live navigation and screenshots have not started. See `docs/audits/2026-09-07-synthetic-screenshot-calibration.json`.
 
 # MAST four-arm base blinded-evaluation current state
