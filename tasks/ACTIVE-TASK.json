@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_observation_complete_return_draft_blocker_parent_open",
+  "status": "active_private_upload_menu_diagnostic_observation_return_delivered_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_detached_observation_validated_return_draft_blocker",
+    "status": "upload_menu_diagnostic_detached_observation_return_delivered_response_pending",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,8 +109,7 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "owner disposition of existing Project Manager draft before one operational return",
-      "Project Manager disposition after receipt delivery"
+      "capture Project Manager response and follow its source-bound disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -295,7 +294,7 @@
         "priorProbeSetupAllowanceRestored": false,
         "successfulObservationCreatesFurtherExecutionAllowance": false
       },
-      "status": "OBSERVATION_VALIDATED_RETURN_BLOCKED_EXISTING_DRAFT",
+      "status": "OBSERVATION_RETURN_DELIVERED_RESPONSE_PENDING",
       "newDiagnosticStarted": true,
       "admissionSubmission": {
         "requestId": "admission:askrigor:detached-menu-association-diagnostic-v1:20260907",
@@ -374,10 +373,17 @@
       "transitionCandidate": "NOT_ESTABLISHED",
       "operationalReturnBytes": 14844,
       "operationalReturnSha256": "7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f",
-      "returnSubmissionCalls": 0,
+      "returnSubmissionCalls": 1,
       "returnStaged": false,
-      "transportDraftDecisionPending": true,
-      "privateDraftBlockerReceiptSha256": "ac67f962b8a97d94bd3fb847624421d9fe455e781a7405c99ba504462e789586"
+      "transportDraftDecisionPending": false,
+      "privateDraftBlockerReceiptSha256": "ac67f962b8a97d94bd3fb847624421d9fe455e781a7405c99ba504462e789586",
+      "ownerAuthorizedDraftDiscard": true,
+      "returnMessageId": "c35479fc-7746-4bed-9eb6-781ddf369cb8",
+      "exactSubmittedBodyBytes": 11254,
+      "exactSubmittedBodySha256": "3adda3e361b20d806c52bba0d8dfdf971182baebe1659ea601d7c32212d8878c",
+      "persistedExactBodyMatch": true,
+      "lastConsumerSend": "2026-09-07T01:52:30.332Z",
+      "privateRoutingReceiptSha256": "077e5b2f8dd36924969e6e75586864320c493f9caf78787aaca02101ded2e1a8"
     }
   },
   "completedEvidenceExportSlice": {
@@ -526,10 +532,10 @@
   "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_DETACHED_OBSERVED_RETURN_DRAFT_BLOCKER_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_DETACHED_RETURN_DELIVERED_RESPONSE_PENDING_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "The admitted four-sample observation is complete and structurally validated. The one operational return is prepared but not staged or sent because the exact Project Manager destination contains an unidentified existing draft. Owner draft disposition is pending; no relay, probe, upload or diagnostic retry is requested.",
+    "operationalAlignment": "Owner authorized the existing draft discard. The same validated operational JSON was serialized compactly, submitted once, and verified against the persisted message. Capture the Project Manager response; probes, uploads and diagnostic retries remain stopped.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },

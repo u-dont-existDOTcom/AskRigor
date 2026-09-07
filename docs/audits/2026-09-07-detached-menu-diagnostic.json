@@ -60,7 +60,7 @@
   "initialFailureCorrection": "Restored required parent-task completion token; implementation and tests unchanged.",
   "newLiveSequenceStarted": true,
   "liveAcceptanceClaimed": false,
-  "status": "OBSERVATION_VALIDATED_RETURN_BLOCKED_EXISTING_DRAFT",
+  "status": "OBSERVATION_RETURN_DELIVERED_RESPONSE_PENDING",
   "privateObservationsCommitted": false,
   "postGateCheckpointVerification": {
     "passed": true,
@@ -109,17 +109,24 @@
   "operationalReturn": {
     "bytes": 14844,
     "sha256": "7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f",
-    "submissionCalls": 0,
+    "submissionCalls": 1,
     "staged": false,
-    "status": "BLOCKED_EXISTING_UNIDENTIFIED_DRAFT"
+    "status": "DELIVERED_RESPONSE_PENDING",
+    "routingReceiptSha256": "077e5b2f8dd36924969e6e75586864320c493f9caf78787aaca02101ded2e1a8",
+    "messageId": "c35479fc-7746-4bed-9eb6-781ddf369cb8",
+    "exactSubmittedBodyBytes": 11254,
+    "exactSubmittedBodySha256": "3adda3e361b20d806c52bba0d8dfdf971182baebe1659ea601d7c32212d8878c",
+    "persistedExactBodyMatch": true,
+    "parsedJsonObjectUnchanged": true
   },
   "transportDraftBlocker": {
     "privateReceiptSha256": "ac67f962b8a97d94bd3fb847624421d9fe455e781a7405c99ba504462e789586",
     "draftCharacterCount": 9082,
-    "ownerDraftDecisionPending": true,
+    "ownerDraftDecisionPending": false,
     "draftBodyReadOrCaptured": false,
     "draftChanged": false,
-    "ownerRelayRequested": false
+    "ownerRelayRequested": false,
+    "ownerAuthorizedDiscard": true
   },
   "probesAndUploadsRemainStopped": true,
   "completedCheckpointVerification": {
@@ -127,5 +134,13 @@
     "testsPassed": 4,
     "nodeVersion": "v24.18.0",
     "logSha256": "6f363e2c9f72dc014f0418ac15867d5358290fab29b5495578d56b0a67be769e"
+  },
+  "transportSerializationReceiptSha256": "7a3e68cf8af143fb8cb31fb4904f6826c86d8956244505ea1c253243ce31c52b",
+  "transportControlObservationDeviation": {
+    "documentWideButtonTextEqualityScanCalls": 1,
+    "returnedOnlyMatchCount": true,
+    "rawLabelsPrintedOrStored": false,
+    "scanNotRepeated": true,
+    "subsequentActionUsedExactGroundedControl": true
   }
 }

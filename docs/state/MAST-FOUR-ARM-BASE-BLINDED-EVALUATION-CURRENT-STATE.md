@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-07 01:14 UTC
+**Checkpoint:** 2026-09-07 01:54 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `DETACHED_OBSERVATION_VALIDATED / RETURN_BLOCKED_EXISTING_DRAFT / OWNER_DRAFT_DECISION_PENDING / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `DETACHED_RETURN_DELIVERED / SUPERVISOR_RESPONSE_PENDING / PROBES_STOPPED / PARENT_OPEN`
 
 ## Current detached-menu association diagnostic
 
@@ -44,16 +44,23 @@ The operational return is prepared: 14,844 bytes, SHA-256
 Its exact private file is
 `supervision-routing/2026-09-07-detached-menu-diagnostic-operational-return.json`.
 
-**Current blocker:** the exact Project Manager destination contains an existing
-unidentified unsent draft (9,082 characters). The worker read only its length,
-did not capture its body, and did not replace it. No return has been staged or
-submitted. An owner decision to keep or discard that draft is pending. Do not
-ask the owner to relay the receipt. Once the owner resolves the draft, submit
-this existing exact return once, verify its persisted body identity, capture
-the Project Manager response privately and follow its source-bound disposition.
-Do not repeat the diagnostic or resume the stopped probes. Last consumer send
-remains the admission request at 2026-09-07 00:37:44 UTC; keep approximately ten
-minutes between sends. See `docs/audits/2026-09-07-detached-menu-diagnostic.json`.
+**Current action:** capture the Project Manager response to the delivered return.
+Joel authorized discarding the existing draft with the exact reply `sure`.
+The draft was cleared once without reading or capturing its content. The long
+pretty-printed receipt acquired different displayed line separators on restoration,
+so the same parsed JSON object was serialized compactly. Both artifacts remain
+preserved. The private serialization receipt also records one broad button-label
+equality scan that returned only a count; it was not repeated. Future transport
+checks must use the already-grounded exact control locator. The compact receipt matched the composer and persisted message exactly:
+11,254 bytes, SHA-256
+`3adda3e361b20d806c52bba0d8dfdf971182baebe1659ea601d7c32212d8878c`.
+It was sent once as message `c35479fc-7746-4bed-9eb6-781ddf369cb8` at
+2026-09-07 01:52:30 UTC. No further return submission is authorized. Keep
+approximately ten minutes between consumer sends. No owner answer is pending.
+The exact private routing receipt is
+`supervision-routing/2026-09-07-detached-menu-diagnostic-return-routing.json`.
+Follow only the next valid source-bound disposition. Do not repeat the diagnostic
+or resume stopped probes. See `docs/audits/2026-09-07-detached-menu-diagnostic.json`.
 
 ## Preserved source-syntax blocker
 
