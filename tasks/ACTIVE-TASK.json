@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_observation_return_delivered_parent_open",
+  "status": "active_private_upload_menu_diagnostic_visual_capture_capability_blocker_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_detached_observation_return_delivered_response_pending",
+    "status": "upload_menu_diagnostic_visual_capture_capability_blocked_return_prepared",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,7 +109,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "capture Project Manager response and follow its source-bound disposition"
+      "send exact capability blocker once after 2026-09-07 02:22:11 UTC",
+      "capture Project Manager source-bound disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -294,7 +295,7 @@
         "priorProbeSetupAllowanceRestored": false,
         "successfulObservationCreatesFurtherExecutionAllowance": false
       },
-      "status": "OBSERVATION_RETURN_DELIVERED_RESPONSE_PENDING",
+      "status": "OBSERVATION_RETURN_RECEIVED_NEXT_VISUAL_DIRECTIVE_CAPTURED",
       "newDiagnosticStarted": true,
       "admissionSubmission": {
         "requestId": "admission:askrigor:detached-menu-association-diagnostic-v1:20260907",
@@ -383,7 +384,70 @@
       "exactSubmittedBodySha256": "3adda3e361b20d806c52bba0d8dfdf971182baebe1659ea601d7c32212d8878c",
       "persistedExactBodyMatch": true,
       "lastConsumerSend": "2026-09-07T01:52:30.332Z",
-      "privateRoutingReceiptSha256": "077e5b2f8dd36924969e6e75586864320c493f9caf78787aaca02101ded2e1a8"
+      "privateRoutingReceiptSha256": "077e5b2f8dd36924969e6e75586864320c493f9caf78787aaca02101ded2e1a8",
+      "responseReceipt": {
+        "messageId": "7ff47789-3352-4054-8567-9d6a67a14d44",
+        "exactBodyBytes": 17074,
+        "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
+      }
+    },
+    "activeVisualEvidence": {
+      "directiveId": "askrigor-empty-composer-visual-evidence-v1",
+      "directive": "docs/directives/2026-09-07-empty-composer-visual-evidence.json",
+      "sourceReceipt": {
+        "messageId": "7ff47789-3352-4054-8567-9d6a67a14d44",
+        "exactBodyBytes": 17074,
+        "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
+      },
+      "status": "CAPTURE_CAPABILITY_BLOCKED_ADMITTED_RETURN_PREPARED",
+      "privateCapabilityReceipt": {
+        "bytes": 4018,
+        "sha256": "8769867479291b699e06f042693c8f2819547a0364315b791a097d675466b8d4"
+      },
+      "captureOrOpeningStarted": false,
+      "counts": {
+        "openingCalls": 0,
+        "screenshotCalls": 0,
+        "retainedImages": 0,
+        "structuralSamples": 0,
+        "cleanupCalls": 0,
+        "modelControlInteractions": 0,
+        "chooserOperations": 0,
+        "fileAssignments": 0,
+        "browserUploads": 0,
+        "probeSubmissions": 0,
+        "newTabs": 0,
+        "paidOperations": 0
+      },
+      "admissionSubmission": {
+        "schemaVersion": 1,
+        "recordedAt": "2026-09-07T02:14:16.277504+00:00",
+        "directiveId": "askrigor-empty-composer-visual-evidence-v1",
+        "requestId": "admission:askrigor:empty-composer-visual-evidence-v1:20260907",
+        "submissionCalls": 1,
+        "attemptedAt": "2026-09-07T02:12:11.723Z",
+        "messageId": "7c6cf217-889a-4959-b0ab-1861f41cd826",
+        "exactBodyBytes": 17600,
+        "exactBodySha256": "3efe709b221537450184cbea1c80c652c479b63d62b22a9cf333d7a34713ffd9",
+        "persistedExactBodyMatch": true,
+        "responseStatus": "CAPTURED_ACCEPTED_WITH_PREREQUISITES",
+        "newControlledVisualActionCalls": 0
+      },
+      "returnSubmissionCalls": 0,
+      "ownerDecisionRequired": false,
+      "ownerRelayRequested": false,
+      "receipt": "docs/audits/2026-09-07-empty-composer-visual-evidence.json",
+      "runtimeAdmission": {
+        "messageId": "cbb836ed-a5de-4a61-82a3-df3ed805229b",
+        "exactBodyBytes": 1934,
+        "exactBodySha256": "d7c51882a2d60b2ef91e98b6f8e21568b47f71ea3e0eb588ddf7d61080916ea2",
+        "mayExecute": true,
+        "executionSurface": "SOURCE_WORK_CODEX_ENVIRONMENT",
+        "capturePrerequisitesNotWaived": true
+      },
+      "operationalReturnBytes": 5665,
+      "operationalReturnSha256": "2680a2c81b56836f3f1c2f0f5eb5e3b9238ac91753ea31e28eeaf99e33827ec6",
+      "returnValidationReceiptSha256": "1a225d7bcf01d01ea41fa9511a6a10a5ff0d0d5db47de8af41557d129e643e71"
     }
   },
   "completedEvidenceExportSlice": {
@@ -532,10 +596,10 @@
   "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_DETACHED_RETURN_DELIVERED_RESPONSE_PENDING_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_VISUAL_CAPABILITY_BLOCKED_RETURN_PENDING_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "Owner authorized the existing draft discard. The same validated operational JSON was serialized compactly, submitted once, and verified against the persisted message. Capture the Project Manager response; probes, uploads and diagnostic retries remain stopped.",
+    "operationalAlignment": "Fresh admission explicitly retains the unresolved capture-coordinate and privacy gates. The exact source-required blocker is prepared as validated compact JSON with documentation excerpts and zero captures/openings. Send it once after the required interval, then capture the next Project Manager disposition.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },

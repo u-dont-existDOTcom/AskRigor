@@ -60,7 +60,7 @@
   "initialFailureCorrection": "Restored required parent-task completion token; implementation and tests unchanged.",
   "newLiveSequenceStarted": true,
   "liveAcceptanceClaimed": false,
-  "status": "OBSERVATION_RETURN_DELIVERED_RESPONSE_PENDING",
+  "status": "OBSERVATION_RETURN_RECEIVED_NEXT_VISUAL_DIRECTIVE_CAPTURED",
   "privateObservationsCommitted": false,
   "postGateCheckpointVerification": {
     "passed": true,
@@ -111,7 +111,7 @@
     "sha256": "7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f",
     "submissionCalls": 1,
     "staged": false,
-    "status": "DELIVERED_RESPONSE_PENDING",
+    "status": "DELIVERED_RESPONSE_CAPTURED",
     "routingReceiptSha256": "077e5b2f8dd36924969e6e75586864320c493f9caf78787aaca02101ded2e1a8",
     "messageId": "c35479fc-7746-4bed-9eb6-781ddf369cb8",
     "exactSubmittedBodyBytes": 11254,
@@ -142,5 +142,11 @@
     "rawLabelsPrintedOrStored": false,
     "scanNotRepeated": true,
     "subsequentActionUsedExactGroundedControl": true
-  }
+  },
+  "responseReceipt": {
+    "messageId": "7ff47789-3352-4054-8567-9d6a67a14d44",
+    "exactBodyBytes": 17074,
+    "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
+  },
+  "nextDirective": "docs/directives/2026-09-07-empty-composer-visual-evidence.json"
 }

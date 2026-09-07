@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T02:14:16.277504+00:00",
+  "directiveId": "askrigor-empty-composer-visual-evidence-v1",
+  "sourceReceipt": {
+    "messageId": "7ff47789-3352-4054-8567-9d6a67a14d44",
+    "exactBodyBytes": 17074,
+    "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
+  },
+  "installedClientPackageVersion": "26.901.41600",
+  "installedApiContractSha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f",
+  "documentedFacts": {
+    "tabScreenshotReturnsUint8Array": true,
+    "tabScreenshotSupportsClip": true,
+    "clipFields": [
+      "x",
+      "y",
+      "width",
+      "height"
+    ],
+    "fullPageOptionDistinguishesViewport": true,
+    "axGetScreenshotExplicitlyReturnsBytesWithoutDisplay": true,
+    "pillowAvailable": true,
+    "pillowVersion": "10.2.0"
+  },
+  "unestablishedRequiredFacts": [
+    "CLIP_COORDINATE_ORIGIN_AND_UNITS",
+    "DOM_CSS_TO_SCREENSHOT_PIXEL_MAPPING_AND_SCALE",
+    "TAB_SCREENSHOT_EXPLICIT_NO_AUTOMATIC_DISPLAY_GUARANTEE",
+    "AX_SCREENSHOT_EXPLICIT_VIEWPORT_ONLY_SCOPE"
+  ],
+  "independentReadOnlyReviewConfirmedSameDocumentationGaps": true,
+  "implementationInternalsInspected": false,
+  "methodGuessedOrBypassed": false,
+  "status": "CAPTURE_CAPABILITY_BLOCKED_ADMITTED_RETURN_PREPARED",
+  "blockedBeforeOpening": true,
+  "counts": {
+    "openingCalls": 0,
+    "screenshotCalls": 0,
+    "retainedImages": 0,
+    "structuralSamples": 0,
+    "cleanupCalls": 0,
+    "modelControlInteractions": 0,
+    "chooserOperations": 0,
+    "fileAssignments": 0,
+    "browserUploads": 0,
+    "probeSubmissions": 0,
+    "newTabs": 0,
+    "paidOperations": 0
+  },
+  "uncroppedImageBytesReadRetainedDisplayedOrTransferred": false,
+  "returnStatus": "PENDING_FRESH_ADMISSION_RESULT_AND_REQUIRED_SEND_SPACING",
+  "privateCapabilityReceipt": {
+    "bytes": 4018,
+    "sha256": "8769867479291b699e06f042693c8f2819547a0364315b791a097d675466b8d4"
+  },
+  "runtimeAdmissionRequest": {
+    "schemaVersion": 1,
+    "recordedAt": "2026-09-07T02:14:16.277504+00:00",
+    "directiveId": "askrigor-empty-composer-visual-evidence-v1",
+    "requestId": "admission:askrigor:empty-composer-visual-evidence-v1:20260907",
+    "submissionCalls": 1,
+    "attemptedAt": "2026-09-07T02:12:11.723Z",
+    "messageId": "7c6cf217-889a-4959-b0ab-1861f41cd826",
+    "exactBodyBytes": 17600,
+    "exactBodySha256": "3efe709b221537450184cbea1c80c652c479b63d62b22a9cf333d7a34713ffd9",
+    "persistedExactBodyMatch": true,
+    "responseStatus": "CAPTURED_ACCEPTED_WITH_PREREQUISITES",
+    "newControlledVisualActionCalls": 0
+  },
+  "runtimeAdmission": {
+    "messageId": "cbb836ed-a5de-4a61-82a3-df3ed805229b",
+    "exactBodyBytes": 1934,
+    "exactBodySha256": "d7c51882a2d60b2ef91e98b6f8e21568b47f71ea3e0eb588ddf7d61080916ea2",
+    "mayExecute": true,
+    "executionSurface": "SOURCE_WORK_CODEX_ENVIRONMENT",
+    "capturePrerequisitesNotWaived": true
+  },
+  "operationalReturn": {
+    "bytes": 5665,
+    "sha256": "2680a2c81b56836f3f1c2f0f5eb5e3b9238ac91753ea31e28eeaf99e33827ec6",
+    "submissionCalls": 0,
+    "staged": false
+  },
+  "returnValidationReceiptSha256": "1a225d7bcf01d01ea41fa9511a6a10a5ff0d0d5db47de8af41557d129e643e71"
+}

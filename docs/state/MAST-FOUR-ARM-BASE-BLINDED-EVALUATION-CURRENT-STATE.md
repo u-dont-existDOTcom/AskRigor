@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-07 01:54 UTC
+**Checkpoint:** 2026-09-07 02:14 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,9 +8,44 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `DETACHED_RETURN_DELIVERED / SUPERVISOR_RESPONSE_PENDING / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `VISUAL_CAPTURE_CAPABILITY_BLOCKED / ADMITTED_RETURN_PREPARED / ZERO_CAPTURES / PROBES_STOPPED / PARENT_OPEN`
 
-## Current detached-menu association diagnostic
+## Current visual-evidence capability blocker
+
+The Project Manager response is message `7ff47789-3352-4054-8567-9d6a67a14d44`,
+17,074 bytes, SHA-256 `6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c`.
+Its complete JSON parsed successfully. Use
+`docs/directives/2026-09-07-empty-composer-visual-evidence.json`.
+It authorizes two private central-region images only after fresh admission and
+proof of the installed capture method, coordinate mapping and privacy boundary.
+The worker must not view, interpret or OCR the images. No probe, upload, model
+control, historical revisit, selector experiment or dependency installation is authorized.
+
+The installed API hash matches the required contract. It documents screenshot
+bytes, clip fields and viewport/full-page options, but does not document the
+required DOM/CSS-to-image coordinate mapping. The Tab screenshot method lacks an
+explicit no-display guarantee; the explicitly private AX screenshot method lacks
+an explicit viewport-only scope. The independent read-only audit agrees. Pillow
+is installed, but does not supply the missing contract guarantees. No screenshot,
+new opening, structural state sample, crop or image transfer has occurred.
+Preserve `supervision-routing/2026-09-07-visual-evidence-capture-capability-blocker.json`.
+Do not guess a conversion or bypass this exact source requirement.
+
+Fresh admission request was submitted once as message
+`7c6cf217-889a-4959-b0ab-1861f41cd826` at 2026-09-07 02:12:11 UTC.
+The persisted 17,600-byte compact JSON matches exactly, SHA-256
+`3efe709b221537450184cbea1c80c652c479b63d62b22a9cf333d7a34713ffd9`.
+Fresh admission is accepted: message `cbb836ed-a5de-4a61-82a3-df3ed805229b`,
+1,934 bytes, SHA-256 `d7c51882a2d60b2ef91e98b6f8e21568b47f71ea3e0eb588ddf7d61080916ea2`.
+It explicitly does not waive the missing capture prerequisite. The validated
+compact operational return is prepared in
+`supervision-routing/2026-09-07-visual-evidence-operational-return.json`.
+Return the exact capability blocker once, no earlier than 02:22:11 UTC,
+through the existing internal JSON route, respecting approximately ten minutes
+between sends, and capture the next Project Manager disposition. No owner answer
+or relay is needed. See `docs/audits/2026-09-07-empty-composer-visual-evidence.json`.
+
+## Completed detached-menu association diagnostic
 
 The source and runtime admission remain valid and preserved. Source message
 `3935f7f5-ec47-408a-9b4c-30176efbfa42`: 17,703 bytes, SHA-256
@@ -44,7 +79,7 @@ The operational return is prepared: 14,844 bytes, SHA-256
 Its exact private file is
 `supervision-routing/2026-09-07-detached-menu-diagnostic-operational-return.json`.
 
-**Current action:** capture the Project Manager response to the delivered return.
+**Completed delivery:** the next Project Manager directive is preserved above.
 Joel authorized discarding the existing draft with the exact reply `sure`.
 The draft was cleared once without reading or capturing its content. The long
 pretty-printed receipt acquired different displayed line separators on restoration,
