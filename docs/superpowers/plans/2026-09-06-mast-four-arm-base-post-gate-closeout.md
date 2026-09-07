@@ -100,9 +100,12 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
     exact bytes and routed the parser error once without worker repair or execution.
 31. [x] Captured a complete valid syntax-only replacement source; preserved the
     malformed original and correction route unchanged.
-32. [ ] Implement and verify the exact detached-menu projection/transition
-    extension, obtain fresh admission, freeze source/tests, execute its one bounded
-    closed-open-closed sequence and return the private receipt once.
+32. [x] Implemented and verified the exact detached-menu projection/transition
+    extension, obtained fresh admission, froze source/tests, and completed its
+    one bounded closed-open-closed sequence with repository validation.
+33. [ ] Resolve the existing unidentified destination draft through the pending
+    owner decision, then return the prepared private receipt once and capture
+    the Project Manager disposition. No return has been staged or sent.
     No model-control interaction or additional precondition-recovery loop is
     authorized. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.
@@ -138,3 +141,5 @@ nonclinical preflight is active; no study rerun or interpretation is authorized.
   with the Project Manager without publishing private results.
 
 Detached-menu pre-live checkpoint: the new extension and recorder pass 22 focused tests and the complete pinned-runtime gate (149 files / 1,800 tests). Exact sources and sequence are frozen before live use; the previous projection is unchanged. Execute the admitted bounded sequence and route one operational receipt.
+
+Detached-menu observation checkpoint: all permitted operations are complete. The validated return is prepared, but the exact destination has an unidentified existing draft. Preserve it until the pending owner draft decision is answered. No diagnostic repetition or probe resumption is authorized.

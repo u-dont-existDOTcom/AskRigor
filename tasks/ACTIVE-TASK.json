@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_detached_association_extension_parent_open",
+  "status": "active_private_upload_menu_diagnostic_observation_complete_return_draft_blocker_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_detached_association_verified_and_frozen_live_pending",
+    "status": "upload_menu_diagnostic_detached_observation_validated_return_draft_blocker",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,8 +109,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "four-sample closed-open-closed transition",
-      "one operational return and supervisor disposition"
+      "owner disposition of existing Project Manager draft before one operational return",
+      "Project Manager disposition after receipt delivery"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -295,8 +295,8 @@
         "priorProbeSetupAllowanceRestored": false,
         "successfulObservationCreatesFurtherExecutionAllowance": false
       },
-      "status": "VERIFIED_AND_FROZEN_LIVE_SEQUENCE_PENDING",
-      "newDiagnosticStarted": false,
+      "status": "OBSERVATION_VALIDATED_RETURN_BLOCKED_EXISTING_DRAFT",
+      "newDiagnosticStarted": true,
       "admissionSubmission": {
         "requestId": "admission:askrigor:detached-menu-association-diagnostic-v1:20260907",
         "attemptedAt": "2026-09-07T00:37:44.236Z",
@@ -349,7 +349,35 @@
           "controlOperationMs": 15000
         }
       },
-      "receipt": "docs/audits/2026-09-07-detached-menu-diagnostic.json"
+      "receipt": "docs/audits/2026-09-07-detached-menu-diagnostic.json",
+      "liveObservationCompleted": true,
+      "counts": {
+        "openingCalls": 1,
+        "cleanupCalls": 1,
+        "boundedStateSamples": 4,
+        "modelControlInteractions": 0,
+        "chooserOperations": 0,
+        "fileAssignments": 0,
+        "uploads": 0,
+        "promptFills": 0,
+        "probeSubmissions": 0,
+        "visualCaptures": 0,
+        "retries": 0,
+        "newTabs": 0
+      },
+      "browserReceiptBytes": 17896,
+      "browserReceiptSha256": "4845a590b87c8b0352572cd4bcdc4595907b03a13ba813956f35aef7adecc0aa",
+      "validationReceiptSha256": "1c2c3fab3cfe7c23d488b7662568a14e181c5325bf42aabd956114497e561729",
+      "cleanupCommandReturnStatus": "SUCCEEDED",
+      "closureVerification": "VERIFIED_CLOSED",
+      "explicitAssociation": "NONE",
+      "transitionCandidate": "NOT_ESTABLISHED",
+      "operationalReturnBytes": 14844,
+      "operationalReturnSha256": "7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f",
+      "returnSubmissionCalls": 0,
+      "returnStaged": false,
+      "transportDraftDecisionPending": true,
+      "privateDraftBlockerReceiptSha256": "ac67f962b8a97d94bd3fb847624421d9fe455e781a7405c99ba504462e789586"
     }
   },
   "completedEvidenceExportSlice": {
@@ -498,10 +526,10 @@
   "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_DETACHED_VERIFIED_AND_FROZEN_LIVE_PENDING_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_DETACHED_OBSERVED_RETURN_DRAFT_BLOCKER_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "The new bounded extension passed focused tests and complete pinned-runtime verification. Exact source, tests and sequence are frozen before one closed-open-closed diagnostic. Probes remain stopped.",
+    "operationalAlignment": "The admitted four-sample observation is complete and structurally validated. The one operational return is prepared but not staged or sent because the exact Project Manager destination contains an unidentified existing draft. Owner draft disposition is pending; no relay, probe, upload or diagnostic retry is requested.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },

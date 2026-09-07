@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-07 01:05 UTC
+**Checkpoint:** 2026-09-07 01:14 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,33 +8,52 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `DETACHED_MENU_VERIFIED_AND_FROZEN / LIVE_SEQUENCE_PENDING / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `DETACHED_OBSERVATION_VALIDATED / RETURN_BLOCKED_EXISTING_DRAFT / OWNER_DRAFT_DECISION_PENDING / PROBES_STOPPED / PARENT_OPEN`
 
 ## Current detached-menu association diagnostic
 
-The complete valid syntax-only replacement is message
-`3935f7f5-ec47-408a-9b4c-30176efbfa42`, 17,703 bytes, SHA-256
+The source and runtime admission remain valid and preserved. Source message
+`3935f7f5-ec47-408a-9b4c-30176efbfa42`: 17,703 bytes, SHA-256
 `42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836`.
+Admission response `f77ee30f-5cb9-4902-8c12-7c3778c56255`: 1,837 bytes,
+SHA-256 `f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911`.
 Use `docs/directives/2026-09-07-detached-menu-association-diagnostic.json`.
-The malformed earlier source remains immutable and superseded.
 
-The new source permits a bounded extension of the existing projection for at
-most eight role-menu containers in the current document, with no unassociated
-text reads. It requires one closed baseline, one opening, two open observations,
-one targeted cleanup and one closure-verification sample. Item metadata is
-allowed only for a candidate selected by the exact fixed source rules. No model
-controls, chooser activity, uploads, prompts, probes, visual capture or retries
-are authorized. The prior projection remains unchanged. The new bounded extension and its
-focused tests are complete. Complete applicable Node 24.18 verification and
-exact source freeze must precede live action.
-Fresh admission is accepted: message `f77ee30f-5cb9-4902-8c12-7c3778c56255`,
-1,837 bytes, SHA-256 `f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911`.
-The request persisted exactly as `c68e30de-b31d-45fc-b98d-454b37f8acd8` at
-00:37:44 UTC: 17,789 bytes, SHA-256
-`ef45bcdee75d066beffb517a7e05c74887d84bd56738d79a72a2fe2e8b8eb9fc`.
-Preserve approximately ten minutes between consumer sends.
+The new extension and recorder passed 22 focused tests and the complete
+Node 24.18.0 gate: 149 test files and 1,800 tests passed, one file and six tests
+skipped, plus typecheck and build. Two checkpoint-label failures are preserved;
+the final checkpoint test passes all four tests. Implementation and tests were
+unchanged during those label corrections. Exact source, tests and operation
+sequence were frozen before live use at commit
+`2983e5b3bdcc57fa8734afcfa187494bfbd65855`.
 
-The new extension passed 22 focused tests and the complete Node 24.18.0 gate: 149 test files and 1,800 tests passed, with one file and six tests skipped, plus typecheck and build. Its exact source, tests, compiled functions and operation order are frozen in the private control packet. See `docs/audits/2026-09-07-detached-menu-diagnostic.json`. No new live observation has occurred yet. The initial full gate found one checkpoint-label mismatch; its failure is preserved, the existing parent-task token was restored, and the complete gate then passed.
+The admitted observation is complete: one opening, four bounded samples and one
+targeted Escape cleanup. The repository recorder validates the operation order
+and independently records closure. All four observations found no role-menu
+container under the fixed selector. This does not establish popup absence,
+identity, framework or the cause of a historical failure. No menu-item labels were read;
+no model controls, chooser, file assignment, upload, prompt fill, probe request,
+visual capture, retry or new tab occurred.
+
+Private browser receipt: 17,896 bytes, SHA-256
+`4845a590b87c8b0352572cd4bcdc4595907b03a13ba813956f35aef7adecc0aa`.
+Private validation: 808 bytes, SHA-256
+`1c2c3fab3cfe7c23d488b7662568a14e181c5325bf42aabd956114497e561729`.
+The operational return is prepared: 14,844 bytes, SHA-256
+`7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f`.
+Its exact private file is
+`supervision-routing/2026-09-07-detached-menu-diagnostic-operational-return.json`.
+
+**Current blocker:** the exact Project Manager destination contains an existing
+unidentified unsent draft (9,082 characters). The worker read only its length,
+did not capture its body, and did not replace it. No return has been staged or
+submitted. An owner decision to keep or discard that draft is pending. Do not
+ask the owner to relay the receipt. Once the owner resolves the draft, submit
+this existing exact return once, verify its persisted body identity, capture
+the Project Manager response privately and follow its source-bound disposition.
+Do not repeat the diagnostic or resume the stopped probes. Last consumer send
+remains the admission request at 2026-09-07 00:37:44 UTC; keep approximately ten
+minutes between sends. See `docs/audits/2026-09-07-detached-menu-diagnostic.json`.
 
 ## Preserved source-syntax blocker
 
