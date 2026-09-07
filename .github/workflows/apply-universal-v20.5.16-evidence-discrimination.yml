@@ -1,0 +1,31 @@
+name: Apply Universal v20.5.16 evidence-discrimination patch
+
+on:
+  push:
+    branches:
+      - protocol/v20.5.16-evidence-discrimination
+    paths:
+      - scripts/apply-universal-v20.5.16-evidence-discrimination.py
+      - .github/workflows/apply-universal-v20.5.16-evidence-discrimination.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: protocol/v20.5.16-evidence-discrimination
+          fetch-depth: 0
+      - name: Apply bounded patch
+        run: python scripts/apply-universal-v20.5.16-evidence-discrimination.py
+      - name: Commit canonical protocol change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add protocols/Universal_Instructions.xml
+          git diff --cached --exit-code && { echo "No canonical change produced"; exit 1; } || true
+          git commit -m "feat(protocol): add evidence-direction and specificity checks"
+          git push origin HEAD:protocol/v20.5.16-evidence-discrimination
