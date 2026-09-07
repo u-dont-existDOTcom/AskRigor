@@ -13,15 +13,16 @@ permissions:
 jobs:
   patch-and-verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out task branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: task/hypothesis-preserving-evaluation-gate-20260907
           fetch-depth: 0
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version-file: .nvmrc
           cache: npm
