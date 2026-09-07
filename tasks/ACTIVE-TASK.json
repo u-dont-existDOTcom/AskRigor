@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_model_independent_correction_parent_open",
+  "status": "active_private_upload_menu_diagnostic_observation_return_delivered_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_model_independent_correction_admission_pending",
+    "status": "upload_menu_diagnostic_model_independent_observation_return_delivered",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,9 +109,7 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "fresh correction admission",
-      "one model-independent empty-composer menu observation",
-      "one operational return and supervisor disposition"
+      "capture supervisor response and follow exact source-bound disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -194,8 +192,45 @@
         "retriesAfterFailedInteraction": 0,
         "ifAnAdditionalPriorMenuOpeningIsDiscovered": "Stop because the reported unused diagnostic allowance is no longer established."
       },
-      "status": "FRESH_ADMISSION_PENDING",
-      "projectionAndTestsUnchanged": true
+      "status": "OBSERVATION_RETURN_DELIVERED_RESPONSE_PENDING",
+      "projectionAndTestsUnchanged": true,
+      "runtimeAdmission": {
+        "messageId": "8d081e3b-2239-4c73-90ce-1aa310aa497f",
+        "exactBodyBytes": 1677,
+        "exactBodySha256": "80ae4c027f2c54cfa65c1a884f33f0e8bdf6ac2d663a44dafdcb05868ca8a809",
+        "mayExecute": true
+      },
+      "counts": {
+        "menuOpeningCalls": 1,
+        "boundedStateSamples": 3,
+        "taskOwnedMenuCleanupCalls": 1,
+        "modelControlInteractions": 0,
+        "chooserOperations": 0,
+        "fileAssignments": 0,
+        "uploads": 0,
+        "promptFills": 0,
+        "probeSubmissions": 0,
+        "retries": 0,
+        "newTabs": 0
+      },
+      "browserReceiptBytes": 7927,
+      "browserReceiptSha256": "1ffb674119f8e688fb917e5ad7074c2407e44c176a647227bc2ecdf823457cfd",
+      "operationalReturnBytes": 9586,
+      "operationalReturnSha256": "aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0",
+      "receipt": "docs/audits/2026-09-07-model-independent-menu-observation.json",
+      "operationalReturn": {
+        "recordedAt": "2026-09-07T00:14:14.369964+00:00",
+        "directiveId": "askrigor-empty-composer-model-independent-diagnostic-v1",
+        "attemptedAt": "2026-09-07T00:12:53.081Z",
+        "submissionCalls": 1,
+        "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+        "messageId": "7465a65e-5b13-4ac1-96af-0f29c3805231",
+        "exactBodyBytes": 9586,
+        "exactBodySha256": "aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0",
+        "persistedExactMatch": true,
+        "responseStatus": "PENDING",
+        "noResendAuthorized": true
+      }
     }
   },
   "completedEvidenceExportSlice": {
@@ -341,17 +376,17 @@
     "terminal": 4,
     "deletionEligible": 0
   },
-  "nextAction": "Obtain fresh admission for the model-independent diagnostic correction, use the unchanged reviewed projection through documented string-form evaluation, and make at most one currently grounded menu-opening call. No model control interaction, chooser, prompt, upload or probe.",
+  "nextAction": "Capture the Project Manager response to the confirmed observation return. No remaining menu-opening or sample allowance; no probe, upload or further browser diagnostic is authorized without a new exact source.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_BLOCKED_RETURN_DELIVERED_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_OBSERVATION_RETURN_DELIVERED_PROBES_STOPPED_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "Required-model control verification failed before attachment-menu interaction. The exact diagnostic blocker return is confirmed; next supervisor disposition is pending.",
+    "operationalAlignment": "The model-independent observation completed its one opening, three bounded samples and targeted cleanup. The exact operational return is delivered; interpretation remains with the Project Manager.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-06T23:13:34.659217+00:00",
+  "updatedAt": "2026-09-07T00:14:14.369964+00:00",
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
   "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
   "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",

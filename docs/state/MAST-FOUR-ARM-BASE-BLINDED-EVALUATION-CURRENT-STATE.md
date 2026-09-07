@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 23:14 UTC
+**Checkpoint:** 2026-09-07 00:13 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,7 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `MODEL_INDEPENDENT_DIAGNOSTIC_CORRECTION / FRESH_ADMISSION_PENDING / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `MODEL_INDEPENDENT_OBSERVATION_RETURN_DELIVERED / RESPONSE_PENDING / PROBES_STOPPED / PARENT_OPEN`
 
 ## Current model-independent diagnostic correction
 
@@ -17,7 +17,9 @@ SHA-256 `69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555`,
 accepted the prior diagnostic blocker with limits and removed the model-control
 prerequisite for this empty-composer observation. Use
 `docs/directives/2026-09-06-model-independent-upload-menu-diagnostic.json`.
-Fresh admission is pending. The new directive prohibits model or reasoning
+Fresh admission was accepted in message `8d081e3b-2239-4c73-90ce-1aa310aa497f`,
+1,677 bytes, SHA-256 `80ae4c027f2c54cfa65c1a884f33f0e8bdf6ac2d663a44dafdcb05868ca8a809`.
+The new directive prohibits model or reasoning
 control interactions, retains one menu-opening call across both diagnostics,
 and does not authorize probes, uploads, chooser operations, prompt fills,
 repairs, another precondition-recovery loop, or visual capture.
@@ -31,6 +33,19 @@ Use fresh observed counts and supported locator visibility/enabled checks in
 each bounded sample. Do not use `eval` or `Function` constructors in CUA.
 The existing full Node 24.18 gate remains applicable because projection and tests
 are unchanged. Do not repeat the historical command collection.
+
+The completed observation used one attachment-menu opening, three bounded samples,
+and one targeted Escape cleanup. The control reported collapsed, expanded,
+expanded. Explicit associated-menu fields remained null with availability reasons.
+No extra sample verified cleanup closure. No model control interaction, chooser,
+file assignment, upload, prompt fill, probe request, or retry occurred.
+Private observation receipt: 7,927 bytes, SHA-256
+`1ffb674119f8e688fb917e5ad7074c2407e44c176a647227bc2ecdf823457cfd`.
+The 9,586-byte operational return was delivered exactly as message
+`7465a65e-5b13-4ac1-96af-0f29c3805231` at 2026-09-07 00:12:53 UTC, SHA-256
+`aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0`.
+Capture the next supervisor response; do not repeat the return or diagnostic.
+See `docs/audits/2026-09-07-model-independent-menu-observation.json`.
 
 ## Current empty-composer diagnostic
 

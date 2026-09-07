@@ -93,8 +93,10 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
 28. [x] Captured the model-independent diagnostic correction. It removes model
     verification only for this no-inference observation and preserves all probe
     limits, the unused one-menu-opening allowance, and prior evidence.
-29. [ ] Obtain fresh correction admission, collect the bounded empty-composer
-    menu observations through the unchanged reviewed projection, and return once.
+29. [x] Obtained fresh correction admission; completed one menu-opening call,
+    three bounded observations and targeted cleanup with explicit unavailable
+    association fields. Returned the exact private receipt once.
+30. [ ] Capture the supervisor response to the delivered observation receipt.
     No model-control interaction or additional precondition-recovery loop is
     authorized. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.
