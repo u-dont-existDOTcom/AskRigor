@@ -1,6 +1,6 @@
 # Universal normality / base-rate gate
 
-Status: Project Manager-reviewed integration specification; not active in `protocols/Universal_Instructions.xml`. This remains a plan-only PR. No canonical protocol, runtime, test, release, or deployment change is authorized by this document alone.
+Status: Project Manager-reviewed integration specification, now implemented as a source-bound draft candidate in PR #193. Universal 20.5.18 is not released or deployed by this PR, and this document alone grants no further implementation, merge, release, or deployment authority.
 
 Baseline inspected: AskRigor `main` at `15110e2398716724f7366ce4978ac20701519dfc`; `protocols/Universal_Instructions.xml` is Universal 20.5.17 with blob SHA `69b9865bd4bd887423a0df8987c28bde335960ee` and exact-byte SHA-256 `1091bda42dd6e92116dc7a7d4a67d7c1a94c19a891528a7755789485cf5874c1`.
 

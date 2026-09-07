@@ -1964,6 +1964,46 @@ describe("AskRigor MCP tools", () => {
     }
   });
 
+  it("exposes the complete Universal normality guidance in structured content", async () => {
+    const { client, server } = await createInMemoryClient();
+    const canonicalText = await readFile(
+      new URL("../protocols/Universal_Instructions.xml", import.meta.url),
+      "utf8"
+    );
+
+    try {
+      const result = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "universal" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([
+        {
+          type: "text",
+          text: "Loaded the complete canonical AskRigor.com universal saved instructions protocol."
+        }
+      ]);
+      expect(result.structuredContent).toMatchObject({
+        ok: true,
+        protocol: "universal",
+        manifest: {
+          name: "AskRigor.com universal saved instructions",
+          version: "20.5.18",
+          revisionDate: "2026-09-07",
+          sha256: "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a"
+        },
+        text: canonicalText
+      });
+      expect(canonicalText).toContain('<normality_base_rate_gate priority="Critical">');
+      expect(canonicalText).toContain(
+        "For frequency questions, explaining why X can happen does not answer how often X happens."
+      );
+    } finally {
+      await server.close();
+    }
+  });
+
   it("surfaces integrity failures as explicit structured tool errors", async () => {
     const { client, server } = await createInMemoryClient();
 
@@ -2032,9 +2072,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.17",
+            version: "20.5.18",
             revisionDate: "2026-09-07",
-            sha256: "1091bda42dd6e92116dc7a7d4a67d7c1a94c19a891528a7755789485cf5874c1"
+            sha256: "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a"
           }
         });
       } finally {
@@ -2076,8 +2116,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.17",
-            sha256: "1091bda42dd6e92116dc7a7d4a67d7c1a94c19a891528a7755789485cf5874c1"
+            version: "20.5.18",
+            sha256: "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a"
           }
         });
       } finally {
