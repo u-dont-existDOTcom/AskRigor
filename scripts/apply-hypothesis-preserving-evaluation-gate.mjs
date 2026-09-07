@@ -225,12 +225,12 @@ hrp = replaceOnce(
   "HRP stress-test insertion"
 );
 
-const finalCheck = ' <Check id="FS186">Before accepting a design or null inference where heterogeneity or intermittency is plausible, did I preserve the strongest plausible claim, instantiate at least one true-world alternative, verify that the design could detect it without dilution or cancellation, and either redesign or narrow the conclusion if it could not?</Check>\n';
+const finalCheck = ' <Check id="FS198">Before accepting a design or null inference where heterogeneity or intermittency is plausible, did I preserve the strongest plausible claim, instantiate at least one true-world alternative, verify that the design could detect it without dilution or cancellation, and either redesign or narrow the conclusion if it could not?</Check>\n';
 
 hrp = replaceOnce(
   hrp,
-  " </FinalSelfCheck>",
-  `${finalCheck} </FinalSelfCheck>`,
+  "</FinalSelfCheck>",
+  `${finalCheck}</FinalSelfCheck>`,
   "HRP final self-check"
 );
 
