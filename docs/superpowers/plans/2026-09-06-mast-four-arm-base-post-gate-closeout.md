@@ -96,7 +96,10 @@ judgments, condition mapping, metrics, and the private disposition outside Git.
 29. [x] Obtained fresh correction admission; completed one menu-opening call,
     three bounded observations and targeted cleanup with explicit unavailable
     association fields. Returned the exact private receipt once.
-30. [ ] Capture the supervisor response to the delivered observation receipt.
+30. [x] Captured the next source response. Its full JSON failed parsing; preserved
+    exact bytes and routed the parser error once without worker repair or execution.
+31. [ ] Capture a complete valid replacement directive and follow its source-bound
+    operational requirements after fresh admission.
     No model-control interaction or additional precondition-recovery loop is
     authorized. No chooser, upload, prompt fill, probe request, repair,
     timeout increase, or interpretation is authorized by the diagnostic.

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "recordedAt": "2026-09-07T00:11:58.154484+00:00",
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "MODEL_INDEPENDENT_MENU_OBSERVATION_RETURN_DELIVERED_RESPONSE_PENDING",
+  "status": "MODEL_INDEPENDENT_OBSERVATION_RETURN_RESPONSE_CAPTURED_NEXT_DIRECTIVE_JSON_BLOCKED",
   "executionRepositoryHead": "d0c5ad661501120e44f6b90058b6a632737c33ae",
   "sourceReceipt": {
     "messageId": "230d07c7-ea6e-47a4-b9a4-3f4b527a3d19",
@@ -70,8 +70,13 @@
     "exactBodyBytes": 9586,
     "exactBodySha256": "aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0",
     "persistedExactMatch": true,
-    "responseStatus": "PENDING",
-    "noResendAuthorized": true
+    "responseStatus": "CAPTURED_FULL_DIRECTIVE_JSON_MALFORMED",
+    "noResendAuthorized": true,
+    "responseReceipt": {
+      "messageId": "be2497b2-5281-4d4d-9353-69766aeb24c8",
+      "exactBodyBytes": 16816,
+      "exactBodySha256": "357dd165b50b6f923e3b94d386596d03b95cf3f843d44c77a1a0412457f8bfad"
+    }
   },
   "privateRoutingSha256": "c7a30fd36f46ea40f6afc3e1a5c1fb96c44bda19f44da0a3bca14a036e89f52b"
 }

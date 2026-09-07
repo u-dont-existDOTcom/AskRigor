@@ -1,6 +1,6 @@
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-07 00:13 UTC
+**Checkpoint:** 2026-09-07 00:26 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +8,24 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `MODEL_INDEPENDENT_OBSERVATION_RETURN_DELIVERED / RESPONSE_PENDING / PROBES_STOPPED / PARENT_OPEN`
+**Status:** `OBSERVATION_RETURNED / NEXT_SOURCE_JSON_CORRECTION_PENDING / PROBES_STOPPED / PARENT_OPEN`
+
+## Current source-syntax blocker
+
+The Project Manager response to the completed observation is message
+`be2497b2-5281-4d4d-9353-69766aeb24c8`, 16,816 bytes, SHA-256
+`357dd165b50b6f923e3b94d386596d03b95cf3f843d44c77a1a0412457f8bfad`.
+Its complete directive JSON failed parsing: `Expecting ',' delimiter: line 118
+column 26 (char 6804)`. The worker preserved it unchanged, did not repair the
+source, and did not execute the independently parsed directive identifier
+`askrigor-detached-menu-association-diagnostic-v1`.
+
+The exact parser error was returned once through the standing internal route as
+message `0e5ec66d-239f-4a8e-bff4-6ebeb42f019a` at 00:25:42 UTC: 1,500 bytes,
+SHA-256 `1cf0a1827cf1896471590ddcf851212db58bd7a0a6e9cc19472498d3532d39da`.
+Its persisted body matched exactly. Capture the replacement response and require
+complete valid source JSON plus fresh admission before new controlled action.
+No owner relay is needed. See `docs/audits/2026-09-07-supervisor-directive-json-blocker.json`.
 
 ## Current model-independent diagnostic correction
 
