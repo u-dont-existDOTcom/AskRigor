@@ -61,5 +61,13 @@
   "newLiveSequenceStarted": false,
   "liveAcceptanceClaimed": false,
   "status": "VERIFIED_AND_FROZEN_BEFORE_LIVE_SEQUENCE",
-  "privateObservationsCommitted": false
+  "privateObservationsCommitted": false,
+  "postGateCheckpointVerification": {
+    "passed": true,
+    "testsPassed": 4,
+    "nodeVersion": "v24.18.0",
+    "logSha256": "ef6c5271d884c1f31ec125477b918ca7bf1bfd84ffff1e4779fb573dee71d754",
+    "correctionReceiptSha256": "2aba61a26c9a22c8232db19054ed0e38fe3243c21b37050c051b9f153b0b4a0d",
+    "implementationAndTestsUnchanged": true
+  }
 }
