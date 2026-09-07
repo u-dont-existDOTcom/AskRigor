@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-calibration-policy-block-closeout-v1",
+  "directiveType": "SOURCE_BOUND_BROWSER_POLICY_BLOCK_ACCEPTANCE_AND_OFFLINE_CLOSEOUT",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "BROWSER_POLICY_BLOCK_ACCEPTED_CALIBRATION_SLICE_CLOSED_BLOCKED_PARENT_OPEN",
+  "nextActionOwner": "CODEX_WORK_FOR_OFFLINE_RECORDKEEPING_ONLY_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "decision": {
+    "action": "Close the blocked calibration and dependent private-capture slice. Authorize only the bounded recordkeeping below; do not issue another browser recovery attempt.",
+    "reason": "The reported navigation was explicitly rejected by browser security policy before any calibration observation or screenshot. The conditional private-capture prerequisites were therefore not satisfied.",
+    "policyDenialMayBeOverriddenByThisDirective": false,
+    "equivalentActionThroughAnotherRouteAuthorized": false,
+    "furtherBrowserDiagnosticAuthorized": false,
+    "privateCaptureAuthorized": false,
+    "probeResumeAuthorized": false,
+    "priorAttemptAllowancesReset": false,
+    "allPossiblePermittedAlternativesClaimedExhausted": false
+  },
+  "blockerDisposition": {
+    "code": "SYNTHETIC_DATA_URL_REJECTED_BY_BROWSER_URL_SECURITY_POLICY",
+    "classification": "EXPLICIT_SECURITY_POLICY_DENIAL_BEFORE_MEASUREMENT",
+    "reportedNavigationAttempts": 1,
+    "reportedSyntheticScreenshotCalls": 0,
+    "reportedPrivateScreenshotCalls": 0,
+    "reportedModelSubmissions": 0,
+    "reportedWorkaroundAttempted": false,
+    "workerStopAccepted": true,
+    "calibrationExecutionStatus": "NOT_RUN_NAVIGATION_REJECTED",
+    "mappingEstablished": false,
+    "byteOnlyImagePathEstablished": false,
+    "screenshotCapabilityDisproved": false,
+    "privateTransportQualified": false,
+    "parentObjectiveCompleted": false
+  },
+  "checkInterpretation": {
+    "originalFixedCheckReceiptMustRemainUnchanged": true,
+    "missingObservationFailures": "These are unsatisfied prerequisites in an empty evidence set, not observed failures of screenshot geometry, clipping, or pixel equality.",
+    "staticChecks": "Passing arithmetic checks on configured coordinates are not live calibration evidence.",
+    "candidateScaleOne": "The recorded candidate value is not an observed device-pixel ratio or an accepted mapping.",
+    "testResults": "The reported offline tests and syntax checks remain implementation evidence only.",
+    "annotationRule": "Record this execution-status distinction in a separate closeout receipt. Do not rewrite existing passed, failed, null, or unknown fields."
+  },
+  "immutableBindings": {
+    "browserReceipt": {
+      "bytes": 2174,
+      "sha256": "ec6c75534639436a44bac0e7cb8cf87d88ddb823d4a2e6525c4c9ded7ce30637"
+    },
+    "fixedCheckReceipt": {
+      "bytes": 8546,
+      "sha256": "012a079ab4323e77daae9ed3431bc24bfa6f909eeeea488778f97c09f545659b"
+    },
+    "frozenControl": {
+      "bytes": 8418,
+      "sha256": "8d19b6e2021c9ef468a415becc97f29a94fd5b5a5b491ab805efbf7275ea241b"
+    },
+    "fixtureManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+    "sourceFilesAndPriorReceipts": "PRESERVE_WITHOUT_OVERWRITE_OR_RECONSTRUCTION",
+    "syntheticFixtureAndCodeDeletionAuthorized": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "scope": "OFFLINE_RECORDKEEPING_ONLY",
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reusePriorAdmission": false,
+    "requestedAction": "PRESERVE_THE_BROWSER_POLICY_DENIAL_AND_RECORD_THE_CALIBRATION_SLICE_AS_CLOSED_BLOCKED_WITHOUT_BROWSER_RECOVERY_OR_NEW_MEASUREMENT",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256 and bind the request to them and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "remainingStoppedRequiresNewAdmission": false,
+    "failureAction": "If fresh admission is unavailable or invalid, remain stopped and preserve existing artifacts. Do not treat admission failure as authorization for another browser route."
+  },
+  "boundedCloseout": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "steps": [
+      "After fresh admission, record the actual execution HEAD without resetting, switching branches, or overwriting concurrent work.",
+      "Verify the bound local receipt byte counts and hashes using existing metadata-only mechanisms. Preserve any mismatch as an integrity blocker; do not reconstruct a missing receipt.",
+      "Append one nonclinical closeout receipt identifying the policy denial, zero captures, unexecuted conditional stage, and unchanged historical attempt counts.",
+      "Update the existing task checkpoint to show this calibration slice closed with a policy blocker and the parent objective open. Preserve historical records rather than rewriting them.",
+      "Persist only non-sensitive operational records in the existing repository and draft-PR workflow. Keep private payloads, detailed browser receipts, identifiers, and paths outside public Git.",
+      "Validate the new JSON and applicable checkpoint contracts using existing checks, then return one operational closeout receipt through the already authorized control-plane route."
+    ],
+    "newImplementationOrFrameworkAuthorized": false,
+    "newDependenciesOrServicesAuthorized": false,
+    "productionDeploymentOrMergeAuthorized": false,
+    "reexecuteUnchangedCalibrationTestsRequired": false,
+    "unrelatedFullVerificationRequired": false,
+    "scopeExpansionOnCheckpointFailure": "Stop and report the exact mismatch rather than altering unrelated code or weakening a safety check."
+  },
+  "browserBoundary": {
+    "newDiagnosticNavigations": 0,
+    "newDiagnosticTabs": 0,
+    "screenshotCalls": 0,
+    "menuInteractions": 0,
+    "chooserOrUploadOperations": 0,
+    "probeRequests": 0,
+    "controlPlaneRoutingException": "Existing authorized admission and receipt routing may continue solely for this closeout. It must not load, render, capture, or indirectly execute the blocked calibration page.",
+    "forbiddenWorkarounds": [
+      "Re-encode or redirect the blocked page through another URL scheme.",
+      "Rehost the same calibration through a local server, remote host, or public repository to evade the denial.",
+      "Inject the calibration into another page or use raw CDP, undocumented commands, or an alternate browser surface to reproduce the denied action.",
+      "Change permissions or security policy, or ask the owner to disable the protection.",
+      "Skip calibration and capture private pixels under the previous conditional authorization."
+    ]
+  },
+  "parentContinuationBoundary": {
+    "nextSubstantiveOwner": "PROJECT_MANAGER_REASONING_SURFACE",
+    "existingReceivedEvidenceReviewRemainsAuthorized": true,
+    "newEvidenceAcquisitionAuthorizedByThisDisposition": false,
+    "additionalSubstantiveReviewClaimedInThisDisposition": false,
+    "historicalArtifactsOrDecisionsChanged": false,
+    "workerMayOriginateMethodologyOrStrategy": false,
+    "automaticDiagnosticReopening": false,
+    "ownerInputNeededForThisCloseout": false
+  },
+  "completionEvidence": {
+    "required": [
+      "This directive's actual source identity and fresh recordkeeping admission receipt.",
+      "Actual starting and closeout repository HEADs.",
+      "Bound private-receipt verification results or exact missing-file or identity errors.",
+      "Append-only closeout receipt identity and changed operational-record paths.",
+      "Confirmation of no additional diagnostic browser operation, capture, upload, model request, workaround, or paid operation.",
+      "Confirmation that the blocked slice is closed and the parent remains open.",
+      "Destination message persistence evidence or an explicit control-plane delivery blocker."
+    ],
+    "returnFormat": "One compact syntactically valid operational JSON object from the existing serializer. No substantive content, private image data, scientific results, or invented observations."
+  },
+  "stopBoundary": "OFFLINE_CLOSEOUT_RECORDED_AND_RETURNED_OR_EXACT_RECORDKEEPING_BLOCKER_PRESERVED",
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "completionClaims": {
+    "closed": "CALIBRATION_POLICY_BLOCK_PRESERVED_OFFLINE_CLOSEOUT_COMPLETE_PARENT_OPEN",
+    "recordkeepingBlocked": "CALIBRATION_POLICY_BLOCK_ACCEPTED_RECORDKEEPING_BLOCKED_PARENT_OPEN",
+    "admissionBlocked": "CALIBRATION_REMAINS_STOPPED_CLOSEOUT_ADMISSION_UNAVAILABLE"
+  },
+  "exactDestination": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "destinationIdentityPreservedPrivately": true,
+    "transport": "EXISTING_AUTHORIZED_INTERNAL_OPERATIONAL_JSON_ROUTING",
+    "maximumNewReturnSubmissions": 1,
+    "ownerRelayRequested": false
+  },
+  "sourceReceipt": {
+    "exactBodyBytes": 9271,
+    "exactBodySha256": "994f2080c288ea9a77c10840f246b7390e13b7c23167301e22f9a268d18522ee",
+    "messageIdentityPreservedPrivately": true
+  }
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "taskId": "askrigor-external-evaluation-contribution-v1",
-  "status": "active_private_upload_menu_diagnostic_synthetic_url_policy_blocker_delivered_parent_open",
+  "status": "active_private_upload_menu_diagnostic_calibration_closed_policy_blocker_parent_open",
   "exclusive": true,
   "requiredBranch": "task/mast-four-arm-zero-spend-harness-20260901",
   "baselineCommit": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
@@ -83,7 +83,7 @@
   },
   "currentSlice": {
     "sliceId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
-    "status": "upload_menu_diagnostic_synthetic_url_policy_blocker_delivered_response_pending",
+    "status": "upload_menu_diagnostic_calibration_closed_blocked_offline_closeout_return_pending",
     "boundedOutcome": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
     "directive": "docs/directives/2026-09-06-upload-menu-diagnostic.json",
     "sourceReceipt": {
@@ -109,8 +109,8 @@
     },
     "ownerDecisionRequired": false,
     "pending": [
-      "capture Project Manager response privately",
-      "execute only a valid next source-bound instruction"
+      "one exact offline-closeout receipt return",
+      "Project Manager parent-objective disposition"
     ],
     "maximumEstimatedCostUsdBeforeAbort": 0,
     "runtimeAdmission": {
@@ -466,7 +466,7 @@
         "exactBodyBytes": 15368,
         "exactBodySha256": "e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1"
       },
-      "status": "SYNTHETIC_URL_POLICY_BLOCKER_DELIVERED_RESPONSE_PENDING",
+      "status": "CLOSED_BLOCKED_POLICY_DENIAL_NO_MEASUREMENT",
       "admissionSubmission": {
         "schemaVersion": 1,
         "recordedAt": "2026-09-07T02:51:14.883968+00:00",
@@ -579,7 +579,48 @@
         "bytes": 568,
         "sha256": "6c15bdc8fce1865a4e4cd63d3ea76324ca819de117000fa2b55a4c38ca934bb9"
       },
-      "returnSubmissionCalls": 1
+      "returnSubmissionCalls": 1,
+      "responseReceipt": {
+        "exactBodyBytes": 9271,
+        "exactBodySha256": "994f2080c288ea9a77c10840f246b7390e13b7c23167301e22f9a268d18522ee",
+        "messageIdentityPreservedPrivately": true
+      }
+    },
+    "activeCalibrationCloseout": {
+      "directiveId": "askrigor-calibration-policy-block-closeout-v1",
+      "directive": "docs/directives/2026-09-07-calibration-policy-block-closeout.json",
+      "status": "OFFLINE_RECORDS_COMPLETE_RETURN_PENDING",
+      "receipt": "docs/audits/2026-09-07-calibration-policy-block-closeout.json",
+      "sourceReceipt": {
+        "exactBodyBytes": 9271,
+        "exactBodySha256": "994f2080c288ea9a77c10840f246b7390e13b7c23167301e22f9a268d18522ee",
+        "messageIdentityPreservedPrivately": true
+      },
+      "admissionReceipt": {
+        "exactBodyBytes": 1936,
+        "exactBodySha256": "c35a8d48bad23a6b92de0aa0d06506644513df7da40ba60dacf685e246c7dac7",
+        "mayExecute": true,
+        "messageIdentityPreservedPrivately": true
+      },
+      "startingRepositoryHead": "3acc36d65abc3ee714529cc6f3ac1f3c30117615",
+      "boundReceiptVerification": {
+        "bytes": 2668,
+        "sha256": "d880233a1a38c2253efbe5dd7e0a5fc6060b2b7464744300481e0ac9702b4a16"
+      },
+      "counts": {
+        "newDiagnosticNavigations": 0,
+        "newDiagnosticTabs": 0,
+        "screenshotCalls": 0,
+        "menuInteractions": 0,
+        "chooserOperations": 0,
+        "uploads": 0,
+        "probeRequests": 0,
+        "newMeasurements": 0,
+        "workarounds": 0,
+        "paidOperations": 0
+      },
+      "parentObjectiveOpen": true,
+      "ownerDecisionRequired": false
     }
   },
   "completedEvidenceExportSlice": {
@@ -728,10 +769,10 @@
   "nextAction": "Complete the exact bounded detached-menu projection and fresh admission from the valid syntax-only source. Freeze reviewed code/tests after applicable Node24 verification, then perform one closed-open-closed transition with four samples and no model controls, uploads, prompts or probes.",
   "supervision": {
     "ownerApproval": "PAID API CANCELED \u2014 CHATGPT CHAT/PRO REASONING AUTHORITY \u2014 AUTOMATIC INTERNAL ROUTING",
-    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_SYNTHETIC_URL_POLICY_BLOCKER_DELIVERED_PARENT_OPEN",
+    "completionClaim": "UPLOAD_MENU_DIAGNOSTIC_CALIBRATION_CLOSED_BLOCKED_PARENT_OPEN",
     "workerToContract": "MATCH_AT_FRESH_ADMISSION_AND_REQUIRED_MODE_PREFLIGHT",
     "contractToOwner": "NO_OWNER_RELAY_REQUESTED_OR_REQUIRED",
-    "operationalAlignment": "The browser URL policy rejected the sole synthetic data-page navigation. Zero screenshots or private diagnostic navigation occurred; no workaround was attempted. The exact 15824-byte blocker was delivered once with persisted equality, and Project Manager response is pending.",
+    "operationalAlignment": "The Project Manager accepted the explicit browser policy denial and closed the calibration and dependent private-capture slice. Fresh offline-only admission is bound; all required receipt/code hashes match. A separate closeout annotation preserves the unexecuted-calibration distinction without changing original checks, receipts, fixtures, or attempts. Return one operational receipt; no further diagnostic recovery is authorized.",
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },

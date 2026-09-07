@@ -156,3 +156,5 @@ Detached-menu observation checkpoint: all permitted operations are complete. The
 Delivery recovery checkpoint: owner-authorized draft discard and exact compact JSON delivery are complete. The Project Manager response is pending; no owner answer is needed.
 
 38. Synthetic screenshot calibration is frozen and its 17 tests pass. The sole data-URL navigation was rejected by browser URL security policy before any structural sample or screenshot. Preserve the literal rejection; no workaround is authorized. The exact operational blocker was delivered once with persisted equality. Capture the Project Manager response privately and follow only its next valid, source-bound instruction.
+
+39. Source-bound policy-block disposition accepted: close calibration and conditional capture as blocked, preserve original empty-evidence checks literally, and leave the parent open. Fresh offline-only admission and exact bound-receipt verification are complete. Validate and commit the nonclinical closeout records, then return one compact operational receipt. No browser diagnostic reopening or policy workaround is authorized.

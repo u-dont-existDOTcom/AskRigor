@@ -110,5 +110,14 @@
   "privateRoutingReceipt": {
     "bytes": 568,
     "sha256": "6c15bdc8fce1865a4e4cd63d3ea76324ca819de117000fa2b55a4c38ca934bb9"
+  },
+  "supervisorDisposition": {
+    "status": "POLICY_BLOCK_ACCEPTED_SLICE_CLOSED_BLOCKED_PARENT_OPEN",
+    "sourceReceipt": {
+      "exactBodyBytes": 9271,
+      "exactBodySha256": "994f2080c288ea9a77c10840f246b7390e13b7c23167301e22f9a268d18522ee",
+      "messageIdentityPreservedPrivately": true
+    },
+    "closeoutReceipt": "docs/audits/2026-09-07-calibration-policy-block-closeout.json"
   }
 }
