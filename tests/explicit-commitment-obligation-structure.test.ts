@@ -5,6 +5,7 @@ import { loadProtocol } from "@askrigor/protocol";
 
 const UNIVERSAL_URL = new URL("../protocols/Universal_Instructions.xml", import.meta.url);
 
+// Current-version assertions live here; historical gate tests remain pinned to their own revisions.
 function occurrences(text: string, needle: string): number {
   return text.split(needle).length - 1;
 }
