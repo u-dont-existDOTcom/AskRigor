@@ -97,3 +97,36 @@ explicit compatibility gap: the concrete executor must reject it, while this
 slice does not redesign its orchestration. Actual pinned-upstream/provider
 acceptance, private status-view delivery, production deployment, installed
 Custom GPT/plugin currency, and release acceptance remain separate and open.
+
+## Completed offline evidence
+
+- The first focused command after adding prospective tests was excluded because
+  no test body ran: the new worktree needed its unchanged workspace build
+  outputs. After building those outputs, the identical command produced the
+  causal negative control: 28 tests passed and 3 Vitest cases failed. The
+  complete current server-built envelope measured 741,973 UTF-8 bytes and the
+  old Python bridge returned `INPUT_TOO_LARGE`; the old bridge also omitted the
+  server instruction, accepted missing and tampered policy, and the concrete
+  executor reached `realpath` before rejecting a policy-less legacy package.
+  The captured log SHA-256 is
+  `cb808485659fdf1a3a14ffc6a70c6fc6a74dc4962565203c2ab6823654ab9ce4`.
+- The focused command now passes 36 tests across the four required Vitest
+  files. The Python 3.12.3 standard-library suite passes all 7 tests and is
+  invoked by the Vitest transport suite. Its fake `run_agent.AIAgent` captures
+  constructor and conversation inputs; no upstream SDK or provider is loaded.
+- HB-A through HB-H are covered with the real canonical builder, all ten work
+  kinds, the production serializer, a concrete executor with only Git pin
+  inspection mocked, actual stdin/Python dispatch, a real private HTTP handler
+  with a test-controlled process executor, exact 2,097,152-byte acceptance and
+  one-byte-over rejection on both sides, malformed-policy failures, exact BOM/
+  non-ASCII/mixed-line-ending re-encoding, unchanged no-tools/no-memory flags,
+  legacy policy-less rejection, and existing binding/replay/finalization tests.
+- The first complete `npm run verify` completed with 1,837 tests passing and
+  one unchanged `controlled-research-route` test exceeding its 10-second
+  timeout by 157 ms under suite contention. That exact case passed alone in
+  3.59 seconds. With no source change, the single permitted identical recovery
+  completed: 154 test files passed with 1 skipped, 1,838 tests passed with 6
+  skipped, typecheck passed, and the final build passed.
+- The Python AST syntax check and `git diff --check` pass. No provider,
+  private-research, deployment, configuration, dependency, lockfile, canonical
+  policy, or paid operation occurred.

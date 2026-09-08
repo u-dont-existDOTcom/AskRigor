@@ -1,6 +1,10 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { createConnection } from "node:net";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 
 import { getProtocolManifest } from "@askrigor/protocol";
 import { describe, expect, it, vi } from "vitest";
@@ -13,6 +17,7 @@ import {
   createHttpPrivateResearchOrchestrationClient,
   releaseHermesFinalResponse,
   runHermesResearchTask,
+  serializeHermesSemanticWorkerInput,
   type HermesSemanticExecutor
 } from "../apps/research-mcp/src/hermes-worker-pilot.js";
 import {
@@ -490,6 +495,97 @@ describe("private research orchestration HTTP boundary", () => {
       });
     });
   });
+
+  it("carries the real private handler envelope across the repository Python bridge", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "askrigor-private-hermes-test-"));
+    const checkout = join(directory, "fake-hermes");
+    const capture = join(directory, "capture.json");
+    let capturedFromPython: any;
+    try {
+      await mkdir(checkout);
+      await writeFile(join(checkout, "run_agent.py"), `
+import json
+import os
+class AIAgent:
+    def __init__(self, **kwargs): self.kwargs = kwargs
+    def run_conversation(self, message):
+        work = json.loads(message)
+        with open(os.environ["ASKRIGOR_HERMES_TEST_CAPTURE"], "w", encoding="utf-8", newline="") as handle:
+            json.dump({"kwargs": self.kwargs, "work": work}, handle, ensure_ascii=False)
+        output = {
+            "contract_version": "askrigor_hermes_semantic_result_v1",
+            "session_id": work["session_id"], "state_digest": work["state_digest"],
+            "work_type": "module_applicability",
+            "submission": {"package_version": "askrigor_module_applicability_v1", "decisions": [{
+                "module_id": module_id, "applicability": "REQUIRED", "rationale": "Synthetic private bridge fixture."
+            } for module_id in work["semantic_work"]["package"]["unresolved_module_ids"]]}
+        }
+        return {"completed": True, "api_calls": 0, "final_response": json.dumps(output)}
+`, "utf8");
+      const worker: HermesSemanticExecutor = {
+        execute: vi.fn(async (input) => {
+          const serialized = serializeHermesSemanticWorkerInput(input);
+          const result = spawnSync("python3", [
+            resolve(import.meta.dirname, "../scripts/hermes-semantic-worker.py")
+          ], {
+            cwd: directory,
+            input: serialized,
+            env: {
+              PATH: process.env.PATH,
+              LANG: "C.UTF-8",
+              HERMES_ASKRIGOR_CHECKOUT: checkout,
+              HERMES_ASKRIGOR_PROVIDER: "synthetic-provider",
+              HERMES_ASKRIGOR_MODEL: "synthetic-model",
+              HERMES_ASKRIGOR_API_KEY: "synthetic-api-key",
+              ASKRIGOR_HERMES_TEST_CAPTURE: capture
+            },
+            encoding: "utf8",
+            maxBuffer: 4 * 1_024 * 1_024
+          });
+          if (result.status !== 0) throw new Error(result.stderr);
+          capturedFromPython = JSON.parse(await readFile(capture, "utf8"));
+          return JSON.parse(result.stdout);
+        })
+      };
+      await withServer({
+        privateOrchestrationEnabled: true,
+        privateOrchestrationApiKey: API_KEY,
+        privateOrchestrationHandler: fixtureHandler(undefined, worker)
+      }, async (baseUrl) => {
+        const started = await privatePost(baseUrl, "/start", {
+          research_target: "de-identified real Python bridge fixture",
+          diagnosis_status: "diagnosis_not_specified"
+        });
+        const start = await started.json() as PrivateView;
+        const advanced = await privatePost(baseUrl, "/advance", {
+          session_id: start.session_id,
+          state_digest: start.state_digest
+        });
+        expect(advanced.status).toBe(200);
+        expect(worker.execute).toHaveBeenCalledTimes(1);
+        expect(capturedFromPython.work.session_id).toBe(start.session_id);
+        expect(capturedFromPython.work.state_digest).toBe(start.state_digest);
+        expect(capturedFromPython.work.research_context)
+          .toBe("de-identified real Python bridge fixture");
+        expect(capturedFromPython.work.semantic_work.kind)
+          .toBe("module_applicability");
+        expect(capturedFromPython.work.policy_context.documents.map(
+          ({ document_id }: { document_id: string }) => document_id
+        )).toEqual([
+          "universal",
+          "hrp",
+          "project_router",
+          "forum_signal_module"
+        ]);
+        expectReasoningSelectionDelivery(capturedFromPython.work.policy_context);
+        expect(capturedFromPython.kwargs.ephemeral_system_prompt.endsWith(
+          `\n\n${capturedFromPython.work.instruction}`
+        )).toBe(true);
+      });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  }, 30_000);
 
   it("delivers both leading-BOM project policies exactly through the private executor boundary", async () => {
     const projectRouter = Buffer.concat([
