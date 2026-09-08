@@ -178,22 +178,45 @@ describe("research semantic canonical policy input", () => {
     })).rejects.toThrow(/complete canonical semantic policy/iu);
   });
 
-  it("preserves non-ASCII text and line endings through trusted fixed-document reads", async () => {
+  it.each([
+    "project_router",
+    "forum_signal_module"
+  ] as const)("preserves the exact leading-BOM bytes and changes the context digest for %s", async (
+    documentId
+  ) => {
     const binding = await canonicalBinding();
-    const projectRouter = Buffer.concat([
+    const withoutBom = Buffer.from("Projet café\r\nligne deux\n", "utf8");
+    const withBom = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
-      Buffer.from("Projet café\r\nligne deux\n", "utf8")
+      withoutBom
     ]);
-    const forumSignal = Buffer.from("Forum naïf\nfin\r\n", "utf8");
-    const context = await loadResearchSemanticPolicyContext(binding, {
-      readProjectDocument: async (documentId) =>
-        documentId === "project_router" ? projectRouter : forumSignal
-    });
+    const otherDocument = Buffer.from("Other canonical policy\n", "utf8");
+    let selectedBytes = withBom;
+    const dependencies = {
+      readProjectDocument: async (requested: ResearchSemanticProjectDocumentId) =>
+        requested === documentId ? selectedBytes : otherDocument
+    };
+    const bomContext = await loadResearchSemanticPolicyContext(binding, dependencies);
+    const bomDocument = bomContext.documents.find(
+      (document) => document.document_id === documentId
+    )!;
 
-    expect(context.documents[2]?.text).toBe("\ufeffProjet café\r\nligne deux\n");
-    expect(context.documents[3]?.text).toBe("Forum naïf\nfin\r\n");
-    expect(Buffer.from(context.documents[2]!.text, "utf8")).toEqual(projectRouter);
-    expect(Buffer.from(context.documents[3]!.text, "utf8")).toEqual(forumSignal);
+    expect(withBom.subarray(3)).toEqual(withoutBom);
+    expect(bomDocument.text).toBe("\ufeffProjet café\r\nligne deux\n");
+    expect(bomDocument.utf8_bytes).toBe(withBom.byteLength);
+    expect(bomDocument.sha256).toBe(sha256(withBom));
+    expect(Buffer.from(bomDocument.text, "utf8")).toEqual(withBom);
+
+    selectedBytes = withoutBom;
+    const plainContext = await loadResearchSemanticPolicyContext(binding, dependencies);
+    const plainDocument = plainContext.documents.find(
+      (document) => document.document_id === documentId
+    )!;
+    expect(plainDocument.text).toBe("Projet café\r\nligne deux\n");
+    expect(plainDocument.utf8_bytes).toBe(withoutBom.byteLength);
+    expect(plainDocument.sha256).toBe(sha256(withoutBom));
+    expect(plainDocument.sha256).not.toBe(bomDocument.sha256);
+    expect(plainContext.context_sha256).not.toBe(bomContext.context_sha256);
   });
 
   it("matches the named Docker copies in a production-like project layout", async () => {

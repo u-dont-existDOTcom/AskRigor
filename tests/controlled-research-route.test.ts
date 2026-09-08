@@ -199,6 +199,89 @@ describe("controlled research Action projection", () => {
     });
   });
 
+  it.each([
+    "project_router",
+    "forum_signal_module"
+  ] as const)("binds %s leading-BOM bytes into controlled cursors and terminal receipts", async (
+    documentId
+  ) => {
+    const withoutBom = Buffer.from("Policy café\r\nline two\n", "utf8");
+    const withBom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), withoutBom]);
+    const otherDocument = Buffer.from("Other canonical policy\n", "utf8");
+    let selectedBytes = withBom;
+    const routes = testRoutes(getProtocolManifest, {}, {}, {
+      readProjectDocument: async (requested) =>
+        requested === documentId ? selectedBytes : otherDocument
+    });
+    const started = await call(routes, "start_research_session", {
+      research_target: `Population-level evidence about ${documentId} byte binding`,
+      diagnosis_status: "diagnosis_not_specified"
+    });
+    const initial = await call(routes, "continue_research_session", {
+      session_id: (started.body as any).session_id,
+      state_digest: (started.body as any).state_digest
+    });
+    const initialView = initial.body as any;
+    expect(initialView.worker_payload.complete).toBe(false);
+    const oldCursor = initialView.worker_payload.next_cursor;
+    const completed = await completeWorkerPayload(routes, initialView);
+    const workerInput = JSON.parse(completed.json);
+    const document = workerInput.policy_context.documents.find(
+      (candidate: any) => candidate.document_id === documentId
+    );
+    expect(document.text).toBe("\ufeffPolicy café\r\nline two\n");
+    expect(document.utf8_bytes).toBe(withBom.byteLength);
+    expect(document.sha256).toBe(createHash("sha256").update(withBom).digest("hex"));
+    expect(Buffer.from(document.text, "utf8")).toEqual(withBom);
+
+    const semanticResult = {
+      contract_version: "askrigor_hermes_semantic_result_v1",
+      session_id: initialView.session_id,
+      state_digest: initialView.state_digest,
+      work_type: "module_applicability",
+      submission: {
+        package_version: "askrigor_module_applicability_v1",
+        decisions: workerInput.semantic_work.package.unresolved_module_ids.map(
+          (module_id: (typeof RESEARCH_MODULE_IDS)[number]) => ({
+            module_id,
+            applicability: "REQUIRED",
+            rationale: "Required for the controlled policy-byte binding fixture."
+          })
+        )
+      }
+    };
+
+    selectedBytes = withoutBom;
+    const staleCursor = await call(routes, "continue_research_session", {
+      session_id: initialView.session_id,
+      state_digest: initialView.state_digest,
+      worker_payload_cursor: oldCursor
+    });
+    expect.soft(staleCursor).toMatchObject({
+      status: 409,
+      body: { error: { code: "research_worker_payload_invalid" } }
+    });
+    const afterCursor = await call(routes, "get_research_session_status", {
+      session_id: initialView.session_id
+    });
+    expect.soft((afterCursor.body as any).state_digest).toBe(initialView.state_digest);
+
+    const staleReceipt = await call(routes, "continue_research_session", {
+      session_id: initialView.session_id,
+      state_digest: initialView.state_digest,
+      worker_payload_receipt: completed.receipt,
+      semantic_result: semanticResult
+    });
+    expect.soft(staleReceipt).toMatchObject({
+      status: 409,
+      body: { error: { code: "research_worker_payload_invalid" } }
+    });
+    const afterReceipt = await call(routes, "get_research_session_status", {
+      session_id: initialView.session_id
+    });
+    expect.soft((afterReceipt.body as any).state_digest).toBe(initialView.state_digest);
+  });
+
   it("fails before issuing a worker payload when canonical policy is unavailable", async () => {
     const routes = testRoutes(getProtocolManifest, {}, {}, {
       readProjectDocument: async () => {

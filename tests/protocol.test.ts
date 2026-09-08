@@ -463,17 +463,23 @@ describe("canonical protocol loader", () => {
     expect(snapshot.manifest.sha256).toBe(UNIVERSAL_SHA_256);
   });
 
-  it("preserves a leading UTF-8 BOM in snapshot text and its byte identity", async () => {
+  it.each([
+    { protocol: "universal" as const, name: "Universal" },
+    { protocol: "hrp" as const, name: "HRP" }
+  ])("preserves a leading UTF-8 BOM in the $protocol snapshot and its byte identity", async ({
+    protocol,
+    name
+  }) => {
     const bytes = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
       Buffer.from(
-        '<?xml version="1.0"?><Protocol name="Universal" version="test" revisionDate="2026-09-08" />',
+        `<?xml version="1.0"?><Protocol name="${name}" version="test" revisionDate="2026-09-08" />`,
         "utf8"
       )
     ]);
     readFileMock.mockResolvedValueOnce(bytes);
 
-    const snapshot = await loadProtocolSnapshot("universal");
+    const snapshot = await loadProtocolSnapshot(protocol);
     expect(snapshot.text.startsWith("\ufeff")).toBe(true);
     expect(Buffer.from(snapshot.text, "utf8")).toEqual(bytes);
     expect(snapshot.manifest.sha256).toBe(
