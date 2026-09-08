@@ -33,6 +33,10 @@ complete XML protocol.
   closeout covering current and historical project numbers, API-key-only
   authentication, exact public-data lifecycle, privacy remediation, credential
   restrictions, production evidence, and the response package
+- `audits/2026-09-08-google-youtube-api-compliance-production-release.md` and
+  `.json`: exact merged backend/site deployment, live page and YouTube request
+  acceptance, plugin and promotion-scheduler synchronization, rollback, and
+  protected-check receipts
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary

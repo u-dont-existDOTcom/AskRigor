@@ -92,9 +92,14 @@ The data map carries the same contract.
 - Real restricted-key production smoke at `2026-09-08T21:51Z`: HTTP 200 for
   `search.list`, `videos.list`, `commentThreads.list`, and `comments.list`;
   no Google/YouTube user OAuth, credential output, or provider-content output.
-- Complete deterministic gate, pull-request checks, merge, deployed revisions,
-  and post-deployment page hashes are recorded in the production closeout
-  receipt after release.
+- PR #199 passed the exact default deterministic gate, PostgreSQL and synthetic
+  forum acceptance, workflow policy, and all CodeQL analyses, then merged as
+  `ec8ea4ddd49ab3f7996c75f25b2195b840a6927a`.
+- That exact merge is deployed for the backend and site. Independent HTTPS
+  fetches of Privacy, Terms, and Support returned 200 and exact merge bytes;
+  the post-deployment YouTube smoke returned HTTP 200 for all four official
+  request types. The immutable details are in
+  `2026-09-08-google-youtube-api-compliance-production-release.md` and `.json`.
 
 ## Frozen and external boundaries
 
