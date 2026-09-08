@@ -1,53 +1,48 @@
 # AskRigor current state
 
-The exclusive active task is defined by `tasks/ACTIVE-TASK.json`. Its current
-recovery state is
-`docs/state/EXTERNAL-EVALUATION-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the Codex/Work
-execution boundary is
-`docs/state/CODEX-CHAT-WORK-HOTFIX-CURRENT-STATE.md`; the controlling plan override
-is
-`docs/superpowers/plans/2026-09-01-chat-work-zero-spend-hotfix-addendum.md`; and
-the current source-bound execution directive is
-`docs/directives/2026-09-01-zero-spend-chatgpt-mast-operational-smoke.json`.
+## Authority and parent task
 
-The required task branch is
-`hotfix/chat-reasoning-zero-spend-routing-20260901`, based on protected-main
-merge `a1d4aaf0fe2010edc5cec13e6c431877a311d074`.
+Read `AGENTS.md` and `governance/chat-work-authority-policy.json` first.
+The parent task is `askrigor-external-evaluation-contribution-v1` and remains OPEN.
+This entrypoint reports operational status; it is not an execution grant, a
+scientific verdict, or a release receipt.
 
-ChatGPT Project Manager/Extra High/Pro owns proposals, methodology,
-prioritization, spending design, consequential tradeoffs, scientific
-interpretation, supervisory verdicts, and selection of the next strategy.
-Codex and Work are execution-only for exact bounded mechanical work that Chat
-cannot execute. A local worker, copied summary, chat title, or opened tab cannot
-serve as a ChatGPT reasoning receipt.
+## Last validated repository integration
 
-Paid model API inference is canceled by the current owner decision. The active
-model API spend ceiling is USD 0. No paid model call, judge call, external
-submission, protocol mutation, or release occurred.
+PR #190 uses branch `task/mast-four-arm-zero-spend-harness-20260901`.
+The accepted integration checkpoint is `9d88e7f23e52efa4d077168f19103aa66521cff9`,
+tree `c893be468f09d92f7e77a1ce33de041f724ad0a4`, integrating accepted main
+`7fb852758e01df60203f102d784c95e76ff9177b`.
+Local verification and the ordinary hosted integration checks passed.
+PR #190 remains draft and unmerged pending Project Manager source review.
+These results apply to that checkpoint, not automatically to later edits.
+Universal 20.5.18 is preserved from accepted main; HRP remains byte-identical.
+This source checkpoint does not establish deployment or product acceptance.
 
-Routine internal routing among the Project Manager Chat, specialist supervisor
-chats, and Codex/Work is standing owner-authorized control-plane transport.
-Codex/Work must route factual state automatically and must never ask Joel to
-relay a prompt, paste a packet, or say `send it`. The generic confirmation rule
-for genuinely external representational communication does not override this
-narrow internal route.
+## Current execution boundary
 
-The active bounded slice is a one-case ChatGPT-consumer MAST operational smoke:
-materialize one predeclared case family as byte-audited BARE and HRP packets,
-route them automatically to two fresh Extra High chats, route randomized outputs
-to one separate fresh condition-blind Extra High evaluator chat, preserve exact
-message/timestamp/hash receipts, and return the factual receipt bundle to the
-Project Manager Chat. It is not an official MAST result and cannot support a
-general HRP-effect claim.
+Every new controlled execution requires a current source-bound directive and fresh
+authenticated runtime admission for that exact scope. Historical directives,
+commands, and admission receipts grant no present execution allowance.
+The retained `currentSlice` and earlier execution fields in `tasks/ACTIVE-TASK.json`
+are historical records. Its separate `repositoryIntegration` record concerns
+repository integration only; it does not reopen historical execution.
+Calibration remains CLOSED_BLOCKED; no further browser diagnostic is authorized.
+No new screenshot, upload, probe, generation, evaluation, rescoring,
+or alteration of historical evidence or attempt counts is authorized here.
+Reasoning Selection implementation and lesson promotion remain separate.
+Paid model API inference remains forbidden; the external spend ceiling is USD 0.
+Internal supervisory routing must not require owner relay.
 
-Current state: the authority hotfix and exact directive are implemented on the
-task branch; execution has not started. The completion gate is
-`npx tsx scripts/accept-zero-spend-chatgpt-mast-smoke.mts`. The only eventual
-claim is `SUBTASK_COMPLETE_PARENT_OPEN` after all three ChatGPT receipts,
-zero-spend evidence, byte-difference audit, and automatic Project-Manager return
-receipt exist.
+## Recovery references
 
-The previous production scheduler task remains complete at protected-main
-release receipt `7964674b8a3dac804620a0e7d1dff62b00a68bf2`. The current hotfix does
-not mutate the production connector, plugin, database, protocol, or public
-interface.
+`docs/audits/2026-09-07-pr190-queue-reconciliation-v2.json` records the integration
+pre-validation snapshot; PR #190's persisted implementation return records its
+subsequent commit and check identities. Do not reinterpret snapshot fields as
+newly pending work or repeat completed operations.
+`docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md` and
+`docs/superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md`
+retain chronological evidence. Earlier instructions there remain historical
+unless explicitly reopened by a new source-bound directive and fresh admission.
+Retain all original receipts and private artifacts unchanged; do not republish
+private paths, payloads, or scientific findings in this entrypoint.

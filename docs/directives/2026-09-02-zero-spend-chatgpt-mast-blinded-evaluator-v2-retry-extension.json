@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "directiveType": "SOURCE_BOUND_ZERO_SPEND_BLINDED_EVALUATOR_MISSING_SLOT_RECOVERY",
+  "directiveId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2-retry-extension-v1",
+  "parentDirectiveId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2",
+  "status": "CARRY_FORWARD_29_VALID_JUDGMENTS_RESUME_AT_ORDINAL_30",
+  "scientificDisposition": {
+    "decision": "CONTINUE_NOT_RESTART",
+    "restartAll192Authorized": false,
+    "carryForwardValidPrimaryJudgments": 29,
+    "targetValidPrimaryJudgments": 192,
+    "reason": "The failure is mechanical JSON noncompletion in one blinded evaluator slot. No judgment content was interpreted, no condition was unblinded, no aggregate was computed, and the preceding 29 records passed the frozen v2 mechanical contract. Replacing valid completed records would add unnecessary stochastic resampling without correcting a scientific defect."
+  },
+  "sourceBoundFailureReceipt": {
+    "packetType": "ZERO_SPEND_CHATGPT_MAST_FOUR_ARM_EIGHT_FAMILY_BLINDED_EVALUATION_V2_FACTUAL_BLOCKER_RETURN",
+    "repositoryBranch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "repositoryHead": "e14260ee5982c22919f72ead797466e37ace8c97",
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3",
+    "captureProgressSha256": "3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92",
+    "validPrimaryJudgments": 29,
+    "mechanicalFailuresRetained": 3,
+    "conditionMapSealed": true
+  },
+  "unresolvedSlot": {
+    "ordinal": 30,
+    "opaqueResponseId": "EVAL-ecccfd887d579c1458a84b0a",
+    "caseId": "GI004",
+    "evaluatorReplicate": 2,
+    "packetSha256": "79744fe7565a22fd27d09e03d52d25a122f1b7439ed5ab4e8b32b20ae08db842",
+    "attemptsAlreadyConsumed": 2,
+    "attempt1": {
+      "status": "INVALID_MECHANICAL",
+      "reason": "INVALID_JSON",
+      "outputSha256": "589e724281523e449e3786963cf36e2a2d4177414f2b510da7139f7a8952f215",
+      "outputUtf8Bytes": 86,
+      "failureReceiptSha256": "479e72beac090bc89dca49438fddd1d5e27decdf4ebe8305dcac3afb96adfd63"
+    },
+    "attempt2": {
+      "status": "INVALID_MECHANICAL",
+      "reason": "INVALID_JSON",
+      "outputSha256": "4f5161fbdd8bee9dd7c94282fd53a7fbcc8fa76a57b2c4b7c91057bc91eea374",
+      "outputUtf8Bytes": 18,
+      "failureReceiptSha256": "4919e36cee36f21ea803246093d3da16d833438c291066e49f3f5dd37c9160cb"
+    },
+    "semanticSalvageOfFailedOutputsAuthorized": false,
+    "jsonRepairAuthorized": false,
+    "clinicalInspectionOfFailedOutputsAuthorized": false
+  },
+  "transportAndSchemaFreeze": {
+    "transportChangeAuthorized": false,
+    "schemaChangeAuthorized": false,
+    "promptChangeAuthorized": false,
+    "matchingRuleChangeAuthorized": false,
+    "responseChunkingChangeAuthorized": false,
+    "evidenceReferencingChangeAuthorized": false,
+    "packetTransport": "PASTED_TEXT_ATTACHMENT",
+    "requiredPacketSha256ForOrdinal30FurtherAttempts": "79744fe7565a22fd27d09e03d52d25a122f1b7439ed5ab4e8b32b20ae08db842",
+    "rule": "Attempts 3 and, if required, 4 for ordinal 30 must receive the exact same evaluator packet bytes as attempts 1 and 2. Do not add a retry note, formatting reminder, failure description, or corrective prefix.",
+    "reason": "Twenty-nine judgments already succeeded under evaluator v2. The evidence does not justify changing the evaluator measurement instrument after those records were collected."
+  },
+  "retryPolicyAmendment": {
+    "supersededField": "evaluator-v2.retryPolicyV2.maximumAttemptsPerEvaluatorReplicate = 2",
+    "replacementMaximumAttemptsPerEvaluatorReplicate": 4,
+    "scope": "Apply prospectively and symmetrically to ordinal 30 and every not-yet-completed primary or J3 evaluator slot under evaluator v2.",
+    "priorValidSlotsRequireAdditionalAttempts": false,
+    "priorMechanicalFailuresCountTowardFourAttemptMaximum": true,
+    "firstMechanicallyValidAttemptIsFinal": true,
+    "contentBasedSelectionAuthorized": false,
+    "freshCleanConversationEveryAttempt": true,
+    "sameSignedInConsumerAccountRequired": true,
+    "modelName": "GPT-5.6 Sol",
+    "reasoningMode": "Extra High, 4 of 5",
+    "manualToolSelection": "FORBIDDEN",
+    "automaticWebUseAloneIsRetryTrigger": false,
+    "retryInputMustBeByteIdentical": true,
+    "retainEveryAttemptAndReceipt": true,
+    "retryPermittedOnlyFor": [
+      "provider or transport failure",
+      "empty response",
+      "truncated response",
+      "wrong model",
+      "wrong reasoning mode",
+      "dirty or reused conversation",
+      "invalid JSON",
+      "schema-key mismatch",
+      "invalid option coverage",
+      "invalid action-option cross-reference",
+      "invalid response-chunk reference"
+    ],
+    "retryForbiddenFor": [
+      "automatic Web invocation",
+      "clinical recommendation content",
+      "rubric verdict content",
+      "metric value",
+      "judge disagreement",
+      "writing style",
+      "verbosity",
+      "apparent originating arm"
+    ],
+    "justification": "This extends the mechanical completion budget without changing the semantic evaluator. The pinned MAST implementation likewise preserves completed stage records and reruns missing records, while its match worker retries failed calls before abandoning a record."
+  },
+  "ordinal30Recovery": {
+    "nextAction": "DISPATCH_ATTEMPT_3",
+    "ifAttempt3PassesMechanicalValidation": "FREEZE_ATTEMPT_3_AS_THE_ORDINAL_30_J2_PRIMARY_JUDGMENT_AND_CONTINUE_WITH_ORDINAL_31",
+    "ifAttempt3FailsMechanically": "RETAIN_ATTEMPT_3_AND_DISPATCH_ATTEMPT_4_WITH_IDENTICAL_PACKET_BYTES_IN_A_NEW_CLEAN_CHAT",
+    "ifAttempt4PassesMechanicalValidation": "FREEZE_ATTEMPT_4_AS_THE_ORDINAL_30_J2_PRIMARY_JUDGMENT_AND_CONTINUE_WITH_ORDINAL_31",
+    "ifAttempt4FailsMechanically": "STOP_BEFORE_ORDINAL_31_AND_RETURN_FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_AFTER_FOUR_MECHANICAL_ATTEMPTS",
+    "laterSlotDispatchBeforeOrdinal30Resolution": false
+  },
+  "carryForwardRule": {
+    "ordinals1Through29": "IMMUTABLY_CARRY_FORWARD",
+    "rejudgeOrdinals1Through29": false,
+    "reparseClinicalMeaningOfOrdinals1Through29": false,
+    "recomputeOpaqueIds": false,
+    "recomputePrimaryEvaluationOrder": false,
+    "conditionMap": "PRESERVE_EXACTLY_SEALED",
+    "existingValidJudgmentHashes": "PRESERVE",
+    "existingFailedAttemptHashes": "PRESERVE"
+  },
+  "remainingPrimaryEvaluation": {
+    "resumeAfterOrdinal30ResolutionAt": 31,
+    "frozenPrimaryOrder": "UNCHANGED_FROM_EVALUATOR_V2",
+    "validJudgmentTarget": 192,
+    "noInterimSemanticReview": true,
+    "noInterimArmAggregation": true,
+    "noInterimFamilyAggregation": true,
+    "noContinuationGateApplication": true,
+    "noUnblinding": true
+  },
+  "j1J2AndAdjudicationRules": {
+    "j1J2Independence": "UNCHANGED",
+    "disagreementDetectionTiming": "ONLY_AFTER_ALL_192_PRIMARY_JUDGMENTS_ARE_MECHANICALLY_VALID_AND_FROZEN",
+    "j3TriggerRule": "UNCHANGED_FROM_EVALUATOR_V2",
+    "j3MaximumMechanicalAttempts": 4,
+    "j3UsesSameV2TransportAndSchema": true,
+    "j3PriorJudgeOutputsShown": false,
+    "j3ConditionMapShown": false
+  },
+  "runtimeAdmission": {
+    "requiredBeforeAttempt3": true,
+    "worker": "askrigor-mast",
+    "requestedAction": "CONTINUE_BLINDED_ZERO_SPEND_EVALUATION_FROM_ORDINAL_30_WITH_29_VALID_JUDGMENTS_CARRIED_FORWARD_AND_FOUR_ATTEMPT_MECHANICAL_LIMIT",
+    "sourceReceipt": "Bind to the exact ChatGPT Project Manager message ID and exact-body SHA-256 containing this recovery directive.",
+    "maximumExternalSpendUsd": 0,
+    "providerApiCredentialsPermitted": false,
+    "requiredResult": "mayExecute:true",
+    "ifUnavailableMalformedOrMayExecuteNotTrue": "STOP_WITHOUT_ATTEMPT_3",
+    "ownerRelayFallback": false
+  },
+  "workerBoundary": {
+    "clinicalContentInspection": "FORBIDDEN",
+    "scientificInterpretation": "FORBIDDEN",
+    "conditionUnblinding": "FORBIDDEN",
+    "armOrFamilyAggregation": "FORBIDDEN",
+    "continuationGateApplication": "FORBIDDEN",
+    "methodologicalWorkaroundBeyondThisDirective": "FORBIDDEN",
+    "mechanicalValidation": "AUTHORIZED",
+    "hashingAndReceiptPreservation": "AUTHORIZED",
+    "deterministicPerResponseMetricComputationAfterFinalBlindJudgment": "AUTHORIZED_AS_ALREADY_FROZEN"
+  },
+  "stopConditions": [
+    "ordinal 30 attempt 4 fails mechanical validation",
+    "any later evaluator slot exhausts four total mechanical attempts",
+    "runtime admission ceases to return mayExecute:true",
+    "model is not GPT-5.6 Sol",
+    "Extra High 4 of 5 is unavailable",
+    "signed-in consumer account changes",
+    "condition map is disclosed",
+    "evaluator v2 source packet cannot be reproduced byte-identically where retry requires it",
+    "source pin validation fails"
+  ],
+  "nextBoundedSlice": {
+    "sliceId": "BLINDED_EVALUATOR_V2_CARRY_FORWARD_AND_MISSING_SLOT_RECOVERY_V1",
+    "start": "ORDINAL_30_ATTEMPT_3",
+    "carryForwardValidPrimaryJudgments": 29,
+    "targetValidPrimaryJudgments": 192,
+    "action": "Resolve ordinal 30 under the four-attempt mechanical policy, then continue the previously frozen v2 primary order without semantic or transport changes.",
+    "end": "After all 192 primary judgments and all required J3 judgments are mechanically valid, final blinded records and per-response metrics are frozen.",
+    "stopBefore": "CONDITION_MAP_DISCLOSURE_OR_ANY_ARM_OR_FAMILY_LEVEL_ANALYSIS",
+    "externalSpendUsd": 0,
+    "ownerRelayRequested": false
+  },
+  "requiredReturnPacket": {
+    "packetType": "ZERO_SPEND_CHATGPT_MAST_FOUR_ARM_EIGHT_FAMILY_BLINDED_EVALUATION_V2_FACTUAL_RETURN",
+    "mustInclude": [
+      "this recovery directive source receipt",
+      "runtime admission receipt",
+      "original evaluator-v2 directive identity",
+      "29 carried-forward valid judgment identities",
+      "ordinal30 attempts 1 through final attempt receipts",
+      "all subsequent valid and invalid evaluator attempts",
+      "192 final primary judgment identities",
+      "J1/J2 blinded disagreement ledger",
+      "all required J3 receipts",
+      "final blinded per-response records",
+      "final blinded NONOFFICIAL_PROJECTED_MAST_METRICS",
+      "pilot severeCommission flags",
+      "complete blinded evaluation-ledger SHA-256",
+      "conditionMapSealed=true",
+      "externalSpendUsd=0"
+    ]
+  },
+  "completionClaims": {
+    "success": "FOUR_ARM_EIGHT_FAMILY_BASE_BLINDED_EVALUATION_V2_FROZEN_UNBLINDING_BLOCKED_PENDING_PROJECT_MANAGER_REVIEW",
+    "fourAttemptFailure": "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_AFTER_FOUR_MECHANICAL_ATTEMPTS",
+    "runtimeAdmissionFailure": "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_RUNTIME_ADMISSION",
+    "environmentChange": "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_CONSUMER_ENVIRONMENT_CHANGED"
+  }
+}

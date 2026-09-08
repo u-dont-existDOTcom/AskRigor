@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-generation-v2",
+  "compiledAt": "2026-09-02T00:24:07Z",
+  "universalRef": "u-dont-existDOTcom/universal-dev-architecture@764be99e4c7e9a324ea497d495d274b644b4694a",
+  "lessons": [
+    {
+      "lessonId": "chat-led-reasoning-codex-execution-separation",
+      "source": "patterns/chat-led-reasoning-codex-execution-separation.md",
+      "trigger": "The pilot methodology and transport correction came from the ChatGPT Project Manager.",
+      "requiredBehavior": "Codex performs only exact mechanical dispatch, capture, validation, Git, and routing work; it does not interpret outputs or alter methodology.",
+      "failureCondition": "Codex authors a scientific conclusion, evaluator policy, strategy, spending design, or consequential tradeoff.",
+      "repairAction": "Stop the semantic action and route an exact factual packet to the existing reasoning supervisor.",
+      "enforcement": "semantic"
+    },
+    {
+      "lessonId": "runtime-chat-work-authority-admission-and-internal-routing",
+      "source": "patterns/runtime-chat-work-authority-admission-and-internal-routing.md",
+      "trigger": "The current universal control requires authenticated pre-action admission for bounded Work execution.",
+      "requiredBehavior": "Require mayExecute=true for new dispatch; if the endpoint is unavailable, pause that scoped action, record the exact blocker, and route internally without owner relay.",
+      "failureCondition": "A new sequence is dispatched after the live endpoint returned 404 and before source-bound reconciliation.",
+      "repairAction": "Stop before the next dispatch, preserve in-flight evidence, and await the matching Chat-owned directive while continuing unrelated safe checks.",
+      "enforcement": "mechanical"
+    },
+    {
+      "lessonId": "external-evaluation-reproducibility",
+      "source": "patterns/external-evaluation-reproducibility.md",
+      "trigger": "The slice is a frozen four-arm external-evaluation generation run.",
+      "requiredBehavior": "Preserve exact source pin, input/output bytes, identities, tool-process measures, and separate this consumer run from official benchmark claims.",
+      "failureCondition": "A record lacks exact provenance or the run is presented as an official MAST result.",
+      "repairAction": "Reject the affected record or claim and preserve the exact failure receipt.",
+      "enforcement": "mechanical"
+    },
+    {
+      "lessonId": "independent-evaluation-separation",
+      "source": "patterns/independent-evaluation-separation.md",
+      "trigger": "Generation must remain blinded from rubric, guidance, and evaluation until all 96 primaries are frozen.",
+      "requiredBehavior": "Do not inspect clinical response content, rubrics, guidance, scores, or scientific implications during generation.",
+      "failureCondition": "Clinical content or evaluator material influences any later generation.",
+      "repairAction": "Stop, record contamination, and return the exact evidence to the reasoning supervisor.",
+      "enforcement": "semantic"
+    },
+    {
+      "lessonId": "persistent-browser-automation-hygiene",
+      "source": "patterns/persistent-browser-automation-hygiene.md",
+      "trigger": "Each response is generated in a fresh ChatGPT consumer conversation through persistent Brave automation.",
+      "requiredBehavior": "Recover ambiguous sends before retrying, bind completion to exact user/assistant identities and hashes, and close completed automation-owned generation tabs.",
+      "failureCondition": "A possibly accepted send is repeated or a response is accepted from a dirty/reused conversation.",
+      "repairAction": "Inspect structural state, preserve the ambiguous attempt, and retry only when the original action is proven mechanically invalid.",
+      "enforcement": "mechanical"
+    },
+    {
+      "lessonId": "test-efficiency-and-verification-budget",
+      "source": "patterns/test-efficiency-and-verification-budget.md",
+      "trigger": "The acceptance contract is changing while the long live generation run remains incomplete.",
+      "requiredBehavior": "Use focused tests and strict type checks during repair; reserve the complete deterministic gate for a durable integration or completion checkpoint.",
+      "failureCondition": "Unchanged-state full suites are repeatedly rerun without a decision they can change.",
+      "repairAction": "Return to affected tests and run the full gate only at the next meaningful checkpoint.",
+      "enforcement": "mechanical"
+    }
+  ],
+  "admission": {
+    "status": "FAIL_SCOPED_NEW_GENERATION_DISPATCH",
+    "evidence": "docs/audits/2026-09-02-mast-runtime-admission-unavailable.json",
+    "unaffectedWorkMayContinue": true
+  }
+}

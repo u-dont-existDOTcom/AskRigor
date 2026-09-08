@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-06T19:10:33.774417+00:00",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "executionRepositoryHead": "b4bd7b4a24b2cdc6ba34d39a3c6e4aaaef6b6d59",
+  "status": "BOUNDED_METADATA_RECEIPT_ACCEPTED_SOURCE_BOUND_CENSUS_DIRECTIVE_RECEIVED_PARENT_OPEN",
+  "directive": {
+    "directiveId": "askrigor-post-delivery-source-access-provenance-v1",
+    "messageId": "21b89257-03e1-4662-ba65-0d3dedfb9cd5",
+    "exactBody": {
+      "bytes": 11754,
+      "sha256": "5fa773c9a66cff9d11e2a761c9cd996ae0abc7ca32669512d440de1bb3c33542"
+    },
+    "repositoryAuthorityGate": "PASS"
+  },
+  "freshRuntimeAdmission": {
+    "requestMessageId": "1a40f05c-aace-48aa-8acd-17e6bf85e2d6",
+    "responseMessageId": "9353d770-e9a6-4a59-a12f-cbdc2e004777",
+    "exactResponseBody": {
+      "bytes": 793,
+      "sha256": "99cba31c06a14521b376a44bd3baae586b867807a0b95dd0ffff9dc0bc0a8fd1"
+    },
+    "mayExecute": true,
+    "previousAdmissionReused": false
+  },
+  "collection": {
+    "fixedTargetCount": 3,
+    "retainedIdentityBindingsVerified": 3,
+    "browserVisits": 3,
+    "readinessChecks": 3,
+    "targetMessagesSent": 0,
+    "uploads": 0,
+    "sourceDocumentFetches": 0,
+    "completeFieldsClaimed": false,
+    "unavailableFieldsExplicit": true,
+    "sourceReceiptsAndLedgerUnchanged": true,
+    "detailedReferencesAndReceiptLocations": "WITHHELD_PRIVATE_ARTIFACT_ROOT",
+    "privateMetadataReceipt": {
+      "bytes": 10603,
+      "sha256": "580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91"
+    },
+    "privateCollectionJournal": {
+      "bytes": 1826,
+      "sha256": "23211f68eda49a1dcbe1c144d3d5aa64bc443d1ed5c381bdd8ee816907f8c078"
+    }
+  },
+  "returnRouting": {
+    "destinationMessageId": "1e1e4347-e836-46b5-bf05-b2d3d1b08650",
+    "messageSubmissionCalls": 1,
+    "responseStatus": "RECEIPT_ACCEPTED_FOLLOWUP_DIRECTIVE_RECEIVED",
+    "responseMessageId": "4a1b5d17-9628-4313-8f14-9040b28ad8a8",
+    "responseBodyBytes": 13567,
+    "responseBodySha256": "becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5",
+    "followupDirectiveId": "askrigor-post-delivery-source-reference-census-v1"
+  },
+  "boundary": {
+    "parentObjective": "OPEN",
+    "ownerDecisionRequired": false,
+    "samePhysicalBrowserTab": true,
+    "accountSwitched": false,
+    "archiveResubmitted": false,
+    "sourceRelationshipInterpretationPerformed": false,
+    "clinicalContentInspected": false,
+    "referenceMetadataPublishedToGit": false,
+    "paidApiCalls": 0,
+    "externalSpendUsd": 0,
+    "nextAction": "Continue only the separately source-bound and freshly admitted fixed-population metadata census. Carry forward the three existing observations unchanged; no revisits to these three targets are authorized."
+  },
+  "validation": {
+    "privateRecordHashes": "PASS",
+    "exactFixedTargetCount": 3,
+    "publicDetailedReferenceExclusion": "PASS",
+    "targetedCurrentSliceTestsPassed": 4,
+    "diffWhitespace": "PASS",
+    "completeDeterministicGate": "npm run verify",
+    "exitCode": 0,
+    "typecheck": "PASS",
+    "testFilesPassed": 146,
+    "testFilesSkipped": 1,
+    "testsPassed": 1711,
+    "testsSkipped": 6,
+    "build": "PASS"
+  }
+}

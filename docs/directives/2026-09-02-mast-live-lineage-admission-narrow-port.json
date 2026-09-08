@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "directiveType": "source_bound_live_lineage_admission_integration",
+  "directiveId": "askrigor-zero-spend-mast-live-lineage-admission-narrow-port-v1",
+  "parentDirectiveId": "askrigor-zero-spend-mast-runtime-admission-recovery-v1",
+  "source": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "chatLocator": "https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "requestMessageId": "3e50f257-758b-4173-a185-cc6fba230dba",
+    "requestBodySha256": "8dacdf093399fcca23d0f5360528b7ff88c9aa6b80e1a0cbc3b0314ad3089f07",
+    "assistantMessageId": "e463c10d-6823-4887-af31-83be7269c48f",
+    "assistantBodySha256": "bb4645f947a78e6b67db6ab896335419ef98ae4d9b1bb0a363878453b200897d",
+    "assistantBodyUtf8Bytes": 17710,
+    "modelSlugObserved": "gpt-5-6-thinking",
+    "provenanceStatus": "VERIFIED",
+    "exactOutputStoredPrivately": true
+  },
+  "decision": "B_NARROW_SOURCE_BOUND_ADMISSION_PORT",
+  "liveBaselineCommit": "86ee808b8cb66b48f453be23fa206f8d69e29128",
+  "canonicalAuthorityCommit": "764be99e4c7e9a324ea497d495d274b644b4694a",
+  "authorizedComponents": [
+    "authenticated worker admission endpoint",
+    "source-bound admission runtime",
+    "fail-closed admission client",
+    "minimal worker_message_recorded validation and persistence",
+    "configured supervisor-chat data needed to select an internal route",
+    "deterministic and isolated-runtime tests"
+  ],
+  "excluded": [
+    "dashboard reconciliation",
+    "owner-auth integration",
+    "database migration",
+    "provider relay",
+    "broad worker-message UI",
+    "MAST prompt, schedule, methodology, output, rubric, guidance, or analysis changes"
+  ],
+  "requiredCandidateAcceptance": {
+    "focusedAdmissionTests": "25/25_PASS",
+    "completeMissionControlTests": "100/100_PASS",
+    "nodeVersion": "v24.18.0",
+    "typecheck": "PASS",
+    "productionBuild": "PASS",
+    "isolatedRuntimeAcceptance": "PASS"
+  },
+  "mastBoundary": {
+    "stoppedBeforeSequence": 15,
+    "frozenPrimaryResponses": 14,
+    "rerunSequences1Through14": false,
+    "resumeCondition": "L1_THROUGH_L5_PASS_AND_L5_MAY_EXECUTE_TRUE",
+    "maximumExternalSpendUsd": 0
+  }
+}

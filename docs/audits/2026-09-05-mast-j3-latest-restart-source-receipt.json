@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "askrigor_mast_j3_latest_restart_source_binding",
+  "ownerDecision": {
+    "earlierSourceTurn": "01a071f8-ae18-7922-ac49-fcb1f187dc75",
+    "earlierExactBodySha256": "6af7417baa5c34a277d07e0d9db6dc105713930d476102e847dad1788e4387a6",
+    "currentExactUtf8Bytes": 11,
+    "currentExactBodySha256": "beaa8a4164f6cd831ab8901e2e8e7ac0339b133239c4faafedde5c4d228587b8",
+    "currentMessageId": null,
+    "currentMessageIdStatus": "UNAVAILABLE_ON_CURRENT_CODEX_SURFACE_DO_NOT_INVENT"
+  },
+  "supervisorRoute": {
+    "chatLocator": "https://chatgpt.com/c/6a9c4556-592c-83e9-9200-dc1b91de223c",
+    "initialUserMessageId": "0a15f98f-4979-417c-a573-7d4de15f55ca",
+    "initialRequestUtf8Bytes": 3656,
+    "initialRequestSha256": "8f988083b688576978c640de71fc54e4eee55fd9f9429375f284dba829bc43aa",
+    "followupUserMessageId": "7cddf700-f931-4173-b78f-5ba9ec9c3589",
+    "followupRequestUtf8Bytes": 252,
+    "followupRequestSha256": "a559bd1d64fdc198f7a26ddc5ea6b92271db361393048dff5851f397bc33ba53",
+    "assistantMessageId": "3d620ff6-96d3-4343-924e-35068cde74c8",
+    "assistantResponseUtf8Bytes": 12738,
+    "assistantResponseSha256": "8f1c7f4af517060445aaf42498f6efac1ca8abd9460aae02d0295196d8f634f9",
+    "rawDirectiveFile": "docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json",
+    "rawDirectiveBytesMatch": true,
+    "rawDirectiveSha256Match": true
+  },
+  "baseline": {
+    "repositoryBranch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "localAndGithubHead": "777b3b37cd619944340e9164cc1c536bfd2671f9",
+    "primaryProgressSha256": "a638f53dca915a88f74a2f2baf7fe084d228f3710dad389492963caf5a2eb045",
+    "supersededSolProgressSha256": "3316c9eea3b164b1c1a66fca3de831e97740a3e2acdf8fc5b8f03b98e60dc537",
+    "supersededSolOrdinal23ReceiptSha256": "9ecba3d2910c5b50770d6a7fa05ecc87b938987b58f052c1e02362fb6706da93",
+    "supersededSolTreeInventorySha256": "7128b22b65289870c75a5c2cc118f50e6979c4e4bbf8e32da7b38805f2bc71b9",
+    "supersededSolTreeEntryCount": 53,
+    "ordinal24AttemptConsumed": false
+  },
+  "privacy": {
+    "conditionMapAccessStatus": "SEALED_NOT_INSPECTED",
+    "clinicalContentInspectionStatus": "NOT_INSPECTED",
+    "resultInspectionStatus": "NOT_INSPECTED"
+  }
+}

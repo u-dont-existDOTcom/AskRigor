@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T01:14:31.597659+00:00",
+  "directiveId": "askrigor-detached-menu-association-diagnostic-v1",
+  "sourceReceipt": {
+    "messageId": "3935f7f5-ec47-408a-9b4c-30176efbfa42",
+    "exactBodyBytes": 17703,
+    "exactBodySha256": "42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836"
+  },
+  "runtimeAdmission": {
+    "messageId": "f77ee30f-5cb9-4902-8c12-7c3778c56255",
+    "exactBodyBytes": 1837,
+    "exactBodySha256": "f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911",
+    "mayExecute": true
+  },
+  "nodeVersion": "v24.18.0",
+  "focusedTestsPassed": 22,
+  "fullGate": {
+    "command": "npm run verify with explicit pinned Node PATH",
+    "passed": true,
+    "exitCode": 0,
+    "testFilesPassed": 149,
+    "testFilesSkipped": 1,
+    "testsPassed": 1800,
+    "testsSkipped": 6,
+    "typecheckPassed": true,
+    "buildPassed": true,
+    "logSha256": "94745997f92a5ae28d485e84ec628ff3810052b75ee913a6ecc2c0844cda456d"
+  },
+  "freeze": {
+    "moduleSha256": "9fbc8e9e0534b69266e38adbd1717113bad461c807eb06659474150bc491f4f2",
+    "testSha256": "e3086cb80487b35d582ba9d3dd6ffd5b85a79786105dbb2c05ca20b82f677875",
+    "projectionSha256": "32c9f26f3145c62ad3ddaf600a1fbe87cfc0476945796602dec2ae89e03bad65",
+    "projectionBytes": 15025,
+    "recorderSha256": "7472e7040968700604d9da0d8404041218383ef0f0b81f66ff14acca4e741b88",
+    "recorderBytes": 3597,
+    "operationSequence": [
+      "CLOSED_BASELINE",
+      "OPEN_ONCE",
+      "OPEN_OBSERVATION_1",
+      "OPEN_OBSERVATION_2",
+      "CLOSE_OWN_MENU_ONCE",
+      "CLOSURE_VERIFICATION"
+    ],
+    "timeouts": {
+      "projectionMs": 3000,
+      "controlOperationMs": 15000
+    }
+  },
+  "controlPacket": {
+    "bytes": 20555,
+    "sha256": "f52a17cb76078a61bad19d2b6c2fc5c798c3b618371b042707c4d0c8f1b60110"
+  },
+  "preservedIdentitiesVerified": true,
+  "precedingBrowserReceiptSha256": "1ffb674119f8e688fb917e5ad7074c2407e44c176a647227bc2ecdf823457cfd",
+  "frozenManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+  "installedApiContractSha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f",
+  "priorModuleSha256": "afbefbfde16b6f84897894488859f0f81d64dfcfdfe43c9199e899ff8ac2631d",
+  "initialFailedGateReceiptSha256": "e58915e15b5ae61dd2cfaf43569e467f5dbccf8bb79910971a48aff1711dab1f",
+  "initialFailureCorrection": "Restored required parent-task completion token; implementation and tests unchanged.",
+  "newLiveSequenceStarted": true,
+  "liveAcceptanceClaimed": false,
+  "status": "OBSERVATION_RETURN_RECEIVED_NEXT_VISUAL_DIRECTIVE_CAPTURED",
+  "privateObservationsCommitted": false,
+  "postGateCheckpointVerification": {
+    "passed": true,
+    "testsPassed": 4,
+    "nodeVersion": "v24.18.0",
+    "logSha256": "ef6c5271d884c1f31ec125477b918ca7bf1bfd84ffff1e4779fb573dee71d754",
+    "correctionReceiptSha256": "2aba61a26c9a22c8232db19054ed0e38fe3243c21b37050c051b9f153b0b4a0d",
+    "implementationAndTestsUnchanged": true
+  },
+  "liveObservationCompleted": true,
+  "repositoryHeadAtLiveObservation": "2983e5b3bdcc57fa8734afcfa187494bfbd65855",
+  "counts": {
+    "openingCalls": 1,
+    "cleanupCalls": 1,
+    "boundedStateSamples": 4,
+    "modelControlInteractions": 0,
+    "chooserOperations": 0,
+    "fileAssignments": 0,
+    "uploads": 0,
+    "promptFills": 0,
+    "probeSubmissions": 0,
+    "visualCaptures": 0,
+    "retries": 0,
+    "newTabs": 0
+  },
+  "browserReceipt": {
+    "bytes": 17896,
+    "sha256": "4845a590b87c8b0352572cd4bcdc4595907b03a13ba813956f35aef7adecc0aa"
+  },
+  "observationValidation": {
+    "valid": true,
+    "operationCounts": {
+      "openingCalls": 1,
+      "cleanupCalls": 1,
+      "boundedStateSamples": 4
+    },
+    "cleanupCommandReturnStatus": "SUCCEEDED",
+    "closureVerification": "VERIFIED_CLOSED",
+    "status": "FINISHED",
+    "explicitAssociation": "NONE",
+    "transitionCandidate": "NOT_ESTABLISHED",
+    "ambiguity": []
+  },
+  "privateValidationReceiptSha256": "1c2c3fab3cfe7c23d488b7662568a14e181c5325bf42aabd956114497e561729",
+  "observationLimit": "No observable role-menu container under the fixed bounded selector. Popup absence, identity, framework and historical failure cause are not established.",
+  "operationalReturn": {
+    "bytes": 14844,
+    "sha256": "7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f",
+    "submissionCalls": 1,
+    "staged": false,
+    "status": "DELIVERED_RESPONSE_CAPTURED",
+    "routingReceiptSha256": "077e5b2f8dd36924969e6e75586864320c493f9caf78787aaca02101ded2e1a8",
+    "messageId": "c35479fc-7746-4bed-9eb6-781ddf369cb8",
+    "exactSubmittedBodyBytes": 11254,
+    "exactSubmittedBodySha256": "3adda3e361b20d806c52bba0d8dfdf971182baebe1659ea601d7c32212d8878c",
+    "persistedExactBodyMatch": true,
+    "parsedJsonObjectUnchanged": true
+  },
+  "transportDraftBlocker": {
+    "privateReceiptSha256": "ac67f962b8a97d94bd3fb847624421d9fe455e781a7405c99ba504462e789586",
+    "draftCharacterCount": 9082,
+    "ownerDraftDecisionPending": false,
+    "draftBodyReadOrCaptured": false,
+    "draftChanged": false,
+    "ownerRelayRequested": false,
+    "ownerAuthorizedDiscard": true
+  },
+  "probesAndUploadsRemainStopped": true,
+  "completedCheckpointVerification": {
+    "passed": true,
+    "testsPassed": 4,
+    "nodeVersion": "v24.18.0",
+    "logSha256": "6f363e2c9f72dc014f0418ac15867d5358290fab29b5495578d56b0a67be769e"
+  },
+  "transportSerializationReceiptSha256": "7a3e68cf8af143fb8cb31fb4904f6826c86d8956244505ea1c253243ce31c52b",
+  "transportControlObservationDeviation": {
+    "documentWideButtonTextEqualityScanCalls": 1,
+    "returnedOnlyMatchCount": true,
+    "rawLabelsPrintedOrStored": false,
+    "scanNotRepeated": true,
+    "subsequentActionUsedExactGroundedControl": true
+  },
+  "responseReceipt": {
+    "messageId": "7ff47789-3352-4054-8567-9d6a67a14d44",
+    "exactBodyBytes": 17074,
+    "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
+  },
+  "nextDirective": "docs/directives/2026-09-07-empty-composer-visual-evidence.json"
+}

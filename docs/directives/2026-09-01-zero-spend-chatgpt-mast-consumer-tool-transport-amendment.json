@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "directiveType": "source_bound_project_manager_corrective_execution_amendment",
+  "source": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "chatLocator": "https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "userMessageId": "8d486a1d-4858-44d2-b3cb-3fe542238401",
+    "assistantMessageId": "e7c9ac9f-9499-4487-b158-5d4497242a67",
+    "capturedAt": "2026-09-01T23:52:20.008Z",
+    "exactPrivateOutputSha256": "853ee731cfddd1f7f347ec945e979e40a1d4b801a68fb4be8dba7f4e2ad1fd78",
+    "exactPrivateOutputUtf8Bytes": 10459,
+    "modelNameObserved": "GPT-5.6 Sol",
+    "thinkingEffortObserved": "Extra High, 4 of 5",
+    "modelSlugObserved": "gpt-5-6-thinking",
+    "provenanceStatus": "VERIFIED",
+    "exactOutputStoredPrivately": true
+  },
+  "amendment": {
+    "amendmentId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot-v2-consumer-tool-transport-amendment-v1",
+    "parentDirectiveId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-pilot-v2",
+    "status": "FROZEN_PROCEDURAL_AMENDMENT_AFTER_THREE_TRANSPORT_ATTEMPTS_BEFORE_RUBRIC_GUIDANCE_OR_OUTCOME_EVALUATION",
+    "basis": "MECHANICAL_TRANSPORT_FEASIBILITY_ONLY",
+    "replacementGenerationRule": "No human or executor may manually select, request, activate, suppress, or otherwise manipulate Web search or another tool. Ambient tool availability must remain constant. Automatic tool invocation initiated by GPT-5.6 Sol after receipt of an exact frozen arm input is treated as a downstream behavior of the ChatGPT consumer system, not as a transport failure.",
+    "generationEstimand": "TOTAL_END_TO_END_EFFECT_OF_FROZEN_ARM_INPUT_ON_CHATGPT_CONSUMER_GPT_5_6_SOL_EXTRA_HIGH_UNDER_CONSTANT_AMBIENT_TOOL_AVAILABILITY",
+    "manualToolSelectionPermitted": false,
+    "automaticModelInitiatedTools": "PERMITTED_AND_RECORDED_AS_PROCESS_OUTCOME",
+    "conditionalRetryForAutomaticToolUse": "FORBIDDEN",
+    "firstResponsePolicy": "FIRST_MECHANICALLY_COMPLETE_ASSISTANT_RESPONSE_TO_EACH_FROZEN_INPUT",
+    "maximumMechanicalRetriesPerSlot": 1,
+    "retroactivePrimaryDatasetSequences": [
+      1,
+      2,
+      3
+    ],
+    "originalInvalidMechanicalReceiptsRetained": true,
+    "alreadyCreatedRetryTreatment": "RETAIN_AS_SUPERSEDED_RECOVERY_ATTEMPT_AND_EXCLUDE_FROM_PRIMARY_DATASET",
+    "requiredProcessMeasures": [
+      "automaticToolInvocationObserved",
+      "visibleToolTypeIfAvailable",
+      "webCitationUiArtifactCountIfMechanicallyObservable",
+      "chatLocator",
+      "userMessageId",
+      "assistantMessageId",
+      "modelSlug",
+      "reasoningMode",
+      "exactInputSha256",
+      "exactOutputSha256"
+    ],
+    "clinicalContentEmbargoUntilAll96Frozen": true,
+    "rubricOrGuidanceInspectionPermitted": false,
+    "evaluationPermitted": false,
+    "promptOrProtocolTuningPermitted": false,
+    "nextBoundedSlice": "FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_CONTINUATION_AFTER_TOOL_TRANSPORT_RECONCILIATION_V1",
+    "alreadyCompletedPrimaryDatasetResponses": 3,
+    "remainingGenerationResponses": 93,
+    "targetGenerationResponseCount": 96,
+    "maximumExternalSpendUsd": 0,
+    "providerApiCredentialsPermitted": false,
+    "successfulGenerationClaim": "FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE"
+  }
+}

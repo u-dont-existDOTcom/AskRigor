@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "chatgpt_project_manager_blinded_evaluator_v2_retry_extension_source",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-retry-extension-v1",
+  "capturedAt": "2026-09-02T23:02:46Z",
+  "source": {
+    "chatLocator": "https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "requestMessageId": "9224e355-018c-449a-8bc5-5f97664b34f3",
+    "assistantMessageId": "db3747c7-63fb-4fc2-b765-40ea9577ab4c",
+    "exactRequestBodySha256": "2e4ab16eee2c2b5c7034563dd9c38f250ec20a06be4ff6b957552b4a87598bb7",
+    "exactRequestUtf8Bytes": 2598,
+    "exactResponseBodySha256": "2bc685a68567ba24b0e49f570da4eee5ef1af4ec62fb17caa607e42f9de7fb4f",
+    "exactResponseUtf8Bytes": 11372,
+    "exactDirectiveJsonSha256": "456cbb7534675a31aea7f7e516ebb9e9e308b9a057c174653d9d4d524f5173b5",
+    "exactDirectiveJsonUtf8Bytes": 10742,
+    "modelNameObserved": "GPT-5.6 Sol",
+    "thinkingEffortObserved": "Extra High, 4 of 5",
+    "modelSlugObserved": "gpt-5-6-thinking",
+    "provenanceStatus": "VERIFIED"
+  },
+  "directive": {
+    "id": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2-retry-extension-v1",
+    "parentId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2",
+    "status": "CARRY_FORWARD_29_VALID_JUDGMENTS_RESUME_AT_ORDINAL_30",
+    "nextAttempt": 3,
+    "maximumAttemptsPerEvaluatorReplicate": 4,
+    "runtimeAdmissionRequiredBeforeAttempt3": true,
+    "conditionMapSealed": true,
+    "externalSpendUsd": 0
+  }
+}

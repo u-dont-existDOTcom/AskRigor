@@ -1,0 +1,272 @@
+{
+"directive": {
+"kind": "ASKRIGOR_SOURCE_BOUND_J3_REPLACEMENT",
+"version": "1.0",
+"scope": "J3_ONLY",
+"owner_authority": {
+"earlier_owner_source_turn": "01a071f8-ae18-7922-ac49-fcb1f187dc75",
+"earlier_owner_exact_body_sha256": "6af7417baa5c34a277d07e0d9db6dc105713930d476102e847dad1788e4387a6",
+"earlier_owner_decision": "use GPT 6 through the consumer selector label Latest",
+"current_owner_message_exact_bytes_utf8": "restart all",
+"current_owner_message_exact_body_sha256": "beaa8a4164f6cd831ab8901e2e8e7ac0339b133239c4faafedde5c4d228587b8",
+"current_owner_message_id": null,
+"current_owner_message_id_status": "UNAVAILABLE_ON_CURRENT_CODEX_SURFACE_DO_NOT_INVENT"
+},
+"assistant_response_binding": {
+"assistant_data_message_id": "CAPTURE_EXTERNALLY_AFTER_COMPLETION",
+"exact_visible_response_sha256": "CAPTURE_EXTERNALLY_AFTER_COMPLETION",
+"self_computation_prohibited": true,
+"binding_rule": "Browser controller must bind this directive to the actual assistant data-message-id and SHA-256 of the exact visible response bytes after completion. Codex must reject any later transcription lacking those externally captured values."
+},
+"verified_baseline": {
+"repository_branch": "task/mast-four-arm-zero-spend-harness-20260901",
+"local_and_github_head": "777b3b37cd619944340e9164cc1c536bfd2671f9",
+"primary": {
+"valid": 192,
+"preserved_mechanical_failures": 6,
+"haltedClaim": null,
+"progress_sha256": "a638f53dca915a88f74a2f2baf7fe084d228f3710dad389492963caf5a2eb045",
+"mutation_authorized": false
+},
+"j3_frozen_schedule_slots": 41,
+"superseded_sol_series": {
+"valid_judgments": 23,
+"mechanical_failures": 0,
+"haltedClaim": null,
+"progress_sha256": "3316c9eea3b164b1c1a66fca3de831e97740a3e2acdf8fc5b8f03b98e60dc537",
+"ordinal_23_receipt_sha256": "9ecba3d2910c5b50770d6a7fa05ecc87b938987b58f052c1e02362fb6706da93",
+"ordinal_24_staged": false,
+"ordinal_24_sent": false,
+"ordinal_24_attempt_consumed": false
+}
+},
+"decision": "REPLACE_J3_SERIES_AND_RESTART_AT_SLOT_1_UNDER_LATEST",
+"supersession": {
+"supersede_prior_source_bound_retry_extension_model_requirement": "GPT-5.6 Sol",
+"supersession_reason": "newer exact owner model-selection decision",
+"do_not_delete_or_rewrite_prior_directive": true
+},
+"immutable_semantics": {
+"evaluator_packets": "BYTE_IDENTICAL_TO_FROZEN_EXISTING_PACKETS",
+"judgment_schema": "UNCHANGED",
+"matching": "UNCHANGED",
+"adjudication": "UNCHANGED",
+"metric": "UNCHANGED",
+"retry_semantics": "UNCHANGED",
+"frozen_schedule": "UNCHANGED_41_SLOTS",
+"condition_map": "SEALED",
+"clinical_content_inspection": "PROHIBITED"
+},
+"phase_1_preserve_superseded_sol_tree": {
+"required": true,
+"classification": "SUPERSEDED_PRIVATE_AUDIT_EVIDENCE_NOT_ELIGIBLE_FOR_LATEST_FINALIZATION",
+"source_expected_valid_judgment_count": 23,
+"preservation_method": [
+"Before modifying J3 capture/finalization code, assert the verified baseline branch and exact local/GitHub HEAD.",
+"Recursively enumerate the complete existing Sol J3 tree structurally only.",
+"Create a deterministic inventory containing relative path, entry type, byte size where applicable, permission mode, and SHA-256 for every regular file; hashing bytes is permitted but semantic inspection is not.",
+"Record directory entries and modes so the tree can be reconstructed exactly.",
+"Verify that the structural state agrees with 23 valid judgments, zero failures, haltedClaim null, the supplied J3 progress SHA-256, the supplied ordinal-23 receipt SHA-256, and absence of any staged/sent ordinal-24 attempt.",
+"Copy or atomically relocate the complete tree into a clearly superseded private-audit namespace without modifying source bytes.",
+"Set every preserved regular file containing run evidence or manifests to mode 0600 and every containing audit directory to mode 0700.",
+"Re-hash the preserved copy and require exact equality with the pre-preservation inventory before proceeding.",
+"Persist the deterministic inventory and its own SHA-256 beside the preserved tree under the same protections."
+],
+"known_exact_digests": {
+"series_progress_sha256": "3316c9eea3b164b1c1a66fca3de831e97740a3e2acdf8fc5b8f03b98e60dc537",
+"ordinal_23_receipt_sha256": "9ecba3d2910c5b50770d6a7fa05ecc87b938987b58f052c1e02362fb6706da93"
+},
+"unknown_per_file_digests": "MUST_BE_DERIVED_BY_STRUCTURAL_HASHING; DO_NOT GUESS",
+"preservation_failure_behavior": "FAIL_CLOSED_BEFORE_ANY_LATEST_SEND"
+},
+"phase_2_update_harness": {
+"purpose": "Remove Sol-specific execution provenance constraints while preserving evaluator semantics.",
+"required_changes": [
+"Remove or supersede the J3 execution requirement that forces selector/model GPT-5.6 Sol.",
+"Remove or supersede the capture-helper requirement that forces GPT-5.6 Sol, Extra High, or provider slug gpt-5-6-thinking.",
+"Do not alter evaluator packet bytes.",
+"Do not alter the judgment payload/schema or any matching, adjudication, metric, retry, frozen-schedule, or sealed-condition-map behavior.",
+"Make finalizer series identity explicit and require one homogeneous complete Latest series."
+],
+"repository_control": [
+"Baseline mutation is authorized only after asserting branch task/mast-four-arm-zero-spend-harness-20260901 and local==GitHub HEAD==777b3b37cd619944340e9164cc1c536bfd2671f9.",
+"Run focused tests for preservation, provenance capture, homogeneous-series enforcement, retry identity, finalizer series selection, checkpoint recovery, and sealed-state non-access.",
+"Commit authorized harness changes.",
+"Before any evaluator send, require local HEAD equals the corresponding GitHub branch HEAD and record that execution commit in structural run provenance."
+]
+},
+"latest_series": {
+"series_identity": "J3_LATEST_RESTART",
+"start_ordinal": 1,
+"required_complete_valid_slots": 41,
+"selector_label_required": "Latest",
+"reasoning_setting": {
+"rule": "Use the selected model's highest authorized reasoning setting actually exposed and observed in the consumer UI at send time.",
+"exact_value": null,
+"null_meaning": "NOT_PREDECLARED_DO_NOT_GUESS",
+"capture_observed_ui_label": true
+},
+"provider_model_slug": null,
+"provider_model_slug_status": "UNAVAILABLE_DO_NOT_GUESS",
+"consumer_account": "MUST_REMAIN_CURRENT_SIGNED_IN_ACCOUNT",
+"mode": "Chat",
+"physical_tab_policy": "ONE_REUSABLE_PHYSICAL_TAB",
+"conversation_policy": "FRESH_CONVERSATION_FOR_EVERY_EVALUATOR_ATTEMPT",
+"send_spacing": "ROUGHLY_10_MINUTES_BETWEEN_SENDS",
+"paid_api_use": false,
+"mechanical_attempt_ceiling_per_slot": 4,
+"retry_packet_policy": "BYTE_IDENTICAL_PACKET_RETRY",
+"restart_rule": "No prior Sol judgment counts toward any Latest slot."
+},
+"latest_receipt_provenance": {
+"required_fields": [
+"series_id",
+"series_ordinal",
+"frozen_schedule_slot_id",
+"evaluator_selector_label",
+"evaluator_reasoning_ui_label_observed",
+"provider_model_slug",
+"provider_model_slug_status",
+"consumer_account_continuity_status",
+"chat_mode_status",
+"fresh_conversation_status",
+"physical_tab_reuse_status",
+"packet_sha256",
+"attempt_number",
+"attempt_ceiling",
+"execution_repository_branch",
+"execution_repository_commit",
+"local_head_at_record",
+"github_head_at_record",
+"local_github_head_match",
+"structural_pre_send_verification_status",
+"condition_map_access_status",
+"clinical_content_inspection_status",
+"paid_api_use_status",
+"receipt_created_at",
+"previous_valid_checkpoint_sha256"
+],
+"field_constraints": {
+"evaluator_selector_label": "Latest",
+"evaluator_reasoning_ui_label_observed": "EXACT_UI_TEXT_OBSERVED_AT_SEND_TIME",
+"provider_model_slug": null,
+"provider_model_slug_status": "UNAVAILABLE_NOT_GUESSED",
+"consumer_account_continuity_status": "UNCHANGED",
+"chat_mode_status": "Chat",
+"condition_map_access_status": "SEALED_NOT_INSPECTED",
+"clinical_content_inspection_status": "NOT_INSPECTED",
+"paid_api_use_status": "ZERO",
+"local_github_head_match": true
+}
+},
+"live_pre_send_verification": {
+"required_before_every_attempt": true,
+"checks": [
+"Correct repository branch.",
+"Local HEAD exactly equals GitHub branch HEAD.",
+"Run provenance is bound to the current execution commit.",
+"Target ordinal belongs to the unchanged frozen 41-slot schedule.",
+"Series identity is Latest-only.",
+"Consumer selector visibly reads Latest.",
+"Highest authorized reasoning setting currently exposed in the UI is selected and its exact visible label is captured.",
+"Signed-in consumer account has not changed.",
+"Chat mode is active.",
+"Exactly one reusable physical evaluator tab is being used.",
+"Attempt starts in a fresh conversation.",
+"Packet SHA-256 matches the frozen packet expected for that slot and retry attempts are byte-identical.",
+"No Sol output has been copied, transformed, imported, or reused as the judgment.",
+"Condition map remains sealed.",
+"No clinical response content or result has been inspected.",
+"No paid API path is active."
+],
+"failure_behavior": "DO_NOT_SEND; PRESERVE_STATE; RETURN FACTUAL BLOCKER"
+},
+"restart_acceptance": {
+"must_pass_before_slot_1": [
+"Superseded Sol tree is recoverably preserved and reverified against its deterministic inventory.",
+"Focused harness tests pass.",
+"Latest provenance can be captured without a provider slug.",
+"Finalizer rejects incomplete Latest series.",
+"Finalizer rejects mixed Sol/Latest series.",
+"Finalizer ignores superseded Sol judgments for Latest completion.",
+"Retry path preserves exact packet bytes and the four-attempt mechanical ceiling.",
+"Sealed condition-map protections remain intact.",
+"Primary state is unchanged."
+]
+},
+"checkpoint_policy": {
+"durable_checkpoint_every_valid_judgments": {
+"minimum": 2,
+"maximum": 4
+},
+"checkpoint_contents": "STRUCTURAL_PROVENANCE_ONLY",
+"checkpoint_requirements": [
+"Atomic/durable write.",
+"Record valid Latest count and next ordinal.",
+"Record execution commit and homogeneous series identity.",
+"Record cumulative deterministic progress digest.",
+"Do not aggregate, interpret, unblind, or inspect judgment meaning."
+]
+},
+"finalizer": {
+"authorized_input": "ONLY_ONE_COMPLETE_41_VALID_JUDGMENT_J3_LATEST_RESTART_SERIES",
+"superseded_sol_input_allowed": false,
+"mixed_series_allowed": false,
+"required_acceptance": [
+"Exactly 41 valid Latest judgments exist for the unchanged frozen 41-slot schedule.",
+"Every slot has exactly one accepted Latest judgment.",
+"Every accepted receipt names selector label Latest.",
+"Every accepted receipt records the actually observed highest authorized UI reasoning label.",
+"No receipt invents a provider model slug.",
+"No accepted Latest judgment originates from or reuses a preserved Sol output.",
+"All structural hashes and checkpoint chain validations pass.",
+"Local/GitHub execution provenance validations pass.",
+"Condition map remains sealed until whatever pre-existing authorized finalization boundary already governs it; this directive creates no new access authority.",
+"Primary state remains unchanged."
+],
+"determinism": "REQUIRED",
+"failure_behavior": "FAIL_CLOSED_WITH_STRUCTURAL_REASON_ONLY"
+},
+"automatic_return": {
+"required": true,
+"destination": "Project Manager/supervisor",
+"when": [
+"restart acceptance fails",
+"mechanical ceiling is reached",
+"structural verification fails",
+"checkpoint validation fails",
+"final deterministic acceptance succeeds",
+"final deterministic acceptance fails"
+],
+"content": "FACTUAL_STRUCTURAL_STATUS_ONLY",
+"must_not_include": [
+"clinical content",
+"rubric interpretation",
+"condition mapping",
+"arms or families",
+"judgment meaning",
+"metrics or results",
+"aggregation",
+"unblinded information"
+]
+},
+"absolute_prohibitions": [
+"Do not finalize from mixed Sol and Latest judgments.",
+"Do not count, copy, transform, paraphrase, import, or otherwise reuse any prior Sol evaluator output as a Latest judgment.",
+"Do not inspect, infer, summarize, classify, interpret, or expose clinical response content.",
+"Do not inspect or infer rubric meaning, condition mapping, arms, families, judgments, metrics, or results.",
+"Do not unblind.",
+"Do not aggregate evaluator outputs.",
+"Do not tune packets, prompts, matching, adjudication, metrics, schedule, or retry behavior.",
+"Do not apply any continuation gate.",
+"Do not switch the signed-in consumer account.",
+"Do not use a paid API.",
+"Do not guess a provider model slug.",
+"Do not invent the unavailable current owner message ID.",
+"Do not mutate the primary series.",
+"Do not send ordinal 24 as a continuation of the superseded Sol series.",
+"Do not start the Latest series anywhere except ordinal 1."
+]
+},
+"execution_verdict": "AUTHORIZED: preserve the complete 23-judgment Sol J3 tree as superseded private audit evidence, adapt only execution/provenance plumbing, then restart J3 from ordinal 1 for a new homogeneous 41-slot consumer-selector Latest series. Fail closed on any provenance, preservation, structural-verification, account, packet-identity, or series-homogeneity violation."
+}

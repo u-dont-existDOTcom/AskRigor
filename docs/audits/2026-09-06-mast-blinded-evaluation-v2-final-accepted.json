@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_chatgpt_mast_four_arm_base_v2_final_blinded_evaluation_accepted",
+  "createdAt": "2026-09-06T07:13:13Z",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+  "acceptedExecutionCommit": "915ac2b5696292de4ee6b09226e7b4641a004497",
+  "primaryEvaluation": {
+    "validJudgmentCount": 192,
+    "mechanicalFailureCount": 6,
+    "haltedClaim": null,
+    "captureProgressSha256": "a638f53dca915a88f74a2f2baf7fe084d228f3710dad389492963caf5a2eb045"
+  },
+  "activeJ3Evaluation": {
+    "seriesId": "J3_LATEST_RESTART",
+    "evaluatorSelectorLabel": "Latest",
+    "reasoningUiLabelObserved": "Pro, 5 of 5.",
+    "requiredJudgmentCount": 41,
+    "validJudgmentCount": 41,
+    "mechanicalFailureCount": 1,
+    "haltedClaim": null,
+    "captureProgressSha256": "be523f9fdd08e14e5862be70ee77cd9e2233b90fa51a05f59db187cf24e19603"
+  },
+  "supersededJ3AuditEvidence": {
+    "validJudgmentCount": 23,
+    "captureProgressSha256": "3316c9eea3b164b1c1a66fca3de831e97740a3e2acdf8fc5b8f03b98e60dc537",
+    "includedInFinalization": false
+  },
+  "finalization": {
+    "status": "FOUR_ARM_EIGHT_FAMILY_BASE_BLINDED_EVALUATION_ACCEPTED_UNBLINDING_BLOCKED_PENDING_PROJECT_MANAGER_REVIEW",
+    "responseCount": 96,
+    "j3JudgmentCount": 41,
+    "finalRecordsSha256": "30b05cd55d43e33391fcc2d6ef26cf218d43b9c6085e248949d798ef98b61f61",
+    "blindedEvaluationLedgerSha256": "c85544651f2db14bb89f0d4486b3960a213639dbf74d9ebecaa550fd3e286e08",
+    "acceptanceReceiptSha256": "f04ce263cb5df927530a4155ff2d0cfcc5250b486fc8d7ed622b30b50788729c",
+    "acceptanceMethod": "ISOLATED_PRIVATE_COPY_BYTE_FOR_BYTE_DETERMINISTIC_RECOMPUTATION"
+  },
+  "verification": {
+    "nodeVersion": "24.18.0",
+    "typecheckPassed": true,
+    "testFilesPassed": 143,
+    "testFilesSkipped": 1,
+    "testsPassed": 1700,
+    "testsSkipped": 6,
+    "buildPassed": true
+  },
+  "projectManagerTransport": {
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "physicalTabId": "663931483",
+    "requestUtf8Bytes": 2631,
+    "requestSha256": "60446463cc3df7c19d5cd3df5ae35036bcf0f3f7e9af6b26476eb0d73b064e6d",
+    "userMessageId": "b43c2876-a904-42fe-ad1e-e69359abda42",
+    "responseCaptureForm": "EXACT_VISIBLE_ASSISTANT_BODY_TEXT",
+    "responseUtf8Bytes": 15612,
+    "responseSha256": "41ce0dbb5b155da7b7d3828fdf95144b518dbf7d40cfd75a3e699b9e167edb3e",
+    "assistantMessageId": "aef6c639-35fd-4ba1-a096-f3f16e5ed319",
+    "modelSelectorUiStatus": "LATEST_CHECKED",
+    "reasoningUiLabelObserved": "High",
+    "providerModelSlugDomAttribute": "gpt-5-6-thinking",
+    "providerModelSlugStatus": "OBSERVED_DOM_ATTRIBUTE_UI_REMAINED_LATEST",
+    "toolCallCount": 1,
+    "citationCount": 0,
+    "privateTransportReceiptSha256": "756a35613b6d48c5ee461701e38a83d9ee53b53ab12a535fc5768349ff5cc05c"
+  },
+  "postFreezeBrowserTransportExposure": {
+    "occurred": true,
+    "cause": "CUA_TAB_ATTACHMENT_ACCESSIBILITY_SNAPSHOT_INCLUDED_COMPLETED_BLINDED_EVALUATOR_OUTPUT",
+    "conditionMapDisclosed": false,
+    "armOrFamilyAggregationPerformed": false,
+    "continuationGateApplied": false,
+    "scientificInterpretationPerformed": false
+  },
+  "conditionMapSealed": true,
+  "paidApiUse": false,
+  "externalSpendUsd": 0,
+  "completionClaim": "BLINDED_EVALUATOR_V2_FINAL_ACCEPTED_AND_PROJECT_MANAGER_ROUTING_COMPLETE"
+}

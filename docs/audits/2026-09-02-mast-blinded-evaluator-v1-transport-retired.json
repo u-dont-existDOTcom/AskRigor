@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_chatgpt_mast_blinded_evaluator_v1_transport_retirement",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "completedAt": "2026-09-02T19:25:00Z",
+  "claim": "EVALUATOR_TRANSPORT_V1_RETIRED_WITH_ZERO_VALID_PRIMARY_JUDGMENTS",
+  "directiveId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v1",
+  "failedSlot": {
+    "ordinal": 1,
+    "opaqueResponseId": "EVAL-5c555ef0530ee059e19cc80e",
+    "caseId": "Endo002",
+    "evaluatorReplicate": 2,
+    "exactPacketSha256": "34a7c6e3a04c07cf6dc1863c5d984fe7bc8f25b708ad96d0c729965dafd36c6e",
+    "attempt1OutputSha256": "8e51244e726df83b63e267fd3813a9527ef1c30d0bd36e7c2f3772a1548d2d3c",
+    "attempt2OutputSha256": "9b38f5c239ff5dd1b6796d6ef11b15653809f98c129cf0eaa7f3999a13588446",
+    "attempt1FailureReceiptSha256": "3ccfde00b4abb8c929aad9810c1ae6e372cb5bd1d29bef7fe3d09228ab64ed0b",
+    "attempt2FailureReceiptSha256": "2fb8f35e0d57416f357b1ff26d1be80e04aef828d6c1bfd87b9bbb96f320aaf3",
+    "failureClass": "INVALID_JSON",
+    "automaticToolInvocationObserved": false
+  },
+  "v1CaptureProgress": {
+    "validJudgmentCount": 0,
+    "mechanicalFailureCount": 2,
+    "sha256": "35699d353f6a2e9986babc0ebfe15664fe01d865bf9f7c5c2adcc8a9659c620a",
+    "haltedClaim": "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_BLOCKED_UNRESOLVED_EVALUATOR_SLOT"
+  },
+  "projectManagerRecovery": {
+    "sourceMessageId": "8c6aaaed-1d15-4399-b6ef-48eaaaa2b149",
+    "sourceBodySha256": "f79ff0489943d272f4dc3c5ac3027a71349a947f48f56b9e5d2ac4d615a760f9",
+    "replacementDirectiveId": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2"
+  },
+  "supervisionDesignFeedback": {
+    "chatLocator": "https://chatgpt.com/c/6a97740b-71dc-83ea-875e-b0f01e98d20d",
+    "requestMessageId": "fd4fb880-12d8-4bf4-a75d-bf45b6ebcc4f",
+    "responseMessageId": "3d7a724d-166f-4a95-a359-c4c05ec92e03",
+    "responseBodySha256": "bae2bab983a1b3e18b858a219e77bf99a89311f4586d353a8ec46e394b546c56",
+    "classification": "STRUCTURED_OUTPUT_SYNTAX_FAILURE_BOUNDARY_ACCEPTED_FOR_UNIVERSAL_DESIGN_REVIEW"
+  },
+  "preservation": {
+    "rawOutputsRetainedPrivately": true,
+    "failureReceiptsRetainedPrivately": true,
+    "semanticRepairPerformed": false,
+    "thirdAttemptPerformed": false,
+    "clinicalContentInspected": false,
+    "conditionMapDisclosed": false,
+    "armOrFamilyAggregationComputed": false,
+    "externalSpendUsd": 0
+  }
+}

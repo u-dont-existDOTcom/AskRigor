@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-empty-composer-visual-evidence-v1",
+  "directiveType": "SOURCE_BOUND_PRIVATE_RENDERED_UI_OBSERVATION",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "BOUNDED_STRUCTURAL_DIAGNOSTIC_ACCEPTED_VISUAL_OBSERVATION_AUTHORIZED_PROBES_STOPPED",
+  "nextActionOwner": "CODEX_WORK_FOR_CAPTURE_ONLY_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "decision": {
+    "action": "Obtain one bounded pair of private images of the empty conversation's central UI, before and after opening the existing attachment control. Do not extend the role-selector search again.",
+    "reason": "The reported control state changes are established within the supplied observations, but no popup identity or actionable upload entry was observed. A rendered-image observation can address that gap without presuming another DOM role or implementing another menu classifier.",
+    "thirdP01SetupAttemptAuthorized": false,
+    "probeResumeAuthorized": false,
+    "fixtureUploadAuthorized": false,
+    "priorAttemptAllowancesReset": false,
+    "successfulImageCaptureAuthorizesFurtherInteraction": false
+  },
+  "implementationDecision": {
+    "choice": "REUSE_SUPPORTED_SCREENSHOT_CAPTURE_AND_EXISTING_PRIVATE_RECEIPT_ROUTING",
+    "existingWorkBasis": {
+      "supportedPoint": "Playwright documents element screenshots and screenshot clipping. These are existing observation mechanisms rather than a reason to invent another semantic-menu detector.",
+      "citation": "\ue200cite\ue202turn994332search0\ue202turn994332search2\ue201",
+      "localCapabilityLimit": "Public documentation does not establish the installed restricted client's available methods. Its actual contract controls."
+    },
+    "newMenuClassifierAuthorized": false,
+    "newBrowserBackendAuthorized": false,
+    "newDependencyInstallationAuthorized": false,
+    "uploadHelperRepairAuthorized": false,
+    "selectorOrTimeoutExperimentAuthorized": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reusePreviousAdmission": false,
+    "requestedAction": "CAPTURE_TWO_PRIVACY_BOUNDED_EMPTY_COMPOSER_UI_IMAGES_AROUND_ONE_ATTACHMENT_CONTROL_TRANSITION_WITHOUT_FILE_SELECTION_OR_MODEL_SUBMISSION",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256 and bind admission to those values and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "existingScopedAuthenticationPermitted": true,
+    "credentialOrPermissionChangesAuthorized": false,
+    "failureAction": "Stop controlled work if admission is unavailable, malformed, denied, expired, or mismatched."
+  },
+  "immutableBindings": {
+    "fixtureManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+    "precedingBrowserReceiptSha256": "4845a590b87c8b0352572cd4bcdc4595907b03a13ba813956f35aef7adecc0aa",
+    "installedClientPackageVersion": "26.901.41600",
+    "installedApiContractSha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f",
+    "priorProjectionAndRecorderMayBeOverwritten": false,
+    "fixturesPromptsAndHistoricalReceiptsMayBeChanged": false
+  },
+  "captureCapabilityGate": {
+    "runBeforeOpeningTheControl": true,
+    "requiredEvidence": "Identify the installed contract's exact screenshot method, supported arguments, byte-return behavior, and coordinate system. Preserve only the relevant documentation excerpt and its source hash.",
+    "methodSelectionOrder": [
+      {
+        "priority": 1,
+        "method": "A documented direct clipped screenshot of the fixed central region."
+      },
+      {
+        "priority": 2,
+        "method": "A documented viewport-only screenshot returning bytes privately, followed immediately by deterministic in-memory cropping with existing local tooling."
+      }
+    ],
+    "viewportFallbackConditions": [
+      "The screenshot operation returns bytes without automatically displaying an uncropped image to the worker or posting it to another surface.",
+      "Only the cropped central-region image is retained or returned.",
+      "The uncropped viewport bytes are not written to disk, logged, interpreted, or included in an artifact.",
+      "Cropping is available through existing local tooling without installing a dependency.",
+      "The operation does not capture browser chrome, the desktop, another window, or the full scrollable page."
+    ],
+    "ifNeitherMethodIsSupported": "Return SUPPORTED_PRIVATE_REGION_CAPTURE_UNAVAILABLE before any opening click. Include the relevant installed-contract excerpt; do not guess a method or bypass restrictions.",
+    "directCdpOrUndocumentedEndpointAuthorized": false,
+    "inRuntimeDynamicCompilationAuthorized": false,
+    "permissionDenialMayBeBypassed": false
+  },
+  "privacyScope": {
+    "limitedSupersession": "The preceding diagnostic's zero-visual-capture restriction is superseded only for these two central-region images. The private byte-returning viewport fallback is authorized only under captureCapabilityGate.",
+    "allowedImageContent": "The empty conversation's central application region and the rendered interface overlapping that region after the single task-owned opening action.",
+    "incidentalVisibleUiMetadata": "Incidental names or titles rendered inside this bounded region may be preserved in the private image for Project Manager review only. Do not transcribe, classify, search, or act on them.",
+    "excludedFromRetainedImages": [
+      "Conversation-history sidebar.",
+      "Account and settings panels.",
+      "Browser chrome.",
+      "Unrelated windows.",
+      "Existing conversation bodies or document contents."
+    ],
+    "workerMayInterpretImages": false,
+    "ocrAuthorized": false,
+    "documentOrCitationOpeningAuthorized": false,
+    "publicImagePublicationAuthorized": false,
+    "unexpectedSubstantiveContent": "Stop further capture if known substantive content enters the target region. Preserve an operational incident record without copying that content into the return."
+  },
+  "fixedCaptureRegion": {
+    "derivation": "Using structural geometry only, identify the unique main landmark containing the verified empty composer. Intersect that landmark's rectangle with the current viewport and exclude any overlapping history-sidebar or account-panel region before capture.",
+    "freezeTiming": "Freeze the rectangle and coordinate conversion before the opening action. Use exactly the same rectangle for both images.",
+    "requirements": [
+      "The intended task tab, authorized account and profile are established.",
+      "Current message count, attachment count, and composer-content length are all observed as zero.",
+      "The main landmark and composer control are unambiguous.",
+      "The complete attachment-navigation control lies inside the fixed region.",
+      "The region excludes browser chrome, sidebar history, and account panels.",
+      "The screenshot coordinate mapping is documented and reproducible without guessing."
+    ],
+    "regionDoesNotRequirePopupRoleOrAssociation": true,
+    "ifRegionCannotBeEstablished": "Return PRIVATE_CAPTURE_REGION_UNRESOLVED without a screenshot or opening click.",
+    "ifPopupExtendsOutsideRegion": "Preserve the partial view and its limitation. Do not enlarge the region or take an additional image.",
+    "viewportResizeScrollOrZoomChangesAuthorized": false,
+    "domMaskingOrInjectedStylesAuthorized": false
+  },
+  "liveSequence": [
+    {
+      "step": 1,
+      "action": "After fresh admission, verify the bound private receipt, fixture manifest, installed contract, and safe empty task tab. Do not revisit historical conversations."
+    },
+    {
+      "step": 2,
+      "action": "Establish the capture capability and fixed region. Observe the current attachment control as collapsed, unique, visible, and enabled. Do not interact with model controls."
+    },
+    {
+      "step": 3,
+      "action": "Capture BASELINE_IMAGE once and preserve its cropped bytes, dimensions, region, timestamp, and hash."
+    },
+    {
+      "step": 4,
+      "action": "Open the same currently verified Add files and more control once through the existing supported browser client."
+    },
+    {
+      "step": 5,
+      "action": "Record the control's expanded state and capture OPEN_IMAGE once in the identical region. Do not require a role-menu element, look up a presumed upload label, or activate a popup entry."
+    },
+    {
+      "step": 6,
+      "action": "Close only this diagnostic's positively identified in-page UI with one supported Escape action targeted to the same control, then record whether its collapsed state is verified."
+    },
+    {
+      "step": 7,
+      "action": "Return the two private cropped images and their operational metadata through the fixed return method below. Stop without selecting a file or resuming a probe."
+    }
+  ],
+  "attemptCeiling": {
+    "newDedicatedEmptyTabs": 1,
+    "newOpeningCalls": 1,
+    "screenshotCalls": 2,
+    "retainedCroppedImages": 2,
+    "boundedStructuralStateSamples": 3,
+    "taskOwnedCleanupCalls": 1,
+    "modelControlInteractions": 0,
+    "chooserWaitsOrTriggers": 0,
+    "fileAssignments": 0,
+    "browserFileUploads": 0,
+    "probePromptFills": 0,
+    "probeSubmissions": 0,
+    "retriesAfterFailedInteractionOrCapture": 0,
+    "previousProbeSetupAllowancesRestored": false
+  },
+  "failureHandling": {
+    "baselineCaptureFails": "Stop before opening the control.",
+    "openingCallFailsOrIsAmbiguous": "Do not repeat it. Preserve the error and use only the reserved targeted cleanup and state check when safe.",
+    "openCaptureFails": "Preserve the baseline and error, perform only safe reserved cleanup, and return partial evidence.",
+    "noPopupVisibleInImage": "Return the image without interpreting absence or changing the capture region.",
+    "unexpectedNativeChooser": "Do not select a file. Stop and record the event; do not use native-picker automation.",
+    "cleanupNotVerified": "Report the unresolved state without claiming the tab is ready for further work.",
+    "successfulCapture": "Images are evidence for the Project Manager, not authorization for selector repair, upload, or probe execution."
+  },
+  "returnTransport": {
+    "method": "Existing authorized internal operational-JSON routing.",
+    "imageSerialization": "Include the exact retained cropped-image bytes as standard base64 strings inside the operational JSON object, together with byte count, MIME type, pixel dimensions, and SHA-256 for each image.",
+    "limitedTransportAuthorization": "This permits only the two newly captured UI images in the existing JSON route. It does not authorize encoded transfer of any preserved archive, document, fixture, or historical response.",
+    "maximumCombinedDecodedImageBytes": 524288,
+    "maximumReturnUtf8Bytes": 750000,
+    "reencodeResizeOrRecompressToMeetLimit": false,
+    "ifReturnWouldExceedLimit": "Preserve the cropped files privately and return their metadata with UI_EVIDENCE_RETURN_SIZE_LIMIT. Do not split the return, upload files, or introduce another transport.",
+    "maximumNewReturnSubmissionCalls": 1,
+    "submissionAmbiguity": "Check persisted destination metadata without resending. Preserve an unresolved return rather than repeating Send.",
+    "queueIsDeliveryEvidence": false
+  },
+  "completionEvidence": {
+    "required": [
+      "This directive's actual source identity and fresh runtime-admission receipt.",
+      "Actual repository HEAD and installed-client contract identity.",
+      "Verification results for the preceding private receipt and frozen fixture manifest.",
+      "The exact documented screenshot method and arguments used.",
+      "Frozen region, viewport geometry, coordinate conversion, and capture method.",
+      "Image byte counts, hashes, MIME types, dimensions, timestamps, and base64 payloads when within the fixed return limit.",
+      "Control states before opening, after opening, and after cleanup.",
+      "Exact operation counts and any errors or unavailable fields.",
+      "Confirmation that uncropped viewport bytes were not retained or displayed if the fallback was used.",
+      "Confirmation of zero file assignment, browser upload, model request, source-content inspection, account change, and paid operation.",
+      "Confirmed destination message identity or an explicit delivery blocker."
+    ],
+    "returnFormat": "One syntactically valid JSON object generated by the existing serializer. No Markdown escaping, raw page text, worker-authored visual interpretation, or substantive findings.",
+    "interpretationOwner": "PROJECT_MANAGER_REASONING_SURFACE"
+  },
+  "repositoryBoundary": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "recordActualHead": true,
+    "resetOrCheckoutChangeAuthorized": false,
+    "permittedChanges": "Only minimal capture-record serialization, deterministic crop or encoding tests if needed, this directive, and a redacted operational checkpoint.",
+    "reuseExistingToolsRequired": true,
+    "largeNewDiagnosticFrameworkAuthorized": false,
+    "executionRuntime": "Node v24.18.0",
+    "verification": "Run applicable checks for changed code. Do not rerun unchanged verification merely to repeat an earlier result, and do not equate tests with live capture success.",
+    "githubPersistence": "Preserve reusable non-sensitive implementation and tests under existing conventions. Keep image bytes, detailed receipts, browser identifiers, and private paths outside public Git.",
+    "privateDirectoryMode": "0700",
+    "privateFileMode": "0600",
+    "productionDeploymentAuthorized": false
+  },
+  "exactDestination": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "conversationUrl": "[https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66](https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66)",
+    "ownerRelayRequested": false
+  },
+  "prohibitedActions": [
+    "Repeat or broaden the role-container census.",
+    "Treat this image observation as a third P01 setup attempt.",
+    "Open an upload entry, register a chooser waiter, assign a file, or submit a probe.",
+    "Interact with model controls or require model-label verification for this no-inference observation.",
+    "Use forced clicks, injected events, application-state inspection, direct CDP, or undocumented endpoints.",
+    "Change permissions, accounts, profiles, global settings, browser backend, or installed dependencies.",
+    "Inspect or interpret image contents as the worker, run OCR, or follow visible document references.",
+    "Capture the desktop, browser chrome, or the full scrollable page.",
+    "Retain or disclose an uncropped viewport image.",
+    "Alter original fixtures, historical evidence, or recorded attempt counts.",
+    "Upload or repackage the previously delivered archive.",
+    "Publish private images or ask the owner to relay operational material."
+  ],
+  "stopConditions": [
+    "Admission, source identity, installed contract, or private-region verification fails.",
+    "No supported privacy-preserving capture method exists.",
+    "A required operation fails, is denied, or remains ambiguous.",
+    "Execution would require broader access or an unsupported method.",
+    "A capture or submission ceiling is reached.",
+    "The bounded visual evidence or exact blocker has been returned."
+  ],
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "completionClaims": {
+    "capturedAndDelivered": "PRIVATE_EMPTY_COMPOSER_VISUAL_EVIDENCE_DELIVERED_PROBES_STOPPED_PROJECT_MANAGER_REVIEW_REQUIRED",
+    "partial": "PRIVATE_EMPTY_COMPOSER_VISUAL_EVIDENCE_PARTIAL_PROBES_STOPPED",
+    "unsupported": "SUPPORTED_PRIVATE_REGION_CAPTURE_UNAVAILABLE_NO_FURTHER_UI_ATTEMPT_AUTHORIZED",
+    "regionBlocked": "PRIVATE_CAPTURE_REGION_UNRESOLVED_NO_OPENING_AUTHORIZED",
+    "returnBlocked": "PRIVATE_UI_EVIDENCE_PRESERVED_RETURN_BLOCKED",
+    "admissionBlocked": "PRIVATE_UI_OBSERVATION_BLOCKED_RUNTIME_ADMISSION"
+  },
+  "sourceReceipt": {
+    "messageId": "7ff47789-3352-4054-8567-9d6a67a14d44",
+    "exactBodyBytes": 17074,
+    "exactBodySha256": "6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c"
+  }
+}

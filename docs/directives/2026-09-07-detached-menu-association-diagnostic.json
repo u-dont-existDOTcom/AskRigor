@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-detached-menu-association-diagnostic-v1",
+  "directiveType": "SOURCE_BOUND_BOUNDED_MENU_ASSOCIATION_OBSERVATION",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "CONTROL_TRANSITION_ACCEPTED_DETACHED_MENU_OBSERVATION_AUTHORIZED_PROBES_STOPPED",
+  "nextActionOwner": "CODEX_WORK_FOR_BOUNDED_METADATA_COLLECTION_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "decision": {
+    "action": "Extend the existing read-only diagnostic to observe menu containers outside the composer subtree, using a bounded closed-open-closed transition.",
+    "reason": "The supplied receipt establishes a change in the navigation control's expanded state, but the existing projection could not identify its associated menu. The next operation must address that observation gap rather than repeat the same restricted association search.",
+    "thirdP01SetupAttemptAuthorized": false,
+    "probeResumeAuthorized": false,
+    "uploadAuthorized": false,
+    "priorAttemptAllowancesReset": false
+  },
+  "existingWorkDecision": {
+    "choice": "ADAPT_EXISTING_PROJECTION_TO_STANDARD_MENU_SEMANTICS",
+    "standardsBasis": "The W3C menu-button pattern makes aria-controls optional; its absence cannot by itself establish that the popup is missing. ([w3.org]([https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/?utm_source=chatgpt.com](https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/?utm_source=chatgpt.com)))",
+    "implementationPrecedent": "Mature menu implementations can render popup content into document.body through a portal, outside the triggering control's subtree. This is a relevant implementation possibility, not a finding about this page. ([radix-ui.com]([https://www.radix-ui.com/primitives/docs/components/dropdown-menu?utm_source=chatgpt.com](https://www.radix-ui.com/primitives/docs/components/dropdown-menu?utm_source=chatgpt.com)))",
+    "scopeOfAdaptation": "Add bounded role-based container observations and transition evidence. Preserve the existing empty-context guards, privacy filters, and distinction between unavailable and empty.",
+    "newBrowserBackendOrUploadArchitectureAuthorized": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reusePreviousAdmission": false,
+    "requestedAction": "OBSERVE_ONE_EMPTY_COMPOSER_CLOSED_OPEN_CLOSED_MENU_TRANSITION_WITH_BOUNDED_ROLE_BASED_CONTAINER_METADATA_AND_NO_UPLOAD_OR_MODEL_REQUEST",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256 and bind the admission request to those values and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "credentialOrPermissionChangesAuthorized": false,
+    "failureAction": "Stop controlled execution if admission is unavailable, malformed, denied, expired, or mismatched."
+  },
+  "repositoryBoundary": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "recordActualHead": true,
+    "resetOrOverwriteExistingWorkAuthorized": false,
+    "permittedChanges": [
+      "A bounded extension of the existing menu projection.",
+      "The corresponding transition recorder and focused synthetic tests.",
+      "This directive, reusable implementation, and a redacted operational checkpoint."
+    ],
+    "preservePriorModuleAndReceiptIdentities": true,
+    "commitPrivateObservationsOrBrowserIdentifiers": false,
+    "executionRuntime": "Node v24.18.0",
+    "verification": "Run the focused tests and applicable repository verification for changed code under the pinned runtime. Do not describe deterministic success as live acceptance.",
+    "productionDeploymentAuthorized": false
+  },
+  "clientBoundary": {
+    "requiredInstalledPackageVersion": "26.901.41600",
+    "requiredApiContractSha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f",
+    "invocation": "Reuse the documented read-only string-expression evaluation with an offline-prepared self-contained projection.",
+    "recordCompiledProjectionSha256": true,
+    "inRuntimeDynamicCompilationAuthorized": false,
+    "applicationStateOrEventHandlerInspectionAuthorized": false,
+    "directCdpOrUndocumentedEndpointAuthorized": false,
+    "timeoutChangesAuthorized": false,
+    "contractMismatchAction": "Return the exact mismatch before live interaction."
+  },
+  "liveScope": {
+    "surface": "EMPTY_ORDINARY_CHAT_OUTSIDE_PROJECT_OR_CUSTOM_GPT",
+    "profileAndAccount": "SAME_AUTHORIZED_BRAVE_PROFILE_AND_SIGNED_IN_ACCOUNT",
+    "modelOrReasoningControlInteractionAuthorized": false,
+    "modelLabelsRequiredForThisDiagnostic": false,
+    "globalSettingsChangesAuthorized": false,
+    "tabRule": "Use an empty task-owned tab with a verified closed menu. If that state cannot be established without disturbing the Project Manager conversation, an unrelated draft, or an unverified stale menu, open at most one dedicated empty diagnostic tab in the same profile.",
+    "staleStateRule": "Do not assume the preceding Escape operation closed the menu. Do not manipulate an unidentified dialog or unrelated tab.",
+    "preconditions": [
+      "Fresh runtime admission is valid.",
+      "The installed contract and reviewed source identities are verified.",
+      "Current observations establish the authorized origin and zero messages, attachments, and composer-content length.",
+      "No pending chooser operation or blocking native dialog is observed.",
+      "The composer navigation control is unique, visible, enabled, and has aria-haspopup=menu.",
+      "The new baseline observes aria-expanded=false."
+    ]
+  },
+  "boundedContainerProjection": {
+    "rootSelector": "[role~=\"menu\"]",
+    "maximumContainerCount": 8,
+    "scopeExtension": "Read structural attributes of matching menu-container elements in the current document, including containers outside the composer. This authorizes no document-wide text collection.",
+    "containerFields": [
+      "localObservationId",
+      "literalElementIdWhenPresent",
+      "role",
+      "visible",
+      "boundingRectangle",
+      "ariaHidden",
+      "ariaLabelledbyIdentifierTokens",
+      "isDescendantOfComposerForm",
+      "isDescendantOfNavigationControl",
+      "containsCurrentFocusWhenObservable",
+      "explicitlyReferencedByNavigationControl"
+    ],
+    "identifierLimits": "Bound each identifier attribute to 512 characters and each identifier-token collection to eight entries. Exceeding a bound returns an explicit limit error.",
+    "labelsOrContentsOfUnassociatedContainers": "DO_NOT_READ_OR_RETURN",
+    "excludedAncestry": [
+      "script",
+      "style",
+      "template",
+      "noscript"
+    ],
+    "visibility": "Use the existing supported visibility observation. Unknown visibility remains null; do not infer it from presence or geometry alone.",
+    "missingElementId": "Record null. A local observation identifier is not a provider identifier and must not be used to claim persistent node identity.",
+    "overLimitOrUnsupportedProjection": "Stop this diagnostic without widening selectors or inspecting other roles."
+  },
+  "transitionProcedure": [
+    {
+      "sample": "CLOSED_BASELINE",
+      "action": "Record the empty-context checks, exact navigation-control state, and bounded menu-container structural inventory. Do not read menu-item labels."
+    },
+    {
+      "operation": "OPEN_ONCE",
+      "action": "Use the same currently verified form button with aria-label Add files and more for one supported menu-navigation click. Do not activate an upload item."
+    },
+    {
+      "sample": "OPEN_OBSERVATION_1",
+      "action": "Record the navigation-control state and the same bounded structural inventory. Apply only the fixed candidate rules below."
+    },
+    {
+      "sample": "OPEN_OBSERVATION_2",
+      "action": "Record a second bounded state observation without another opening click. Read allowlisted interactive-control metadata only if the fixed candidate rules permit it."
+    },
+    {
+      "operation": "CLOSE_OWN_MENU_ONCE",
+      "action": "When the exact task control changed from false to true after this slice's opening operation, use one supported Escape action targeted to that control, as in the preceding diagnostic. Do not send a global keystroke."
+    },
+    {
+      "sample": "CLOSURE_VERIFICATION",
+      "action": "Record control state and container visibility after cleanup. Explicitly report whether closure was verified; a successful command return alone is insufficient."
+    }
+  ],
+  "candidateRules": {
+    "explicitAssociation": "Prefer a unique visible menu identified by a current explicit control-to-menu reference or menu-to-control identifier relation.",
+    "transitionCandidate": "If no explicit association exists, permit limited item metadata only when the baseline positively observed zero visible menu containers, both open observations show exactly one visible menu container, the task control is expanded, and no competing visibility is unknown.",
+    "transitionCandidateLabel": "UNIQUE_OBSERVED_TRANSITION_CANDIDATE_NOT_EXPLICIT_ARIA_ASSOCIATION",
+    "conflictingExplicitAndTransitionEvidence": "Do not select either candidate; return the conflict.",
+    "multipleOrUncertainCandidates": "Return structural metadata only. Do not choose by filename, anticipated label, DOM order, proximity, or apparent content.",
+    "closureEvidence": "Record whether the visible menu count returns to zero when the task control returns to collapsed. This strengthens the observed transition but does not identify a UI framework or prove a historical failure cause.",
+    "arrayOrderEstablishesNodeIdentity": false,
+    "mutatingDomToAddTrackingIdentifiersAuthorized": false
+  },
+  "interactiveControlMetadata": {
+    "maximumItems": 32,
+    "scope": "Direct interactive entries of the unique permitted menu candidate. Exclude nested menus and their contents.",
+    "allowedFields": [
+      "literalElementIdWhenPresent",
+      "tag",
+      "role",
+      "visible",
+      "disabled",
+      "tabIndex",
+      "ariaHasPopup",
+      "ariaExpanded",
+      "allowlistedLabel",
+      "labelAvailabilityReason"
+    ],
+    "labelAllowlist": [
+      "Add photos & files",
+      "Add files",
+      "Upload from computer",
+      "Take photo",
+      "Connect apps"
+    ],
+    "labelRule": "Reuse the existing local-label normalization and exact allowlist comparison. Return any unmatched label as null with UNCLASSIFIED_LABEL_WITHHELD. Do not output filenames, snippets, previews, arbitrary titles, or raw menu text.",
+    "externalLabelReferenceRule": "Record an unresolved reference without following it into unrelated document nodes.",
+    "activationAuthorized": false,
+    "findingAnUploadLabelAuthorizesUpload": false
+  },
+  "preLiveAcceptance": {
+    "requiredTests": [
+      "Explicitly associated menu remains supported.",
+      "A detached menu without aria-controls is structurally observable.",
+      "A unique zero-to-one visible-menu transition permits only the bounded candidate metadata.",
+      "Multiple candidates, unknown visibility, and conflicting references do not select a menu.",
+      "Missing element IDs do not become fabricated persistent identities.",
+      "Unclassified labels and synthetic private titles are withheld.",
+      "Excluded elements and their descendants are not read for labels.",
+      "Closure verification is recorded separately from cleanup-command return.",
+      "No diagnostic path invokes a chooser, assigns a file, fills a prompt, or submits a request."
+    ],
+    "freezeBeforeLiveAction": "Freeze the exact projection source, tests, and operation sequence before the opening call."
+  },
+  "attemptCeiling": {
+    "newDedicatedTabs": 1,
+    "newMenuOpeningCalls": 1,
+    "boundedStateSamples": 4,
+    "taskOwnedMenuCleanupCalls": 1,
+    "repeatedOpeningAfterFailure": 0,
+    "modelControlInteractions": 0,
+    "chooserWaitsOrTriggers": 0,
+    "fileAssignmentsOrUploads": 0,
+    "promptFills": 0,
+    "probeRequests": 0,
+    "visualCaptures": 0,
+    "priorProbeSetupAllowanceRestored": false,
+    "successfulObservationCreatesFurtherExecutionAllowance": false
+  },
+  "failureHandling": {
+    "beforeOpening": "Return the exact unsupported, nonempty, ambiguous, or identity state without interacting.",
+    "afterOpening": "Do not repeat the opening click. Preserve available observations and use only the reserved targeted cleanup and closure sample when safe and responsive.",
+    "unexpectedNativePicker": "Do not assign a file. Stop and preserve the event; no native-picker automation is authorized.",
+    "contentExposure": "Stop the offending projection and record an incident without copying exposed content.",
+    "noRoleMenuObserved": "Report no observable role-menu container under this bounded selector. Do not infer that no popup exists or broaden into unrelated document content.",
+    "cleanupUnverified": "Report the unresolved state and do not claim that the tab is ready for another operation."
+  },
+  "completionEvidence": {
+    "required": [
+      "This directive's actual source message ID and exact-body SHA-256.",
+      "Fresh runtime-admission request and response identities.",
+      "Actual repository HEAD and installed-client contract identity.",
+      "Verification of the preceding private browser-evidence identity and unchanged frozen fixture manifest.",
+      "Exact diagnostic source hash and deterministic test receipt.",
+      "The available four state observations and literal operation order.",
+      "Separate explicit-association, transition-candidate, ambiguity, and closure-verification fields.",
+      "Allowlisted control metadata or explicit reasons it could not be collected.",
+      "Actual operation counts, timeouts, unavailable fields, and private receipt hash.",
+      "Confirmation of unchanged source artifacts, account settings, and zero uploads or model submissions."
+    ],
+    "returnFormat": "One syntactically valid operational JSON object from the existing serializer. No raw page text, private content, marker values, scientific findings, or worker-authored root-cause conclusion.",
+    "interpretationOwner": "PROJECT_MANAGER_REASONING_SURFACE"
+  },
+  "exactDestination": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "conversationUrl": "[https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66](https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66)",
+    "transport": "EXISTING_AUTHORIZED_INTERNAL_OPERATIONAL_JSON_ROUTING",
+    "maximumNewReturnSubmissionCalls": 1,
+    "submissionAmbiguity": "Check existing destination metadata without another send. Preserve an unresolved return instead of repeatedly submitting.",
+    "ownerRelayRequested": false
+  },
+  "prohibitedActions": [
+    "Resume a probe or count this diagnostic as another P01 setup attempt.",
+    "Open a chooser, activate an upload entry, assign a file, or stage a frozen prompt.",
+    "Require or interact with model controls for this no-inference diagnostic.",
+    "Inspect page scripts, application state, event handlers, network payloads, unrelated menus, or private source content.",
+    "Introduce forced clicks, injected events, direct CDP, undocumented endpoints, or a different browser backend.",
+    "Alter account settings, permissions, browser profile, fixtures, preserved evidence, or historical attempt counts.",
+    "Claim that a missing ARIA association proves missing UI, or that a portal implementation has been established.",
+    "Publish private diagnostic evidence or ask the owner to relay it."
+  ],
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "stopBoundary": "BOUNDED_MENU_ASSOCIATION_RECEIPT_RETURNED_WITH_PROBES_AND_UPLOADS_STILL_STOPPED",
+  "completionClaims": {
+    "observed": "BOUNDED_MENU_ASSOCIATION_OBSERVATIONS_CAPTURED_PROJECT_MANAGER_DISPOSITION_REQUIRED",
+    "partial": "BOUNDED_MENU_ASSOCIATION_PARTIAL_WITH_EXPLICIT_LIMITS_NO_UPLOAD_AUTHORIZED",
+    "blocked": "BOUNDED_MENU_ASSOCIATION_DIAGNOSTIC_BLOCKED_NO_ADDITIONAL_ATTEMPT_AUTHORIZED",
+    "admissionBlocked": "BOUNDED_MENU_ASSOCIATION_DIAGNOSTIC_BLOCKED_RUNTIME_ADMISSION"
+  },
+  "transportReissue": {
+    "scope": "SYNTAX_ONLY_REISSUE_OF_THE_SAME_OPERATIONAL_DIRECTIVE",
+    "supersededMalformedSource": {
+      "messageId": "be2497b2-5281-4d4d-9353-69766aeb24c8",
+      "reportedExactBodyBytes": 16816,
+      "reportedExactBodySha256": "357dd165b50b6f923e3b94d386596d03b95cf3f843d44c77a1a0412457f8bfad",
+      "reportedParserError": "Expecting ',' delimiter: line 118 column 26 (char 6804)"
+    },
+    "preserveMalformedSourceUnchangedAsSupersededEvidence": true,
+    "replacementSource": "THIS_RESPONSE_ACTUAL_MESSAGE_ID_AND_EXACT_BODY_SHA256",
+    "workerMayRepairMalformedSource": false,
+    "freshRuntimeAdmissionRequiredForThisResponse": true,
+    "authorizedSemanticsChanged": false,
+    "privacyScopeChanged": false,
+    "attemptCeilingsChanged": false
+  },
+  "sourceReceipt": {
+    "messageId": "3935f7f5-ec47-408a-9b4c-30176efbfa42",
+    "exactBodyBytes": 17703,
+    "exactBodySha256": "42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836"
+  }
+}

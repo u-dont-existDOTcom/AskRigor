@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "directiveType": "source_bound_runtime_admission_reconciliation",
+  "directiveId": "askrigor-zero-spend-mast-runtime-admission-recovery-v1",
+  "source": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "chatLocator": "https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "requestMessageId": "ce835b49-aee5-472f-9e30-552aebd24a9b",
+    "assistantMessageId": "e4554b8c-2a75-4838-ac9e-c3dcf302843b",
+    "capturedAt": "2026-09-02T00:33:38.014Z",
+    "exactPrivateOutputSha256": "4e3b66861b971864914ef5b8e81b7868a37e0ea1ff1a7fab23d2dd1222952747",
+    "exactPrivateOutputUtf8Bytes": 10039,
+    "modelSlugObserved": "gpt-5-6-thinking",
+    "provenanceStatus": "VERIFIED",
+    "exactOutputStoredPrivately": true
+  },
+  "authority": {
+    "universalRepositoryCommit": "764be99e4c7e9a324ea497d495d274b644b4694a",
+    "universalPattern": "patterns/runtime-chat-work-authority-admission-and-internal-routing.md",
+    "temporarySemanticFallbackAuthorized": false,
+    "temporaryAdmissionBypassAuthorized": false,
+    "retroactiveSyntheticAdmissionAuthorized": false
+  },
+  "mastFreeze": {
+    "primaryResponsesCaptured": 14,
+    "targetPrimaryResponses": 96,
+    "nextUndispatchedSequence": 15,
+    "dispatchSequence15AuthorizedNow": false,
+    "preserveSequences1Through14": true,
+    "rerunSequences1Through14": false,
+    "requiredAuditAnnotation": "PRE_ADMISSION_CONTROL_PLANE_DEVIATION",
+    "rubricInspectionAuthorized": false,
+    "guidanceInspectionAuthorized": false,
+    "evaluationAuthorized": false,
+    "scientificInterpretationAuthorized": false,
+    "promptOrMethodologyChangeAuthorized": false
+  },
+  "authorizedRecoverySlice": {
+    "sliceId": "MISSION_CONTROL_ADMISSION_RUNTIME_RECOVERY_ONLY_V1",
+    "purpose": "Restore the canonical authenticated admission control required by the governing architecture.",
+    "maximumExternalSpendUsd": 0,
+    "providerApiCredentialsPermitted": false,
+    "ownerRelayRequested": false,
+    "allowedWork": [
+      "continue repository-only acceptance-contract repair without inspecting MAST content or evaluator material",
+      "test the admission endpoint, authenticated producer binding, fail-closed client, and exact source-receipt binding",
+      "reconcile the live Mission Control checkout with the canonical implementation",
+      "deploy only the narrow verified control-plane recovery revision",
+      "verify deployed runtime identity against that exact revision"
+    ],
+    "forbiddenWork": [
+      "dispatch MAST sequence 15 or later before live admission succeeds",
+      "use a mock, fabricated response, hard-coded allow, bypass, or direct database edit as admission evidence",
+      "treat repository tests as live admission evidence",
+      "alter frozen MAST inputs, order, families, gates, prompts, or methodology",
+      "ask the owner to relay or confirm an internal packet"
+    ]
+  },
+  "requiredAdmissionBinding": {
+    "worker": "askrigor-mast",
+    "directiveSourceMessageId": "73fe6ae7-3faa-45b3-b7d2-2394ef852183",
+    "directiveSourceBodySha256": "bf864a37c3da6b9e187a21865cf44546e45e2341dfac6f6f4d60a3d7ab5b3b33",
+    "transportAmendmentSourceMessageId": "e7c9ac9f-9499-4487-b158-5d4497242a67",
+    "transportAmendmentSourceBodySha256": "853ee731cfddd1f7f347ec945e979e40a1d4b801a68fb4be8dba7f4e2ad1fd78",
+    "requestedAction": "RESUME_FROZEN_FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_AT_SEQUENCE_15",
+    "spendBoundaryUsd": 0
+  },
+  "liveAcceptanceCriteria": [
+    "live endpoint exists and no longer returns HTTP 404",
+    "deployed revision equals the exact deterministically tested recovery revision",
+    "canonical fail-closed admission client or verified equivalent is present",
+    "authenticated askrigor-mast request binds the exact directive and amendment",
+    "zero-spend boundary remains exact",
+    "live response contains mayExecute:true",
+    "request, response, times, revision, status, source identities, and hash are preserved"
+  ],
+  "successBoundary": "AUTHENTICATED_LIVE_ADMISSION_RECEIPT_WITH_MAY_EXECUTE_TRUE_BOUND_TO_THE_EXACT_CURRENT_DIRECTIVE",
+  "successClaim": "MISSION_CONTROL_ADMISSION_RESTORED_MAST_RESUME_AUTHORIZED_AT_SEQUENCE_15",
+  "incompleteClaim": "MISSION_CONTROL_ADMISSION_BLOCKER_OPEN_MAST_GENERATION_REMAINS_STOPPED"
+}

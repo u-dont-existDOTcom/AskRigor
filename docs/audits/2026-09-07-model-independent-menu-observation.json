@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T00:11:58.154484+00:00",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "MODEL_INDEPENDENT_OBSERVATION_RETURN_RESPONSE_CAPTURED_NEXT_DIRECTIVE_JSON_BLOCKED",
+  "executionRepositoryHead": "d0c5ad661501120e44f6b90058b6a632737c33ae",
+  "sourceReceipt": {
+    "messageId": "230d07c7-ea6e-47a4-b9a4-3f4b527a3d19",
+    "exactBodyBytes": 11691,
+    "exactBodySha256": "69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555"
+  },
+  "runtimeAdmission": {
+    "messageId": "8d081e3b-2239-4c73-90ce-1aa310aa497f",
+    "exactBodyBytes": 1677,
+    "exactBodySha256": "80ae4c027f2c54cfa65c1a884f33f0e8bdf6ac2d663a44dafdcb05868ca8a809",
+    "mayExecute": true
+  },
+  "counts": {
+    "menuOpeningCalls": 1,
+    "boundedStateSamples": 3,
+    "taskOwnedMenuCleanupCalls": 1,
+    "modelControlInteractions": 0,
+    "chooserOperations": 0,
+    "fileAssignments": 0,
+    "uploads": 0,
+    "promptFills": 0,
+    "probeSubmissions": 0,
+    "retries": 0,
+    "newTabs": 0
+  },
+  "privateBrowserReceipt": {
+    "bytes": 7927,
+    "sha256": "1ffb674119f8e688fb917e5ad7074c2407e44c176a647227bc2ecdf823457cfd"
+  },
+  "privateReturn": {
+    "bytes": 9586,
+    "sha256": "aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0"
+  },
+  "structuralObservation": {
+    "controlExpandedStates": [
+      false,
+      true,
+      true
+    ],
+    "explicitAssociatedMenuMetadataAvailable": false,
+    "missingValuesRetainNullAndReasons": true,
+    "targetedCleanupReturned": true,
+    "closureIndependentlyVerified": false,
+    "fourthSampleTaken": false
+  },
+  "preservation": {
+    "frozenManifestMatched": true,
+    "priorDiagnosticEvidenceMatched": true,
+    "historicalCollectionRepeated": false,
+    "projectionAndTestsChanged": false,
+    "priorNode24CompleteGateApplicable": true,
+    "paidApiInferenceCalls": 0,
+    "externalSpendUsd": 0,
+    "ownerRelayRequested": false,
+    "workerRootCauseConclusion": null,
+    "probeResumeAuthorized": false
+  },
+  "operationalReturn": {
+    "recordedAt": "2026-09-07T00:14:14.369964+00:00",
+    "directiveId": "askrigor-empty-composer-model-independent-diagnostic-v1",
+    "attemptedAt": "2026-09-07T00:12:53.081Z",
+    "submissionCalls": 1,
+    "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "messageId": "7465a65e-5b13-4ac1-96af-0f29c3805231",
+    "exactBodyBytes": 9586,
+    "exactBodySha256": "aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0",
+    "persistedExactMatch": true,
+    "responseStatus": "CAPTURED_FULL_DIRECTIVE_JSON_MALFORMED",
+    "noResendAuthorized": true,
+    "responseReceipt": {
+      "messageId": "be2497b2-5281-4d4d-9353-69766aeb24c8",
+      "exactBodyBytes": 16816,
+      "exactBodySha256": "357dd165b50b6f923e3b94d386596d03b95cf3f843d44c77a1a0412457f8bfad"
+    }
+  },
+  "privateRoutingSha256": "c7a30fd36f46ea40f6afc3e1a5c1fb96c44bda19f44da0a3bca14a036e89f52b"
+}

@@ -1,0 +1,1860 @@
+> Repository-integration operational precedence — 2026-09-07 23:56 UTC:
+> Project Manager directive `askrigor-pr190-pinned-main-integration-v2` is
+> source-bound at message `f6855ef9-2c7a-42c8-977b-453d35a20909`, 16,933 UTF-8
+> bytes, SHA-256
+> `aaf95bbe26ca156c7086363d9a9b34ade0ce16adf562da9b329ead42488ab850`.
+> Fresh admission is accepted once for the exact fixed pair: PR #190 head
+> `29ca309e37e6e6bc626383f64833a14e468f7596` and accepted undeployed `main`
+> `7fb852758e01df60203f102d784c95e76ff9177b`. The single deferred-commit
+> ordinary merge completed cleanly. Universal 20.5.18 and HRP match accepted
+> `main` bytes. Final validation, the integration commit, one normal branch push,
+> and hosted acceptance remain pending at this in-tree checkpoint; their
+> resulting identities belong in PR #190 and the operational return rather than
+> a self-referential status commit. The prior fixed-main integration directive is
+> superseded unexecuted. All earlier calibration, browser, scientific-evidence,
+> and attempt-count records below remain historical and unchanged. PR #190 must
+> remain draft and unmerged; no deployment, model call, diagnostic reopening,
+> Reasoning Selection, or lesson promotion is authorized.
+>
+> Current recovery checkpoint — 2026-09-07 16:24 UTC: **the single offline closeout return is delivered**, with exact persisted equality for 5,078 bytes at SHA-256 `758af2319e39b50a9220d688180136b428d1f604d087fcdd2951eacd5b9f9369`. Submission HEAD is `276f2d403c34ba378d6dc2e18dd5f805e6f3a2c2`; detailed routing identity is private. Source/admission and all seven receipt/code bindings were reverified; the four checkpoint tests pass under Node 24.18.0. Capture the Project Manager response without resending. Calibration remains closed with its policy blocker and the parent remains open. No further diagnostic or probe is authorized. See `docs/audits/2026-09-07-calibration-closeout-return-delivered.json`.
+
+> Separate hosted CI finding, included in that return: PR #190 run `34079276856` reports eight failures across six files when the merge test loads Universal 20.5.16 against retained 20.5.15 expectations. The local branch retains 20.5.15; live main was `2f551c762cf1b48b5fbf105b039c68d4f13984e1`. No unrelated code/protocol repair, merge, or deployment is authorized by the offline-closeout directive. Await its source-bound disposition while preserving the failure log identity.
+
+## Preserved prior checkpoints
+
+> Prior authoritative disposition: calibration and dependent private capture are **closed with a browser-policy blocker**; the parent objective remains open. Fresh offline-only admission is captured and every bound receipt matches. Calibration was `NOT_RUN_NAVIGATION_REJECTED`; missing measurements do not disprove screenshot capability. One closeout return remained at this checkpoint. No further diagnostic navigation, screenshot, menu operation, upload, probe, or workaround is authorized. See `docs/audits/2026-09-07-calibration-policy-block-closeout.json`.
+
+> Latest routing: the synthetic URL-policy blocker was delivered once at 2026-09-07T03:04:30.358Z, message `54855e85-12c1-47ab-aedd-a48d10efa3de`; 15,824 exact bytes, SHA-256 `16d9b6ff83a3eaa27330f7083c1a8047876d8f446299619a118a5b46e92d8f30`, persisted match verified. Project Manager response is pending. No screenshots, account diagnostic navigation, or workarounds occurred.
+
+> Current calibration outcome: the single synthetic `data:` navigation was rejected by Browser Use URL security policy. One replacement task tab; zero screenshots, account diagnostic navigation, openings, uploads, or probes. No workaround attempted. The validated exact blocker return is ready for one authorized Project Manager submission.
+
+> Calibration preflight: fresh admission captured; 17 synthetic tests and pinned Node syntax check pass. Exact source/code/arguments are frozen in the private control; live navigation and screenshots have not started. See `docs/audits/2026-09-07-synthetic-screenshot-calibration.json`.
+
+# MAST four-arm base blinded-evaluation current state
+
+**Checkpoint:** 2026-09-07 02:51 UTC
+
+**Task:** `askrigor-external-evaluation-contribution-v1`
+
+**Branch:** `task/mast-four-arm-zero-spend-harness-20260901`
+
+**Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
+
+**Status:** `SYNTHETIC_CALIBRATION_PREPARING / ADMISSION_RESPONSE_PENDING / ZERO_NEW_CAPTURES / PROBES_STOPPED / PARENT_OPEN`
+
+## Current synthetic screenshot calibration
+
+Project Manager source `006fe3f4-0f58-4c70-88a9-2929f3f27c11`, 15,368 bytes,
+SHA-256 `e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1`,
+explicitly replaces the previous documentation-only prerequisites with a fixed
+synthetic calibration. Use `docs/directives/2026-09-07-synthetic-screenshot-calibration.json`.
+The earlier blocker remains immutable and must not be relabeled success.
+
+The source permits one new static data-URL page in the authorized profile, exactly
+two synthetic screenshot calls through documented `Tab.screenshot`, and Pillow
+checks limited to scales 1 and observed devicePixelRatio. Only after all fixed
+checks pass may the same calibrated tab take the two previously authorized
+private central-region clips. No private full viewport, image interpretation,
+OCR, upload, probe, model-control interaction, dependency or new service is allowed.
+The new calibration tab will replace the old task-owned tab after admission is
+preserved, keeping one physical task tab and leaving conversation contents and
+drafts unchanged. The exact authorized browser handle is available through the
+existing documented browser client; do not use the unrelated default handle.
+
+The fixed page builder/checker and tests are being prepared in
+`scripts/synthetic_screenshot_calibration.py` and
+`tests/test_synthetic_screenshot_calibration.py`. Review, applicable verification
+and exact source/page/argument freeze must precede the first screenshot.
+No calibration tab, navigation or screenshot has occurred.
+
+Fresh admission request was submitted once as `73bfa8d2-819a-4260-8941-e5ba223fffe2`
+at 2026-09-07 02:48:12 UTC. The persisted body matches: 17,240 bytes, SHA-256
+`236259e48015bf6d9acc92ede44b0c74e9284c635e309b117e14abb44ae5c5c2`.
+Capture its response privately before controlled work. Preserve approximately
+ten minutes between consumer sends. No owner answer or relay is pending.
+
+## Preserved visual-evidence capability blocker
+
+The Project Manager response is message `7ff47789-3352-4054-8567-9d6a67a14d44`,
+17,074 bytes, SHA-256 `6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c`.
+Its complete JSON parsed successfully. Use
+`docs/directives/2026-09-07-empty-composer-visual-evidence.json`.
+It authorizes two private central-region images only after fresh admission and
+proof of the installed capture method, coordinate mapping and privacy boundary.
+The worker must not view, interpret or OCR the images. No probe, upload, model
+control, historical revisit, selector experiment or dependency installation is authorized.
+
+The installed API hash matches the required contract. It documents screenshot
+bytes, clip fields and viewport/full-page options, but does not document the
+required DOM/CSS-to-image coordinate mapping. The Tab screenshot method lacks an
+explicit no-display guarantee; the explicitly private AX screenshot method lacks
+an explicit viewport-only scope. The independent read-only audit agrees. Pillow
+is installed, but does not supply the missing contract guarantees. No screenshot,
+new opening, structural state sample, crop or image transfer has occurred.
+Preserve `supervision-routing/2026-09-07-visual-evidence-capture-capability-blocker.json`.
+Do not guess a conversion or bypass this exact source requirement.
+
+Fresh admission request was submitted once as message
+`7c6cf217-889a-4959-b0ab-1861f41cd826` at 2026-09-07 02:12:11 UTC.
+The persisted 17,600-byte compact JSON matches exactly, SHA-256
+`3efe709b221537450184cbea1c80c652c479b63d62b22a9cf333d7a34713ffd9`.
+Fresh admission is accepted: message `cbb836ed-a5de-4a61-82a3-df3ed805229b`,
+1,934 bytes, SHA-256 `d7c51882a2d60b2ef91e98b6f8e21568b47f71ea3e0eb588ddf7d61080916ea2`.
+It explicitly does not waive the missing capture prerequisite. The validated
+compact operational return is prepared in
+`supervision-routing/2026-09-07-visual-evidence-operational-return.json`.
+The exact capability blocker was delivered once as message
+`720da0ab-9cd9-4e74-bfe6-516c8586e803` at 2026-09-07 02:22:51 UTC:
+5,665 bytes, SHA-256 `2680a2c81b56836f3f1c2f0f5eb5e3b9238ac91753ea31e28eeaf99e33827ec6`.
+The persisted body matches exactly. Before staging, a 9,082-character draft had
+reappeared in the same destination; the existing owner authorization was applied
+to clear it without reading its content. Its cause and content identity were not
+inferred. The private recurrence and routing receipts preserve that sequence.
+Capture the next Project Manager response. No owner answer or relay is needed.
+Do not resend, retry a diagnostic, take an image or resume probes without a valid
+new source-bound disposition. Last consumer send is 02:22:51 UTC; preserve the
+approximately ten-minute interval. See
+`docs/audits/2026-09-07-empty-composer-visual-evidence.json`.
+
+## Completed detached-menu association diagnostic
+
+The source and runtime admission remain valid and preserved. Source message
+`3935f7f5-ec47-408a-9b4c-30176efbfa42`: 17,703 bytes, SHA-256
+`42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836`.
+Admission response `f77ee30f-5cb9-4902-8c12-7c3778c56255`: 1,837 bytes,
+SHA-256 `f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911`.
+Use `docs/directives/2026-09-07-detached-menu-association-diagnostic.json`.
+
+The new extension and recorder passed 22 focused tests and the complete
+Node 24.18.0 gate: 149 test files and 1,800 tests passed, one file and six tests
+skipped, plus typecheck and build. Two checkpoint-label failures are preserved;
+the final checkpoint test passes all four tests. Implementation and tests were
+unchanged during those label corrections. Exact source, tests and operation
+sequence were frozen before live use at commit
+`2983e5b3bdcc57fa8734afcfa187494bfbd65855`.
+
+The admitted observation is complete: one opening, four bounded samples and one
+targeted Escape cleanup. The repository recorder validates the operation order
+and independently records closure. All four observations found no role-menu
+container under the fixed selector. This does not establish popup absence,
+identity, framework or the cause of a historical failure. No menu-item labels were read;
+no model controls, chooser, file assignment, upload, prompt fill, probe request,
+visual capture, retry or new tab occurred.
+
+Private browser receipt: 17,896 bytes, SHA-256
+`4845a590b87c8b0352572cd4bcdc4595907b03a13ba813956f35aef7adecc0aa`.
+Private validation: 808 bytes, SHA-256
+`1c2c3fab3cfe7c23d488b7662568a14e181c5325bf42aabd956114497e561729`.
+The operational return is prepared: 14,844 bytes, SHA-256
+`7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f`.
+Its exact private file is
+`supervision-routing/2026-09-07-detached-menu-diagnostic-operational-return.json`.
+
+**Completed delivery:** the next Project Manager directive is preserved above.
+Joel authorized discarding the existing draft with the exact reply `sure`.
+The draft was cleared once without reading or capturing its content. The long
+pretty-printed receipt acquired different displayed line separators on restoration,
+so the same parsed JSON object was serialized compactly. Both artifacts remain
+preserved. The private serialization receipt also records one broad button-label
+equality scan that returned only a count; it was not repeated. Future transport
+checks must use the already-grounded exact control locator. The compact receipt matched the composer and persisted message exactly:
+11,254 bytes, SHA-256
+`3adda3e361b20d806c52bba0d8dfdf971182baebe1659ea601d7c32212d8878c`.
+It was sent once as message `c35479fc-7746-4bed-9eb6-781ddf369cb8` at
+2026-09-07 01:52:30 UTC. No further return submission is authorized. Keep
+approximately ten minutes between consumer sends. No owner answer is pending.
+The exact private routing receipt is
+`supervision-routing/2026-09-07-detached-menu-diagnostic-return-routing.json`.
+Follow only the next valid source-bound disposition. Do not repeat the diagnostic
+or resume stopped probes. See `docs/audits/2026-09-07-detached-menu-diagnostic.json`.
+
+## Preserved source-syntax blocker
+
+The Project Manager response to the completed observation is message
+`be2497b2-5281-4d4d-9353-69766aeb24c8`, 16,816 bytes, SHA-256
+`357dd165b50b6f923e3b94d386596d03b95cf3f843d44c77a1a0412457f8bfad`.
+Its complete directive JSON failed parsing: `Expecting ',' delimiter: line 118
+column 26 (char 6804)`. The worker preserved it unchanged, did not repair the
+source, and did not execute the independently parsed directive identifier
+`askrigor-detached-menu-association-diagnostic-v1`.
+
+The exact parser error was returned once through the standing internal route as
+message `0e5ec66d-239f-4a8e-bff4-6ebeb42f019a` at 00:25:42 UTC: 1,500 bytes,
+SHA-256 `1cf0a1827cf1896471590ddcf851212db58bd7a0a6e9cc19472498d3532d39da`.
+Its persisted body matched exactly. The complete valid replacement and fresh
+admission are recorded in the current section above.
+No owner relay is needed. See `docs/audits/2026-09-07-supervisor-directive-json-blocker.json`.
+
+## Completed model-independent diagnostic
+
+Project Manager message `230d07c7-ea6e-47a4-b9a4-3f4b527a3d19`, 11,691 bytes,
+SHA-256 `69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555`,
+accepted the prior diagnostic blocker with limits and removed the model-control
+prerequisite for this empty-composer observation. Use
+`docs/directives/2026-09-06-model-independent-upload-menu-diagnostic.json`.
+Fresh admission was accepted in message `8d081e3b-2239-4c73-90ce-1aa310aa497f`,
+1,677 bytes, SHA-256 `80ae4c027f2c54cfa65c1a884f33f0e8bdf6ac2d663a44dafdcb05868ca8a809`.
+The new directive prohibits model or reasoning
+control interactions, retains one menu-opening call across both diagnostics,
+and does not authorize probes, uploads, chooser operations, prompt fills,
+repairs, another precondition-recovery loop, or visual capture.
+
+Reuse the unchanged reviewed projection as an offline-prepared plain JavaScript
+string through documented read-only `evaluate`. The installed API contract
+SHA-256 must remain `fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f`.
+The module SHA-256 is `afbefbfde16b6f84897894488859f0f81d64dfcfdfe43c9199e899ff8ac2631d`;
+the compiled function SHA-256 is `1bf46f047cb49eb8e6ad1ad9ca6682f5c4795c989bec85415b40502cc82ebfe6`.
+Use fresh observed counts and supported locator visibility/enabled checks in
+each bounded sample. Do not use `eval` or `Function` constructors in CUA.
+The existing full Node 24.18 gate remains applicable because projection and tests
+are unchanged. Do not repeat the historical command collection.
+
+The completed observation used one attachment-menu opening, three bounded samples,
+and one targeted Escape cleanup. The control reported collapsed, expanded,
+expanded. Explicit associated-menu fields remained null with availability reasons.
+No extra sample verified cleanup closure. No model control interaction, chooser,
+file assignment, upload, prompt fill, probe request, or retry occurred.
+Private observation receipt: 7,927 bytes, SHA-256
+`1ffb674119f8e688fb917e5ad7074c2407e44c176a647227bc2ecdf823457cfd`.
+The 9,586-byte operational return was delivered exactly as message
+`7465a65e-5b13-4ac1-96af-0f29c3805231` at 2026-09-07 00:12:53 UTC, SHA-256
+`aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0`.
+The next response and its syntax-only correction are preserved above. Do not
+repeat this return or diagnostic. See `docs/audits/2026-09-07-model-independent-menu-observation.json`.
+
+## Preserved empty-composer precondition diagnostic
+
+Project Manager message `4df4c392-3d55-43e4-b0be-0584861fc6ef`, 14,858 bytes,
+SHA-256 `b0fb26f02e7aeda2cc3154464f15840e41c19698447c2d8aaac36bdedddabbf6`,
+accepted the exhausted recovery and authorized a separate bounded diagnostic.
+`docs/directives/2026-09-06-upload-menu-diagnostic.json` controls. Fresh Mission
+Control admission is accepted: message `0ddfcfc0-0d5b-4b1b-9129-422226b92d38`,
+1,431 bytes, SHA-256
+`92700d42e3eb5e6ee1d6bf7a19495dbabbfc340ab932a0a9973cc969d65c6829`.
+Its request persisted exactly under `b76f1469-41de-413b-be34-7e7a463934cd` at
+22:51:41 UTC; preserve approximately ten minutes between consumer sends.
+It permits one empty-composer attachment-menu opening and at most
+three bounded metadata samples, with no chooser wait, upload-item activation,
+file assignment, prompt fill, probe submission, repair, or timeout increase.
+The stopped probes and all prior evidence remain unchanged. A single operational
+return will carry the diagnostic evidence and the completed runtime correction.
+The following recovery sections preserve the earlier sequence; their pending
+statements are superseded by this current source.
+
+The diagnostic code passed the complete gate under explicit Node 24.18.0:
+148 test files and 1,778 tests passed; one file and six tests skipped; typecheck
+and build passed. The initial run found a stale current-slice checkpoint assertion;
+its failed result is preserved and the updated contract enforces the diagnostic's
+zero-upload limits. The empty ordinary-chat precondition showed zero messages, zero attachments,
+and zero composer content. Required-model control verification then failed with
+a selector/Runtime.evaluate timeout before any attachment-menu opening or
+projection. One permitted read-only post-failure observation remained empty.
+No click retry, chooser operation, upload, prompt fill, or probe request occurred.
+The exact blocker and missing historical command details were returned once as
+message `1c4f5e4b-7d7c-4b0b-a514-b2e44c41c2f8` at 23:04:12 UTC: 10,235 bytes,
+SHA-256 `e2497d671d8c354a80ca023d45c3f1e88e6c16df1f69059f2d5d6eed4630ea9c`.
+The persisted body matched exactly. Capture the next Project Manager response;
+do not repeat this return or diagnostic. See
+`docs/audits/2026-09-06-upload-menu-diagnostic-blocked.json`.
+
+## Preserved one-time pre-submission recovery
+
+Project Manager message `b2932286-cd17-4716-b53c-167049da8fbb`, 16,580 bytes,
+SHA-256 `bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4`,
+authorizes one additional P01 setup attempt, with all six frozen prompts,
+fixture names/bytes, modes, order, and parser unchanged. The directive is
+`docs/directives/2026-09-06-synthetic-presubmission-chooser-recovery.json`.
+The stopped original P01 receipt remains immutable. No recovery setup has begun.
+
+Fresh Mission Control admission is accepted: message
+`1c2d1486-a422-4a91-87dd-0a607ba59264`, 1,489 bytes, SHA-256
+`84ac026314101e5d2611b4989ca848eaaac858b5447e38bae2bf5072f6bb2059`.
+The request persisted with exact matching 16,039-byte body under message
+`c52d05ea-4645-43ef-b1d0-0a70fa21d123`. The last consumer send was
+2026-09-06 22:10:53 UTC; preserve approximately ten minutes between sends.
+
+Recovery accounting uses a separately initialized `recovery-01` namespace under
+the same private run. Initialization binds the exact new source and every prior
+failure digest; no run ID, marker, fixture, or prompt is regenerated. The complete applicable gate passed: 147 test files and 1,759 tests, with
+one file and six tests skipped, plus typecheck and build. Setup attempt 2 is
+reserved under initialization SHA-256
+`7c438232ff851d4e627fd593043c6411357763f3b45981d0602965ccbc7badbe`.
+No recovery chooser wait, file assignment, or model request has occurred.
+The installed client documents `waitForEvent("filechooser", {timeoutMs:10000})`
+before the activating click, then one `chooser.setFiles(...)`. Use supported
+bounded timeouts, uniquely verified interactive controls, and one coordinated
+invocation. Do not search document-wide text, inspect scripts/application state,
+substitute transport, or repeat a failed operation. A new return has one submission
+call maximum. No second recovery is authorized.
+
+Setup attempt 2 stopped during bounded upload-control verification with
+`Timed out after 3000ms evaluating selector internal:text="Add photos & files"s:
+Playwright selector deadline exceeded`. Post-failure metadata showed no open
+attachment menu and zero messages. No recovery chooser wait, chooser trigger,
+file assignment, or probe submission occurred. The private setup-event SHA-256 is
+`335d48908826eef2037976881f10fca0537210d291ca824ee1fc7a3d9e99592e`;
+the separate recovery P01 metadata SHA-256 is
+`820db1d2ed8d74a38a8961e36d1776354050e5236faf91984b7edbb5e77910fa`.
+The 7,476-byte operational return, SHA-256
+`5054663c0f5c3c36ce39afa96730389871eddb5353486eadabf722980e2c09b6`,
+was submitted once as message `032833b9-29f4-4967-ba99-52a68bce5c3c`.
+The provider removed exactly one terminal LF: 7,475 submitted bytes, SHA-256
+`f24d6949a5aebcc0a734606d3f165e86381de4c52d39cae1a1e392a24bbaa205`.
+The supervisor response is pending; no further recovery or repeat return is
+authorized. See `docs/audits/2026-09-06-synthetic-recovery-exhausted.json`.
+
+A subsequent runtime check found the shell using Node `v26.8.1`, while the
+repository pins `v24.18.0`. The earlier passing test result is preserved, but
+the required runtime had not been established before the readiness attempt.
+The full gate subsequently passed with an explicit Node 24.18.0 executable path: 147 test files and 1,759 tests passed; one file and six tests skipped; typecheck and build passed.
+No chooser wait, file assignment, or probe request occurred during recovery.
+Record the version correction and its final verification; do not retroactively
+claim the pinned-runtime gate preceded the failed readiness attempt.
+
+## Active nonclinical synthetic preflight
+
+Project Manager message `2860eb48-c1b0-47f0-a592-7cf12b24baf9`, exact-body
+SHA-256 `dbb4e35fefc2e96c300db002712c983dfdc65cab1178bdfe4e2c9ff9540f2c2a`,
+verified the census receipt and authorized a separate fixed six-probe synthetic
+preflight. The committed operational directive is
+`docs/directives/2026-09-06-nonclinical-consumer-transport-preflight.json`.
+Fresh Mission Control admission, message `3694e9c1-4b64-451b-98ab-ae616f8c74da`,
+exact-body SHA-256
+`5c1d1f32d98b178a20bbff0ae19e45c7db4f645a868b640a0d0e2fb6ddefd79c`,
+returned `mayExecute:true`.
+
+The same browser/profile exposes checked **Latest**, **Pro, 5 of 5**, and an
+explicit **Unpersonalized** control in an empty Temporary Chat. No global
+account setting changed. No probe has been sent and no synthetic fixture has
+been uploaded. The fixed fixture builder/parser passed the complete deterministic
+gate: 147 test files and 1,737 tests passed, with one file and six tests skipped;
+typecheck and build passed. All 1,781 packaged file identities, 1,730 preserved
+private source identities, and 20 pinned MAST source identities matched.
+The two fixtures and six prompts are frozen under manifest SHA-256
+`20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4`.
+Raw outputs, runtime markers, and detailed browser receipts remain private.
+
+P01 stopped during file-chooser setup with literal error
+`Timed out after 3000ms waiting for file chooser.` No `setFiles` call, file
+selection, or model request occurred. P02-P06 remain unexecuted. No retry or
+transport substitution was attempted. The private operational return is 8,163
+bytes, SHA-256
+`d5550d28f31ab2800aa1ee9b3b589b155a5158e173d7b88e11455520a212558f`.
+The return send hit `Timed out after 3000ms waiting for CDP command
+Runtime.evaluate.` Three metadata checks, including one same-conversation
+reload, found no new message identity; the draft remains staged. No second
+send was attempted. The external browser-control blocker must be resolved,
+then persistence established before any further send. The next Project
+Manager disposition remains unavailable. See
+`docs/audits/2026-09-06-synthetic-transport-preflight-blocked.json`.
+
+Private recovery starts from
+`supervision-routing/2026-09-06-synthetic-preflight-preparation-receipt.json`
+under the existing private artifact root. It binds the exact run manifest;
+the exclusive P01 capture is a pre-submission transport stop. Preserve it.
+The operational return, attempt, and persistence-check receipts share that
+`supervision-routing` prefix. The single reusable tab remains at Project
+Manager with the return draft staged. The owned loopback server is stopped
+at handoff; restart its existing fixed-route script only when control resumes.
+
+Recovery at 21:57 UTC confirmed the factual return as message
+`de0dc908-2a06-4687-a29e-f7341df87066`. The 9,302-byte return artifact, SHA-256
+`0c75a9bb8fb28f198fdc80ec976544a60187c2f9230f15554f0dec23456ad229`,
+preserves the prior receipt and the owner's factual file-picker report. A
+documented 15-second locator timeout reached a persisted message despite a
+mouse-event timeout; no resend followed. The Project Manager response is
+pending. The stopped synthetic run remains immutable, with zero requests
+and zero file selections. The existing loopback capture server is running
+again on its fixed routes during response capture.
+
+## Completed fixed-population metadata census
+
+Project Manager message `4a1b5d17-9628-4313-8f14-9040b28ad8a8`, exact-body
+SHA-256 `becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5`,
+authorized the same metadata-only collection across the fixed 96-record ledger.
+Fresh admission message `99314278-e534-4a67-b2ff-5773e27161c8`, exact-body
+SHA-256 `786e274f8da8523f357c829a67964854b97314e7a7ef0f635091ac9a4cfced33`,
+returned `mayExecute:true`. All 96 identities and source hashes match the preserved
+index; the three carry-forward receipt hashes and message identities match.
+The frozen private inventory is 58,608 bytes, SHA-256
+`c42e4560da9e551dd52f528ce2935ad959f3a263616c9e37c0a6022b44030a2c`.
+
+All 96 records are accounted for: three exact carry-forward receipts, ninety
+new browser observations, and three explicit unavailable observations. One
+unavailable target exhausted its readiness checks; two observations could not
+be safely retained after a browser-command timeout. The later command timeouts
+recovered within the same visit. No consumed target was revisited. This is full
+identity coverage with partial observation, not a complete-observation claim.
+
+The final private inventory is 224,777 bytes, SHA-256
+`80e2b7cf86b59824cb259785b6c08dddcebed1b8c4934d5a7650749e6370a90c`.
+It was returned once as message `1ccc24de-7d62-4e86-bbd3-d2a7ac5b3ba4`, with
+an operational cover binding the byte count and digest. The Project Manager
+response verified the received bytes and authorized the separate synthetic
+preflight above. The non-secret receipt is
+`docs/audits/2026-09-06-mast-source-reference-census-returned.json`.
+
+The census checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+Recover exact progress and timeout evidence from private
+`supervision-routing/2026-09-06-source-reference-census-journal.json`, not from
+this public checkpoint. All 93 new visit allowances are consumed, and the three
+prior targets cannot be revisited. Each new visit used at most three readiness
+checks.
+Keep reference metadata, conversation locators, and detailed receipts private.
+No response prose, document contents, source interpretation, target messages,
+uploads, citation-target fetches, or paid inference are authorized.
+
+## Latest source-access metadata follow-up
+
+Project Manager message `21b89257-03e1-4662-ba65-0d3dedfb9cd5`, exact-body
+SHA-256 `5fa773c9a66cff9d11e2a761c9cd996ae0abc7ca32669512d440de1bb3c33542`,
+authorized metadata-only collection for three fixed targets. Fresh Mission
+Control admission, message `9353d770-e9a6-4a59-a12f-cbdc2e004777`, exact-body
+SHA-256 `99cba31c06a14521b376a44bd3baae586b867807a0b95dd0ffff9dc0bc0a8fd1`,
+returned `mayExecute:true`.
+
+All three target identities match retained capture receipts and the generation
+ledger. One browser visit per target collected permitted attributes, with
+unavailable fields explicitly unknown. All three visit allowances are consumed.
+No target messages, uploads, source-document fetches, clinical-content inspection,
+source-relationship interpretation, or paid operations occurred. Source receipt
+and ledger hashes remain unchanged. Detailed reference metadata stays private.
+
+The validated private return receipt is 10,603 bytes, SHA-256
+`580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91`.
+It was returned once to the Project Manager as message
+`1e1e4347-e836-46b5-bf05-b2d3d1b08650`. The response accepted the receipt and
+authorized a separate fixed-population metadata census; no owner decision is
+currently required. The non-secret operational receipt is
+`docs/audits/2026-09-06-mast-source-access-provenance-collected.json`.
+
+The metadata checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+## Latest attachment delivery
+
+Joel enabled the existing extension's file-access setting. The worker verified
+`newAllowFileAccess:true` in the same authorized Brave profile and received a new
+Project Manager directive, message `abc4f35e-68cc-4d10-82c5-81963bf7782b`, exact-body
+SHA-256 `15564045950748690f658e24743d6432b769bb550d7e9171a86509bb50782266`.
+It narrowly supersedes the earlier no-retry ruling. Fresh Mission Control
+admission, message `38fb4c3e-f56b-4e41-a9c7-6d3b337f43b3`, exact-body SHA-256
+`b92173b16aa5d1e217857a73f41efc2f77a22932d984e6821b09fdd5574b357a`,
+returned `mayExecute:true`; the prior admission was not reused.
+
+One receipt file selection, one archive file selection, and one message
+submission succeeded. Both provider attachment IDs were bound to destination
+message `963b57a3-ce89-4c92-b22d-7ca66a3c63bd` and both attachment names remained
+associated with that message after navigation. Source hashes, sizes, and modes
+passed preflight, and both source-file hashes remained unchanged afterward.
+
+The source-bound receiving-side receipt, message
+`11624049-1afa-4c19-af43-eff5111c31ff`, exact-body SHA-256
+`6308ae8162d279babcdd91d4fac7845aa75ae7d91b3ce8fc3e925c23b9cc1f83`,
+reports SHA-256 computation over the received file bytes without archive
+decompression. Both file IDs, byte counts, and computed hashes match the delivery
+bindings. This receiving-side report is preserved separately from the worker's
+sender-side hash checks. No archive content or substantive analysis was exposed.
+
+The non-secret receipt is
+`docs/audits/2026-09-06-mast-preserved-archive-delivered.json`. All earlier failed
+attempts and diagnostic evidence remain preserved. The transport slice is
+complete; the parent objective remains open for Project Manager direction.
+
+The delivery checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+## Earlier post-gate closeout and attachment blocker
+
+The source-bound deterministic unblinding and one metadata-join repair are
+complete. The frozen mapping was disclosed once in private execution and remains
+unchanged. The initial structurally indeterminate artifact and the corrected
+determinate artifact are preserved outside Git with SHA-256 values
+`0f317577dc966237c69c04df852e12da84ae4a83973fa31237778b9177d89444`
+and `aafe67b3e006093f6e6b24357ffe4f49fbb3b65dfe22936f012c93582e53a561`.
+No private result or worker-authored scientific interpretation is recorded here.
+
+The Project Manager authorized a read-only export of existing evidence in
+message `97e54000-2145-466b-b3ab-3127e0912b00` with exact-body SHA-256
+`72cec6c338f031afa079a227926ece9c933fa239e367f118f6f480f3d332cc93`.
+Authenticated Mission Control response
+`42035c1c-f799-49e2-8fb3-586672f21e17` returned `mayExecute:true` and
+`ALLOW_BOUNDED_EXECUTION`; its exact-body SHA-256 is
+`9f432ea2673bef57e8347aa6b423ad683e051c9fe4a3d1f7b522744099b289a8`.
+
+The resulting private source-indexed archive covers all 96 frozen responses,
+192 primary judgments, 41 active J3 judgments, and 23 superseded audit-only J3
+judgments. It contains 1,781 indexed files, is 10,567,954 bytes, and has SHA-256
+`0c238f5f61f45164bb0b8f2e44dec324db09614f9bab611653b68330c8294124`.
+The manifest SHA-256 is
+`aba51f6fad52abb15a8b182f400cd73065e3fd27df3966161a8d167de5c263b6`;
+the packaging-receipt SHA-256 is
+`e00e4adf882f46527bc1cd9a8a63c0160309a54e3f9409419aabdcb57af50692`.
+Independent checks passed for manifest coverage, every packaged file hash,
+safe archive paths, exact source preservation, and `0700`/`0600` modes.
+
+Direct attachment failed three times at the browser file-chooser boundary with
+provider code `-32000` (`Not allowed`). No archive bytes reached the Project
+Manager. The exact blocker was routed as message
+`f09bf7f6-b6a7-4bea-bc80-3540dd7131c3`. Project Manager response
+`02fefcda-fc99-4d41-9bcb-219f82e2c8b1`, exact-body SHA-256
+`7837b51ca7c064df5624fdca43a2c049e5dc3929b1734405060983354e0bdde6`,
+accepts the blocker, requires the archive and receipts to remain unchanged,
+prohibits additional upload attempts and automatic retry, and closes this export
+slice with the parent objective open.
+
+## Read-only attachment diagnosis
+
+The 17:29 UTC diagnosis found no enabled file-access setting for the ChatGPT
+extension in the authorized Brave profile. The installed runtime maps the
+observed `Not allowed` error to the extension's **Allow access to file URLs**
+prerequisite; [OpenAI's upload documentation](https://learn.chatgpt.com/docs/chrome-extension#upload-files)
+documents the same prerequisite. This is a likely cause, not a verified
+successful transport. The live settings UI has not been checked. No new upload
+attempt, permission change, account change, or archive modification occurred.
+The error is not established as an automatic approval-review rejection.
+
+The non-secret evidence and limits are in
+`docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json`.
+At that checkpoint, owner authorization for the permission change was pending.
+The later owner-performed change and bounded delivery above supersede that
+pending state. The earlier scan checked legacy setting names; the follow-up
+verified the actual `newAllowFileAccess` setting. The original diagnostic claim
+remains explicitly limited rather than treated as a proven historical cause.
+
+## Source-bound authority
+
+The configured ChatGPT Project Manager accepted the 96-response generation
+receipt and supplied the exact zero-spend blinded evaluator directive:
+
+- chat: `https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66`;
+- request message: `2cd86158-4229-49df-a6d6-cb91bbfd89b3`;
+- assistant message: `090095aa-ca93-4b58-b528-0f145d665ca3`;
+- exact private response SHA-256:
+  `b0a52e51fcd51e789a1050c741e3b3846fcad3e333fc1f2859f75a48b7ab0cfb`;
+- exact embedded directive JSON SHA-256:
+  `0706996bfcd7d9ce6b7e3f6ffd9a2ce2483512e92908016bd7aed20de3ad8383`;
+- observed model/mode: GPT-5.6 Sol / Extra High 4 of 5.
+
+The repository source record is
+`docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json`.
+
+## Frozen parent evidence
+
+- primary generation responses: 96 of 96;
+- generation ledger SHA-256:
+  `cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3`;
+- automatic Web-search behavior: 74 yes / 22 no;
+- manual tool selection: false;
+- paid API calls / external spend: 0 / USD 0;
+- rubric, guidance, and clinical response inspection before freeze: false.
+
+## Runtime admission
+
+Authenticated Mission Control request
+`admission:askrigor:mast:evaluator-v1:20260902` returned `mayExecute:true` and
+`ALLOW_BOUNDED_EXECUTION`. The non-secret receipt is
+`docs/audits/2026-09-02-mast-blinded-evaluator-live-runtime-admission-accepted.json`.
+
+## Exact execution boundary
+
+The directive authorizes condition-blind source preparation, 192 primary
+evaluator judgments, mechanical validation/retry, predeclared disagreement
+detection, required fresh J3 adjudication, and response-level nonofficial
+projected MAST metrics. It does not authorize condition-map disclosure,
+arm/family aggregation, continuation-gate application, prompt/protocol tuning,
+scientific interpretation, an official MAST claim, or a general HRP-effect
+claim.
+
+## V1 evaluator preflight
+
+The private preflight accepted all 96 frozen responses and sealed 192 primary
+evaluator slots:
+
+- source identity SHA-256:
+  `1723c73da0a4ea69fe48defc558baeb9dc64a10dad2a3075d6b553c3e28bbcc3`;
+- sealed opaque-map SHA-256:
+  `1d2e935f5c03fec9aa4e3707bd2eab987d9060a4a742d481a521d218a6ee5a57`;
+- primary schedule SHA-256:
+  `0647b6bba44780d45cd50c7ed818bb01428612807d16410f000295e83802d5ae`;
+- preflight receipt SHA-256:
+  `3b5746017c72dbdf49a97b0b560b3277ee72cf00f190ee4c9da83bb07f153a21`.
+
+All evaluator packet bytes are private, mode `0600`, exact-hash verified, and
+free of arm labels, generation sequence identifiers, and ChatGPT locators. The
+capture ledger enforces the exact schedule prefix, fresh conversation identity,
+at most two byte-identical attempts, permitted mechanical retry reasons only,
+and the unresolved-slot stop claim after a second invalid attempt.
+
+The complete deterministic repository gate passed on Node 24.18.0 after the
+harness integration: 141 test files passed with 1 skipped; 1,687 tests passed
+with 6 skipped; typecheck and build passed.
+
+## V1 transport retirement
+
+Primary slot 1 produced invalid JSON in two fresh Extra High chats with an
+identical sealed packet. Both outputs and complete process receipts remain
+private and byte-preserved. The v1 progress ledger stopped with 0 valid
+judgments, 2 retained failures, and SHA-256
+`35699d353f6a2e9986babc0ebfe15664fe01d865bf9f7c5c2adcc8a9659c620a`.
+No later slot was dispatched and no judgment was repaired, scored, compared,
+or interpreted. The public retirement receipt is
+`docs/audits/2026-09-02-mast-blinded-evaluator-v1-transport-retired.json`.
+
+The Project Manager response `8c6aaaed-1d15-4399-b6ef-48eaaaa2b149`
+(exact body SHA-256
+`f79ff0489943d272f4dc3c5ac3027a71349a947f48f56b9e5d2ac4d615a760f9`)
+retired v1 as pre-run transport calibration and authorized v2. Mission Control
+meta-review independently classified the incident as a structured-output
+syntax boundary failure, not a scientific or alignment result; its exact
+response SHA-256 is
+`bae2bab983a1b3e18b858a219e77bf99a89311f4586d353a8ec46e394b546c56`.
+
+## V2 recovery preflight
+
+Evaluator v2 keeps the same generation ledger, condition mapping, opaque IDs,
+primary order, rubrics, guidance, matching rules, model/mode, retry ceiling,
+metric definitions, and zero-spend boundary. Only serialization and evidence
+referencing change: raw responses are partitioned into at most 160 Unicode
+code-point chunks and the evaluator returns only IDs/enums.
+
+Authenticated Mission Control admission
+`admission:askrigor:mast:evaluator-v2:20260902` returned `mayExecute:true` and
+`ALLOW_BOUNDED_EXECUTION`. The v2 private preflight then accepted:
+
+- 96/96 byte-exact chunk reconstructions;
+- 96 packets and the identical 192-slot v1 order;
+- chunk-reconstruction receipt SHA-256:
+  `663024aeceb9839e1d29b98657d12924b8ff781a065d053b986596cc545d4f8f`;
+- v2 schedule SHA-256:
+  `9e331c380d34e437945b5e26fda1b2d2f7a85d79a66963d5938e5360f2820403`;
+- v2 preflight receipt SHA-256:
+  `4e4c059c9f518b0f209b8969f5bec7ce070616939320e1d17bd42c01d942f4af`;
+- pinned MAST metric-adapter score-0/score-5 probe passed;
+- zero condition-label leakage in packets and correct `0700/0600` modes.
+
+The complete post-recovery integration gate passed on Node 24.18.0: 142 test
+files passed with 1 skipped; 1,692 tests passed with 6 skipped; typecheck and
+build passed. Test-efficiency telemetry recorded two full-suite runs at two
+materially different integration boundaries, 366.72 seconds total, with zero
+redundant green reruns.
+
+## Next executable action
+
+Submit the one authorized factual recovery return, capture the Project Manager
+disposition, and continue only under its next exact directive or surface its
+owner-only question. Do not retry either preserved setup attempt.
+
+
+Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
+source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
+Primary capture is valid through all 192 ordinals. Both original ordinal 30 attempts
+used the byte-identical sealed packet in separate fresh Extra High Chats, and
+both are retained as `INVALID_JSON` mechanical failures with exact private
+provenance. The original two-attempt ceiling was exhausted; no later slot was
+dispatched before the source-bound extension was admitted and activated. The
+prior halted capture-progress SHA-256 was
+`3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92`.
+The non-secret receipt is
+`docs/audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json`.
+
+The Project Manager returned the source-bound retry extension in response
+`db3747c7-63fb-4fc2-b765-40ea9577ab4c` (exact body SHA-256
+`2bc685a68567ba24b0e49f570da4eee5ef1af4ec62fb17caa607e42f9de7fb4f`).
+It carries all 29 valid judgments forward, preserves the two ordinal 30
+failures, leaves the packet and evaluator semantics unchanged, and raises only
+the prospective mechanical completion ceiling to four attempts. Authenticated
+Mission Control request
+`admission:askrigor:mast:evaluator-v2-retry-extension-v1:20260902` returned
+`mayExecute: true` and `ALLOW_BOUNDED_EXECUTION`.
+
+The deterministic activation verified the halted progress hash, directive
+source, and runtime admission; retained 29 valid judgments and all three
+mechanical-failure records; cleared only the superseded halt; and wrote a
+mode-`0600` private activation receipt. The resumed progress SHA-256 is
+`c95fa43c0a72277898c76aa3324675e305a162705b1e41f41ade82539b0e41ee` and
+the activation-receipt SHA-256 is
+`4734f40959ea57a8dc7696b603a9d738267b7d2f4bbf687da0dbb4cd41f04b27`.
+Ordinal 30 attempt 3 used the byte-identical packet in a fresh Extra High Chat,
+produced output SHA-256
+`a74e3a37148badfe4ae4864a6aa0b16cf5bab5cc1683ea874df9e746b7a334ce`,
+passed the exact repository validator, and was recorded without inspecting its
+clinical content. The progress SHA-256 after ordinal 30 was
+`0b0acba67b28f5803a238bf0ce9e335055a656839cb65852d3cd94299780c5ba`.
+Ordinals 31 and 32 then passed the exact repository validator on their first
+attempts. The current progress SHA-256 is
+`8b1b7eaeeb15fc4229f3642ab5a1d42d1620575134c46f457cce393977265c5e`.
+Ordinals 33 and 34 also passed exact validation on their first attempts.
+Ordinal 35 attempt 1 reached a fresh conversation but was provider-throttled
+before a prompt or assistant response persisted, so it was retained as
+`PROVIDER_OR_TRANSPORT_FAILURE` with no invented output. The byte-identical
+attempt 2 passed exact validation and was recorded. Ordinal 36 attempt 1 then
+persisted its user message but was provider-throttled before any assistant
+response, so it is retained as `PROVIDER_OR_TRANSPORT_FAILURE`. The current
+progress SHA-256 is
+`b177b68e03be87a4d685c1e030b37b932e2d8d5526a4d19147846a870d67f4a9`.
+The byte-identical ordinal 36 attempt 2 passed exact validation after a longer
+cooldown and was recorded. The source-bound account-change stop condition rules
+out switching accounts to bypass throttling. The current progress SHA-256 is
+`95e4392834f108fbb9e0a3d0347fe0db18930d66f98a9edc56bc0c9065e9a650`.
+Ordinals 37 and 38 then passed exact validation on their first attempts using
+the longer interval. A throttle notice appeared only after ordinal 38 had fully
+completed, so its exact output remained valid and was recorded. The current
+progress SHA-256 is
+`b32a9dadf2d149811151a108517971c61b8013f8a36a5150b6991cbadf7e2c87`.
+Ordinals 39 and 40 then passed exact validation on their first attempts. The
+current progress SHA-256 is
+`267dee7b757b20ea49f74be9143aefb22462a69ab31ff3c5a8204a627c5c18de`.
+Ordinals 41 through 44 then passed exact validation on their first attempts.
+The current progress SHA-256 is
+`edb6a9e940216c296e538a635358f86051824ae6501914e7e06842577d41fc8e`.
+Ordinals 45 through 48 then passed exact validation on their first attempts.
+The current progress SHA-256 is
+`d97f1a22bae84a7b0cd5ebc6a2d798a94945c904d7364993a83d4de58512353a`.
+Ordinals 49 and 50 then passed exact validation on their first attempts. The
+progress SHA-256 at that checkpoint was
+`1ac1c8ce0a671bac9bd3c814293b8eb5e8d043b47372303d443b2bfda1f982f9`.
+Ordinals 51 and 52 then passed exact validation on their first attempts. The
+progress SHA-256 at that checkpoint was
+`65cc1af5c47d4c724183f1201e4ab5362702f1462e462ccb9e3feaf37a27998a`.
+Ordinals 53 and 54 then passed exact validation on their first attempts. A
+provider throttle notice appeared only after each complete assistant output,
+so both exact outputs remained valid and were recorded. The current progress
+SHA-256 at that checkpoint was
+`40b7315afc3658ee3252deab0ae16a55b2ce0415c2cea03c675676a1ec15a1bb`.
+Ordinals 55 and 56 then passed exact validation on their first attempts. The
+ordinal 56 response took longer to generate but completed normally; a later
+notice blocked only the first new-chat click and was cleared before ordinal 57
+was staged, consuming no evaluator attempt. The progress SHA-256 at that
+checkpoint was
+`8d768f6d4755628919dca7083959d4819e959aec335e3ec0aea8b2550f996d04`.
+Ordinals 57 and 58 then passed exact validation on their first attempts. Their
+provider throttle notices appeared only after complete outputs and did not
+invalidate either judgment. The progress SHA-256 at that checkpoint was
+`0398d21eba1457e30f8aa4aab6663754fcaa7cd395f8ce757aa7b1700553d2d7`.
+Ordinals 59 and 60 then passed exact validation on their first attempts. The
+progress SHA-256 at that checkpoint was
+`1ea9a52f79422e25d2608256d4dea95daedc864378a6b4e0b8e333d42fbdb2a5`.
+Ordinals 61 and 62 then passed exact validation on their first attempts. The
+ordinal 61 provider notice appeared only after its complete output and did not
+invalidate the judgment. The progress SHA-256 at that checkpoint was
+`5d7f64cd1a99b074b26ece3cee891276cd7d13221d4751850c7e727511743c14`.
+Ordinals 63 and 64 then passed exact validation on their first attempts. The
+ordinal 63 provider notice appeared only after its complete output and did not
+invalidate the judgment. The progress SHA-256 at that checkpoint was
+`75ec391a468acbbf22f10d7f4fee75bc06bd29ca02d04d9ba1922b1cc5db2d40`.
+Ordinals 65 and 66 then passed exact validation on their first attempts. The
+progress SHA-256 at that checkpoint was
+`e5ad55d47fe5816c1771e1ca90b081b907090ffc66ebeb961d945342d04c255f`.
+Ordinals 67 and 68 then passed exact validation on their first attempts in fresh
+GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
+The progress SHA-256 at that checkpoint was
+`f5ec80837dc68515ed42cf016747bb2f4c7fdee274cd19aa71349e8ec7965038`.
+Ordinals 69 and 70 then passed exact validation on their first attempts in fresh
+GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
+The progress SHA-256 at that checkpoint was
+`2432fa3d37af03033f968f0f7db4eae340ae37caf8eb939792ee8a6223387f04`.
+Ordinals 71 and 72 then passed exact validation on their first attempts in fresh
+GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
+Ordinal 72 completed after a longer normal generation. The current progress
+SHA-256 at that checkpoint was
+`48de8ae6e60789a3fab2a815bd37f41f68be093702df6552a1499f4d7519f854`.
+Ordinals 73 and 74 then passed exact validation on their first attempts in fresh
+GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
+Ordinal 74's Enter command timed out only after the user message had persisted
+and generation started, so it was not resent. The progress SHA-256 at that
+checkpoint was
+`8ecde61daef392046c3df70056d0d9da11b6879b651e0991a19796a076c7a524`.
+Ordinals 75 and 76 then passed exact validation on their first attempts in fresh
+GPT-5.6 Sol / Extra High conversations with zero tool or citation artifacts.
+Their Enter commands timed out only after submission had started, and ordinal
+76's exact-text insertion timed out only after all staged bytes were present;
+none was resent. The progress SHA-256 at that checkpoint was
+`2809af24d3993848d0bebfcb3794d121754dbb16b45a8cad162a0551e44749d5`.
+Ordinal 77 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`d3050db5ccaaf4731a26aecd6ee9215cf0115783167a37695e879210ea551d29`.
+
+The browser process closed while ordinal 78 was being staged. No ordinal 78
+message was sent and no attempt was consumed. Headless and off-screen recovery
+restored the extension-bearing Brave `Default` profile, including its crashed
+session. After the same consumer account sign-in was restored, ordinal 78 was
+re-read from the durable private packet set, byte-verified, and staged once in a
+brand-new conversation. Its exact-text insertion and Enter commands timed out
+only after all bytes were present and submission had started, so neither action
+was repeated. The response passed exact repository validation on its first
+attempt with zero tool or citation artifacts. The blinded ledger now contains
+78 valid judgments, preserves five mechanical failures, has no halted claim,
+and had SHA-256
+`f3f23e4e89b715c0e065a4c303a738197d0a04803d755ac7e608ffefa496e4fe`.
+Ordinal 79 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`d0e6dfb55a504eab40a8c85f6eb0ff2dd967a48cc269f00e68e0a4da29caf7ef`.
+Ordinal 80 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`7153190796ac9cff28ffa6c72484660259d3a6ed2740702dc43925dfe0c0d38f`.
+Ordinal 81 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`20c4cfd8e064e69c0772312b6bcd59e70a940f8f94aec65e102f1e8a7e808579`.
+Ordinal 82 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`d59825f83764859fa1dab8b34acb9b54a1ca2247961d862e03b6246aa828dd0f`.
+Ordinal 83 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`59052f785c0c503b593b2f0d346140249455dc978fba0fce8bdffb539733dd92`.
+Ordinal 84 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`979fc013ae7b828546c8bedccf54e44d04d2af13db2a8dfb136624961639436d`.
+Ordinal 85 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`e1079802497705c17dec976141f685b017934b174766934901dedf59276bdb05`.
+Before ordinal 86 was staged, its fresh chat exposed `Pro, 5 of 5` instead of
+the required setting. The visible reasoning-power control was returned to
+`Extra High, 4 of 5`, verified with zero messages present, and no attempt was
+consumed by the correction. Ordinal 86 then passed exact validation on its
+first attempt with zero tool or citation artifacts. The current progress
+SHA-256 at that checkpoint was
+`2d7e76588bf9f986aa14259a57caba9ff3f9f9b57b24252876f38d440206c80e`.
+Ordinal 87 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`96e3cf9daa57dc94b08ce7e5ecf1ea43df3335d33c8dfab7612325ddb7af3acb`.
+Ordinal 88 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`f8f6fd4e6e8a524e0f96cb8ea454ec977b0037a17c7da5d15b0603a301f52419`.
+Ordinal 89 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`a8d4d52d40040e4c0a03a8c95aa7cca084755e899da1008ce560855f5e04e686`.
+Ordinal 90 then passed exact validation on its first attempt in a fresh GPT-5.6
+Sol / Extra High conversation with zero tool or citation artifacts. The progress
+SHA-256 at that checkpoint was
+`551f83485cb8a650f1e38d935b925cd9d134fd04e0bd44db7ee0250ca56c8f6d`.
+While ordinal 91 was staged, the browser process restarted and several root-tab
+draft restorations exposed duplicated packet bytes. Every such draft was
+discarded before dispatch, and none consumed an evaluator attempt. A verified
+empty zero-message root was isolated, the durable packet was re-read and
+staged once to its exact hash, and ordinal 91 then passed exact validation on
+its first dispatched attempt with zero tool or citation artifacts. The current
+progress SHA-256 is
+`29a21646cf69d2adacfa64271c5991bd146fe10a76091c0e8b5565b575c53f14`.
+The fresh ordinal 92 root initially restored an unsent prior draft. That state
+was rejected and cleared to a verified zero-byte, zero-message composer before
+the durable ordinal 92 packet was re-read and staged once to its exact hash.
+Ordinal 92 passed exact validation on its first dispatched attempt with zero
+tool or citation artifacts. The current progress SHA-256 is
+`3cda7b4098ba9b0c68a4f0fe701bef1c4fe9c9fe8ab6dac6f97de7294aad67f7`.
+Ordinal 93 began from a verified zero-byte, zero-message fresh root. Its exact-text
+insertion command timed out only after every sealed packet byte was present; the
+editor reconstruction matched the durable packet, so insertion was not repeated.
+Ordinal 93 passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. The current progress SHA-256 is
+`ba737d53662a75a7e6ded5ba860ffc60e018d7eb4ff2a3684a8e6178be7dc546`.
+Ordinal 94 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`be14bea74bf56d2499a163cc1f49a885830697e7b67ca37888004d3a850e3f22`.
+Ordinal 95 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`b224d16d76a4979ebb17bda98a9b628fe9ce4d6fda1d9d07c5a8b2e8ea453cca`.
+Ordinal 96 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`ef6e60ec428ff615c710f5365b37892fae292eb10cd07084896a9e5ddbf4aec0`.
+Ordinal 97 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`fe7913ff8b4b6dee9ef138515ee681e8686524baaf9d4a2c7e66b5eebbb10442`.
+Ordinal 98 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`afd401782e57ea0d2dcd67a296f793f81f32c904f1506ecc9cfa9e95cac50c58`.
+Ordinal 99 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`673b723f8ebb06d7ac5ce4db314afa8b4ae62712087c74655178034544f177f4`.
+Ordinal 100 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`9227c8a1c9bdb6123e62bc0303b24edc2191b8cc9f83cad4d2a7a5c218de7e81`.
+Ordinal 101 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`81ec64c00b1d87ceb6b76edc1f3970b68b023b45cbb6fc806c1f419758c66ca8`.
+Ordinal 102 passed exact validation on its first dispatched attempt in a verified-empty
+fresh GPT-5.6 Sol / Extra High conversation with zero tool or citation artifacts.
+The current progress SHA-256 is
+`dcc3103854f68fceff1a34a7005a452c3198b9df0625693b7446a0ac2ee848b1`.
+Two ordinal 103 staging tabs detached before dispatch and consumed zero evaluator
+attempts; neither unsent draft was reused. After reconnecting to the same signed-in
+consumer surface, ordinal 103 was re-read from the durable packet set, staged once in
+a verified-empty fresh conversation, and passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. Completed evaluator tabs were closed, and
+subsequent fresh conversations reuse a single physical browser tab. The current progress
+SHA-256 is
+`ed1c53c8e32ee40279cf46137ffded6ed974c1b3d6974795201d2f7ee9f7fd13`.
+Ordinal 104 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`055740d7e69d91f073a88c84c7847778108441e6db784e21c66a4977a6ac0df9`.
+Ordinal 105 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`7dc7bd42c665e4bf6014d73d634d54ba3b1fb83101f3d0c1574cceb13775ea06`.
+Ordinal 106 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its send command timed out only after the user message persisted, so it
+was not repeated; the completed response passed exact validation on that first attempt
+with zero tool or citation artifacts. The current progress SHA-256 is
+`48f4ab3f7771462ba6418002da9a6b58561ee410481ae9da27de9a34f487a93c`.
+Ordinal 107 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its insertion timed out only after the complete packet was present and
+therefore was not repeated; the response passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. The current progress SHA-256 is
+`58d09e53b55dd4e9530ec24091cf19bacc459b59948441328c78a08614394131`.
+Ordinal 108 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`29639f0524abc3a85ac928664217a666e271f0465b4ef0ff754c78b98e2f4664`.
+Ordinal 109 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`3e01f2a151721d23de0494c35990f8120fd2747ba172092954faa42d75e86859`.
+Ordinal 110 reused the same physical browser tab but opened a fresh zero-message
+conversation. The user message appeared after a brief UI persistence delay, so no
+second send was attempted; the response passed exact validation on its first attempt
+with zero tool or citation artifacts. The current progress SHA-256 is
+`88069abd78df143938bee6d52e3414d7be7c2f707d8ec4186f030c5359d0179d`.
+Ordinal 111 reused the same physical browser tab but opened a fresh zero-message
+conversation. The initial Enter action was proven to be a no-op before the enabled
+send control was clicked once, so it consumed no attempt; the first dispatched attempt
+passed exact validation with zero tool or citation artifacts. The current progress
+SHA-256 is
+`ff4389e284849b21bce2cb0e4af73d3c59a5c6e677261d8efb150dd494399051`.
+Ordinal 112 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The progress SHA-256 became
+`3d55d79ef03c9c2cfbb2abdf94f3e08f94671ffab85bea5c17536aeaedeb979e`.
+Ordinal 113 reused the same physical browser tab but opened a fresh zero-message
+conversation. The initial Enter action was proven to be a no-op before the enabled
+send control was clicked once, so it consumed no attempt; the first dispatched attempt
+passed exact validation with zero tool or citation artifacts. The current progress
+SHA-256 is
+`75d0638b01ec59ee84da63a340babda881bc09c3a414042123e01ce3b1d4804d`.
+Ordinal 114 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its insertion command timed out and browser control restarted during
+inspection, but the recovered sole tab held the complete exact packet, so no second
+paste occurred. The initial Enter action was then proven to be a no-op before the
+enabled send control was clicked once; the first dispatched attempt passed exact
+validation with zero tool or citation artifacts. The progress SHA-256 became
+`fb226c7d874205a94c85c2aaa0c2f10a1a6b3ff26248a569b4060fdc96b08c04`.
+Ordinal 115 reused the same physical browser tab but opened a fresh zero-message
+conversation. The initial Enter action was proven to be a no-op before the enabled
+send control was clicked once, so it consumed no attempt; the first dispatched attempt
+passed exact validation with zero tool or citation artifacts. The current progress
+SHA-256 is
+`93c09b3cf48145d8fed0fec3e2cc06ddd2a18e80406ffd3783715343af2a95d2`.
+Ordinal 116 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The progress SHA-256 became
+`4c16e1a7a7b6bc57a5639fb035a8cea9a2dddac4373e6847c7e00bb24c72b74a`.
+Ordinal 117 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`bc4bbbe5db35d0f83923a07f5194284ddf3faa5358fa3036bcf3fc740887c847`.
+Ordinal 118 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its generation was longer than usual but remained active and completed;
+the response passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts. The progress SHA-256 became
+`7aaf00e8ab1bb2439db08d1110d960571ddd0cf55c88beb00366c116b64fb928`.
+Ordinal 119 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`c340d11ac854b4ead725f0f2a174b2c27758d120db4f87d834321c9a106f2954`.
+Ordinal 120 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its generation was longer than usual but remained active and completed;
+the response passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts. The progress SHA-256 became
+`850bb4125d5baca2cddbe36fae44985c5d251b1d3cfce23a7ba281335a063009`.
+Ordinal 121 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its user message had a brief UI persistence delay while generation was
+already active, so no second send was attempted; the response passed exact validation
+on its first attempt with zero tool or citation artifacts. The current progress SHA-256
+is `63e069147f18debae82094e559cb766e2f5ad436c4c5e466e55562d23e3a3c2b`.
+Ordinal 122 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its generation was longer than usual but remained active and completed;
+the response passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts. The progress SHA-256 became
+`333fe59575e6bd4707e3e07ee067d7cd59b39ddd9904bc21796f7ce2bb190c6c`.
+Ordinal 123 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`10096d12b1c587863db71b82cb0047e843adb23699dba26a250671239234fa1b`.
+Ordinal 124 reused the same physical browser tab but opened a fresh zero-message
+conversation. Its generation was longer than usual but remained active and completed;
+the response passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts. The progress SHA-256 became
+`1cc604ea23b3af1216c157d3d23ca7eec889187be83dd56c52f3dc82023c4944`.
+Ordinal 125 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The current progress SHA-256 is
+`14d1e6beed69960184735494ca00a71fa1b95b7417e7150cb9e5b03033a3aab2`.
+Ordinal 126 reused the same physical browser tab but opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed
+zero tool or citation artifacts. The progress SHA-256 became
+`f76bed6f7115792da90a6205ab5bf8103c780707d004c4a25dea03286c5298a5`.
+Ordinal 127 reused the same physical browser tab but opened a fresh zero-message
+conversation. Several insertion calls were proven to be complete no-ops because a
+provider cooldown dialog held focus: the composer remained empty, with the empty-string
+SHA-256 and zero messages. After the notice was dismissed and the cooldown was allowed
+to clear, the packet was staged exactly once and the first dispatched attempt passed
+exact validation with zero tool or citation artifacts. The current progress SHA-256 is
+`8063cd32dd841b8e51945d21f9b7075119810b83524f0d527f9ff1a3fca29845`.
+Ordinal 128 reused the same physical browser tab after a short provider-cooldown idle,
+opened a fresh zero-message conversation, passed exact validation on its first
+dispatched attempt, and showed zero tool or citation artifacts. The progress SHA-256
+became `75df2ee6539815bc51c8e0cf65d5e210796d3bc8dbc5154d5b2f1db7e062dc3a`.
+Ordinal 129 used the same delayed one-tab navigation pattern, opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt, and showed zero
+tool or citation artifacts. The current progress SHA-256 is
+`0f104276133d78ddde7c549875dd6e7bb12eb26b61353202d7540a545c93c512`.
+Ordinals 130 and 131 used the same delayed one-tab navigation pattern, each opened a
+fresh zero-message conversation, passed exact validation on its first dispatched
+attempt, and showed zero tool or citation artifacts. The progress SHA-256 values became
+`b29eb49148a47194947123d2b3d08d8fb4e0add01068500bf516b84b23636b52`
+and then `e05017df35efb798a85469d8d39f5a1e080a27e5c00853370305e0103483a9c8`.
+Ordinal 132 attempt 1 was retained as a `PROVIDER_OR_TRANSPORT_FAILURE` after
+sequential entry treated the first line break as submission and persisted only 135
+input bytes. The sealed packet remained private and unchanged, and the progress SHA-256
+became `ac980a2e2f0dcd8dab82f6d5ba68ef3457adb3bf8469f8c4df400a924b1b9035`.
+Attempt 2 used a fresh conversation and the byte-identical sealed packet, passed exact
+validation with zero tool or citation artifacts, and advanced the ledger to 132 valid
+judgments with six preserved mechanical failures at SHA-256
+`f23528653265ba76768e1dc78f998278a6b5b3d6827f744e483d2aa7ae2eb391`.
+Ordinal 133 then reused the same physical browser tab, opened a fresh zero-message
+conversation, passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts, and advanced the ledger to 133 valid judgments at SHA-256
+`083333e078bf25c63f69ec77ad58ebc689b75963fddf0733370ced371eded36c`.
+Ordinal 134 reused the same tab and packet under a fresh zero-message conversation,
+passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts, and advanced the ledger to 134 valid judgments at SHA-256
+`271b98fe22c3c5bdc19ca70e9a5834f30129cd8767bab3988ef4ac9ad246b305`.
+Ordinal 135 reused the same physical tab and a fresh zero-message conversation. Its
+generation was longer than usual but remained active and completed; the response passed
+exact validation on its first dispatched attempt with zero tool or citation artifacts.
+The current progress SHA-256 is
+`011467c9b2041488800b0d66a891b580e818d4e0cb67ba181f3dc5b357cf10bb`.
+Ordinals 136 and 137 each reused the same physical browser tab, opened a fresh
+zero-message conversation, passed exact validation on their first dispatched attempts,
+and showed zero tool or citation artifacts. The progress SHA-256 values became
+`0dc2d4f7e7778330cd19ae0ecc13d04eb32d24ffecd1891150133cd46413f81c`
+and then `4083cd4638c49cbee87c5b998d6f48fba2f8bf90ebbf0a98b5e3b3ccae3f514d`.
+Ordinals 138 and 139 each reused the same physical browser tab, opened a fresh
+zero-message conversation, passed exact validation on their first dispatched attempts,
+and showed zero tool or citation artifacts. The progress SHA-256 values became
+`13155c6f42f1be53c79953d00d90f9b1341952091f7a2b4efc5c300321846efa`
+and then `9085c5c2c6ef17b8215cd1c0e817197ca19dbef9d2e007baf7fe3aefa4e0fad5`.
+Ordinal 140 then reused that physical tab, opened a fresh zero-message conversation,
+passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts, and advanced the ledger to 140 valid judgments at SHA-256
+`cda19c88814c065b6bfd26733082522b0b6f74cced8082af57b96d36dcaa8b02`.
+Ordinal 141 reused the same physical tab and a fresh zero-message conversation. Several
+insertion methods were proven empty no-ops and consumed no attempt; after a later
+exact-text insertion timed out, byte verification proved the complete packet present,
+so insertion was not repeated. The packet was sent exactly once, and its response
+passed exact validation on the first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 141 valid judgments, preserves six mechanical
+failures, has no halted claim, and has SHA-256
+`083a2761004d15a673ca2df2f9b7e450d813b66dc3fce78ebe1efe040c1be430`.
+Ordinal 142 reused the same physical tab and opened a fresh zero-message conversation.
+Its exact-text insertion was recovered after a browser-control kernel reset, and the
+staged bytes matched the sealed packet before the one permitted send. The response
+passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts and advanced the ledger to 142 valid judgments at SHA-256
+`0f54e5516dfee55804530613779e641a5fb6227aa2db294c6823eb74daf196fb`.
+Ordinal 143 reused the same physical tab and opened another fresh zero-message
+conversation. Full-packet paste paths and an oversized segmented paste were
+mechanically rejected and cleared before dispatch. A later exact-text insertion timed
+out only after byte verification proved the complete packet present; its user-message
+persistence then lagged while generation was already active, so neither insertion nor
+send was repeated. The response passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. The ledger now contains 143 valid
+judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
+`ba2070d5b4883e86ab2715c55c86604232ef2692e1ec4b556f05cf6a1fa387b1`.
+Ordinal 144 reused the same physical tab and a fresh zero-message conversation. Its
+exact-text insertion was recovered after another control-kernel reset, and the staged
+bytes matched the sealed packet before the one permitted send. The response passed
+exact validation on its first dispatched attempt with zero tool or citation artifacts
+and advanced the ledger to 144 valid judgments at SHA-256
+`f17cc9dd0dca84621844aaf8cb7bc7b4faf4bc142ed542b1fc0afe9995486f49`.
+Ordinal 145 reused the same physical tab and another fresh zero-message conversation.
+Its send command timed out only after one user and one generating assistant message
+were present, so it was not repeated. The response passed exact validation on its first
+dispatched attempt with zero tool or citation artifacts. The ledger now contains 145
+valid judgments, preserves six mechanical failures, has no halted claim, and has
+SHA-256
+`520d7f81c7bfbcb4c648cdda9d7f0112172dd9e7fbadace71cf7e70dac7e408e`.
+Ordinal 146 reused the same physical tab and a fresh zero-message conversation, passed
+exact validation on its first dispatched attempt with zero tool or citation artifacts,
+and advanced the ledger to 146 valid judgments at SHA-256
+`b3315cf38aaad433df1d6346bba13b51e9c1101a103ca36b14e1f52a24bcbcf9`.
+Ordinal 147 reused the same physical tab and another fresh zero-message conversation.
+An unexpected 118-byte unsent draft matched neither the preceding nor current packet
+prefix, so it was cleared before staging. The exact packet was then byte-verified and
+sent once; user-message persistence lagged while generation was already active, so no
+resend occurred. The response passed exact validation on its first dispatched attempt
+with zero tool or citation artifacts. The ledger now contains 147 valid judgments,
+preserves six mechanical failures, has no halted claim, and has SHA-256
+`e6daae4bb3087907f2680c466846933ac1da30ff7501517b2142862163eeaf6f`.
+Ordinal 148 reused the same physical tab and a fresh zero-message conversation, passed
+exact validation on its first dispatched attempt with zero tool or citation artifacts,
+and advanced the ledger to 148 valid judgments at SHA-256
+`e0d4a1ff4a60f48d982fd0f10ef4809e15b92f8025b739101a8183f37c6f1fee`.
+Ordinal 149 reused the same physical tab and another fresh zero-message conversation,
+passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts, and advanced the ledger to 149 valid judgments. The ledger preserves six
+mechanical failures, has no halted claim, and has SHA-256
+`fca9528bf5a574cc02d416dfaa70e763a92c6af438bb486d80b6934fe749c99e`.
+Ordinal 150 reused the same physical tab and a fresh zero-message conversation. An
+unexpected 181-byte unsent draft matched neither the preceding nor current packet
+prefix, so it was cleared before staging. The response passed exact validation on its
+first dispatched attempt with zero tool or citation artifacts and advanced the ledger
+to 150 valid judgments at SHA-256
+`7e138b124cb660d9fc0959448380458c52eb4dccd04d2ada314643edfd17721a`.
+Before ordinal 151 staging, fail-closed preflight detected that the fresh editor's model
+selector had drifted to `Latest / High`; no packet was inserted. GPT-5.6 Sol and Extra
+High 4 of 5 were restored and verified with Chat on and Work off. Ordinal 151 was then
+staged byte-exactly, sent once, and passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. The ledger now contains 151 valid
+judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
+`4bc090688882220de947085288be5e35bce078463441d5cfd1ecd68397a86529`.
+Ordinal 152 reused the same physical browser tab and opened a fresh zero-message
+GPT-5.6 Sol / Extra High conversation. The packet was staged byte-exactly and sent once;
+the response passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts. The ledger advanced to 152 valid judgments at SHA-256
+`b27065eea4a8b17436fab6811abd61a9c9041df3370b480a88dc449229347204`.
+Ordinal 153 then reused the same physical tab and another fresh zero-message conversation.
+After a control-kernel reconnect, the staged bytes still matched the sealed packet before
+the one permitted send. The response passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. The ledger now contains 153 valid judgments,
+preserves six mechanical failures, has no halted claim, and has SHA-256
+`bae1231cdb7c5ce254dd27928287be19445591cb2562dfb7aa82da9a14e6f8e8`.
+Ordinal 154 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. The response passed exact validation on its first dispatched attempt
+with zero tool or citation artifacts and advanced the ledger to 154 valid judgments at
+SHA-256 `426b797dd0c8a24afb24869e0d9f2331c0bfccf67f146e1b33a0aa212a2da8fe`.
+Ordinal 155 then reused the same physical tab and another fresh zero-message conversation.
+The response passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts. The ledger now contains 155 valid judgments, preserves six
+mechanical failures, has no halted claim, and has SHA-256
+`57eebac3d75c9821f8149ef25909dd52bb4822bf4bdf3ae7fece91c04a5dfe8e`.
+Ordinal 156 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. The response passed exact validation on its first dispatched attempt
+with zero tool or citation artifacts and advanced the ledger to 156 valid judgments at
+SHA-256 `989e22e7503a1f5a459d6fad07d29dedf458f750c34b184287e8a7d4ec991f74`.
+Before ordinal 157 staging, an unrelated 223-byte unsent draft matching neither adjacent
+packet prefix was cleared and a provider cooldown notice was dismissed; no evaluator
+attempt was consumed. Ordinal 157 was then staged byte-exactly in a fresh GPT-5.6 Sol /
+Extra High conversation and passed exact validation on its first dispatched attempt with
+zero tool or citation artifacts. The ledger now contains 157 valid judgments, preserves
+six mechanical failures, has no halted claim, and has SHA-256
+`d0799e98142de439785fb2c29ce4ba51ea0088fc733c1e1be24894033636c76b`.
+Ordinal 158 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. It completed after a longer normal generation and passed exact
+validation on its first dispatched attempt with zero tool or citation artifacts, advancing
+the ledger to 158 valid judgments at SHA-256
+`bc2eb6ed21cb8cb31e4e4c5766babf9e6239836c9030b3e5b71b0bd6d53196e5`.
+Ordinal 159 then reused the same physical tab and another fresh zero-message conversation.
+It also completed after a longer normal generation and passed exact validation on its first
+dispatched attempt with zero tool or citation artifacts. The ledger now contains 159 valid
+judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
+`e66398eb7cdf81da80668225687ff1c02bcadafae84f84a8b39ad4ca008dae8b`.
+Ordinal 160 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. It passed exact validation on its first dispatched attempt with zero
+tool or citation artifacts and advanced the ledger to 160 valid judgments at SHA-256
+`9c0d3e21db5f75279e1c80310f6eba7a63deca43bcb2a734f6d437535e27cbe1`.
+Ordinal 161 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 161 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`3e0a7962eba4cdbe0278e3ce6a7d33a389c8abcd90ba3846102ca0cba170e146`.
+Ordinal 162 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. It completed after a longer normal generation and passed exact
+validation on its first dispatched attempt with zero tool or citation artifacts, advancing
+the ledger to 162 valid judgments at SHA-256
+`18d951d024aed2b69eecf753b19d8c386fdb4558985d6f80d58cc0fbf469523e`.
+Before ordinal 163 staging, an unrelated 118-byte unsent draft matching neither adjacent
+packet prefix was cleared without consuming an attempt. Ordinal 163 was then staged
+byte-exactly in a fresh GPT-5.6 Sol / Extra High conversation, completed after a longer
+normal generation, and passed exact validation on its first dispatched attempt with zero
+tool or citation artifacts. The ledger now contains 163 valid judgments, preserves six
+mechanical failures, has no halted claim, and has SHA-256
+`c074a592216c4053991eb47ae74bb3d5d44c6f1d11a29ceb596e57f91762e156`.
+Ordinal 164's first staging action inserted only a verified 65-byte packet prefix. The
+incomplete draft was discarded in a fresh zero-message conversation without a send or
+attempt; the full packet was then staged byte-exactly. The response passed exact validation
+on its first dispatched attempt with zero tool or citation artifacts and advanced the ledger
+to 164 valid judgments at SHA-256
+`c8f749a509fb26d735955d8866001d870ee81fcc309fce766140924b5e850f6d`.
+Ordinal 165 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. It passed exact validation on its first dispatched attempt with zero
+tool or citation artifacts. The ledger now contains 165 valid judgments, preserves six
+mechanical failures, has no halted claim, and has SHA-256
+`4ca8330c91befa2da82794cf7be42058ec7a9843024d7d58b7eb62e8189ae30b`.
+Ordinal 166 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. It passed exact validation on its first dispatched attempt with zero
+tool or citation artifacts and advanced the ledger to 166 valid judgments at SHA-256
+`c54db91dfa1042e1715886670b1c2443ba0fdcbb9cc8ac2d6a562169aab7b89a`.
+Ordinal 167 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 167 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`48ece182b094524ee32860e7393a7ec8cf8c6cb302897188cd865946fba1100e`.
+Ordinal 168 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. A browser-control reconnect timed out after packet insertion, but the
+same tab was recovered and the staged bytes remained exact; no action was repeated. The
+response passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts and advanced the ledger to 168 valid judgments at SHA-256
+`79b5339e2aa2f0258b3f3a0a3bea0862bd16047a3bf1349f46f07a6e62d07757`.
+Ordinal 169 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 169 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`4d8e00f78cfc31658d172b2ac89b685c916c9f48c7cd6d4d95ee821429446590`.
+Ordinal 170 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra
+High conversation. Its send control timed out only after the user message persisted and
+generation started, so no resend occurred. The response passed exact validation on its
+first dispatched attempt with zero tool or citation artifacts and advanced the ledger to
+170 valid judgments at SHA-256
+`a2ceef971b788f9fb594edfdd278275875365229f4f82c982f011d853790e6a9`.
+Ordinal 171 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 171 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`41e9ea7011d5364d18b9013fa4249e34d34a20f973957fc085f94fb189e55481`.
+Ordinal 172 reused the same physical browser tab and a fresh zero-message GPT-5.6 Sol /
+Extra High conversation. Its send control returned an error only after generation had
+started, so no resend occurred. The response passed exact validation on its first
+dispatched attempt with zero tool or citation artifacts and advanced the ledger to 172
+valid judgments at SHA-256
+`7a8a8eb979892e1180dde6041b5cc1e1ba222c7b862a1f77384977e13138c5ce`.
+Ordinal 173 then reused the same physical browser tab and another fresh zero-message
+GPT-5.6 Sol / Extra High conversation. It completed after a longer normal generation and
+passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 173 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`8019548dfccfe4d6e34c96faa4afb0c313cfff21140e6e07d7d39a5494cdafad`.
+Ordinal 174 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts and advanced the ledger to 174 valid judgments at SHA-256
+`e8060bb607a3f273f9225581341b976482d666ca7e41329b02b68b3b373f63b8`.
+Ordinal 175 reused the same physical browser tab and a fresh zero-message GPT-5.6 Sol /
+Extra High conversation. Its first send click opened a provider notice without persisting
+either message and consumed no attempt. After the notice was dismissed, the unchanged
+staged bytes were reverified and dispatched; the response passed exact validation on its
+first attempt with zero tool or citation artifacts. The ledger now contains 175 valid
+judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
+`4e4ddce51101bfacdce0e50b24bb10f4a137da0d2cf736837c62f0083816e937`.
+Before ordinal 176 staging, a provider cooldown notice was dismissed in a fresh empty
+conversation and its requested pause was respected without consuming an attempt. Ordinal
+176 then reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation, passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts, and advanced the ledger to 176 valid judgments at SHA-256
+`393f33233561985bb9533d4bdab8d55881d168349b336093f1d059ebed2d7b8e`.
+Ordinal 177 reused the same physical tab and another fresh zero-message GPT-5.6 Sol /
+Extra High conversation. It passed exact validation on its first dispatched attempt with
+zero tool or citation artifacts. The ledger now contains 177 valid judgments, preserves
+six mechanical failures, has no halted claim, and has SHA-256
+`63b55f9ccf5e024ad5e196cb6c2bc1c893420676cdcede678f09f92dfbcdf087`.
+Ordinal 178 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation. It completed after a longer normal generation, passed exact validation on
+its first dispatched attempt with zero tool or citation artifacts, and advanced the
+ledger to 178 valid judgments at SHA-256
+`d136824e53c089000b9dfa9e0e763473e38c5ab98421b40dbc90da9530b044a2`.
+Ordinal 179 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 179 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`f7e807960818130785eef410edbd920a9be652542f056d652a028908bedf1480`.
+Ordinal 180 reused the same physical browser tab and a fresh zero-message GPT-5.6 Sol /
+Extra High conversation. Its send control timed out only after the user message persisted
+and generation started, so no resend occurred. The response passed exact validation on
+its first dispatched attempt with zero tool or citation artifacts and advanced the ledger
+to 180 valid judgments at SHA-256
+`d580da484f3f4fbd1df559cbddde3e3d52177c4a82f272881fab58c0a0ad8929`.
+Ordinal 181 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 181 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`88d9ff80fe3433c8031ee12e70fa09559da74ed4da173838d1da081925e53b66`.
+Ordinal 182 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation. It completed after a longer normal generation, passed exact validation on
+its first dispatched attempt with zero tool or citation artifacts, and advanced the
+ledger to 182 valid judgments at SHA-256
+`daad8a70ef69c64c907b85f7f18f6131ad9e208bb27781fc7d7bf5640912df93`.
+Ordinal 183 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 183 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`4da5732f900e5fae03a88cf6cb7aef4ff0b55a6779c2c2c4351994b88eace683`.
+Ordinal 184 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation. It completed after a longer normal generation, passed exact validation on
+its first dispatched attempt with zero tool or citation artifacts, and advanced the
+ledger to 184 valid judgments at SHA-256
+`5cb447e00725018e0ab78ef74e1ba9e3f85e031d5d20ba5288cd0d0bf7c0cd79`.
+Ordinal 185 then reused the same physical tab and another fresh zero-message conversation.
+It completed after a longer normal generation and passed exact validation on its first
+dispatched attempt with zero tool or citation artifacts. The ledger now contains 185
+valid judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
+`2cab582cf0226b7844517496c8ac597474d73d447a5b450775e3c839e9ee6fc4`.
+Ordinal 186 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation. It passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts and advanced the ledger to 186 valid judgments at SHA-256
+`d24d31dacdc62677daa7561c6c089651332a6645d55f900ffb373374d1b3e897`.
+Ordinal 187 then reused the same physical tab and another fresh zero-message conversation.
+It completed after a longer normal generation and passed exact validation on its first
+dispatched attempt with zero tool or citation artifacts. The ledger now contains 187
+valid judgments, preserves six mechanical failures, has no halted claim, and has SHA-256
+`1a5a58274eeeb0cbdca2164c13a267a257d06a53a00433cd262582d6e67a5cde`.
+Ordinal 188 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation. It passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts and advanced the ledger to 188 valid judgments at SHA-256
+`abe8c6751ebf1500d26070b5b68c92ff813009a8b43868542a3c23743680ee6e`.
+Ordinal 189 then reused the same physical tab and another fresh zero-message conversation.
+It passed exact validation on its first dispatched attempt with zero tool or citation
+artifacts. The ledger now contains 189 valid judgments, preserves six mechanical failures,
+has no halted claim, and has SHA-256
+`15f77546b68958cc2804686c9c7187e50f195b78769b5dd55b7b1a44e135b6c8`.
+Ordinal 190 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation. It passed exact validation on its first dispatched attempt with zero tool or
+citation artifacts and advanced the ledger to 190 valid judgments at SHA-256
+`a35ed49d08803c9476b231f5c77b3a3fa0505950ed6b2cc6fe52f7aab13d33dc`.
+Ordinal 191 then reused the same physical tab and another fresh zero-message conversation.
+After a normal provider-side queue delay, it passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. The ledger now contains 191 valid judgments,
+preserves six mechanical failures, has no halted claim, and has SHA-256
+`bb28da5a70b3faf06031e73be4440f20f163f1ca718580474f96351cc431245c`.
+Ordinal 192 reused the same physical tab and a fresh zero-message GPT-5.6 Sol / Extra High
+conversation. After a normal provider-side queue delay, it passed exact validation on its
+first dispatched attempt with zero tool or citation artifacts. The primary ledger is now
+frozen with 192 valid judgments, six preserved mechanical failures, no halted claim, and
+SHA-256 `a638f53dca915a88f74a2f2baf7fe084d228f3710dad389492963caf5a2eb045`.
+The source-bound post-primary harness is implemented with focused tests covering exact
+agreement, extraction-only non-trigger behavior, each independent J3 trigger, and an empty
+source-bound J3 schedule. The real deterministic detector then froze a 41-slot J3 schedule
+without exposing judgments or metrics. Private artifact identities are: disagreement ledger
+SHA-256 `637c4ea77e8f6e6f6ee69639e5b029bb4b90925513fc239d5d79340dd5e7b5b2`,
+J3 schedule SHA-256 `dccf2af3b21f3180d0813be67f6aaec488f25e5861ae87c8c2936e75fddea9c6`,
+and empty J3 progress SHA-256
+`b663de2a53a5269a0b6195911656f4a2e8b2954b9273d2c7d77d94d983704f2c`.
+The fail-closed finalizer was exercised before J3 capture and correctly rejected the incomplete
+state with `EVALUATOR_V2_REQUIRED_J3_NOT_FROZEN`; no final directory was written.
+J3 ordinals 1 and 2 each reused the same physical browser tab, opened separate fresh
+zero-message GPT-5.6 Sol / Extra High conversations, and passed exact validation on their
+first dispatched attempts with zero tool or citation artifacts. A schedule-derived private
+receipt helper now joins case identity without surfacing it in worker output. J3 progress is
+2 of 41 valid with zero mechanical failures, no halted claim, and SHA-256
+`1f51dd27987919dc26bd8697afa882e6f7f5cc012fe1ace46e7fe495c40ddc82`;
+the intermediate one-valid progress SHA-256 was
+`0231ad21181bd87b8c2d0db3f3ae9b1994fbc351b35ceea76a1c880b06579616`.
+J3 ordinals 3 and 4 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. J3 progress is now 4 of 41 valid with zero mechanical failures, no
+halted claim, and SHA-256
+`d60d8a3c681788e08fcd1ed6c89b51cfad718ebe760a053c29bb80feeb401491`;
+the intermediate three-valid progress SHA-256 was
+`d72bbcc857b9916ba14832bae73e16349cde2eabb0f3036f62e9a02c7faba049`.
+J3 ordinals 5 and 6 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. J3 progress is now 6 of 41 valid with zero mechanical failures, no
+halted claim, and SHA-256
+`8970cb7f8dd52c0f8fbfc8faf6da1ecbd9b3ca7774b03f8024ec0d03d279b103`;
+the intermediate five-valid progress SHA-256 was
+`f440b7ab08c5d4c49ea2466b44055754ab2f40544ddafb735a3463d2d55a1296`.
+J3 ordinals 7 and 8 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. J3 progress is now 8 of 41 valid with zero mechanical failures, no
+halted claim, and SHA-256
+`30a33d507e0bb328595a098838ad2374978b3bf7582e322b461516fa275ff7eb`;
+the intermediate seven-valid progress SHA-256 was
+`98e91c5b57350e5bb544b64deca385e8a23dd0b039d29dc46b11d7bdfcbb57a5`.
+J3 ordinals 9 and 10 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts. J3 progress is now 10 of 41 valid with zero mechanical failures, no
+halted claim, and SHA-256
+`5e72827ec5a0999d22e28d936bc3380c107fe707019e13df54a2a4e5111e0edf`;
+the intermediate nine-valid progress SHA-256 was
+`cb16ddfb0f1980d2e07540c2aa60e6a284a47ae313347a679e28fa2a3d2870cd`.
+J3 ordinals 11 and 12 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts; ordinal 12 completed after a longer normal generation. J3 progress
+is now 12 of 41 valid with zero mechanical failures, no halted claim, and SHA-256
+`c7bf51a82e87baf4a8743426e5c18d69c9acf6dc49c5448e1677042d2851dff1`;
+the intermediate eleven-valid progress SHA-256 was
+`f30358c6b63f60eb7875db87ff4e6f7da316d5fb63cdf0893ae65fc5b60a6a32`.
+J3 ordinals 13 and 14 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts after normal provider queue delays. J3 progress is now 14 of 41 valid
+with zero mechanical failures, no halted claim, and SHA-256
+`dfe4230707c853f5fdda5af09f81fc528bcb0be871c3b317bd398ecf84e2f4d3`;
+the intermediate thirteen-valid progress SHA-256 was
+`f00dbd22280da7866c3ec15043df3e899d0bd9fdf4118271aa7d5701aab76d7e`.
+J3 ordinals 15 and 16 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts after normal provider queue delays. A temporary provider rate-limit
+notice appeared only after ordinal 15 had completed; dismissal preserved the single
+user/assistant pair and did not consume another attempt. J3 progress is now 16 of 41 valid
+with zero mechanical failures, no halted claim, and SHA-256
+`760e186a5a625b40695dcc82e507b4cb46ef66abdecd81beb952a6dc0f72e023`;
+the intermediate fifteen-valid progress SHA-256 was
+`9c8a2aa115b22b44b92aa9e63c746b163016cf20af9233ef1d0a783ab42eb1f5`.
+J3 ordinals 17 and 18 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts after normal provider queue delays. Before ordinal 18 dispatch, a
+temporary provider rate-limit notice was dismissed and an additional cooldown was respected;
+the exact staged packet remained unchanged and no attempt was consumed. J3 progress is now
+18 of 41 valid with zero mechanical failures, no halted claim, and SHA-256
+`5633f3b710791360012f990caf69418d48be6bf3694c0c1d0a69a48431a9ef02`;
+the intermediate seventeen-valid progress SHA-256 was
+`6d03f7a40a45ff91f658f52109fb749a3d1409e3f0c5273350f961e5645a3d0f`.
+J3 ordinals 19 and 20 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts after normal provider queue delays. J3 progress is now 20 of 41 valid
+with zero mechanical failures, no halted claim, and SHA-256
+`ea22ccbf2f700867aa30d95da3c95646c06796cf08ebfc11b76cead112cb3bc5`;
+the intermediate nineteen-valid progress SHA-256 was
+`0feaf2d7116cf5e8929db451929e921e9d617926d2799bdeb1863141d2e651c4`.
+J3 ordinals 21 and 22 then reused the same physical tab and separate fresh zero-message
+conversations. Each passed exact validation on its first dispatched attempt with zero tool
+or citation artifacts after normal provider queue delays. A temporary provider rate-limit
+notice appeared only after ordinal 21 had completed; dismissal preserved the single
+user/assistant pair and did not consume another attempt. J3 progress is now 22 of 41 valid
+with zero mechanical failures, no halted claim, and SHA-256
+`b630609ab0b7766ce530082660f2c9ea6b3a0315f09ce88696d20fdc425fee89`;
+the intermediate twenty-one-valid progress SHA-256 was
+`c884fb972bd11e13b043b77f98e9f648d0a4b96ba419faebc17df467f8de05f2`.
+
+J3 ordinal 23 then reused the same physical tab and a fresh zero-message GPT-5.6
+Sol / Extra High conversation. It passed exact validation on its first dispatched
+attempt with zero tool or citation artifacts. J3 progress is now 23 of 41 valid
+with zero mechanical failures, no halted claim, and SHA-256
+`3316c9eea3b164b1c1a66fca3de831e97740a3e2acdf8fc5b8f03b98e60dc537`.
+The private ordinal-23 receipt has SHA-256
+`9ecba3d2910c5b50770d6a7fa05ecc87b938987b58f052c1e02362fb6706da93`.
+
+The owner then requested GPT 6 through the consumer model selector's exact
+`Latest` label in source turn `01a071f8-ae18-7922-ac49-fcb1f187dc75`, exact-body
+SHA-256 `6af7417baa5c34a277d07e0d9db6dc105713930d476102e847dad1788e4387a6`.
+The authority gate passed with zero model API spend. The existing evaluator tab
+`663931037` was changed directly from checked `GPT-5.6 Sol` to checked `Latest`;
+no new browser tab was opened. J3 ordinal 24 remains unsent and consumed no
+attempt. Its opaque response ID is `EVAL-28ee06fdb08e40e0b61ace2e`, its private
+packet is 34,352 UTF-8 bytes at
+`evaluation-v2/packets/EVAL-28ee06fdb08e40e0b61ace2e.txt`, and its exact packet
+SHA-256 is `94edc4efadc0399991bfdf0b90a38bee42bdc56ccb93d484e2e60cf752b6252e`.
+Because the first 23 J3 judgments used GPT-5.6 Sol, further dispatch was paused
+for an explicit clean-series choice; no clinical content, rubric meaning,
+condition mapping, family, arm, judgment, or result was inspected.
+
+The owner then chose `restart all`. The exact source-bound replacement directive
+is stored at
+`docs/directives/2026-09-05-zero-spend-chatgpt-mast-j3-latest-restart.json`;
+its 12,738 UTF-8 bytes match the completed supervisor response at SHA-256
+`8f1c7f4af517060445aaf42498f6efac1ca8abd9460aae02d0295196d8f634f9`
+and assistant message ID `3d620ff6-96d3-4343-924e-35068cde74c8`. The complete
+23-valid Sol J3 tree was copied into a protected superseded private-audit
+namespace and reverified byte-for-byte against a 53-entry deterministic
+inventory. The inventory is 10,108 bytes at SHA-256
+`7128b22b65289870c75a5c2cc118f50e6979c4e4bbf8e32da7b38805f2bc71b9`.
+The preserved series remains ineligible for Latest finalization, and no
+ordinal-24 attempt exists or was consumed.
+
+The replacement harness now uses the explicit private series root
+`evaluation-v2/j3-latest-restart`, requires series identity
+`J3_LATEST_RESTART`, binds every attempt to a live pre-send local/GitHub HEAD
+match and the existing physical tab `663931037`, captures the exact observed
+highest authorized reasoning UI label, records no guessed provider slug,
+keeps the four-attempt ceiling and exact packet retry identity, and rejects
+incomplete or mixed finalization. The focused contract has 9 passing tests.
+After restoring lockfile dependencies, the complete deterministic gate passed
+on Node 24.18.0 with 143 test files and 1,699 tests passing, 1 file and 6 tests
+skipped, and typecheck and build passing.
+
+The active `J3_LATEST_RESTART` tree was then initialized after local and GitHub
+HEAD both reached execution commit
+`7d672bff3c01372aecb6b581e44000c8bc173b05`. It copied the unchanged frozen
+41-slot schedule byte-for-byte at SHA-256
+`dccf2af3b21f3180d0813be67f6aaec488f25e5861ae87c8c2936e75fddea9c6`.
+Initial progress had zero valid judgments, zero mechanical failures, no halted
+claim, and SHA-256
+`b552f1fa9ef0e823828174ddd2ed2359b69083dd8bd3dcaf04f643eac5066d31`.
+All active private directories are mode `0700` and files are mode `0600`. The
+finalizer rejected the incomplete Latest series with
+`EVALUATOR_V2_REQUIRED_J3_LATEST_SERIES_NOT_COMPLETE` and created no final
+directory.
+
+Latest restart ordinals 1 and 2 then reused physical browser tab `663931037`
+in separate fresh zero-message Chat conversations. Both pre-send gates verified
+checked `Latest`, observed highest reasoning label `Pro, 5 of 5.`, exact packet
+bytes, unchanged account continuity, and matching local/GitHub execution HEAD.
+Both outputs passed the strict repository validator on their first dispatched
+attempts with zero tool or citation artifacts. The active series now has 2 of
+41 valid judgments, zero mechanical failures, no halted claim, and progress
+SHA-256
+`1e3bc922ffd882a23a66ad1196194b9e0961c2343c06ffdc085c423e51df5190`.
+The ordinal-1 valid receipt SHA-256 is
+`4e1a04ce78702efd8c38f4879bd275f9f221dce058adcf702a68835b4548a48c`;
+the ordinal-2 valid receipt SHA-256 is
+`5a73d094d73fb6a5dec45e5e905a492cd7a3ebc95c0970c0ec510a94253603f6`.
+
+Latest restart ordinals 3 and 4 likewise used separate fresh zero-message Chat
+conversations in the same physical tab with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate and strict output validator
+on their first dispatched attempts with zero tool or citation artifacts. The
+active series now has 4 of 41 valid judgments, zero mechanical failures, no
+halted claim, and progress SHA-256
+`97fcd2cb815b568eda31087ffc1621e6cd3f1ee6ca4d4567aa5ce52bdf6659e4`.
+The ordinal-3 and ordinal-4 valid receipt SHA-256 values are respectively
+`674b4d6a7280be9d1abc67f60e82c9b8aca8c36a34d07d23b5966d92e13c1685`
+and `761bc7c8c00da18e972c2ba9af5c67f85286082bdc8c8608b4574a114e05f579`.
+
+Latest restart ordinals 5 and 6 repeated the same checked-`Latest`, observed
+`Pro, 5 of 5.`, one-tab, fresh-Chat path and passed both the pre-send gate and
+strict output validator on their first attempts with zero tool or citation
+artifacts. The active series now has 6 of 41 valid judgments, zero mechanical
+failures, no halted claim, and progress SHA-256
+`e484fbacc5deb8e50351b33d1c4343a1f78520c6c478b74c5006df9c07e2a628`.
+The ordinal-5 and ordinal-6 valid receipt SHA-256 values are respectively
+`bd32ef3a5ae6e65a74ef222215c4ad6c394581118dfbd705f1e1fd852abb67af`
+and `170ede95347b094937e1f02f5f81e452b93781e17257d5a76ee29eb921a554c7`.
+
+Latest restart ordinals 7 and 8 also used separate fresh zero-message Chat
+conversations in physical tab `663931037`, with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the pre-send gate and strict output validator on
+their first attempts with zero tool or citation artifacts. The active series
+now has 8 of 41 valid judgments, zero mechanical failures, no halted claim, and
+progress SHA-256
+`c171fc8c48afc1a68e1f917890746610280e3858706628102462d80fad85aec7`.
+The ordinal-7 and ordinal-8 valid receipt SHA-256 values are respectively
+`ca83a303ca0af5e2f2542f14fd74c0ac07b362fbd6c47caae69215d93455fdec`
+and `332020adaba135f11ce8b87b56e8153fe8415f87cc18bdafd9ccc8cc81466afc`.
+
+Latest restart ordinals 9 and 10 used the same verified single-tab path, each
+in a fresh zero-message Chat with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate and strict output validator
+on their first attempts with zero tool or citation artifacts. The active series
+now has 10 of 41 valid judgments, zero mechanical failures, no halted claim,
+and progress SHA-256
+`9a376b0e498742daf8a8443f230657792b8dd36122b3f481c38b8bd7d55498a5`.
+The ordinal-9 and ordinal-10 valid receipt SHA-256 values are respectively
+`48dd1764f0c3b59ad8041f5f522a7a4adb72506734de1d36b7e3737cba218ae5`
+and `0fbac645047ecbfecd17d25528eed31b90a635f9fa34e3c14457bd1ffafea7b5`.
+
+Latest restart ordinals 11 and 12 followed the same checked-`Latest`, observed
+`Pro, 5 of 5.`, one-tab, fresh-Chat path and passed the strict validator on
+their first attempts with zero tool or citation artifacts. Ordinal 12 had a
+brief post-send user-turn persistence delay while generation was already
+active; no resend occurred. The active series now has 12 of 41 valid judgments,
+zero mechanical failures, no halted claim, and progress SHA-256
+`e2b40ccde6d27964e3b9a0ef1aefddb4c1e13cf65509f34762ba22c2154e5c10`.
+The ordinal-11 and ordinal-12 valid receipt SHA-256 values are respectively
+`296d6c273f999c481e71af2ca15ff24573a6dae440abeddf6bb2245b48e264cc`
+and `0aa33031e48bb17c64f33817335ff3d153742b7055ac02a3d8cef8f40d39c67f`.
+
+Latest restart ordinals 13 and 14 followed the same checked-`Latest`, observed
+`Pro, 5 of 5.`, one-tab, fresh-Chat path and passed the strict validator on
+their first attempts with zero tool or citation artifacts. Ordinal 14 had a
+brief post-send user-turn persistence delay while generation was already
+active; no resend occurred. The active series now has 14 of 41 valid judgments,
+zero mechanical failures, no halted claim, and progress SHA-256
+`0cc3cd7eca0a71586a3535f2a793b5d01c01b662da22a0f2b1eaee1234f50a47`.
+The ordinal-13 and ordinal-14 valid receipt SHA-256 values are respectively
+`d7502258d885bc00b08403ecce0c2f042a456944e04b7b9cc4054c60e9906dd6`
+and `82d5c95c14a058a11d4037879610e8485504d3dcad39a32c15c916caf50d7f59`.
+
+Latest restart ordinals 15 and 16 followed the same checked-`Latest`, observed
+`Pro, 5 of 5.`, one-tab, fresh-Chat path and passed the strict validator on
+their first attempts with zero tool or citation artifacts. Both had brief
+post-send user-turn persistence delays while generation was already active;
+neither was resent. The active series now has 16 of 41 valid judgments, zero
+mechanical failures, no halted claim, and progress SHA-256
+`a8280945838f2ee361809855fff271eed723f00d58434edc2786b59bc4405b3f`.
+The ordinal-15 and ordinal-16 valid receipt SHA-256 values are respectively
+`caf908e54c0e026da49358e3a200d4aeaf5b1c57965789afeb413953c6ecbc2c`
+and `b3b0c7c004941e9306b24491f6731d407d139930124bca88c233f5a23d472217`.
+
+Latest restart ordinal 17 followed the same verified one-tab path, passed the
+strict validator on its first attempt with zero tool or citation artifacts,
+and advanced the active series to 17 valid judgments at progress SHA-256
+`78625232c65183c937abf53fc5ee40af37481dc550a137e26343a1d5a979f89b`.
+Its valid receipt SHA-256 is
+`732a4cf596edd11be0bac0fb1d1baffbf205bb17ae7c4b65a5069fd362be8395`.
+
+Ordinal 18 attempt 1 passed the live pre-send gate with checked `Latest` and
+observed `Pro, 5 of 5.`, was staged at its exact 31,215-byte packet identity,
+and was sent once. The conversation persisted at a stable locator, but after
+generation the exact physical tab's renderer became unreachable through every
+available browser-control read and in-place recovery path, so no response bytes
+or message IDs could be captured and no resend occurred. The attempt is retained
+as `PROVIDER_OR_TRANSPORT_FAILURE` with partial provenance. Its private failure
+receipt SHA-256 is
+`c20352c5d703beb0f82b69d38a8baca5ff0d65f0c4c913ab4785d69a84e41590`.
+The active series now has 17 of 41 valid judgments, one mechanical failure, no
+halted claim, and progress SHA-256
+`1ceb66e3eb0980b4219a8a74ce9b276ce3880d3eddcbbc5bb1f81bc8f5e7907c`.
+
+The owner then authorized reopening the evaluator tab. The exact current owner
+body is 75 UTF-8 bytes at SHA-256
+`a8d4307d974ae1e063db54124f54741656006ddfdda1dd08d9e10c3bee5610c1`.
+The persisted physical tab `663931037` was reclaimed without reading clinical
+content, but both a structural read and an in-place reload remained unreachable.
+A single replacement tab `663931483` was therefore opened in the same signed-in
+Brave Personnel profile. It is a fresh zero-message Chat with an empty composer,
+checked `Latest`, and observed highest reasoning label `Pro, 5 of 5.`. The
+harness now accepts exactly one owner-authorized tab transition after the retained
+provider/transport failure, records both physical tab IDs and the exact owner-body
+digest, and rejects an unbound or second transition. No evaluator attempt was
+consumed. The focused contract has 13 passing tests and typecheck passes.
+
+J3 Latest restart ordinal 18 attempt 2 then used the byte-identical sealed packet
+in replacement tab `663931483`. Its pre-send receipt bound the one-time physical-tab
+transition to the exact owner-body digest and matching local/GitHub execution HEAD
+`d9d6a414c80fa442c2ce519bcd9eb7ded061f055`. The output passed strict validation
+with zero tool or citation artifacts and was recorded as valid. The active series now
+has 18 of 41 valid judgments, one preserved mechanical failure, no halted claim, and
+progress SHA-256
+`92ba88c1b1de1fbe6665397326f40fe07b00d2d7351247c86d4fd10a55a6bdf8`.
+The private ordinal-18 valid receipt has SHA-256
+`83d9462bf5d2c8a8e9859ad074811ec8b5b0e515700ac7e2f0836113250184df`.
+Ordinal 19 remains unsent while the required interval elapses; its exact packet is
+33,855 UTF-8 bytes at SHA-256
+`2cb8ac17d9b7129f755ccd71b3e6a236d07a78dcbb6f7596d5538526930222f4`.
+
+J3 Latest restart ordinals 19 and 20 then reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate and strict validator on their
+first attempts with zero tool or citation artifacts. The active series now has
+20 of 41 valid judgments, one preserved mechanical failure, no halted claim, and
+progress SHA-256
+`ba798960edccc518bbe70f50a8bdb780346e4f138acb09ad9bb58c9d58433875`.
+Their private valid receipt SHA-256 values are respectively
+`190c5de8f57de82ca61c6bc307bb3466773ca5e94d1249f7e314749ab1b7b676`
+and `43b2f5ce8771c7e771e868d62518e86f796caf870dd954cd68f4ecbbd6a58f1b`.
+The complete deterministic gate passed on Node 24.18.0 with 143 test files and
+1,700 tests passing, 1 file and 6 tests skipped, and typecheck and build passing.
+Ordinal 21 remains unsent during the required interval; its exact packet is
+33,738 UTF-8 bytes at SHA-256
+`9004fc4b0cbc3d6ba94fd58cc57866361f3150d2ef03606b5adbcb8458503d89`.
+
+J3 Latest restart ordinals 21 and 22 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate and strict validator on their
+first attempts with zero tool or citation artifacts. Ordinal 22 had a brief
+post-click structural-read timeout after its user turn persisted; no resend occurred.
+The active series now has 22 of 41 valid judgments, one preserved mechanical
+failure, no halted claim, and progress SHA-256
+`868f31df2d2a8d0bfef6d5927458225642ce57c299f421f961630c2b2732cd5f`.
+Their private valid receipt SHA-256 values are respectively
+`09d4c24fabd55793ae31dd1b5b12aeb1df05babfe8f1550fedfcbf8afdfad5e2`
+and `c94b0a16f75e000e090634ce566fb43499f51996da50ea96f76419ba03150b98`.
+Ordinal 23 remains unsent during the required interval; its exact packet is
+36,938 UTF-8 bytes at SHA-256
+`ce27550960161ebec32298b38427962b8362f992155390f3c4864ec6a22e3921`.
+
+J3 Latest restart ordinals 23 and 24 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate and strict validator on their
+first attempts with zero tool or citation artifacts. Ordinal 24's first click
+failed while the staged draft remained visibly unsent; the verified zero-message
+state allowed one successful click without consuming an extra attempt. Its first
+clipboard read repeated ordinal 23's exact hash and was rejected as stale; a
+sentinel replacement check then captured the current assistant turn before storage.
+The active series now has 24 of 41 valid judgments, one preserved mechanical
+failure, no halted claim, and progress SHA-256
+`15b255199ef6fbe87266478d4df2fef978aa6796316ad6009772cfe746dfbf47`.
+Their private valid receipt SHA-256 values are respectively
+`e896cb319f3932e0a0bd577bcee6d6a028ba197f038b3a3db77cb15173ccb991`
+and `e2f25c93ee267777daebbcceedf0524014114b831bc58a99e19b78c98ac5220a`.
+Ordinal 25 remains unsent during the required interval; its exact packet is
+32,751 UTF-8 bytes at SHA-256
+`784717829fc5ec6158e177d504abce870ddc1d74953b431dee40cc5b8b127407`.
+
+J3 Latest restart ordinals 25 and 26 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 26 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`6c464b54969f7e2a1fb82a69f22ba883d358f3af1bb70d4256630c000457396b`.
+Their private valid receipt SHA-256 values are respectively
+`3d2a6e818b0ca95f0c2e963fe3a1ba7d64ca665e102d9f7bce7d8f46c8d6398f`
+and `d4e1d26fb4e3af207d89fa89b84ee332a2d6d26fac45850d7c7cbfcddc979eb7`.
+Ordinal 27 remains unsent during the required interval; its exact packet is
+30,576 UTF-8 bytes at SHA-256
+`d3ff8ba56fdb519b150699096d98b902720cd405db32a8db0b028bb4740fcb22`.
+
+J3 Latest restart ordinals 27 and 28 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 28 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`b5853984b09bf0e84c08d4f0ba13d135882c9f6af5c33c1c9ed4cbb88d2b1096`.
+Their private valid receipt SHA-256 values are respectively
+`945cf30661617023f4159f61ab026afaad10b8a7f8b597796b00b7c38edfd60d`
+and `692938f9a5f44331de4ec27dc19383d399461a68235a25fd5bee04a6ec22bacc`.
+Ordinal 29 remains unsent during the required interval; its exact packet is
+31,324 UTF-8 bytes at SHA-256
+`f6dd999d1bb0fd192675eff62f3c58a95c6e663440c124c4dd3f9594b533c0ef`.
+
+J3 Latest restart ordinals 29 and 30 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 30 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`55461d395b1cb8c98633c76ef315d5beac7f854c523216be9082557b2ea0676c`.
+Their private valid receipt SHA-256 values are respectively
+`9fafe8ce8cbfc5a89255758cfd9542b694bd184e0dcad3d99121000e51abeff7`
+and `efdbd64ed151ed46bb74a1355bd1895aa71f9d9fccbe8c823e68c3109baf1028`.
+Ordinal 31 remains unsent during the required interval; its exact packet is
+33,668 UTF-8 bytes at SHA-256
+`8b50859a9ce37b3c7fa1247a4f8b4a05640f3aa1305c0e251ea6e96a2a6ad18c`.
+
+J3 Latest restart ordinals 31 and 32 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 32 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`339d3b52e8604097b99a5ac6f0cbd2d43ec89bd40cdadaab3a0c2afba889bde6`.
+Their private valid receipt SHA-256 values are respectively
+`82abf371b0aadff9dab91342c6961109cb1d76e69143e38ca5ea7a86e769061f`
+and `e8a0a2f025166d05cdaefc04e82329d5e19a55aedeedb076d97b991546d44e5b`.
+Ordinal 33 remains unsent during the required interval; its exact packet is
+34,500 UTF-8 bytes at SHA-256
+`46b85b9085e94f5e2bc605b79c969b23eafaeaacd895d488aa078df17db0748e`.
+
+J3 Latest restart ordinals 33 and 34 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 34 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`f05bf7617b406e018fe97545f684cea7a555dcb6a57acf0989da2a6f727ef89c`.
+Their private valid receipt SHA-256 values are respectively
+`bb54ea15a8acf4d3ff04c4da3a6119a51481964989756c9f86b32482df6faf7a`
+and `39a186e8fa062649b3d2c2cd2277e48d37b5f2af67291dc5e1a4068394d9ec0d`.
+Ordinal 35 remains unsent during the required interval; its exact packet is
+31,399 UTF-8 bytes at SHA-256
+`02266189ff8c40c0d453794e0c98c09d4683e73a17f7c204f9e5367b2906c0e5`.
+
+J3 Latest restart ordinals 35 and 36 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 36 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`1bfd021336310ac6dfc9b1c0457e61f46ec923d5e1552fddc04a72b9aaa27b1f`.
+Their private valid receipt SHA-256 values are respectively
+`c7b02489e046936a488501a083b1acb43125e238589daab9424e7f0bdb41c84e`
+and `e9f3c572c096a35bf16b84a3206624f41f9102f224f4608df11a70f4d71faacb`.
+Ordinal 37 remains unsent during the required interval; its exact packet is
+32,902 UTF-8 bytes at SHA-256
+`f28566a5409fdc496a95de0c6e31011b7c6a13f733d22fd5cfeefbc6644e055b`.
+
+J3 Latest restart ordinals 37 and 38 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 38 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`99fda84bc64e24feac2290263578b3d1eaed97df77e3c86268562b2cad3b6079`.
+Their private valid receipt SHA-256 values are respectively
+`804665166bbc780b92af76977a1e456c8ebc4e9b899041c4ac327202f5e0b426`
+and `b6e4fd7ed0d3912ea2f61c303af60fe23244157c2bd9168371322c43fb046d93`.
+Ordinal 39 remains unsent during the required interval; its exact packet is
+33,327 UTF-8 bytes at SHA-256
+`12e5b30931dce04199464a9bbaab467ad678fdba19d8051e6270ce4e9d4529fc`.
+
+J3 Latest restart ordinals 39 and 40 reused replacement physical tab
+`663931483` in separate fresh zero-message Chats with checked `Latest` and observed
+`Pro, 5 of 5.`. Both passed the live pre-send gate, sentinel-backed clipboard
+capture, and strict validator on their first attempts with zero tool or citation
+artifacts. The active series now has 40 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`28d5c691aac1728d8a55af5a390f3dc75b4877a19f09d21ea1e0e4d1937f94b9`.
+Their private valid receipt SHA-256 values are respectively
+`2d2a11dd2020157d52d25d9d9ca649cdc5bf4b5446d7596150dd820c3cd74bab`
+and `8dcabb91b2324c2f14ed982757c612a81ffc0cbfec930647363b8c13f92d102d`.
+Ordinal 41 remains unsent during the required interval; its exact packet is
+35,265 UTF-8 bytes at SHA-256
+`a290756c07d0dfb87ee4573d7b09b32095f0234a81357afb4e1399696a980ea3`.
+
+J3 Latest restart ordinal 41 reused replacement physical tab `663931483` in a
+fresh zero-message Chat with checked `Latest` and observed `Pro, 5 of 5.`. It
+passed the live pre-send gate, sentinel-backed clipboard capture, and strict
+validator on its first attempt with zero tool or citation artifacts. The active
+homogeneous series is complete at 41 of 41 valid judgments, one preserved
+mechanical failure, no halted claim, and progress SHA-256
+`be523f9fdd08e14e5862be70ee77cd9e2233b90fa51a05f59db187cf24e19603`.
+The private ordinal-41 valid receipt SHA-256 is
+`5ac6e9a41358965f425c87cf5e461ac09402e85cb237378984f6d20349e75474`.
+The finalizer froze 96 blinded per-response records and the complete blinded
+evaluation ledger. The fail-closed acceptance command then copied the private
+artifact tree into an isolated sibling directory, reran deterministic finalization
+at the frozen timestamp, and required byte-for-byte equality for all three final
+artifacts. It accepted 41 active J3 judgments while preserving the superseded
+23-judgment Sol series as excluded audit evidence. The final-records SHA-256 is
+`30b05cd55d43e33391fcc2d6ef26cf218d43b9c6085e248949d798ef98b61f61`,
+the blinded-ledger SHA-256 is
+`c85544651f2db14bb89f0d4486b3960a213639dbf74d9ebecaa550fd3e286e08`,
+and the acceptance-receipt SHA-256 is
+`f04ce263cb5df927530a4155ff2d0cfcc5250b486fc8d7ed622b30b50788729c`.
+The condition map remains sealed and external spend remains USD 0. The complete
+deterministic gate passed on Node 24.18.0 with 143 test files and 1,700 tests
+passing, 1 file and 6 tests skipped, plus typecheck and build.
+
+The exact 2,631-byte factual routing request at SHA-256
+`60446463cc3df7c19d5cd3df5ae35036bcf0f3f7e9af6b26476eb0d73b064e6d`
+was sent once from repository/GitHub HEAD
+`915ac2b5696292de4ee6b09226e7b4641a004497` as user message
+`b43c2876-a904-42fe-ad1e-e69359abda42` in the configured Project Manager chat.
+The 15,612-byte exact visible assistant body was preserved privately at SHA-256
+`41ce0dbb5b155da7b7d3828fdf95144b518dbf7d40cfd75a3e699b9e167edb3e`
+from assistant message `aef6c639-35fd-4ba1-a096-f3f16e5ed319`. The consumer UI
+had checked `Latest` and highest available reasoning label `High`; the response
+DOM exposed model attribute `gpt-5-6-thinking`, which is recorded without
+guessing beyond that observed attribute. The private transport-receipt SHA-256
+is `756a35613b6d48c5ee461701e38a83d9ee53b53ab12a535fc5768349ff5cc05c`.
+
+Attaching browser control to the completed evaluator tab before navigation
+unexpectedly caused its accessibility snapshot to expose the prior completed
+blinded evaluator output. This post-freeze transport incident is recorded in
+the exact routing request and transport receipt. It occurred after final
+acceptance; the condition map was not disclosed, and no arm/family aggregation,
+continuation-gate application, tuning, or scientific interpretation followed.
+The non-secret final receipt is
+`docs/audits/2026-09-06-mast-blinded-evaluation-v2-final-accepted.json`.
+
+Scientific adequacy: reserved for the Project Manager. The private determinate
+disposition is accepted without public outcome disclosure or worker-authored
+interpretation. The private evidence archive and packaging receipt reached the
+receiving surface, which returned a source-bound matching-byte-identity receipt.
+
+Release adequacy: unaffected; no production release, external submission,
+provider API inference, or spend is authorized or performed.
+
+Current execution claim:
+`PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED_BYTE_IDENTITY_VERIFIED_PARENT_OPEN`.

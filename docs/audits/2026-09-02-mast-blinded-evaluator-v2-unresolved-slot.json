@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "zero_spend_chatgpt_mast_blinded_evaluator_v2_unresolved_slot",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "sliceId": "mast-four-arm-eight-family-base-blinded-evaluation-v2-restart",
+  "completedAt": "2026-09-02T22:51:00Z",
+  "claim": "FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT",
+  "directive": {
+    "id": "askrigor-zero-spend-chatgpt-mast-four-arm-eight-family-base-evaluator-v2",
+    "sourceMessageId": "8c6aaaed-1d15-4399-b6ef-48eaaaa2b149",
+    "sourceBodySha256": "f79ff0489943d272f4dc3c5ac3027a71349a947f48f56b9e5d2ac4d615a760f9",
+    "directiveJsonSha256": "0b57d63f73127a94a1471dfa115381f1a9053e8639efe8f18a489da4f99d02a4",
+    "retryCeiling": 2,
+    "secondFailureRule": "STOP_WITH_FOUR_ARM_EIGHT_FAMILY_BASE_EVALUATION_V2_BLOCKED_UNRESOLVED_EVALUATOR_SLOT"
+  },
+  "frozenParent": {
+    "generationResponseCount": 96,
+    "generationLedgerSha256": "cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3",
+    "chunkReconstructionReceiptSha256": "3f3227e3ccf3940bf49461a76df75cf6e146e900b9f6f3015678b99a94b38d48",
+    "primaryScheduleSha256": "acaaec62e60dc910061a4c1ecef0f8405e5e62b60068b7b11dcb19311431b2f9",
+    "preflightReceiptSha256": "2044b816dce38f78cc07708b759ffcb16e7007b00381567a2791decbd4c133a6"
+  },
+  "capture": {
+    "validPrimaryJudgments": 29,
+    "targetPrimaryJudgments": 192,
+    "mechanicalFailures": 3,
+    "progressSha256": "3ccce65dfdc3abed9e443c732523f5ee8fed463becd051777e12692940390b92",
+    "conditionMapSealed": true,
+    "armOrFamilyAggregationPerformed": false,
+    "continuationGateApplied": false,
+    "clinicalContentInspectedByWorker": false,
+    "externalSpendUsd": 0
+  },
+  "unresolvedSlot": {
+    "ordinal": 30,
+    "opaqueResponseId": "EVAL-ecccfd887d579c1458a84b0a",
+    "caseId": "GI004",
+    "evaluatorReplicate": 2,
+    "packetSha256": "79744fe7565a22fd27d09e03d52d25a122f1b7439ed5ab4e8b32b20ae08db842",
+    "attempts": [
+      {
+        "attempt": 1,
+        "reason": "INVALID_JSON",
+        "outputSha256": "589e724281523e449e3786963cf36e2a2d4177414f2b510da7139f7a8952f215",
+        "outputUtf8Bytes": 86,
+        "failureReceiptSha256": "479e72beac090bc89dca49438fddd1d5e27decdf4ebe8305dcac3afb96adfd63",
+        "modelSlugObserved": "gpt-5-6-thinking",
+        "toolsInvoked": false,
+        "browsingInvoked": false
+      },
+      {
+        "attempt": 2,
+        "reason": "INVALID_JSON",
+        "outputSha256": "4f5161fbdd8bee9dd7c94282fd53a7fbcc8fa76a57b2c4b7c91057bc91eea374",
+        "outputUtf8Bytes": 18,
+        "failureReceiptSha256": "4919e36cee36f21ea803246093d3da16d833438c291066e49f3f5dd37c9160cb",
+        "modelSlugObserved": "gpt-5-6-thinking",
+        "toolsInvoked": false,
+        "browsingInvoked": false
+      }
+    ],
+    "byteIdenticalRetryInput": true,
+    "freshConversationPerAttempt": true,
+    "laterSlotDispatched": false
+  },
+  "nextBoundary": "Route this factual receipt automatically to the directive-bound ChatGPT Project Manager. Resume only from a new versioned source-bound directive and matching runtime admission; the execution worker must not choose a methodological workaround."
+}

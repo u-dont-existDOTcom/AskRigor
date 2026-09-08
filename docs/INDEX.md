@@ -99,6 +99,37 @@ complete XML protocol.
   equal-weight non-remission comparator, lifecycle propagation, linked research
   boundary, headless Brave acceptance, and separate operational, bounded-
   scientific, and no-public-release verdicts
+- `directives/2026-09-02-mast-live-lineage-admission-narrow-port.json`,
+  `directives/2026-09-02-mast-live-admission-credential-bootstrap.json`, and
+  `audits/2026-09-02-mast-live-runtime-admission-accepted.json`: source-bound
+  narrow Mission Control compatibility port, two-principal secret-safe ingest
+  bootstrap, exact Node v24.18.0 deterministic and isolated gates, and live
+  L1-L5 acceptance authorizing zero-spend MAST generation to resume at sequence
+  15 without rerunning the first 14 responses
+- `audits/2026-09-02-mast-blinded-evaluator-v2-packet-order-preflight-corrected.json`:
+  mechanical retirement of two incomplete-input packet-QA runs with zero valid
+  judgments, explicit canonical source option order in every v2 packet, and a
+  fresh 96-packet/192-slot blinded preflight with the condition map still sealed
+- `audits/2026-09-02-mast-blinded-evaluator-v2-unresolved-slot.json`:
+  exact source-fixed halt after primary ordinal 30 exhausted two byte-identical
+  `INVALID_JSON` attempts, with 29 valid judgments retained, no later dispatch,
+  no unblinding or aggregation, and zero external spend
+- `audits/2026-09-06-mast-post-gate-evidence-export-blocked.json` and
+  `superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md`:
+  source-bound deterministic post-gate closeout, exact private archive and
+  manifest receipts, accepted browser attachment blocker, preserved private
+  result boundary, zero external spend, and the new-directive reopening rule
+- `audits/2026-09-06-mast-preserved-archive-delivered.json`:
+  owner-restored file access, fresh source-bound authorization and admission,
+  one submission of both preserved files, persisted provider attachment bindings,
+  and a receiving-side matching-SHA-256 receipt; no payload inspection or spend
+- `audits/2026-09-02-context-checkpoint-terminal-handoff-supervision-feedback.json`:
+  automatic delivery of the worker-stop control defect to Mission Control and
+  the provider-throttled, retry-required response state without evaluator content
+- `directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-v2-retry-extension.json`
+  plus its source and runtime-admission receipts: exact Project Manager carry-
+  forward directive, source identity, four-attempt mechanical completion
+  ceiling, and Mission Control `mayExecute: true` for ordinal 30 attempt 3
 - `audits/2026-08-30-openai-plugin-portal-readback.md`: current official public-
   submission requirements, signed-in individual/business verification labels,
   accessible empty plugin portal, no-action boundary, and publisher-identity/
@@ -192,6 +223,12 @@ complete XML protocol.
 - `audits/2026-09-01-reciprocal-research-access-candidate.md` and `.json`:
   exact local candidate verification, package receipt, and separate operational,
   scientific, and release-adequacy states
+- `state/MAST-FOUR-ARM-BASE-PILOT-CURRENT-STATE.md`, its active lesson contract,
+  `directives/2026-09-02-mast-runtime-admission-recovery.json`, and
+  `audits/2026-09-02-mast-runtime-admission-unavailable.json`: source-bound
+  zero-spend ChatGPT consumer MAST generation state, the no-evaluation embargo,
+  14-response private freeze boundary, and the scoped live Mission Control
+  admission-endpoint 404 blocker before sequence 15
 - `../project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md`: dedicated compact source
   for the Custom GPT worker/display contract; complete research policy and
   completion authority remain server-side
