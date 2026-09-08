@@ -38,6 +38,31 @@ const KINDS: ResearchSemanticWork["kind"][] = [
   "report_synthesis"
 ];
 
+const REASONING_SELECTION_TEXT = `REASONING SELECTION
+Use the smallest sufficient combination of methods for the actual question, not its domain label. Answer simple tasks directly. Scale effort with stakes, uncertainty and reversibility. Distinguish exploration, decision, confirmation and release; apply heuristics only where their assumptions and the current phase fit.
+
+Select by function:
+- Analytic/formal: clarify definitions, decompose problems, check implications, constraints, calculations and invariants. Use tools for exact verification.
+- Empirical/statistical/Bayesian: establish what evidence supports; assess source quality, base rates, effect sizes, uncertainty and competing evidence. Update proportionately; do not invent confidence percentages.
+- Abductive/causal: generate plausible explanations, distinguish observation from mechanism, examine confounding and counterfactuals, and choose a test that discriminates alternatives.
+- Systems/temporal: trace dependencies, incentives, feedback, delays, nonlinearities and second-order effects across relevant levels and timescales.
+- Dialectical: investigate persistent conceptual or value tensions. Critique each position on its own terms; inspect shared assumptions and mutual dependence. Reframe when warranted; never force symmetry, compromise or synthesis, or reconcile an empirical falsehood.
+- Phenomenological/interpretive: understand reported experience and meaning before explaining them. Keep observation, interpretation and causal claim distinct; do not impose a theory on the person or text.
+- Generative/analogical: develop genuinely different possibilities before narrowing. Use analogy to generate hypotheses, not as proof. Preserve promising unconventional ideas without prematurely endorsing them.
+- Decision/practical: compare realistic alternatives, including nonaction, against explicit goals, constraints, benefits, harms, ethical duties, opportunity costs and reversibility. Distinguish factual disputes from value choices. Seek further information only when it could change the decision, except where mandatory checks apply.
+
+For consequential conclusions, test the strongest relevant objection or counterexample and verify load-bearing premises with sources, tools or discriminating tests. Agreement, fluency and repeated self-review are not independent evidence. Revise the model when warranted, not merely its wording. Report the conclusion, decisive support, material uncertainty and next action—not a ritual tour of methods. Separate facts, inferences, hypotheses and values; state disagreement directly. Follow current project authority and non-waivable gates. Before substantial bespoke design, preserve independent ideas when needed, scan existing work, choose reuse/adapt/compose/invent/experiment, and benchmark the remainder. Stop when the decision is supported or the unresolved uncertainty is explicitly bounded.`;
+
+const PROJECT_APPLICATION_TEXT = `### Reasoning-selection application
+
+Use canonical Universal reasoning_selection for the actual question; it does not replace either complete protocol or required modules.
+
+For research, define the claim, population, intervention/exposure, comparator, outcome and horizon as applicable. Keep mechanism, association, treatment effect and personal applicability distinct. For decisions, compare absolute benefits/harms and realistic alternatives, including nonaction. Examine bias, confounding, precision, heterogeneity and evidence dependence.
+
+Generate competing explanations; critique assumptions without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts and endpoints before calling results contradictory. Do not turn selected experience/forum reports into incidence estimates or causal proof.
+
+Respect phase-specific gates and provenance; development-fitted evidence is not independent confirmation. Missing access is not a negative result; partial evidence is not completion. Separate operational, scientific and release adequacy. Source-bound authority and server-selected work control; this supplement grants no new execution, spending, publication or release permission.`;
+
 describe("research semantic canonical policy input", () => {
   it("loads the four complete sources in fixed order with exact bytes and a stable digest", async () => {
     const binding = await canonicalBinding();
@@ -102,6 +127,14 @@ describe("research semantic canonical policy input", () => {
         dependencies
       });
       expect(inputs.policy_context.documents).toHaveLength(4);
+      expect(inputs.policy_context.documents[0]?.text).toBe(universal.text);
+      expect(inputs.policy_context.documents[0]?.text).toContain(
+        `<reasoning_selection priority="Critical">\n${REASONING_SELECTION_TEXT}\n</reasoning_selection>`
+      );
+      expect(inputs.policy_context.documents[1]?.text).toBe(hrp.text);
+      expect(inputs.policy_context.documents[2]?.text).toBe(projectRouter.toString("utf8"));
+      expect(inputs.policy_context.documents[2]?.text).toContain(PROJECT_APPLICATION_TEXT);
+      expect(inputs.policy_context.documents[3]?.text).toBe(forumSignal.toString("utf8"));
       expect(inputs.instruction).toContain("Use only this exact package.");
       expect(inputs.instruction).toContain(
         "Use policy_context as project guidance for this assigned semantic operation."

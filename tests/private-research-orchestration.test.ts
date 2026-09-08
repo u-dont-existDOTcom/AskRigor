@@ -38,6 +38,32 @@ const API_KEY = "phase-h-private-orchestration-key-long-enough";
 const HASH_A = "a".repeat(64);
 const HASH_B = "b".repeat(64);
 
+function expectReasoningSelectionDelivery(policyContext: any): void {
+  const universal = policyContext.documents.find(
+    (document: any) => document.document_id === "universal"
+  ).text as string;
+  const selectorStart = '<reasoning_selection priority="Critical">\n';
+  const selectorEnd = "\n</reasoning_selection>";
+  const selector = universal.slice(
+    universal.indexOf(selectorStart) + selectorStart.length,
+    universal.indexOf(selectorEnd)
+  );
+  expect(createHash("sha256").update(selector).digest("hex")).toBe(
+    "d128da3c9edcea70bc2651cf7a26e765a88f2860b2eaeae74cd2489c503b00c9"
+  );
+
+  const project = policyContext.documents.find(
+    (document: any) => document.document_id === "project_router"
+  ).text as string;
+  const applicationStart = project.indexOf("### Reasoning-selection application");
+  const applicationEnd = project.indexOf("## 1. Run before HRP/research");
+  expect(createHash("sha256")
+    .update(project.slice(applicationStart, applicationEnd))
+    .digest("hex")).toBe(
+      "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a"
+    );
+}
+
 function protocolManifest(protocol: "universal" | "hrp") {
   return {
     name: protocol === "universal" ? "Universal Instructions" : "Health Research Protocol",
@@ -384,6 +410,7 @@ describe("private research orchestration HTTP boundary", () => {
         expect(policy_context?.documents.every(({ text, utf8_bytes }) =>
           Buffer.byteLength(text, "utf8") === utf8_bytes
         )).toBe(true);
+        expectReasoningSelectionDelivery(policy_context);
         expect(response_contract).toMatchObject({
           type: "object",
           properties: { work_type: { const: "module_applicability" } }

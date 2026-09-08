@@ -44,6 +44,30 @@ import { screeningSubmissionFor } from
 
 const SECRET = "controlled-research-route-test-secret-32-bytes";
 
+function expectReasoningSelectionDelivery(policyContext: any): void {
+  const universal = policyContext.documents.find(
+    (document: any) => document.document_id === "universal"
+  ).text as string;
+  const selectorStart = '<reasoning_selection priority="Critical">\n';
+  const selectorEnd = "\n</reasoning_selection>";
+  const selector = universal.slice(
+    universal.indexOf(selectorStart) + selectorStart.length,
+    universal.indexOf(selectorEnd)
+  );
+  expect(routeHash(selector)).toBe(
+    "d128da3c9edcea70bc2651cf7a26e765a88f2860b2eaeae74cd2489c503b00c9"
+  );
+
+  const project = policyContext.documents.find(
+    (document: any) => document.document_id === "project_router"
+  ).text as string;
+  const applicationStart = project.indexOf("### Reasoning-selection application");
+  const applicationEnd = project.indexOf("## 1. Run before HRP/research");
+  expect(routeHash(project.slice(applicationStart, applicationEnd))).toBe(
+    "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a"
+  );
+}
+
 describe("controlled research Action projection", () => {
   it("rejects caller completion injection and stale state", async () => {
     const routes = testRoutes();
@@ -117,6 +141,7 @@ describe("controlled research Action projection", () => {
       expect(document.utf8_bytes).toBe(source.byteLength);
       expect(document.sha256).toBe(routeHash(source.toString("utf8")));
     }
+    expectReasoningSelectionDelivery(workerInput.policy_context);
     const semanticResult = {
       contract_version: "askrigor_hermes_semantic_result_v1",
       session_id: initial.session_id,
