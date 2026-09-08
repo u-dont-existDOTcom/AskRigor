@@ -74,6 +74,7 @@ export interface ResearchSemanticAdvanceDependencies {
     state: ResearchSessionState;
     work: ResearchSemanticWork;
   }): unknown | Promise<unknown>;
+  releaseEvidenceMaterialForSession?(sessionId: string): void;
 }
 
 export interface ResearchExternalAuditCache {

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { getProtocolManifest } from "@askrigor/protocol";
 import { okEnvelope } from "@askrigor/contracts";
 import type { PubmedRecord } from "@askrigor/sources";
@@ -357,7 +357,10 @@ describe("controlled research Action projection", () => {
   });
 
   it("never turns premature finalization into a reader report", async () => {
-    const routes = testRoutes();
+    const releaseEvidenceMaterialForSession = vi.fn();
+    const routes = testRoutes(getProtocolManifest, {}, {
+      releaseEvidenceMaterialForSession
+    });
     const started = await call(routes, "start_research_session", {
       research_target: "Population-level evidence about chronic joint pain",
       diagnosis_status: "diagnosis_not_specified"
@@ -377,6 +380,7 @@ describe("controlled research Action projection", () => {
     });
     expect((result.body as any).finalization.reader_facing).toBeUndefined();
     expect((result.body as any).product_acceptance_receipt).toBeUndefined();
+    expect(releaseEvidenceMaterialForSession).not.toHaveBeenCalled();
   });
 
   it("projects server-owned background scout progress without an internal error", async () => {

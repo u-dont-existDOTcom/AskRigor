@@ -121,6 +121,19 @@ describe("AskRigor public site", () => {
       '<a href="https://policies.google.com/privacy">Google Privacy Policy</a>',
     );
     expect(privacy).toContain("does not require Google or YouTube sign-in");
+    for (const fragment of [
+      "creates no Google/YouTube account connection or authorization grant",
+      "does not direct users to a Google consent screen",
+      "request YouTube OAuth scopes",
+      "receive user access or refresh tokens",
+      "Each new YouTube search, metadata lookup, or comment/reply retrieval starts a fresh read from YouTube",
+      "Direct MCP continuation state is returned to the connected client and expires after one hour",
+      "is swept within one hour after expiry",
+      "released immediately after successful report finalization",
+      "hourly sweep removes expired files",
+      "does not contain raw comment or reply text",
+      "do not log YouTube queries, URLs, identifiers, comment text, request or response bodies, provider bodies, or credentials"
+    ]) expect(privacy).toContain(fragment);
 
     const terms = await pageHtml("site/terms/index.html");
     expect(terms).toContain(
@@ -132,7 +145,7 @@ describe("AskRigor public site", () => {
   it("separates transient research from optional private lesson feedback", async () => {
     const html = await pageHtml("site/privacy/index.html");
     for (const fragment of [
-      "Effective September 1, 2026",
+      "Effective September 8, 2026",
       "Optional lesson feedback",
       "separate consent",
       "generalized structured fields",

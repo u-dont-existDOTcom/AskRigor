@@ -66,14 +66,23 @@ Baseline: `origin/main` at
   scope.
 - Google Cloud project `askrigor-youtube` is project number `927421077304`, has
   YouTube Data API v3 enabled, has one API key, and has no OAuth clients or
-  service accounts. Other owner-accessible projects require traffic/credential
-  disambiguation because one unrelated backup project also has the API enabled.
+  service accounts. Secure in-place comparison proved that this is the current
+  production key. The current key is now restricted to the production IP and
+  YouTube Data API v3, and all four official request types pass afterward.
+- An archived AskRigor runtime key matched historical project
+  `1000928389599`. It had no September 1–8 traffic and was deleted on September
+  8 with Google's 30-day recovery window. The unrelated backup desktop OAuth
+  client in that project was not changed.
 - The live Privacy page already has the August 27 public-data/no-YouTube-OAuth
   disclosure. It trails current `main` only in later non-YouTube owner-review
   wording.
 - The encrypted checkpoint has 72-hour idle and seven-day absolute expiry and
   excludes raw comments/provider bodies by strict state schema. The separate
-  raw evidence cache is process-only and LRU-bounded, but lacks a time TTL and
-  is not revoked through normal session deletion. This retention defect must be
-  repaired before final disclosure and deployment.
-
+  raw evidence cache was process-only and LRU-bounded but lacked a time TTL and
+  normal finalization release. The candidate now enforces 72-hour idle and
+  seven-day absolute expiry, hourly pruning, and successful-finalization
+  release; the file store now prunes on startup and hourly while running.
+- Focused application/site/deployment tests pass. The complete suite passes
+  serialized with 1,840 tests passed and six skipped. Two default-parallel
+  local runs exposed only host-load timeouts in unrelated tests that pass in
+  isolation; the clean GitHub runner will execute the exact default gate.
