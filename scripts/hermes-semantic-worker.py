@@ -9,15 +9,25 @@ call diagnostics; the TypeScript adapter and AskRigor server validate all work.
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 import os
+import re
 import sys
 from typing import Any
 
 
-MAX_INPUT_BYTES = 512 * 1024
+MAX_INPUT_BYTES = 2 * 1024 * 1024
 MAX_OUTPUT_BYTES = 512 * 1024
+DIGEST = re.compile(r"^[a-f0-9]{64}$")
+POLICY_CONTEXT_VERSION = "askrigor_semantic_policy_context_v1"
+POLICY_DOCUMENTS = (
+    ("universal", "protocols/Universal_Instructions.xml", True),
+    ("hrp", "protocols/HRP_Full.xml", True),
+    ("project_router", "project/PROJECT_INSTRUCTIONS.md", False),
+    ("forum_signal_module", "project/FORUM_SIGNAL_MODULE.md", False),
+)
 
 
 class WorkerFailure(RuntimeError):
@@ -45,6 +55,90 @@ def parse_json_object(text: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise WorkerFailure("MODEL_OUTPUT_NOT_OBJECT")
     return value
+
+
+def require_record(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+    return value
+
+
+def require_exact_keys(value: dict[str, Any], expected: set[str]) -> None:
+    if set(value) != expected:
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+
+
+def canonical_json(value: Any) -> str:
+    return json.dumps(
+        value,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        sort_keys=True,
+        allow_nan=False,
+    )
+
+
+def validate_policy_context(value: Any) -> dict[str, Any]:
+    context = require_record(value)
+    require_exact_keys(context, {"context_version", "documents", "context_sha256"})
+    if context.get("context_version") != POLICY_CONTEXT_VERSION:
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+    documents = context.get("documents")
+    if not isinstance(documents, list) or len(documents) != len(POLICY_DOCUMENTS):
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+    ids: list[str] = []
+    for index, (document_id, path, is_protocol) in enumerate(POLICY_DOCUMENTS):
+        document = require_record(documents[index])
+        expected_keys = {"document_id", "path", "text", "utf8_bytes", "sha256"}
+        if is_protocol:
+            expected_keys.add("protocol_manifest")
+        require_exact_keys(document, expected_keys)
+        if document.get("document_id") != document_id or document.get("path") != path:
+            raise WorkerFailure("POLICY_INPUT_INVALID")
+        ids.append(document_id)
+        text = document.get("text")
+        if not isinstance(text, str):
+            raise WorkerFailure("POLICY_INPUT_INVALID")
+        try:
+            encoded = text.encode("utf-8")
+        except UnicodeEncodeError as error:
+            raise WorkerFailure("POLICY_INPUT_INVALID") from error
+        byte_count = document.get("utf8_bytes")
+        if isinstance(byte_count, bool) or not isinstance(byte_count, int):
+            raise WorkerFailure("POLICY_INPUT_INVALID")
+        digest = hashlib.sha256(encoded).hexdigest()
+        if byte_count != len(encoded) or document.get("sha256") != digest:
+            raise WorkerFailure("POLICY_INPUT_INVALID")
+        if is_protocol:
+            manifest = require_record(document.get("protocol_manifest"))
+            require_exact_keys(manifest, {"name", "version", "revisionDate", "sha256"})
+            if any(
+                not isinstance(manifest.get(field), str) or not manifest[field]
+                for field in ("name", "version", "revisionDate", "sha256")
+            ):
+                raise WorkerFailure("POLICY_INPUT_INVALID")
+            if not DIGEST.fullmatch(manifest["sha256"]) or manifest["sha256"] != digest:
+                raise WorkerFailure("POLICY_INPUT_INVALID")
+    if len(set(ids)) != len(POLICY_DOCUMENTS):
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+    context_digest = context.get("context_sha256")
+    if not isinstance(context_digest, str) or not DIGEST.fullmatch(context_digest):
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+    unsigned = {"context_version": POLICY_CONTEXT_VERSION, "documents": documents}
+    expected_digest = hashlib.sha256(canonical_json(unsigned).encode("utf-8")).hexdigest()
+    if context_digest != expected_digest:
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+    return context
+
+
+def validate_policy_bound_work(work: dict[str, Any]) -> str:
+    if "instruction" not in work or "policy_context" not in work:
+        raise WorkerFailure("POLICY_INPUT_REQUIRED")
+    instruction = work.get("instruction")
+    if not isinstance(instruction, str) or not instruction:
+        raise WorkerFailure("POLICY_INPUT_INVALID")
+    validate_policy_context(work.get("policy_context"))
+    return instruction
 
 
 def system_prompt() -> str:
@@ -124,6 +218,8 @@ def main() -> int:
     if not isinstance(work, dict):
         raise WorkerFailure("INPUT_NOT_OBJECT")
 
+    instruction = validate_policy_bound_work(work)
+
     checkout = required_environment("HERMES_ASKRIGOR_CHECKOUT")
     provider = required_environment("HERMES_ASKRIGOR_PROVIDER")
     model = required_environment("HERMES_ASKRIGOR_MODEL")
@@ -149,7 +245,7 @@ def main() -> int:
             save_trajectories=False,
             verbose_logging=False,
             quiet_mode=True,
-            ephemeral_system_prompt=system_prompt(),
+            ephemeral_system_prompt=f"{system_prompt()}\n\n{instruction}",
             skip_context_files=True,
             skip_memory=True,
             skip_background_review=True,
