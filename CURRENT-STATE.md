@@ -1,72 +1,48 @@
 # AskRigor current state
 
-The exclusive active task remains `askrigor-external-evaluation-contribution-v1`
-and is defined by `tasks/ACTIVE-TASK.json`. Its current recovery checkpoint is
-`docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md`; its bounded execution
-plan is
-`docs/superpowers/plans/2026-09-02-mast-four-arm-base-blinded-evaluation.md`.
-The task-time enforcement bundle is
-`docs/state/MAST-FOUR-ARM-BASE-EVALUATION-ACTIVE-LESSON-CONTRACT.json`.
+## Authority and parent task
 
-The active branch is `task/mast-four-arm-zero-spend-harness-20260901`, based on
-protected main `88eb6d252d7b7547d3a2039872bddc96707fee9e`. The controlling
-Project Manager evaluator directive is source-bound at
-`docs/directives/2026-09-02-zero-spend-chatgpt-mast-blinded-evaluator-transport.json`.
+Read `AGENTS.md` and `governance/chat-work-authority-policy.json` first.
+The parent task is `askrigor-external-evaluation-contribution-v1` and remains OPEN.
+This entrypoint reports operational status; it is not an execution grant, a
+scientific verdict, or a release receipt.
 
-All001 and Card001 are development calibration only and are excluded from the
-pilot analysis and continuation gate. The current slice contains exactly eight
-untouched base-case families, four frozen arms, three trials per family-arm,
-and 96 responses. Exact inputs and a deterministic randomized dispatch schedule
-are frozen in the private mode-0700 root
-`/tmp/askrigor-mast-four-arm-base-artifacts.dMzP1H`.
+## Last validated repository integration
 
-Untouched-family outputs have been generated and frozen privately, but none has
-been evaluated or interpreted for scientific content. Rubric and guidance content remains behind
-the frozen generation boundary. The source-bound Project Manager transport
-amendment at
-`docs/directives/2026-09-01-zero-spend-chatgpt-mast-consumer-tool-transport-amendment.json`
-preserves constant ambient tool availability: manual tool action remains
-forbidden, while automatic model-initiated tool use is logged as a process
-outcome and does not trigger conditional retry. Paid model APIs and provider
-credentials remain forbidden; external spend is USD 0. The exact factual
-generation receipt was returned to the directive-bound Project Manager, which
-accepted it and authorized the condition-blind evaluation slice. Authenticated
-Mission Control returned `mayExecute:true`. The next action is to verify the
-pinned source and implement the private evaluator preflight before the first
-evaluator dispatch.
+PR #190 uses branch `task/mast-four-arm-zero-spend-harness-20260901`.
+The accepted integration checkpoint is `9d88e7f23e52efa4d077168f19103aa66521cff9`,
+tree `c893be468f09d92f7e77a1ce33de041f724ad0a4`, integrating accepted main
+`7fb852758e01df60203f102d784c95e76ff9177b`.
+Local verification and the ordinary hosted integration checks passed.
+PR #190 remains draft and unmerged pending Project Manager source review.
+These results apply to that checkpoint, not automatically to later edits.
+Universal 20.5.18 is preserved from accepted main; HRP remains byte-identical.
+This source checkpoint does not establish deployment or product acceptance.
 
-All 96 primary first-pass responses are now frozen in the private generation
-ledger: 74 recorded automatic Web-search behavior and 22 did not. This is only a
-mechanical process count; no response content has been inspected. The prior
-live runtime-admission 404 is resolved. Project Manager messages
-`e463c10d-6823-4887-af31-83be7269c48f` and
-`91c68d01-a23f-458c-9e47-fdb8125c0b60` source-bound the narrow live-lineage port
-and its two-principal credential bootstrap. Candidate
-`079881125ccd555cdff4f8502773f7e1b301232d` passed complete Node v24.18.0 tests,
-typecheck, build, isolated acceptance, and live L1-L5. L5 returned HTTP 200 and
-`mayExecute: true`; the receipt is
-`docs/audits/2026-09-02-mast-live-runtime-admission-accepted.json`. No owner
-relay was requested, no database migration or provider relay was added, and
-external spend remains USD 0. Resume the unchanged opaque schedule at sequence
-15 without rerunning sequences 1 through 14. Sequences 15 through 23 are now
-also frozen. Sequence 24 attempt 1 produced no assistant response because the
-consumer surface temporarily limited request rate; its `PROVIDER_ERROR` receipt
-is retained, the denominator is unchanged, and attempt 2 will use a fresh
-conversation after the provider-requested pause. Attempt 2 completed and is
-frozen with exact provenance; its first-attempt provider-error receipt remains
-retained. An unsent sequence-25 shell encountered the provider cooldown before
-the composer was usable and was closed without consuming a schedule attempt.
-Sequences 25 through 96 then completed and were frozen after bounded cooldowns;
-post-completion throttle notices did not replace their verified payloads. The
-complete ledger passed the dedicated acceptance command with SHA-256
-`cb3cb8a4fc2fbb5a27ca25dd841a8bc6c7703b1a0ac5bf412675de29d708fef3`;
-the non-sensitive receipt is
-`docs/audits/2026-09-02-zero-spend-chatgpt-mast-four-arm-base-generation-accepted.json`.
+## Current execution boundary
 
-The successful generation claim is
-`FOUR_ARM_EIGHT_FAMILY_BASE_GENERATION_FROZEN_EVALUATION_BLOCKED_PENDING_EVALUATOR_TRANSPORT_DIRECTIVE`.
-The parent remains open. The new slice authorizes 192 primary condition-blind
-evaluator judgments and required J3 adjudication while the condition map stays
-sealed. It does not authorize unblinding, arm/family aggregation, continuation-
-gate application, tuning, scientific interpretation, or official MAST/HRP
-claims.
+Every new controlled execution requires a current source-bound directive and fresh
+authenticated runtime admission for that exact scope. Historical directives,
+commands, and admission receipts grant no present execution allowance.
+The retained `currentSlice` and earlier execution fields in `tasks/ACTIVE-TASK.json`
+are historical records. Its separate `repositoryIntegration` record concerns
+repository integration only; it does not reopen historical execution.
+Calibration remains CLOSED_BLOCKED; no further browser diagnostic is authorized.
+No new screenshot, upload, probe, generation, evaluation, rescoring,
+or alteration of historical evidence or attempt counts is authorized here.
+Reasoning Selection implementation and lesson promotion remain separate.
+Paid model API inference remains forbidden; the external spend ceiling is USD 0.
+Internal supervisory routing must not require owner relay.
+
+## Recovery references
+
+`docs/audits/2026-09-07-pr190-queue-reconciliation-v2.json` records the integration
+pre-validation snapshot; PR #190's persisted implementation return records its
+subsequent commit and check identities. Do not reinterpret snapshot fields as
+newly pending work or repeat completed operations.
+`docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md` and
+`docs/superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md`
+retain chronological evidence. Earlier instructions there remain historical
+unless explicitly reopened by a new source-bound directive and fresh admission.
+Retain all original receipts and private artifacts unchanged; do not republish
+private paths, payloads, or scientific findings in this entrypoint.
