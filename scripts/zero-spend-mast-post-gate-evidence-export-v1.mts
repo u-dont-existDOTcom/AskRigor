@@ -319,6 +319,26 @@ export function normalizeDestinationChatLocator(value: string): string {
   return normalized;
 }
 
+export function postGatePackagingCompletionFields() {
+  const delivery = {
+    observationScope: "THIS_PACKAGING_INVOCATION_ONLY",
+    attempted: false,
+    delivered: false,
+    verifiedDeliveryReceipt: false,
+  } as const;
+  const status = "POST_GATE_EXISTING_EVIDENCE_PACKAGED_DELIVERY_PENDING" as const;
+  return {
+    receipt: {
+      completionClaim: status,
+      delivery: { ...delivery },
+    },
+    result: {
+      status,
+      delivery: { ...delivery },
+    },
+  };
+}
+
 function jsonBytes(value: unknown): Buffer {
   return Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
@@ -464,6 +484,7 @@ export async function runPostGateEvidenceExport(input: {
   primaryJudgmentCount: 192;
   activeJ3JudgmentCount: 41;
   supersededJ3JudgmentCount: 23;
+  delivery: ReturnType<typeof postGatePackagingCompletionFields>["result"]["delivery"];
   modelInferenceUsed: false;
   providerApiCredentialsUsed: false;
   externalSpendUsd: 0;
@@ -493,6 +514,7 @@ export async function runPostGateEvidenceExport(input: {
   const admission = runtimeAdmissionSchema.parse(JSON.parse(admissionBytes.toString("utf8")));
   const normalizedDestinationChatLocator = normalizeDestinationChatLocator(
     directive.delivery.destinationChatLocator);
+  const packagingCompletion = postGatePackagingCompletionFields();
   const [head, branch, commitMessage, mastHead, mastTree, mastStatus] = await Promise.all([
     gitText(repositoryRoot, "rev-parse", "HEAD"),
     gitText(repositoryRoot, "branch", "--show-current"),
@@ -897,6 +919,7 @@ export async function runPostGateEvidenceExport(input: {
         sourceTransportPrefixNormalized: normalizedDestinationChatLocator
           !== directive.delivery.destinationChatLocator,
         ownerRelayRequested: false,
+        ...packagingCompletion.receipt.delivery,
       },
       execution: { branch, head, commitMessage },
       source: { mastHead, mastTree, sourceFileCount: sourceIdentity.records.length },
@@ -978,6 +1001,7 @@ export async function runPostGateEvidenceExport(input: {
       sourceTransportPrefixNormalized: normalizedDestinationChatLocator
         !== directive.delivery.destinationChatLocator,
       ownerRelayRequested: false,
+      ...packagingCompletion.receipt.delivery,
     },
     execution: { branch, head, commitMessage, resetPerformed: false },
     source: { mastHead, mastTree, worktreeClean: true },
@@ -1008,7 +1032,7 @@ export async function runPostGateEvidenceExport(input: {
     providerApiCredentialsUsed: false,
     externalSpendUsd: 0,
     clinicalInterpretationIncluded: false,
-    completionClaim: directive.completionClaims.success,
+    completionClaim: packagingCompletion.receipt.completionClaim,
   };
   const receiptBytes = jsonBytes(receipt);
   await writeFile(resolve(lockRoot, receiptFileName), receiptBytes, {
@@ -1024,7 +1048,7 @@ export async function runPostGateEvidenceExport(input: {
     throw new Error("POST_GATE_EXPORT_SOURCE_CHANGED_DURING_EXECUTION");
   }
   return {
-    status: directive.completionClaims.success,
+    status: packagingCompletion.result.status,
     resultDirectory: resultRootDirectory,
     archiveFile: `${resultRootDirectory}/${archiveFileName}`,
     archiveSha256: sha256(archiveBytes),
@@ -1035,6 +1059,7 @@ export async function runPostGateEvidenceExport(input: {
     primaryJudgmentCount: 192,
     activeJ3JudgmentCount: 41,
     supersededJ3JudgmentCount: 23,
+    delivery: packagingCompletion.result.delivery,
     modelInferenceUsed: false,
     providerApiCredentialsUsed: false,
     externalSpendUsd: 0,

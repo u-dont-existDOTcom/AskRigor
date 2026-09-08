@@ -3,11 +3,84 @@ import { describe, expect, it } from "vitest";
 import {
   compareRational,
   normalizeDestinationChatLocator,
+  postGatePackagingCompletionFields,
   prioritizedFamilyIds,
   validateIdentityJoins,
 } from "../scripts/zero-spend-mast-post-gate-evidence-export-v1.mjs";
 
 describe("post-gate evidence export helpers", () => {
+  it("serializes exact packaging-only receipt and operation completion fields", () => {
+    expect(JSON.parse(JSON.stringify(postGatePackagingCompletionFields()))).toEqual({
+      receipt: {
+        completionClaim: "POST_GATE_EXISTING_EVIDENCE_PACKAGED_DELIVERY_PENDING",
+        delivery: {
+          observationScope: "THIS_PACKAGING_INVOCATION_ONLY",
+          attempted: false,
+          delivered: false,
+          verifiedDeliveryReceipt: false,
+        },
+      },
+      result: {
+        status: "POST_GATE_EXISTING_EVIDENCE_PACKAGED_DELIVERY_PENDING",
+        delivery: {
+          observationScope: "THIS_PACKAGING_INVOCATION_ONLY",
+          attempted: false,
+          delivered: false,
+          verifiedDeliveryReceipt: false,
+        },
+      },
+    });
+  });
+
+  it("does not promote parent success into this packaging invocation", () => {
+    const parentCompletionClaim = "PARENT_DELIVERY_COMPLETE";
+    const completion = postGatePackagingCompletionFields();
+    const emitted = JSON.parse(JSON.stringify({
+      parentProvenance: { completionClaim: parentCompletionClaim },
+      receipt: completion.receipt,
+      result: completion.result,
+    }));
+    expect(emitted.receipt.completionClaim).not.toBe(parentCompletionClaim);
+    expect(emitted.result.status).not.toBe(parentCompletionClaim);
+    expect(emitted.receipt.delivery).toMatchObject({
+      attempted: false,
+      delivered: false,
+      verifiedDeliveryReceipt: false,
+    });
+    expect(emitted.result.delivery).toMatchObject({
+      attempted: false,
+      delivered: false,
+      verifiedDeliveryReceipt: false,
+    });
+  });
+
+  it("keeps validation and admission metadata separate from delivery evidence", () => {
+    const completion = postGatePackagingCompletionFields();
+    const emitted = JSON.parse(JSON.stringify({
+      receipt: {
+        runtimeAdmission: { mayExecute: true, primaryDecision: "ALLOW_BOUNDED_EXECUTION" },
+        delivery: {
+          destinationLocatorValidated: true,
+          ...completion.receipt.delivery,
+        },
+      },
+      result: completion.result,
+    }));
+    expect(emitted.receipt.delivery).toEqual({
+      destinationLocatorValidated: true,
+      observationScope: "THIS_PACKAGING_INVOCATION_ONLY",
+      attempted: false,
+      delivered: false,
+      verifiedDeliveryReceipt: false,
+    });
+    expect(emitted.result.delivery).toEqual({
+      observationScope: "THIS_PACKAGING_INVOCATION_ONLY",
+      attempted: false,
+      delivered: false,
+      verifiedDeliveryReceipt: false,
+    });
+  });
+
   it("joins persisted identities without array-position assumptions", () => {
     expect(() => validateIdentityJoins({
       mapping: [
