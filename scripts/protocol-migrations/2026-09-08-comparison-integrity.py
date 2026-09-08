@@ -21,6 +21,31 @@ def once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def replace_expected(
+    text: str,
+    old: str,
+    new: str,
+    label: str,
+    expected_count: int = 1,
+) -> str:
+    old_count = text.count(old)
+    if old_count == expected_count:
+        return text.replace(old, new)
+    if old_count == 0 and text.count(new) >= expected_count:
+        return text
+    raise SystemExit(
+        f"{label}: expected {expected_count} old marker(s) or an already-synchronized value; "
+        f"found old={old_count} new={text.count(new)}"
+    )
+
+
+def patch_file(path: Path, replacements: list[tuple[str, str, str, int]]) -> None:
+    text = path.read_text(encoding="utf-8")
+    for old, new, label, expected_count in replacements:
+        text = replace_expected(text, old, new, label, expected_count)
+    path.write_text(text, encoding="utf-8")
+
+
 def patch_universal() -> None:
     u = U.read_text(encoding="utf-8")
     if 'version="20.5.21"' in u and '<comparison_integrity_gate priority="Critical">' in u:
@@ -145,7 +170,7 @@ describe("comparison-integrity protocol regressions", () => {
       'name="RankingResolution"',
       'Never manufacture precision by sorting noise',
       'name="EvidenceDepthSeparation"',
-      'one screen, one dose, one surrogate, or one model'
+      'A single screen, one dose, one surrogate, or one model'
     ]) expect(text).toContain(required);
   });
 
@@ -176,7 +201,15 @@ describe("comparison-integrity protocol regressions", () => {
   });
 });
 '''
+    t = replace_expected(
+        t,
+        "'one screen, one dose, one surrogate, or one model'",
+        "'A single screen, one dose, one surrogate, or one model'",
+        "Universal evidence-depth regression wording",
+    )
     T.write_text(t, encoding="utf-8")
+
+    patch_current_protocol_consumers(u_sha, h_sha)
 
     r = R.read_text(encoding="utf-8")
     receipt = re.compile(
@@ -197,6 +230,156 @@ describe("comparison-integrity protocol regressions", () => {
         raise SystemExit("README canonical receipt marker not found")
     R.write_text(r, encoding="utf-8")
     return u_sha, h_sha
+
+
+def patch_current_protocol_consumers(u_sha: str, h_sha: str) -> None:
+    patch_file(
+        Path("tests/epistemic-phase-routing.test.ts"),
+        [
+            (
+                '/version="20\\.5\\.20" revisionDate="2026-09-08"/u',
+                '/version="20\\.5\\.21" revisionDate="2026-09-08"/u',
+                "epistemic Universal current root",
+                1,
+            ),
+            (
+                '/version="20\\.5\\.24" revisionDate="2026-08-31"/u',
+                '/version="20\\.5\\.25" revisionDate="2026-09-08"/u',
+                "epistemic HRP current root",
+                1,
+            ),
+        ],
+    )
+    patch_file(
+        Path("tests/explicit-commitment-obligation-structure.test.ts"),
+        [(
+            'version="20\\.5\\.20" revisionDate="2026-09-08"[^>]+Explicit-Commitment-Obligation-Closure',
+            'version="20\\.5\\.21" revisionDate="2026-09-08"[^>]+Explicit-Commitment-Obligation-Closure',
+            "explicit-obligation Universal current root",
+            1,
+        )],
+    )
+    patch_file(
+        Path("tests/mcp-tools.test.ts"),
+        [
+            ('version: "20.5.24"', 'version: "20.5.25"', "MCP HRP current version", 1),
+            ('revisionDate: "2026-08-31"', 'revisionDate: "2026-09-08"', "MCP HRP current revision date", 1),
+            (OLD_H_SHA, h_sha, "MCP HRP current digest", 1),
+            ('version: "20.5.20"', 'version: "20.5.21"', "MCP Universal current version", 3),
+            (OLD_U_SHA, u_sha, "MCP Universal current digest", 3),
+        ],
+    )
+    patch_file(
+        Path("tests/normality-base-rate-structure.test.ts"),
+        [(
+            'version="20\\.5\\.20" revisionDate="2026-09-08"[^>]+Normality-Base-Rate',
+            'version="20\\.5\\.21" revisionDate="2026-09-08"[^>]+Normality-Base-Rate',
+            "normality Universal current root",
+            1,
+        )],
+    )
+    old_recovery = '''    const recovered = universal
+      .replace('version="20.5.20" revisionDate="2026-09-08"', 'version="20.5.19" revisionDate="2026-09-07"')
+      .replace(`${REVISION_ELEMENT}\\n`, "")
+      .replace(`\\n${REASONING_SELECTION_ELEMENT}\\n`, "");'''
+    new_recovery = '''    const priorUniversal = universal
+      .replace('version="20.5.21" revisionDate="2026-09-08"', 'version="20.5.20" revisionDate="2026-09-08"')
+      .replace(
+        "Evidence-Discrimination, Comparison-Set and Estimand Integrity, Ranking-Resolution, Evidence-Depth, Outcome-Directed Strategy-Switching, and Whole-Argument-Reconstruction Gates",
+        "Evidence-Discrimination, Outcome-Directed Strategy-Switching, and Whole-Argument-Reconstruction Gates",
+      )
+      .replace(/<revision version="20\\.5\\.21" priority="Critical">[\\s\\S]*?<\\/revision>\\n/u, "")
+      .replace(/<comparison_integrity_gate priority="Critical">[\\s\\S]*?<\\/comparison_integrity_gate>\\n\\n/u, "");
+    expect(sha256(priorUniversal)).toBe(
+      "''' + OLD_U_SHA + '''",
+    );
+
+    const recovered = priorUniversal
+      .replace('version="20.5.20" revisionDate="2026-09-08"', 'version="20.5.19" revisionDate="2026-09-07"')
+      .replace(`${REVISION_ELEMENT}\\n`, "")
+      .replace(`\\n${REASONING_SELECTION_ELEMENT}\\n`, "");'''
+    patch_file(
+        Path("tests/reasoning-selection-structure.test.ts"),
+        [
+            (
+                'version="20\\.5\\.20" revisionDate="2026-09-08"/u',
+                'version="20\\.5\\.21" revisionDate="2026-09-08"/u',
+                "reasoning-selection Universal current root",
+                1,
+            ),
+            (
+                '`<revision_history>\\n${REVISION_ELEMENT}\\n<revision version="20.5.19" priority="Critical">`',
+                '`${REVISION_ELEMENT}\\n<revision version="20.5.19" priority="Critical">`',
+                "reasoning-selection historical revision adjacency",
+                1,
+            ),
+            (
+                '`</revision_history>\\n\\n${REASONING_SELECTION_ELEMENT}\\n\\n<heuristic_attractor_check priority="Critical">`',
+                '`${REASONING_SELECTION_ELEMENT}\\n\\n<heuristic_attractor_check priority="Critical">`',
+                "reasoning-selection active gate adjacency",
+                1,
+            ),
+            (old_recovery, new_recovery, "reasoning-selection historical inverse", 1),
+            (OLD_H_SHA, h_sha, "reasoning-selection HRP current digest", 1),
+        ],
+    )
+    patch_file(
+        Path("tests/release-packet.test.ts"),
+        [
+            (
+                'Universal Instructions `20.5.20`',
+                'Universal Instructions `20.5.21`',
+                "release packet Universal current version",
+                1,
+            ),
+            (OLD_U_SHA, u_sha, "release packet Universal current digest", 1),
+        ],
+    )
+    patch_file(
+        Path("tests/research-before-reinvention-structure.test.ts"),
+        [(
+            'version="20\\.5\\.20" revisionDate="2026-09-08"/',
+            'version="20\\.5\\.21" revisionDate="2026-09-08"/',
+            "research-before-reinvention Universal current root",
+            1,
+        )],
+    )
+    old_frontier = '''        name: "AskRigor.com universal saved instructions",
+        version: "20.5.20",
+        revisionDate: "2026-09-08",
+        sha256: "''' + OLD_U_SHA + '''",
+      },
+      {
+        name: "HRP",
+        version: "20.5.24",
+        revisionDate: "2026-08-31",
+        sha256: "''' + OLD_H_SHA + '''",'''
+    new_frontier = '''        name: "AskRigor.com universal saved instructions",
+        version: "20.5.21",
+        revisionDate: "2026-09-08",
+        sha256: "''' + u_sha + '''",
+      },
+      {
+        name: "HRP",
+        version: "20.5.25",
+        revisionDate: "2026-09-08",
+        sha256: "''' + h_sha + '''",'''
+    patch_file(
+        Path("tests/research-frontier-repository.test.ts"),
+        [(old_frontier, new_frontier, "research-frontier exact current manifests", 1)],
+    )
+    patch_file(
+        Path("tests/whole-argument-reconstruction-structure.test.ts"),
+        [
+            (
+                'version="20\\.5\\.20" revisionDate="2026-09-08"/',
+                'version="20\\.5\\.21" revisionDate="2026-09-08"/',
+                "whole-argument Universal current root",
+                1,
+            ),
+            (OLD_H_SHA, h_sha, "whole-argument HRP current digest", 1),
+        ],
+    )
 
 
 def write_lesson(u_sha: str, h_sha: str) -> None:

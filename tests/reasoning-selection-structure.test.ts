@@ -63,7 +63,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.20" revisionDate="2026-09-08"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.21" revisionDate="2026-09-08"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -72,10 +72,10 @@ describe("canonical Reasoning Selection application", () => {
     expect(occurrences(universal, REVISION_ELEMENT)).toBe(1);
     expect(occurrences(universal, REASONING_SELECTION_ELEMENT)).toBe(1);
     expect(universal).toContain(
-      `<revision_history>\n${REVISION_ELEMENT}\n<revision version="20.5.19" priority="Critical">`,
+      `${REVISION_ELEMENT}\n<revision version="20.5.19" priority="Critical">`,
     );
     expect(universal).toContain(
-      `</revision_history>\n\n${REASONING_SELECTION_ELEMENT}\n\n<heuristic_attractor_check priority="Critical">`,
+      `${REASONING_SELECTION_ELEMENT}\n\n<heuristic_attractor_check priority="Critical">`,
     );
 
     for (const method of [
@@ -91,7 +91,19 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const recovered = universal
+    const priorUniversal = universal
+      .replace('version="20.5.21" revisionDate="2026-09-08"', 'version="20.5.20" revisionDate="2026-09-08"')
+      .replace(
+        "Evidence-Discrimination, Comparison-Set and Estimand Integrity, Ranking-Resolution, Evidence-Depth, Outcome-Directed Strategy-Switching, and Whole-Argument-Reconstruction Gates",
+        "Evidence-Discrimination, Outcome-Directed Strategy-Switching, and Whole-Argument-Reconstruction Gates",
+      )
+      .replace(/<revision version="20\.5\.21" priority="Critical">[\s\S]*?<\/revision>\n/u, "")
+      .replace(/<comparison_integrity_gate priority="Critical">[\s\S]*?<\/comparison_integrity_gate>\n\n/u, "");
+    expect(sha256(priorUniversal)).toBe(
+      "5365f5fcb8e9abac0b60a5cbbfa23183cf08018f1c0f6ab9a3bb1e8df87ad9b3",
+    );
+
+    const recovered = priorUniversal
       .replace('version="20.5.20" revisionDate="2026-09-08"', 'version="20.5.19" revisionDate="2026-09-07"')
       .replace(`${REVISION_ELEMENT}\n`, "")
       .replace(`\n${REASONING_SELECTION_ELEMENT}\n`, "");
@@ -130,7 +142,7 @@ describe("canonical Reasoning Selection application", () => {
     ]);
 
     expect(sha256(hrp)).toBe(
-      "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
+      "2da6edf410c54182b3aa333d7cf9e9a11c24cf86138dfcaa508b019e3a84e2e9",
     );
     expect(sha256(forum)).toBe(
       "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",

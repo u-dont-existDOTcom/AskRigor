@@ -556,7 +556,7 @@ describe("comparison-integrity protocol regressions", () => {
       'name="RankingResolution"',
       'Never manufacture precision by sorting noise',
       'name="EvidenceDepthSeparation"',
-      'one screen, one dose, one surrogate, or one model'
+      'A single screen, one dose, one surrogate, or one model'
     ]) expect(text).toContain(required);
   });
 

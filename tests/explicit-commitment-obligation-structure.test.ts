@@ -23,7 +23,7 @@ describe("Universal explicit-commitment obligation closure integration", () => {
     const text = await readFile(UNIVERSAL_URL, "utf8");
 
     expect(text).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.20" revisionDate="2026-09-08"[^>]+Explicit-Commitment-Obligation-Closure/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.21" revisionDate="2026-09-08"[^>]+Explicit-Commitment-Obligation-Closure/u,
     );
 
     for (const singleton of [
