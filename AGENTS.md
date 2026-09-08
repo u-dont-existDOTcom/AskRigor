@@ -35,6 +35,12 @@ CONFIRMATION` may test a frozen model but may not influence it. Freeze before
 VALIDATION, not before DISCOVERY. Complete canonical Universal and HRP wording
 controls over this worker-facing summary.
 
+Apply canonical Universal reasoning_selection and the AskRigor application in
+project/PROJECT_INSTRUCTIONS.md within the current source-bound role. They
+do not replace complete protocols, required modules, or authority gates.
+Execution-only workers gain no strategic, methodological, spending, or release
+authority from selecting a reasoning method.
+
 ## Chat-to-Work authority gate
 
 ChatGPT Project Manager/Extra High/Pro owns reasoning, proposals, methodology,

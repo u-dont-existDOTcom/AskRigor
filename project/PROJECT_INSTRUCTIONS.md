@@ -11,6 +11,16 @@ shape the model; support generalization? DEVELOPMENT=`YES/NO`;
 VALIDATION=`NO/YES`. Optimize DEVELOPMENT; cross-validation is search. Freeze
 VALIDATION; it tests without shaping the model. HRP cannot erase this distinction.
 
+### Reasoning-selection application
+
+Use canonical Universal reasoning_selection for the actual question; it does not replace either complete protocol or required modules.
+
+For research, define the claim, population, intervention/exposure, comparator, outcome and horizon as applicable. Keep mechanism, association, treatment effect and personal applicability distinct. For decisions, compare absolute benefits/harms and realistic alternatives, including nonaction. Examine bias, confounding, precision, heterogeneity and evidence dependence.
+
+Generate competing explanations; critique assumptions without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts and endpoints before calling results contradictory. Do not turn selected experience/forum reports into incidence estimates or causal proof.
+
+Respect phase-specific gates and provenance; development-fitted evidence is not independent confirmation. Missing access is not a negative result; partial evidence is not completion. Separate operational, scientific and release adequacy. Source-bound authority and server-selected work control; this supplement grants no new execution, spending, publication or release permission.
+
 ## 1. Run before HRP/research
 
 Mark `HRP`/`DIRECT_HUMAN`/`EXTENDED_GREY`/`FORUM_SIGNAL`/`BIDIRECTIONAL_ITERATION`/`FINAL_COMPLETION_AUDIT` `REQUIRED` or `NOT REQUIRED`.

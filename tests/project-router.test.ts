@@ -58,8 +58,18 @@ describe("AskRigor ChatGPT Project router", () => {
     const words = instructions.split(/\s+/).filter(Boolean);
 
     expect(words.length).toBeGreaterThan(100);
-    expect(words.length).toBeLessThan(750);
+    expect(words.length).toBeLessThan(900);
+    expect(Array.from(instructions).length).toBeLessThanOrEqual(8000);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
+    expect(instructions).toContain(`### Reasoning-selection application
+
+Use canonical Universal reasoning_selection for the actual question; it does not replace either complete protocol or required modules.
+
+For research, define the claim, population, intervention/exposure, comparator, outcome and horizon as applicable. Keep mechanism, association, treatment effect and personal applicability distinct. For decisions, compare absolute benefits/harms and realistic alternatives, including nonaction. Examine bias, confounding, precision, heterogeneity and evidence dependence.
+
+Generate competing explanations; critique assumptions without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts and endpoints before calling results contradictory. Do not turn selected experience/forum reports into incidence estimates or causal proof.
+
+Respect phase-specific gates and provenance; development-fitted evidence is not independent confirmation. Missing access is not a negative result; partial evidence is not completion. Separate operational, scientific and release adequacy. Source-bound authority and server-selected work control; this supplement grants no new execution, spending, publication or release permission.`);
     expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
       "firsthand experience",
@@ -349,6 +359,6 @@ describe("AskRigor ChatGPT Project router", () => {
     );
     expect(instructions.slice(0, lessonHook)).not.toContain("LESSON_CAPTURE_MODULE.md");
     expect(instructions).not.toContain("Submit this anonymized lesson to improve AskRigor?");
-    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(750);
+    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(900);
   });
 });
