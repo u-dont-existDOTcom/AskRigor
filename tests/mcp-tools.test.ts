@@ -1989,9 +1989,9 @@ describe("AskRigor MCP tools", () => {
         protocol: "universal",
         manifest: {
           name: "AskRigor.com universal saved instructions",
-          version: "20.5.18",
+          version: "20.5.19",
           revisionDate: "2026-09-07",
-          sha256: "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a"
+          sha256: "e996eb5385062c7dd445c9dae3c6950bc2da045440526e1ba67b4108e0ddd752"
         },
         text: canonicalText
       });
@@ -2072,9 +2072,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.18",
+            version: "20.5.19",
             revisionDate: "2026-09-07",
-            sha256: "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a"
+            sha256: "e996eb5385062c7dd445c9dae3c6950bc2da045440526e1ba67b4108e0ddd752"
           }
         });
       } finally {
@@ -2116,8 +2116,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.18",
-            sha256: "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a"
+            version: "20.5.19",
+            sha256: "e996eb5385062c7dd445c9dae3c6950bc2da045440526e1ba67b4108e0ddd752"
           }
         });
       } finally {
