@@ -61,15 +61,11 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(words.length).toBeLessThan(900);
     expect(Array.from(instructions).length).toBeLessThanOrEqual(8000);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(instructions).toContain(`### Reasoning-selection application
+    expect(instructions).toContain(`### Reasoning and interview-evidence application
 
-Use canonical Universal reasoning_selection for the actual question; it does not replace either complete protocol or required modules.
+Use Universal reasoning_selection. Define the research target; separate mechanism, association, effect, and applicability; assess bias, confounding, and evidence dependence; compare alternatives including nonaction; and preserve populations, contexts, and endpoints. Selected reports do not establish incidence or causality.
 
-For research, define the claim, population, intervention/exposure, comparator, outcome and horizon as applicable. Keep mechanism, association, treatment effect and personal applicability distinct. For decisions, compare absolute benefits/harms and realistic alternatives, including nonaction. Examine bias, confounding, precision, heterogeneity and evidence dependence.
-
-Generate competing explanations; critique assumptions without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts and endpoints before calling results contradictory. Do not turn selected experience/forum reports into incidence estimates or causal proof.
-
-Respect phase-specific gates and provenance; development-fitted evidence is not independent confirmation. Missing access is not a negative result; partial evidence is not completion. Separate operational, scientific and release adequacy. Source-bound authority and server-selected work control; this supplement grants no new execution, spending, publication or release permission.`);
+For patient histories, symptom/adverse-effect recurrence, surveys, reviewer extraction, and evidence dialogue, activate the canonical Universal and HRP interview-evidence gates. Preserve recurrence self-report with its proposition, quantifier, denominator, context, exceptions, and uncertainty separately from episodes, boundaries, sampled opportunities, traits, causes, and coder inference. Probe denominator, exceptions, conditions, timing, and contrasts first. A selected confirming incident is not independent frequency evidence; actual frequency needs a valid sampling frame. Ask nonmandatory follow-ups only for identifiable information gain. Retrieve owner-supplied methodology, give human reviewers ordinary controls, and version load-bearing pre-collection defects without changing frozen methods or data. Protocols, phase, provenance, privacy, source-bound authority, and gates control; this grants no execution, spending, publication, or release authority.`);
     expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
       "firsthand experience",

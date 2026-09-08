@@ -137,6 +137,19 @@ Status: branch-local architecture and Phase-0 implementation index
     - multidimensional study comparison;
     - contribution and long-range job boundaries.
 
+23. `../patient-story-interview-method-v0.2.0.md`
+    - exception-first recurrence interview and reviewer method;
+    - expected-information-gain follow-up gate;
+    - ordinary-control human-interface and versioning boundary.
+
+24. `../patient-story-evidence-extension-v0.2.0.json`
+    - append-only evidence-role and follow-up extension for frozen v0.1 stories;
+    - direct recurrence, conditional-example, sampling-frame, and interface
+      invariants.
+
+25. `../../packages/contracts/src/patient-story-evidence-v0.2.ts`
+    - executable typed contract corresponding to the generated JSON Schema.
+
 ## Supersession note
 
 The Community Health Forum and Public Lead Frontier prior-work scan, spec, machine contract, fixtures, plan, queue entry, and receipt are the controlling architecture for public secondhand leads.

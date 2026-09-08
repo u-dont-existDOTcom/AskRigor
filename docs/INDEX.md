@@ -77,6 +77,10 @@ complete XML protocol.
   HRP 20.5.24, real-PostgreSQL and full-gate receipts, byte-derived package and
   catalog identities, and separate local operational/scientific versus pending
   release adequacy
+- `audits/2026-09-08-interview-evidence-information-gain.md`: current overlap,
+  recurrence/interview defects, Universal 20.5.22 and HRP 20.5.26 routing,
+  frozen-v0.1 boundary, v0.2 evidence extension, human-interface requirement,
+  supplied-method provenance, and migration/validation receipts
 - `superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md`:
   bounded read-only lexical topic/question discovery before exact frontier
   retrieval, with explicit no-match, partial/gap, currentness, privacy, and

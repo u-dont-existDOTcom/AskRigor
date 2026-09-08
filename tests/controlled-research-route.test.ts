@@ -55,16 +55,16 @@ function expectReasoningSelectionDelivery(policyContext: any): void {
     universal.indexOf(selectorEnd)
   );
   expect(routeHash(selector)).toBe(
-    "d128da3c9edcea70bc2651cf7a26e765a88f2860b2eaeae74cd2489c503b00c9"
+    "2661aa8269fc9254825181433ff420e08f35acf6de1678d88a7be0af4fc92f57"
   );
 
   const project = policyContext.documents.find(
     (document: any) => document.document_id === "project_router"
   ).text as string;
-  const applicationStart = project.indexOf("### Reasoning-selection application");
+  const applicationStart = project.indexOf("### Reasoning and interview-evidence application");
   const applicationEnd = project.indexOf("## 1. Run before HRP/research");
   expect(routeHash(project.slice(applicationStart, applicationEnd))).toBe(
-    "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a"
+    "b734cc43f57f2d4cb2b3f302f88f8725e89ceb7e4ed4e1cf30774f1275fbfc31"
   );
 }
 
