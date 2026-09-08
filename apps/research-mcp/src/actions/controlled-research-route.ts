@@ -24,9 +24,14 @@ import {
 import {
   researchSemanticModelOutputSchema,
   researchSemanticResponseContract,
-  researchSemanticWorkerInstruction,
+  type ResearchSemanticPolicyBoundWorkPackage,
   type ResearchSemanticWork
 } from "../research-semantic-worker.js";
+import {
+  createResearchSemanticPolicyInputs,
+  ResearchSemanticPolicyInputError,
+  type ResearchSemanticPolicyDependencies
+} from "../research-semantic-policy-input.js";
 import {
   CUSTOM_GPT_ACCEPTANCE_CHALLENGE_ID,
   CUSTOM_GPT_ACCEPTANCE_RESEARCH_TARGET,
@@ -468,6 +473,7 @@ const controlledContinueInputActionSchema: Record<string, unknown> = {
 export interface CreateControlledResearchRoutesOptions {
   store?: ResearchSessionStore;
   getProtocolManifest?: typeof getProtocolManifest;
+  semanticPolicyDependencies?: ResearchSemanticPolicyDependencies;
   deterministicAdvanceDependencies: ResearchDeterministicAdvanceDependencies;
   semanticAdvanceDependencies: ResearchSemanticAdvanceDependencies;
   continuationSigningSecret: string;
@@ -691,6 +697,21 @@ export function createControlledResearchRoutes(
     state: ResearchSessionState,
     work: ResearchSemanticWork
   ) {
+    let policyInputs;
+    try {
+      policyInputs = await createResearchSemanticPolicyInputs({
+        kind: work.kind,
+        expectedProtocols: state.protocol_binding.expected,
+        ...(options.semanticPolicyDependencies === undefined
+          ? {}
+          : { dependencies: options.semanticPolicyDependencies })
+      });
+    } catch (error) {
+      if (error instanceof ResearchSemanticPolicyInputError) {
+        throw new ControlledDependencyUnavailableError();
+      }
+      throw error;
+    }
     const evidenceContext = options.semanticAdvanceDependencies.evidenceContextForWork === undefined
       ? undefined
       : await options.semanticAdvanceDependencies.evidenceContextForWork({
@@ -700,13 +721,15 @@ export function createControlledResearchRoutes(
         });
     return {
       worker_contract: "askrigor_controlled_semantic_worker_v1",
-      instruction: researchSemanticWorkerInstruction(work.kind),
+      ...policyInputs,
       session_id: sessionId,
       state_digest: researchSessionStateDigest(state),
       research_context: state.research_target,
       semantic_work: work,
       response_contract: researchSemanticResponseContract(work.kind),
       ...(evidenceContext === undefined ? {} : { evidence_context: evidenceContext })
+    } satisfies ResearchSemanticPolicyBoundWorkPackage & {
+      worker_contract: "askrigor_controlled_semantic_worker_v1";
     };
   }
 

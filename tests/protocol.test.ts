@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { readFileMock } = vi.hoisted(() => ({
@@ -12,6 +14,7 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 import {
   getProtocolManifest,
   loadProtocol,
+  loadProtocolSnapshot,
   verifyProtocolIntegrity
 } from "@askrigor/protocol";
 
@@ -448,6 +451,42 @@ describe("canonical protocol loader", () => {
     await expect(loadProtocol("universal")).resolves.toBe(original);
   });
 
+  it("returns exact text and its byte-derived manifest from one validated snapshot", async () => {
+    const original = await actualReadFile(
+      new URL("../protocols/Universal_Instructions.xml", import.meta.url),
+      "utf8"
+    );
+    const snapshot = await loadProtocolSnapshot("universal");
+
+    expect(snapshot.text).toBe(original);
+    expect(snapshot.manifest).toEqual(await getProtocolManifest("universal"));
+    expect(snapshot.manifest.sha256).toBe(UNIVERSAL_SHA_256);
+  });
+
+  it.each([
+    { protocol: "universal" as const, name: "Universal" },
+    { protocol: "hrp" as const, name: "HRP" }
+  ])("preserves a leading UTF-8 BOM in the $protocol snapshot and its byte identity", async ({
+    protocol,
+    name
+  }) => {
+    const bytes = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(
+        `<?xml version="1.0"?><Protocol name="${name}" version="test" revisionDate="2026-09-08" />`,
+        "utf8"
+      )
+    ]);
+    readFileMock.mockResolvedValueOnce(bytes);
+
+    const snapshot = await loadProtocolSnapshot(protocol);
+    expect(snapshot.text.startsWith("\ufeff")).toBe(true);
+    expect(Buffer.from(snapshot.text, "utf8")).toEqual(bytes);
+    expect(snapshot.manifest.sha256).toBe(
+      createHash("sha256").update(bytes).digest("hex")
+    );
+  });
+
   it("accepts the published digest for the canonical Universal file", async () => {
     await expect(verifyProtocolIntegrity("universal", UNIVERSAL_SHA_256)).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
@@ -482,7 +521,9 @@ describe("canonical protocol loader", () => {
   it("fails closed when the canonical XML is malformed", async () => {
     readFileMock.mockResolvedValueOnce(Buffer.from("<Protocol name=\"HRP\">"));
 
-    await expect(loadProtocol("hrp")).rejects.toThrow("Protocol XML is malformed");
+    await expect(loadProtocolSnapshot("hrp")).rejects.toThrow(
+      "Protocol XML is malformed"
+    );
   });
 
   it("fails closed when the canonical file cannot be read", async () => {
@@ -494,6 +535,8 @@ describe("canonical protocol loader", () => {
   it("fails closed when the canonical file is not valid UTF-8", async () => {
     readFileMock.mockResolvedValueOnce(Buffer.from([0xc3, 0x28]));
 
-    await expect(loadProtocol("hrp")).rejects.toThrow("Protocol file is not valid UTF-8");
+    await expect(loadProtocolSnapshot("hrp")).rejects.toThrow(
+      "Protocol file is not valid UTF-8"
+    );
   });
 });

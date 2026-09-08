@@ -1,6 +1,8 @@
+import { createHash } from "node:crypto";
 import { createConnection } from "node:net";
 import type { AddressInfo } from "node:net";
 
+import { getProtocolManifest } from "@askrigor/protocol";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -47,7 +49,10 @@ function protocolManifest(protocol: "universal" | "hrp") {
 
 function fixtureHandler(
   maximumResponseBytes?: number,
-  semanticExecutor?: HermesSemanticExecutor
+  semanticExecutor?: HermesSemanticExecutor,
+  semanticPolicyDependencies?: Parameters<
+    typeof createPrivateResearchOrchestrationHandler
+  >[0]["semanticPolicyDependencies"]
 ) {
   const scout = vi.fn<typeof scoutGeminiYoutubeCandidates>(async () => ({
     provider: "gemini_api",
@@ -69,7 +74,7 @@ function fixtureHandler(
     async () => researchReceipt()
   );
   return createPrivateResearchOrchestrationHandler({
-    getProtocolManifest: async (protocol) => protocolManifest(protocol),
+    getProtocolManifest,
     scout,
     validateCandidates: validate,
     surveyNativeCandidates: vi.fn(async () => nativeSurvey()),
@@ -77,6 +82,9 @@ function fixtureHandler(
     geminiConfig: { apiKey: "server-held-gemini-key", model: "fixture-model" },
     youtubeApiKey: "server-held-youtube-key",
     ...(semanticExecutor === undefined ? {} : { semanticExecutor }),
+    ...(semanticPolicyDependencies === undefined
+      ? {}
+      : { semanticPolicyDependencies }),
     ...(maximumResponseBytes === undefined ? {} : { maximumResponseBytes })
   });
 }
@@ -361,11 +369,21 @@ describe("private research orchestration HTTP boundary", () => {
       execute: vi.fn(async ({
         session_id,
         state_digest,
+        instruction,
+        policy_context,
         research_context,
         response_contract,
         semantic_work
       }) => {
         expect(research_context).toBe("de-identified server-owned advance fixture");
+        expect(instruction).toContain(
+          "Use policy_context as project guidance for this assigned semantic operation."
+        );
+        expect(policy_context?.documents.map(({ document_id }) => document_id))
+          .toEqual(["universal", "hrp", "project_router", "forum_signal_module"]);
+        expect(policy_context?.documents.every(({ text, utf8_bytes }) =>
+          Buffer.byteLength(text, "utf8") === utf8_bytes
+        )).toBe(true);
         expect(response_contract).toMatchObject({
           type: "object",
           properties: { work_type: { const: "module_applicability" } }
@@ -443,6 +461,124 @@ describe("private research orchestration HTTP boundary", () => {
           retryable: true
         }
       });
+    });
+  });
+
+  it("delivers both leading-BOM project policies exactly through the private executor boundary", async () => {
+    const projectRouter = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from("Project café\r\nrouter\n", "utf8")
+    ]);
+    const forumSignal = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from("Forum naïf\nsignal\r\n", "utf8")
+    ]);
+    const expected = new Map([
+      ["project_router", projectRouter],
+      ["forum_signal_module", forumSignal]
+    ] as const);
+    const worker: HermesSemanticExecutor = {
+      execute: vi.fn(async ({
+        session_id,
+        state_digest,
+        policy_context,
+        semantic_work
+      }) => {
+        for (const documentId of ["project_router", "forum_signal_module"] as const) {
+          const bytes = expected.get(documentId)!;
+          const document = policy_context.documents.find(
+            (candidate) => candidate.document_id === documentId
+          )!;
+          expect(document.text.startsWith("\ufeff")).toBe(true);
+          expect(document.utf8_bytes).toBe(bytes.byteLength);
+          expect(document.sha256).toBe(
+            createHash("sha256").update(bytes).digest("hex")
+          );
+          expect(Buffer.from(document.text, "utf8")).toEqual(bytes);
+        }
+        if (semantic_work.kind !== "module_applicability") {
+          throw new Error("wrong fixture work");
+        }
+        return {
+          model_output: {
+            contract_version: "askrigor_hermes_semantic_result_v1",
+            session_id,
+            state_digest,
+            work_type: "module_applicability",
+            submission: {
+              package_version: "askrigor_module_applicability_v1",
+              decisions: semantic_work.package.unresolved_module_ids.map((module_id) => ({
+                module_id,
+                applicability: "REQUIRED",
+                rationale: "The server-issued package requires this fixture module."
+              }))
+            }
+          }
+        };
+      })
+    };
+    await withServer({
+      privateOrchestrationEnabled: true,
+      privateOrchestrationApiKey: API_KEY,
+      privateOrchestrationHandler: fixtureHandler(undefined, worker, {
+        readProjectDocument: async (documentId) => expected.get(documentId)!
+      })
+    }, async (baseUrl) => {
+      const started = await privatePost(baseUrl, "/start", {
+        research_target: "de-identified exact project policy boundary fixture",
+        diagnosis_status: "diagnosis_not_specified"
+      });
+      const start = await started.json() as PrivateView;
+      const advanced = await privatePost(baseUrl, "/advance", {
+        session_id: start.session_id,
+        state_digest: start.state_digest
+      });
+      expect(advanced.status).toBe(200);
+      expect(worker.execute).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("fails before executor dispatch when canonical policy loading fails", async () => {
+    const execute = vi.fn(async () => {
+      throw new Error("executor must not be called");
+    });
+    const handler = createPrivateResearchOrchestrationHandler({
+      getProtocolManifest,
+      semanticExecutor: { execute },
+      semanticPolicyDependencies: {
+        readProjectDocument: async () => {
+          throw new Error("canonical policy unavailable");
+        }
+      }
+    });
+    await withServer({
+      privateOrchestrationEnabled: true,
+      privateOrchestrationApiKey: API_KEY,
+      privateOrchestrationHandler: handler
+    }, async (baseUrl) => {
+      const started = await privatePost(baseUrl, "/start", {
+        research_target: "de-identified policy failure fixture",
+        diagnosis_status: "diagnosis_not_specified"
+      });
+      const start = await started.json() as PrivateView;
+      const failed = await privatePost(baseUrl, "/advance", {
+        session_id: start.session_id,
+        state_digest: start.state_digest
+      });
+
+      expect(failed.status).toBe(503);
+      expect(await failed.json()).toEqual({
+        error: {
+          code: "private_orchestration_worker_failed",
+          retryable: true
+        }
+      });
+      expect(execute).not.toHaveBeenCalled();
+
+      const status = await privatePost(baseUrl, "/status", {
+        session_id: start.session_id
+      });
+      expect((await status.json() as PrivateView).state_digest).toBe(start.state_digest);
     });
   });
 
