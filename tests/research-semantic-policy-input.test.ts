@@ -180,14 +180,17 @@ describe("research semantic canonical policy input", () => {
 
   it("preserves non-ASCII text and line endings through trusted fixed-document reads", async () => {
     const binding = await canonicalBinding();
-    const projectRouter = Buffer.from("Projet café\r\nligne deux\n", "utf8");
+    const projectRouter = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from("Projet café\r\nligne deux\n", "utf8")
+    ]);
     const forumSignal = Buffer.from("Forum naïf\nfin\r\n", "utf8");
     const context = await loadResearchSemanticPolicyContext(binding, {
       readProjectDocument: async (documentId) =>
         documentId === "project_router" ? projectRouter : forumSignal
     });
 
-    expect(context.documents[2]?.text).toBe("Projet café\r\nligne deux\n");
+    expect(context.documents[2]?.text).toBe("\ufeffProjet café\r\nligne deux\n");
     expect(context.documents[3]?.text).toBe("Forum naïf\nfin\r\n");
     expect(Buffer.from(context.documents[2]!.text, "utf8")).toEqual(projectRouter);
     expect(Buffer.from(context.documents[3]!.text, "utf8")).toEqual(forumSignal);

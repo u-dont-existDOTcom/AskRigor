@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { readFileMock } = vi.hoisted(() => ({
@@ -459,6 +461,24 @@ describe("canonical protocol loader", () => {
     expect(snapshot.text).toBe(original);
     expect(snapshot.manifest).toEqual(await getProtocolManifest("universal"));
     expect(snapshot.manifest.sha256).toBe(UNIVERSAL_SHA_256);
+  });
+
+  it("preserves a leading UTF-8 BOM in snapshot text and its byte identity", async () => {
+    const bytes = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(
+        '<?xml version="1.0"?><Protocol name="Universal" version="test" revisionDate="2026-09-08" />',
+        "utf8"
+      )
+    ]);
+    readFileMock.mockResolvedValueOnce(bytes);
+
+    const snapshot = await loadProtocolSnapshot("universal");
+    expect(snapshot.text.startsWith("\ufeff")).toBe(true);
+    expect(Buffer.from(snapshot.text, "utf8")).toEqual(bytes);
+    expect(snapshot.manifest.sha256).toBe(
+      createHash("sha256").update(bytes).digest("hex")
+    );
   });
 
   it("accepts the published digest for the canonical Universal file", async () => {

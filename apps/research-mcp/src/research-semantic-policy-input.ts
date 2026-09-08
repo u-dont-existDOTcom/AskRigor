@@ -269,6 +269,11 @@ function textDocument(
   }
   const text = decodeUtf8(bytes);
   const exactBytes = exactUtf8Bytes(text);
+  if (!Buffer.from(exactBytes).equals(Buffer.from(bytes))) {
+    throw new ResearchSemanticPolicyInputError(
+      "Policy document text does not reproduce its exact source bytes"
+    );
+  }
   return {
     document_id: source.document_id,
     path: source.path,
@@ -320,7 +325,7 @@ function exactUtf8Bytes(text: string): Buffer {
 
 function decodeUtf8(bytes: Uint8Array): string {
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     throw new ResearchSemanticPolicyInputError("Policy document is not valid UTF-8");
   }

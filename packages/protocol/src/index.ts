@@ -75,7 +75,7 @@ async function readProtocol(protocolName: ProtocolName): Promise<ProtocolSnapsho
 
   let text: string;
   try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     throw new Error("Protocol file is not valid UTF-8");
   }
