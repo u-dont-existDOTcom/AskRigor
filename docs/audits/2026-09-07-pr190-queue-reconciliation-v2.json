@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T23:56:15Z",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "directiveId": "askrigor-pr190-pinned-main-integration-v2",
+  "status": "CLEAN_INTEGRATION_CANDIDATE_ASSEMBLED_FINAL_VALIDATION_PENDING",
+  "queue": {
+    "pr193": "SOURCE_MERGED_AND_ACCEPTED_UNDEPLOYED",
+    "pr190": "INTEGRATION_ONLY_DRAFT_AND_UNMERGED",
+    "reasoningSelection": "SEPARATE_NOT_AUTHORIZED_BY_THIS_DIRECTIVE",
+    "lessonPromotion": "SEPARATE_NOT_AUTHORIZED_BY_THIS_DIRECTIVE",
+    "calibration": "CLOSED_BLOCKED",
+    "parentObjective": "OPEN"
+  },
+  "sourceAndAdmission": {
+    "sourceMessageId": "f6855ef9-2c7a-42c8-977b-453d35a20909",
+    "sourceBodyBytes": 16933,
+    "sourceBodySha256": "aaf95bbe26ca156c7086363d9a9b34ade0ce16adf562da9b329ead42488ab850",
+    "admissionRequestId": "admission:askrigor:pr190-pinned-main-v2:29ca309e:7fb8527:20260907",
+    "admissionSubmissionCount": 1,
+    "httpStatus": 200,
+    "admitted": true,
+    "mayExecute": true,
+    "decision": "ALLOW_BOUNDED_EXECUTION"
+  },
+  "integration": {
+    "startingHead": "29ca309e37e6e6bc626383f64833a14e468f7596",
+    "main": "7fb852758e01df60203f102d784c95e76ff9177b",
+    "commonAncestor": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
+    "attempts": 1,
+    "ordinaryMerge": true,
+    "commitDeferred": true,
+    "result": "CLEAN",
+    "conflictedPaths": [],
+    "candidateTreeBeforeThisOperationalRecord": "13ff520df65657f89204547ed43656f46afdf309",
+    "mainIntegratedPathCount": 12
+  },
+  "canonicalIdentity": {
+    "universalVersion": "20.5.18",
+    "universalRevisionDate": "2026-09-07",
+    "universalBytes": 127320,
+    "universalSha256": "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a",
+    "universalMatchesAcceptedMain": true,
+    "hrpSha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
+    "hrpMatchesAcceptedMain": true
+  },
+  "historicalPreservation": {
+    "currentSliceCanonicalSha256BeforeOperationalUpdate": "f10e1c8041f276f80c6bf7fd7da5d5ac7a4ed07d873fd5a13953582df3a07f95",
+    "currentSliceObjectChanged": false,
+    "mainMergeChangedExistingAuditDirectiveTaskOrEvaluationPaths": false,
+    "priorEvidenceAndAttemptCountsUnchanged": true,
+    "previousSliceStatusesRemainHistorical": true,
+    "privateContentOpenedOrRepublished": false,
+    "archiveCensusRepeated": false
+  },
+  "priorIntegration": {
+    "directiveId": "askrigor-pr190-pinned-main-integration-v1",
+    "fixedMain": "15110e2398716724f7366ce4978ac20701519dfc",
+    "disposition": "SUPERSEDED_UNEXECUTED",
+    "recordedAsCompleted": false
+  },
+  "pending": {
+    "finalValidation": true,
+    "integrationCommit": true,
+    "branchPublication": true,
+    "hostedAcceptance": true,
+    "whereFinalIdentitiesWillBeRecorded": [
+      "Pull request #190 description",
+      "Project Manager operational return"
+    ]
+  },
+  "limits": {
+    "sourceImplementationChanges": 0,
+    "testChanges": 0,
+    "protocolChangesBeyondAcceptedMainMerge": 0,
+    "manualWorkflowDispatchesOrReruns": 0,
+    "deploymentOrConfigurationMutations": 0,
+    "newModelCalls": 0,
+    "externalSpendUsd": 0,
+    "pr190MainMergeAuthorized": false,
+    "releaseAuthorized": false
+  }
+}

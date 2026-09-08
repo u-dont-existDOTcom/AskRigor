@@ -1,3 +1,21 @@
+> Repository-integration operational precedence — 2026-09-07 23:56 UTC:
+> Project Manager directive `askrigor-pr190-pinned-main-integration-v2` is
+> source-bound at message `f6855ef9-2c7a-42c8-977b-453d35a20909`, 16,933 UTF-8
+> bytes, SHA-256
+> `aaf95bbe26ca156c7086363d9a9b34ade0ce16adf562da9b329ead42488ab850`.
+> Fresh admission is accepted once for the exact fixed pair: PR #190 head
+> `29ca309e37e6e6bc626383f64833a14e468f7596` and accepted undeployed `main`
+> `7fb852758e01df60203f102d784c95e76ff9177b`. The single deferred-commit
+> ordinary merge completed cleanly. Universal 20.5.18 and HRP match accepted
+> `main` bytes. Final validation, the integration commit, one normal branch push,
+> and hosted acceptance remain pending at this in-tree checkpoint; their
+> resulting identities belong in PR #190 and the operational return rather than
+> a self-referential status commit. The prior fixed-main integration directive is
+> superseded unexecuted. All earlier calibration, browser, scientific-evidence,
+> and attempt-count records below remain historical and unchanged. PR #190 must
+> remain draft and unmerged; no deployment, model call, diagnostic reopening,
+> Reasoning Selection, or lesson promotion is authorized.
+>
 > Current recovery checkpoint — 2026-09-07 16:24 UTC: **the single offline closeout return is delivered**, with exact persisted equality for 5,078 bytes at SHA-256 `758af2319e39b50a9220d688180136b428d1f604d087fcdd2951eacd5b9f9369`. Submission HEAD is `276f2d403c34ba378d6dc2e18dd5f805e6f3a2c2`; detailed routing identity is private. Source/admission and all seven receipt/code bindings were reverified; the four checkpoint tests pass under Node 24.18.0. Capture the Project Manager response without resending. Calibration remains closed with its policy blocker and the parent remains open. No further diagnostic or probe is authorized. See `docs/audits/2026-09-07-calibration-closeout-return-delivered.json`.
 
 > Separate hosted CI finding, included in that return: PR #190 run `34079276856` reports eight failures across six files when the merge test loads Universal 20.5.16 against retained 20.5.15 expectations. The local branch retains 20.5.15; live main was `2f551c762cf1b48b5fbf105b039c68d4f13984e1`. No unrelated code/protocol repair, merge, or deployment is authorized by the offline-closeout directive. Await its source-bound disposition while preserving the failure log identity.

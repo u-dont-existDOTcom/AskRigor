@@ -776,7 +776,32 @@
     "scientificAdequacy": "reserved for Project Manager; the private determinate disposition is accepted without public outcome disclosure or worker-authored interpretation",
     "releaseAdequacy": "unaffected; no paid run, external submission, protocol mutation, or production release"
   },
-  "updatedAt": "2026-09-07T00:34:00.577929+00:00",
+  "updatedAt": "2026-09-07T23:56:15Z",
+  "repositoryIntegrationDirective": "docs/directives/2026-09-07-pr190-pinned-main-integration-v2.json",
+  "repositoryIntegrationReceipt": "docs/audits/2026-09-07-pr190-queue-reconciliation-v2.json",
+  "repositoryIntegration": {
+    "status": "clean_deferred_merge_assembled_final_validation_pending",
+    "startingHead": "29ca309e37e6e6bc626383f64833a14e468f7596",
+    "mainIntegrated": "7fb852758e01df60203f102d784c95e76ff9177b",
+    "commonAncestor": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
+    "integrationMergeAttempts": 1,
+    "mergeResult": "CLEAN",
+    "expectedCommitParents": [
+      "29ca309e37e6e6bc626383f64833a14e468f7596",
+      "7fb852758e01df60203f102d784c95e76ff9177b"
+    ],
+    "universalVersion": "20.5.18",
+    "universalSha256": "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a",
+    "hrpSha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
+    "historicalCurrentSliceCanonicalSha256": "f10e1c8041f276f80c6bf7fd7da5d5ac7a4ed07d873fd5a13953582df3a07f95",
+    "historicalEvidenceAndAttemptCountsUnchanged": true,
+    "priorIntegrationDirective": "askrigor-pr190-pinned-main-integration-v1",
+    "priorIntegrationDisposition": "SUPERSEDED_UNEXECUTED",
+    "pullRequestMustRemainDraft": true,
+    "pullRequestMergeAuthorized": false,
+    "deploymentAuthorized": false,
+    "finalCommitAndHostedChecksRecordedOutsideThisCommit": true
+  },
   "postGateCloseoutReceipt": "docs/audits/2026-09-06-mast-post-gate-evidence-export-blocked.json",
   "attachmentTransportDiagnosis": "docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json",
   "postGateDeliveryReceipt": "docs/audits/2026-09-06-mast-preserved-archive-delivered.json",

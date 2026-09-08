@@ -160,3 +160,17 @@ Delivery recovery checkpoint: owner-authorized draft discard and exact compact J
 39. Source-bound policy-block disposition accepted: close calibration and conditional capture as blocked, preserve original empty-evidence checks literally, and leave the parent open. Fresh offline-only admission and exact bound-receipt verification are complete. Validate and commit the nonclinical closeout records, then return one compact operational receipt. No browser diagnostic reopening or policy workaround is authorized.
 
 40. The interrupted closeout return is delivered once with exact persisted byte equality. Source/admission and the seven receipt/code bindings were reverified, and all four checkpoint tests pass. The separate hosted Universal version/digest mismatch was included as factual evidence without expanding the repair scope. Capture the Project Manager response; do not resend or reopen calibration. See `docs/audits/2026-09-07-calibration-closeout-return-delivered.json`.
+
+41. Repository integration v2 supersedes the earlier fixed-main integration
+    instruction without marking that earlier instruction executed. Fresh
+    source-bound admission was accepted for PR #190 head `29ca309e` and accepted
+    undeployed `main` `7fb8527`. The one authorized deferred-commit ordinary
+    merge completed cleanly and preserves the accepted Universal 20.5.18 and HRP
+    bytes. Validate the assembled candidate exactly once under the directive,
+    require both generators to leave the tracked tree unchanged, create the
+    ordinary merge commit, and publish it with at most one normal push while the
+    pinned refs remain current. Keep PR #190 draft and unmerged. Record the final
+    commit and hosted checks in the PR and operational return; do not create a
+    second status-only commit. No historical measurement, attempt count, browser
+    action, model call, Reasoning Selection change, lesson promotion, deployment,
+    or release belongs to this integration.
