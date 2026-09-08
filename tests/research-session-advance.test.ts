@@ -523,6 +523,13 @@ describe("transport-independent research-session advancement", () => {
     expect(serializedContext).toContain("record_sha256");
     expect(serializedContext).not.toContain(identifyingComment.author_channel_id);
     expect(serializedContext).not.toContain(identifyingComment.author_display_name);
+    exactRuntime.semantic.releaseEvidenceMaterialForSession?.(SESSION_ID);
+    expect(exactCache.get({
+      sessionId: SESSION_ID,
+      videoId: selected,
+      transcriptReceiptSha256: work.package.transcript_receipt_sha256,
+      discussionReceiptSha256: work.package.discussion_receipt_sha256
+    })).toBeUndefined();
 
     const cache = createInMemoryResearchEvidenceMaterialCache();
     const runtime = createResearchSessionRuntimeDependencies({

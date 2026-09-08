@@ -16,6 +16,7 @@ const roots: string[] = [];
 const KEY = Buffer.alloc(32, 0x42);
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true });
@@ -57,14 +58,13 @@ describe("encrypted file research-session store", () => {
   it("fails closed for an unknown key without revealing plaintext", () => {
     const root = temporaryRoot();
     const store = createStore(root);
-    const sessionId = store.issue(initialState());
-    const wrongKey = createFileResearchSessionStore({
+    store.issue(initialState());
+
+    expect(() => createFileResearchSessionStore({
       rootDirectory: root,
       encryptionKey: Buffer.alloc(32, 0x24),
       keyId: "phase-g-key",
-    });
-
-    expect(() => wrongKey.read(sessionId)).toThrow(/authentication failed/u);
+    })).toThrow(/authentication failed/u);
   });
 
   it("fences a stale writer after its claim lease expires", () => {
@@ -111,6 +111,21 @@ describe("encrypted file research-session store", () => {
     const deletedId = store.issue(initialState("deleted"));
     store.delete(deletedId);
     expect(() => store.read(deletedId)).toThrow(ResearchSessionUnavailableError);
+  });
+
+  it("physically removes expired checkpoints on the bounded background sweep", () => {
+    vi.useFakeTimers({ now: 10_000 });
+    const root = temporaryRoot();
+    const store = createStore(root, {
+      idleTtlMs: 20,
+      absoluteTtlMs: 30,
+      expirySweepIntervalMs: 10,
+    });
+    const sessionId = store.issue(initialState("expired without a later request"));
+    const file = join(root, `${sessionId}.json`);
+
+    vi.advanceTimersByTime(30);
+    expect(() => readFileSync(file)).toThrow();
   });
 
   it("never extends a checkpoint beyond its absolute lifetime", () => {
