@@ -13,9 +13,10 @@ Canonical base commit: `63f341502a9caa432ffbcf1074d1b8e133a6c52b`.
   - HRP 20.5.27 (2026-09-09), SHA-256 `65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a`;
   - Universal 20.5.22 (2026-09-08), SHA-256 `d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6`.
 - Confirmed post-merge GitHub Actions run `34392380245` for `63f341502a9caa432ffbcf1074d1b8e133a6c52b` completed successfully. The repository CI executes `npm run verify`.
-- Created a deterministic, semantic-preserving blinded surface variant of all eight DEVELOPMENT fixtures. Original fixture identities and expectations are isolated in the scorer-only key.
+- Created a deterministic blinded surface variant of all eight DEVELOPMENT fixtures. Original fixture identities and expectations are isolated in the scorer-only key.
+- Compared each short canonical `source_packet` with its canonical `stateForFixture()` builder. This exposed an under-specification problem: several short packets omit neutral case/comparator/discriminator scaffolding that the tests add before verification. The blind packets were corrected to include only those already-canonical test-state facts so Arm B cannot appear safer merely because an unrelated gate fails on an under-specified state.
 - Frozen exact Arm A, Arm B state, Arm B repair, and Arm B synthesis prompts.
-- Frozen a scoring contract that separates end-to-end escape, semantic translation, deterministic verifier failure, synthesis-boundary failure, false block, repair, and conclusion change.
+- Frozen a scoring contract that separates end-to-end escape, semantic translation, deterministic verifier failure, synthesis-boundary failure, false block, repair, and conclusion change, and forbids crediting collateral blocks caused by malformed/incomplete state as enforcement of the intended invariant.
 - Derived the canonical deterministic gold-state baseline from the fixture expectations + test assertions + successful pinned CI run.
 
 ## What could not be validly executed
@@ -45,8 +46,8 @@ These are **not** Arm A/B consumer-performance estimates.
 
 ## Files
 
-- `v01-blinded-development-packets.json` — safe packet set for blinded reasoning sessions.
-- `v01-blinded-development-key.json` — scorer-only identity/gold mapping; never show to either arm.
+- `v01-blinded-development-packets.json` — safe packet set for blinded reasoning sessions; includes only canonical test-builder scaffolding needed to preserve intended gate representability.
+- `v01-blinded-development-key.json` — scorer-only identity/gold/critical-semantics mapping; never show to either arm.
 - `arm-a-prompt.txt` — exact prompt-only arm wrapper.
 - `arm-b-state-prompt.txt` — exact state-production wrapper; no verifier code or expected outcomes.
 - `arm-b-repair-prompt.txt` — receipt-directed repair wrapper.
