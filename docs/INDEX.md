@@ -45,6 +45,10 @@ complete XML protocol.
   and `.json`: exact PR #205 clinical-gate release, immutable backend image and
   rollback, authenticated HRP 20.5.27 worker readback, benchmark-target-integrity
   boundary, plugin receipt, and promotion-timer acceptance
+- `audits/2026-09-09-universal-causal-coupling-forum-denominator.md`: Universal
+  20.5.23 causal-coupling and neutral-forum-denominator audit, runtime contracts,
+  legacy discovery-only migration, regressions, and unchanged frozen MAST/HRP
+  boundaries
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary

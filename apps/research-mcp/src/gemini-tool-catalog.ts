@@ -32,7 +32,7 @@ export function installGeminiCompatibleToolCatalog(server: McpServer): void {
     .map((operation) => ({
     name: operation.name,
     description: compactGeminiDescription(operation.description),
-    inputSchema: geminiCompatibleInputSchema(operation.inputSchema),
+    inputSchema: geminiCompatibleInputSchema(operation.inputSchema, operation.name),
     annotations: operation.annotations
     }));
 
@@ -46,12 +46,32 @@ function compactGeminiDescription(description: string): string {
   return `${prefix.slice(0, Math.max(1, boundary)).replace(/[.;,:]+$/u, "")}.`;
 }
 
-function geminiCompatibleInputSchema(inputSchema: unknown): Record<string, unknown> {
+function geminiCompatibleInputSchema(
+  inputSchema: unknown,
+  operationName: string
+): Record<string, unknown> {
   const zodSchema = isZodSchema(inputSchema)
     ? inputSchema
     : z.object(inputSchema as z.ZodRawShape);
   const jsonSchema = z.toJSONSchema(zodSchema, { target: "draft-7" });
-  return sanitizeGeminiFunctionSchema(jsonSchema);
+  const sanitized = sanitizeGeminiFunctionSchema(jsonSchema);
+  if (
+    operationName === "survey_youtube_community" &&
+    typeof sanitized.properties === "object" &&
+    sanitized.properties !== null
+  ) {
+    // The full frozen corpus plan is intentionally absent from the capacity-
+    // bounded Gemini catalog. Calls from this surface therefore default to
+    // discovery-only and cannot accidentally claim denominator eligibility.
+    const {
+      corpus_plan: _plan,
+      corpus_purpose: _purpose,
+      ...properties
+    } = sanitized.properties as
+      Record<string, unknown>;
+    sanitized.properties = properties;
+  }
+  return sanitized;
 }
 
 function isZodSchema(value: unknown): value is z.ZodType {

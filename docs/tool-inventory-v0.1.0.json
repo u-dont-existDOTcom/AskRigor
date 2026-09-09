@@ -6478,6 +6478,97 @@
             "minLength": 1,
             "maxLength": 5000
           },
+          "corpus_purpose": {
+            "type": "string",
+            "enum": [
+              "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+              "DIRECTIONAL_SENSITIVITY",
+              "PHENOTYPE_DISCOVERY",
+              "FORMAL_DISCRIMINATOR"
+            ]
+          },
+          "corpus_plan": {
+            "type": "object",
+            "properties": {
+              "contract_version": {
+                "type": "string",
+                "const": "askrigor_forum_corpus_plan_ref_v2"
+              },
+              "corpus_plan_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160
+              },
+              "corpus_purpose": {
+                "type": "string",
+                "enum": [
+                  "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+                  "DIRECTIONAL_SENSITIVITY",
+                  "PHENOTYPE_DISCOVERY",
+                  "FORMAL_DISCRIMINATOR"
+                ]
+              },
+              "plan_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "query_set_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "frozen_before_outcome_classification": {
+                "type": "boolean"
+              },
+              "prevalence_eligible": {
+                "type": "boolean"
+              },
+              "queries": {
+                "minItems": 1,
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "query_id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 120
+                    },
+                    "query_text": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 5000
+                    },
+                    "neutrality": {
+                      "type": "string",
+                      "enum": [
+                        "NEUTRAL",
+                        "DIRECTIONAL",
+                        "UNCERTAIN"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "query_id",
+                    "query_text",
+                    "neutrality"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "contract_version",
+              "corpus_plan_id",
+              "corpus_purpose",
+              "plan_sha256",
+              "query_set_sha256",
+              "frozen_before_outcome_classification",
+              "prevalence_eligible",
+              "queries"
+            ],
+            "additionalProperties": false
+          },
           "searches": {
             "minItems": 1,
             "maxItems": 6,
@@ -6485,6 +6576,11 @@
             "items": {
               "type": "object",
               "properties": {
+                "query_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
                 "direction": {
                   "type": "string",
                   "enum": [
@@ -6545,6 +6641,25 @@
           "research_question": {
             "type": "string"
           },
+          "corpus_purpose": {
+            "type": "string",
+            "enum": [
+              "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+              "DIRECTIONAL_SENSITIVITY",
+              "PHENOTYPE_DISCOVERY",
+              "FORMAL_DISCRIMINATOR"
+            ]
+          },
+          "plan_sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "prevalence_eligible": {
+            "type": "boolean"
+          },
+          "outside_primary_denominator": {
+            "type": "boolean"
+          },
           "access_status": {
             "type": "string",
             "enum": [
@@ -6597,6 +6712,32 @@
             "items": {
               "type": "object",
               "properties": {
+                "query_ids": {
+                  "maxItems": 6,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "corpus_purpose": {
+                  "type": "string",
+                  "enum": [
+                    "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+                    "DIRECTIONAL_SENSITIVITY",
+                    "PHENOTYPE_DISCOVERY",
+                    "FORMAL_DISCRIMINATOR"
+                  ]
+                },
+                "plan_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "prevalence_eligible": {
+                  "type": "boolean"
+                },
+                "outside_primary_denominator": {
+                  "type": "boolean"
+                },
                 "directions": {
                   "minItems": 1,
                   "maxItems": 6,
@@ -6701,6 +6842,10 @@
                 }
               },
               "required": [
+                "query_ids",
+                "corpus_purpose",
+                "prevalence_eligible",
+                "outside_primary_denominator",
                 "directions",
                 "query",
                 "access_status",
@@ -6723,6 +6868,25 @@
                 "canonical_url": {
                   "type": "string",
                   "format": "uri"
+                },
+                "corpus_purpose": {
+                  "type": "string",
+                  "enum": [
+                    "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+                    "DIRECTIONAL_SENSITIVITY",
+                    "PHENOTYPE_DISCOVERY",
+                    "FORMAL_DISCRIMINATOR"
+                  ]
+                },
+                "plan_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "prevalence_eligible": {
+                  "type": "boolean"
+                },
+                "outside_primary_denominator": {
+                  "type": "boolean"
                 },
                 "directions": {
                   "minItems": 1,
@@ -6747,6 +6911,9 @@
                   "items": {
                     "type": "object",
                     "properties": {
+                      "query_id": {
+                        "type": "string"
+                      },
                       "direction": {
                         "type": "string",
                         "enum": [
@@ -6865,6 +7032,9 @@
               "required": [
                 "video_id",
                 "canonical_url",
+                "corpus_purpose",
+                "prevalence_eligible",
+                "outside_primary_denominator",
                 "directions",
                 "search_queries",
                 "metadata_access_status",
@@ -6879,6 +7049,9 @@
           "record_type",
           "retrieved_at",
           "research_question",
+          "corpus_purpose",
+          "prevalence_eligible",
+          "outside_primary_denominator",
           "access_status",
           "limitations",
           "searches",

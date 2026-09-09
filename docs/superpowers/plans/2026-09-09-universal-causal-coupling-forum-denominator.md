@@ -1,6 +1,6 @@
 # Universal causal-coupling and forum-denominator integration
 
-Status: source-bound implementation in progress
+Status: candidate implementation complete; protected CI and exact-tree review pending
 
 ## Fixed source and boundaries
 
@@ -33,11 +33,14 @@ these universal gates.
 3. Add reusable causal-coupling and community-denominator schemas and pure gate
    evaluators. Legacy community records remain readable but default to discovery
    only and are ineligible for prevalence.
-4. Bind the new contracts to formal-evidence planning, bidirectional iteration,
-   YouTube community survey/audit outputs, controller state, report synthesis,
-   semantic work packages, and final audit. Preserve the existing retrieval
-   engine and `FULL` / `DETERMINISTIC_SAMPLE` / `PARTIAL` / `UNAVAILABLE`
-   semantics.
+4. Bind the contracts at the smallest authoritative runtime boundaries: survey
+   purpose/plan provenance, candidate-frontier persistence, controller-held
+   evidence-integrity receipts, report-claim validation, semantic report locks,
+   and final-audit invalidation when those receipts change. Formal and
+   bidirectional workers inherit the complete canonical protocol and router;
+   their mature evidence schemas are not duplicated. Preserve the existing
+   retrieval engine and `FULL` / `DETERMINISTIC_SAMPLE` / `PARTIAL` /
+   `UNAVAILABLE` semantics.
 5. Add the eight causal regressions and sixteen synthetic forum regressions,
    plus structural checks for both root gates, all final locks, historical
    compatibility, project-router compactness, and unchanged HRP bytes.

@@ -61,13 +61,15 @@ describe("AskRigor ChatGPT Project router", () => {
     expect(words.length).toBeLessThan(900);
     expect(Array.from(instructions).length).toBeLessThanOrEqual(8000);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
-    expect(instructions).toContain(`### Reasoning and interview-evidence application
+    expect(instructions).toContain(`### Reasoning, causal-coupling, and interview evidence
 
-Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection. Define the exact research target; distinguish mechanism from effect.
 
-For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+For marker↔benefit claims, distinguish marker cause from necessity, specificity, covariation, mediation, and common cause. Preplan predictions; test benefit without marker, marker without benefit, marker reduction with matched benefit, and the strongest challenge. Tolerability-only evidence cannot prove efficacy preservation. Formal evidence does not cancel a material community discriminator; failed checks block synthesis.
 
-Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.`);
+For history/survey/dialogue, preserve evidence roles; probe scope and exceptions before anecdotes. Frequency needs valid sampling; follow-ups need information gain. Retrieve owner methods and version pre-collection defects.
+
+Development evidence is not confirmation; missing access is not negative or completion. Authority remains source-bound and zero-spend.`);
     expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
       "firsthand experience",
@@ -118,6 +120,10 @@ Respect phase/provenance gates: development-fitted evidence is not independent c
     expect(instructions).toContain("If `get_youtube_transcript` is unavailable");
     expect(instructions).toContain("`transcript_tool_unavailable`");
     expect(instructions).toContain("never call an undeclared tool");
+    expect(instructions).toContain("Freeze a neutral primary plan before estimating forum direction");
+    expect(instructions).toContain("Outcome-directed searches are sensitivity/discovery outside its denominator");
+    expect(instructions).toContain("`CommunityEvidenceDenominatorReceiptV2`");
+    expect(instructions).toContain("passed causal-coupling checks");
   });
 
   it("permanently blocks the exact hip/RCT early-synthesis failure", async () => {
@@ -230,7 +236,8 @@ Respect phase/provenance gates: development-fitted evidence is not independent c
       "intervention_signal:",
       "reported_outcome:",
       "diagnosis_alignment: confirmed | likely | uncertain | mismatched",
-      "community_signal: promising | mixed | weak | concerning | indeterminate",
+      "community_signal: <count-constrained direction only with a passed denominator receipt | phenotype_discovery_only | indeterminate>",
+      "community_signal_basis: neutral_primary_denominator | directional_discovery | unavailable",
       "formal_relationship: corroborated | contradicted | support_not_located | outcome_mismatch",
       "risk_cost_reversibility:",
       "opportunity_cost: low | moderate | high | uncertain",

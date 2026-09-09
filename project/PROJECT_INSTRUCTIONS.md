@@ -11,13 +11,15 @@ shape the model; support generalization? DEVELOPMENT=`YES/NO`;
 VALIDATION=`NO/YES`. Optimize DEVELOPMENT; cross-validation is search. Freeze
 VALIDATION; it tests without shaping the model. HRP cannot erase this distinction.
 
-### Reasoning and interview-evidence application
+### Reasoning, causal-coupling, and interview evidence
 
-Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection. Define the exact research target; distinguish mechanism from effect.
 
-For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+For marker↔benefit claims, distinguish marker cause from necessity, specificity, covariation, mediation, and common cause. Preplan predictions; test benefit without marker, marker without benefit, marker reduction with matched benefit, and the strongest challenge. Tolerability-only evidence cannot prove efficacy preservation. Formal evidence does not cancel a material community discriminator; failed checks block synthesis.
 
-Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.
+For history/survey/dialogue, preserve evidence roles; probe scope and exceptions before anecdotes. Frequency needs valid sampling; follow-ups need information gain. Retrieve owner methods and version pre-collection defects.
+
+Development evidence is not confirmation; missing access is not negative or completion. Authority remains source-bound and zero-spend.
 
 ## 1. Run before HRP/research
 
@@ -35,7 +37,7 @@ REQUIRED cannot become NOT REQUIRED. Finding an excellent RCT does not satisfy o
 
 ## 2. Execute required modules
 
-Read `FORUM_SIGNAL_MODULE.md`; use `survey_youtube_community`; select up to three materially different candidates per batch; widen while expected information gain is positive.
+Read `FORUM_SIGNAL_MODULE.md`. Freeze a neutral primary plan before estimating forum direction. Outcome-directed searches are sensitivity/discovery outside its denominator; never pool them into prevalence. Use `survey_youtube_community`; select up to three materially different candidates per batch; widen while expected information gain is positive.
 
 Before selection, inventory materially distinct treatment classes. Split umbrellas by stage/outcome/horizon/benefit/failure/progression. Fingerprint components/dose/frequency/duration/supervision/adherence/cointerventions/stage. Missing=`program not described`. Do not pool “exercise,” PT, diet, injections, or conservative care. Derive breadth from valid state, never caller labels; two or three videos cannot establish coverage.
 
@@ -54,7 +56,7 @@ Do not emit a final verdict while work is incomplete. Do not emit the full-HRP o
 A partial or bounded answer does not waive executable required work; one unavailable full text or inaccessible private community cannot stop it.
 Review usable records from partial corpora and label them partial; bound claims to the observed subset. Coverage locks govern completeness, representativeness, prevalence, and broad ranking—not evidence eligibility.
 
-`HRP-complete` requires per-program formal retrieval and passed receipts. Require no unresolved material hypothesis or `incomplete` directional/bidirectional field; transcript-backed claims/withholding; all three treatment locks; `youtube_synthesis_lock: pass`; selected discussion audits' `synthesis_lock: pass`. Call `assess_treatment_landscape_coverage`; unavailable=`assessor_tool_unavailable` and fail closed. A valid ≥8-candidate/≥6-program ledger blocks below 8 fully audited videos/6 programs. Only terminal nonretryable boundaries permit bounded non-ranking output. **Videos actually audited** needs linked title, program, value, and plain-language boundary.
+`HRP-complete` requires per-program formal retrieval and passed receipts. Require no unresolved material hypothesis or `incomplete` directional/bidirectional field; passed causal-coupling checks; transcript-backed claims; all three treatment locks; `youtube_synthesis_lock: pass`; selected discussion audits' `synthesis_lock: pass`. Forum-frequency claims also require a passed `CommunityEvidenceDenominatorReceiptV2`, explicit denominator and ledger; a block still allows case discovery. Call `assess_treatment_landscape_coverage`; unavailable=`assessor_tool_unavailable` and fail closed. A valid ≥8-candidate/≥6-program ledger blocks below 8 fully audited videos/6 programs. Only terminal nonretryable boundaries permit bounded non-ranking output. **Videos actually audited** needs linked title, program, value, and plain-language boundary.
 
 Continue executable work if `further_expansion_likely_to_improve_answer` would be `yes`. A final answer may report only `no` or `blocked` with a reason.
 

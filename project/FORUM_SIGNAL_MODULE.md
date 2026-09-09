@@ -2,11 +2,143 @@
 
 Run this module after the Project router marks `FORUM_SIGNAL REQUIRED`. It acquires and analyzes firsthand community evidence as an independent evidence layer, then returns structured evidence to HRP synthesis. It does not decide the final ranking alone.
 
+## Corpus purpose and denominator gate
+
+Freeze the purpose before retrieval. `PRIMARY_NEUTRAL_SIGNAL_ESTIMATION` may
+estimate the visible distribution in a predefined forum corpus.
+`DIRECTIONAL_SENSITIVITY`, `PHENOTYPE_DISCOVERY`, and `FORMAL_DISCRIMINATOR`
+deliberately enrich particular outcomes or contrasts. They can discover
+successes, failures, harms, discontinuations, boundary cases, contradictions,
+and same-person discriminators, but always set `prevalence_eligible: false` and
+`outside_primary_denominator: true`. Never pool outcome-directed buckets or
+describe their balance as mostly positive, mostly negative, mixed, common, rare,
+or any other relative-frequency conclusion, even when the design retrieved the
+same number from each bucket.
+
+Keep three denominators distinct:
+
+- `POPULATION_DENOMINATOR`: all real-world people in the target population.
+  Forum search almost never observes this and cannot establish population
+  response or adverse-event rates.
+- `FIRSTHAND_FORUM_USER_DENOMINATOR`: unique people with an interpretable
+  firsthand outcome inside the frozen neutral primary corpus. It estimates the
+  visible report distribution in that corpus.
+- `SEARCH_LANDSCAPE_RESULT_CARD_DENOMINATOR`: unique relevant retrieved threads
+  or result cards from frozen neutral searches. It estimates what a person is
+  likely to encounter in that search landscape, not user response.
+
+Never use a provider's estimated total result count. Only retrieved result cards
+count. Every user percentage must say: “These percentages describe the
+predefined forum corpus, not population response rates.”
+
+Use a plan → freeze → execute sequence. Before inspecting outcome direction,
+`plan_forum_signal_audit` or the equivalent internal planner records and hashes
+the research question, subject/context aliases, exact neutral queries, provider,
+execution plan, requested depth, ranking basis when known, inclusion/exclusion
+rules, and full or deterministic sampling rule. A neutral query identifies the
+subject and context without presupposing or preferentially retrieving one answer
+to the measured question. Validate this semantically: an apparently directional
+term may be neutral when it is itself the target variable. Freeze the query-set
+and corpus-plan SHA-256 before classification. Execution records time, actual
+depth, pagination, and literal access state. A changed query after outcome
+inspection creates a new corpus version and hash; it never edits the original
+denominator. `run_forum_sensitivity_search` runs only after that freeze and keeps
+all new cases outside the primary denominator. Legacy records lacking purpose and
+plan identity remain readable as `PHENOTYPE_DISCOVERY`; they cannot support
+prevalence.
+
+Use `platform + canonical_post_id` for thread identity, falling back to a
+normalized canonical URL. The corpus ledger reports raw cards, duplicates,
+unique candidates, excluded irrelevant or promotional matches, inaccessible
+sources, relevant primary threads, and full, deterministic-sample, partial, or
+unavailable retrieval. Structured exclusions are `DUPLICATE`,
+`IRRELEVANT_SUBJECT`, `IRRELEVANT_CONTEXT`, `INTERVENTION_NOT_MATERIAL`,
+`PROMOTIONAL_ONLY`, `SEARCH_ENGINE_FALSE_MATCH`, `INACCESSIBLE`,
+`INSUFFICIENT_CONTENT`, `LANGUAGE_UNSUPPORTED`, or `OTHER_EXPLAINED`.
+
+Before expensive comments/replies, classify `MATERIALITY` as `CONFIRMED`,
+`REJECTED`, or `UNCERTAIN` from title, body, description, transcript, or
+substantial discussion. A rejected source does not become negative evidence or
+consume the source quota; replace it with the next eligible result from the same
+frozen search.
+
+Keep two signals separate. Search-landscape units are unique relevant primary
+threads categorized `POSITIVE_LEANING`, `NEGATIVE_LEANING`, `MIXED`,
+`NEUTRAL_QUESTION`, `NO_OUTCOME`, `PROMOTIONAL`, or `OTHER`. Firsthand-user units
+are unique people categorized `BENEFIT`, `MIXED`, `NO_EFFECT`, `WORSENED`,
+`TOO_EARLY`, or `UNCLEAR`; only the first four enter the interpretable user
+denominator. Preserve duration (`FIRST_EXPOSURE`, `<1_WEEK`, `1_TO_4_WEEKS`,
+`1_TO_3_MONTHS`, `>3_MONTHS`, `UNKNOWN`) and post-stopping durability separately.
+
+Classify attribution as `A1_ISOLATED`, `A2_STABLE_COINTERVENTIONS`,
+`A3_WITHIN_PERSON_DISCRIMINATOR`, `B_CONCURRENT_NEW_CHANGES`, or
+`C_ATTRIBUTION_IMPOSSIBLE`. Report inclusive A1+A2+A3+B and strict A1+A2+A3
+distributions. Keep C visible outside percentages. Deduplicate first by stable
+platform author ID, then stable username. Count one person once across repeated
+posts, cross-posts, routes, versions, and conditions while retaining distinct
+exposure episodes. Reconcile early benefit followed by worsening longitudinally
+as mixed or a justified latest complete state. Rechallenge strengthens the
+within-person evidence but does not create another person. For anonymous/deleted
+reports, state denominator bounds when identity uncertainty matters; never
+silently assume sameness or independence.
+
+Below the configured threshold, retrieve all accessible top-level comments and
+replies. For larger corpora, freeze deterministic hash or chronology/depth-
+stratified sampling; an uncommitted first-N sample is invalid. `FULL` and a valid
+`DETERMINISTIC_SAMPLE` may enter their applicable denominator. `PARTIAL` and
+`UNAVAILABLE` may support phenotype discovery, but must be completed or excluded
+from firsthand-user prevalence. A timeout, failed page, exhausted budget, or
+missing reply cannot silently contribute. Do not collect “two examples” or any
+other format quota without a causal or statistical justification.
+
+Every relative-frequency synthesis needs
+`CommunityEvidenceDenominatorLedgerV2`: `neutral_queries_planned`,
+`neutral_queries_completed`, `raw_results_retrieved`, `unique_threads`,
+`relevant_threads`, `fully_retrieved_threads`, `partial_threads`,
+`unique_firsthand_users`, `interpretable_firsthand_users`,
+`strict_attribution_users`, `anonymous_identity_uncertainty`, and
+`sensitivity_cases_outside_denominator`. The root gate passes only when the
+primary corpus was frozen, its queries are neutral, threads and users are
+deduplicated, the denominator is explicit, sensitivity cases are separated, and
+retrieval completeness is acceptable. Otherwise set forum prevalence to blocked
+while allowing case discovery. Say: “I can identify recurring positive and
+negative reports, but I do not yet have a denominator from which to estimate
+their relative forum prevalence.” When only directional discovery exists, say:
+“Targeted searches identify recurring positive and negative reports, but because
+the corpus was deliberately enriched for outcome directions, relative forum
+prevalence cannot be estimated.”
+
+Bind the ledger and gate result in a `CommunityEvidenceDenominatorReceiptV2`.
+The receipt is the only forum-frequency permission; a corpus summary, a search
+result count, or completion at another layer cannot substitute for it.
+
+Counts precede qualitative labels. Report direction, measurement confidence, and
+causal-attribution confidence separately. Compare inclusive versus strict,
+provider/query variants, leave-one-query-out, thread versus user, anonymous versus
+identified, recent versus older, duration, complete-retrieval, population-
+certainty, platform/subforum, and promotional-source strata when material. Do
+not calculate population confidence intervals without a valid population
+sampling model. Tag vendor, affiliate, creator, customer, independent, and
+unknown roles; promotional claims enter the firsthand denominator only when a
+genuine personal outcome is separately justified. Separate the observed forum
+phenotype from the user's proposed mechanism. Repeated observations do not prove
+the mechanism, and a plausible mechanism does not prove the observation.
+
+When community evidence reveals a reproducible bifurcation, return the cheapest
+formal discriminator: contrasting phenotypes → competing explanations →
+measurable discriminators → lowest-cost high-information experiment. For causal-
+coupling questions, report the counts with reaction information, benefit
+information, both, same-person comparisons, dose/rate-specified comparisons, and
+unclassifiable records, then the four marker/benefit quadrants. Same-person
+comparisons remain separately visible and receive higher causal weight; these
+targeted cases still cannot define prevalence unless they arose inside the
+neutral primary corpus.
+
 ## Acquisition controller
 
-1. Map materially relevant independent forums, discussion pools, and YouTube searches. Record platform, query, date, access result, and whether material is firsthand. Use ordinary web research for accessible non-YouTube communities.
+1. Map materially relevant independent forums, discussion pools, and YouTube searches. Create and freeze the neutral primary corpus before outcome classification; record its plan/version hashes, platform, query, date, requested and actual depth, pagination, access result, and whether material is firsthand. Use ordinary web research for accessible non-YouTube communities.
 2. Before video selection for treatment-choice, treatment-alternative, avoid-surgery, or broad real-world effectiveness questions, build a treatment-space inventory. Derive materially plausible classes from the question, diagnosis alternatives, formal and grey evidence, and community discovery. Include materially distinct conventional, rehabilitation/mechanical, activity, lifestyle, nutritional, self-directed, heterodox/adjunct, procedural/surgical, multimodal, nonaction/natural-history, failure/progression, and eventual-standard-treatment trajectories when relevant. This is a discovery map, not an efficacy claim. For each class record a stable ID, plain-language label, materiality, search state, omission impact (`not_decision_relevant`, `confidence_changing`, `ranking_changing`, `potentially_conclusion_changing`, or `uncertain`) and rationale, formal-evidence follow-up, and access boundary. Record formal-evidence follow-up separately for every material program fingerprint; a class-level search cannot close a distinct program.
-3. Prepare up to six YouTube searches **per discovery batch** across the general landscape, prevention/avoidance, exact variants, contrarian/practitioner critique, benefit, failure, harm/discontinuation, and formal discriminators. Include high-yield vernacular patterns such as `how I cured/reversed/fixed my [condition]`, `what finally worked`, `after [standard care] failed`, and `avoided [procedure]`, plus exact implementation and failure terms. These phrases locate claims; they do not validate them. Call `survey_youtube_community` and preserve queries, cursors, and candidates. Later batches must target uncovered classes and hypotheses produced by earlier videos, comments, formal evidence, or grey literature. Decompose every material umbrella class into named or specific implementations and search them with relevant population/stage, outcome, horizon, benefit, failure, and progression terms. For each class preserve a reciprocal receipt linking the executed query, non-generic implementation and discriminator terms, batch, literal result, exact per-search candidate IDs, pagination, and exhaustion or access boundary. Every claimed result candidate must reciprocally link to that batch and class, and its described program-components field must match a named implementation term; outcome, stage, and horizon fields cannot substitute. Generic exercise, PT, diet, injection, surgery, conservative-care, alternative-treatment, program, approach, method, protocol, regimen, care, or management labels cannot close that class while specific implementations remain discoverable.
+3. Prepare up to six YouTube searches **per discovery batch** after the neutral primary plan is frozen, across prevention/avoidance, exact variants, contrarian/practitioner critique, benefit, failure, harm/discontinuation, and formal discriminators. Mark these searches `PHENOTYPE_DISCOVERY`, `DIRECTIONAL_SENSITIVITY`, or `FORMAL_DISCRIMINATOR`; they are outside the primary denominator. Include high-yield vernacular patterns such as `how I cured/reversed/fixed my [condition]`, `what finally worked`, `after [standard care] failed`, and `avoided [procedure]`, plus exact implementation and failure terms. These phrases locate claims; they do not validate them or estimate their frequency. Call `survey_youtube_community` and preserve corpus purpose, plan identity, queries, cursors, and candidates. Later batches must target uncovered classes and hypotheses produced by earlier videos, comments, formal evidence, or grey literature. Decompose every material umbrella class into named or specific implementations and search them with relevant population/stage, outcome, horizon, benefit, failure, and progression terms. For each class preserve a reciprocal receipt linking the executed query, non-generic implementation and discriminator terms, batch, literal result, exact per-search candidate IDs, pagination, and exhaustion or access boundary. Every claimed result candidate must reciprocally link to that batch and class, and its described program-components field must match a named implementation term; outcome, stage, and horizon fields cannot substitute. Generic exercise, PT, diet, injection, surgery, conservative-care, alternative-treatment, program, approach, method, protocol, regimen, care, or management labels cannot close that class while specific implementations remain discoverable.
 4. For a broad treatment/avoid-surgery question with a substantial YouTube corpus, call `scout_gemini_youtube_candidates` with a de-identified population target and require its independently validated frontier. Never ask the user to run Gemini or transfer a packet. Do not call the lane complete merely because the older manual skill or validator exists; a manual packet, validator alone, or native results cannot substitute for the configured automated frontier. Only an absent operation is a setup error; credential, configuration, budget, access, malformed-response, runtime, rate-limit, and other non-identity failures returned by the operation remain unresolved research boundaries regardless of immediate retryability. Preserve the complete candidate-frontier receipt and reconcile every validated ID; caller materiality or redundancy labels cannot waive screening. Only literal not-found/not-visible results or identity mismatches after complete provider retrieval terminally reject a lead. Preserve each program, population/stage, outcome/horizon, and summary as provisional discovery annotations. When AskRigor cannot retrieve captions, say plainly that the scout's summary was not checked against a transcript; keep its query and candidate-discovery value, but do not use it as proof of creator content, efficacy, safety, causality, comparison, structure, or a recommendation. Never accept an invented or mismatched identifier.
 5. Build a candidate-selection ledger before content or comment auditing. For every discovery batch record exact query/scope, literal access state and pagination, covered class IDs, candidate video IDs, and new fingerprint IDs. Every candidate must reciprocally link to its batch, class, exact program fingerprint (components; dose/intensity/frequency/duration; supervision; adherence; cointerventions; stage; outcome; horizon; and care stage), stable channel ID, selection state, omission impact/rationale, and access boundary. Every external frontier must preserve its digest and exact source, validated, terminally rejected, and unresolved ID partition; each validated ID needs a screened candidate record or a genuine access boundary. Normalize missing details to `program not described`; derive a program signature from the normalized field tuple, so renamed IDs cannot manufacture diversity. Derive counts from valid records and exclude invalid records. Record what is surprising or hard to recover from studies, decision usefulness, likely firsthand value, source independence, and nonredundancy. Provider rank, views, and comment volume show discoverability or corpus density, not credibility. Select up to three materially different videos per batch; rewrite queries, use cursors, or start another batch when choices are generic, mismatched, or redundant.
 6. Separate breadth from depth. For a broad question with a substantial corpus, ordinarily screen 20–40 candidates and seek at least eight materially distinct program hypotheses. When the valid ledger contains at least eight material candidates across at least six distinct available programs, at least eight material videos spanning six programs must complete both transcript and discussion depth before synthesis; this is a hard availability-conditioned minimum. Before broad coverage, select no more than two videos with substantially the same program. Two or three videos cannot establish broad coverage; four superficially different videos do not pass when the minimum applies; ten renamed or redundant videos cannot repair the failure. Derive structural gates from the valid ledger; caller corpus-size/scope labels cannot deactivate them. Hard-block decision-relevant or uncertain omissions. Treat `not_decision_relevant` as a warning only when the structured record establishes nonmateriality or an already selected identical normalized program; caller assertion cannot waive material work.
@@ -23,7 +155,7 @@ Every structured access boundary must match the literal source status and affect
 
 ## Episode analysis and evidence weighting
 
-Deduplicate at the person × treatment episode level. Keep creator-content claims, commenter experiences, and formal evidence in separate lanes. Separate firsthand reports from hearsay and opinions. Preserve benefit, no effect, harm, discontinuation, mixed trajectories, diagnoses, co-interventions, follow-up, and parent/reply context. Translate “cured” into the specific evidenced outcome; symptom or functional change does not establish structural reversal, permanent cure, or causality.
+Deduplicate first at the person level and preserve person × treatment episodes beneath it. Keep creator-content claims, commenter experiences, and formal evidence in separate lanes. Separate firsthand reports from hearsay and opinions. Preserve benefit, no effect, harm, discontinuation, mixed trajectories, diagnoses, co-interventions, follow-up, duration, durability, source role, population certainty, and parent/reply context. Translate “cured” into the specific evidenced outcome; symptom or functional change does not establish structural reversal, permanent cure, or causality.
 
 Never weight an umbrella label such as exercise, PT, rehabilitation, diet, or supplement as one intervention. Decompose exact intervention and comparator programs: components, dose/intensity/frequency/duration, supervision, fidelity/adherence, cointerventions, disease stage/eligibility, target outcome, and follow-up. If those material details are absent, label the evidence `program not described`; it cannot support a class-wide benefit, failure, comparison, or ranking. Separate preoperative conservative care intended to prevent or defer surgery from postoperative rehabilitation; evidence for one does not establish the other.
 
@@ -45,7 +177,8 @@ intervention_signal:
   no_effect: <count or no_material_reports | incomplete>
   harm: <count or no_material_reports | incomplete>
   discontinuation: <count or no_material_reports | incomplete>
-  community_signal: promising | mixed | weak | concerning | indeterminate
+  community_signal: <count-constrained direction only with a passed denominator receipt | phenotype_discovery_only | indeterminate>
+  community_signal_basis: neutral_primary_denominator | directional_discovery | unavailable
   formal_relationship: corroborated | contradicted | support_not_located | outcome_mismatch
   risk_cost_reversibility: <explicit assessment>
   opportunity_cost: low | moderate | high | uncertain
@@ -154,9 +287,58 @@ Also return:
 
 ```text
 forum_signal_receipt:
+  receipt_version: askrigor_community_denominator_receipt_v2
   status: complete | completed_with_access_boundary | incomplete
   corpus_coverage: complete | completed_with_access_boundary | partial
   partial_corpora_reviewed: yes | not_applicable
+  corpus_purpose: PRIMARY_NEUTRAL_SIGNAL_ESTIMATION | DIRECTIONAL_SENSITIVITY | PHENOTYPE_DISCOVERY | FORMAL_DISCRIMINATOR
+  corpus_plan_id: <stable ID>
+  corpus_version: <positive integer>
+  plan_sha256: <SHA-256>
+  query_set_sha256: <SHA-256>
+  prevalence_eligible: true | false
+  outside_primary_denominator: true | false
+  denominator_type: POPULATION_DENOMINATOR | FIRSTHAND_FORUM_USER_DENOMINATOR | SEARCH_LANDSCAPE_RESULT_CARD_DENOMINATOR | NONE
+  denominator_ledger:
+    neutral_queries_planned: <count>
+    neutral_queries_completed: <count>
+    raw_results_retrieved: <count>
+    duplicate_result_cards: <count>
+    unique_threads: <count>
+    relevant_threads: <count>
+    fully_retrieved_threads: <count>
+    deterministic_sample_threads: <count>
+    partial_threads: <count>
+    unavailable_threads: <count>
+    unique_firsthand_users: <count>
+    interpretable_firsthand_users: <count>
+    strict_attribution_users: <count>
+    anonymous_identity_uncertainty: <none or lower/upper bounds>
+    sensitivity_cases_outside_denominator: <count>
+  search_landscape: <counts by category>
+  user_outcomes_inclusive: <BENEFIT/MIXED/NO_EFFECT/WORSENED counts>
+  user_outcomes_strict: <BENEFIT/MIXED/NO_EFFECT/WORSENED counts>
+  causal_discriminator_counts:
+    reaction_information: <count>
+    benefit_information: <count>
+    both: <count>
+    same_person_comparisons: <count>
+    exposure_specified_comparisons: <count>
+    benefit_strong_marker: <count>
+    benefit_little_or_no_marker: <count>
+    no_benefit_strong_marker: <count>
+    no_benefit_little_or_no_marker: <count>
+    unclassifiable: <count>
+  community_evidence_denominator_gate:
+    primary_corpus_frozen: pass | block
+    primary_searches_directionally_neutral: pass | block
+    primary_corpus_deduped: pass | block
+    denominator_explicit: pass | block
+    sensitivity_results_separated: pass | block
+    retrieval_completeness_acceptable: pass | block
+    user_dedup_acceptable: pass | block
+    forum_signal_prevalence: allowed | blocked
+    case_discovery: allowed
   treatment_landscape_selection_coverage_lock: pass | block | not_applicable
   treatment_landscape_per_video_depth_lock: pass | block | not_applicable
   treatment_landscape_synthesis_lock: pass | block | not_applicable
@@ -169,10 +351,13 @@ forum_signal_receipt:
   community_to_formal: complete | no_material_transferable_hypotheses | incomplete
   formal_to_community: complete | no_material_discriminators | incomplete
   platforms_and_queries: <explicit list>
-  unique_people: <count or bounded unknown>
   unique_treatment_episodes: <count or bounded unknown>
   access_boundaries: <explicit list or none>
   confidence_effect: <explicit text>
+  direction: <count-constrained label or indeterminate>
+  measurement_confidence: high | moderate | low | indeterminate
+  causal_attribution_confidence: high | moderate | low | indeterminate
+  robustness_views: <query/provider/attribution/identity/time/context/promotion/retrieval strata>
 ```
 
-`complete` requires every applicable field complete, no unresolved material claim fingerprint, all three treatment-landscape locks passed when triggered, no creator-content assertion without transcript support, and every selected discussion audit locked. A partial corpus must still be reviewed and labeled; its incomplete coverage cannot support a representative or corpus-wide claim. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect; it cannot support a broad treatment ranking while a landscape lock is blocked. This receipt is an input to HRP synthesis, not a treatment verdict.
+`complete` requires every applicable field complete, no unresolved material claim fingerprint, all three treatment-landscape locks passed when triggered, no creator-content assertion without transcript support, and every selected discussion audit locked. Forum prevalence additionally requires every denominator-gate check to pass and the corresponding nonzero thread or interpretable-user denominator. A partial corpus must still be reviewed and labeled; its incomplete coverage cannot support a representative or corpus-wide claim. `completed_with_access_boundary` requires a terminal provider boundary, the missing material, and its confidence effect; it cannot support a broad treatment ranking while a landscape lock is blocked. This receipt is an input to HRP synthesis, not a treatment verdict.

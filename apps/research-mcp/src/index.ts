@@ -85,6 +85,8 @@ export {
   recordResearchSessionFormalScreening,
   recordResearchSessionBidirectionalIteration,
   recordResearchSessionBidirectionalReturnAssessment,
+  recordResearchSessionCausalCouplingReceipt,
+  recordResearchSessionCommunityDenominatorReceipt,
   recordResearchSessionReport,
   recordResearchSessionTreatmentLandscape,
   recordResearchSessionVideoEvidence,
@@ -131,6 +133,7 @@ export {
   type VideoEvidenceWorkPackage
 } from "./actions/research-bounded-evidence.js";
 export {
+  assertReportIntegrityClaim,
   createReportSynthesisWorkPackage,
   createReportSynthesisEvidenceContext,
   currentResearchReport,
@@ -151,6 +154,39 @@ export {
   type ReportSynthesisWorkPackage,
   type ResearchReportState
 } from "./actions/research-report-synthesis.js";
+export {
+  assessCausalCouplingCoverage,
+  causalCouplingCheckIdSchema,
+  causalCouplingCoverageReceiptSchema,
+  causalCouplingCoverageReceiptSha256,
+  causalCouplingDimensionSchema,
+  causalCouplingPlanSchema,
+  causalOutcomeMatchSchema,
+  discriminatorSearchStatusSchema,
+  type CausalCouplingCoverageReceipt,
+  type CausalCouplingPlan
+} from "./causal-coupling-contract.js";
+export {
+  assessCommunityEvidenceDenominator,
+  canonicalForumThreadIdentity,
+  communityEvidenceDenominatorLedgerV2Schema,
+  communityEvidenceDenominatorReceiptSha256,
+  communityEvidenceDenominatorReceiptV2Schema,
+  createForumCorpusPlanV2,
+  forumAttributionClassSchema,
+  forumCorpusPlanV2Schema,
+  forumDenominatorTypeSchema,
+  forumDurationSchema,
+  forumDurabilitySchema,
+  forumPopulationCertaintySchema,
+  forumSourceRoleSchema,
+  forumUserEpisodeSchema,
+  normalizeLegacyForumCorpusV1,
+  reviseForumCorpusPlanV2,
+  type CommunityEvidenceInputV2,
+  type ForumCorpusPlanCore,
+  type ForumCorpusPlanV2
+} from "./community-evidence-denominator.js";
 export {
   createTreatmentLandscapeWorkPackage,
   currentTreatmentLandscapeAssessment,

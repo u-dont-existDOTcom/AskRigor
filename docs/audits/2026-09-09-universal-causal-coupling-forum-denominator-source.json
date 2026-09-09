@@ -38,6 +38,19 @@
       "apps/research-mcp/src/generated/custom-gpt-bundle.ts"
     ]
   },
+  "pathFreezeCorrectionV2": {
+    "status": "SUPERSEDES_PATH_SPELLINGS_ONLY",
+    "reason": "The v1 planning inventory prefixed two existing YouTube source paths with a nonexistent actions directory. The original receipt is retained; this correction records the repository-resolved paths without changing scope.",
+    "incorrectPaths": [
+      "apps/research-mcp/src/actions/youtube-community-survey.ts",
+      "apps/research-mcp/src/actions/youtube-video-community-audit.ts"
+    ],
+    "correctPaths": [
+      "apps/research-mcp/src/youtube-community-survey.ts",
+      "apps/research-mcp/src/youtube-video-community-audit.ts"
+    ],
+    "maximumCandidatePaths": 40
+  },
   "phase1Admission": {
     "requestId": "admission:askrigor:universal-causal-forum:c9440301:0565222:phase1:zero-spend:20260909",
     "requestUtf8Bytes": 2907,
@@ -77,6 +90,37 @@
       "durationSeconds": 127.5,
       "qualification": "The clean-base full-suite result is retained as a contention/infrastructure signal, not a substantive invariant failure."
     }
+  },
+  "candidate": {
+    "pathCount": 40,
+    "universal": {
+      "version": "20.5.23",
+      "revisionDate": "2026-09-09",
+      "sha256": "dcc494fced7c0b69f4407a2abad5b4dfe24827bafb860cbe27e3a6988c91a0c6"
+    },
+    "hrp": {
+      "version": "20.5.27",
+      "sha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a",
+      "disposition": "BYTE_IDENTICAL"
+    },
+    "projectRouterSha256": "d3f4398eb7ca680ae12d2246109853b6a72b50ef0ca7fcbcaa7bf46fc6e45628",
+    "forumModuleSha256": "09b6f80c449056103adb49aba4c78c91732fc345366f1d409ade256223d6c7d2",
+    "firstExactVerify": {
+      "runtime": "Node v24.18.0",
+      "status": "FAILED_PARALLEL_TIMEOUTS",
+      "passedTestFiles": 156,
+      "skippedTestFiles": 1,
+      "failedTestFiles": 2,
+      "passedTests": 1892,
+      "skippedTests": 6,
+      "timedOutTests": 10,
+      "files": [
+        "tests/controlled-research-route.test.ts",
+        "tests/package-entrypoints.test.ts"
+      ],
+      "postRunDiagnosis": "The package-entrypoint test passed alone in 3.34 seconds. The controlled-route file's timeouts masked one stale project-section receipt; that bookkeeping assertion was corrected and its exact case passed alone in 6.34 seconds. The other controlled-route cases had passed in the same isolated run that exposed the receipt."
+    },
+    "fullVerifyRerun": "WITHHELD_PENDING_PROTECTED_CI_BECAUSE_THE_SOURCE_BOUND_TWO_RUN_LIMIT_WAS_CONSUMED_BY_THE_CLEAN_BASE_AND_FIRST_CANDIDATE RUNS"
   },
   "limits": {
     "maximumExternalSpendUsd": 0,

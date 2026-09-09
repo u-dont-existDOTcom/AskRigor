@@ -23,7 +23,7 @@ describe("canonical epistemic phase and heuristic-attractor routing", () => {
     );
 
     expect(universal).toMatch(
-      /version="20\.5\.22" revisionDate="2026-09-08"/u,
+      /version="20\.5\.23" revisionDate="2026-09-09"/u,
     );
     for (const singleton of [
       '<revision version="20.5.15" priority="Critical">',
