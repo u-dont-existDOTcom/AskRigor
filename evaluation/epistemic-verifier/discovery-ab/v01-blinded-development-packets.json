@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "evaluation_id": "askrigor_epistemic_verifier_v01_blinded_development_ab_20260909",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "confirmation_eligible": false,
+  "canonical_source_commit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+  "randomization": {
+    "seed": "askrigor-208-20260909-blinded-dev-ab-v1",
+    "method": "semantic-preserving surface alias substitution plus deterministic packet-order shuffle",
+    "constraints": [
+      "Preserve quantities, polarity, comparison roles, timing/dose direction, target relation, and task meaning.",
+      "Rename fixture IDs, cases, features, and adjacent-target labels exposed to reasoning sessions.",
+      "Do not expose original fixture IDs, expected outcomes, verifier gates, gold state, scorer key, or opposite-arm output."
+    ]
+  },
+  "packets": [
+    {
+      "blind_id": "DEV-JRSYJV",
+      "source_packet": "Harbor and Lark show the target response while Juniper is tolerated. Compound Sable is present in all three, but its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper. Test the explicit dose-modified hypothesis Sable dose > 5, with the dose distinction represented as a separate source-grounded modifier claim."
+    },
+    {
+      "blind_id": "DEV-L9JQC2",
+      "source_packet": "Plover produces the target effect at a represented exposure of 0.1 units; Kestrel is a tolerated control. The proposed material hypothesis requires at least 10 units for the target effect."
+    },
+    {
+      "blind_id": "DEV-9M34WA",
+      "source_packet": "Aspen and Kivu show the target response and both contain marker Sol. No tolerated or negative control case is available. Test whether Sol discriminates responsive from non-responsive cases."
+    },
+    {
+      "blind_id": "DEV-Y8PCH6",
+      "source_packet": "The source explicitly says the target effect begins within 2 seconds. A candidate semantic extraction preserves the target and observation but drops onset_seconds entirely and does not mark it high-information."
+    },
+    {
+      "blind_id": "DEV-D6JPFM",
+      "source_packet": "Alder produces the target effect within 2 seconds; Basin is a tolerated control. The proposed material hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure."
+    },
+    {
+      "blind_id": "DEV-SQBKLZ",
+      "source_packet": "Oriel and Rowan show the target response while Silt is tolerated. Feature Nimbus is represented in Oriel and Rowan and absent from Silt. Test only whether Nimbus survives this represented specificity contrast; do not infer that passing specificity proves causality."
+    },
+    {
+      "blind_id": "DEV-QWCNK4",
+      "source_packet": "Cedar and Flint show the target response. Mica is explicitly tolerated and does not show the response. Marker Vela is present in Cedar, Flint, and Mica. Test the hypothesis that Vela itself explains the selective response."
+    },
+    {
+      "blind_id": "DEV-S47VJN",
+      "source_packet": "The requested target is adverse_outcome_risk. The available evidence establishes only pathway_activity. A proposed conclusion about adverse_outcome_risk depends only on pathway_activity evidence, with no observation bound to adverse_outcome_risk."
+    }
+  ]
+}
