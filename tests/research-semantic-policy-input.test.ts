@@ -53,13 +53,15 @@ Select by function:
 
 For consequential conclusions, test the strongest relevant objection or counterexample and verify load-bearing premises with sources, tools or discriminating tests. Agreement, fluency, specificity, vividness, repeated examples and repeated self-review are not independent evidence. Revise the model when warranted, not merely its wording. Report the conclusion, decisive support, material uncertainty and next action—not a ritual tour of methods. Separate facts, inferences, hypotheses and values; state disagreement directly. Follow current project authority and non-waivable gates. Before a nonmandatory follow-up, identify what uncertainty it can reduce and what plausible answer could alter the inference, decision, code, or next question. Before substantial bespoke design, preserve independent ideas when needed, scan existing work including relevant owner-supplied methodology, choose reuse/adapt/compose/invent/experiment, and benchmark the remainder. Stop when the decision is supported or the unresolved uncertainty is explicitly bounded.`;
 
-const PROJECT_APPLICATION_TEXT = `### Reasoning and interview-evidence application
+const PROJECT_APPLICATION_TEXT = `### Reasoning, causal-coupling, and interview evidence
 
-Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection. Define the exact research target; distinguish mechanism from effect.
 
-For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+For marker↔benefit claims, distinguish marker cause from necessity, specificity, covariation, mediation, and common cause. Preplan predictions; test benefit without marker, marker without benefit, marker reduction with matched benefit, and the strongest challenge. Tolerability-only evidence cannot prove efficacy preservation. Formal evidence does not cancel a material community discriminator; failed checks block synthesis.
 
-Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.`;
+For history/survey/dialogue, preserve evidence roles; probe scope and exceptions before anecdotes. Frequency needs valid sampling; follow-ups need information gain. Retrieve owner methods and version pre-collection defects.
+
+Development evidence is not confirmation; missing access is not negative or completion. Authority remains source-bound and zero-spend.`;
 
 describe("research semantic canonical policy input", () => {
   it("loads the four complete sources in fixed order with exact bytes and a stable digest", async () => {

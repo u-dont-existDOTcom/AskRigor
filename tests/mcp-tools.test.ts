@@ -213,6 +213,8 @@ describe("AskRigor MCP tools", () => {
           additionalProperties: false,
           properties: {
             research_question: { type: "string", minLength: 1, maxLength: 5000 },
+            corpus_purpose: expect.any(Object),
+            corpus_plan: expect.objectContaining({ type: "object" }),
             searches: { type: "array", minItems: 1, maxItems: 6 },
             results_per_search: { type: "integer", minimum: 1, maximum: 10, default: 10 }
           }
@@ -221,6 +223,8 @@ describe("AskRigor MCP tools", () => {
           type: "object",
           required: [
             "provider", "record_type", "retrieved_at", "research_question",
+            "corpus_purpose", "prevalence_eligible",
+            "outside_primary_denominator",
             "access_status", "limitations", "searches", "candidates"
           ],
           additionalProperties: false
@@ -1989,9 +1993,9 @@ describe("AskRigor MCP tools", () => {
         protocol: "universal",
         manifest: {
           name: "AskRigor.com universal saved instructions",
-          version: "20.5.22",
-          revisionDate: "2026-09-08",
-          sha256: "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+          version: "20.5.23",
+          revisionDate: "2026-09-09",
+          sha256: "dcc494fced7c0b69f4407a2abad5b4dfe24827bafb860cbe27e3a6988c91a0c6"
         },
         text: canonicalText
       });
@@ -2072,9 +2076,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.22",
-            revisionDate: "2026-09-08",
-            sha256: "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+            version: "20.5.23",
+            revisionDate: "2026-09-09",
+            sha256: "dcc494fced7c0b69f4407a2abad5b4dfe24827bafb860cbe27e3a6988c91a0c6"
           }
         });
       } finally {
@@ -2109,6 +2113,12 @@ describe("AskRigor Streamable HTTP server", () => {
         expect(tools.every((tool) => !("outputSchema" in tool))).toBe(true);
         expect(tools.every((tool) => !("execution" in tool))).toBe(true);
         expect(unsupportedGeminiSchemaKeys(tools)).toEqual([]);
+        const geminiSurvey = tools.find(({ name }) => name === "survey_youtube_community");
+        const geminiSurveyProperties = (geminiSurvey?.inputSchema as {
+          properties?: Record<string, unknown>;
+        }).properties;
+        expect(geminiSurveyProperties).not.toHaveProperty("corpus_plan");
+        expect(geminiSurveyProperties).not.toHaveProperty("corpus_purpose");
         expect(Buffer.byteLength(JSON.stringify({ tools }), "utf8")).toBeLessThan(25_000);
         expect(manifest.isError).not.toBe(true);
         expect(invalidPmid.isError).toBe(true);
@@ -2116,8 +2126,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.22",
-            sha256: "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+            version: "20.5.23",
+            sha256: "dcc494fced7c0b69f4407a2abad5b4dfe24827bafb860cbe27e3a6988c91a0c6"
           }
         });
       } finally {

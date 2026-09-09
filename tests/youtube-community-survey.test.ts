@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  normalizeYoutubeCommunitySurveyOutput,
   surveyYoutubeCommunity,
   youtubeCommunitySurveyInputSchema
 } from "../apps/research-mcp/src/youtube-community-survey.js";
@@ -46,6 +47,9 @@ describe("YouTube community survey", () => {
     expect(result).toMatchObject({
       provider: "youtube",
       record_type: "youtube_community_survey",
+      corpus_purpose: "PHENOTYPE_DISCOVERY",
+      prevalence_eligible: false,
+      outside_primary_denominator: true,
       access_status: "complete",
       research_question: "Which hip osteoarthritis approaches help in real life?",
       searches: [
@@ -101,6 +105,45 @@ describe("YouTube community survey", () => {
     expect(requests
       .filter(({ pathname }) => pathname.endsWith("/search"))
       .every(({ searchParams }) => searchParams.get("maxResults") === "10")).toBe(true);
+
+    const legacy = structuredClone(result) as Record<string, unknown> & {
+      searches: Array<Record<string, unknown>>;
+      candidates: Array<Record<string, unknown>>;
+    };
+    delete legacy.corpus_purpose;
+    delete legacy.plan_sha256;
+    delete legacy.prevalence_eligible;
+    delete legacy.outside_primary_denominator;
+    for (const search of legacy.searches) {
+      delete search.query_ids;
+      delete search.corpus_purpose;
+      delete search.plan_sha256;
+      delete search.prevalence_eligible;
+      delete search.outside_primary_denominator;
+    }
+    for (const candidate of legacy.candidates) {
+      delete candidate.corpus_purpose;
+      delete candidate.plan_sha256;
+      delete candidate.prevalence_eligible;
+      delete candidate.outside_primary_denominator;
+    }
+    const normalizedLegacy = normalizeYoutubeCommunitySurveyOutput(legacy);
+    expect(normalizedLegacy).toMatchObject({
+      corpus_purpose: "PHENOTYPE_DISCOVERY",
+      prevalence_eligible: false,
+      outside_primary_denominator: true
+    });
+    expect(normalizedLegacy.searches.every((search) =>
+      search.query_ids.length === 0 &&
+      search.corpus_purpose === "PHENOTYPE_DISCOVERY" &&
+      search.prevalence_eligible === false &&
+      search.outside_primary_denominator === true
+    )).toBe(true);
+    expect(normalizedLegacy.candidates.every((candidate) =>
+      candidate.corpus_purpose === "PHENOTYPE_DISCOVERY" &&
+      candidate.prevalence_eligible === false &&
+      candidate.outside_primary_denominator === true
+    )).toBe(true);
   });
 
   it("combines identical query/cursor pairs without losing their directions", async () => {
@@ -192,6 +235,38 @@ describe("YouTube community survey", () => {
       research_question: "Question",
       searches: [{ direction: "general", query: "query" }],
       results_per_search: 11
+    }).success).toBe(false);
+  });
+
+  it("requires an exact frozen neutral plan reference for primary estimation", () => {
+    const base = {
+      research_question: "What outcomes are visible in the neutral corpus?",
+      corpus_purpose: "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION" as const,
+      searches: [{ query_id: "q1", direction: "general" as const, query: "subject experience" }]
+    };
+    expect(youtubeCommunitySurveyInputSchema.safeParse(base).success).toBe(false);
+    const corpusPlan = {
+      contract_version: "askrigor_forum_corpus_plan_ref_v2" as const,
+      corpus_plan_id: "neutral-plan",
+      corpus_purpose: "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION" as const,
+      plan_sha256: "a".repeat(64),
+      query_set_sha256: "b".repeat(64),
+      frozen_before_outcome_classification: true,
+      prevalence_eligible: true,
+      queries: [{
+        query_id: "q1",
+        query_text: "subject experience",
+        neutrality: "NEUTRAL" as const
+      }]
+    };
+    expect(youtubeCommunitySurveyInputSchema.safeParse({
+      ...base,
+      corpus_plan: corpusPlan
+    }).success).toBe(true);
+    expect(youtubeCommunitySurveyInputSchema.safeParse({
+      ...base,
+      corpus_plan: corpusPlan,
+      searches: [{ query_id: "q1", direction: "general", query: "subject worked" }]
     }).success).toBe(false);
   });
 });

@@ -9,6 +9,13 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import {
+  causalCouplingCoverageReceiptSchema,
+  type CausalCouplingCoverageReceipt
+} from "../causal-coupling-contract.js";
+import {
+  communityEvidenceDenominatorReceiptV2Schema
+} from "../community-evidence-denominator.js";
 import type { YoutubeCommunitySurveyOutput } from "../youtube-community-survey.js";
 import {
   bidirectionalIterationDiagnosticsSchema,
@@ -88,6 +95,7 @@ import {
 import {
   createReportSynthesisWorkPackage,
   currentResearchReport,
+  deriveCausalCouplingApplicability,
   deriveReportSynthesisStatus,
   ingestReportSynthesisSubmission,
   initialResearchReportState,
@@ -362,6 +370,11 @@ export const researchSessionStateSchema = z.object({
   formal_evidence: researchFormalEvidenceStateSchema,
   bidirectional_iteration: researchBidirectionalIterationStateSchema,
   treatment_finalization: researchTreatmentFinalizationStateSchema,
+  evidence_integrity: z.object({
+    causal_coupling_receipt: causalCouplingCoverageReceiptSchema.optional(),
+    community_denominator_receipt:
+      communityEvidenceDenominatorReceiptV2Schema.optional()
+  }).strict().optional(),
   report: researchReportStateSchema,
   final_completion_audit: finalCompletionAuditStateSchema
 }).strict().superRefine((state, context) => {
@@ -1832,6 +1845,29 @@ export function recordResearchSessionReport(
   return withReport(state, report);
 }
 
+export function recordResearchSessionCausalCouplingReceipt(
+  rawState: ResearchSessionState,
+  rawReceipt: CausalCouplingCoverageReceipt
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  return withEvidenceIntegrity(state, {
+    ...(state.evidence_integrity ?? {}),
+    causal_coupling_receipt: causalCouplingCoverageReceiptSchema.parse(rawReceipt)
+  });
+}
+
+export function recordResearchSessionCommunityDenominatorReceipt(
+  rawState: ResearchSessionState,
+  rawReceipt: z.output<typeof communityEvidenceDenominatorReceiptV2Schema>
+): ResearchSessionState {
+  const state = requireCurrentProtocols(rawState);
+  return withEvidenceIntegrity(state, {
+    ...(state.evidence_integrity ?? {}),
+    community_denominator_receipt:
+      communityEvidenceDenominatorReceiptV2Schema.parse(rawReceipt)
+  });
+}
+
 export function executeResearchSessionFinalCompletionAudit(
   rawState: ResearchSessionState
 ): ResearchSessionState {
@@ -3130,6 +3166,29 @@ function withReport(
   });
 }
 
+function withEvidenceIntegrity(
+  state: ResearchSessionState,
+  evidenceIntegrity: NonNullable<ResearchSessionState["evidence_integrity"]>
+): ResearchSessionState {
+  const draft = {
+    ...state,
+    evidence_integrity: evidenceIntegrity
+  } as ResearchSessionState;
+  const operations = {
+    ...state.operations,
+    report_synthesis: reportSynthesisOperationProjection(draft)
+  };
+  operations.final_completion_audit = finalCompletionAuditOperationProjection({
+    ...draft,
+    operations
+  } as ResearchSessionState);
+  return parseProjectedResearchSessionState({
+    ...draft,
+    modules: projectFinalAuditModule(state.modules, operations.final_completion_audit),
+    operations
+  });
+}
+
 function bidirectionalEvidenceState(state: ResearchSessionState) {
   return {
     candidates: state.candidate_discovery,
@@ -3244,12 +3303,21 @@ function videoEvidenceOperationProjection(
 }
 
 function reportSynthesisEvidence(state: ResearchSessionState) {
+  const causalCouplingReceipt =
+    state.evidence_integrity?.causal_coupling_receipt;
   return {
     researchTarget: state.research_target,
     candidates: state.candidate_discovery,
     boundedEvidence: state.bounded_evidence,
     formalEvidence: state.formal_evidence,
     treatment: state.treatment_finalization,
+    causalCouplingApplicability: deriveCausalCouplingApplicability(
+      state.research_target,
+      causalCouplingReceipt
+    ),
+    causalCouplingReceipt,
+    communityDenominatorReceipt:
+      state.evidence_integrity?.community_denominator_receipt,
     limitations: deriveResearchFinalizationLimitationsFromState(state).map((limitation) => ({
       limitation_id: limitation.limitation_id,
       plain_language: limitation.plain_language

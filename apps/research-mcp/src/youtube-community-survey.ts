@@ -9,6 +9,8 @@ import {
 } from "@askrigor/sources";
 import { z } from "zod";
 
+import { forumCorpusPurposeSchema } from "./community-evidence-denominator.js";
+
 const DISCOVERY_LIMITATION =
   "YouTube discovery used one bounded provider-ranked page per requested search; it did not exhaust the platform or determine final materiality.";
 
@@ -21,15 +23,67 @@ export const youtubeCommunityDirectionSchema = z.enum([
   "formal_discriminator"
 ]);
 
+const forumCorpusExecutionPlanRefSchema = z.object({
+  contract_version: z.literal("askrigor_forum_corpus_plan_ref_v2"),
+  corpus_plan_id: z.string().trim().min(1).max(160),
+  corpus_purpose: forumCorpusPurposeSchema,
+  plan_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  query_set_sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  frozen_before_outcome_classification: z.boolean(),
+  prevalence_eligible: z.boolean(),
+  queries: z.array(z.object({
+    query_id: z.string().trim().min(1).max(120),
+    query_text: z.string().trim().min(1).max(5_000),
+    neutrality: z.enum(["NEUTRAL", "DIRECTIONAL", "UNCERTAIN"])
+  }).strict()).min(1).max(100)
+}).strict().superRefine((value, context) => {
+  const eligible = value.corpus_purpose === "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION" &&
+    value.frozen_before_outcome_classification &&
+    value.queries.every(({ neutrality }) => neutrality === "NEUTRAL");
+  if (value.prevalence_eligible !== eligible) {
+    context.addIssue({
+      code: "custom",
+      message: "Plan-reference prevalence eligibility must match purpose, freeze, and query neutrality"
+    });
+  }
+});
+
 export const youtubeCommunitySurveyInputSchema = z.object({
   research_question: z.string().trim().min(1).max(5_000),
+  corpus_purpose: forumCorpusPurposeSchema.optional(),
+  corpus_plan: forumCorpusExecutionPlanRefSchema.optional(),
   searches: z.array(z.object({
+    query_id: z.string().trim().min(1).max(120).optional(),
     direction: youtubeCommunityDirectionSchema,
     query: z.string().trim().min(1).max(5_000),
     cursor: z.string().min(1).max(4_096).optional()
   }).strict()).min(1).max(6),
   results_per_search: z.number().int().min(1).max(10).default(10)
-}).strict();
+}).strict().superRefine((value, context) => {
+  const purpose = value.corpus_purpose ?? value.corpus_plan?.corpus_purpose ??
+    "PHENOTYPE_DISCOVERY";
+  if (purpose === "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION" && value.corpus_plan === undefined) {
+    context.addIssue({ code: "custom", message: "Primary signal estimation requires a frozen corpus plan" });
+  }
+  if (value.corpus_plan !== undefined &&
+    value.corpus_purpose !== undefined &&
+    value.corpus_purpose !== value.corpus_plan.corpus_purpose) {
+    context.addIssue({ code: "custom", message: "Corpus purpose does not match the frozen plan" });
+  }
+  if (value.corpus_plan !== undefined) {
+    const planned = new Map(value.corpus_plan.queries.map((query) => [query.query_id, query]));
+    for (const search of value.searches) {
+      const exact = search.query_id === undefined ? undefined : planned.get(search.query_id);
+      if (exact === undefined || exact.query_text !== search.query) {
+        context.addIssue({ code: "custom", message: "Survey search is not an exact query from the frozen plan" });
+      }
+      if (purpose === "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION" &&
+        (search.direction !== "general" || exact?.neutrality !== "NEUTRAL")) {
+        context.addIssue({ code: "custom", message: "Primary survey searches must be semantically neutral general queries" });
+      }
+    }
+  }
+});
 
 const accessStatusSchema = z.enum(ACCESS_STATUSES);
 const paginationSchema = z.object({
@@ -46,11 +100,17 @@ const providerErrorSchema = z.object({
   retryable: z.boolean().optional()
 }).strict();
 const findingSchema = z.object({
+  query_id: z.string().optional(),
   direction: youtubeCommunityDirectionSchema,
   query: z.string(),
   cursor: z.string().optional()
 }).strict();
 const surveySearchReceiptSchema = z.object({
+  query_ids: z.array(z.string()).max(6),
+  corpus_purpose: forumCorpusPurposeSchema,
+  plan_sha256: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  prevalence_eligible: z.boolean(),
+  outside_primary_denominator: z.boolean(),
   directions: z.array(youtubeCommunityDirectionSchema).min(1).max(6),
   query: z.string(),
   cursor: z.string().optional(),
@@ -63,6 +123,10 @@ const surveySearchReceiptSchema = z.object({
 const surveyCandidateSchema = z.object({
   video_id: z.string(),
   canonical_url: z.string().url(),
+  corpus_purpose: forumCorpusPurposeSchema,
+  plan_sha256: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  prevalence_eligible: z.boolean(),
+  outside_primary_denominator: z.boolean(),
   directions: z.array(youtubeCommunityDirectionSchema).min(1).max(6),
   search_queries: z.array(findingSchema).min(1).max(36),
   metadata_access_status: accessStatusSchema,
@@ -82,6 +146,10 @@ export const youtubeCommunitySurveyOutputSchema = z.object({
   record_type: z.literal("youtube_community_survey"),
   retrieved_at: z.string(),
   research_question: z.string(),
+  corpus_purpose: forumCorpusPurposeSchema,
+  plan_sha256: z.string().regex(/^[a-f0-9]{64}$/u).optional(),
+  prevalence_eligible: z.boolean(),
+  outside_primary_denominator: z.boolean(),
   access_status: accessStatusSchema,
   limitations: z.array(z.string()),
   error: providerErrorSchema.optional(),
@@ -93,10 +161,53 @@ export type YoutubeCommunityDirection = z.output<typeof youtubeCommunityDirectio
 export type YoutubeCommunitySurveyInput = z.input<typeof youtubeCommunitySurveyInputSchema>;
 export type YoutubeCommunitySurveyOutput = z.output<typeof youtubeCommunitySurveyOutputSchema>;
 
+export function normalizeYoutubeCommunitySurveyOutput(
+  raw: unknown
+): YoutubeCommunitySurveyOutput {
+  const record = typeof raw === "object" && raw !== null
+    ? raw as Record<string, unknown>
+    : {};
+  const purpose = forumCorpusPurposeSchema.safeParse(record.corpus_purpose).success
+    ? record.corpus_purpose
+    : "PHENOTYPE_DISCOVERY";
+  const planSha256 = typeof record.plan_sha256 === "string"
+    ? record.plan_sha256
+    : undefined;
+  const eligible = purpose === "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION" &&
+    planSha256 !== undefined && record.prevalence_eligible === true;
+  const normalizeNested = (value: unknown, search: boolean) => {
+    const item = typeof value === "object" && value !== null
+      ? value as Record<string, unknown>
+      : {};
+    return {
+      ...item,
+      ...(search && !Array.isArray(item.query_ids) ? { query_ids: [] } : {}),
+      corpus_purpose: purpose,
+      ...(planSha256 === undefined ? {} : { plan_sha256: planSha256 }),
+      prevalence_eligible: eligible,
+      outside_primary_denominator: purpose !== "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION"
+    };
+  };
+  return youtubeCommunitySurveyOutputSchema.parse({
+    ...record,
+    corpus_purpose: purpose,
+    ...(planSha256 === undefined ? {} : { plan_sha256: planSha256 }),
+    prevalence_eligible: eligible,
+    outside_primary_denominator: purpose !== "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+    searches: Array.isArray(record.searches)
+      ? record.searches.map((item) => normalizeNested(item, true))
+      : record.searches,
+    candidates: Array.isArray(record.candidates)
+      ? record.candidates.map((item) => normalizeNested(item, false))
+      : record.candidates
+  });
+}
+
 interface DistinctSearch {
   query: string;
   cursor?: string;
   directions: YoutubeCommunityDirection[];
+  queryIds: string[];
 }
 
 interface SearchOutcome {
@@ -112,6 +223,7 @@ interface CandidateAssociation {
   directions: YoutubeCommunityDirection[];
   findings: Array<{
     direction: YoutubeCommunityDirection;
+    query_id?: string;
     query: string;
     cursor?: string;
   }>;
@@ -126,6 +238,11 @@ export async function surveyYoutubeCommunity(
     throw new Error("YouTube community survey input is invalid");
   }
   const distinctSearches = combineDistinctSearches(parsedInput.data.searches);
+  const corpusPurpose = parsedInput.data.corpus_purpose ??
+    parsedInput.data.corpus_plan?.corpus_purpose ?? "PHENOTYPE_DISCOVERY";
+  const prevalenceEligible = parsedInput.data.corpus_plan?.prevalence_eligible === true &&
+    corpusPurpose === "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION";
+  const planSha256 = parsedInput.data.corpus_plan?.plan_sha256;
   const outcomes = await Promise.all(distinctSearches.map(async (search): Promise<SearchOutcome> => {
     const result = await searchYoutube({
       query: search.query,
@@ -169,9 +286,18 @@ export async function surveyYoutubeCommunity(
     record_type: "youtube_community_survey",
     retrieved_at: new Date().toISOString(),
     research_question: parsedInput.data.research_question,
+    corpus_purpose: corpusPurpose,
+    ...(planSha256 === undefined ? {} : { plan_sha256: planSha256 }),
+    prevalence_eligible: prevalenceEligible,
+    outside_primary_denominator: corpusPurpose !== "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
     access_status: accessStatus,
     limitations,
     searches: outcomes.map(({ search, access_status, pagination, limitations, error, records }) => ({
+      query_ids: search.queryIds,
+      corpus_purpose: corpusPurpose,
+      ...(planSha256 === undefined ? {} : { plan_sha256: planSha256 }),
+      prevalence_eligible: prevalenceEligible,
+      outside_primary_denominator: corpusPurpose !== "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
       directions: search.directions,
       query: search.query,
       ...(search.cursor === undefined ? {} : { cursor: search.cursor }),
@@ -181,7 +307,13 @@ export async function surveyYoutubeCommunity(
       ...(error === undefined ? {} : { error }),
       candidate_video_ids: records.map(({ video_id }) => video_id)
     })),
-    candidates
+    candidates: candidates.map((candidate) => ({
+      ...candidate,
+      corpus_purpose: corpusPurpose,
+      ...(planSha256 === undefined ? {} : { plan_sha256: planSha256 }),
+      prevalence_eligible: prevalenceEligible,
+      outside_primary_denominator: corpusPurpose !== "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION"
+    }))
   });
 }
 
@@ -189,17 +321,23 @@ function combineDistinctSearches(
   searches: z.output<typeof youtubeCommunitySurveyInputSchema>["searches"]
 ): DistinctSearch[] {
   const distinct = new Map<string, DistinctSearch>();
-  for (const { direction, query, cursor } of searches) {
+  for (const search of searches) {
+    const { direction, query, cursor } = search;
     const key = JSON.stringify([query, cursor ?? null]);
     const existing = distinct.get(key);
     if (existing === undefined) {
       distinct.set(key, {
         query,
         ...(cursor === undefined ? {} : { cursor }),
-        directions: [direction]
+        directions: [direction],
+        queryIds: search.query_id === undefined ? [] : [search.query_id]
       });
     } else if (!existing.directions.includes(direction)) {
       existing.directions.push(direction);
+    }
+    if (existing !== undefined && search.query_id !== undefined &&
+      !existing.queryIds.includes(search.query_id)) {
+      existing.queryIds.push(search.query_id);
     }
   }
   return [...distinct.values()];
@@ -235,6 +373,7 @@ function candidateAssociations(outcomes: readonly SearchOutcome[]): Map<string, 
         )) {
           association.findings.push({
             direction,
+            ...(search.queryIds[0] === undefined ? {} : { query_id: search.queryIds[0] }),
             query: search.query,
             ...(search.cursor === undefined ? {} : { cursor: search.cursor })
           });
@@ -250,7 +389,9 @@ function candidateFromMetadata(
   videoId: string,
   association: CandidateAssociation,
   metadata: Awaited<ReturnType<typeof getYoutubeVideo>>
-): z.input<typeof surveyCandidateSchema> {
+): Omit<z.input<typeof surveyCandidateSchema>,
+  "corpus_purpose" | "plan_sha256" | "prevalence_eligible" |
+  "outside_primary_denominator"> {
   const base = {
     video_id: videoId,
     canonical_url: `https://www.youtube.com/watch?v=${videoId}`,

@@ -287,6 +287,13 @@ export function researchSemanticWorkerInstruction(
       "Do not claim the complete formal frontier is screened from this batch; the server alone decides whether another signed screening batch is required."
     ].join(" ");
   }
+  if (kind === "report_synthesis") {
+    return [
+      BASE_SEMANTIC_WORKER_INSTRUCTION,
+      "Honor semantic_work.package.causal_coupling_synthesis_lock: BLOCK forbids a reader report; PASS or QUALIFIED_INACCESSIBLE permits only claims bound to the exact causal-coupling receipt in evidence_context.",
+      "Treat community claims as CASE_DISCOVERY unless the exact passing community denominator receipt permits SEARCH_LANDSCAPE_FREQUENCY or FIRSTHAND_USER_FREQUENCY. Directional searches and legacy purpose-unspecified results never support percentages, ratios, mostly/common/rare, or equivalent prevalence wording."
+    ].join(" ");
+  }
   return BASE_SEMANTIC_WORKER_INSTRUCTION;
 }
 

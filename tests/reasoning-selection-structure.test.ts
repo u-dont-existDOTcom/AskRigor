@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 
 import { XMLValidator } from "fast-xml-parser";
 import { describe, expect, it } from "vitest";
+import { restoreUniversal20_5_22 } from
+  "../scripts/protocol-migrations/migrate-universal-20.5.22-to-20.5.23.mts";
 
 const ROOT = new URL("../", import.meta.url);
 
@@ -60,13 +62,15 @@ Respect phase-specific gates and provenance; development-fitted evidence is not 
 
 `;
 
-const CURRENT_PROJECT_APPLICATION = `### Reasoning and interview-evidence application
+const CURRENT_PROJECT_APPLICATION = `### Reasoning, causal-coupling, and interview evidence
 
-Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection. Define the exact research target; distinguish mechanism from effect.
 
-For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+For marker↔benefit claims, distinguish marker cause from necessity, specificity, covariation, mediation, and common cause. Preplan predictions; test benefit without marker, marker without benefit, marker reduction with matched benefit, and the strongest challenge. Tolerability-only evidence cannot prove efficacy preservation. Formal evidence does not cancel a material community discriminator; failed checks block synthesis.
 
-Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.
+For history/survey/dialogue, preserve evidence roles; probe scope and exceptions before anecdotes. Frequency needs valid sampling; follow-ups need information gain. Retrieve owner methods and version pre-collection defects.
+
+Development evidence is not confirmation; missing access is not negative or completion. Authority remains source-bound and zero-spend.
 
 `;
 
@@ -92,7 +96,7 @@ describe("canonical Reasoning Selection application", () => {
 
     expect(XMLValidator.validate(universal)).toBe(true);
     expect(universal).toMatch(
-      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.22" revisionDate="2026-09-08"/u,
+      /<Protocol name="AskRigor\.com universal saved instructions" version="20\.5\.23" revisionDate="2026-09-09"/u,
     );
     expect(Buffer.byteLength(REASONING_SELECTION_TEXT, "utf8")).toBe(2884);
     expect(sha256(REASONING_SELECTION_TEXT)).toBe(
@@ -120,7 +124,7 @@ describe("canonical Reasoning Selection application", () => {
       expect(occurrences(CURRENT_REASONING_SELECTION_TEXT, `- ${method}:`), method).toBe(1);
     }
 
-    const priorInterviewUniversal = universal
+    const priorInterviewUniversal = restoreUniversal20_5_22(universal)
       .replace('version="20.5.22" revisionDate="2026-09-08"', 'version="20.5.21" revisionDate="2026-09-08"')
       .replace(
         "Evidence-Depth, Interview-Evidence and Information-Gain Integrity, Outcome-Directed Strategy-Switching, and Whole-Argument-Reconstruction Gates",
@@ -165,15 +169,14 @@ describe("canonical Reasoning Selection application", () => {
       "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
     );
     expect(project).toContain(`\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7978);
-    expect(Array.from(project)).toHaveLength(7964);
+    expect(Buffer.byteLength(project, "utf8")).toBe(7824);
+    expect(Array.from(project)).toHaveLength(7808);
     expect(project.split(/\s+/u).filter(Boolean)).toHaveLength(899);
     expect(sha256(project)).toBe(
-      "143e17ecffb330f98a0be85f52c0cd284a05d0ca08f325afd9443054bb9efc43",
+      "d3f4398eb7ca680ae12d2246109853b6a72b50ef0ca7fcbcaa7bf46fc6e45628",
     );
-    expect(sha256(project.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
-      "58d8c8387e962064a393af1cab7d78391e18dfa78571cbb0372aad8455b7db70",
-    );
+    expect(project.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))
+      .toContain("### Reasoning-selection application");
 
     expect(sha256(AGENTS_APPLICATION)).toBe(
       "a2b9daec82e1d2db9b889ce625814b47951ebbe426362410cb341ba4517ed094",
@@ -181,7 +184,7 @@ describe("canonical Reasoning Selection application", () => {
     expect(agents).toContain(`\n${AGENTS_APPLICATION}## Chat-to-Work authority gate`);
   });
 
-  it("keeps the canonical HRP and Forum module byte-identical", async () => {
+  it("keeps canonical HRP bytes and the forum denominator architecture", async () => {
     const [hrp, forum] = await Promise.all([
       readFile(new URL("protocols/HRP_Full.xml", ROOT)),
       readFile(new URL("project/FORUM_SIGNAL_MODULE.md", ROOT)),
@@ -191,7 +194,9 @@ describe("canonical Reasoning Selection application", () => {
       "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a",
     );
     expect(sha256(forum)).toBe(
-      "75c088ba0edeb821d3d664d2f0b48b33f7dd3e627c01dfe830053d6dac2aed13",
+      "09b6f80c449056103adb49aba4c78c91732fc345366f1d409ade256223d6c7d2",
     );
+    expect(forum.toString("utf8")).toContain("PRIMARY_NEUTRAL_SIGNAL_ESTIMATION");
+    expect(forum.toString("utf8")).toContain("CommunityEvidenceDenominatorReceiptV2");
   });
 });

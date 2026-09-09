@@ -60,12 +60,12 @@ function expectReasoningSelectionDelivery(policyContext: any): void {
   const project = policyContext.documents.find(
     (document: any) => document.document_id === "project_router"
   ).text as string;
-  const applicationStart = project.indexOf("### Reasoning and interview-evidence application");
+  const applicationStart = project.indexOf("### Reasoning, causal-coupling, and interview evidence");
   const applicationEnd = project.indexOf("## 1. Run before HRP/research");
   expect(createHash("sha256")
     .update(project.slice(applicationStart, applicationEnd))
     .digest("hex")).toBe(
-      "caa739b55844b3c3eccc4e1e6ee2af05eb5d533d63a99aa8239b94a8ad7ca639"
+      "02d0ed8302bf6ada298c943d882832afddba00fb64765928ced494ed6933e1da"
     );
 }
 

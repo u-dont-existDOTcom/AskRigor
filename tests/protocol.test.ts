@@ -21,7 +21,7 @@ import {
 const HRP_SHA_256 =
   "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a";
 const UNIVERSAL_SHA_256 =
-  "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6";
+  "dcc494fced7c0b69f4407a2abad5b4dfe24827bafb860cbe27e3a6988c91a0c6";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -419,9 +419,36 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.22",
-      revisionDate: "2026-09-08"
+      version: "20.5.23",
+      revisionDate: "2026-09-09"
     });
+  });
+
+  it("requires the Universal 20.5.23 causal-coupling and community-denominator gates", async () => {
+    const text = await loadProtocol("universal");
+    for (const required of [
+      '<revision version="20.5.23" priority="Critical">',
+      '<causal_coupling_discriminator_gate priority="Critical">',
+      'name="CauseVersusCoupling"',
+      'name="CausalCouplingDimensions"',
+      'name="MatchedOutcomeRequirement"',
+      '<community_evidence_denominator_gate priority="Critical">',
+      '<denominator_hierarchy priority="Critical">',
+      '<two_pass_architecture priority="Critical">',
+      '<retrieval_completeness priority="Critical">',
+      'OUTSIDE_PRIMARY_DENOMINATOR=true',
+      "These percentages describe the predefined forum corpus, not population response rates."
+    ]) expect(text).toContain(required);
+    for (const id of [
+      "FS-COUPLING-01",
+      "FS-NECESSITY-01",
+      "FS-SUFFICIENCY-01",
+      "FS-MEDIATION-01",
+      "FS-OUTCOME-MATCH-01",
+      "FS-STRENGTHEN-01",
+      "FS-FORUM-01",
+      "FS-DENOM-01"
+    ]) expect(text.split(`<check id="${id}">`)).toHaveLength(2);
   });
 
   it("preserves the Universal 20.5.12 premise-integrity and truth-priority gate", async () => {

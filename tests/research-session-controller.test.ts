@@ -1372,6 +1372,58 @@ describe("research session controller core", () => {
     }).success).toBe(false);
   });
 
+  it("derives causal-coupling applicability at the report work-package boundary", () => {
+    const finished = completionFixture();
+    const work = createReportSynthesisWorkPackage(initialResearchReportState(), {
+      researchTarget:
+        "Could the acute adverse reaction be part of or predict the therapeutic benefit?",
+      candidates: finished.candidate_discovery,
+      boundedEvidence: finished.bounded_evidence,
+      formalEvidence: finished.formal_evidence,
+      treatment: finished.treatment_finalization,
+      limitations: deriveResearchFinalizationLimitations(finished).map((item) => ({
+        limitation_id: item.limitation_id,
+        plain_language: item.plain_language
+      }))
+    });
+    expect(work.causal_coupling_applicability).toBe("APPLICABLE");
+    expect(work.causal_coupling_synthesis_lock).toBe("BLOCK");
+
+    for (const researchTarget of [
+      "Could an unpleasant response be a sign that the treatment is doing its job?",
+      "Does soreness mean later growth?",
+      "If we reduce the marker, does the benefit remain?"
+    ]) {
+      const relationalWork = createReportSynthesisWorkPackage(
+        initialResearchReportState(),
+        {
+          researchTarget,
+          candidates: finished.candidate_discovery,
+          boundedEvidence: finished.bounded_evidence,
+          formalEvidence: finished.formal_evidence,
+          treatment: finished.treatment_finalization,
+          limitations: []
+        }
+      );
+      expect(relationalWork.causal_coupling_applicability).toBe("APPLICABLE");
+      expect(relationalWork.causal_coupling_synthesis_lock).toBe("BLOCK");
+    }
+
+    const ordinaryBenefitRisk = createReportSynthesisWorkPackage(
+      initialResearchReportState(),
+      {
+        researchTarget: "Compare benefits and side effects of two treatments.",
+        candidates: finished.candidate_discovery,
+        boundedEvidence: finished.bounded_evidence,
+        formalEvidence: finished.formal_evidence,
+        treatment: finished.treatment_finalization,
+        limitations: []
+      }
+    );
+    expect(ordinaryBenefitRisk.causal_coupling_applicability)
+      .toBe("NOT_APPLICABLE");
+  });
+
   it("preserves publication history and provider-scoped limitations", () => {
     const finished = completionFixture();
     const baseLimitations = deriveResearchFinalizationLimitations(finished);

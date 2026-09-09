@@ -12,7 +12,7 @@ import {
 import { z } from "zod";
 
 import {
-  youtubeCommunitySurveyOutputSchema,
+  normalizeYoutubeCommunitySurveyOutput,
   type YoutubeCommunitySurveyInput,
   type YoutubeCommunitySurveyOutput
 } from "../youtube-community-survey.js";
@@ -160,6 +160,15 @@ const nativeSearchSchema = z.object({
     "formal_discriminator"
   ])).min(1).max(6),
   query: queryText,
+  corpus_purpose: z.enum([
+    "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+    "DIRECTIONAL_SENSITIVITY",
+    "PHENOTYPE_DISCOVERY",
+    "FORMAL_DISCRIMINATOR"
+  ]).optional(),
+  plan_sha256: digest.optional(),
+  prevalence_eligible: z.boolean().optional(),
+  outside_primary_denominator: z.boolean().optional(),
   access_status: accessStatus,
   exhausted: z.boolean(),
   next_cursor_present: z.boolean(),
@@ -188,6 +197,15 @@ const nativeFrontierSchema = z.object({
   status: frontierStatusSchema,
   frontier_id: digest.optional(),
   research_question: boundedText(5_000).optional(),
+  corpus_purpose: z.enum([
+    "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION",
+    "DIRECTIONAL_SENSITIVITY",
+    "PHENOTYPE_DISCOVERY",
+    "FORMAL_DISCRIMINATOR"
+  ]).optional(),
+  plan_sha256: digest.optional(),
+  prevalence_eligible: z.boolean().optional(),
+  outside_primary_denominator: z.boolean().optional(),
   searches: z.array(nativeSearchSchema).max(6),
   source_candidate_video_ids: z.array(youtubeVideoId).max(60),
   validated_candidate_video_ids: z.array(youtubeVideoId).max(60),
@@ -444,7 +462,7 @@ export function ingestNativeYoutubeSurvey(
   survey: YoutubeCommunitySurveyOutput
 ): ResearchCandidateDiscoveryState {
   const state = researchCandidateDiscoveryStateSchema.parse(rawState);
-  survey = youtubeCommunitySurveyOutputSchema.parse(survey);
+  survey = normalizeYoutubeCommunitySurveyOutput(survey);
   if (state.external_scout.status === "BLOCKED_RETRYABLE") {
     throw new Error("Native discovery cannot bypass retryable external scout work");
   }
@@ -497,10 +515,18 @@ export function ingestNativeYoutubeSurvey(
           : "BLOCKED_TERMINAL",
       frontier_id: frontierId,
       research_question: survey.research_question,
+      corpus_purpose: survey.corpus_purpose,
+      ...(survey.plan_sha256 === undefined ? {} : { plan_sha256: survey.plan_sha256 }),
+      prevalence_eligible: survey.prevalence_eligible,
+      outside_primary_denominator: survey.outside_primary_denominator,
       searches: survey.searches.map((search, index) => ({
         query_id: queryId("native", index),
         directions: search.directions,
         query: search.query,
+        corpus_purpose: search.corpus_purpose,
+        ...(search.plan_sha256 === undefined ? {} : { plan_sha256: search.plan_sha256 }),
+        prevalence_eligible: search.prevalence_eligible,
+        outside_primary_denominator: search.outside_primary_denominator,
         access_status: search.access_status,
         exhausted: search.pagination.exhausted === true,
         next_cursor_present: search.pagination.next_cursor !== undefined,
@@ -520,7 +546,7 @@ export function ingestNativeYoutubeSurvey(
 export function nativeSurveyEndedByBoundedSearchAccess(
   survey: YoutubeCommunitySurveyOutput
 ): boolean {
-  survey = youtubeCommunitySurveyOutputSchema.parse(survey);
+  survey = normalizeYoutubeCommunitySurveyOutput(survey);
   return survey.searches.some(({ access_status }) =>
     !isCompleteAccess(access_status)
   );
@@ -529,7 +555,7 @@ export function nativeSurveyEndedByBoundedSearchAccess(
 export function nativeSurveyEndedByBoundedIdentityAccess(
   survey: YoutubeCommunitySurveyOutput
 ): boolean {
-  survey = youtubeCommunitySurveyOutputSchema.parse(survey);
+  survey = normalizeYoutubeCommunitySurveyOutput(survey);
   return survey.searches.length > 0 &&
     survey.searches.every(({ access_status }) =>
       isCompleteAccess(access_status)
@@ -542,7 +568,7 @@ export function nativeSurveyEndedByBoundedIdentityAccess(
 export function nativeSurveyEndedByDailySearchQuota(
   survey: YoutubeCommunitySurveyOutput
 ): boolean {
-  survey = youtubeCommunitySurveyOutputSchema.parse(survey);
+  survey = normalizeYoutubeCommunitySurveyOutput(survey);
   const quotaBoundedSearches = survey.searches.filter(({ error }) =>
     error?.code === YOUTUBE_SEARCH_QUOTA_EXHAUSTED_CODE
   );
@@ -1199,7 +1225,16 @@ function frontierReadyForScreening(
 function nativeFrontierDigest(survey: YoutubeCommunitySurveyOutput): string {
   return createHash("sha256").update(JSON.stringify({
     research_question: survey.research_question,
+    corpus_purpose: survey.corpus_purpose,
+    plan_sha256: survey.plan_sha256 ?? null,
+    prevalence_eligible: survey.prevalence_eligible,
+    outside_primary_denominator: survey.outside_primary_denominator,
     searches: survey.searches.map((search) => ({
+      query_ids: search.query_ids,
+      corpus_purpose: search.corpus_purpose,
+      plan_sha256: search.plan_sha256 ?? null,
+      prevalence_eligible: search.prevalence_eligible,
+      outside_primary_denominator: search.outside_primary_denominator,
       directions: search.directions,
       query: search.query,
       cursor: search.cursor ?? null,

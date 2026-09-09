@@ -580,7 +580,9 @@ function semanticWorkFixtures(): ResearchSemanticWork[] {
         research_target: "synthetic target",
         selected_video_count: 1,
         formal_source_count: 1,
-        required_limitation_count: 1
+        required_limitation_count: 1,
+        causal_coupling_synthesis_lock: "NOT_APPLICABLE",
+        community_prevalence_lock: "NOT_AVAILABLE"
       }
     }
   ];
