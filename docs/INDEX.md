@@ -29,6 +29,14 @@ complete XML protocol.
   API comparison without paid Search grounding, covering planned discovery,
   validated URL generation, direct video summaries, transcript latency/access
   boundaries, and the recommended lazy-escalation architecture
+- `audits/2026-09-08-google-youtube-api-compliance-review.md`: Google review
+  closeout covering current and historical project numbers, API-key-only
+  authentication, exact public-data lifecycle, privacy remediation, credential
+  restrictions, production evidence, and the response package
+- `audits/2026-09-08-google-youtube-api-compliance-production-release.md` and
+  `.json`: exact merged backend/site deployment, live page and YouTube request
+  acceptance, plugin and promotion-scheduler synchronization, rollback, and
+  protected-check receipts
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary
@@ -261,6 +269,9 @@ complete XML protocol.
   SELECT-only reader, curated stdin import, activation, acceptance, and rollback
   runbook for production study-audit read-through
 - `privacy-data-map.md`: data classes, flows, exclusions, and handling
+- `audits/2026-09-08-google-youtube-api-compliance-review.md`: source,
+  production, and Google Cloud evidence for YouTube authentication, collection,
+  transient/persistent storage, expiry, deletion, logging, and backups
 - `research-session-resumability-threat-model.md`: encrypted bounded
   checkpoint assets, trust boundaries, hostile recovery cases, retention,
   deletion, backup, key-loss, and rollback rules

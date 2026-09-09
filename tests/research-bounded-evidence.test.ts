@@ -232,6 +232,19 @@ describe("bounded selected-video evidence", () => {
     expect(findings.get(community.finding_id)?.program.name).toBe(
       "Commenter-described program"
     );
+    const serializedCheckpointState = JSON.stringify(accepted);
+    expect(serializedCheckpointState).not.toContain(
+      material.discussion_comments[0]!.text
+    );
+    expect(serializedCheckpointState).not.toContain(
+      material.discussion_comments[0]!.author_channel_id
+    );
+    expect(serializedCheckpointState).not.toContain(
+      material.discussion_comments[0]!.author_display_name
+    );
+    expect(serializedCheckpointState).not.toContain(
+      material.discussion_comments[0]!.comment_id
+    );
   });
 
   it("keeps raw public material process-local and returns it only for exact receipt hashes", () => {
@@ -311,6 +324,64 @@ describe("bounded selected-video evidence", () => {
       transcriptReceiptSha256: sourceRecordSha256(secondTranscript.coverage_receipt),
       discussionReceiptSha256: sourceRecordSha256(secondDiscussion.coverage_receipt)
     })).toBeDefined();
+  });
+
+  it("expires raw material on the idle limit without extending its absolute lifetime", () => {
+    const { material, transcript, discussion } = videoFrontier();
+    let now = 1_000;
+    const cache = createInMemoryResearchEvidenceMaterialCache({
+      now: () => now,
+      idleTtlMs: 10,
+      absoluteTtlMs: 25,
+      sweepIntervalMs: 60_000
+    });
+    const get = () => cache.get({
+      sessionId: SESSION_ID,
+      videoId: material.video_id,
+      transcriptReceiptSha256: material.transcript_receipt_sha256,
+      discussionReceiptSha256: material.discussion_receipt_sha256
+    });
+    cache.captureTranscript({
+      sessionId: SESSION_ID,
+      videoId: material.video_id,
+      output: transcript
+    });
+    cache.captureDiscussion({
+      sessionId: SESSION_ID,
+      videoId: material.video_id,
+      output: discussion
+    });
+
+    now = 1_009;
+    expect(get()).toBeDefined();
+    now = 1_018;
+    expect(get()).toBeDefined();
+    now = 1_025;
+    expect(get()).toBeUndefined();
+
+    const idleCache = createInMemoryResearchEvidenceMaterialCache({
+      now: () => now,
+      idleTtlMs: 10,
+      absoluteTtlMs: 25,
+      sweepIntervalMs: 60_000
+    });
+    idleCache.captureTranscript({
+      sessionId: SESSION_ID,
+      videoId: material.video_id,
+      output: transcript
+    });
+    idleCache.captureDiscussion({
+      sessionId: SESSION_ID,
+      videoId: material.video_id,
+      output: discussion
+    });
+    now = 1_035;
+    expect(idleCache.get({
+      sessionId: SESSION_ID,
+      videoId: material.video_id,
+      transcriptReceiptSha256: material.transcript_receipt_sha256,
+      discussionReceiptSha256: material.discussion_receipt_sha256
+    })).toBeUndefined();
   });
 });
 

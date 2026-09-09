@@ -76,8 +76,13 @@ describe("YouTube discovery", () => {
 
   it("preserves opaque search page tokens and normalizes only documented search metadata", async () => {
     const requests: URL[] = [];
-    vi.stubGlobal("fetch", vi.fn(async (input: URL | RequestInfo) => {
+    const requestOptions: Array<RequestInit | undefined> = [];
+    vi.stubGlobal("fetch", vi.fn(async (
+      input: URL | RequestInfo,
+      init?: RequestInit
+    ) => {
       requests.push(new URL(String(input)));
+      requestOptions.push(init);
       return new Response(await fixture("search-page-1.json"), { status: 200 });
     }));
 
@@ -98,6 +103,8 @@ describe("YouTube discovery", () => {
       pageToken: "prior+/opaque-token",
       key: "fixture-youtube-key"
     });
+    expect(new Headers(requestOptions[0]?.headers).has("authorization")).toBe(false);
+    expect(requestOptions[0]?.credentials).toBeUndefined();
     expect(result).toMatchObject({
       provider: "youtube",
       record_type: "youtube_search_result",

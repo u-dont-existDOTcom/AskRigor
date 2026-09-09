@@ -651,7 +651,7 @@ export function createControlledResearchRoutes(
         : { now: options.finalizationNow })
     });
     commit(input.session_id, current, checked);
-    return controlledFinalizationOutputSchema.parse({
+    const output = controlledFinalizationOutputSchema.parse({
       finalization: decision,
       ...(challengeSessions.has(input.session_id) && decision.authorization !== "DENIED"
         ? {
@@ -673,6 +673,12 @@ export function createControlledResearchRoutes(
           }
         : {})
     });
+    if (decision.authorization !== "DENIED") {
+      options.semanticAdvanceDependencies.releaseEvidenceMaterialForSession?.(
+        input.session_id
+      );
+    }
+    return output;
   }
 
   async function projectWithWork(
