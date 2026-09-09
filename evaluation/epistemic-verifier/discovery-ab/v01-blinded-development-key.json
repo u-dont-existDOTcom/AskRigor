@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "evaluation_id": "askrigor_epistemic_verifier_v01_blinded_development_ab_20260909",
+  "scorer_only": true,
+  "canonical_source_commit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+  "packets": [
+    {
+      "blind_id": "DEV-JRSYJV",
+      "original_fixture_id": "dose-modified-q",
+      "hard_invariant_challenge": false,
+      "false_block_control": true,
+      "expected_gate_vector": {"SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"pass"},
+      "definitive_synthesis": true,
+      "gold_conclusion": "The represented dose > 5 predicate survives the specificity contrast; that structural pass does not by itself prove causality."
+    },
+    {
+      "blind_id": "DEV-L9JQC2",
+      "original_fixture_id": "tiny-vs-threshold",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {"SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"block","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block"},
+      "definitive_synthesis": false,
+      "gold_conclusion": "The proposed minimum-threshold hypothesis predicts the opposite dose direction and cannot receive definitive support without a separately supported exception mechanism."
+    },
+    {
+      "blind_id": "DEV-9M34WA",
+      "original_fixture_id": "no-control",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {"SPECIFICITY_DISCRIMINATOR":"insufficient","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"insufficient"},
+      "definitive_synthesis": false,
+      "gold_conclusion": "Without a tolerated or negative comparator, discrimination is insufficiently established; do not convert the absence of a control into either a pass or a fail."
+    },
+    {
+      "blind_id": "DEV-Y8PCH6",
+      "original_fixture_id": "missing-high-information-qualifier",
+      "semantic_translation_challenge": true,
+      "expected_representation_status": "block",
+      "definitive_synthesis_relative_to_incomplete_candidate_state": true,
+      "gold_conclusion": "The onset qualifier is source-explicit and must be preserved and marked high-information in the state. If it is omitted, count a semantic representation error, not a deterministic-verifier failure."
+    },
+    {
+      "blind_id": "DEV-D6JPFM",
+      "original_fixture_id": "immediate-vs-delayed",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {"SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"block","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block"},
+      "definitive_synthesis": false,
+      "gold_conclusion": "The proposed delayed-onset hypothesis predicts the opposite timing direction and cannot receive definitive support without a separately supported exception mechanism."
+    },
+    {
+      "blind_id": "DEV-SQBKLZ",
+      "original_fixture_id": "true-discriminator",
+      "hard_invariant_challenge": false,
+      "false_block_control": true,
+      "expected_gate_vector": {"SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"pass"},
+      "definitive_synthesis": true,
+      "gold_conclusion": "The feature survives the represented specificity contrast, but specificity alone is not proof of causality."
+    },
+    {
+      "blind_id": "DEV-QWCNK4",
+      "original_fixture_id": "shared-q-control",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {"SPECIFICITY_DISCRIMINATOR":"block","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block"},
+      "definitive_synthesis": false,
+      "gold_conclusion": "The shared marker alone does not discriminate the responsive cases from the tolerated control, so it cannot support a definitive selective-explanation conclusion."
+    },
+    {
+      "blind_id": "DEV-S47VJN",
+      "original_fixture_id": "target-substitution",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {"SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"block","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block"},
+      "definitive_synthesis": false,
+      "gold_conclusion": "Evidence only about the adjacent mechanism/pathway target cannot establish the requested harm/risk target."
+    }
+  ]
+}
