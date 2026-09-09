@@ -95,6 +95,7 @@ import {
 import {
   createReportSynthesisWorkPackage,
   currentResearchReport,
+  deriveCausalCouplingApplicability,
   deriveReportSynthesisStatus,
   ingestReportSynthesisSubmission,
   initialResearchReportState,
@@ -3302,14 +3303,19 @@ function videoEvidenceOperationProjection(
 }
 
 function reportSynthesisEvidence(state: ResearchSessionState) {
+  const causalCouplingReceipt =
+    state.evidence_integrity?.causal_coupling_receipt;
   return {
     researchTarget: state.research_target,
     candidates: state.candidate_discovery,
     boundedEvidence: state.bounded_evidence,
     formalEvidence: state.formal_evidence,
     treatment: state.treatment_finalization,
-    causalCouplingReceipt:
-      state.evidence_integrity?.causal_coupling_receipt,
+    causalCouplingApplicability: deriveCausalCouplingApplicability(
+      state.research_target,
+      causalCouplingReceipt
+    ),
+    causalCouplingReceipt,
     communityDenominatorReceipt:
       state.evidence_integrity?.community_denominator_receipt,
     limitations: deriveResearchFinalizationLimitationsFromState(state).map((limitation) => ({

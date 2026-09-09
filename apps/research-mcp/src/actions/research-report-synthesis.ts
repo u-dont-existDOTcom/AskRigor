@@ -63,6 +63,53 @@ export const reportClaimReferenceSchema = z.discriminatedUnion("reference_kind",
   communityClaimReferenceSchema
 ]);
 
+const communityFrequencyBase = z.object({
+  denominator_type: z.enum([
+    "FIRSTHAND_FORUM_USER_DENOMINATOR",
+    "SEARCH_LANDSCAPE_RESULT_CARD_DENOMINATOR"
+  ]),
+  corpus_version: z.number().int().positive(),
+  analysis: z.enum(["INCLUSIVE", "STRICT_ATTRIBUTION", "SEARCH_LANDSCAPE"]),
+  category: z.enum([
+    "BENEFIT",
+    "MIXED",
+    "NO_EFFECT",
+    "WORSENED",
+    "POSITIVE_LEANING",
+    "NEGATIVE_LEANING",
+    "NEUTRAL_QUESTION",
+    "NO_OUTCOME",
+    "PROMOTIONAL",
+    "OTHER"
+  ]),
+  mandatory_qualification: bounded(1_000)
+}).strict();
+
+const communityFrequencySchema = z.discriminatedUnion("estimate_kind", [
+  communityFrequencyBase.extend({
+    estimate_kind: z.literal("EXACT"),
+    numerator: z.number().int().nonnegative(),
+    denominator: z.number().int().positive()
+  }).strict(),
+  communityFrequencyBase.extend({
+    estimate_kind: z.literal("BOUNDED"),
+    numerator_lower_bound: z.number().int().nonnegative(),
+    numerator_upper_bound: z.number().int().nonnegative(),
+    denominator_lower_bound: z.number().int().nonnegative(),
+    denominator_upper_bound: z.number().int().positive()
+  }).strict()
+]).superRefine((value, context) => {
+  if (value.estimate_kind === "BOUNDED" && (
+    value.numerator_lower_bound > value.numerator_upper_bound ||
+    value.denominator_lower_bound > value.denominator_upper_bound
+  )) {
+    context.addIssue({
+      code: "custom",
+      message: "Bounded community frequency needs ordered lower and upper bounds"
+    });
+  }
+});
+
 const readerReportClaimCoreSchema = z.object({
   claim_kind: z.enum([
     "formal_effect",
@@ -86,6 +133,7 @@ const readerReportClaimCoreSchema = z.object({
     "FIRSTHAND_USER_FREQUENCY"
   ]).optional(),
   community_denominator_receipt_sha256: digest.optional(),
+  community_frequency: communityFrequencySchema.optional(),
   references: z.array(reportClaimReferenceSchema).min(1).max(20)
 }).strict();
 
@@ -239,13 +287,33 @@ export const reportSynthesisWorkPackageSchema = z.object({
     "QUALIFIED_INACCESSIBLE",
     "BLOCK"
   ]),
+  causal_coupling_applicability: z.enum([
+    "APPLICABLE",
+    "NOT_APPLICABLE",
+    "UNRESOLVED"
+  ]).default("NOT_APPLICABLE"),
   community_prevalence_lock: z.enum(["NOT_AVAILABLE", "ALLOWED", "BLOCKED"])
-}).strict();
+}).strict().superRefine((value, context) => {
+  if (
+    deriveCausalCouplingApplicability(value.research_target) === "APPLICABLE" &&
+    value.causal_coupling_applicability !== "APPLICABLE"
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "An applicable research target cannot default causal coupling to not applicable"
+    });
+  }
+});
 
 export const reportSynthesisEvidenceContextSchema = z.object({
   videos: z.array(reportVideoEvidenceSchema).min(1).max(76),
   formal_sources: z.array(reportFormalSourceSchema).max(2_000),
   required_limitations: z.array(reportLimitationSchema).max(4_000),
+  causal_coupling_applicability: z.enum([
+    "APPLICABLE",
+    "NOT_APPLICABLE",
+    "UNRESOLVED"
+  ]),
   causal_coupling_receipt: causalCouplingCoverageReceiptSchema.optional(),
   community_denominator_receipt: communityEvidenceDenominatorReceiptV2Schema.optional()
 }).strict();
@@ -285,6 +353,8 @@ export interface ResearchReportEvidence {
   formalEvidence: ResearchFormalEvidenceState;
   treatment: ResearchTreatmentFinalizationState;
   limitations: z.output<typeof reportLimitationSchema>[];
+  causalCouplingApplicability?:
+    "APPLICABLE" | "NOT_APPLICABLE" | "UNRESOLVED";
   causalCouplingReceipt?: CausalCouplingCoverageReceipt;
   communityDenominatorReceipt?: z.output<
     typeof communityEvidenceDenominatorReceiptV2Schema
@@ -318,8 +388,11 @@ export function createReportSynthesisWorkPackage(
     selected_video_count: context.videos.length,
     formal_source_count: context.formal_sources.length,
     required_limitation_count: context.required_limitations.length,
+    causal_coupling_applicability: context.causal_coupling_applicability,
     causal_coupling_synthesis_lock:
-      context.causal_coupling_receipt?.synthesis_lock ?? "NOT_APPLICABLE",
+      context.causal_coupling_applicability === "NOT_APPLICABLE"
+        ? "NOT_APPLICABLE"
+        : context.causal_coupling_receipt?.synthesis_lock ?? "BLOCK",
     community_prevalence_lock:
       context.community_denominator_receipt?.forum_signal_prevalence ??
         "NOT_AVAILABLE"
@@ -393,6 +466,7 @@ export function createReportSynthesisEvidenceContext(
     videos,
     formal_sources: formalSources,
     required_limitations: evidence.limitations,
+    causal_coupling_applicability: evidence.causalCouplingApplicability,
     causal_coupling_receipt: evidence.causalCouplingReceipt,
     community_denominator_receipt: evidence.communityDenominatorReceipt
   });
@@ -476,6 +550,7 @@ export function reportEvidenceBasisDigest(rawEvidence: ResearchReportEvidence): 
     formal_evidence: evidence.formalEvidence,
     treatment: evidence.treatment,
     limitations: evidence.limitations,
+    causal_coupling_applicability: evidence.causalCouplingApplicability,
     causal_coupling_receipt: evidence.causalCouplingReceipt,
     community_denominator_receipt: evidence.communityDenominatorReceipt
   }));
@@ -533,6 +608,7 @@ function validateReportPacket(
       community_claim_scope: claim.community_claim_scope,
       community_denominator_receipt_sha256:
         claim.community_denominator_receipt_sha256,
+      community_frequency: claim.community_frequency,
       references: claim.references
     }));
     if (claim.claim_id !== expectedId) {
@@ -738,6 +814,21 @@ function distinctPrograms(
 }
 
 function parseEvidence(raw: ResearchReportEvidence): ResearchReportEvidence {
+  const causalCouplingReceipt = raw.causalCouplingReceipt === undefined
+    ? undefined
+    : causalCouplingCoverageReceiptSchema.parse(raw.causalCouplingReceipt);
+  const causalCouplingApplicability = deriveCausalCouplingApplicability(
+    raw.researchTarget,
+    causalCouplingReceipt
+  );
+  if (
+    raw.causalCouplingApplicability !== undefined &&
+    raw.causalCouplingApplicability !== causalCouplingApplicability
+  ) {
+    throw new Error(
+      "Caller-supplied causal applicability conflicts with the server-derived classification"
+    );
+  }
   return {
     researchTarget: bounded(1_000).parse(raw.researchTarget),
     candidates: researchCandidateDiscoveryStateSchema.parse(raw.candidates),
@@ -745,9 +836,8 @@ function parseEvidence(raw: ResearchReportEvidence): ResearchReportEvidence {
     formalEvidence: researchFormalEvidenceStateSchema.parse(raw.formalEvidence),
     treatment: researchTreatmentFinalizationStateSchema.parse(raw.treatment),
     limitations: z.array(reportLimitationSchema).max(4_000).parse(raw.limitations),
-    causalCouplingReceipt: raw.causalCouplingReceipt === undefined
-      ? undefined
-      : causalCouplingCoverageReceiptSchema.parse(raw.causalCouplingReceipt),
+    causalCouplingApplicability,
+    causalCouplingReceipt,
     communityDenominatorReceipt: raw.communityDenominatorReceipt === undefined
       ? undefined
       : communityEvidenceDenominatorReceiptV2Schema.parse(
@@ -763,15 +853,40 @@ export function assertReportIntegrityClaim(
     | "causal_coupling_claim"
     | "causal_coupling_receipt_sha256"
     | "community_claim_scope"
-    | "community_denominator_receipt_sha256">,
+    | "community_denominator_receipt_sha256"
+    | "community_frequency"> & {
+      references?: z.output<typeof reportClaimReferenceSchema>[];
+    },
   context: Pick<ReportSynthesisEvidenceContext,
-    "causal_coupling_receipt" | "community_denominator_receipt">
+    "causal_coupling_applicability" | "causal_coupling_receipt" |
+      "community_denominator_receipt"> | Pick<ReportSynthesisEvidenceContext,
+        "causal_coupling_receipt" | "community_denominator_receipt">
 ): void {
   const causalReceipt = context.causal_coupling_receipt;
   const causalDigest = causalReceipt === undefined
     ? undefined
     : causalCouplingCoverageReceiptSha256(causalReceipt);
-  if (claim.causal_coupling_claim === true) {
+  const explicitApplicability = "causal_coupling_applicability" in context
+    ? context.causal_coupling_applicability
+    : causalReceipt?.applies === true ? "APPLICABLE" :
+      causalReceipt?.applies === false ? "NOT_APPLICABLE" : undefined;
+  if (explicitApplicability === "UNRESOLVED") {
+    throw new Error("Causal-coupling applicability is unresolved at synthesis");
+  }
+  if (explicitApplicability === "APPLICABLE") {
+    if (
+      claim.causal_coupling_claim !== true ||
+      causalReceipt === undefined ||
+      claim.causal_coupling_receipt_sha256 !== causalDigest
+    ) {
+      throw new Error(
+        "An applicable causal-coupling synthesis requires the exact receipt from controller evidence on every claim"
+      );
+    }
+    if (causalReceipt.synthesis_lock === "BLOCK") {
+      throw new Error("Causal-coupling synthesis is blocked by an unresolved check");
+    }
+  } else if (claim.causal_coupling_claim === true) {
     if (
       causalReceipt === undefined ||
       claim.causal_coupling_receipt_sha256 !== causalDigest
@@ -788,21 +903,47 @@ export function assertReportIntegrityClaim(
   }
 
   const isCommunity = claim.claim_kind === "community_attributed" ||
-    claim.claim_kind === "uncertainty";
+    claim.references?.some(({ reference_kind }) =>
+      reference_kind === "community_finding"
+    ) === true;
   if (!isCommunity && (
     claim.community_claim_scope !== undefined ||
-    claim.community_denominator_receipt_sha256 !== undefined
+    claim.community_denominator_receipt_sha256 !== undefined ||
+    claim.community_frequency !== undefined
   )) {
     throw new Error("Only community evidence claims can declare a community scope");
   }
   if (!isCommunity) return;
 
-  const scope = claim.community_claim_scope ?? "CASE_DISCOVERY";
+  const scope = claim.community_claim_scope;
+  if (scope === undefined) {
+    throw new Error("Every community evidence claim requires an explicit community scope");
+  }
   if (scope === "CASE_DISCOVERY") {
-    if (claim.community_denominator_receipt_sha256 !== undefined) {
+    if (
+      claim.community_denominator_receipt_sha256 !== undefined ||
+      claim.community_frequency !== undefined
+    ) {
       throw new Error("Case-discovery claims cannot attach a prevalence receipt");
     }
-    if (PREVALENCE_LIKE_WORDING.test(claim.wording)) {
+    const requiredDirectionalWarning =
+      context.community_denominator_receipt?.forum_signal_prevalence === "BLOCKED" &&
+      context.community_denominator_receipt.corpus_purpose !==
+        "PRIMARY_NEUTRAL_SIGNAL_ESTIMATION"
+        ? context.community_denominator_receipt.mandatory_wording
+        : undefined;
+    if (
+      requiredDirectionalWarning !== undefined &&
+      !claim.wording.includes(requiredDirectionalWarning)
+    ) {
+      throw new Error(
+        "Directional case discovery must preserve the exact denominator warning through synthesis"
+      );
+    }
+    const claimBeyondRequiredWarning = requiredDirectionalWarning === undefined
+      ? claim.wording
+      : claim.wording.replace(requiredDirectionalWarning, "");
+    if (PREVALENCE_LIKE_WORDING.test(claimBeyondRequiredWarning)) {
       throw new Error(
         "Directional case discovery cannot support prevalence-like wording"
       );
@@ -813,7 +954,6 @@ export function assertReportIntegrityClaim(
   const denominatorReceipt = context.community_denominator_receipt;
   if (
     denominatorReceipt === undefined ||
-    denominatorReceipt.forum_signal_prevalence !== "ALLOWED" ||
     claim.community_denominator_receipt_sha256 !==
       communityEvidenceDenominatorReceiptSha256(denominatorReceipt)
   ) {
@@ -821,21 +961,166 @@ export function assertReportIntegrityClaim(
       "A forum-frequency claim requires the exact passing denominator receipt"
     );
   }
-  if (
-    scope === "FIRSTHAND_USER_FREQUENCY" &&
-    !denominatorReceipt.firsthand_user_prevalence_allowed
-  ) {
-    throw new Error("The receipt does not permit firsthand-user frequency claims");
+  const frequency = claim.community_frequency;
+  if (frequency === undefined) {
+    throw new Error(
+      "A forum-frequency claim requires a structured community frequency bound to its receipt"
+    );
   }
-  if (
-    scope === "SEARCH_LANDSCAPE_FREQUENCY" &&
-    !denominatorReceipt.search_landscape_prevalence_allowed
+  if (frequency.estimate_kind === "EXACT") {
+    if (
+      denominatorReceipt.forum_signal_prevalence !== "ALLOWED" ||
+      !denominatorReceipt.exact_frequency_allowed
+    ) {
+      throw new Error("The receipt does not permit exact forum-frequency claims");
+    }
+    if (
+      scope === "FIRSTHAND_USER_FREQUENCY" &&
+      !denominatorReceipt.firsthand_user_prevalence_allowed
+    ) {
+      throw new Error("The receipt does not permit firsthand-user frequency claims");
+    }
+    if (
+      scope === "SEARCH_LANDSCAPE_FREQUENCY" &&
+      !denominatorReceipt.search_landscape_prevalence_allowed
+    ) {
+      throw new Error("The receipt does not permit search-landscape frequency claims");
+    }
+  } else if (
+    scope !== "FIRSTHAND_USER_FREQUENCY" ||
+    !denominatorReceipt.firsthand_user_bounded_frequency_allowed
   ) {
-    throw new Error("The receipt does not permit search-landscape frequency claims");
+    throw new Error("The receipt does not permit bounded firsthand-user frequencies");
+  }
+  assertStructuredCommunityFrequency(scope, frequency, denominatorReceipt, claim.wording);
+}
+
+function assertStructuredCommunityFrequency(
+  scope: "SEARCH_LANDSCAPE_FREQUENCY" | "FIRSTHAND_USER_FREQUENCY",
+  frequency: z.output<typeof communityFrequencySchema>,
+  receipt: z.output<typeof communityEvidenceDenominatorReceiptV2Schema>,
+  wording: string
+): void {
+  const basis = receipt.frequency_basis;
+  const userCategories = ["BENEFIT", "MIXED", "NO_EFFECT", "WORSENED"] as const;
+  const landscapeCategories = [
+    "POSITIVE_LEANING",
+    "NEGATIVE_LEANING",
+    "MIXED",
+    "NEUTRAL_QUESTION",
+    "NO_OUTCOME",
+    "PROMOTIONAL",
+    "OTHER"
+  ] as const;
+  const expectedDenominator = scope === "SEARCH_LANDSCAPE_FREQUENCY"
+    ? basis.exact_denominators.search_landscape
+    : frequency.analysis === "STRICT_ATTRIBUTION"
+      ? basis.exact_denominators.firsthand_strict
+      : basis.exact_denominators.firsthand_inclusive;
+  if (
+    frequency.denominator_type !== basis.denominator_type ||
+    frequency.corpus_version !== receipt.corpus_version ||
+    frequency.mandatory_qualification !== receipt.mandatory_wording ||
+    !wording.includes(receipt.mandatory_wording)
+  ) {
+    throw new Error(
+      "Structured community frequency is inconsistent with the exact denominator receipt"
+    );
+  }
+  if (frequency.estimate_kind === "BOUNDED") {
+    if (scope !== "FIRSTHAND_USER_FREQUENCY" ||
+      frequency.analysis === "SEARCH_LANDSCAPE") {
+      throw new Error(
+        "Structured bounded community frequency is inconsistent with its scope"
+      );
+    }
+    const numeratorBounds = frequency.analysis === "STRICT_ATTRIBUTION"
+      ? basis.user_outcome_bounds_strict
+      : basis.user_outcome_bounds_inclusive;
+    const denominatorBounds = frequency.analysis === "STRICT_ATTRIBUTION"
+      ? basis.strict_denominator_bounds
+      : basis.denominator_bounds;
+    const category = frequency.category as keyof typeof numeratorBounds;
+    const expectedBounds = numeratorBounds[category];
+    if (
+      expectedBounds === undefined ||
+      frequency.numerator_lower_bound !== expectedBounds.lower_bound ||
+      frequency.numerator_upper_bound !== expectedBounds.upper_bound ||
+      frequency.denominator_lower_bound !== denominatorBounds.lower_bound ||
+      frequency.denominator_upper_bound !== denominatorBounds.upper_bound
+    ) {
+      throw new Error(
+        "Structured community frequency is inconsistent with the exact denominator receipt"
+      );
+    }
+    return;
+  }
+  if (frequency.denominator !== expectedDenominator) {
+    throw new Error(
+      "Structured community frequency is inconsistent with the exact denominator receipt"
+    );
+  }
+  let expectedNumerator: number | undefined;
+  if (scope === "SEARCH_LANDSCAPE_FREQUENCY") {
+    if (
+      frequency.analysis !== "SEARCH_LANDSCAPE" ||
+      !landscapeCategories.includes(
+        frequency.category as typeof landscapeCategories[number]
+      )
+    ) {
+      throw new Error(
+        "Structured community frequency is inconsistent with its search-landscape scope"
+      );
+    }
+    expectedNumerator = basis.search_landscape[
+      frequency.category as keyof typeof basis.search_landscape
+    ];
+  } else {
+    if (
+      frequency.analysis === "SEARCH_LANDSCAPE" ||
+      !userCategories.includes(frequency.category as typeof userCategories[number])
+    ) {
+      throw new Error(
+        "Structured community frequency is inconsistent with its firsthand-user scope"
+      );
+    }
+    const counts = frequency.analysis === "STRICT_ATTRIBUTION"
+      ? basis.user_outcomes_strict
+      : basis.user_outcomes_inclusive;
+    expectedNumerator = counts[
+      frequency.category as keyof typeof counts
+    ];
+  }
+  if (frequency.numerator !== expectedNumerator) {
+    throw new Error(
+      "Structured community frequency is inconsistent with the exact denominator receipt"
+    );
   }
 }
 
-const PREVALENCE_LIKE_WORDING = /(?:%|\bpercent(?:age)?s?\b|\bratio\b|\bmostly\b|\bmost users\b|\bmany more\b|\b(?:common|rare)\b|\b(?:positive|negative) tilt\b|\b(?:strongly|moderately) (?:positive|negative)\b|\b(?:forum|community|corpus|landscape|reports?|users?|signal)\b.{0,48}\b(?:mixed|positive|negative)\b|\b(?:mixed|positive|negative)\b.{0,48}\b(?:forum|community|corpus|landscape|reports?|users?|signal)\b)/iu;
+const PREVALENCE_LIKE_WORDING = /(?:%|\bpercent(?:age)?s?\b|\bprevalence\b|\bratio\b|\bmostly\b|\bmost users\b|\bmany more\b|\b(?:common|rare)\b|\b(?:positive|negative) tilt\b|\b(?:strongly|moderately|predominantly) (?:positive|negative)\b|\b(?:half|one in \w+|\w+ of \w+) (?:of )?users?\b|\bmore often (?:beneficial|harmful|positive|negative)\b|\b(?:forum|community|corpus|landscape|reports?|users?|signal)\b.{0,48}\b(?:mixed|positive|negative)\b|\b(?:mixed|positive|negative)\b.{0,48}\b(?:forum|community|corpus|landscape|reports?|users?|signal)\b)/iu;
+
+export function deriveCausalCouplingApplicability(
+  researchTarget: string,
+  receipt?: CausalCouplingCoverageReceipt
+): "APPLICABLE" | "NOT_APPLICABLE" | "UNRESOLVED" {
+  const target = bounded(1_000).parse(researchTarget).toLowerCase();
+  const marker = /\b(?:side effects?|adverse (?:effects?|reactions?)|reaction|marker|symptoms?|pain|soreness|distress|flushing|withdrawal|acute response)\b/u.test(target);
+  const benefit = /\b(?:benefit|therapeutic|efficacy|effective|improv|heal|repair|recovery|working|response)\w*\b/u.test(target);
+  const coupling = /\b(?:part of|sign of|means?|marker|predict|correlat|covar|necessary|sufficient|mediat|link|coupl|preserv|same benefit)\w*\b/u.test(target);
+  const explicitRelationalQuestion = /\b(?:does|do|did|can|could|is|are|was|were|may|might)\b.{1,160}\b(?:mean|predict\w*|correlat\w* with|covar\w* with|part of|necessary for|sufficient for|mediat\w*|marker of|sign (?:of|that)|linked to|associated with)\b/u.test(target) ||
+    /\b(?:reduc|eliminat|suppress|avoid)\w*\b.{0,160}\b(?:benefit|efficacy|effectiveness|improvement)\b.{0,80}\b(?:remain|preserv|chang|reduc|lost|loss)\w*\b/u.test(target);
+  const classified = explicitRelationalQuestion || (marker && benefit && coupling)
+    ? "APPLICABLE" as const
+    : "NOT_APPLICABLE" as const;
+  if (receipt === undefined) return classified;
+  if (!receipt.applies && classified === "APPLICABLE") {
+    throw new Error(
+      "A non-applicable causal receipt conflicts with the server-derived research target"
+    );
+  }
+  return receipt.applies ? "APPLICABLE" : "NOT_APPLICABLE";
+}
 
 function reportScopeForBoundary(
   boundary: string

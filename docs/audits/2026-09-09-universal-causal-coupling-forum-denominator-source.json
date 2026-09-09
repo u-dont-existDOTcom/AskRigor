@@ -120,13 +120,155 @@
       ],
       "postRunDiagnosis": "The package-entrypoint test passed alone in 3.34 seconds. The controlled-route file's timeouts masked one stale project-section receipt; that bookkeeping assertion was corrected and its exact case passed alone in 6.34 seconds. The other controlled-route cases had passed in the same isolated run that exposed the receipt."
     },
-    "fullVerifyRerun": "WITHHELD_PENDING_PROTECTED_CI_BECAUSE_THE_SOURCE_BOUND_TWO_RUN_LIMIT_WAS_CONSUMED_BY_THE_CLEAN_BASE_AND_FIRST_CANDIDATE RUNS"
+    "fullVerifyRerun": "WITHHELD_PENDING_PROTECTED_CI_BECAUSE_THE_SOURCE_BOUND_TWO_RUN_LIMIT_WAS_CONSUMED_BY_THE_CLEAN_BASE_AND_FIRST_CANDIDATE RUNS",
+    "status": "CORRECTED_EXACT_TREE_READY_FOR_COMMIT_PUSH_CI_AND_REVIEW"
   },
   "limits": {
     "maximumExternalSpendUsd": 0,
     "providerOrResearchRequests": 0,
     "mastGenerationJudgingOrScoring": 0,
     "privateMastPayloadReads": 0,
-    "phase2MergeReleaseActions": "NOT_ADMITTED_UNTIL_PROJECT_MANAGER_ACCEPTS_EXACT_TREE"
+    "phase2MergeReleaseActions": "NOT_ADMITTED_UNTIL_PROJECT_MANAGER_ACCEPTS_EXACT_TREE",
+    "correctionProviderOrResearchRequests": 0,
+    "correctionMastGenerationJudgingOrScoring": 0,
+    "correctionFullVerifyRuns": 2,
+    "correctionIsolatedTimeoutDiagnostics": 1
+  },
+  "integrationBase": {
+    "mainCommit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+    "mainTree": "7033b8d4118175da9b489b7a2fa6dbc583e051b8",
+    "mergeCommit": "fa1cf7a3f4b63adef874a6caa443a6d5d6e758d4",
+    "mergeMethod": "LOCAL_NO_FF_NO_CONFLICTS",
+    "mainAddedPathsPreservedByteIdentical": [
+      "apps/research-mcp/src/epistemic-verifier.ts",
+      "docs/superpowers/plans/2026-09-09-executable-epistemic-verifier-kernel-v01.md",
+      "evaluation/epistemic-verifier/README.md",
+      "evaluation/epistemic-verifier/v01-development-fixtures.json",
+      "tests/epistemic-verifier.test.ts"
+    ]
+  },
+  "exactTreeReview": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "messageId": "b7d9e96c-44ad-4e61-87e1-82cc577f65ca",
+    "bodyUtf8Bytes": 17471,
+    "bodySha256": "8aafbd9565d8a4a4451572124133ae59cd8e7bb484785d032166302cb158d916",
+    "directiveId": "askrigor-pr210-denominator-and-synthesis-integrity-correction-v1",
+    "decision": "REVISE_RELEASE_BLOCKED",
+    "reviewedHead": "f6d1e06613fd5fb8df856132998c835f913c51bf",
+    "reviewedTree": "84036ceb7a54d15e2202782c073120c2b8fe96d2",
+    "blockingDefects": [
+      "PR210-DENOM-CORPUS-CLOSURE-01",
+      "PR210-DENOM-DIRECTIONAL-PRIMARY-02",
+      "PR210-DENOM-LONGITUDINAL-ATTRIBUTION-03",
+      "PR210-SYNTHESIS-SELF-CLASSIFICATION-BYPASS-04"
+    ]
+  },
+  "correctionAdmission": {
+    "requestId": "admission:askrigor:pr210:b7d9e96c:63f3415:correction:zero-spend:20260909",
+    "requestUtf8Bytes": 2731,
+    "requestSha256": "6a8192e04049ba516f3942dcb0ce70f4bfd076dc7c1029c8a018fb7fe470fc0f",
+    "authorityGate": "PASS",
+    "structuralParser": "PASS",
+    "semanticEvaluator": "ALLOW_BOUNDED_EXECUTION",
+    "httpStatus": 200,
+    "responseUtf8Bytes": 813,
+    "responseSha256": "13e3cab8a9a3b7980baa69dcd1610a9a08c85a3b4525992bbd89b66785185443",
+    "admitted": true,
+    "mayExecute": true,
+    "providerDeliveryState": "NOT_REQUIRED",
+    "ownerRelayRequired": false,
+    "routeDecision": null,
+    "routeEvent": null,
+    "submissionCount": 1
+  },
+  "correctiveRegressionBaseline": {
+    "integratedPreCorrectionHead": "fa1cf7a3f4b63adef874a6caa443a6d5d6e758d4",
+    "negativeRegressionCommit": "94b335cd2b94e8d45fe08bdaee07464d548255ed",
+    "command": "npx vitest run tests/community-evidence-denominator-regressions.test.ts tests/causal-coupling-regressions.test.ts",
+    "status": "EXPECTED_FAILURE",
+    "testFilesFailed": 2,
+    "testsFailed": 10,
+    "testsPassed": 26,
+    "failures": [
+      "directional warning was not exact",
+      "anonymous denominator and outcome bounds were absent",
+      "replacement provenance was absent",
+      "directional primary plan remained schema-valid",
+      "retrieved-card disposition closure was not enforced",
+      "depth/list mismatch was accepted",
+      "late confounded outcome inherited earlier strict attribution",
+      "community scope omission defaulted to case discovery",
+      "applicable causal synthesis accepted an omitted claim flag"
+    ]
+  },
+  "correctiveValidation": {
+    "runtime": "Node v24.18.0",
+    "focusedRegressions": {
+      "command": "npx vitest run tests/community-evidence-denominator-regressions.test.ts tests/causal-coupling-regressions.test.ts tests/research-session-controller.test.ts",
+      "status": "PASS",
+      "testFiles": 3,
+      "tests": 60
+    },
+    "compatibilityRegressions": {
+      "command": "npx vitest run tests/hermes-policy-transport.test.ts tests/reasoning-selection-structure.test.ts",
+      "status": "PASS",
+      "testFiles": 2,
+      "tests": 9
+    },
+    "isolatedTimeoutDiagnostic": {
+      "command": "npx vitest run tests/controlled-research-route.test.ts",
+      "status": "PASS",
+      "testFiles": 1,
+      "tests": 16,
+      "durationSeconds": 117.23
+    },
+    "firstFullVerify": {
+      "status": "FAILED_WITH_TWO_SUBSTANTIVE_BOOKKEEPING_DEFECTS_AND_PARALLEL_TIMEOUTS",
+      "passedTestFiles": 156,
+      "skippedTestFiles": 1,
+      "failedTestFiles": 3,
+      "passedTests": 1911,
+      "skippedTests": 6,
+      "failedTests": 10,
+      "corrections": "Preserved the reviewed forum-module bytes and made the server work-package field backward-readable without allowing an applicable target to default to not applicable."
+    },
+    "secondFullVerify": {
+      "status": "FAILED_PARALLEL_TIMEOUTS_ONLY",
+      "passedTestFiles": 158,
+      "skippedTestFiles": 1,
+      "failedTestFiles": 1,
+      "passedTests": 1917,
+      "skippedTests": 6,
+      "timedOutTests": 4,
+      "failedAssertions": 0,
+      "file": "tests/controlled-research-route.test.ts",
+      "qualification": "The same complete 16-test file passed alone; protected CI remains the required clean parallel-run authority."
+    },
+    "typecheck": "PASS",
+    "build": "PASS",
+    "diffCheck": "PASS",
+    "customGptGenerator": "PASS_NO_TRACKED_DIFF",
+    "protocols": {
+      "universalVersion": "20.5.23",
+      "universalSha256": "dcc494fced7c0b69f4407a2abad5b4dfe24827bafb860cbe27e3a6988c91a0c6",
+      "hrpVersion": "20.5.27",
+      "hrpSha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a",
+      "hrpDisposition": "BYTE_IDENTICAL"
+    },
+    "projectRouterSha256": "d3f4398eb7ca680ae12d2246109853b6a72b50ef0ca7fcbcaa7bf46fc6e45628",
+    "forumModuleSha256": "09b6f80c449056103adb49aba4c78c91732fc345366f1d409ade256223d6c7d2",
+    "postSecondVerifyExactTreeChecks": {
+      "status": "PASS",
+      "commands": [
+        "npm run typecheck",
+        "npx vitest run tests/community-evidence-denominator-regressions.test.ts tests/causal-coupling-regressions.test.ts tests/research-session-controller.test.ts tests/hermes-policy-transport.test.ts tests/reasoning-selection-structure.test.ts",
+        "npm run build",
+        "git diff --check"
+      ],
+      "testFiles": 5,
+      "tests": 69,
+      "scope": "Includes bounded anonymous-frequency synthesis and expanded generic relational applicability cases added after the second local full-suite run."
+    }
   }
 }

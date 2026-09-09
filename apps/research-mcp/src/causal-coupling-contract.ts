@@ -162,6 +162,7 @@ const coverageCheckSchema = z.object({
 export const causalCouplingCoverageReceiptSchema = z.object({
   receipt_version: z.literal("askrigor_causal_coupling_coverage_v1"),
   plan_sha256: digest,
+  applies: z.boolean(),
   checks: z.array(coverageCheckSchema).length(7),
   serious_hypotheses: z.number().int().nonnegative(),
   serious_hypotheses_with_discriminator: z.number().int().nonnegative(),
@@ -198,6 +199,7 @@ export function assessCausalCouplingCoverage(
     return causalCouplingCoverageReceiptSchema.parse({
       receipt_version: "askrigor_causal_coupling_coverage_v1",
       plan_sha256: planSha256,
+      applies: false,
       checks: causalCouplingCheckIdSchema.options.map((check_id) => ({
         check_id,
         status: "NOT_APPLICABLE",
@@ -321,6 +323,7 @@ export function assessCausalCouplingCoverage(
   return causalCouplingCoverageReceiptSchema.parse({
     receipt_version: "askrigor_causal_coupling_coverage_v1",
     plan_sha256: planSha256,
+    applies: true,
     checks,
     serious_hypotheses: serious.length,
     serious_hypotheses_with_discriminator: hypothesisResolved,

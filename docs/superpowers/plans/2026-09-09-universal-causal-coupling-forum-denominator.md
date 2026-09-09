@@ -1,6 +1,6 @@
 # Universal causal-coupling and forum-denominator integration
 
-Status: candidate implementation complete; protected CI and exact-tree review pending
+Status: exact-tree corrections implemented; final validation and renewed exact-tree review pending
 
 ## Fixed source and boundaries
 
@@ -47,10 +47,17 @@ these universal gates.
 6. Run focused tests, XML/hash checks, generators and the full deterministic
    gate. Treat the untouched baseline's full-suite timeouts separately from
    substantive assertion failures; the isolated 16-test file passes.
-7. Review the exact diff and path manifest, push one branch update, open one
-   draft PR, and route the exact candidate tree and evidence to the Project
-   Manager. Merge/release requires a separate Phase 2 admission after semantic
-   acceptance.
+7. Merge current `main` locally at the authorized correction boundary, preserve
+   its epistemic-verifier files byte-identically, and add negative regressions
+   proving all four exact-tree review bypasses against the integrated candidate.
+8. Enforce bidirectional result-card disposition closure, primary-query
+   neutrality, materiality/replacement provenance, bounded anonymous frequency,
+   episode-bound attribution, controller-derived causal applicability, explicit
+   community scope, and receipt-verified structured frequency claims.
+9. Review the exact diff and path manifest, push one branch update, update the
+   existing draft PR once, and route the corrected exact head/tree and evidence
+   to the Project Manager. Merge/release remains blocked until a new exact-tree
+   directive authorizes it.
 
 ## Invariants
 

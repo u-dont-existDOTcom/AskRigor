@@ -133,6 +133,7 @@ function frequencyClaim(
     community_denominator_receipt_sha256:
       communityEvidenceDenominatorReceiptSha256(result.receipt),
     community_frequency: {
+      estimate_kind: "EXACT" as const,
       denominator_type: "FIRSTHAND_FORUM_USER_DENOMINATOR",
       corpus_version: 1,
       analysis: "INCLUSIVE",
@@ -235,10 +236,30 @@ describe("community evidence denominator regressions", () => {
       lower_bound: 1, upper_bound: 2
     });
     expect(bounded.ledger.user_outcome_bounds_inclusive.WORSENED).toEqual({
-      lower_bound: 0, upper_bound: 2
+      lower_bound: 1, upper_bound: 2
     });
     expect(bounded.receipt.exact_frequency_allowed).toBe(false);
     expect(bounded.receipt.forum_signal_prevalence).toBe("BLOCKED");
+    expect(bounded.receipt.firsthand_user_bounded_frequency_allowed).toBe(true);
+    expect(() => assertReportIntegrityClaim({
+      claim_kind: "community_attributed",
+      wording: bounded.receipt.mandatory_wording,
+      community_claim_scope: "FIRSTHAND_USER_FREQUENCY",
+      community_denominator_receipt_sha256:
+        communityEvidenceDenominatorReceiptSha256(bounded.receipt),
+      community_frequency: {
+        estimate_kind: "BOUNDED",
+        denominator_type: "FIRSTHAND_FORUM_USER_DENOMINATOR",
+        corpus_version: 1,
+        analysis: "INCLUSIVE",
+        category: "WORSENED",
+        numerator_lower_bound: 1,
+        numerator_upper_bound: 2,
+        denominator_lower_bound: 1,
+        denominator_upper_bound: 2,
+        mandatory_qualification: bounded.receipt.mandatory_wording
+      }
+    }, { community_denominator_receipt: bounded.receipt })).not.toThrow();
   });
 
   it("excludes an irrelevant source and permits a same-query replacement", () => {
@@ -247,7 +268,14 @@ describe("community evidence denominator regressions", () => {
       exclusion_reason: "IRRELEVANT_SUBJECT",
       search_landscape_category: "OTHER"
     });
-    const replacement = thread(2, { replacement_for_result_card_id: "card-1" });
+    expect(() => assess(plan(), [rejected, thread(2)], [episode(2, "BENEFIT")]))
+      .toThrow(/next eligible result from the same frozen search/iu);
+    const replacement = thread(2, {
+      replacement_for_result_cards: [{
+        query_id: "q1",
+        rejected_result_card_id: "card-1"
+      }]
+    });
     const result = assess(plan(), [rejected, replacement], [episode(2, "BENEFIT")]);
     expect(result.ledger.relevant_threads).toBe(1);
     expect(result.ledger.material_source_quota_consumed).toBe(1);
@@ -299,7 +327,7 @@ describe("community evidence denominator regressions", () => {
       userEpisodes: [],
       sensitivityCasesOutsideDenominator: 0,
       sensitivityResultsSeparated: true
-    })).toThrow(/not linked to its frozen search receipt/u);
+    })).toThrow(/every retrieved result card.*exactly one disposition/iu);
   });
 
   it("flags promotional selection and excludes unsupported vendor claims", () => {
@@ -354,6 +382,25 @@ describe("community evidence denominator regressions", () => {
       wording: "The directional searches were mostly positive.",
       community_claim_scope: "CASE_DISCOVERY"
     }, {})).toThrow(/cannot support prevalence-like wording/u);
+  });
+
+  it("preserves the exact directional-corpus warning through synthesis", () => {
+    const directional = assess(
+      plan("DIRECTIONAL_SENSITIVITY", "DIRECTIONAL"),
+      [thread(1)],
+      [episode(1, "BENEFIT")]
+    );
+    expect(() => assertReportIntegrityClaim({
+      claim_kind: "community_attributed",
+      wording: directional.receipt.mandatory_wording,
+      community_claim_scope: "CASE_DISCOVERY"
+    }, { community_denominator_receipt: directional.receipt })).not.toThrow();
+    expect(() => assertReportIntegrityClaim({
+      claim_kind: "community_attributed",
+      wording: "Targeted searches found both positive and negative examples.",
+      community_claim_scope: "CASE_DISCOVERY"
+    }, { community_denominator_receipt: directional.receipt }))
+      .toThrow(/exact denominator warning/iu);
   });
 
   it("permits firsthand-user frequency only with the exact passing receipt", () => {
