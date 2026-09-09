@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "universal_causal_coupling_forum_denominator_source_and_phase1_admission",
+  "directiveId": "askrigor-universal-causal-coupling-forum-denominator-fix-v1",
+  "source": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "messageId": "c9440301-817c-4891-a53f-0cf5e27aae7e",
+    "bodyUtf8Bytes": 26755,
+    "bodySha256": "d906e87dff1163d8f3af2daaeafa8d7d99d438672fb64d2ae87bdd7fdd20acff",
+    "parseStatus": "VALID_JSON",
+    "decision": "AUTHORIZE_IMPLEMENT_REVIEW_MERGE_RELEASE_ZERO_SPEND"
+  },
+  "fixedRepositoryState": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "baseCommit": "0565222b1080f65ee70cde1be8daea160668e978",
+    "baseTree": "9ab9231406ba1b31578789f048b71a7c83fb0ea5",
+    "branch": "task/universal-causal-coupling-forum-signal-20260909",
+    "universal": {
+      "version": "20.5.22",
+      "sha256": "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+    },
+    "hrp": {
+      "version": "20.5.27",
+      "sha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a",
+      "requiredDisposition": "BYTE_IDENTICAL"
+    }
+  },
+  "pathFreeze": {
+    "pathCount": 36,
+    "manifestSha256": "15f9c9e0b1af5d94ed29d054d5a91462ef5b771bcda5a0926a4de55034d27664",
+    "symbolPathInventorySha256": "006b98a100786371fc6e14c4dc37c6c525cd3a20ad2945b7a21c33742476ca1d",
+    "cleanBaseGeneratorNoDiffManifestSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "generatorOutputs": [
+      "docs/custom-gpt-action-openapi.json",
+      "docs/custom-gpt-instructions.md",
+      "docs/custom-gpt-sync.json",
+      "apps/research-mcp/src/generated/custom-gpt-bundle.ts"
+    ]
+  },
+  "phase1Admission": {
+    "requestId": "admission:askrigor:universal-causal-forum:c9440301:0565222:phase1:zero-spend:20260909",
+    "requestUtf8Bytes": 2907,
+    "requestSha256": "30ae40438871418b39bfe55199e96fbbcf3bc6936341aeb2cb55e87ceff0cd81",
+    "authorityGate": "PASS",
+    "structuralParser": "PASS",
+    "semanticEvaluator": "ALLOW_BOUNDED_EXECUTION",
+    "httpStatus": 200,
+    "responseUtf8Bytes": 826,
+    "responseSha256": "22259421a5597c98caae66d0f228805b964fc214361c1a9d8f1e5c6b02870b5d",
+    "admitted": true,
+    "mayExecute": true,
+    "providerDeliveryState": "NOT_REQUIRED",
+    "ownerRelayRequired": false,
+    "routeDecision": null,
+    "routeEvent": null,
+    "submissionCount": 1
+  },
+  "baseline": {
+    "runtime": "Node v24.18.0",
+    "npmCi": "PASS",
+    "fullVerify": {
+      "status": "FAILED_TIMEOUTS_ONLY",
+      "passedTestFiles": 155,
+      "skippedTestFiles": 1,
+      "failedTestFiles": 1,
+      "passedTests": 1863,
+      "skippedTests": 6,
+      "timedOutTests": 7,
+      "failedAssertions": 0,
+      "file": "tests/controlled-research-route.test.ts"
+    },
+    "isolatedTimedOutFile": {
+      "status": "PASS",
+      "passedTests": 16,
+      "failedTests": 0,
+      "durationSeconds": 127.5,
+      "qualification": "The clean-base full-suite result is retained as a contention/infrastructure signal, not a substantive invariant failure."
+    }
+  },
+  "limits": {
+    "maximumExternalSpendUsd": 0,
+    "providerOrResearchRequests": 0,
+    "mastGenerationJudgingOrScoring": 0,
+    "privateMastPayloadReads": 0,
+    "phase2MergeReleaseActions": "NOT_ADMITTED_UNTIL_PROJECT_MANAGER_ACCEPTS_EXACT_TREE"
+  }
+}
