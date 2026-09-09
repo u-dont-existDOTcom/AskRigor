@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "evaluation_id": "askrigor_epistemic_verifier_v01_blinded_development_ab_20260909",
+  "run_date": "2026-09-09",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "status": "PARTIALLY_EXECUTED_EXTERNAL_CAPABILITY_BLOCK",
+  "canonical_source_commit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+  "task_branch": "task/epistemic-verifier-blinded-ab-20260909",
+  "pull_request": 211,
+  "source_artifacts": {
+    "issue": 208,
+    "implementation_plan": "docs/superpowers/plans/2026-09-09-executable-epistemic-verifier-kernel-v01.md",
+    "evaluation_readme": "evaluation/epistemic-verifier/README.md",
+    "fixtures": "evaluation/epistemic-verifier/v01-development-fixtures.json",
+    "verifier": "apps/research-mcp/src/epistemic-verifier.ts",
+    "tests": "tests/epistemic-verifier.test.ts",
+    "agents": "AGENTS.md",
+    "governance": "governance/chat-work-authority-policy.json"
+  },
+  "canonical_protocol_manifests": {
+    "HRP": {"version":"20.5.27","revision_date":"2026-09-09","sha256":"65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a"},
+    "Universal": {"version":"20.5.22","revision_date":"2026-09-08","sha256":"d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"}
+  },
+  "current_reasoning_surface": {
+    "model": "GPT-5.6 Sol",
+    "product_mode": "NOT_EXPOSED_TO_RUNTIME; NOT_GUESSED",
+    "session_role": "current project-manager reasoning chat",
+    "blinded_for_fixture_inference": false,
+    "contamination_reason": "This session read issue #208, fixture identities/expected outcomes, verifier implementation, tests, and scorer design before any candidate consumer inference."
+  },
+  "spend": {"paid_model_api_inference_used":false,"model_api_spend_usd":0},
+  "strategy_switches": [
+    {
+      "trigger": "Canonical short source packets were found not to fully encode neutral scaffolding that stateForFixture() adds before verification for several fixtures.",
+      "failed_assumption": "Alias-renaming the short source_packet alone would preserve the intended canonical gate vector in a fresh source-to-state Arm B run.",
+      "risk": "Arm B could appear safer because an unrelated gate became non-pass from under-specification, not because the intended invariant was enforced.",
+      "action": "Correct blind packets with only neutral facts already present in the canonical test-state builder and add scorer guards against crediting collateral blocks.",
+      "status": "COMPLETE"
+    }
+  ],
+  "execution": {
+    "mandatory_canonical_reads": "COMPLETE",
+    "blind_surface_randomization": "COMPLETE",
+    "source_state_representability_audit": "COMPLETE",
+    "canonical_test_scaffolding_correction": "COMPLETE",
+    "arm_a_protocol": "COMPLETE",
+    "arm_b_protocol": "COMPLETE",
+    "scoring_contract": "COMPLETE",
+    "canonical_deterministic_verifier_execution": "COMPLETE_VIA_PINNED_GITHUB_ACTIONS",
+    "canonical_ci_run_id": 34392380245,
+    "fresh_consumer_arm_a_outputs": "BLOCKED",
+    "fresh_consumer_arm_b_semantic_states": "BLOCKED",
+    "consumer_repair_loops": "BLOCKED",
+    "comparative_ab_scoring": "BLOCKED"
+  },
+  "external_capability_blocker": {
+    "code": "FRESH_CONSUMER_SESSION_INVOCATION_UNAVAILABLE",
+    "detail": "The available ChatGPT tool surface in this reasoning chat cannot spawn or message a fresh isolated consumer ChatGPT session. Mission Control exposes read-only binding/liveness metadata only. The AskRigor connector exposes protocol/research tools but no fresh consumer-reasoning-session runner. Reusing this chat would violate the requested blinding because gold expectations and verifier internals are already in context.",
+    "actor_that_can_clear": "A consumer ChatGPT surface or execution worker with access to fresh isolated AskRigor chats using the committed blind packets.",
+    "next_executable_action": "Run each blind packet in one fresh Arm A and one fresh Arm B consumer session, persist raw outputs before opening the scorer key, execute the pinned verifier on each Arm B state, perform bounded repairs, then score with SCORING.md."
+  },
+  "lessons_status": {
+    "status": "UNAVAILABLE",
+    "reason": "The local runtime does not have the GitHub CLI/authenticated maintainer path required by npm run lessons:status; no queue counts were invented."
+  },
+  "result_status": {
+    "valid_comparative_ab_result": false,
+    "reason": "Neither fresh Arm A outputs nor fresh semantic-producer Arm B outputs can be obtained from the currently exposed tool surface without violating blinding.",
+    "deterministic_development_result": "0/5 fully represented hard-challenge escapes; 0/2 false blocks on narrow-pass controls; deliberate semantic omission audit blocked 1/1.",
+    "architecture_recommendation": "Do not claim material A/B improvement yet. Preserve the verifier premise as provisionally supported for represented invariants. The known unsolved boundary is semantic representation completeness, so independent semantic representation verification is the leading next slice if fresh Arm B failures concentrate there; otherwise follow the strategy-switch rules in SCORING.md."
+  }
+}

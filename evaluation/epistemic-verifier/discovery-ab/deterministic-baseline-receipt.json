@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "evaluation_id": "askrigor_epistemic_verifier_v01_blinded_development_ab_20260909",
+  "receipt_kind": "canonical_deterministic_gold_state_baseline",
+  "not_a_consumer_ab_result": true,
+  "canonical_source_commit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+  "canonical_ci": {
+    "workflow": "AskRigor deterministic verification",
+    "run_id": 34392380245,
+    "event": "push",
+    "head_sha": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+    "status": "completed",
+    "conclusion": "success",
+    "observed_at": "2026-09-09"
+  },
+  "derivation": {
+    "fixture_expectations_source": "evaluation/epistemic-verifier/v01-development-fixtures.json",
+    "state_builder_and_assertions": "tests/epistemic-verifier.test.ts",
+    "reason": "The test named 'matches every deterministic development fixture expectation' asserts the canonical verifier receipt against every fixture with deterministic expectations; the pinned CI run succeeded."
+  },
+  "fixture_receipts": [
+    {"fixture_id":"shared-q-control","SPECIFICITY_DISCRIMINATOR":"block","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block","definitive_synthesis":false},
+    {"fixture_id":"dose-modified-q","SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"pass","definitive_synthesis":true},
+    {"fixture_id":"immediate-vs-delayed","SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"block","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block","definitive_synthesis":false},
+    {"fixture_id":"tiny-vs-threshold","SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"block","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block","definitive_synthesis":false},
+    {"fixture_id":"target-substitution","SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"block","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"block","definitive_synthesis":false},
+    {"fixture_id":"true-discriminator","SPECIFICITY_DISCRIMINATOR":"pass","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"pass","definitive_synthesis":true},
+    {"fixture_id":"no-control","SPECIFICITY_DISCRIMINATOR":"insufficient","EVIDENCE_DIRECTION":"pass","TARGET_PRESERVATION":"pass","PROVENANCE_DEPENDENCY":"pass","SYNTHESIS_LOCK":"insufficient","definitive_synthesis":false},
+    {"fixture_id":"missing-high-information-qualifier","deterministic_relative_to_incomplete_candidate":{"definitive_synthesis":true},"representation_audit":{"status":"block","missing":["qualifier:obs_x.onset_seconds"],"mismatched":["high_information:obs_x.onset_seconds"]}}
+  ],
+  "aggregate": {
+    "fully_represented_hard_challenge_fixtures": 5,
+    "hard_invariant_escapes": 0,
+    "hard_invariant_escape_rate": 0.0,
+    "valid_narrow_conclusion_controls": 2,
+    "false_blocks": 0,
+    "false_block_rate": 0.0,
+    "deliberate_semantic_omission_challenges": 1,
+    "representation_audit_blocks": 1,
+    "semantic_omission_detection_rate": 1.0,
+    "consumer_semantic_translation_error_rate": "NOT_MEASURED",
+    "consumer_repair_success": "NOT_MEASURED",
+    "consumer_correct_conclusion_change_rate": "NOT_MEASURED",
+    "arm_a_hard_invariant_escape_rate": "NOT_MEASURED",
+    "arm_b_end_to_end_hard_invariant_escape_rate": "NOT_MEASURED"
+  },
+  "interpretation": "The deterministic kernel succeeds on canonical hand-built states for all fully represented hard challenges and the separate synthetic representation audit catches the deliberate qualifier omission. This does not establish end-to-end superiority over prompt-only HRP because fresh consumer Arm A and semantic-producer Arm B outputs have not yet been captured."
+}

@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "evaluation_id": "askrigor_epistemic_verifier_v01_blinded_development_ab_20260909",
+  "scorer_only": true,
+  "canonical_source_commit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+  "packets": [
+    {
+      "blind_id": "DEV-JRSYJV",
+      "original_fixture_id": "dose-modified-q",
+      "hard_invariant_challenge": false,
+      "false_block_control": true,
+      "expected_gate_vector": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "pass"
+      },
+      "definitive_synthesis": true,
+      "gold_conclusion": "The represented dose > 5 predicate survives the specificity contrast; that structural pass does not by itself prove causality.",
+      "critical_semantics": [
+        "Harbor and Lark are positive/response cases; Juniper is tolerated control.",
+        "Sable is present in all three cases.",
+        "Represented Sable dose is Harbor=10, Lark=12, Juniper=1 units.",
+        "The tested predicate is Sable dose > 5.",
+        "Dose is a separate source-grounded modifier distinction."
+      ]
+    },
+    {
+      "blind_id": "DEV-L9JQC2",
+      "original_fixture_id": "tiny-vs-threshold",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "block",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block"
+      },
+      "definitive_synthesis": false,
+      "gold_conclusion": "The proposed minimum-threshold hypothesis predicts the opposite dose direction and cannot receive definitive support without a separately supported exception mechanism.",
+      "critical_semantics": [
+        "Plover is a positive case; Kestrel is a tolerated control.",
+        "Tern is represented in Plover and absent from Kestrel and is the proposed discriminator.",
+        "Observed represented exposure is 0.1 units and is high-information.",
+        "Material hypothesis requires exposure >= 10 units."
+      ]
+    },
+    {
+      "blind_id": "DEV-9M34WA",
+      "original_fixture_id": "no-control",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {
+        "SPECIFICITY_DISCRIMINATOR": "insufficient",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "insufficient"
+      },
+      "definitive_synthesis": false,
+      "gold_conclusion": "Without a tolerated or negative comparator, discrimination is insufficiently established; do not convert the absence of a control into either a pass or a fail.",
+      "critical_semantics": [
+        "Aspen and Kivu are positive/response cases.",
+        "Sol is present in both.",
+        "No tolerated or negative control exists.",
+        "Task is discrimination, not mere association."
+      ]
+    },
+    {
+      "blind_id": "DEV-Y8PCH6",
+      "original_fixture_id": "missing-high-information-qualifier",
+      "semantic_translation_challenge": true,
+      "expected_representation_status": "block",
+      "definitive_synthesis_relative_to_incomplete_candidate_state": true,
+      "gold_conclusion": "The onset qualifier is source-explicit and must be preserved and marked high-information in the state. If it is omitted, count a semantic representation error, not a deterministic-verifier failure.",
+      "critical_semantics": [
+        "Willow is a positive case; Drift is a tolerated control.",
+        "Ember is represented in Willow and absent from Drift.",
+        "The source states Willow's onset is within 2 seconds.",
+        "Onset/timing must be represented as a qualifier rather than dropped.",
+        "The onset qualifier must be marked high-information.",
+        "An omitted onset is a semantic representation failure and is not attributed to the deterministic verifier."
+      ]
+    },
+    {
+      "blind_id": "DEV-D6JPFM",
+      "original_fixture_id": "immediate-vs-delayed",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "block",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block"
+      },
+      "definitive_synthesis": false,
+      "gold_conclusion": "The proposed delayed-onset hypothesis predicts the opposite timing direction and cannot receive definitive support without a separately supported exception mechanism.",
+      "critical_semantics": [
+        "Alder is a positive case; Basin is a tolerated control.",
+        "Iris is represented in Alder and absent from Basin and is the proposed discriminator.",
+        "Observed onset is within 2 seconds and is high-information.",
+        "Material hypothesis requires onset no sooner than 3600 seconds."
+      ]
+    },
+    {
+      "blind_id": "DEV-SQBKLZ",
+      "original_fixture_id": "true-discriminator",
+      "hard_invariant_challenge": false,
+      "false_block_control": true,
+      "expected_gate_vector": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "pass"
+      },
+      "definitive_synthesis": true,
+      "gold_conclusion": "The feature survives the represented specificity contrast, but specificity alone is not proof of causality.",
+      "critical_semantics": [
+        "Oriel and Rowan are positive/response cases; Silt is tolerated control.",
+        "Nimbus is present in Oriel and Rowan.",
+        "Nimbus is absent from Silt.",
+        "Task is only whether Nimbus survives specificity; specificity is not causal proof."
+      ]
+    },
+    {
+      "blind_id": "DEV-QWCNK4",
+      "original_fixture_id": "shared-q-control",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {
+        "SPECIFICITY_DISCRIMINATOR": "block",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block"
+      },
+      "definitive_synthesis": false,
+      "gold_conclusion": "The shared marker alone does not discriminate the responsive cases from the tolerated control, so it cannot support a definitive selective-explanation conclusion.",
+      "critical_semantics": [
+        "Cedar and Flint are positive/response cases; Mica is tolerated and non-reactive.",
+        "Vela is present in Cedar, Flint, and Mica.",
+        "Task tests Vela itself as explanation for selective response."
+      ]
+    },
+    {
+      "blind_id": "DEV-S47VJN",
+      "original_fixture_id": "target-substitution",
+      "hard_invariant_challenge": true,
+      "expected_gate_vector": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "block",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block"
+      },
+      "definitive_synthesis": false,
+      "gold_conclusion": "Evidence only about the adjacent mechanism/pathway target cannot establish the requested harm/risk target.",
+      "critical_semantics": [
+        "Requested target is adverse_outcome_risk.",
+        "Nova is a positive case; Cove is a tolerated control.",
+        "Quartz is represented in Nova and absent from Cove and is proposed as relevant to adverse_outcome_risk.",
+        "Available observation for Nova establishes only adjacent target pathway_activity.",
+        "No observation is bound to adverse_outcome_risk.",
+        "The proposed adverse_outcome_risk conclusion depends only on pathway_activity evidence."
+      ]
+    }
+  ]
+}
