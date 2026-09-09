@@ -51,6 +51,7 @@ const DEFAULT_CLAIM_LEASE_MS = 5 * 60 * 1_000;
 const DEFAULT_MAX_ENTRIES = 1_024;
 const DEFAULT_MAX_PLAINTEXT_BYTES = 16 * 1_024 * 1_024;
 const DEFAULT_MAX_STORED_BYTES = 24 * 1_024 * 1_024;
+const DEFAULT_EXPIRY_SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
 const MAX_CHECKPOINT_FILE_BYTES = 24 * 1_024 * 1_024;
 
 const base64UrlSchema = z.string().regex(/^[A-Za-z0-9_-]+$/u);
@@ -121,6 +122,7 @@ export interface FileResearchSessionStoreOptions {
   maxEntries?: number;
   maxPlaintextBytes?: number;
   maxStoredBytes?: number;
+  expirySweepIntervalMs?: number;
   reconcileRestoredState?: (state: ResearchSessionState) => ResearchSessionState;
 }
 
@@ -164,6 +166,10 @@ export function createFileResearchSessionStore(
     options.maxStoredBytes ?? DEFAULT_MAX_STORED_BYTES,
     "stored byte limit",
   );
+  const expirySweepIntervalMs = positiveSafeInteger(
+    options.expirySweepIntervalMs ?? DEFAULT_EXPIRY_SWEEP_INTERVAL_MS,
+    "expiry sweep interval",
+  );
   if (idleTtlMs > absoluteTtlMs) {
     throw new Error("Research session idle TTL cannot exceed its absolute TTL");
   }
@@ -171,6 +177,11 @@ export function createFileResearchSessionStore(
     reconcileRestoredResearchSessionState;
   const observedInThisProcess = new Set<string>();
   const localClaims = new Map<string, string>();
+  inventoryAndPrune(readNow(now));
+  const expirySweep = setInterval(() => {
+    inventoryAndPrune(readNow(now));
+  }, expirySweepIntervalMs);
+  expirySweep.unref();
 
   return Object.freeze({
     issue(rawState: ResearchSessionState): string {

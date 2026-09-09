@@ -359,6 +359,9 @@ export function createPrivateResearchOrchestrationHandler(
               : { now: options.finalizationNow })
           }
         );
+        options.semanticAdvanceDependencies?.releaseEvidenceMaterialForSession?.(
+          decision.session_id
+        );
       }
       return {
         status: 200,
