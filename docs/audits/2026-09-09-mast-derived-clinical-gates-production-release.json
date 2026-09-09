@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-mast-derived-clinical-gates-release-2026-09-09",
+  "recordedAt": "2026-09-09T13:12:18Z",
+  "releaseState": "production_release_complete",
+  "source": {
+    "pullRequest": 205,
+    "headCommit": "f4fda4918ea3a54e61596d2e1bd7565c576e3cea",
+    "mergeCommit": "17f432ff147fc674e2035fb570c42c22d1e4fbdb",
+    "mergedAt": "2026-09-09T12:49:04Z",
+    "mergeTreeEqualsHead": true
+  },
+  "canonicalArtifacts": {
+    "universal": {
+      "version": "20.5.22",
+      "revisionDate": "2026-09-08",
+      "sha256": "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+    },
+    "hrp": {
+      "version": "20.5.27",
+      "revisionDate": "2026-09-09",
+      "sha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a",
+      "xmlValid": true,
+      "markers": {
+        "clinicalManagementPreservationGate": true,
+        "patientSpecificInterventionSafetyReconciliationGate": true,
+        "requiredNow": true,
+        "contingentLater": true,
+        "optionalAlternative": true,
+        "avoid": true,
+        "fs203": true,
+        "fs204": true
+      }
+    }
+  },
+  "benchmarkBoundary": {
+    "classification": "DEVELOPMENT_REGRESSION_ONLY",
+    "frozenBenchmarkRerun": false,
+    "frozenBenchmarkRescored": false,
+    "frozenBenchmarkReclassified": false,
+    "privateClinicalPayloadInspectedOrCommitted": false,
+    "targetIntegrityReviewCount": 1,
+    "targetConflictCount": 1,
+    "targetTuningAllowedCount": 0
+  },
+  "deployment": {
+    "sourceArchive": {
+      "memberCount": 1037,
+      "gzipBytes": 3428010,
+      "gzipSha256": "a5240efac543d34cb6da090d2c602c20c4da2d70a3a156033f71ec35d5b4330f",
+      "tarSha256": "6d8f21dba980e9720bfcb606ebffb052b66bff2da5afb4f39f5ba26bb81de856"
+    },
+    "backend": {
+      "imageReference": "askrigor-research:17f432ff147fc674e2035fb570c42c22d1e4fbdb",
+      "imageId": "sha256:ebc8216536a1d63e5df37b2e809b179aafecf4c5e75a511ca73eae039c36ed6c",
+      "imageArchiveBytes": 108407332,
+      "imageArchiveSha256": "b6ec3142688d3d6df11f2573497c48fee4bd86ac512cd46af2e574dcbe13213d",
+      "containerId": "d86231b537c7",
+      "healthy": true,
+      "runsAsNode": true,
+      "readOnlyFilesystem": true,
+      "capabilitiesDropped": "ALL",
+      "noNewPrivileges": true,
+      "memoryBytes": 1073741824,
+      "pidsLimit": 256,
+      "networks": [
+        "askrigor_default",
+        "askrigor_living_evidence_private"
+      ],
+      "writableStateMounts": [
+        "/var/lib/askrigor-actions",
+        "/var/lib/askrigor-research-sessions"
+      ]
+    },
+    "rollback": {
+      "previousImageReference": "askrigor-research:d1b83dbbfd1f4258ba17f137598296a1a0a007b9",
+      "previousImageTag": "askrigor-research:rollback-pre-17f432ff147f",
+      "previousImageId": "sha256:2d02147e8ca9b5ff5c28065a98dcfcb401d5a933fea4a3692bdb823339f130e4",
+      "rootOnlyDirectory": "/opt/askrigor/rollbacks/pre-17f432ff147fc674e2035fb570c42c22d1e4fbdb",
+      "directoryMode": "0700_root_root",
+      "persistentEvidenceDeletionAuthorized": false
+    }
+  },
+  "activeWorker": {
+    "connector": "AskRigor Reviewer",
+    "toolCount": 27,
+    "authenticatedManifestExact": true,
+    "integrityVerified": true,
+    "completeProtocolLoaded": true,
+    "loadedTextCharacterCount": 583605,
+    "requiredMarkersPresent": true,
+    "providerProbe": {
+      "provider": "pubmed",
+      "accessStatus": "partial",
+      "recordsReturned": 1
+    },
+    "plugin": {
+      "sourceVersion": "0.1.0",
+      "sourcePackageSha256": "60d20c3bd1efcb29dd11e74040a511be135ec59676028b091d5340dac5ea69b7",
+      "installedVersion": "0.1.0+codex.20260901124016",
+      "marketplacePackageSha256": "02c41b473c23a5442d72c65e8346b6986451d26c2fe68e297cd3532067084ae1",
+      "installedPackageSha256": "02c41b473c23a5442d72c65e8346b6986451d26c2fe68e297cd3532067084ae1",
+      "declaredFileCount": 8,
+      "nonManifestFilesMatchSource": true,
+      "reinstallRequired": false
+    }
+  },
+  "promotionScheduler": {
+    "selectorSha256": "de41fb568da67927eca92326f091bc041c7114957fe20603c2b0ef86f2f13552",
+    "selectorMode": "0600_root_root",
+    "manualResult": "no_pending_promotion",
+    "manualExitStatus": 0,
+    "manualJournalSensitiveMarkerCount": 0,
+    "scheduledTriggerObserved": "2026-09-09T13:10:11Z",
+    "scheduledResult": "success",
+    "nextTriggerObserved": "2026-09-09T13:15:13Z",
+    "timerEnabled": true,
+    "timerActive": true,
+    "runnerContainerRemaining": false
+  },
+  "liveVerification": {
+    "healthStatus": 200,
+    "productionLogLineCount": 1,
+    "productionLogSensitiveMarkerCount": 0,
+    "liveActionPaths": [
+      "/actions/lessons"
+    ],
+    "publicSiteChanged": false,
+    "publicSiteRedeployed": false,
+    "siteStatuses": {
+      "/": 200,
+      "/privacy": 200,
+      "/terms": 200,
+      "/support": 200
+    }
+  },
+  "verification": {
+    "github": {
+      "deterministicRun": 34305008052,
+      "npmRunVerify": "pass",
+      "workflowPolicyRun": 34305008000,
+      "workflowPolicy": "pass",
+      "codeqlRun": 34305006165,
+      "codeql": "pass"
+    },
+    "local": {
+      "node": "24.18.0",
+      "npm": "11.16.0",
+      "focusedProtocolGovernanceMcpTestsPassed": 101,
+      "clinicalAndGovernanceTestsPassed": 14,
+      "build": "pass",
+      "xmlParse": "pass",
+      "diffCheck": "pass",
+      "governanceValidator": "pass",
+      "fullParallelGateOnSaturatedWorkstation": "pre_existing_fixed_duration_hermes_transport_timeout_then_manual_stop"
+    },
+    "lessonQueue": {
+      "status": "available",
+      "openCandidates": 1,
+      "needsReview": 1,
+      "acceptedNotIncorporated": 0,
+      "incorporatedOrClosed": 4,
+      "deletionEligible": 0,
+      "checkedAt": "2026-09-09T12:49:53.982Z"
+    }
+  },
+  "typedCompletionClaim": "OUTCOME",
+  "remainingBlockers": []
+}
