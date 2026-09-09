@@ -1,0 +1,229 @@
+{
+  "schema_version": 1,
+  "scorer_key_content_included": false,
+  "allowlist_entry_count": 37,
+  "entries": [
+    {
+      "path": "docs/superpowers/plans/2026-09-09-epistemic-verifier-complete-blinded-development-ab.md",
+      "bytes": 1214,
+      "sha256": "837844cdab6645939548b142bcccc2546e5d74ef8b71f3710a84dbe40345ad21",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/arm-a-prompt.txt",
+      "bytes": 680,
+      "sha256": "35330752b85016432bbef66d8f9a0b7b1094bf03c504e03f0a1c2f430d0489f2",
+      "git_blob": "d92f3cbbdc3c59e97a913ccc71d355f659fd9ced"
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/arm-b-state-prompt.txt",
+      "bytes": 2275,
+      "sha256": "ef2e96c1d1eab3fa59d4d79851c86240807fb29bfbee6b7e8e67f85d395c1821",
+      "git_blob": "20be8d65064b1f5355db55bf77c57e48372a2b68"
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/arm-b-repair-prompt.txt",
+      "bytes": 791,
+      "sha256": "874c72b37f2dfc22c1f9c7209db825dff640b00223a5229f0448d636e5073407",
+      "git_blob": "233dac44fa32e59dc3a3b3eefc87ad0edd69e7a6"
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/arm-b-synthesis-prompt.txt",
+      "bytes": 805,
+      "sha256": "07ce026a36cf69de81930888931790609b643b9f63ac311e408e8a307678dc74",
+      "git_blob": "4cd472ef4c7165630350f27dac6806e304738492"
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/v01-blinded-development-packets.json",
+      "bytes": 4305,
+      "sha256": "5931ccbb3e17b2d3e1bc7a240fa90237bcf6e390659f17b66a02fe33472d46e6",
+      "git_blob": "9f6ffc2d86e6bdde2152daf70a33f70251f3801a"
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/SCORING.md",
+      "bytes": 7744,
+      "sha256": "a1f695e8258b2ed51990887ef365526f1b00bc015f59a021ae6ec891a2e58f75",
+      "git_blob": "4c8fd348f8c706161de49d77abbc57587e192fa2"
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/deterministic-baseline-receipt.json",
+      "bytes": 3857,
+      "sha256": "afc26891bddcc3609635acd75c43c42c612a3ac4c8df6205a9685ad4ec408866",
+      "git_blob": "f99431300b6f6cd0c0fb5f1380ee04478a6e6a4d"
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/SOURCE-DIRECTIVE.json",
+      "bytes": 20207,
+      "sha256": "17a1ceee6d9211d61d07973d6be4a86a1bf805289caa1228235a4ce28ff55abf",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/authority-gate-receipt.json",
+      "bytes": 431,
+      "sha256": "7d09c44ecc112d0d00b9e9fcf26d3b9297b6e43c2e6134a7e802d043c85561d8",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/post-merge-receipt.json",
+      "bytes": 590,
+      "sha256": "aafb892c175a278a79a6b1bb73d908111f65ec33ce5b567afb527257331319fc",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/local-preflight-receipt.json",
+      "bytes": 3094,
+      "sha256": "86cf3655199d5241f9ef58de9ecdb8040db92e08ad2d40ecd9990415e17da436",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/project-manager-preflight-disposition.json",
+      "bytes": 4046,
+      "sha256": "f0316defa92673747279ce11b0ed31a5b963d7bc5e3792db1739e1c17ccce377",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/run-config.json",
+      "bytes": 8177,
+      "sha256": "ac9ae58a4150bcfc0aee19cd40d2ac9fc02031b9d87bc5658fb09a875f59aa9a",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-order.json",
+      "bytes": 8264,
+      "sha256": "5942dade709df84622aeee57a31a2c3cd820f278e38f5507d18b370276153af0",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/verify-trial-state.mts",
+      "bytes": 3348,
+      "sha256": "0c46ba2ad0d888a98f6729c7c61caf08b387db0903b7fdeb41e5138894a7ed40",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/canonical/arm-a-prompt.txt",
+      "bytes": 680,
+      "sha256": "35330752b85016432bbef66d8f9a0b7b1094bf03c504e03f0a1c2f430d0489f2",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/canonical/arm-b-repair-prompt.txt",
+      "bytes": 791,
+      "sha256": "874c72b37f2dfc22c1f9c7209db825dff640b00223a5229f0448d636e5073407",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/canonical/arm-b-state-prompt.txt",
+      "bytes": 2275,
+      "sha256": "ef2e96c1d1eab3fa59d4d79851c86240807fb29bfbee6b7e8e67f85d395c1821",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/canonical/arm-b-synthesis-prompt.txt",
+      "bytes": 805,
+      "sha256": "07ce026a36cf69de81930888931790609b643b9f63ac311e408e8a307678dc74",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/canonical/v01-blinded-development-packets.json",
+      "bytes": 4305,
+      "sha256": "5931ccbb3e17b2d3e1bc7a240fa90237bcf6e390659f17b66a02fe33472d46e6",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-9M34WA.txt",
+      "bytes": 843,
+      "sha256": "353a41fe1998f097becb6ec034bee13462dbdca77c62a9256ff4aaabb1d890a0",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-D6JPFM.txt",
+      "bytes": 962,
+      "sha256": "03e42584723ab3282ac85482fc96dd507a71e94cf80e8ea1d7c0f59ede78e189",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-JRSYJV.txt",
+      "bytes": 994,
+      "sha256": "1b4d96708453331c08a5e9278a4598e99330760f9d6a18899759ca1d76873459",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-L9JQC2.txt",
+      "bytes": 968,
+      "sha256": "648302c9728ee248881b9cde310028f105b0482a5c6e9273a5c88fed36dc391c",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-QWCNK4.txt",
+      "bytes": 876,
+      "sha256": "ac8d11b22949b1e1d95abd9d28f2e405e637e1de3f0aee3285ceaa25f45ed1a0",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-S47VJN.txt",
+      "bytes": 1118,
+      "sha256": "c7f627ffa53c9d850363ad0c4dc2f9360017021b415c04e8c01c20d49ffa621d",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-SQBKLZ.txt",
+      "bytes": 919,
+      "sha256": "e376fbfa44e16fe391ef7026b65cc95235254462c574d0b0909ebfd2b051b04f",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-a/DEV-Y8PCH6.txt",
+      "bytes": 1073,
+      "sha256": "f9f899dc1c4a93a74c2d4268132711c7af661490c60e13a7ac8bc09e4e408b48",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-9M34WA.txt",
+      "bytes": 2438,
+      "sha256": "ae1107670781a9d0e9bf6b06ff50dd0bd876960e3970f39ed01ad001523d0f7a",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-D6JPFM.txt",
+      "bytes": 2557,
+      "sha256": "56cdb5eb4ebe6dca8cd7569e5d2e81bad793bb63e66b39409adab7459cac096f",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-JRSYJV.txt",
+      "bytes": 2589,
+      "sha256": "90cf11a145577d6ba044d23de444ef17b9620330feb9259d959c72d9a4ee5e1a",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-L9JQC2.txt",
+      "bytes": 2563,
+      "sha256": "a4e0c2a5912934220b7fc6437f5ab07887e67f97dcbec39d5152bb579cbb10e8",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-QWCNK4.txt",
+      "bytes": 2471,
+      "sha256": "389ab528df2aae00bb14226a8bdf326b4fc7264dd08ec397747ce85c6559fbfe",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-S47VJN.txt",
+      "bytes": 2713,
+      "sha256": "275c32028f2b2f61d081c1a4a44163e7a2043837f895ef8ff6ded373dcff2db9",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-SQBKLZ.txt",
+      "bytes": 2514,
+      "sha256": "b0d06325bfa8e12aff5a2c66a3e24483b913f21f3ab7f0d108a0c0a7a7a7a8c0",
+      "git_blob": null
+    },
+    {
+      "path": "evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/dispatch-bundle/initial-prompts/arm-b-state/DEV-Y8PCH6.txt",
+      "bytes": 2668,
+      "sha256": "03da76af6e1c240c36be84557accb2113f8c210264b571e9b7633516cd974631",
+      "git_blob": null
+    }
+  ]
+}

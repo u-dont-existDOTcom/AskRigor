@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "status": "CHAT_WORK_AUTHORITY_GATE_PASS",
+  "policy_id": "askrigor-chat-work-authority-v1",
+  "source_message_id": "5f981540-5418-4e93-8edb-dfdd829d1fca",
+  "source_body_sha256": "17a1ceee6d9211d61d07973d6be4a86a1bf805289caa1228235a4ce28ff55abf",
+  "canonical_payload_sha256": "4afc51ac4570d9729faf52e2ab79ef553409de18c79fb5cd0c0bb9788fb50d10",
+  "model_api_spend_usd": 0,
+  "bounded_execution": true
+}

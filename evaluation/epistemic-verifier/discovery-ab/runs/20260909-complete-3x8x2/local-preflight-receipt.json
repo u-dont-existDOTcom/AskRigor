@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "runtime": {
+    "node": "24.18.0",
+    "npm": "11.16.0"
+  },
+  "hosted_exact_merged_tree": {
+    "commit": "cd1887b83a6159b16eb3183e0a47bc1f60793288",
+    "deterministic_verification": {
+      "run_id": 34407919443,
+      "job_id": 102655240867,
+      "conclusion": "success"
+    },
+    "workflow_policy": {
+      "run_id": 34407919470,
+      "conclusion": "success"
+    }
+  },
+  "focused_verification": [
+    {
+      "command": "npx vitest run tests/epistemic-verifier.test.ts",
+      "result": "PASS",
+      "tests_passed": 11,
+      "tests_failed": 0
+    },
+    {
+      "command": "npx vitest run tests/controlled-research-route.test.ts",
+      "result": "PASS",
+      "tests_passed": 16,
+      "tests_failed": 0,
+      "duration_seconds": 118.8
+    },
+    {
+      "command": "npx vitest run tests/action-http.test.ts",
+      "result": "PASS",
+      "tests_passed": 47,
+      "tests_failed": 0,
+      "duration_seconds": 10.69
+    },
+    {
+      "command": "npx tsx evaluation/epistemic-verifier/discovery-ab/runs/20260909-complete-3x8x2/verify-trial-state.mts --input <invalid-state> --output <receipt> --state-output <state> --meta-output <meta>",
+      "result": "PASS",
+      "expected_exit": 2,
+      "observed_behavior": "STATE_SCHEMA_INVALID with all gates and SYNTHESIS_LOCK blocked"
+    }
+  ],
+  "local_full_verify": [
+    {
+      "attempt": 1,
+      "command": "npm run verify",
+      "result": "TIMEOUT_FAILURE",
+      "passed": 1878,
+      "skipped": 6,
+      "timeouts": 3,
+      "timeout_file": "tests/controlled-research-route.test.ts"
+    },
+    {
+      "attempt": 2,
+      "command": "npm run verify",
+      "result": "TIMEOUT_FAILURE",
+      "passed": 1875,
+      "skipped": 6,
+      "timeouts": 6,
+      "timeout_file": "tests/controlled-research-route.test.ts"
+    },
+    {
+      "attempt": 3,
+      "command": "VITEST_MAX_WORKERS=4 npm run verify",
+      "result": "TERMINAL_FINAL_SUMMARY_UNAVAILABLE",
+      "observed_before_session_expiry": [
+        "moving fixed 10-second timeout in tests/action-http.test.ts",
+        "fixed 10-second timeouts in tests/controlled-research-route.test.ts"
+      ]
+    }
+  ],
+  "classification": "WORKSTATION_AGGREGATE_RESOURCE_CONTENTION",
+  "basis": [
+    "different tests timed out under whole-suite load",
+    "each implicated file passed independently",
+    "the exact clean hosted suite passed for the same merged tree",
+    "no substantive assertion failure was observed"
+  ],
+  "test_threshold_or_code_change": false,
+  "consumer_dispatch_started": false,
+  "project_manager_disposition": {
+    "decision": "DISPATCH_MAY_PROCEED",
+    "dispatch_authorized": true,
+    "additional_local_full_suite_required_before_dispatch": false,
+    "methodology_changed": false,
+    "code_changed": false,
+    "test_threshold_changed": false,
+    "assistant_message_id": "cbf38adb-0b20-41c7-9cc1-6cbb89e3dab2",
+    "exact_utf8_body_bytes": 4046,
+    "exact_utf8_body_sha256": "f0316defa92673747279ce11b0ed31a5b963d7bc5e3792db1739e1c17ccce377",
+    "artifact": "project-manager-preflight-disposition.json"
+  }
+}

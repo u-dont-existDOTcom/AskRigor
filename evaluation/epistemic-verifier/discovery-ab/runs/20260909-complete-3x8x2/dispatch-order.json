@@ -1,0 +1,392 @@
+{
+  "schema_version": 1,
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "algorithm": "For replicate r, sort blind IDs by ascending lowercase SHA-256 of UTF-8 'askrigor-208-complete-blinded-development-ab-v1-replicate-' + r + '|' + blind_id.",
+  "arm_order": "A then B when replicate_number + one_based_position is even; otherwise B then A",
+  "trials": [
+    {
+      "sequence": 1,
+      "replicate": 1,
+      "position": 1,
+      "blind_id": "DEV-Y8PCH6",
+      "arm": "A",
+      "trial_id": "r1-DEV-Y8PCH6-a"
+    },
+    {
+      "sequence": 2,
+      "replicate": 1,
+      "position": 1,
+      "blind_id": "DEV-Y8PCH6",
+      "arm": "B",
+      "trial_id": "r1-DEV-Y8PCH6-b"
+    },
+    {
+      "sequence": 3,
+      "replicate": 1,
+      "position": 2,
+      "blind_id": "DEV-L9JQC2",
+      "arm": "B",
+      "trial_id": "r1-DEV-L9JQC2-b"
+    },
+    {
+      "sequence": 4,
+      "replicate": 1,
+      "position": 2,
+      "blind_id": "DEV-L9JQC2",
+      "arm": "A",
+      "trial_id": "r1-DEV-L9JQC2-a"
+    },
+    {
+      "sequence": 5,
+      "replicate": 1,
+      "position": 3,
+      "blind_id": "DEV-QWCNK4",
+      "arm": "A",
+      "trial_id": "r1-DEV-QWCNK4-a"
+    },
+    {
+      "sequence": 6,
+      "replicate": 1,
+      "position": 3,
+      "blind_id": "DEV-QWCNK4",
+      "arm": "B",
+      "trial_id": "r1-DEV-QWCNK4-b"
+    },
+    {
+      "sequence": 7,
+      "replicate": 1,
+      "position": 4,
+      "blind_id": "DEV-JRSYJV",
+      "arm": "B",
+      "trial_id": "r1-DEV-JRSYJV-b"
+    },
+    {
+      "sequence": 8,
+      "replicate": 1,
+      "position": 4,
+      "blind_id": "DEV-JRSYJV",
+      "arm": "A",
+      "trial_id": "r1-DEV-JRSYJV-a"
+    },
+    {
+      "sequence": 9,
+      "replicate": 1,
+      "position": 5,
+      "blind_id": "DEV-D6JPFM",
+      "arm": "A",
+      "trial_id": "r1-DEV-D6JPFM-a"
+    },
+    {
+      "sequence": 10,
+      "replicate": 1,
+      "position": 5,
+      "blind_id": "DEV-D6JPFM",
+      "arm": "B",
+      "trial_id": "r1-DEV-D6JPFM-b"
+    },
+    {
+      "sequence": 11,
+      "replicate": 1,
+      "position": 6,
+      "blind_id": "DEV-SQBKLZ",
+      "arm": "B",
+      "trial_id": "r1-DEV-SQBKLZ-b"
+    },
+    {
+      "sequence": 12,
+      "replicate": 1,
+      "position": 6,
+      "blind_id": "DEV-SQBKLZ",
+      "arm": "A",
+      "trial_id": "r1-DEV-SQBKLZ-a"
+    },
+    {
+      "sequence": 13,
+      "replicate": 1,
+      "position": 7,
+      "blind_id": "DEV-9M34WA",
+      "arm": "A",
+      "trial_id": "r1-DEV-9M34WA-a"
+    },
+    {
+      "sequence": 14,
+      "replicate": 1,
+      "position": 7,
+      "blind_id": "DEV-9M34WA",
+      "arm": "B",
+      "trial_id": "r1-DEV-9M34WA-b"
+    },
+    {
+      "sequence": 15,
+      "replicate": 1,
+      "position": 8,
+      "blind_id": "DEV-S47VJN",
+      "arm": "B",
+      "trial_id": "r1-DEV-S47VJN-b"
+    },
+    {
+      "sequence": 16,
+      "replicate": 1,
+      "position": 8,
+      "blind_id": "DEV-S47VJN",
+      "arm": "A",
+      "trial_id": "r1-DEV-S47VJN-a"
+    },
+    {
+      "sequence": 17,
+      "replicate": 2,
+      "position": 1,
+      "blind_id": "DEV-Y8PCH6",
+      "arm": "B",
+      "trial_id": "r2-DEV-Y8PCH6-b"
+    },
+    {
+      "sequence": 18,
+      "replicate": 2,
+      "position": 1,
+      "blind_id": "DEV-Y8PCH6",
+      "arm": "A",
+      "trial_id": "r2-DEV-Y8PCH6-a"
+    },
+    {
+      "sequence": 19,
+      "replicate": 2,
+      "position": 2,
+      "blind_id": "DEV-SQBKLZ",
+      "arm": "A",
+      "trial_id": "r2-DEV-SQBKLZ-a"
+    },
+    {
+      "sequence": 20,
+      "replicate": 2,
+      "position": 2,
+      "blind_id": "DEV-SQBKLZ",
+      "arm": "B",
+      "trial_id": "r2-DEV-SQBKLZ-b"
+    },
+    {
+      "sequence": 21,
+      "replicate": 2,
+      "position": 3,
+      "blind_id": "DEV-D6JPFM",
+      "arm": "B",
+      "trial_id": "r2-DEV-D6JPFM-b"
+    },
+    {
+      "sequence": 22,
+      "replicate": 2,
+      "position": 3,
+      "blind_id": "DEV-D6JPFM",
+      "arm": "A",
+      "trial_id": "r2-DEV-D6JPFM-a"
+    },
+    {
+      "sequence": 23,
+      "replicate": 2,
+      "position": 4,
+      "blind_id": "DEV-9M34WA",
+      "arm": "A",
+      "trial_id": "r2-DEV-9M34WA-a"
+    },
+    {
+      "sequence": 24,
+      "replicate": 2,
+      "position": 4,
+      "blind_id": "DEV-9M34WA",
+      "arm": "B",
+      "trial_id": "r2-DEV-9M34WA-b"
+    },
+    {
+      "sequence": 25,
+      "replicate": 2,
+      "position": 5,
+      "blind_id": "DEV-QWCNK4",
+      "arm": "B",
+      "trial_id": "r2-DEV-QWCNK4-b"
+    },
+    {
+      "sequence": 26,
+      "replicate": 2,
+      "position": 5,
+      "blind_id": "DEV-QWCNK4",
+      "arm": "A",
+      "trial_id": "r2-DEV-QWCNK4-a"
+    },
+    {
+      "sequence": 27,
+      "replicate": 2,
+      "position": 6,
+      "blind_id": "DEV-L9JQC2",
+      "arm": "A",
+      "trial_id": "r2-DEV-L9JQC2-a"
+    },
+    {
+      "sequence": 28,
+      "replicate": 2,
+      "position": 6,
+      "blind_id": "DEV-L9JQC2",
+      "arm": "B",
+      "trial_id": "r2-DEV-L9JQC2-b"
+    },
+    {
+      "sequence": 29,
+      "replicate": 2,
+      "position": 7,
+      "blind_id": "DEV-JRSYJV",
+      "arm": "B",
+      "trial_id": "r2-DEV-JRSYJV-b"
+    },
+    {
+      "sequence": 30,
+      "replicate": 2,
+      "position": 7,
+      "blind_id": "DEV-JRSYJV",
+      "arm": "A",
+      "trial_id": "r2-DEV-JRSYJV-a"
+    },
+    {
+      "sequence": 31,
+      "replicate": 2,
+      "position": 8,
+      "blind_id": "DEV-S47VJN",
+      "arm": "A",
+      "trial_id": "r2-DEV-S47VJN-a"
+    },
+    {
+      "sequence": 32,
+      "replicate": 2,
+      "position": 8,
+      "blind_id": "DEV-S47VJN",
+      "arm": "B",
+      "trial_id": "r2-DEV-S47VJN-b"
+    },
+    {
+      "sequence": 33,
+      "replicate": 3,
+      "position": 1,
+      "blind_id": "DEV-D6JPFM",
+      "arm": "A",
+      "trial_id": "r3-DEV-D6JPFM-a"
+    },
+    {
+      "sequence": 34,
+      "replicate": 3,
+      "position": 1,
+      "blind_id": "DEV-D6JPFM",
+      "arm": "B",
+      "trial_id": "r3-DEV-D6JPFM-b"
+    },
+    {
+      "sequence": 35,
+      "replicate": 3,
+      "position": 2,
+      "blind_id": "DEV-L9JQC2",
+      "arm": "B",
+      "trial_id": "r3-DEV-L9JQC2-b"
+    },
+    {
+      "sequence": 36,
+      "replicate": 3,
+      "position": 2,
+      "blind_id": "DEV-L9JQC2",
+      "arm": "A",
+      "trial_id": "r3-DEV-L9JQC2-a"
+    },
+    {
+      "sequence": 37,
+      "replicate": 3,
+      "position": 3,
+      "blind_id": "DEV-SQBKLZ",
+      "arm": "A",
+      "trial_id": "r3-DEV-SQBKLZ-a"
+    },
+    {
+      "sequence": 38,
+      "replicate": 3,
+      "position": 3,
+      "blind_id": "DEV-SQBKLZ",
+      "arm": "B",
+      "trial_id": "r3-DEV-SQBKLZ-b"
+    },
+    {
+      "sequence": 39,
+      "replicate": 3,
+      "position": 4,
+      "blind_id": "DEV-Y8PCH6",
+      "arm": "B",
+      "trial_id": "r3-DEV-Y8PCH6-b"
+    },
+    {
+      "sequence": 40,
+      "replicate": 3,
+      "position": 4,
+      "blind_id": "DEV-Y8PCH6",
+      "arm": "A",
+      "trial_id": "r3-DEV-Y8PCH6-a"
+    },
+    {
+      "sequence": 41,
+      "replicate": 3,
+      "position": 5,
+      "blind_id": "DEV-QWCNK4",
+      "arm": "A",
+      "trial_id": "r3-DEV-QWCNK4-a"
+    },
+    {
+      "sequence": 42,
+      "replicate": 3,
+      "position": 5,
+      "blind_id": "DEV-QWCNK4",
+      "arm": "B",
+      "trial_id": "r3-DEV-QWCNK4-b"
+    },
+    {
+      "sequence": 43,
+      "replicate": 3,
+      "position": 6,
+      "blind_id": "DEV-9M34WA",
+      "arm": "B",
+      "trial_id": "r3-DEV-9M34WA-b"
+    },
+    {
+      "sequence": 44,
+      "replicate": 3,
+      "position": 6,
+      "blind_id": "DEV-9M34WA",
+      "arm": "A",
+      "trial_id": "r3-DEV-9M34WA-a"
+    },
+    {
+      "sequence": 45,
+      "replicate": 3,
+      "position": 7,
+      "blind_id": "DEV-S47VJN",
+      "arm": "A",
+      "trial_id": "r3-DEV-S47VJN-a"
+    },
+    {
+      "sequence": 46,
+      "replicate": 3,
+      "position": 7,
+      "blind_id": "DEV-S47VJN",
+      "arm": "B",
+      "trial_id": "r3-DEV-S47VJN-b"
+    },
+    {
+      "sequence": 47,
+      "replicate": 3,
+      "position": 8,
+      "blind_id": "DEV-JRSYJV",
+      "arm": "B",
+      "trial_id": "r3-DEV-JRSYJV-b"
+    },
+    {
+      "sequence": 48,
+      "replicate": 3,
+      "position": 8,
+      "blind_id": "DEV-JRSYJV",
+      "arm": "A",
+      "trial_id": "r3-DEV-JRSYJV-a"
+    }
+  ]
+}
