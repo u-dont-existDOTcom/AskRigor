@@ -5,6 +5,8 @@
   "phase": "DEVELOPMENT_DISCOVERY",
   "status": "PARTIALLY_EXECUTED_EXTERNAL_CAPABILITY_BLOCK",
   "canonical_source_commit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
+  "task_branch": "task/epistemic-verifier-blinded-ab-20260909",
+  "pull_request": 211,
   "source_artifacts": {
     "issue": 208,
     "implementation_plan": "docs/superpowers/plans/2026-09-09-executable-epistemic-verifier-kernel-v01.md",
@@ -27,9 +29,20 @@
     "contamination_reason": "This session read issue #208, fixture identities/expected outcomes, verifier implementation, tests, and scorer design before any candidate consumer inference."
   },
   "spend": {"paid_model_api_inference_used":false,"model_api_spend_usd":0},
+  "strategy_switches": [
+    {
+      "trigger": "Canonical short source packets were found not to fully encode neutral scaffolding that stateForFixture() adds before verification for several fixtures.",
+      "failed_assumption": "Alias-renaming the short source_packet alone would preserve the intended canonical gate vector in a fresh source-to-state Arm B run.",
+      "risk": "Arm B could appear safer because an unrelated gate became non-pass from under-specification, not because the intended invariant was enforced.",
+      "action": "Correct blind packets with only neutral facts already present in the canonical test-state builder and add scorer guards against crediting collateral blocks.",
+      "status": "COMPLETE"
+    }
+  ],
   "execution": {
     "mandatory_canonical_reads": "COMPLETE",
     "blind_surface_randomization": "COMPLETE",
+    "source_state_representability_audit": "COMPLETE",
+    "canonical_test_scaffolding_correction": "COMPLETE",
     "arm_a_protocol": "COMPLETE",
     "arm_b_protocol": "COMPLETE",
     "scoring_contract": "COMPLETE",
