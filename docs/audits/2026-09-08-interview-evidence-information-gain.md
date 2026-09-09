@@ -53,6 +53,16 @@ method defect and preserves the old frozen method for history.
    defined sampling frame as statistically independent. That was too strong for
    repeated or clustered observations; the reviewed contract now preserves
    independent, dependent/clustered, or unknown dependence separately.
+7. Independent review of the unreleased v0.2 candidate found three additional
+   contract defects: defined-frame independence could be attached to a direct
+   report without a frame; empty role payloads passed the typed contract; and a
+   numerator/denominator pair could disagree across typed and JSON validation.
+   It also found that volunteered exceptions were incorrectly forced to claim a
+   follow-up probe. Before the v0.2 method was frozen or used, the contract was
+   repaired to reserve defined-frame statuses for sampled observations, reject
+   blank payloads, represent event and non-event opportunities as coherent count
+   components, and preserve unprobed volunteered exceptions without inventing
+   probe provenance.
 
 ## Changes
 
@@ -68,7 +78,8 @@ method defect and preserves the old frozen method for history.
   append-only, hash-linked evidence-role and follow-up ledger. The generator is
   deterministic and the tests compare its output to the checked-in schema. A
   sampling frame is required for opportunity-frequency observations but does
-  not itself prove statistical independence.
+  not itself prove statistical independence. Event and non-event opportunity
+  counts form the denominator without permitting an impossible numerator.
 - `patient-story-interview-method-v0.2.0.md` defines the human flow, ordinary
   controls, sampling boundary, export mapping, and pre-collection version gate.
 - Focused tests protect current protocol structure, historical protocol receipts,

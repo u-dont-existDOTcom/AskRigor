@@ -39,11 +39,11 @@ export const recurrenceClaimSchema = z
   .object({
     behavioral_or_symptom_proposition: requiredText(2_000),
     original_quantifier: requiredText(200),
-    opportunity_scope_or_denominator: z.string().trim().max(2_000).nullable(),
-    life_period_or_context: z.string().trim().max(2_000).nullable(),
+    opportunity_scope_or_denominator: requiredText(2_000).nullable(),
+    life_period_or_context: requiredText(2_000).nullable(),
     exceptions: z.array(requiredText(2_000)).max(50),
-    exception_frequency: z.string().trim().max(500).nullable(),
-    quantifier_uncertainty: z.string().trim().max(1_000).nullable(),
+    exception_frequency: requiredText(500).nullable(),
+    quantifier_uncertainty: requiredText(1_000).nullable(),
     calibration_status: z.enum([
       "NOT_YET_PROBED",
       "PROBED_NO_EXCEPTIONS_REPORTED",
@@ -59,11 +59,11 @@ export const recurrenceClaimSchema = z
         message: "Exception-calibrated recurrence requires at least one preserved exception",
       });
     }
-    if (value.calibration_status !== "PROBED_EXCEPTIONS_REPORTED" && value.exceptions.length > 0) {
+    if (value.calibration_status === "PROBED_NO_EXCEPTIONS_REPORTED" && value.exceptions.length > 0) {
       context.addIssue({
         code: "custom",
         path: ["calibration_status"],
-        message: "Preserved exceptions require PROBED_EXCEPTIONS_REPORTED",
+        message: "PROBED_NO_EXCEPTIONS_REPORTED cannot carry preserved exceptions",
       });
     }
   });
@@ -80,21 +80,20 @@ export const opportunitySamplingFrameSchema = z
     ]),
     target_opportunity: requiredText(1_000),
     observation_period: requiredText(1_000),
-    opportunities_observed: z.number().int().nonnegative().nullable(),
-    target_events_observed: z.number().int().nonnegative().nullable(),
-    frame_limitations: z.string().trim().max(2_000).nullable(),
+    opportunities_with_target_event_observed: z.number().int().nonnegative().nullable(),
+    opportunities_without_target_event_observed: z.number().int().nonnegative().nullable(),
+    frame_limitations: requiredText(2_000).nullable(),
   })
   .strict()
   .superRefine((value, context) => {
     if (
-      value.opportunities_observed !== null
-      && value.target_events_observed !== null
-      && value.target_events_observed > value.opportunities_observed
+      (value.opportunities_with_target_event_observed === null)
+      !== (value.opportunities_without_target_event_observed === null)
     ) {
       context.addIssue({
         code: "custom",
-        path: ["target_events_observed"],
-        message: "Observed target events cannot exceed observed opportunities",
+        path: ["opportunities_with_target_event_observed"],
+        message: "Opportunity-frequency counts must provide both target-event and non-target-event opportunities or neither",
       });
     }
   });
@@ -107,15 +106,15 @@ export const patientInterviewEvidenceItemV020Schema = z
     elicitation_mode: interviewElicitationModeSchema,
     evidential_independence: evidentialIndependenceSchema,
     recurrence_claim: recurrenceClaimSchema.nullable(),
-    bounded_episode_ref: z.string().trim().max(200).nullable(),
-    context_or_boundary: z.string().trim().max(2_000).nullable(),
+    bounded_episode_ref: requiredText(200).nullable(),
+    context_or_boundary: requiredText(2_000).nullable(),
     sampling_frame: opportunitySamplingFrameSchema.nullable(),
-    trait_or_interpretive_label: z.string().trim().max(2_000).nullable(),
-    causal_explanation: z.string().trim().max(4_000).nullable(),
-    analyst_or_coder_inference: z.string().trim().max(4_000).nullable(),
-    source_turn_or_record_id: z.string().trim().max(200).nullable(),
+    trait_or_interpretive_label: requiredText(2_000).nullable(),
+    causal_explanation: requiredText(4_000).nullable(),
+    analyst_or_coder_inference: requiredText(4_000).nullable(),
+    source_turn_or_record_id: requiredText(200).nullable(),
     collected_at: timestampSchema.nullable(),
-    notes: z.string().trim().max(4_000).nullable(),
+    notes: requiredText(4_000).nullable(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -175,6 +174,19 @@ export const patientInterviewEvidenceItemV020Schema = z
         message: "Sampled opportunity observations require an explicit independent, dependent/clustered, or unknown dependence status within their defined frame",
       });
     }
+    if (
+      value.role !== "SAMPLED_OPPORTUNITY_OBSERVATION"
+      && (
+        value.evidential_independence === "INDEPENDENT_WITHIN_DEFINED_FRAME"
+        || value.evidential_independence === "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME"
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["evidential_independence"],
+        message: "Defined-frame independence statuses are reserved for sampled opportunity observations",
+      });
+    }
   });
 
 export const interviewFollowUpDecisionV020Schema = z
@@ -191,8 +203,8 @@ export const interviewFollowUpDecisionV020Schema = z
       "OWNER_REQUESTED",
       "PREDETERMINED_VALID_STUDY_FIELD",
     ]),
-    uncertainty_target: z.string().trim().max(2_000).nullable(),
-    plausible_answer_that_changes_next_step: z.string().trim().max(2_000).nullable(),
+    uncertainty_target: requiredText(2_000).nullable(),
+    plausible_answer_that_changes_next_step: requiredText(2_000).nullable(),
     could_change: z.array(z.enum([
       "INFERENCE",
       "DIFFERENTIAL",
@@ -200,7 +212,7 @@ export const interviewFollowUpDecisionV020Schema = z
       "EVIDENCE_CODE",
       "NEXT_QUESTION",
     ])).max(5),
-    skip_reason: z.string().trim().max(2_000).nullable(),
+    skip_reason: requiredText(2_000).nullable(),
   })
   .strict()
   .superRefine((value, context) => {

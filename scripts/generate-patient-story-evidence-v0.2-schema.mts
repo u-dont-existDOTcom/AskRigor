@@ -74,6 +74,20 @@ export function buildPatientStoryEvidenceJsonSchema(): JsonObject {
       if: { properties: { elicitation_mode: { const: "CONFIRMING_EXAMPLE_REQUEST" } }, required: ["elicitation_mode"] },
       then: { properties: { evidential_independence: { const: "CONDITIONALLY_SAMPLED_DETAIL" } } },
     },
+    {
+      if: {
+        properties: {
+          evidential_independence: {
+            enum: [
+              "INDEPENDENT_WITHIN_DEFINED_FRAME",
+              "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
+            ],
+          },
+        },
+        required: ["evidential_independence"],
+      },
+      then: { properties: { role: { const: "SAMPLED_OPPORTUNITY_OBSERVATION" } } },
+    },
   ];
 
   const evidenceProperties = object(evidenceItem.properties, "evidence item properties");
@@ -85,8 +99,27 @@ export function buildPatientStoryEvidenceJsonSchema(): JsonObject {
       then: { properties: { exceptions: { type: "array", minItems: 1 } } },
     },
     {
-      if: { properties: { exceptions: { type: "array", minItems: 1 } }, required: ["exceptions"] },
-      then: { properties: { calibration_status: { const: "PROBED_EXCEPTIONS_REPORTED" } } },
+      if: { properties: { calibration_status: { const: "PROBED_NO_EXCEPTIONS_REPORTED" } }, required: ["calibration_status"] },
+      then: { properties: { exceptions: { type: "array", maxItems: 0 } } },
+    },
+  ];
+
+  const samplingAnyOf = array(object(evidenceProperties.sampling_frame, "sampling_frame").anyOf, "sampling_frame.anyOf");
+  const samplingObject = object(samplingAnyOf[0], "sampling frame object");
+  samplingObject.allOf = [
+    {
+      if: {
+        properties: { opportunities_with_target_event_observed: { type: "integer" } },
+        required: ["opportunities_with_target_event_observed"],
+      },
+      then: { properties: { opportunities_without_target_event_observed: { type: "integer" } } },
+    },
+    {
+      if: {
+        properties: { opportunities_without_target_event_observed: { type: "integer" } },
+        required: ["opportunities_without_target_event_observed"],
+      },
+      then: { properties: { opportunities_with_target_event_observed: { type: "integer" } } },
     },
   ];
 

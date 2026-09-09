@@ -48,6 +48,9 @@ payload SHA-256.
    diary/event frame, structured or random opportunity sample, bounded exhaustive
    enumeration, external log/observation, or repeated-measures frame. Volunteered
    examples and story counts are not such a frame.
+   Record opportunities with and without the target event separately; their sum
+   is the observed opportunity denominator. A sampling frame does not establish
+   that repeated or clustered observations are statistically independent.
 
 For a report such as “this happens every time I eat X,” first preserve the
 recurrence report and probe eligible exposures, exceptions, conditions, dose or

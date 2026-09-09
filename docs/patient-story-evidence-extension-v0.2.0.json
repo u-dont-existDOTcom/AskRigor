@@ -155,6 +155,7 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "minLength": 1,
                         "maxLength": 2000
                       },
                       {
@@ -166,6 +167,7 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "minLength": 1,
                         "maxLength": 2000
                       },
                       {
@@ -186,6 +188,7 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "minLength": 1,
                         "maxLength": 500
                       },
                       {
@@ -197,6 +200,7 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "minLength": 1,
                         "maxLength": 1000
                       },
                       {
@@ -248,19 +252,19 @@
                   {
                     "if": {
                       "properties": {
-                        "exceptions": {
-                          "type": "array",
-                          "minItems": 1
+                        "calibration_status": {
+                          "const": "PROBED_NO_EXCEPTIONS_REPORTED"
                         }
                       },
                       "required": [
-                        "exceptions"
+                        "calibration_status"
                       ]
                     },
                     "then": {
                       "properties": {
-                        "calibration_status": {
-                          "const": "PROBED_EXCEPTIONS_REPORTED"
+                        "exceptions": {
+                          "type": "array",
+                          "maxItems": 0
                         }
                       }
                     }
@@ -276,6 +280,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 200
               },
               {
@@ -287,6 +292,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 2000
               },
               {
@@ -320,7 +326,7 @@
                     "minLength": 1,
                     "maxLength": 1000
                   },
-                  "opportunities_observed": {
+                  "opportunities_with_target_event_observed": {
                     "anyOf": [
                       {
                         "type": "integer",
@@ -332,7 +338,7 @@
                       }
                     ]
                   },
-                  "target_events_observed": {
+                  "opportunities_without_target_event_observed": {
                     "anyOf": [
                       {
                         "type": "integer",
@@ -348,6 +354,7 @@
                     "anyOf": [
                       {
                         "type": "string",
+                        "minLength": 1,
                         "maxLength": 2000
                       },
                       {
@@ -360,11 +367,51 @@
                   "design",
                   "target_opportunity",
                   "observation_period",
-                  "opportunities_observed",
-                  "target_events_observed",
+                  "opportunities_with_target_event_observed",
+                  "opportunities_without_target_event_observed",
                   "frame_limitations"
                 ],
-                "additionalProperties": false
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "opportunities_with_target_event_observed": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "opportunities_with_target_event_observed"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "opportunities_without_target_event_observed": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "opportunities_without_target_event_observed": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "opportunities_without_target_event_observed"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "opportunities_with_target_event_observed": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "type": "null"
@@ -375,6 +422,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 2000
               },
               {
@@ -386,6 +434,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 4000
               },
               {
@@ -397,6 +446,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 4000
               },
               {
@@ -408,6 +458,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 200
               },
               {
@@ -431,6 +482,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 4000
               },
               {
@@ -785,6 +837,28 @@
                 }
               }
             }
+          },
+          {
+            "if": {
+              "properties": {
+                "evidential_independence": {
+                  "enum": [
+                    "INDEPENDENT_WITHIN_DEFINED_FRAME",
+                    "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME"
+                  ]
+                }
+              },
+              "required": [
+                "evidential_independence"
+              ]
+            },
+            "then": {
+              "properties": {
+                "role": {
+                  "const": "SAMPLED_OPPORTUNITY_OBSERVATION"
+                }
+              }
+            }
           }
         ]
       }
@@ -828,6 +902,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 2000
               },
               {
@@ -839,6 +914,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 2000
               },
               {
@@ -864,6 +940,7 @@
             "anyOf": [
               {
                 "type": "string",
+                "minLength": 1,
                 "maxLength": 2000
               },
               {

@@ -180,6 +180,7 @@ describe("patient-story evidence extension v0.2", () => {
   it("rejects a selected confirming example labeled as independent frequency evidence", () => {
     const input = structuredClone(validExtension());
     input.evidence_items[0]!.role = "BOUNDED_EPISODE";
+    input.evidence_items[0]!.recurrence_claim = null;
     input.evidence_items[0]!.bounded_episode_ref = "episode-selected-after-claim";
     input.evidence_items[0]!.elicitation_mode = "CONFIRMING_EXAMPLE_REQUEST";
     input.evidence_items[0]!.evidential_independence = "INDEPENDENT_WITHIN_DEFINED_FRAME";
@@ -197,6 +198,12 @@ describe("patient-story evidence extension v0.2", () => {
     expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/requires sampling_frame/i);
   });
 
+  it("does not permit defined-frame independence on a nonsampled evidence role", () => {
+    const input = structuredClone(validExtension());
+    input.evidence_items[0]!.evidential_independence = "INDEPENDENT_WITHIN_DEFINED_FRAME";
+    expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/reserved for sampled opportunity/i);
+  });
+
   it("does not infer statistical independence from a valid opportunity frame", () => {
     const input = structuredClone(validExtension());
     input.evidence_items[0]!.role = "SAMPLED_OPPORTUNITY_OBSERVATION";
@@ -207,8 +214,8 @@ describe("patient-story evidence extension v0.2", () => {
       design: "REPEATED_MEASURES",
       target_opportunity: "Meals containing X",
       observation_period: "Four weeks",
-      opportunities_observed: 12,
-      target_events_observed: 7,
+      opportunities_with_target_event_observed: 7,
+      opportunities_without_target_event_observed: 5,
       frame_limitations: "Repeated observations are clustered within one participant",
     };
     expect(patientStoryEvidenceExtensionV020Schema.parse(input)).toEqual(input);
@@ -221,6 +228,38 @@ describe("patient-story evidence extension v0.2", () => {
     const input = structuredClone(validExtension());
     input.evidence_items[0]!.trait_or_interpretive_label = "I am cautious";
     expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/another evidence role/i);
+  });
+
+  it("rejects empty role payloads and preserves volunteered exceptions before probing", () => {
+    const emptyEpisode = structuredClone(validExtension());
+    emptyEpisode.evidence_items[0]!.role = "BOUNDED_EPISODE";
+    emptyEpisode.evidence_items[0]!.recurrence_claim = null;
+    emptyEpisode.evidence_items[0]!.bounded_episode_ref = "";
+    expect(() => patientStoryEvidenceExtensionV020Schema.parse(emptyEpisode)).toThrow();
+
+    const volunteeredException = structuredClone(validExtension());
+    volunteeredException.evidence_items[0]!.recurrence_claim!.calibration_status = "NOT_YET_PROBED";
+    expect(patientStoryEvidenceExtensionV020Schema.parse(volunteeredException)).toEqual(volunteeredException);
+
+    volunteeredException.evidence_items[0]!.recurrence_claim!.calibration_status = "PROBED_NO_EXCEPTIONS_REPORTED";
+    expect(() => patientStoryEvidenceExtensionV020Schema.parse(volunteeredException)).toThrow(/cannot carry preserved exceptions/i);
+  });
+
+  it("requires opportunity-frequency count components together", () => {
+    const input = structuredClone(validExtension());
+    input.evidence_items[0]!.role = "SAMPLED_OPPORTUNITY_OBSERVATION";
+    input.evidence_items[0]!.recurrence_claim = null;
+    input.evidence_items[0]!.elicitation_mode = "VALID_SAMPLING_FRAME";
+    input.evidence_items[0]!.evidential_independence = "UNKNOWN";
+    input.evidence_items[0]!.sampling_frame = {
+      design: "STRUCTURED_OPPORTUNITY",
+      target_opportunity: "Meals containing X",
+      observation_period: "Four weeks",
+      opportunities_with_target_event_observed: 7,
+      opportunities_without_target_event_observed: null,
+      frame_limitations: null,
+    };
+    expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/must provide both/i);
   });
 
   it("requires explicit information gain for a planned nonmandatory follow-up", () => {
@@ -247,6 +286,7 @@ describe("patient-story evidence extension v0.2", () => {
 
     const confirming = structuredClone(validExtension());
     confirming.evidence_items[0]!.role = "BOUNDED_EPISODE";
+    confirming.evidence_items[0]!.recurrence_claim = null;
     confirming.evidence_items[0]!.bounded_episode_ref = "episode-selected-after-claim";
     confirming.evidence_items[0]!.elicitation_mode = "CONFIRMING_EXAMPLE_REQUEST";
     confirming.evidence_items[0]!.evidential_independence = "INDEPENDENT_WITHIN_DEFINED_FRAME";
@@ -269,10 +309,28 @@ describe("patient-story evidence extension v0.2", () => {
       design: "REPEATED_MEASURES",
       target_opportunity: "Meals containing X",
       observation_period: "Four weeks",
-      opportunities_observed: 12,
-      target_events_observed: 7,
+      opportunities_with_target_event_observed: 7,
+      opportunities_without_target_event_observed: 5,
       frame_limitations: "Repeated observations are clustered within one participant",
     };
     expect(validate(dependentSample), JSON.stringify(validate.errors)).toBe(true);
+
+    const promotedDirectReport = structuredClone(validExtension());
+    promotedDirectReport.evidence_items[0]!.evidential_independence = "INDEPENDENT_WITHIN_DEFINED_FRAME";
+    expect(validate(promotedDirectReport)).toBe(false);
+
+    const emptyEpisode = structuredClone(validExtension());
+    emptyEpisode.evidence_items[0]!.role = "BOUNDED_EPISODE";
+    emptyEpisode.evidence_items[0]!.recurrence_claim = null;
+    emptyEpisode.evidence_items[0]!.bounded_episode_ref = "";
+    expect(validate(emptyEpisode)).toBe(false);
+
+    const incompleteCounts = structuredClone(dependentSample);
+    incompleteCounts.evidence_items[0]!.sampling_frame!.opportunities_without_target_event_observed = null;
+    expect(validate(incompleteCounts)).toBe(false);
+
+    const volunteeredException = structuredClone(validExtension());
+    volunteeredException.evidence_items[0]!.recurrence_claim!.calibration_status = "NOT_YET_PROBED";
+    expect(validate(volunteeredException), JSON.stringify(validate.errors)).toBe(true);
   });
 });
