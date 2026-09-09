@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "studyId": "askrigor-mast-fresh-validation-round-1-20260909",
+  "frozenBeforeGeneration": true,
+  "askRigor": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "baselineCommit": "0565222b1080f65ee70cde1be8daea160668e978",
+    "universal": {
+      "version": "20.5.22",
+      "revisionDate": "2026-09-08",
+      "sha256": "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+    },
+    "hrp": {
+      "version": "20.5.27",
+      "revisionDate": "2026-09-09",
+      "sha256": "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a"
+    }
+  },
+  "mast": {
+    "repository": "ARISENetwork/mast",
+    "commit": "57a12c5490f3a7a6b0a6ce4e0d49f8e393ff49ee",
+    "tree": "f73e1cb717d3e76353b190abc13739d7f3476798"
+  },
+  "runtime": {
+    "node": "24.18.0",
+    "npm": "11.16.0",
+    "os": "linux"
+  },
+  "generation": {
+    "surface": "CHATGPT_CONSUMER",
+    "modelVisibleLabel": "GPT-5.6 Sol",
+    "reasoningVisibleLabel": "Extra High",
+    "backendModelSlug": null,
+    "temperature": null,
+    "topP": null,
+    "samplingSeed": null,
+    "maxOutputTokens": null,
+    "freshPersistentOrdinaryChatPerSubmission": true,
+    "personalization": "UNPERSONALIZED",
+    "providerApiCredentials": false
+  },
+  "evaluation": {
+    "J1": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J2": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "GPT-5.6 Sol",
+      "reasoningVisibleLabel": "Extra High"
+    },
+    "J3": {
+      "surface": "CHATGPT_CONSUMER",
+      "modelVisibleLabel": "Latest",
+      "reasoningVisibleLabel": "Pro",
+      "reasoningOrdinal": "5 of 5"
+    },
+    "primaryPassCount": 2,
+    "adjudicationTrigger": "ANY_SCORE_VECTOR_DISAGREEMENT",
+    "blinding": "OPAQUE_RESPONSE_IDS_WITH_SEALED_CONDITION_MAP"
+  },
+  "scoring": {
+    "metricLabel": "NONOFFICIAL_PROJECTED_MAST_METRICS",
+    "implementationId": "ASKRIGOR_MAST_FRESH_VALIDATION_R1_V1",
+    "sourceFiles": {
+      "scoringAndJoin": "evaluation/mast/src/fresh-validation.ts",
+      "orchestration": "scripts/mast-fresh-validation-round-1.mts"
+    },
+    "sourceSha256": {
+      "scoringAndJoin": "08f2170214f24f2120b0e7977bae41345708498e6c5ce3cd882c6e988f9c697a",
+      "orchestration": "be2def48548a88cf249a4f7aae96d87cb71569acf4263a95b9721d4862b1fe6c"
+    },
+    "arithmetic": "EXACT_RATIONAL_FROM_STORED_DECIMAL_LEXEMES",
+    "aliasSafeJoin": "EXPLICIT_OPAQUE_RESPONSE_AND_GENERATION_RECORD_IDS_ONLY"
+  },
+  "unavailableProviderParametersRecordedAsNull": true
+}
