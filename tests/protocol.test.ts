@@ -19,9 +19,9 @@ import {
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1";
+  "2da6edf410c54182b3aa333d7cf9e9a11c24cf86138dfcaa508b019e3a84e2e9";
 const UNIVERSAL_SHA_256 =
-  "5365f5fcb8e9abac0b60a5cbbfa23183cf08018f1c0f6ab9a3bb1e8df87ad9b3";
+  "c85378c9993731bf93daa65a9d49438d25b1008e065bd3eb9aaac215c0af1426";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -37,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.24",
-      revisionDate: "2026-08-31"
+      version: "20.5.25",
+      revisionDate: "2026-09-08"
     });
   });
 
@@ -254,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.24" revisionDate="2026-08-31"/
+      /<Protocol name="HRP" version="20\.5\.25" revisionDate="2026-09-08"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -419,7 +419,7 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.20",
+      version: "20.5.21",
       revisionDate: "2026-09-08"
     });
   });
@@ -538,5 +538,51 @@ describe("canonical protocol loader", () => {
     await expect(loadProtocolSnapshot("hrp")).rejects.toThrow(
       "Protocol file is not valid UTF-8"
     );
+  });
+});
+
+
+describe("comparison-integrity protocol regressions", () => {
+  it("requires Universal 20.5.21 comparison-set, estimand, and ranking-resolution controls", async () => {
+    const text = await loadProtocol("universal");
+    for (const required of [
+      '<revision version="20.5.21" priority="Critical">',
+      '<comparison_integrity_gate priority="Critical">',
+      'name="ReferenceSetPreservation"',
+      'subset introduced by the assistant',
+      'name="EstimandPreservation"',
+      'response at one chosen dose as potency',
+      'name="ComparabilityBeforeOrdering"',
+      'name="RankingResolution"',
+      'Never manufacture precision by sorting noise',
+      'name="EvidenceDepthSeparation"',
+      'A single screen, one dose, one surrogate, or one model'
+    ]) expect(text).toContain(required);
+  });
+
+  it("requires HRP 20.5.25 fixed-dose, exposure, endpoint, mixture, and ranking controls", async () => {
+    const text = await loadProtocol("hrp");
+    for (const required of [
+      '<Revision version="20.5.25" priority="Critical">',
+      '<ComparisonEstimandAndDoseExposureIntegrityGate priority="Critical">',
+      'name="CrossAgentEstimandLock"',
+      'cannot establish potency order without dose-response or exposure-response evidence',
+      'name="DoseExposureComparability"',
+      'same mg/kg',
+      'name="PotencyVersusMaximalEfficacyDiscriminator"',
+      'failure of dose escalation to rescue a partial effect',
+      'name="EndpointHierarchyAndTriangulation"',
+      'name="CompositeInterventionAttribution"',
+      'name="CrossAgentRankingResolution"'
+    ]) expect(text).toContain(required);
+  });
+
+  it("locks the Nichols-style regression against salient-subset and saturating-dose misranking", async () => {
+    const universal = await loadProtocol("universal");
+    const hrp = await loadProtocol("hrp");
+    expect(universal).toContain('Do not silently substitute a salient example set');
+    expect(universal).toContain('A sortable table of point estimates does not imply a resolvable strict rank order');
+    expect(hrp).toContain('A common-dose or deliberately saturating screen can classify efficacy or response at that dose but cannot establish potency order');
+    expect(hrp).toContain('Treat mixtures, botanicals, combination products, polypharmacy, and their individual components as distinct interventions');
   });
 });

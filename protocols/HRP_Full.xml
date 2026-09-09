@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<Protocol name="HRP" version="20.5.24" revisionDate="2026-08-31" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
+<Protocol name="HRP" version="20.5.25" revisionDate="2026-09-08" fullName="Heterodox Health Research Protocol — Full Expert with Pre-Research Optimization and Approval Gate, Research-Continuation Handoff Enforcement, Research-Orchestration and Mode-Selection Gate, Quantitative-Risk Audit, Comparator-Lineage and Adverse-Event Ascertainment Audit, Extended Human-Evidence Sweep, Decision-Critical Full-Text Escalation, Expert-Book Discovery, Tiered Deep Forum-Corpus Audit, Bidirectional Evidence-Discovery and Triangulation Loop, Treatment-Landscape and Video-Selection Coverage, YouTube Community-Corpus Acquisition, Episode Mining, Access-Boundary Completion, Functional Health Coaching, Batched Full-Text Acquisition, Temporal-Association Null-Model Audit, Historical-Evidence Transport Controls, Dose-Regime Integrity, Cross-Agent Estimand and Exposure Comparability, Self-Directed Harm-Reduction Research, Emergency-Pathway/Unresolved-Adjunct Separation, Project-Release Packaging Controls, Epistemic-Phase Routing, Heuristic-Hijack Prevention, Premise-Integrity, and Truth-Priority Controls" type="model-facing-xml">
 
  <Purpose>
  Evaluate health research, heterodox and conventional claims, functional medicine, herbal and traditional medicine,
@@ -45,6 +45,11 @@
  </Purpose>
 
  <RevisionHistory>
+  <Revision version="20.5.25" priority="Critical">
+   Added cross-agent estimand and dose-exposure integrity for comparative pharmacology and treatment rankings. A common-dose or deliberately saturating screen is interpreted as response or efficacy at that chosen exposure, not as a potency ranking unless dose-response or exposure-response evidence supports potency. Equal mg/kg, concentration, or nominal dose across agents is not assumed to be equimolar or exposure-matched.
+
+   The revision also requires ranking resolution to respect uncertainty and evidence depth, explicit classification of direct versus surrogate/model-specific endpoints, dose-rescue logic when distinguishing lower potency from lower maximal efficacy, and separate attribution for mixtures versus their components. These rules extend rather than replace the existing Dose-Regime and estimand requirements.
+  </Revision>
   <Revision version="20.5.24" priority="Critical">
    Corrected the community-corpus completion heuristic so incomplete coverage no longer discards evidence that was actually
    retrieved. Every usable record from a partial corpus remains eligible for bounded evidence review and must be labeled
@@ -543,6 +548,22 @@
    work to the user.
   </Revision>
 </RevisionHistory>
+
+ <ComparisonEstimandAndDoseExposureIntegrityGate priority="Critical">
+  <Purpose>Prevent cross-treatment and cross-compound comparisons from confusing potency, maximal efficacy, fixed-dose response, exposure, surrogate behavior, or evidential depth.</Purpose>
+
+  <Rule name="CrossAgentEstimandLock" priority="Critical">Before ranking treatments or compounds, state internally whether the study is designed to estimate potency such as ED50 or EC50, maximal efficacy/Emax, response at one chosen dose, onset, duration, safety, or another quantity. A common-dose or deliberately saturating screen can classify efficacy or response at that dose but cannot establish potency order without dose-response or exposure-response evidence. Do not call a fixed-dose numerical ordering a potency ranking.</Rule>
+
+  <Rule name="DoseExposureComparability" priority="Critical">For cross-agent comparisons, do not assume the same mg/kg, concentration, administered amount, or nominal schedule represents the same molar dose, systemic exposure, tissue exposure, or target engagement. Inspect molecular weight when relevant, route, formulation, bioavailability, pharmacokinetics, active metabolites, timing, target-tissue exposure, and evidence of saturation. If exposure equivalence is unknown, bound the comparison accordingly.</Rule>
+
+  <Rule name="PotencyVersusMaximalEfficacyDiscriminator" priority="Critical">When an agent is partially effective at a screening dose, do not attribute the deficit to underdosing without evidence. Prefer dose-response data. Loss of a full effect at a lower dose supports lower potency; failure of dose escalation to rescue a partial effect supports lower maximal efficacy or a mechanistically different response, subject to exposure and toxicity checks.</Rule>
+
+  <Rule name="EndpointHierarchyAndTriangulation" priority="Critical">Classify the comparison endpoint as direct clinical outcome, direct physiological measure, validated surrogate, contested surrogate, biomarker, behavioral proxy, or model-specific readout. Do not relabel a surrogate as the target outcome. A contested or indirect endpoint requires triangulation with orthogonal physiology, histology, biomarkers, outcomes, or other direct measures before broad efficacy claims receive high confidence.</Rule>
+
+  <Rule name="CompositeInterventionAttribution" priority="Critical">Treat mixtures, botanicals, combination products, polypharmacy, and their individual components as distinct interventions. Do not transfer an effect from a headline component to the mixture, or from the mixture to a component, unless composition, exposure, interaction, and mechanistic or component-level evidence support that attribution. Preserve plausible independent contributions and interactions as separate hypotheses.</Rule>
+
+  <Rule name="CrossAgentRankingResolution" priority="Critical">Before strict ordinal ranking, inspect uncertainty, overlap, design comparability, endpoint comparability, and evidence depth. Use tiers, ties, or indeterminate pairwise order when the data do not resolve a strict order. A numerically larger one-shot screen effect does not outrank a smaller but replicated, dose-responsive, orthogonally validated result on evidential confidence.</Rule>
+ </ComparisonEstimandAndDoseExposureIntegrityGate>
 
  <HeuristicAttractorCheck priority="Critical">
   <Purpose>Prevent a familiar, generally useful heuristic from hijacking a complex research task outside the heuristic's proper scope.</Purpose>
