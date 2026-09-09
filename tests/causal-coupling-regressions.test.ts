@@ -204,6 +204,17 @@ describe("causal-coupling research regressions", () => {
     }, { causal_coupling_receipt: receipt })).toThrow(/blocked/u);
   });
 
+  it("blocks an applicable coupling synthesis when the model omits its causal flag", () => {
+    const receipt = assessCausalCouplingCoverage(validPlan());
+    expect(() => assertReportIntegrityClaim({
+      claim_kind: "context_or_mechanism",
+      wording: "The unpleasant marker appears to be part of the desired benefit."
+    }, {
+      causal_coupling_applicability: "APPLICABLE",
+      causal_coupling_receipt: receipt
+    })).toThrow(/applicable causal-coupling synthesis.*exact receipt/iu);
+  });
+
   it("preserves a follow-up omission receipt and round-trips the exact migration", async () => {
     const plan = validPlan();
     plan.follow_up_replan = {

@@ -122,6 +122,30 @@ function assess(
   });
 }
 
+function frequencyClaim(
+  result: ReturnType<typeof assess>,
+  overrides: Record<string, unknown> = {}
+) {
+  return {
+    claim_kind: "community_attributed" as const,
+    wording: "Within the predefined corpus, one of one users reported benefit. These percentages describe the predefined forum corpus, not population response rates.",
+    community_claim_scope: "FIRSTHAND_USER_FREQUENCY" as const,
+    community_denominator_receipt_sha256:
+      communityEvidenceDenominatorReceiptSha256(result.receipt),
+    community_frequency: {
+      denominator_type: "FIRSTHAND_FORUM_USER_DENOMINATOR",
+      corpus_version: 1,
+      analysis: "INCLUSIVE",
+      category: "BENEFIT",
+      numerator: 1,
+      denominator: 1,
+      mandatory_qualification:
+        "These percentages describe the predefined forum corpus, not population response rates."
+    },
+    ...overrides
+  };
+}
+
 describe("community evidence denominator regressions", () => {
   it("keeps twenty sensitivity harms outside a ten-user neutral denominator", () => {
     const threads = Array.from({ length: 10 }, (_, index) => thread(index));
@@ -144,7 +168,10 @@ describe("community evidence denominator regressions", () => {
     const directional = plan("DIRECTIONAL_SENSITIVITY", "DIRECTIONAL");
     const result = assess(directional, [thread(1)], [episode(1, "BENEFIT")]);
     expect(result.receipt.forum_signal_prevalence).toBe("BLOCKED");
-    expect(result.receipt.mandatory_wording).toContain("deliberately enriched");
+    expect(result.receipt.mandatory_wording).toBe(
+      "These outcome-targeted searches are suitable for identifying the range of reported experiences, not their prevalence. A predefined neutral corpus is required to estimate forum direction."
+    );
+    expect(directional.outside_primary_denominator).toBe(true);
   });
 
   it("counts the same stable author once across three threads", () => {
@@ -204,6 +231,14 @@ describe("community evidence denominator regressions", () => {
     expect(bounded.ledger.anonymous_identity_uncertainty).toMatchObject({
       present: true, lower_bound: 1, upper_bound: 2
     });
+    expect(bounded.ledger.firsthand_user_denominator_bounds).toEqual({
+      lower_bound: 1, upper_bound: 2
+    });
+    expect(bounded.ledger.user_outcome_bounds_inclusive.WORSENED).toEqual({
+      lower_bound: 0, upper_bound: 2
+    });
+    expect(bounded.receipt.exact_frequency_allowed).toBe(false);
+    expect(bounded.receipt.forum_signal_prevalence).toBe("BLOCKED");
   });
 
   it("excludes an irrelevant source and permits a same-query replacement", () => {
@@ -212,9 +247,10 @@ describe("community evidence denominator regressions", () => {
       exclusion_reason: "IRRELEVANT_SUBJECT",
       search_landscape_category: "OTHER"
     });
-    const replacement = thread(2);
+    const replacement = thread(2, { replacement_for_result_card_id: "card-1" });
     const result = assess(plan(), [rejected, replacement], [episode(2, "BENEFIT")]);
     expect(result.ledger.relevant_threads).toBe(1);
+    expect(result.ledger.material_source_quota_consumed).toBe(1);
     expect(result.ledger.interpretable_firsthand_users).toBe(1);
   });
 
@@ -231,10 +267,10 @@ describe("community evidence denominator regressions", () => {
   });
 
   it("rejects a directionally biased primary query for denominator use", () => {
-    const result = assess(plan("PRIMARY_NEUTRAL_SIGNAL_ESTIMATION", "DIRECTIONAL"),
-      [thread(1)], [episode(1, "BENEFIT")]);
-    expect(result.receipt.gate_checks.PRIMARY_SEARCHES_DIRECTIONALLY_NEUTRAL).toBe(false);
-    expect(result.receipt.forum_signal_prevalence).toBe("BLOCKED");
+    expect(() => plan("PRIMARY_NEUTRAL_SIGNAL_ESTIMATION", "DIRECTIONAL"))
+      .toThrow(/primary.*directionally neutral/iu);
+    expect(() => plan("PRIMARY_NEUTRAL_SIGNAL_ESTIMATION", "UNCERTAIN"))
+      .toThrow(/primary.*directionally neutral/iu);
   });
 
   it("requires a new corpus version and hash after a plan change", () => {
@@ -322,13 +358,7 @@ describe("community evidence denominator regressions", () => {
 
   it("permits firsthand-user frequency only with the exact passing receipt", () => {
     const result = assess(plan(), [thread(1)], [episode(1, "BENEFIT")]);
-    const claim = {
-      claim_kind: "community_attributed" as const,
-      wording: "Within the predefined corpus, one of one users reported benefit.",
-      community_claim_scope: "FIRSTHAND_USER_FREQUENCY" as const,
-      community_denominator_receipt_sha256:
-        communityEvidenceDenominatorReceiptSha256(result.receipt)
-    };
+    const claim = frequencyClaim(result);
     expect(() => assertReportIntegrityClaim(claim, {
       community_denominator_receipt: result.receipt
     })).not.toThrow();
@@ -336,5 +366,139 @@ describe("community evidence denominator regressions", () => {
       ...claim,
       community_denominator_receipt_sha256: "0".repeat(64)
     }, { community_denominator_receipt: result.receipt })).toThrow(/exact passing/u);
+  });
+
+  it("requires exact bidirectional closure over every retrieved result card", () => {
+    const corpusPlan = plan();
+    const base = {
+      plan: corpusPlan,
+      denominatorType: "SEARCH_LANDSCAPE_RESULT_CARD_DENOMINATOR" as const,
+      searchReceipts: [{
+        query_id: "q1",
+        plan_sha256: corpusPlan.plan_sha256,
+        executed_at: now,
+        actual_result_depth: 2,
+        pagination_state: "EXHAUSTED" as const,
+        retrieved_result_card_ids: ["card-1", "card-2"]
+      }],
+      userEpisodes: [],
+      sensitivityCasesOutsideDenominator: 0,
+      sensitivityResultsSeparated: true
+    };
+    expect(() => assessCommunityEvidenceDenominator({
+      ...base,
+      threads: [thread(1)]
+    })).toThrow(/every retrieved result card.*exactly one disposition/iu);
+    expect(() => assessCommunityEvidenceDenominator({
+      ...base,
+      threads: [thread(1), thread(2, { materiality: "UNCERTAIN" })]
+    })).not.toThrow();
+    const uncertain = assessCommunityEvidenceDenominator({
+      ...base,
+      threads: [thread(1), thread(2, { materiality: "UNCERTAIN" })]
+    });
+    expect(uncertain.receipt.gate_checks.MATERIALITY_RESOLVED).toBe(false);
+    expect(uncertain.receipt.forum_signal_prevalence).toBe("BLOCKED");
+  });
+
+  it("does not let one canonical duplicate disposition cover another result card", () => {
+    const corpusPlan = plan();
+    expect(() => assessCommunityEvidenceDenominator({
+      plan: corpusPlan,
+      denominatorType: "SEARCH_LANDSCAPE_RESULT_CARD_DENOMINATOR",
+      searchReceipts: [{
+        query_id: "q1",
+        plan_sha256: corpusPlan.plan_sha256,
+        executed_at: now,
+        actual_result_depth: 2,
+        pagination_state: "EXHAUSTED",
+        retrieved_result_card_ids: ["card-1", "card-2"]
+      }],
+      threads: [thread(1), thread(1, { result_card_id: "card-1" })],
+      userEpisodes: [],
+      sensitivityCasesOutsideDenominator: 0,
+      sensitivityResultsSeparated: true
+    })).toThrow(/every retrieved result card.*exactly one disposition/iu);
+  });
+
+  it("rejects a result-depth and retained-card-list mismatch", () => {
+    const corpusPlan = plan();
+    expect(() => assessCommunityEvidenceDenominator({
+      plan: corpusPlan,
+      denominatorType: "SEARCH_LANDSCAPE_RESULT_CARD_DENOMINATOR",
+      searchReceipts: [{
+        query_id: "q1",
+        plan_sha256: corpusPlan.plan_sha256,
+        executed_at: now,
+        actual_result_depth: 2,
+        pagination_state: "EXHAUSTED",
+        retrieved_result_card_ids: ["card-1"]
+      }],
+      threads: [thread(1)],
+      userEpisodes: [],
+      sensitivityCasesOutsideDenominator: 0,
+      sensitivityResultsSeparated: true
+    })).toThrow(/actual result depth.*card list/iu);
+  });
+
+  it("binds longitudinal outcome attribution to the contributing episode", () => {
+    const stableIdentity = {
+      identity_kind: "STABLE_AUTHOR_ID",
+      identity_value: "longitudinal-attribution-user"
+    };
+    const laterBenefit = assess(plan(), [thread(1), thread(2)], [
+      episode(1, "NO_EFFECT", { identity: stableIdentity, attribution: "A1_ISOLATED" }),
+      episode(2, "BENEFIT", {
+        identity: stableIdentity,
+        attribution: "B_CONCURRENT_NEW_CHANGES",
+        chronological_index: 1
+      })
+    ]);
+    expect(laterBenefit.ledger.user_outcomes_inclusive.BENEFIT).toBe(1);
+    expect(laterBenefit.ledger.user_outcomes_strict.BENEFIT).toBe(0);
+
+    const mixed = assess(plan(), [thread(1), thread(2)], [
+      episode(1, "BENEFIT", {
+        identity: stableIdentity,
+        attribution: "A3_WITHIN_PERSON_DISCRIMINATOR"
+      }),
+      episode(2, "WORSENED", {
+        identity: stableIdentity,
+        attribution: "C_ATTRIBUTION_IMPOSSIBLE",
+        chronological_index: 1
+      })
+    ]);
+    expect(mixed.ledger.user_outcomes_inclusive.MIXED).toBe(0);
+    expect(mixed.ledger.user_outcomes_strict.MIXED).toBe(0);
+  });
+
+  it("requires explicit community scope and structured frequency consistency", () => {
+    const result = assess(plan(), [thread(1)], [episode(1, "BENEFIT")]);
+    expect(() => assertReportIntegrityClaim({
+      claim_kind: "community_attributed",
+      wording: "A firsthand report described benefit."
+    }, {})).toThrow(/explicit community scope/iu);
+
+    for (const wording of [
+      "Nine of ten users reported benefit.",
+      "Half of users reported benefit.",
+      "One in three users reported benefit.",
+      "Reports were predominantly positive.",
+      "The treatment was more often beneficial."
+    ]) {
+      expect(() => assertReportIntegrityClaim({
+        claim_kind: "community_attributed",
+        wording,
+        community_claim_scope: "CASE_DISCOVERY"
+      }, {})).toThrow(/prevalence-like wording/iu);
+    }
+
+    expect(() => assertReportIntegrityClaim(frequencyClaim(result, {
+      community_frequency: {
+        ...frequencyClaim(result).community_frequency,
+        numerator: 2
+      }
+    }), { community_denominator_receipt: result.receipt }))
+      .toThrow(/structured community frequency.*receipt/iu);
   });
 });
