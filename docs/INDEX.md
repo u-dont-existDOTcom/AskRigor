@@ -41,6 +41,10 @@ complete XML protocol.
   and `.json`: exact PR #198/#201 protocol release, independent evidence-schema
   review, immutable backend deployment and rollback, live protocol/MCP/provider
   acceptance, plugin synchronization, and promotion-timer receipt
+- `audits/2026-09-09-mast-derived-clinical-gates-production-release.md`
+  and `.json`: exact PR #205 clinical-gate release, immutable backend image and
+  rollback, authenticated HRP 20.5.27 worker readback, benchmark-target-integrity
+  boundary, plugin receipt, and promotion-timer acceptance
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary
