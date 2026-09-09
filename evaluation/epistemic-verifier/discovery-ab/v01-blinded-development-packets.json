@@ -6,10 +6,11 @@
   "canonical_source_commit": "63f341502a9caa432ffbcf1074d1b8e133a6c52b",
   "randomization": {
     "seed": "askrigor-208-20260909-blinded-dev-ab-v1",
-    "method": "semantic-preserving surface alias substitution plus deterministic packet-order shuffle",
+    "method": "semantic-preserving alias substitution plus deterministic packet-order shuffle; where the canonical source_packet omits neutral scaffolding that the canonical test builder adds, include only that test-builder scaffolding so the intended gate remains fully representable from the blinded packet",
     "constraints": [
-      "Preserve quantities, polarity, comparison roles, timing/dose direction, target relation, and task meaning.",
+      "Preserve quantities, polarity, comparison roles, timing/dose direction, target relation, task meaning, and the canonical test-state gate structure.",
       "Rename fixture IDs, cases, features, and adjacent-target labels exposed to reasoning sessions.",
+      "Do not introduce outcome-determining facts that are absent from both the canonical source packet and canonical state builder.",
       "Do not expose original fixture IDs, expected outcomes, verifier gates, gold state, scorer key, or opposite-arm output."
     ]
   },
@@ -20,7 +21,7 @@
     },
     {
       "blind_id": "DEV-L9JQC2",
-      "source_packet": "Plover produces the target effect at a represented exposure of 0.1 units; Kestrel is a tolerated control. The proposed material hypothesis requires at least 10 units for the target effect."
+      "source_packet": "Plover is a positive case and produces the target effect at a represented exposure of 0.1 units; Kestrel is a tolerated control. Feature Tern is represented in Plover and absent from Kestrel, and is the proposed discriminator. The material hypothesis also requires at least 10 exposure units for the target effect."
     },
     {
       "blind_id": "DEV-9M34WA",
@@ -28,11 +29,11 @@
     },
     {
       "blind_id": "DEV-Y8PCH6",
-      "source_packet": "The source explicitly says the target effect begins within 2 seconds. A candidate semantic extraction preserves the target and observation but drops onset_seconds entirely and does not mark it high-information."
+      "source_packet": "Willow is a positive case and Drift is a tolerated control. Feature Ember is represented in Willow and absent from Drift. The source explicitly says Willow's target-effect observation begins within 2 seconds. Test the candidate hypothesis that Ember is the discriminator. A candidate semantic extraction preserves the target and Willow observation but drops onset_seconds entirely and does not mark it high-information."
     },
     {
       "blind_id": "DEV-D6JPFM",
-      "source_packet": "Alder produces the target effect within 2 seconds; Basin is a tolerated control. The proposed material hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure."
+      "source_packet": "Alder is a positive case and produces the target effect within 2 seconds; Basin is a tolerated control. Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator. The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure."
     },
     {
       "blind_id": "DEV-SQBKLZ",
@@ -44,7 +45,7 @@
     },
     {
       "blind_id": "DEV-S47VJN",
-      "source_packet": "The requested target is adverse_outcome_risk. The available evidence establishes only pathway_activity. A proposed conclusion about adverse_outcome_risk depends only on pathway_activity evidence, with no observation bound to adverse_outcome_risk."
+      "source_packet": "The requested target is adverse_outcome_risk. Nova is a positive case and Cove is a tolerated control. Feature Quartz is represented in Nova and absent from Cove, and the material hypothesis proposes Quartz as relevant to adverse_outcome_risk. The available observation for Nova establishes only pathway_activity. A proposed conclusion about adverse_outcome_risk depends only on that pathway_activity observation, with no observation bound to adverse_outcome_risk."
     }
   ]
 }
