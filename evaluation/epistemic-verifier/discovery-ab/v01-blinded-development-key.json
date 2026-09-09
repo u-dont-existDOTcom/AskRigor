@@ -40,7 +40,8 @@
       "definitive_synthesis": false,
       "gold_conclusion": "The proposed minimum-threshold hypothesis predicts the opposite dose direction and cannot receive definitive support without a separately supported exception mechanism.",
       "critical_semantics": [
-        "Plover is positive; Kestrel is tolerated control.",
+        "Plover is a positive case; Kestrel is a tolerated control.",
+        "Tern is represented in Plover and absent from Kestrel and is the proposed discriminator.",
         "Observed represented exposure is 0.1 units and is high-information.",
         "Material hypothesis requires exposure >= 10 units."
       ]
@@ -73,7 +74,9 @@
       "definitive_synthesis_relative_to_incomplete_candidate_state": true,
       "gold_conclusion": "The onset qualifier is source-explicit and must be preserved and marked high-information in the state. If it is omitted, count a semantic representation error, not a deterministic-verifier failure.",
       "critical_semantics": [
-        "The source states onset is within 2 seconds.",
+        "Willow is a positive case; Drift is a tolerated control.",
+        "Ember is represented in Willow and absent from Drift.",
+        "The source states Willow's onset is within 2 seconds.",
         "Onset/timing must be represented as a qualifier rather than dropped.",
         "The onset qualifier must be marked high-information.",
         "An omitted onset is a semantic representation failure and is not attributed to the deterministic verifier."
@@ -93,7 +96,8 @@
       "definitive_synthesis": false,
       "gold_conclusion": "The proposed delayed-onset hypothesis predicts the opposite timing direction and cannot receive definitive support without a separately supported exception mechanism.",
       "critical_semantics": [
-        "Alder is positive; Basin is tolerated control.",
+        "Alder is a positive case; Basin is a tolerated control.",
+        "Iris is represented in Alder and absent from Basin and is the proposed discriminator.",
         "Observed onset is within 2 seconds and is high-information.",
         "Material hypothesis requires onset no sooner than 3600 seconds."
       ]
@@ -153,7 +157,9 @@
       "gold_conclusion": "Evidence only about the adjacent mechanism/pathway target cannot establish the requested harm/risk target.",
       "critical_semantics": [
         "Requested target is adverse_outcome_risk.",
-        "Available evidence establishes only adjacent target pathway_activity.",
+        "Nova is a positive case; Cove is a tolerated control.",
+        "Quartz is represented in Nova and absent from Cove and is proposed as relevant to adverse_outcome_risk.",
+        "Available observation for Nova establishes only adjacent target pathway_activity.",
         "No observation is bound to adverse_outcome_risk.",
         "The proposed adverse_outcome_risk conclusion depends only on pathway_activity evidence."
       ]
