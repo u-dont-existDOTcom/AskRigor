@@ -28,6 +28,12 @@ The state is then evaluated by the canonical `verifyEpistemicState` implementati
 
 After repair/recheck, `arm-b-synthesis-prompt.txt` is used. A non-pass `SYNTHESIS_LOCK` permits only bounded/uncertain synthesis, never the blocked proposition as established.
 
+### Intended-gate attribution guard
+
+Do not credit the deterministic verifier for preventing an escape merely because some unrelated gate is non-pass after the producer omitted or distorted state. A deterministic success on a hard-challenge fixture requires the source-critical semantics in the scorer key to be faithfully represented and the intended invariant itself to be enforced. If a collateral block arises from a source-to-state error, attribute it to `SEMANTIC_TRANSLATION` (or `OTHER` when appropriate), not to deterministic-verifier success.
+
+The blind packet builder includes neutral structure already supplied by the canonical `stateForFixture()` test builder when the short canonical `source_packet` omitted it. This prevents the comparison from artificially flattering Arm B through under-specified packets.
+
 ## Primary score: hard-invariant escape rate
 
 The five hard-invariant challenge fixtures are:
