@@ -195,4 +195,5 @@ export * from "./research-mission.js";
 export * from "./public-prediction.js";
 export * from "./public-prediction-policy.js";
 export * from "./patient-story.js";
+export * from "./patient-story-evidence-v0.2.js";
 export * from "./community-forum.js";
