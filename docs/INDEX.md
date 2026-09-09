@@ -37,6 +37,10 @@ complete XML protocol.
   `.json`: exact merged backend/site deployment, live page and YouTube request
   acceptance, plugin and promotion-scheduler synchronization, rollback, and
   protected-check receipts
+- `audits/2026-09-09-comparison-interview-protocol-production-release.md`
+  and `.json`: exact PR #198/#201 protocol release, independent evidence-schema
+  review, immutable backend deployment and rollback, live protocol/MCP/provider
+  acceptance, plugin synchronization, and promotion-timer receipt
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary
