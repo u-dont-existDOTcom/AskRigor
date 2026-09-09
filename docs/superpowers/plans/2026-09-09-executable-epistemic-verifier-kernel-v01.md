@@ -57,9 +57,8 @@ Initial gates:
 
 2. `EVIDENCE_DIRECTION`
    - Every material hypothesis must predict every high-information material observation that the state explicitly links to it.
-   - `opposite` predictions produce a hard block.
-   - `unexplained` predictions produce an insufficient/blocking state for definitive synthesis.
-   - An exception mechanism must be a separate explicit claim/predicate in state, not prose relabeling.
+   - Opposite predictions produce a hard block unless a separately represented supported exception mechanism is linked.
+   - Missing or mechanically incomparable high-information predictions produce an `insufficient` state for definitive synthesis.
 
 3. `TARGET_PRESERVATION`
    - Every material conclusion claim must bind to the exact state target id.
@@ -78,7 +77,7 @@ Initial gates:
 
 ### 2. `evaluation/epistemic-verifier/v01-development-fixtures.json`
 
-Development/discovery fixtures only. Each fixture includes complete structured state and expected hard-gate results.
+Development/discovery fixtures only. The JSON preserves the **source-level packet** and expected result rather than only a prestructured state. The test builder expands those packets into gold/candidate `EpistemicStateV1` objects. This is intentional: keeping a source packet separate from state lets the suite expose source-to-state semantic translation failures instead of silently assuming perfect parsing.
 
 Required cases:
 
@@ -89,17 +88,18 @@ Required cases:
 - target-substitution: target A, conclusion/dependencies only about adjacent B -> target block;
 - true-discriminator: predicate present only in X/Y -> specificity pass without causal proof;
 - no-control: no tolerated/negative comparator -> specificity `insufficient`;
-- missing-qualifier: source/gold semantic state requires a high-information qualifier but candidate state omits it -> representation-audit failure fixture.
+- missing-qualifier: source/gold semantic requirements include a high-information qualifier but candidate state omits it -> representation-audit failure fixture even if deterministic verification relative to the incomplete candidate state passes.
 
 ### 3. `tests/epistemic-verifier.test.ts`
 
 Test schema strictness, all required fixtures, and hard invariants directly. Include negative tests proving:
 
-- a prose/explanation field cannot override a failed gate;
+- persuasive hypothesis prose cannot override a failed gate;
 - a modifier that does not actually discriminate does not repair specificity;
 - missing dependencies/provenance fail closed;
 - an adjacent-target claim remains blocked even when otherwise well supported;
-- an insufficient comparator state cannot be promoted to `pass`.
+- an insufficient comparator state cannot be promoted to `pass`;
+- semantic qualifier omission is separately detected by the representation audit.
 
 ### 4. `evaluation/epistemic-verifier/README.md`
 
@@ -115,7 +115,7 @@ The development fixtures may shape v0.1. They are not independent confirmation. 
 
 ## Semantic translation boundary
 
-The deterministic verifier cannot establish that the LLM extracted the source correctly. v0.1 therefore also exposes a narrow representation-audit helper that compares a source/gold semantic requirement packet against a candidate `EpistemicStateV1` for required target ids, observation ids and high-information qualifier keys.
+The deterministic verifier cannot establish that the LLM extracted the source correctly. v0.1 therefore also exposes a narrow representation-audit helper that compares a source/gold semantic requirement packet against a candidate `EpistemicStateV1` for required target ids, case ids, observation ids and high-information qualifier keys.
 
 This helper is for synthetic development fixtures in v0.1. A later production semantic verifier should independently inspect source evidence plus state, not the producer model's prose justification.
 
