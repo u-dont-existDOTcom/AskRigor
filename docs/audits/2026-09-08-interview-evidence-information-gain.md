@@ -8,9 +8,10 @@ The controlling lesson is universal-dev-architecture draft PR #84 at head
 `723d6d129e883c561f0699fa96c10ad6e04da379b0244da179359a789b792958`.
 
 Before changing AskRigor, the audit also inspected the owner-supplied Life
-Patterns interview v4 package and the current HumanDesign PR #24 methodology:
-the interview-methods shortlist and full-text adaptation, the plain-language
-calibration guide, and the human-calibration UI requirements. Those sources
+Patterns interview v4 package and HumanDesign draft PR #24 at head
+`85e665d4e8edaa20728fac314e4f59c19fa0e41b`: the interview-methods shortlist,
+full-text adaptation, recurrence-evidence v2 policy and prior-work scan,
+plain-language calibration guide, and human-calibration UI requirements. Those sources
 already separate general patterns from bounded incidents, reject fabricated
 precision, preserve exact source/provenance, route follow-ups by material
 uncertainty, and require a usable theory-neutral human interface. Their newer
@@ -48,6 +49,10 @@ method defect and preserves the old frozen method for history.
    preventing raw serialization from becoming a human annotation interface.
 5. No AskRigor layer explicitly required a versioned, theory- or target-blind
    repair when a load-bearing collection defect is found before collection.
+6. The first local v0.2 contract candidate treated every observation from a
+   defined sampling frame as statistically independent. That was too strong for
+   repeated or clustered observations; the reviewed contract now preserves
+   independent, dependent/clustered, or unknown dependence separately.
 
 ## Changes
 
@@ -61,7 +66,9 @@ method defect and preserves the old frozen method for history.
   AskRigor workers.
 - `patient-story-evidence-extension-v0.2.0.json` and its typed contract add an
   append-only, hash-linked evidence-role and follow-up ledger. The generator is
-  deterministic and the tests compare its output to the checked-in schema.
+  deterministic and the tests compare its output to the checked-in schema. A
+  sampling frame is required for opportunity-frequency observations but does
+  not itself prove statistical independence.
 - `patient-story-interview-method-v0.2.0.md` defines the human flow, ordinary
   controls, sampling boundary, export mapping, and pre-collection version gate.
 - Focused tests protect current protocol structure, historical protocol receipts,

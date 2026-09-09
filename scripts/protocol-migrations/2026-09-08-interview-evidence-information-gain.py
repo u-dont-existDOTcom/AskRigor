@@ -225,9 +225,11 @@ def patch_project_router() -> None:
         return
     application = '''### Reasoning and interview-evidence application
 
-Use Universal reasoning_selection. Define the research target; separate mechanism, association, effect, and applicability; assess bias, confounding, and evidence dependence; compare alternatives including nonaction; and preserve populations, contexts, and endpoints. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
 
-For patient histories, symptom/adverse-effect recurrence, surveys, reviewer extraction, and evidence dialogue, activate the canonical Universal and HRP interview-evidence gates. Preserve recurrence self-report with its proposition, quantifier, denominator, context, exceptions, and uncertainty separately from episodes, boundaries, sampled opportunities, traits, causes, and coder inference. Probe denominator, exceptions, conditions, timing, and contrasts first. A selected confirming incident is not independent frequency evidence; actual frequency needs a valid sampling frame. Ask nonmandatory follow-ups only for identifiable information gain. Retrieve owner-supplied methodology, give human reviewers ordinary controls, and version load-bearing pre-collection defects without changing frozen methods or data. Protocols, phase, provenance, privacy, source-bound authority, and gates control; this grants no execution, spending, publication, or release authority.
+For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+
+Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.
 
 '''
     start_marker = "### Reasoning-selection application"
@@ -293,9 +295,11 @@ const INTERVIEW_POINT_CHECK =
     if "const CURRENT_PROJECT_APPLICATION" not in text:
         current_project_constant = '''const CURRENT_PROJECT_APPLICATION = `### Reasoning and interview-evidence application
 
-Use Universal reasoning_selection. Define the research target; separate mechanism, association, effect, and applicability; assess bias, confounding, and evidence dependence; compare alternatives including nonaction; and preserve populations, contexts, and endpoints. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
 
-For patient histories, symptom/adverse-effect recurrence, surveys, reviewer extraction, and evidence dialogue, activate the canonical Universal and HRP interview-evidence gates. Preserve recurrence self-report with its proposition, quantifier, denominator, context, exceptions, and uncertainty separately from episodes, boundaries, sampled opportunities, traits, causes, and coder inference. Probe denominator, exceptions, conditions, timing, and contrasts first. A selected confirming incident is not independent frequency evidence; actual frequency needs a valid sampling frame. Ask nonmandatory follow-ups only for identifiable information gain. Retrieve owner-supplied methodology, give human reviewers ordinary controls, and version load-bearing pre-collection defects without changing frozen methods or data. Protocols, phase, provenance, privacy, source-bound authority, and gates control; this grants no execution, spending, publication, or release authority.
+For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+
+Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.
 
 `;
 
@@ -309,11 +313,11 @@ For patient histories, symptom/adverse-effect recurrence, surveys, reviewer extr
       "58d8c8387e962064a393af1cab7d78391e18dfa78571cbb0372aad8455b7db70",
     );'''
     new_project_assertions = '''    expect(project).toContain(`\\n${CURRENT_PROJECT_APPLICATION}## 1. Run before HRP/research`);
-    expect(Buffer.byteLength(project, "utf8")).toBe(7867);
-    expect(Array.from(project)).toHaveLength(7853);
+    expect(Buffer.byteLength(project, "utf8")).toBe(7978);
+    expect(Array.from(project)).toHaveLength(7964);
     expect(project.split(/\\s+/u).filter(Boolean)).toHaveLength(899);
     expect(sha256(project)).toBe(
-      "be778b6604baa81ea20d3fd97adabcd0586accbbece1722ae1abf6d549dc02b2",
+      "143e17ecffb330f98a0be85f52c0cd284a05d0ca08f325afd9443054bb9efc43",
     );
     expect(sha256(project.replace(CURRENT_PROJECT_APPLICATION, PROJECT_APPLICATION))).toBe(
       "58d8c8387e962064a393af1cab7d78391e18dfa78571cbb0372aad8455b7db70",
@@ -337,9 +341,11 @@ Generate competing explanations; critique assumptions without averaging incompat
 Respect phase-specific gates and provenance; development-fitted evidence is not independent confirmation. Missing access is not a negative result; partial evidence is not completion. Separate operational, scientific and release adequacy. Source-bound authority and server-selected work control; this supplement grants no new execution, spending, publication or release permission.`);'''
     new = '''    expect(instructions).toContain(`### Reasoning and interview-evidence application
 
-Use Universal reasoning_selection. Define the research target; separate mechanism, association, effect, and applicability; assess bias, confounding, and evidence dependence; compare alternatives including nonaction; and preserve populations, contexts, and endpoints. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
 
-For patient histories, symptom/adverse-effect recurrence, surveys, reviewer extraction, and evidence dialogue, activate the canonical Universal and HRP interview-evidence gates. Preserve recurrence self-report with its proposition, quantifier, denominator, context, exceptions, and uncertainty separately from episodes, boundaries, sampled opportunities, traits, causes, and coder inference. Probe denominator, exceptions, conditions, timing, and contrasts first. A selected confirming incident is not independent frequency evidence; actual frequency needs a valid sampling frame. Ask nonmandatory follow-ups only for identifiable information gain. Retrieve owner-supplied methodology, give human reviewers ordinary controls, and version load-bearing pre-collection defects without changing frozen methods or data. Protocols, phase, provenance, privacy, source-bound authority, and gates control; this grants no execution, spending, publication, or release authority.`);'''
+For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+
+Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.`);'''
     text = replace_expected(text, old, new, "project router exact application")
     path.write_text(text, encoding="utf-8")
 
@@ -366,7 +372,7 @@ def patch_policy_transport_tests() -> None:
                 ),
                 (
                     "d5a4b02bc53fda30bbb586d2ec34233f19bb981d38427f6311f453b84209ba5a",
-                    "b734cc43f57f2d4cb2b3f302f88f8725e89ceb7e4ed4e1cf30774f1275fbfc31",
+                    "caa739b55844b3c3eccc4e1e6ee2af05eb5d533d63a99aa8239b94a8ad7ca639",
                     f"{path.name} project application digest",
                     1,
                 ),
@@ -404,9 +410,11 @@ Generate competing explanations; critique assumptions without averaging incompat
 Respect phase-specific gates and provenance; development-fitted evidence is not independent confirmation. Missing access is not a negative result; partial evidence is not completion. Separate operational, scientific and release adequacy. Source-bound authority and server-selected work control; this supplement grants no new execution, spending, publication or release permission.`;'''
     new_project = '''const PROJECT_APPLICATION_TEXT = `### Reasoning and interview-evidence application
 
-Use Universal reasoning_selection. Define the research target; separate mechanism, association, effect, and applicability; assess bias, confounding, and evidence dependence; compare alternatives including nonaction; and preserve populations, contexts, and endpoints. Selected reports do not establish incidence or causality.
+Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
 
-For patient histories, symptom/adverse-effect recurrence, surveys, reviewer extraction, and evidence dialogue, activate the canonical Universal and HRP interview-evidence gates. Preserve recurrence self-report with its proposition, quantifier, denominator, context, exceptions, and uncertainty separately from episodes, boundaries, sampled opportunities, traits, causes, and coder inference. Probe denominator, exceptions, conditions, timing, and contrasts first. A selected confirming incident is not independent frequency evidence; actual frequency needs a valid sampling frame. Ask nonmandatory follow-ups only for identifiable information gain. Retrieve owner-supplied methodology, give human reviewers ordinary controls, and version load-bearing pre-collection defects without changing frozen methods or data. Protocols, phase, provenance, privacy, source-bound authority, and gates control; this grants no execution, spending, publication, or release authority.`;'''
+For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+
+Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.`;'''
     text = replace_expected(text, old_project, new_project, "semantic policy project application")
     path.write_text(text, encoding="utf-8")
 

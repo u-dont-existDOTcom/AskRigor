@@ -131,6 +131,7 @@
               "DIRECT_REPORT_ONLY",
               "CONDITIONALLY_SAMPLED_DETAIL",
               "INDEPENDENT_WITHIN_DEFINED_FRAME",
+              "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
               "NOT_APPLICABLE",
               "UNKNOWN"
             ]
@@ -643,7 +644,11 @@
                   "type": "null"
                 },
                 "evidential_independence": {
-                  "const": "INDEPENDENT_WITHIN_DEFINED_FRAME"
+                  "enum": [
+                    "INDEPENDENT_WITHIN_DEFINED_FRAME",
+                    "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
+                    "UNKNOWN"
+                  ]
                 }
               }
             }
@@ -776,9 +781,7 @@
             "then": {
               "properties": {
                 "evidential_independence": {
-                  "not": {
-                    "const": "INDEPENDENT_WITHIN_DEFINED_FRAME"
-                  }
+                  "const": "CONDITIONALLY_SAMPLED_DETAIL"
                 }
               }
             }
@@ -971,6 +974,7 @@
     "Specificity and vividness do not establish evidential independence.",
     "Direct recurrence self-report, bounded episodes, exceptions, sampled opportunities, traits, causes, and analyst inference remain separate evidence roles.",
     "Actual opportunity frequency requires a defined sampling frame.",
+    "A defined sampling frame does not establish statistical independence; preserve independent, dependent/clustered, or unknown dependence status.",
     "Nonmandatory follow-ups require expected information gain.",
     "Human judgment uses ordinary controls and exports this contract; humans do not hand-edit JSON.",
     "The extension does not reinterpret frozen v0.1 records or previously collected data."

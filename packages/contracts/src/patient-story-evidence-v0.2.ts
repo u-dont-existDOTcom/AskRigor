@@ -30,6 +30,7 @@ export const evidentialIndependenceSchema = z.enum([
   "DIRECT_REPORT_ONLY",
   "CONDITIONALLY_SAMPLED_DETAIL",
   "INDEPENDENT_WITHIN_DEFINED_FRAME",
+  "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
   "NOT_APPLICABLE",
   "UNKNOWN",
 ]);
@@ -152,22 +153,26 @@ export const patientInterviewEvidenceItemV020Schema = z
     }
     if (
       value.elicitation_mode === "CONFIRMING_EXAMPLE_REQUEST"
-      && value.evidential_independence === "INDEPENDENT_WITHIN_DEFINED_FRAME"
+      && value.evidential_independence !== "CONDITIONALLY_SAMPLED_DETAIL"
     ) {
       context.addIssue({
         code: "custom",
         path: ["evidential_independence"],
-        message: "A self-selected confirming example cannot be marked as an independent opportunity observation",
+        message: "A self-selected confirming example must remain conditionally sampled detail",
       });
     }
     if (
       value.role === "SAMPLED_OPPORTUNITY_OBSERVATION"
-      && value.evidential_independence !== "INDEPENDENT_WITHIN_DEFINED_FRAME"
+      && (
+        value.evidential_independence === "DIRECT_REPORT_ONLY"
+        || value.evidential_independence === "CONDITIONALLY_SAMPLED_DETAIL"
+        || value.evidential_independence === "NOT_APPLICABLE"
+      )
     ) {
       context.addIssue({
         code: "custom",
         path: ["evidential_independence"],
-        message: "Sampled opportunity observations require independence within their defined frame",
+        message: "Sampled opportunity observations require an explicit independent, dependent/clustered, or unknown dependence status within their defined frame",
       });
     }
   });

@@ -67,6 +67,8 @@ surface must:
 - prevent a confirming example from being marked as an independent sampled
   opportunity;
 - require a sampling-frame panel for sampled opportunity observations;
+- capture whether framed observations are independent, dependent/clustered, or
+  of unknown dependence rather than inferring independence from the frame;
 - require exception details when the recurrence calibration says exceptions
   were reported;
 - require the information-gain fields for a planned or asked nonmandatory

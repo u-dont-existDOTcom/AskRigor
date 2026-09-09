@@ -30,6 +30,7 @@ export function buildPatientStoryEvidenceJsonSchema(): JsonObject {
     "Specificity and vividness do not establish evidential independence.",
     "Direct recurrence self-report, bounded episodes, exceptions, sampled opportunities, traits, causes, and analyst inference remain separate evidence roles.",
     "Actual opportunity frequency requires a defined sampling frame.",
+    "A defined sampling frame does not establish statistical independence; preserve independent, dependent/clustered, or unknown dependence status.",
     "Nonmandatory follow-ups require expected information gain.",
     "Human judgment uses ordinary controls and exports this contract; humans do not hand-edit JSON.",
     "The extension does not reinterpret frozen v0.1 records or previously collected data.",
@@ -56,7 +57,13 @@ export function buildPatientStoryEvidenceJsonSchema(): JsonObject {
         [field, fieldSchema],
         ...rolePayloadFields.filter((candidate) => candidate !== field).map((candidate) => [candidate, { type: "null" }]),
         ...(role === "SAMPLED_OPPORTUNITY_OBSERVATION"
-          ? [["evidential_independence", { const: "INDEPENDENT_WITHIN_DEFINED_FRAME" }] as const]
+          ? [["evidential_independence", {
+              enum: [
+                "INDEPENDENT_WITHIN_DEFINED_FRAME",
+                "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
+                "UNKNOWN",
+              ],
+            }] as const]
           : []),
       ]),
     },
@@ -65,7 +72,7 @@ export function buildPatientStoryEvidenceJsonSchema(): JsonObject {
     ...roleClauses,
     {
       if: { properties: { elicitation_mode: { const: "CONFIRMING_EXAMPLE_REQUEST" } }, required: ["elicitation_mode"] },
-      then: { properties: { evidential_independence: { not: { const: "INDEPENDENT_WITHIN_DEFINED_FRAME" } } } },
+      then: { properties: { evidential_independence: { const: "CONDITIONALLY_SAMPLED_DETAIL" } } },
     },
   ];
 

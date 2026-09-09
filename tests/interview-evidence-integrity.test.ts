@@ -146,11 +146,12 @@ describe("interview-evidence protocol integration", () => {
     const project = await readFile(new URL("project/PROJECT_INSTRUCTIONS.md", ROOT), "utf8");
     for (const required of [
       "### Reasoning and interview-evidence application",
-      "patient histories, symptom/adverse-effect recurrence",
-      "A selected confirming incident is not independent frequency evidence",
-      "Probe denominator, exceptions, conditions, timing, and contrasts first",
-      "give human reviewers ordinary controls",
-      "without changing frozen methods or data",
+      "For histories, recurrence, surveys, follow-ups, extraction, and dialogue",
+      "apply Universal/HRP interview-evidence gates",
+      "Preserve recurrence separately from other roles",
+      "probe scope, exceptions, conditions, timing, and contrasts before anecdotes",
+      "Retrieve owner methodology, use human controls",
+      "without altering frozen methods/data",
     ]) expect(project).toContain(required);
   });
 });
@@ -183,6 +184,9 @@ describe("patient-story evidence extension v0.2", () => {
     input.evidence_items[0]!.elicitation_mode = "CONFIRMING_EXAMPLE_REQUEST";
     input.evidence_items[0]!.evidential_independence = "INDEPENDENT_WITHIN_DEFINED_FRAME";
     expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/self-selected confirming example/i);
+
+    input.evidence_items[0]!.evidential_independence = "UNKNOWN";
+    expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/conditionally sampled detail/i);
   });
 
   it("requires a defined frame for opportunity-level frequency observations", () => {
@@ -191,6 +195,26 @@ describe("patient-story evidence extension v0.2", () => {
     input.evidence_items[0]!.recurrence_claim = null;
     input.evidence_items[0]!.evidential_independence = "INDEPENDENT_WITHIN_DEFINED_FRAME";
     expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/requires sampling_frame/i);
+  });
+
+  it("does not infer statistical independence from a valid opportunity frame", () => {
+    const input = structuredClone(validExtension());
+    input.evidence_items[0]!.role = "SAMPLED_OPPORTUNITY_OBSERVATION";
+    input.evidence_items[0]!.recurrence_claim = null;
+    input.evidence_items[0]!.elicitation_mode = "VALID_SAMPLING_FRAME";
+    input.evidence_items[0]!.evidential_independence = "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME";
+    input.evidence_items[0]!.sampling_frame = {
+      design: "REPEATED_MEASURES",
+      target_opportunity: "Meals containing X",
+      observation_period: "Four weeks",
+      opportunities_observed: 12,
+      target_events_observed: 7,
+      frame_limitations: "Repeated observations are clustered within one participant",
+    };
+    expect(patientStoryEvidenceExtensionV020Schema.parse(input)).toEqual(input);
+
+    input.evidence_items[0]!.evidential_independence = "CONDITIONALLY_SAMPLED_DETAIL";
+    expect(() => patientStoryEvidenceExtensionV020Schema.parse(input)).toThrow(/dependence status/i);
   });
 
   it("does not let one evidence role silently carry another role's payload", () => {
@@ -235,5 +259,20 @@ describe("patient-story evidence extension v0.2", () => {
     const mixedRoles = structuredClone(validExtension());
     mixedRoles.evidence_items[0]!.trait_or_interpretive_label = "I am cautious";
     expect(validate(mixedRoles)).toBe(false);
+
+    const dependentSample = structuredClone(validExtension());
+    dependentSample.evidence_items[0]!.role = "SAMPLED_OPPORTUNITY_OBSERVATION";
+    dependentSample.evidence_items[0]!.recurrence_claim = null;
+    dependentSample.evidence_items[0]!.elicitation_mode = "VALID_SAMPLING_FRAME";
+    dependentSample.evidence_items[0]!.evidential_independence = "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME";
+    dependentSample.evidence_items[0]!.sampling_frame = {
+      design: "REPEATED_MEASURES",
+      target_opportunity: "Meals containing X",
+      observation_period: "Four weeks",
+      opportunities_observed: 12,
+      target_events_observed: 7,
+      frame_limitations: "Repeated observations are clustered within one participant",
+    };
+    expect(validate(dependentSample), JSON.stringify(validate.errors)).toBe(true);
   });
 });

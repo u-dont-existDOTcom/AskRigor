@@ -65,7 +65,7 @@ function expectReasoningSelectionDelivery(policyContext: any): void {
   expect(createHash("sha256")
     .update(project.slice(applicationStart, applicationEnd))
     .digest("hex")).toBe(
-      "b734cc43f57f2d4cb2b3f302f88f8725e89ceb7e4ed4e1cf30774f1275fbfc31"
+      "caa739b55844b3c3eccc4e1e6ee2af05eb5d533d63a99aa8239b94a8ad7ca639"
     );
 }
 

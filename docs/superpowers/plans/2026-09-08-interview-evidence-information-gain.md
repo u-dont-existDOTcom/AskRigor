@@ -10,6 +10,9 @@ artifacts, or treating a selected anecdote as an independent frequency sample.
 ## Source and baseline
 
 - AskRigor base: PR #198 head `8dff2011509b451129f74ed2b2c1d92978b88093`.
+- Reconciled integration base: merged AskRigor `main`
+  `301c5f0e80cdfa7e67f11e1003598f76e341bab2`, including PR #198 and the
+  Google/YouTube compliance release receipts.
 - Universal lesson source: draft universal-dev-architecture PR #84, head
   `1a7c1d02b9c6bae919704cf2b3b6c86025881aa2`, file
   `patterns/interview-evidence-information-gain.md`, SHA-256
@@ -61,6 +64,8 @@ follow-up rationale without flattening them into narrative fields.
 6. Add a fail-closed migration script from the exact PR #198 protocol bytes,
    focused regression tests, current manifest/README receipts, and a concise
    audit/lesson record.
+7. Preserve the compact Project router's stronger reasoning-selection rules and
+   keep opportunity-sampling status separate from statistical independence.
 
 ## Validation
 
@@ -71,5 +76,5 @@ follow-up rationale without flattening them into narrative fields.
   agreement.
 - Run `git diff --check`, focused tests, and full `npm run verify` under Node
   24.18.0.
-- Push the task branch, inspect the stacked PR and Actions, and leave it ready for
-  review with PR #198 identified as its base dependency.
+- Push the task branch, inspect the PR and protected Actions, and merge only after
+  the complete current-main integration passes.
