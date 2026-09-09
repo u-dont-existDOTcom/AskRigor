@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-synthetic-preflight-presubmission-chooser-recovery-v1",
+  "directiveType": "SOURCE_BOUND_PRE_SUBMISSION_ATTACHMENT_COORDINATION_RECOVERY",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "ONE_ADDITIONAL_P01_SETUP_ATTEMPT_AUTHORIZED_SUBJECT_TO_FRESH_ADMISSION_AND_READINESS",
+  "nextActionOwner": "CODEX_WORK_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "limitedSupersession": {
+    "parentTransportStop": "Superseded only to permit the additional P01 setup attempt and the attachment-coordination procedure specified here.",
+    "fixturePromptAndProbePlan": "UNCHANGED",
+    "newModelRequests": "Only the six previously authorized, still-unsubmitted probes.",
+    "otherParentRestrictions": "REMAIN_IN_FORCE",
+    "automaticFurtherRecoveryAuthorization": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reusePriorAdmission": false,
+    "requestedAction": "RECOVER_THE_UNSUBMITTED_P01_ATTACHMENT_SETUP_ONCE_AND_COMPLETE_THE_EXISTING_SIX_FROZEN_SYNTHETIC_PROBES_WITHOUT_MODEL_RETRIES_OR_TRANSPORT_SUBSTITUTION",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256 and bind the new admission request to those values and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "existingScopedMissionControlAuthenticationPermitted": true,
+    "newCredentialsOrCredentialChangesAuthorized": false,
+    "failureAction": "Stop controlled browser actions if admission is unavailable, malformed, denied, expired, or not bound to this directive."
+  },
+  "immutableBindings": {
+    "fixtureManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+    "P01ExactInputSha256": "120450bcfea9099354f72618ae29c4ca8b7c643d122f793e3b797ac3c83e9c31",
+    "priorProbeMetadataSha256": "d0ea5c598cefe092f2c7a9092c21a728b36f0c96fae02781cbae2ddfcc339fd9",
+    "priorTransportEventSha256": "d6263fe71e70e312fb89fb26186a1cdc645404a0b453d209ec44ac3b9da1f6ee",
+    "priorOperationalReturnSha256": "d5550d28f31ab2800aa1ee9b3b589b155a5158e173d7b88e11455520a212558f",
+    "regenerateRunIdOrMarkers": false,
+    "changeFixtureNamesOrBytes": false,
+    "changePromptBytes": false,
+    "changeProbeOrderOrModes": false,
+    "createOrUploadAbsentFixture": false,
+    "preserveAllPriorReceiptsWithoutOverwrite": true
+  },
+  "repositoryBoundary": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "reportedCurrentHead": "833115d1efd9dc48ad557135757c660c35989cb0",
+    "recordActualHeadBeforeWork": true,
+    "resetOrCheckoutChangeAuthorized": false,
+    "implementationChoice": "REUSE_EXISTING_BROWSER_ATTACHMENT_AND_CAPTURE_MECHANISM_WITH_NARROW_COORDINATION_HARDENING",
+    "permittedChanges": [
+      "Attachment-event coordination within the existing supported browser client.",
+      "Narrow rendered-control selectors that exclude script and application-data elements.",
+      "Setup-attempt accounting and associated deterministic tests.",
+      "Source-bound directive and redacted operational checkpoint records."
+    ],
+    "ifExistingImplementationAlreadyConforms": "Reuse it without an unnecessary code change.",
+    "newBrowserBackendOrCaptureArchitectureAuthorized": false,
+    "productionDeploymentAuthorized": false,
+    "privateArtifactHandling": "Keep runtime markers, exact outputs, browser identifiers, and detailed receipts in the existing private artifact root with existing restrictive permissions."
+  },
+  "technicalBasis": {
+    "establishedPattern": "Playwright documents starting the file-chooser waiter before the activating click, then awaiting the resulting chooser and assigning the file. ([Playwright][1])",
+    "applicationBoundary": "This documents the coordination pattern, not the capabilities of the installed restricted browser client. Use only methods and argument forms explicitly supported by that client's current tool contract.",
+    "priorImplementationMustBeChecked": true,
+    "causeMustNotBeInferredFromDocumentation": true
+  },
+  "preAttemptReadiness": {
+    "required": [
+      "Fresh runtime admission is valid.",
+      "The frozen fixture manifest, both fixture files, and all rendered prompts match their recorded identities.",
+      "Existing metadata still establishes zero submitted probes and zero assigned synthetic files. Stop on contradictory or ambiguous evidence.",
+      "The same authorized Brave profile and account remain active.",
+      "Latest and Pro, 5 of 5. are observed without inferring a backend model identity.",
+      "The required Temporary and Unpersonalized controls remain available without a global settings change.",
+      "The browser client responds to a bounded read-only check on the task-owned surface.",
+      "There is no unresolved dialog, upload, pending chooser operation, or unrelated draft that would make the next action ambiguous."
+    ],
+    "taskTabRule": "Reuse an appropriate task-owned tab. If the existing tab contains the Project Manager draft, leave it undisturbed and create at most one dedicated probe tab in the same authorized profile and account.",
+    "staleDialogRule": "Cancel an empty stale picker only when existing supported controls positively associate it with this task's failed setup. Do not close unrelated pickers, enter a path into an unidentified dialog, or use global keystrokes.",
+    "unidentifiableBlockingDialog": "Stop and return DIALOG_OWNERSHIP_OR_CONTROL_UNRESOLVED.",
+    "permissionRule": "Read-only verification of existing permissions is permitted. Changing permissions, reinstalling extensions, or broadening access is not authorized.",
+    "clientContractUnavailable": "Stop before opening another picker; do not guess an API method or argument."
+  },
+  "attachmentCoordination": {
+    "appliesTo": [
+      "P01",
+      "P04",
+      "P05"
+    ],
+    "procedure": [
+      "Prepare the correct fresh chat, exact frozen prompt, and intended fixture path before starting any chooser wait.",
+      "Locate the actual upload trigger using a unique, visible, enabled interactive element. Complete any necessary attachment-menu navigation before arming the chooser waiter.",
+      "Use the installed client's supported coordination pattern to start the chooser wait before the activating click. Do not await chooser completion before issuing that click.",
+      "Keep waiter creation and the activating click in one coordinated browser-client execution, without intervening inspection, reasoning, or unrelated tool operations.",
+      "Await the chooser associated with that trigger and task tab. Assign exactly the intended frozen fixture once through the existing permitted file-selection operation.",
+      "Confirm the intended attachment is ready in the composer before submitting the exact frozen prompt."
+    ],
+    "timeoutPolicy": "Use the installed client's documented bounded timeout behavior. Do not invent timeout parameters, disable timeouts, or implement a repeated-click loop. Preserve the configured timeout in the receipt.",
+    "onTimeoutOrCanceledChooser": "Do not click again or assign a file through a late, unbound chooser. Preserve the failure, settle the pending operation using supported controls where possible, and stop.",
+    "fileAssignmentAmbiguity": "Record assignment state as unknown and stop. Do not repeat setFiles or treat an uncertain upload as absent.",
+    "unsupportedAlternatives": [
+      "Direct CDP or provider-endpoint workarounds.",
+      "Injected file inputs or synthetic DOM upload events.",
+      "Native operating-system automation outside the existing permitted browser controls.",
+      "Clipboard, drag-and-drop, encoded text, or another transfer route substituted for the frozen attachment transport."
+    ]
+  },
+  "selectorAndPrivacyHardening": {
+    "allowedProjection": "Only the bounded composer, its visible interactive upload controls, attachment status, message identifiers, and necessary mode labels.",
+    "excludeElements": [
+      "script",
+      "style",
+      "template",
+      "noscript"
+    ],
+    "documentWideTextContentSearchAuthorized": false,
+    "applicationStateOrScriptPayloadInspectionAuthorized": false,
+    "fullPageAccessibilitySnapshotAuthorized": false,
+    "forcedClickOnUnverifiedTargetAuthorized": false,
+    "priorIncidentalExposure": "Preserve the existing deviation receipt. Do not repeat, expand, or publish the exposed metadata.",
+    "unexpectedContentExposure": "Stop the offending projection, preserve an operational incident record without copying the exposed content, and do not broaden inspection."
+  },
+  "attemptCeiling": {
+    "additionalP01SetupAttempts": 1,
+    "maximumP01SetupAttemptsIncludingPreservedFailure": 2,
+    "additionalChooserTriggerAttempts": 3,
+    "additionalChooserWaitRegistrations": 3,
+    "maximumChooserTriggerAttemptsPerAttachedProbeUnderThisDirective": 1,
+    "maximumFileAssignmentCalls": 3,
+    "maximumFileAssignmentCallsPerAttachedProbe": 1,
+    "maximumSubmittedModelRequestsAcrossParentAndRecovery": 6,
+    "maximumSubmittedModelRequestsPerProbe": 1,
+    "maximumReadinessChecksPerProbeDuringRecovery": 3,
+    "maximumNewDedicatedProbeTabs": 1,
+    "modelRetriesRegenerationsOrFollowups": 0,
+    "anotherSetupFailure": "Stop the synthetic sequence immediately and return the exact operational blocker.",
+    "parentProbeOrder": "P01, P02, P03, P04, P05, P06",
+    "laterProbeBeforeP01Completion": false
+  },
+  "continuationRule": {
+    "ifP01SetupSucceeds": "Submit P01 once, capture its first completed response, and continue P02 through P06 under the unchanged parent prompt, fixture, mode, and parser contracts.",
+    "unexpectedCompletedResponse": "Retain it, apply only the frozen deterministic parser, and continue. Do not repair, replace, or retry based on content or marker matches.",
+    "submissionOrCaptureFailure": "Stop. An attempted submission with unresolved persistence must not be repeated.",
+    "temporaryChatRule": "Capture the required exact bytes and mode evidence while each Temporary Chat remains open. Do not save or convert it to an ordinary chat.",
+    "automaticToolUse": "Record without making it a retry criterion.",
+    "beyondSixProbesAuthorized": false
+  },
+  "operationalReturnHandling": {
+    "currentBlockerReceiptReceivedOnReasoningSurface": true,
+    "earlierUnconfirmedSendRetrospectivelyVerified": false,
+    "resendEarlierBlockerAuthorized": false,
+    "stagedDraftHandling": "Preserve any earlier operational draft privately. Clear or replace it only if its exact identity is established and metadata confirms it remains unsent; never overwrite an unrelated draft.",
+    "newReturn": "Send one new operational recovery receipt after completion or a blocker, using the existing authorized internal routing mechanism.",
+    "maximumNewReturnSubmissionCalls": 1,
+    "returnSubmissionAmbiguity": "Check existing destination message metadata without another send. If persistence remains unresolved, preserve the return and report the transport state through the existing control channel.",
+    "attachmentRequiredForReturn": false,
+    "queueIsDelivery": false
+  },
+  "runtimeAcceptance": {
+    "requiredBeforeP01Recovery": [
+      "The prior setup failure and unsent-return evidence remain intact.",
+      "Fixture and prompt identities match the frozen manifest.",
+      "The upload coordinator conforms to the installed client contract.",
+      "Any changed helper passes synthetic tests for waiter-before-trigger ordering, one trigger, one assignment, timeout without retry, and no send before attachment readiness.",
+      "Selectors reject noninteractive and script-bearing matches.",
+      "Applicable repository verification passes for changed code."
+    ],
+    "deterministicTestsAreLiveSuccessEvidence": false,
+    "liveSuccessRequires": "Observed attachment readiness followed by a single persisted probe request and exact response capture."
+  },
+  "completionEvidence": {
+    "required": [
+      "This directive's source message ID and exact-body SHA-256.",
+      "Fresh runtime-admission request and response identities.",
+      "Actual execution HEAD and any narrow implementation diff and test receipt.",
+      "Frozen fixture-manifest identity and prompt-hash checks.",
+      "Preserved original failure identities and separately numbered recovery setup event.",
+      "Client-contract reference, actual operation ordering, timeout behavior, and exact errors.",
+      "Chooser, assignment, upload, submission, and capture counts tracked separately.",
+      "One parent-schema metadata record per completed probe and explicit status for every unexecuted probe.",
+      "Exact raw-input and raw-output hashes, observed mode labels, and unavailable-identifier reasons.",
+      "Operational return persistence evidence or exact delivery blocker.",
+      "Confirmation of unchanged source artifacts, account settings, and zero paid operations."
+    ],
+    "returnFormat": "One operational JSON object without raw response prose, marker values, unrelated account metadata, or substantive interpretation.",
+    "interpretationOwner": "PROJECT_MANAGER_REASONING_SURFACE"
+  },
+  "exactDestination": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "conversationUrl": "[https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66](https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66)",
+    "accountAndProfile": "SAME_AUTHORIZED_ACCOUNT_AND_BRAVE_PROFILE",
+    "ownerRelayRequested": false
+  },
+  "prohibitedActions": [
+    "Regenerate fixtures, change markers, alter prompts, change probe order, or substitute a different model or mode.",
+    "Select a file or submit a request through an unidentified or unrelated dialog.",
+    "Change global settings, accounts, permissions, project membership, or installed extensions.",
+    "Retry a completed response or repeat an ambiguous upload or submission.",
+    "Inspect existing private document contents, previous substantive responses, or cited targets as the worker.",
+    "Resume other experiments, issue additional model requests, or infer source-access conclusions.",
+    "Delete or rewrite preserved evidence.",
+    "Create a new transport service, provider API integration, credential, or public export.",
+    "Ask the owner to relay files or operational packets."
+  ],
+  "stopConditions": [
+    "Fresh admission or frozen input identity verification fails.",
+    "The authorized environment or required chat modes cannot be confirmed.",
+    "A blocking dialog cannot be safely associated with this task.",
+    "The installed browser client lacks the required supported coordination capability.",
+    "A chooser, assignment, upload, submission, capture, permission, or control operation fails or becomes ambiguous.",
+    "An attempt ceiling is reached.",
+    "All six probe receipts and the operational return are complete."
+  ],
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "completionClaims": {
+    "complete": "SYNTHETIC_CONSUMER_TRANSPORT_PREFLIGHT_CAPTURED_AFTER_PRE_SUBMISSION_RECOVERY_PROJECT_MANAGER_REVIEW_REQUIRED",
+    "setupBlocked": "SYNTHETIC_PREFLIGHT_PRE_SUBMISSION_RECOVERY_EXHAUSTED_NO_FURTHER_ATTEMPT_AUTHORIZED",
+    "capabilityBlocked": "SYNTHETIC_PREFLIGHT_RECOVERY_BLOCKED_REQUIRED_BROWSER_CAPABILITY",
+    "dialogBlocked": "SYNTHETIC_PREFLIGHT_RECOVERY_BLOCKED_DIALOG_OWNERSHIP_OR_CONTROL_UNRESOLVED",
+    "admissionBlocked": "SYNTHETIC_PREFLIGHT_RECOVERY_BLOCKED_RUNTIME_ADMISSION",
+    "partial": "SYNTHETIC_PREFLIGHT_RECOVERY_PARTIAL_WITH_EXACT_TRANSPORT_BLOCKER"
+  },
+  "sourceReceipt": {
+    "messageId": "b2932286-cd17-4716-b53c-167049da8fbb",
+    "exactBodyBytes": 16580,
+    "exactBodySha256": "bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4",
+    "claimedSurface": "CHATGPT_PROJECT_MANAGER",
+    "observedSurface": "CHATGPT_PROJECT_MANAGER",
+    "provenanceStatus": "VERIFIED"
+  }
+}

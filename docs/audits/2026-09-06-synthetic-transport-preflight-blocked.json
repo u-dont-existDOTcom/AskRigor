@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "recordedAt": "2026-09-06T21:23:24.746271+00:00",
+  "status": "SYNTHETIC_PREFLIGHT_STOP_PRESERVED_RETURN_RECEIVED_SEPARATE_RECOVERY_DIRECTIVE_ADMITTED",
+  "executionRepositoryHead": "90839da0d07013b16f6053994a96f5137535ee20",
+  "directive": {
+    "path": "docs/directives/2026-09-06-nonclinical-consumer-transport-preflight.json",
+    "messageId": "2860eb48-c1b0-47f0-a592-7cf12b24baf9",
+    "exactBodySha256": "dbb4e35fefc2e96c300db002712c983dfdc65cab1178bdfe4e2c9ff9540f2c2a"
+  },
+  "runtimeAdmission": {
+    "messageId": "3694e9c1-4b64-451b-98ab-ae616f8c74da",
+    "exactBodySha256": "5c1d1f32d98b178a20bbff0ae19e45c7db4f645a868b640a0d0e2fb6ddefd79c",
+    "mayExecute": true
+  },
+  "frozenManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+  "preDispatchAcceptanceSha256": "bff79b4ec884b9b1422688274b803434e6e7c76c743c53a90bdbd9729b0036c7",
+  "counts": {
+    "fixtureFiles": 2,
+    "frozenPrompts": 6,
+    "completedProbeResponses": 0,
+    "submittedProbeRequests": 0,
+    "syntheticFileSelections": 0,
+    "failedPreSubmissionSetups": 1,
+    "laterUnexecutedProbes": 5,
+    "fileChooserWaitCalls": 1,
+    "setFilesCalls": 0,
+    "operationalReturnSendClickCalls": 1,
+    "confirmedOperationalReturnMessages": 0
+  },
+  "blockers": {
+    "probeSetup": "Timed out after 3000ms waiting for file chooser.",
+    "operationalReturn": "Timed out after 3000ms waiting for CDP command Runtime.evaluate.",
+    "operationalReturnState": "No new message identity observed across metadata checks and one same-conversation reload; staged draft remains. No second send.",
+    "permissionDenialObserved": false,
+    "automaticApprovalReviewRejectionEstablished": false
+  },
+  "privateReceipts": {
+    "probeMetadataSha256": "d0ea5c598cefe092f2c7a9092c21a728b36f0c96fae02781cbae2ddfcc339fd9",
+    "transportEventSha256": "d6263fe71e70e312fb89fb26186a1cdc645404a0b453d209ec44ac3b9da1f6ee",
+    "operationalReturnBytes": 8163,
+    "operationalReturnSha256": "d5550d28f31ab2800aa1ee9b3b589b155a5158e173d7b88e11455520a212558f",
+    "returnAttemptSha256": "98c9a2aec7abaac759982a3106e5cf482263f21f1114d7656dca6d24af3edc88",
+    "persistenceCheckSha256": "bcc4b91c0d7456e838ee6ee080bf05d1a247edab0de6ca936f6f67ce2b51dd46"
+  },
+  "validation": {
+    "completeDeterministicGate": "PASS",
+    "testFilesPassed": 147,
+    "testFilesSkipped": 1,
+    "testsPassed": 1737,
+    "testsSkipped": 6,
+    "packagedFileIdentitiesVerified": 1781,
+    "preservedPrivateSourceIdentitiesVerified": 1730,
+    "preservedMastSourceIdentitiesVerified": 20
+  },
+  "boundary": {
+    "parentObjective": "OPEN",
+    "syntheticInterpretationPerformed": false,
+    "clinicalContentInspected": false,
+    "privateRuntimeValuesPublished": false,
+    "accountOrGlobalSettingsChanged": false,
+    "oldArtifactsChanged": false,
+    "externalSpendUsd": 0,
+    "retryOrReplacementPerformed": false,
+    "ownerRelayRequested": false
+  },
+  "nextAction": "Execute only the separate recovery directive after its fresh admission and pre-attempt readiness; preserve this original failed setup unchanged.",
+  "returnRecovery": {
+    "recordedAt": "2026-09-06T21:58:51.407927+00:00",
+    "currentRepositoryHead": "833115d1efd9dc48ad557135757c660c35989cb0",
+    "priorNonDeliveryRechecked": true,
+    "ownerReportedFilePickerContextPreservedPrivately": true,
+    "bodyArtifactBytes": 9302,
+    "bodyArtifactSha256": "0c75a9bb8fb28f198fdc80ec976544a60187c2f9230f15554f0dec23456ad229",
+    "confirmedMessageId": "de0dc908-2a06-4687-a29e-f7341df87066",
+    "totalReturnClickCalls": 3,
+    "confirmedReturnMessages": 1,
+    "documentedLocatorTimeoutMs": 15000,
+    "clickErrorAfterWhichPersistenceWasConfirmed": "Timed out after 967ms waiting for CDP command Input.dispatchMouseEvent.",
+    "noResendAfterConfirmedPersistence": true,
+    "privateRoutingReceiptSha256": "99be1efae4cbf7b658096ac09af5b5f4c5df8255ba22b0bf9a69a4adad98112b",
+    "responseStatus": "SOURCE_BOUND_RECOVERY_DIRECTIVE_RECEIVED",
+    "responseReceipt": {
+      "messageId": "b2932286-cd17-4716-b53c-167049da8fbb",
+      "exactBodyBytes": 16580,
+      "exactBodySha256": "bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4"
+    }
+  }
+}

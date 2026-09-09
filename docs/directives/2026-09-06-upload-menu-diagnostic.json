@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
+  "directiveType": "SOURCE_BOUND_EMPTY_COMPOSER_UI_DIAGNOSTIC_WITHOUT_UPLOAD_OR_INFERENCE",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "EXHAUSTED_RECOVERY_ACCEPTED_PROBES_REMAIN_STOPPED_DIAGNOSTIC_ONLY_AUTHORIZED",
+  "decision": "Do not authorize a third probe-setup attempt. First collect bounded evidence about the attachment-menu transition, without staging a fixture, opening a chooser, or submitting a model request.",
+  "nextActionOwner": "CODEX_WORK_FOR_OPERATIONAL_EVIDENCE_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "immutableBindings": {
+    "fixtureManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+    "P01ExactInputSha256": "120450bcfea9099354f72618ae29c4ca8b7c643d122f793e3b797ac3c83e9c31",
+    "originalFailureMetadataSha256": "d0ea5c598cefe092f2c7a9092c21a728b36f0c96fae02781cbae2ddfcc339fd9",
+    "originalFailureEventSha256": "d6263fe71e70e312fb89fb26186a1cdc645404a0b453d209ec44ac3b9da1f6ee",
+    "recoveryFailureMetadataSha256": "820db1d2ed8d74a38a8961e36d1776354050e5236faf91984b7edbb5e77910fa",
+    "recoveryFailureEventSha256": "335d48908826eef2037976881f10fca0537210d291ca824ee1fc7a3d9e99592e",
+    "priorAttemptsAndReceiptsRemainUnchanged": true,
+    "fixturesAndPromptsRemainUnchanged": true,
+    "probeResumeAuthorized": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reuseEarlierAdmission": false,
+    "requestedAction": "COLLECT_BOUND_EXISTING_UPLOAD_COMMAND_METADATA_AND_ONE_EMPTY_COMPOSER_MENU_TRANSITION_WITHOUT_CHOOSER_FILE_ASSIGNMENT_OR_MODEL_SUBMISSION",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256. Bind the admission request to those values and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "existingScopedAuthenticationPermitted": true,
+    "credentialChangesAuthorized": false,
+    "failureAction": "Stop controlled collection if admission is unavailable, malformed, denied, expired, or mismatched."
+  },
+  "implementationDecision": {
+    "choice": "REUSE_EXISTING_BROWSER_CLIENT_AND_ADD_BOUNDED_OBSERVABILITY_ONLY",
+    "supportingPattern": "Playwright documents user-facing role locators and element-scoped screenshots. These support a narrowly scoped diagnostic, but do not prove that the installed browser client exposes the same methods. ([Playwright][1])",
+    "installedClientContractControls": true,
+    "newBrowserBackendAuthorized": false,
+    "uploadHelperBehaviorChangeAuthorized": false,
+    "timeoutIncreaseAuthorized": false,
+    "blindSelectorSubstitutionAuthorized": false
+  },
+  "repositoryBoundary": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "recordActualHead": true,
+    "resetOrCheckoutChangeAuthorized": false,
+    "permittedWrites": [
+      "This operational directive and a redacted checkpoint.",
+      "A narrowly scoped diagnostic projection and synthetic tests, only if the existing projection cannot record the authorized fields."
+    ],
+    "preserveReusableDiagnosticInGitHub": true,
+    "privateEvidenceLocation": "Existing private artifact store, outside public Git.",
+    "privateDirectoryMode": "0700",
+    "privateFileMode": "0600",
+    "productionDeploymentAuthorized": false,
+    "verificationRule": "Run applicable deterministic checks for changed code. Preserve previous verification receipts; do not represent them as proof of live UI behavior."
+  },
+  "existingEvidenceInspection": {
+    "authorized": true,
+    "scope": "Operational command records and installed client documentation only.",
+    "fixedSources": [
+      "The command sequence associated with the original failure event.",
+      "The command sequence associated with the recovery failure event.",
+      "An already retained command sequence for the previously confirmed archive delivery, if available through its existing receipt index."
+    ],
+    "successfulDeliveryLocator": {
+      "destinationMessageId": "963b57a3-ce89-4c92-b22d-7ca66a3c63bd",
+      "receiverReceiptMessageId": "11624049-1afa-4c19-af43-eff5111c31ff"
+    },
+    "collect": [
+      "Browser-client version or contract identity when recorded.",
+      "Operation names and chronological order.",
+      "Exact control selectors and supported timeout arguments.",
+      "Whether a call used a single click, multiple clicks, or a combined operation.",
+      "Recorded tab identity and command return status.",
+      "Whether the collector waited for a presumed text label before recording the actual menu state."
+    ],
+    "payloadHandling": "Project only operational fields. Do not emit prompt text, file contents, credentials, script payloads, or unrestricted command logs.",
+    "missingHistoricalTrace": "Record unavailable. Do not reconstruct missing commands from the current implementation or revisit old conversations.",
+    "workerMaySelectARepair": false
+  },
+  "liveDiagnostic": {
+    "scope": "One empty ordinary-chat composer and its attachment-menu control.",
+    "browserProfile": "SAME_AUTHORIZED_BRAVE_PROFILE",
+    "account": "SAME_AUTHORIZED_SIGNED_IN_ACCOUNT",
+    "surface": "CHATGPT_CONSUMER_OUTSIDE_PROJECT_OR_CUSTOM_GPT",
+    "selectorLabel": "Latest",
+    "reasoningLabel": "Pro, 5 of 5.",
+    "changeModelOrAccountSettings": false,
+    "tabRule": "Use an existing empty task-owned diagnostic tab, or create at most one dedicated empty tab. Do not navigate away from or overwrite the Project Manager conversation or any unrelated draft.",
+    "preconditions": [
+      "Fresh runtime admission is valid.",
+      "The intended tab and authorized account/profile are identifiable.",
+      "Message count, attachment count, and composer-content length are all zero.",
+      "No pending chooser operation or blocking native dialog is observed.",
+      "The installed client supports the required metadata-only operations."
+    ],
+    "procedure": [
+      "Capture one bounded pre-interaction state sample from the empty composer and its visible interactive controls.",
+      "Identify the menu-navigation control from its actual rendered role and attributes. Do not presume that a historical upload-item label is currently present.",
+      "Proceed only if the control is uniquely identified as opening an in-page menu. If its behavior cannot be distinguished from directly opening a native chooser, stop without clicking.",
+      "Invoke that menu-navigation control once using the existing supported client.",
+      "Collect up to two bounded post-interaction state samples without another opening click, intervening navigation, composer fill, or upload-item activation.",
+      "Record the actual visible menu controls and state, including absence. Do not wait repeatedly for Add photos & files to become present.",
+      "If this diagnostic leaves its own in-page menu open, close only that positively identified menu through one supported, narrowly targeted action. Do not use global keystrokes.",
+      "Preserve the observations and stop before any chooser or probe operation."
+    ],
+    "samplesArePresentTimeObservations": true,
+    "observerMayInferHistoricalState": false
+  },
+  "metadataContract": {
+    "allowedFields": [
+      "sampleId",
+      "capturedAt",
+      "taskTabId",
+      "observedOrigin",
+      "documentVisibilityState",
+      "documentHasFocus",
+      "messageCount",
+      "attachmentCount",
+      "composerContentLength",
+      "observedSelectorLabel",
+      "observedReasoningLabel",
+      "controlTag",
+      "controlRole",
+      "controlAccessibleName",
+      "controlDisabled",
+      "controlVisible",
+      "ariaHasPopup",
+      "ariaExpanded",
+      "ariaControls",
+      "controlBoundingRectangle",
+      "visibleAssociatedMenuCount",
+      "visibleAssociatedMenuItemRolesAndLabels",
+      "operationStart",
+      "operationEnd",
+      "operationReturnStatus",
+      "configuredTimeout",
+      "observationErrors",
+      "unavailableFields"
+    ],
+    "scopeRestriction": "Only the empty composer, its menu-navigation control, and the associated in-page menu. Do not enumerate the sidebar, history, Library, account menu, or unrelated page content.",
+    "samplingRule": "Use an existing supported bounded projection that records current state. An absent menu or control is an observation, not a reason to rerun the interaction.",
+    "missingValueRule": "Use null with an availability reason. Use false, zero, or an empty collection only when directly observed.",
+    "excludeElements": [
+      "script",
+      "style",
+      "template",
+      "noscript"
+    ],
+    "applicationStateInspectionAuthorized": false,
+    "documentWideTextSearchAuthorized": false,
+    "eventHandlerOrNetworkInterceptionAuthorized": false
+  },
+  "optionalVisualEvidence": {
+    "authorized": true,
+    "maximumImages": 2,
+    "scope": "Directly captured element or region images of the verified empty composer and associated menu controls only.",
+    "supportedCaptureMethodRequired": true,
+    "exclude": [
+      "Sidebar and conversation titles.",
+      "Account information.",
+      "Document names, previews, and recent-file suggestions.",
+      "Browser chrome and unrelated windows."
+    ],
+    "fullPageOrDesktopCaptureThenRedactionAuthorized": false,
+    "ifSafeDirectCropUnavailable": "Record VISUAL_EVIDENCE_UNAVAILABLE and return permitted metadata only.",
+    "privateStorageRequired": true,
+    "workerVisualInspection": "Limited to the authorized empty UI controls.",
+    "uploadingVisualEvidenceRequired": false
+  },
+  "attemptCeiling": {
+    "newDedicatedTabs": 1,
+    "emptyComposerMenuOpeningCalls": 1,
+    "boundedStateSamples": 3,
+    "taskOwnedMenuCleanupCalls": 1,
+    "chooserWaitRegistrations": 0,
+    "chooserTriggerCalls": 0,
+    "fileAssignmentCalls": 0,
+    "fileUploads": 0,
+    "composerPromptFills": 0,
+    "probeSubmissionCalls": 0,
+    "newProbeModelRequests": 0,
+    "permissionChanges": 0,
+    "retriesAfterInteractionFailure": 0,
+    "priorProbeAttemptCeilingsReset": false
+  },
+  "safetyAndStopRules": {
+    "unexpectedNativeChooser": "Do not assign a file. Preserve the event and stop. Cancel only if existing supported controls positively identify it as this diagnostic's own empty chooser.",
+    "ambiguousControlOrDialog": "Stop without interacting with it.",
+    "interactionTimeout": "Do not repeat the click. Capture one remaining permitted read-only state sample only if browser control is still responsive, then stop.",
+    "unexpectedContentExposure": "Stop the projection and record the incident without copying the exposed content.",
+    "menuOpensSuccessfully": "Return the observations; success does not authorize uploading, changing the helper, or resuming P01.",
+    "globalBrowserFailure": "Preserve collected evidence and report the exact technical blocker. Do not infer that owner action is necessarily required."
+  },
+  "completionEvidence": {
+    "required": [
+      "This directive's captured source identity and fresh runtime-admission receipt.",
+      "Actual execution repository HEAD.",
+      "Preservation checks for the two prior failure receipts and frozen manifest.",
+      "The bounded command-sequence projection or explicit historical-trace unavailability.",
+      "The installed client contract identity and supported operations actually used.",
+      "Pre-interaction and available post-interaction metadata.",
+      "Exact operation counts and errors.",
+      "Hashes of private diagnostic records and any permitted images.",
+      "Confirmation that no fixture was staged, no chooser was intentionally triggered, and no model request was submitted.",
+      "Confirmation that account settings, prior artifacts, and unrelated drafts remain unchanged."
+    ],
+    "returnFormat": "One operational JSON object. No substantive source content, marker values, private account text, or worker-authored root-cause conclusion.",
+    "interpretationOwner": "PROJECT_MANAGER_REASONING_SURFACE"
+  },
+  "exactDestination": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "conversationUrl": "[https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66](https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66)",
+    "transport": "Existing authorized internal operational-JSON routing.",
+    "maximumNewReturnSubmissionCalls": 1,
+    "submissionAmbiguity": "Inspect destination message metadata without resending. Preserve an unresolved return instead of repeatedly clicking Send.",
+    "ownerRelayRequested": false
+  },
+  "prohibitedActions": [
+    "Treat this diagnostic as a third P01 setup attempt or resume any probe.",
+    "Stage a frozen prompt, fixture, private document, or attachment.",
+    "Activate an upload menu item, register a chooser waiter, or assign files.",
+    "Repair selectors, increase timeouts, or change upload behavior based on worker interpretation.",
+    "Use forced clicks, injected events, direct CDP, private endpoints, native-picker automation, or another transport.",
+    "Change accounts, profiles, permissions, extensions, personalization, or global settings.",
+    "Inspect substantive response text, documents, application scripts, or unrelated conversations.",
+    "Overwrite failure evidence or claim that an exhausted allowance has reset.",
+    "Publish private diagnostic material or ask the owner to relay it."
+  ],
+  "stopBoundary": "BOUNDED_UI_DIAGNOSTIC_RECEIPT_RETURNED_OR_EXACT_ACCESS_OR_CONTROL_BLOCKER_REPORTED",
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "completionClaims": {
+    "diagnosticCaptured": "UPLOAD_MENU_DIAGNOSTIC_CAPTURED_PROBES_REMAIN_STOPPED_PROJECT_MANAGER_REVIEW_REQUIRED",
+    "partial": "UPLOAD_MENU_DIAGNOSTIC_PARTIAL_WITH_EXPLICIT_OBSERVATION_LIMITS_PROBES_STOPPED",
+    "capabilityBlocked": "UPLOAD_MENU_DIAGNOSTIC_BLOCKED_SUPPORTED_OBSERVABILITY_UNAVAILABLE",
+    "admissionBlocked": "UPLOAD_MENU_DIAGNOSTIC_BLOCKED_RUNTIME_ADMISSION"
+  },
+  "sourceReceipt": {
+    "messageId": "4df4c392-3d55-43e4-b0be-0584861fc6ef",
+    "exactBodyBytes": 14858,
+    "exactBodySha256": "b0fb26f02e7aeda2cc3154464f15840e41c19698447c2d8aaac36bdedddabbf6"
+  }
+}

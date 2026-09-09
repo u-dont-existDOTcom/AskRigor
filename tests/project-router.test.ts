@@ -58,8 +58,16 @@ describe("AskRigor ChatGPT Project router", () => {
     const words = instructions.split(/\s+/).filter(Boolean);
 
     expect(words.length).toBeGreaterThan(100);
-    expect(words.length).toBeLessThan(750);
+    expect(words.length).toBeLessThan(900);
+    expect(Array.from(instructions).length).toBeLessThanOrEqual(8000);
     expect(instructions).not.toMatch(/<\/?(?:Protocol|Purpose|Research)/);
+    expect(instructions).toContain(`### Reasoning and interview-evidence application
+
+Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+
+For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+
+Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.`);
     expect(instructions).toContain("Run before HRP/research");
     for (const trigger of [
       "firsthand experience",
@@ -349,6 +357,6 @@ describe("AskRigor ChatGPT Project router", () => {
     );
     expect(instructions.slice(0, lessonHook)).not.toContain("LESSON_CAPTURE_MODULE.md");
     expect(instructions).not.toContain("Submit this anonymized lesson to improve AskRigor?");
-    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(750);
+    expect(instructions.split(/\s+/).filter(Boolean).length).toBeLessThan(900);
   });
 });

@@ -25,7 +25,7 @@ const parser = new XMLParser({
   trimValues: false
 });
 
-interface LoadedProtocol {
+export interface ProtocolSnapshot {
   text: string;
   manifest: ProtocolManifest;
 }
@@ -38,6 +38,13 @@ export async function getProtocolManifest(
   protocolName: ProtocolName
 ): Promise<ProtocolManifest> {
   return (await readProtocol(protocolName)).manifest;
+}
+
+/** Exact validated text and the manifest derived from the same file read. */
+export async function loadProtocolSnapshot(
+  protocolName: ProtocolName
+): Promise<ProtocolSnapshot> {
+  return readProtocol(protocolName);
 }
 
 export async function verifyProtocolIntegrity(
@@ -53,7 +60,7 @@ export async function verifyProtocolIntegrity(
   return manifest;
 }
 
-async function readProtocol(protocolName: ProtocolName): Promise<LoadedProtocol> {
+async function readProtocol(protocolName: ProtocolName): Promise<ProtocolSnapshot> {
   const fileName = PROTOCOL_FILES[protocolName];
   if (!fileName) {
     throw new Error("Unknown protocol name");
@@ -68,7 +75,7 @@ async function readProtocol(protocolName: ProtocolName): Promise<LoadedProtocol>
 
   let text: string;
   try {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
   } catch {
     throw new Error("Protocol file is not valid UTF-8");
   }

@@ -44,6 +44,7 @@
         "discoveredAt",
         "itemOrPath",
         "field",
+        "class",
         "before",
         "proposedAfter",
         "verdict",
@@ -88,8 +89,12 @@
             "PARTICIPANT_DEPENDENCE_ERROR",
             "EXPOSURE_OR_ESTIMAND_INCOMPATIBILITY",
             "COMPARATOR_OR_OUTCOME_WINDOW_MISMATCH",
+            "BENCHMARK_TARGET_CONFLICT",
             "OTHER_EVIDENCED"
           ]
+        },
+        "benchmarkTargetIntegrity": {
+          "$ref": "#/$defs/benchmarkTargetIntegrity"
         },
         "before": {
           "$ref": "#/$defs/state"
@@ -233,6 +238,30 @@
         {
           "if": {
             "properties": {
+              "class": {
+                "const": "BENCHMARK_TARGET_CONFLICT"
+              }
+            },
+            "required": ["class"]
+          },
+          "then": {
+            "properties": {
+              "benchmarkTargetIntegrity": {
+                "type": "object",
+                "properties": {
+                  "clinicalValidity": {
+                    "enum": ["MATERIALLY_INCONSISTENT", "CONTESTABLE"]
+                  }
+                },
+                "required": ["clinicalValidity"]
+              }
+            },
+            "required": ["benchmarkTargetIntegrity"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
               "independentRecheckRequired": {
                 "const": true
               },
@@ -291,6 +320,67 @@
         },
         "sha256": {
           "type": ["string", "null"]
+        }
+      }
+    },
+    "benchmarkTargetIntegrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "exactPopulation",
+        "timing",
+        "decisionContext",
+        "highAuthorityEvidence",
+        "evidenceCurrentnessChecked",
+        "benchmarkConformity",
+        "clinicalValidity",
+        "protocolChangeBasis",
+        "frozenOfficialResultDisposition"
+      ],
+      "properties": {
+        "exactPopulation": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "timing": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "decisionContext": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "\\S"
+        },
+        "highAuthorityEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "\\S"
+          },
+          "uniqueItems": true
+        },
+        "evidenceCurrentnessChecked": {
+          "const": true
+        },
+        "benchmarkConformity": {
+          "enum": ["CONFORMS", "DOES_NOT_CONFORM", "MIXED"]
+        },
+        "clinicalValidity": {
+          "enum": [
+            "CONSISTENT_WITH_CURRENT_HIGH_AUTHORITY_EVIDENCE",
+            "MATERIALLY_INCONSISTENT",
+            "CONTESTABLE"
+          ]
+        },
+        "protocolChangeBasis": {
+          "enum": ["GENERALIZED_CLINICAL_DEFECT", "BENCHMARK_SCORE_ONLY"]
+        },
+        "frozenOfficialResultDisposition": {
+          "const": "PRESERVE_UNCHANGED"
         }
       }
     }

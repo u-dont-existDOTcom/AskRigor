@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-06T23:05:27.866203+00:00",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "UPLOAD_MENU_DIAGNOSTIC_BLOCKER_RECEIPT_ACCEPTED_MODEL_INDEPENDENT_CORRECTION_AUTHORIZED",
+  "executionRepositoryHead": "d8c9e1f163e06900ae365e565c97e3d33099b22f",
+  "sourceReceipt": {
+    "messageId": "4df4c392-3d55-43e4-b0be-0584861fc6ef",
+    "exactBodyBytes": 14858,
+    "exactBodySha256": "b0fb26f02e7aeda2cc3154464f15840e41c19698447c2d8aaac36bdedddabbf6"
+  },
+  "runtimeAdmission": {
+    "messageId": "0ddfcfc0-0d5b-4b1b-9129-422226b92d38",
+    "exactBodyBytes": 1431,
+    "exactBodySha256": "92700d42e3eb5e6ee1d6bf7a19495dbabbfc340ab932a0a9973cc969d65c6829",
+    "mayExecute": true,
+    "executionSurface": "SOURCE_WORK_CODEX_ENVIRONMENT"
+  },
+  "counts": {
+    "attachmentMenuOpeningCalls": 0,
+    "boundedPreconditionStateReads": 2,
+    "diagnosticProjectionCalls": 0,
+    "modelControlVerificationClickCalls": 1,
+    "chooserWaits": 0,
+    "chooserTriggers": 0,
+    "fileAssignments": 0,
+    "uploads": 0,
+    "promptFills": 0,
+    "probeSubmissions": 0,
+    "retryCalls": 0
+  },
+  "failure": {
+    "phase": "REQUIRED_MODEL_CONTROL_VERIFICATION_BEFORE_ATTACHMENT_MENU",
+    "operation": "Exact role locator click for the required model control",
+    "configuredTimeoutMs": 15000,
+    "observedSelectorTimeoutMs": 3000,
+    "locatorMatches": 0,
+    "nestedCommandTimeoutMs": 1,
+    "code": "RUNTIME_EVALUATE_TIMEOUT_DURING_MODEL_CONTROL_LOOKUP",
+    "retryAttempted": false,
+    "rootCauseEstablished": false
+  },
+  "privateReceiptHashes": {
+    "browserMetadata": "d266ab6c31cd8c7922277ee3311da29b13c5bf765591cb088b06772e1dd3b69b",
+    "existingCommandMetadata": "0bc73566e0dd10aca74df404042692287129d4dfeaa51aaec22c1fc4a071ba72",
+    "routing": "0486c51dae5c99c2e9eaed05f2d485c97a03d56ac84381a157d2955c240b71b2"
+  },
+  "operationalReturn": {
+    "recordedAt": "2026-09-06T23:05:27.866203+00:00",
+    "directiveId": "askrigor-synthetic-preflight-upload-menu-diagnostic-v1",
+    "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "attemptedAt": "2026-09-06T23:04:12.628Z",
+    "submissionCalls": 1,
+    "messageId": "1c4f5e4b-7d7c-4b0b-a514-b2e44c41c2f8",
+    "exactBodyBytes": 10235,
+    "exactBodySha256": "e2497d671d8c354a80ca023d45c3f1e88e6c16df1f69059f2d5d6eed4630ea9c",
+    "persistedExactMatch": true,
+    "responseStatus": "CAPTURED",
+    "noResendAuthorized": true,
+    "responseReceipt": {
+      "messageId": "230d07c7-ea6e-47a4-b9a4-3f4b527a3d19",
+      "exactBodyBytes": 11691,
+      "exactBodySha256": "69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555"
+    }
+  },
+  "validation": {
+    "recordedAt": "2026-09-06T22:59:57.465045+00:00",
+    "nodeVersion": "v24.18.0",
+    "command": "npm run verify with explicit pinned Node PATH",
+    "passed": true,
+    "testFilesPassed": 148,
+    "testFilesSkipped": 1,
+    "testsPassed": 1778,
+    "testsSkipped": 6,
+    "typecheckPassed": true,
+    "buildPassed": true,
+    "logSha256": "c11f891022234d2472095cb92ba06536ffc0aff3f5a8da7aaaf9c4985d437346",
+    "moduleSha256": "afbefbfde16b6f84897894488859f0f81d64dfcfdfe43c9199e899ff8ac2631d",
+    "initialDiagnosticGateFailedOnStaleCurrentSliceTest": true,
+    "initialFailedGatePreserved": true,
+    "liveSuccessClaimed": false
+  },
+  "boundary": {
+    "priorProbeFailuresAndFrozenInputsUnchanged": true,
+    "probeResumeAuthorized": false,
+    "clinicalContentInspected": false,
+    "settingsChanged": false,
+    "newTabs": 0,
+    "paidApiInferenceCalls": 0,
+    "externalSpendUsd": 0,
+    "ownerRelayRequested": false,
+    "parentObjective": "OPEN"
+  }
+}

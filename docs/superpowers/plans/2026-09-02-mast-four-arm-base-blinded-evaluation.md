@@ -62,10 +62,10 @@ sealed order using chunk identifiers and a compact output schema.
    per-response records, compute only the directed
    per-response `NONOFFICIAL_PROJECTED_MAST_METRICS`, and freeze the complete
    blinded evaluation ledger.
-12. [ ] Run the complete applicable deterministic gate, review the final diff,
+12. [x] Run the complete applicable deterministic gate, review the final diff,
     and return the factual blinded-evaluation receipt automatically to the
     Project Manager.
-13. [ ] Stop before condition-map disclosure, arm/family aggregation,
+13. [x] Stop before condition-map disclosure, arm/family aggregation,
     continuation-gate application, tuning, or scientific interpretation.
 
 ## Acceptance for this slice

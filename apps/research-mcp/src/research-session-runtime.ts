@@ -179,6 +179,9 @@ export function createResearchSessionRuntimeDependencies(
     openFullTextExecutor: openFullText,
     externalAuditFor: (input) => externalAuditCache.get(input),
     videoEvidenceMaterialFor: (input) => evidenceMaterialCache.get(input),
+    releaseEvidenceMaterialForSession: (sessionId) => {
+      evidenceMaterialCache.revokeSession(sessionId);
+    },
     evidenceContextForWork: async ({ sessionId, state, work }) => {
       if (work.kind === "video_evidence_synthesis") {
         const material = await ensureVideoEvidenceMaterial({

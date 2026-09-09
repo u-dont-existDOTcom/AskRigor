@@ -1,0 +1,104 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-pr190-pinned-main-integration-v2",
+  "directiveType": "SOURCE_BOUND_MAIN_REBINDING_AND_REPOSITORY_INTEGRATION",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "ADMITTED_CLEAN_DEFERRED_MERGE_ASSEMBLED_VALIDATION_PENDING",
+  "sourceReceipt": {
+    "messageId": "f6855ef9-2c7a-42c8-977b-453d35a20909",
+    "exactBodyBytes": 16933,
+    "exactBodySha256": "aaf95bbe26ca156c7086363d9a9b34ade0ce16adf562da9b329ead42488ab850",
+    "claimedSurface": "CHATGPT_PROJECT_MANAGER",
+    "observedSurface": "CHATGPT_PROJECT_MANAGER",
+    "provenanceStatus": "VERIFIED"
+  },
+  "runtimeAdmission": {
+    "requestId": "admission:askrigor:pr190-pinned-main-v2:29ca309e:7fb8527:20260907",
+    "worker": "askrigor-mast",
+    "producerId": "worker:askrigor-mast",
+    "submissionCount": 1,
+    "httpStatus": 200,
+    "admitted": true,
+    "mayExecute": true,
+    "decision": "ALLOW_BOUNDED_EXECUTION",
+    "credentialPrintedPersistedOrReturned": false
+  },
+  "fixedBindings": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "pullRequest": 190,
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "startingHead": "29ca309e37e6e6bc626383f64833a14e468f7596",
+    "mainToIntegrate": "7fb852758e01df60203f102d784c95e76ff9177b",
+    "commonAncestor": "88eb6d252d7b7547d3a2039872bddc96707fee9e",
+    "expectedIntegrationCommitParents": [
+      "29ca309e37e6e6bc626383f64833a14e468f7596",
+      "7fb852758e01df60203f102d784c95e76ff9177b"
+    ],
+    "acceptedUniversal": {
+      "path": "protocols/Universal_Instructions.xml",
+      "version": "20.5.18",
+      "revisionDate": "2026-09-07",
+      "utf8Bytes": 127320,
+      "sha256": "ffac0e27b5c84cbe852adf4b6b7107ab644ff470e64627218539d9d00785c87a"
+    },
+    "acceptedHrp": {
+      "path": "protocols/HRP_Full.xml",
+      "sha256": "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
+    }
+  },
+  "boundedExecution": {
+    "integrationMergeAttemptCeiling": 1,
+    "integrationMergeAttempts": 1,
+    "mergeCommand": "git merge --no-commit --no-ff 7fb852758e01df60203f102d784c95e76ff9177b",
+    "mergeResult": "CLEAN_STOPPED_BEFORE_COMMIT",
+    "conflictedPaths": [],
+    "candidateTreeBeforeOperationalRecords": "13ff520df65657f89204547ed43656f46afdf309",
+    "permittedNewPaths": [
+      "docs/directives/2026-09-07-pr190-pinned-main-integration-v2.json",
+      "docs/audits/2026-09-07-pr190-queue-reconciliation-v2.json"
+    ],
+    "permittedExistingRecordUpdates": [
+      "tasks/ACTIVE-TASK.json",
+      "docs/state/MAST-FOUR-ARM-BASE-BLINDED-EVALUATION-CURRENT-STATE.md",
+      "docs/superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md"
+    ],
+    "independentImplementationTestProtocolDependencyOrWorkflowChangesAuthorized": false,
+    "conflictResolutionAuthorized": false,
+    "providerBackedLiveExecutionAuthorized": false
+  },
+  "validationContract": {
+    "runtime": "Node v24.18.0",
+    "commands": [
+      "npm run verify",
+      "python3 -m unittest discover -s tests -p test_synthetic_screenshot_calibration.py -v",
+      "node --check scripts/screenshot-calibration-browser.mjs",
+      "npm run generate:custom-gpt",
+      "npm run generate:action-openapi",
+      "git diff --check"
+    ],
+    "generatorsMustLeaveTrackedCandidateUnchanged": true,
+    "repairLoopAuthorized": false,
+    "manualHostedWorkflowDispatchOrRerunAuthorized": false
+  },
+  "publicationBoundary": {
+    "maximumBranchPushAttempts": 1,
+    "normalPushToExistingPrBranchOnly": true,
+    "keepPullRequestDraft": true,
+    "mergePullRequestIntoMainAuthorized": false,
+    "deploymentOrReleaseAuthorized": false,
+    "resultingCommitAndHostedChecksRecordedOutsideThisCommit": true
+  },
+  "preservation": {
+    "priorDirective": "askrigor-pr190-pinned-main-integration-v1",
+    "priorDirectiveDisposition": "SUPERSEDED_UNEXECUTED_FOR_FUTURE_INTEGRATION",
+    "priorSourceAndBlockerReceipts": "PRESERVED",
+    "historicalMeasurements": "UNCHANGED",
+    "historicalAttemptCounts": "UNCHANGED",
+    "pr193": "SOURCE_MERGED_ACCEPTED_UNDEPLOYED",
+    "reasoningSelection": "SEPARATE_NOT_AUTHORIZED",
+    "lessonPromotion": "SEPARATE_NOT_AUTHORIZED",
+    "maximumExternalSpendUsd": 0,
+    "paidApiInferenceAuthorized": false
+  },
+  "stopBoundary": "VALIDATED_DRAFT_BRANCH_UPDATE_AND_OPERATIONAL_RETURN_COMPLETED_OR_EXACT_BOUNDED_BLOCKER_PRESERVED"
+}

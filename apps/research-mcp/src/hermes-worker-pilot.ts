@@ -19,10 +19,17 @@ import {
 } from "./private-research-orchestration-client.js";
 import {
   assertResearchSemanticBinding,
+  researchSemanticPolicyWorkerInstruction,
   researchSemanticResponseContract,
   researchSemanticModelOutputSchema,
+  researchSemanticWorkSchema,
   type ResearchSemanticExecutor
 } from "./research-semantic-worker.js";
+import {
+  validateResearchSemanticPolicyContext,
+  type ExpectedResearchProtocolBinding
+} from "./research-semantic-policy-input.js";
+import { controlledWorkerWorkDigest } from "./controlled-worker-payload.js";
 
 const digest = z.string().regex(/^[a-f0-9]{64}$/u);
 const sessionId = z.string().regex(/^ars1_[A-Za-z0-9_-]{32}$/u);
@@ -46,6 +53,8 @@ export const HERMES_RESEARCH_WORKER_POLICY = Object.freeze({
   production_secret_access: "NONE",
   finalization_authority: "ASKRIGOR_SERVER_ONLY"
 } as const);
+
+export const HERMES_SEMANTIC_INPUT_MAX_BYTES = 2 * 1_024 * 1_024;
 
 export const hermesSemanticModelOutputSchema = researchSemanticModelOutputSchema;
 
@@ -312,13 +321,18 @@ export function createHermesProcessSemanticExecutor(
   const config = normalizeProcessConfig(rawConfig);
   const executor: HermesSemanticExecutor = {
     async execute(input) {
+      const serializedInput = serializeHermesSemanticWorkerInput(input);
       await assertPinnedHermesRuntime(
         config.hermesCheckout,
         config.pythonExecutable
       );
       const workerDirectory = await mkdtemp(join(tmpdir(), "askrigor-hermes-"));
       try {
-        const output = await runHermesProcess(config, workerDirectory, input);
+        const output = await runHermesProcess(
+          config,
+          workerDirectory,
+          serializedInput
+        );
         return hermesSemanticExecutionSchema.parse({
           model_output: output.model_output,
           diagnostics: {
@@ -340,6 +354,92 @@ export function createHermesProcessSemanticExecutor(
     }
   };
   return Object.freeze(executor);
+}
+
+/** Validate and serialize exactly once before the runtime or process boundary. */
+export function serializeHermesSemanticWorkerInput(input: unknown): Buffer {
+  const work = requireRecord(input, "POLICY_INPUT_INVALID");
+  if (!("instruction" in work) || !("policy_context" in work)) {
+    throw new Error("POLICY_INPUT_REQUIRED");
+  }
+  if (typeof work.instruction !== "string" || work.instruction.length === 0) {
+    throw new Error("POLICY_INPUT_INVALID");
+  }
+  let semanticWork: z.output<typeof researchSemanticWorkSchema>;
+  try {
+    semanticWork = researchSemanticWorkSchema.parse(work.semantic_work);
+  } catch {
+    throw new Error("POLICY_INPUT_INVALID");
+  }
+  if (
+    work.instruction !== researchSemanticPolicyWorkerInstruction(semanticWork.kind) ||
+    work.response_contract === undefined ||
+    controlledWorkerWorkDigest(work.response_contract) !== controlledWorkerWorkDigest(
+      researchSemanticResponseContract(semanticWork.kind)
+    )
+  ) {
+    throw new Error("POLICY_INPUT_INVALID");
+  }
+  try {
+    validateResearchSemanticPolicyContext(
+      work.policy_context,
+      internalProtocolBindingFromPolicyContext(work.policy_context)
+    );
+  } catch {
+    throw new Error("POLICY_INPUT_INVALID");
+  }
+  let serialized: Buffer;
+  try {
+    serialized = Buffer.from(JSON.stringify(input), "utf8");
+  } catch {
+    throw new Error("POLICY_INPUT_INVALID");
+  }
+  if (serialized.byteLength > HERMES_SEMANTIC_INPUT_MAX_BYTES) {
+    throw new Error("INPUT_TOO_LARGE");
+  }
+  return serialized;
+}
+
+/**
+ * Reconstruct only the tuple needed to apply the shared validator. This proves
+ * packet-internal consistency; the server established the session binding.
+ */
+function internalProtocolBindingFromPolicyContext(
+  value: unknown
+): ExpectedResearchProtocolBinding {
+  const context = requireRecord(value, "POLICY_INPUT_INVALID");
+  const documents = context.documents;
+  if (!Array.isArray(documents) || documents.length < 2) {
+    throw new Error("POLICY_INPUT_INVALID");
+  }
+  const identity = <T extends "universal" | "hrp">(
+    protocol: T,
+    index: number
+  ) => {
+    const document = requireRecord(documents[index], "POLICY_INPUT_INVALID");
+    const manifest = requireRecord(document.protocol_manifest, "POLICY_INPUT_INVALID");
+    if (
+      typeof manifest.name !== "string" ||
+      typeof manifest.version !== "string" ||
+      typeof manifest.revisionDate !== "string" ||
+      typeof manifest.sha256 !== "string"
+    ) throw new Error("POLICY_INPUT_INVALID");
+    return {
+      protocol,
+      name: manifest.name,
+      version: manifest.version,
+      revision_date: manifest.revisionDate,
+      sha256: manifest.sha256
+    };
+  };
+  return [identity("universal", 0), identity("hrp", 1)];
+}
+
+function requireRecord(value: unknown, message: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(message);
+  }
+  return value as Record<string, unknown>;
 }
 
 const developmentContextSchema = z.object({
@@ -558,7 +658,7 @@ async function assertPinnedHermesRuntime(
 async function runHermesProcess(
   config: ReturnType<typeof normalizeProcessConfig>,
   workerDirectory: string,
-  input: Parameters<HermesSemanticExecutor["execute"]>[0]
+  serializedInput: Buffer
 ): Promise<{ model_output: unknown; api_calls: number }> {
   const script = resolve(
     dirname(fileURLToPath(import.meta.url)),
@@ -572,7 +672,7 @@ async function runHermesProcess(
   const output = await spawnJsonProcess(
     config.pythonExecutable,
     [script],
-    input,
+    serializedInput,
     environment,
     workerDirectory,
     config.timeoutMs
@@ -616,7 +716,7 @@ export function buildHermesChildEnvironment(
 function spawnJsonProcess(
   executable: string,
   args: readonly string[],
-  input: unknown,
+  serializedInput: Buffer,
   environment: NodeJS.ProcessEnv,
   cwd: string,
   timeoutMs: number
@@ -665,7 +765,7 @@ function spawnJsonProcess(
         reject(new Error("Hermes semantic worker returned invalid JSON"));
       }
     });
-    child.stdin.end(JSON.stringify(input));
+    child.stdin.end(serializedInput);
   });
 }
 

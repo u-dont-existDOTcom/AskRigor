@@ -1953,12 +1953,52 @@ describe("AskRigor MCP tools", () => {
         protocol: "hrp",
         manifest: {
           name: "HRP",
-          version: "20.5.24",
-          revisionDate: "2026-08-31",
-          sha256: "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1"
+          version: "20.5.27",
+          revisionDate: "2026-09-09",
+          sha256: "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a"
         },
         text: canonicalText
       });
+    } finally {
+      await server.close();
+    }
+  });
+
+  it("exposes the complete Universal normality guidance in structured content", async () => {
+    const { client, server } = await createInMemoryClient();
+    const canonicalText = await readFile(
+      new URL("../protocols/Universal_Instructions.xml", import.meta.url),
+      "utf8"
+    );
+
+    try {
+      const result = await client.callTool({
+        name: "load_protocol",
+        arguments: { protocol: "universal" }
+      });
+
+      expect(result.isError).not.toBe(true);
+      expect(result.content).toEqual([
+        {
+          type: "text",
+          text: "Loaded the complete canonical AskRigor.com universal saved instructions protocol."
+        }
+      ]);
+      expect(result.structuredContent).toMatchObject({
+        ok: true,
+        protocol: "universal",
+        manifest: {
+          name: "AskRigor.com universal saved instructions",
+          version: "20.5.22",
+          revisionDate: "2026-09-08",
+          sha256: "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
+        },
+        text: canonicalText
+      });
+      expect(canonicalText).toContain('<normality_base_rate_gate priority="Critical">');
+      expect(canonicalText).toContain(
+        "For frequency questions, explaining why X can happen does not answer how often X happens."
+      );
     } finally {
       await server.close();
     }
@@ -2032,9 +2072,9 @@ describe("AskRigor Streamable HTTP server", () => {
           protocol: "universal",
           manifest: {
             name: "AskRigor.com universal saved instructions",
-            version: "20.5.15",
-            revisionDate: "2026-08-24",
-            sha256: "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172"
+            version: "20.5.22",
+            revisionDate: "2026-09-08",
+            sha256: "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
           }
         });
       } finally {
@@ -2076,8 +2116,8 @@ describe("AskRigor Streamable HTTP server", () => {
           ok: true,
           protocol: "universal",
           manifest: {
-            version: "20.5.15",
-            sha256: "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172"
+            version: "20.5.22",
+            sha256: "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6"
           }
         });
       } finally {

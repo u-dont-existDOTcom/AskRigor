@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-09-07T03:19:12.000749+00:00",
+  "directiveId": "askrigor-calibration-policy-block-closeout-v1",
+  "sourceReceipt": {
+    "exactBodyBytes": 9271,
+    "exactBodySha256": "994f2080c288ea9a77c10840f246b7390e13b7c23167301e22f9a268d18522ee",
+    "messageIdentityPreservedPrivately": true
+  },
+  "admissionReceipt": {
+    "exactBodyBytes": 1936,
+    "exactBodySha256": "c35a8d48bad23a6b92de0aa0d06506644513df7da40ba60dacf685e246c7dac7",
+    "mayExecute": true,
+    "messageIdentityPreservedPrivately": true
+  },
+  "startingRepositoryHead": "3acc36d65abc3ee714529cc6f3ac1f3c30117615",
+  "status": "CALIBRATION_SLICE_CLOSED_BLOCKED_PARENT_OPEN",
+  "policyBlocker": "SYNTHETIC_DATA_URL_REJECTED_BY_BROWSER_URL_SECURITY_POLICY",
+  "calibrationExecutionStatus": "NOT_RUN_NAVIGATION_REJECTED",
+  "priorDiagnosticCounts": {
+    "syntheticNavigationAttempts": 1,
+    "syntheticScreenshots": 0,
+    "privateScreenshots": 0
+  },
+  "closeoutDiagnosticCounts": {
+    "newDiagnosticNavigations": 0,
+    "newDiagnosticTabs": 0,
+    "screenshotCalls": 0,
+    "menuInteractions": 0,
+    "chooserOperations": 0,
+    "uploads": 0,
+    "probeRequests": 0,
+    "newMeasurements": 0,
+    "workarounds": 0,
+    "paidOperations": 0
+  },
+  "conditionalPrivateStage": "NOT_EXECUTED_PREREQUISITES_UNSATISFIED",
+  "screenshotCapability": "UNDETERMINED",
+  "privateTransportQualified": false,
+  "missingCheckObservations": "UNSATISFIED_PREREQUISITES_NOT_OBSERVED_GEOMETRY_OR_PIXEL_FAILURES",
+  "candidateScaleOne": "CONFIGURATION_ONLY_NOT_OBSERVED_OR_ACCEPTED_MAPPING",
+  "staticChecksAndTests": "IMPLEMENTATION_EVIDENCE_ONLY",
+  "boundReceiptVerification": {
+    "bytes": 2668,
+    "sha256": "d880233a1a38c2253efbe5dd7e0a5fc6060b2b7464744300481e0ac9702b4a16"
+  },
+  "allBoundReceiptsMatched": true,
+  "historicalAttemptCountsUnchanged": true,
+  "originalFixedCheckReceiptUnchanged": true,
+  "priorEvidencePreserved": true,
+  "syntheticFixturesAndCodePreserved": true,
+  "parentObjectiveOpen": true,
+  "ownerDecisionRequired": false,
+  "ownerRelayRequested": false,
+  "returnStatus": "PENDING_ONE_AUTHORIZED_OPERATIONAL_RETURN",
+  "nextSubstantiveOwner": "PROJECT_MANAGER_REASONING_SURFACE"
+}

@@ -246,7 +246,7 @@ describe("AskRigor public-review packet", () => {
     );
     expect(privacyMap).not.toContain("publisher-matching public notice is live");
     expect(privacyMap).not.toContain("the notice, rather than this internal map, is the public privacy policy");
-    expect(privacySite).toContain("Effective September 1, 2026");
+    expect(privacySite).toContain("Effective September 8, 2026");
     expect(privacySite).toContain("Unpaywall");
     expect(privacySite).toContain("encrypted single-host checkpoint");
     expect(privacySite).toContain("Optional lesson feedback");
@@ -379,9 +379,9 @@ describe("AskRigor public-review packet", () => {
     expect(release).toContain("creator-content verification");
     expect(release).toContain("get_youtube_transcript");
     expect(release).toContain("unofficial public YouTube interface");
-    expect(readme).toContain("Universal Instructions `20.5.15`");
+    expect(readme).toContain("Universal Instructions `20.5.22`");
     expect(readme).toContain(
-      "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172",
+      "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6",
     );
     expect(release).toContain("Deployed production protocols");
     expect(release).toContain(

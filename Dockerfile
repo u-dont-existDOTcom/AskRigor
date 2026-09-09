@@ -5,6 +5,8 @@ COPY package*.json ./
 COPY apps ./apps
 COPY packages ./packages
 COPY protocols ./protocols
+COPY project/PROJECT_INSTRUCTIONS.md ./project/PROJECT_INSTRUCTIONS.md
+COPY project/FORUM_SIGNAL_MODULE.md ./project/FORUM_SIGNAL_MODULE.md
 COPY integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md ./integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md
 COPY tsconfig.base.json ./
 RUN npm ci
@@ -20,6 +22,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps ./apps
 COPY --from=build /app/packages ./packages
 COPY --from=build /app/protocols ./protocols
+COPY --from=build /app/project/PROJECT_INSTRUCTIONS.md ./project/PROJECT_INSTRUCTIONS.md
+COPY --from=build /app/project/FORUM_SIGNAL_MODULE.md ./project/FORUM_SIGNAL_MODULE.md
 COPY --from=build /app/integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md ./integrations/gemini-spark/scout-youtube-for-askrigor-staged/SKILL.md
 
 USER node

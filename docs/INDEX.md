@@ -29,6 +29,22 @@ complete XML protocol.
   API comparison without paid Search grounding, covering planned discovery,
   validated URL generation, direct video summaries, transcript latency/access
   boundaries, and the recommended lazy-escalation architecture
+- `audits/2026-09-08-google-youtube-api-compliance-review.md`: Google review
+  closeout covering current and historical project numbers, API-key-only
+  authentication, exact public-data lifecycle, privacy remediation, credential
+  restrictions, production evidence, and the response package
+- `audits/2026-09-08-google-youtube-api-compliance-production-release.md` and
+  `.json`: exact merged backend/site deployment, live page and YouTube request
+  acceptance, plugin and promotion-scheduler synchronization, rollback, and
+  protected-check receipts
+- `audits/2026-09-09-comparison-interview-protocol-production-release.md`
+  and `.json`: exact PR #198/#201 protocol release, independent evidence-schema
+  review, immutable backend deployment and rollback, live protocol/MCP/provider
+  acceptance, plugin synchronization, and promotion-timer receipt
+- `audits/2026-09-09-mast-derived-clinical-gates-production-release.md`
+  and `.json`: exact PR #205 clinical-gate release, immutable backend image and
+  rollback, authenticated HRP 20.5.27 worker readback, benchmark-target-integrity
+  boundary, plugin receipt, and promotion-timer acceptance
 - `audits/2026-08-20-gemini-skill-upload-security-bisect.md`: exact-hash Gemini
   Spark upload controls, scanner nondeterminism, clause interaction bisect, and
   the clean-passing canonical v15 promotion boundary
@@ -77,6 +93,10 @@ complete XML protocol.
   HRP 20.5.24, real-PostgreSQL and full-gate receipts, byte-derived package and
   catalog identities, and separate local operational/scientific versus pending
   release adequacy
+- `audits/2026-09-08-interview-evidence-information-gain.md`: prior overlap,
+  recurrence/interview defects, Universal 20.5.22 and HRP 20.5.26 routing,
+  frozen-v0.1 boundary, v0.2 evidence extension, human-interface requirement,
+  supplied-method provenance, and migration/validation receipts
 - `superpowers/plans/2026-08-31-research-frontier-catalog-discovery.md`:
   bounded read-only lexical topic/question discovery before exact frontier
   retrieval, with explicit no-match, partial/gap, currentness, privacy, and
@@ -114,6 +134,15 @@ complete XML protocol.
   exact source-fixed halt after primary ordinal 30 exhausted two byte-identical
   `INVALID_JSON` attempts, with 29 valid judgments retained, no later dispatch,
   no unblinding or aggregation, and zero external spend
+- `audits/2026-09-06-mast-post-gate-evidence-export-blocked.json` and
+  `superpowers/plans/2026-09-06-mast-four-arm-base-post-gate-closeout.md`:
+  source-bound deterministic post-gate closeout, exact private archive and
+  manifest receipts, accepted browser attachment blocker, preserved private
+  result boundary, zero external spend, and the new-directive reopening rule
+- `audits/2026-09-06-mast-preserved-archive-delivered.json`:
+  owner-restored file access, fresh source-bound authorization and admission,
+  one submission of both preserved files, persisted provider attachment bindings,
+  and a receiving-side matching-SHA-256 receipt; no payload inspection or spend
 - `audits/2026-09-02-context-checkpoint-terminal-handoff-supervision-feedback.json`:
   automatic delivery of the worker-stop control defect to Mission Control and
   the provider-throttled, retry-required response state without evaluator content
@@ -220,6 +249,14 @@ complete XML protocol.
   zero-spend ChatGPT consumer MAST generation state, the no-evaluation embargo,
   14-response private freeze boundary, and the scoped live Mission Control
   admission-endpoint 404 blocker before sequence 15
+- `mast-derived-clinical-management-regressions-v0.1.0.json`: sanitized
+  DEVELOPMENT-only Neuro007, Derm001, Heme010, Endo002, and Pulm005 behavior
+  checks for HRP 20.5.27 and benchmark-target integrity; frozen benchmark results
+  and private clinical payloads remain outside this artifact
+- `evaluation/governance/development/benchmark-target-integrity-reviews.json`:
+  registered, executable development-only target-integrity assessments that keep
+  benchmark conformity separate from clinical validity and fail governance
+  verification when a review is incomplete or its expected decision drifts
 - `../project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md`: dedicated compact source
   for the Custom GPT worker/display contract; complete research policy and
   completion authority remain server-side
@@ -252,6 +289,9 @@ complete XML protocol.
   SELECT-only reader, curated stdin import, activation, acceptance, and rollback
   runbook for production study-audit read-through
 - `privacy-data-map.md`: data classes, flows, exclusions, and handling
+- `audits/2026-09-08-google-youtube-api-compliance-review.md`: source,
+  production, and Google Cloud evidence for YouTube authentication, collection,
+  transient/persistent storage, expiry, deletion, logging, and backups
 - `research-session-resumability-threat-model.md`: encrypted bounded
   checkpoint assets, trust boundaries, hostile recovery cases, retention,
   deletion, backup, key-loss, and rollback rules

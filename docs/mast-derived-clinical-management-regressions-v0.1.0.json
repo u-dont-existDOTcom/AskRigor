@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "classification": "DEVELOPMENT_REGRESSION_ONLY",
+  "purpose": "Sanitized behavioral regressions for generalized clinical gates and benchmark-target integrity; not a benchmark replay, rescore, or validation set.",
+  "frozenBenchmarkResultsDisposition": "PRESERVE_UNCHANGED",
+  "privateClinicalPayloadIncluded": false,
+  "validationClaimPermitted": false,
+  "families": [
+    {
+      "familyId": "Neuro007",
+      "role": "CLINICAL_MANAGEMENT_PRESERVATION",
+      "requirements": [
+        "Lead with MRI brain without contrast.",
+        "Preserve concurrent cognitive assessment, reversible-cause laboratory evaluation, and medication review as current actions.",
+        "Keep neurology, EEG, and neuropsychological escalation contingent on persistent symptoms or an unrevealing initial workup."
+      ]
+    },
+    {
+      "familyId": "Derm001",
+      "role": "PATIENT_SPECIFIC_SAFETY_RECONCILIATION",
+      "requirements": [
+        "Reconcile the patient's idiopathic intracranial hypertension against retinoid candidates before efficacy ranking.",
+        "Preserve the evidence grade when the topical-retinoid concern is case-report-level rather than a categorical universal contraindication.",
+        "Do not encode a universal tretinoin prohibition; preserve non-retinoid alternatives."
+      ]
+    },
+    {
+      "familyId": "Heme010",
+      "role": "BENCHMARK_TARGET_INTEGRITY",
+      "requirements": [
+        "Classify materially inconsistent or contestable rewarded actions as BENCHMARK_TARGET_CONFLICT.",
+        "Do not force antiphospholipid testing or late bilateral Doppler solely for benchmark conformity.",
+        "Preserve separately supported venous-thromboembolism counseling and prophylaxis actions."
+      ]
+    },
+    {
+      "familyId": "Endo002",
+      "role": "DECISIVE_POSITIVE_CONTROL",
+      "requirements": [
+        "Preserve the decisive recommendation to continue alendronate rather than routinely holding it when no patient-specific conflict changes management."
+      ]
+    },
+    {
+      "familyId": "Pulm005",
+      "role": "CONDITIONAL_SEQUENCE_POSITIVE_CONTROL",
+      "requirements": [
+        "Preserve legitimate cause-directed pulmonary workup and conditional escalation when the later action has a clinically real prerequisite."
+      ]
+    }
+  ]
+}

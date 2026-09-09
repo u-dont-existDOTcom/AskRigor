@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { readFileMock } = vi.hoisted(() => ({
@@ -12,13 +14,14 @@ vi.mock("node:fs/promises", async (importOriginal) => {
 import {
   getProtocolManifest,
   loadProtocol,
+  loadProtocolSnapshot,
   verifyProtocolIntegrity
 } from "@askrigor/protocol";
 
 const HRP_SHA_256 =
-  "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1";
+  "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a";
 const UNIVERSAL_SHA_256 =
-  "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172";
+  "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6";
 
 describe("canonical protocol loader", () => {
   let actualReadFile: typeof import("node:fs/promises").readFile;
@@ -34,8 +37,8 @@ describe("canonical protocol loader", () => {
   it("derives the HRP manifest from its root attributes", async () => {
     await expect(getProtocolManifest("hrp")).resolves.toMatchObject({
       name: "HRP",
-      version: "20.5.24",
-      revisionDate: "2026-08-31"
+      version: "20.5.27",
+      revisionDate: "2026-09-09"
     });
   });
 
@@ -251,7 +254,7 @@ describe("canonical protocol loader", () => {
     };
 
     expect(text).toMatch(
-      /<Protocol name="HRP" version="20\.5\.24" revisionDate="2026-08-31"/
+      /<Protocol name="HRP" version="20\.5\.27" revisionDate="2026-09-09"/
     );
     for (const required of [
       '<Revision version="20.5.19" priority="Critical">',
@@ -416,8 +419,8 @@ describe("canonical protocol loader", () => {
   it("derives the Universal manifest from its root attributes", async () => {
     await expect(getProtocolManifest("universal")).resolves.toMatchObject({
       name: "AskRigor.com universal saved instructions",
-      version: "20.5.15",
-      revisionDate: "2026-08-24"
+      version: "20.5.22",
+      revisionDate: "2026-09-08"
     });
   });
 
@@ -446,6 +449,42 @@ describe("canonical protocol loader", () => {
     );
 
     await expect(loadProtocol("universal")).resolves.toBe(original);
+  });
+
+  it("returns exact text and its byte-derived manifest from one validated snapshot", async () => {
+    const original = await actualReadFile(
+      new URL("../protocols/Universal_Instructions.xml", import.meta.url),
+      "utf8"
+    );
+    const snapshot = await loadProtocolSnapshot("universal");
+
+    expect(snapshot.text).toBe(original);
+    expect(snapshot.manifest).toEqual(await getProtocolManifest("universal"));
+    expect(snapshot.manifest.sha256).toBe(UNIVERSAL_SHA_256);
+  });
+
+  it.each([
+    { protocol: "universal" as const, name: "Universal" },
+    { protocol: "hrp" as const, name: "HRP" }
+  ])("preserves a leading UTF-8 BOM in the $protocol snapshot and its byte identity", async ({
+    protocol,
+    name
+  }) => {
+    const bytes = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(
+        `<?xml version="1.0"?><Protocol name="${name}" version="test" revisionDate="2026-09-08" />`,
+        "utf8"
+      )
+    ]);
+    readFileMock.mockResolvedValueOnce(bytes);
+
+    const snapshot = await loadProtocolSnapshot(protocol);
+    expect(snapshot.text.startsWith("\ufeff")).toBe(true);
+    expect(Buffer.from(snapshot.text, "utf8")).toEqual(bytes);
+    expect(snapshot.manifest.sha256).toBe(
+      createHash("sha256").update(bytes).digest("hex")
+    );
   });
 
   it("accepts the published digest for the canonical Universal file", async () => {
@@ -482,7 +521,9 @@ describe("canonical protocol loader", () => {
   it("fails closed when the canonical XML is malformed", async () => {
     readFileMock.mockResolvedValueOnce(Buffer.from("<Protocol name=\"HRP\">"));
 
-    await expect(loadProtocol("hrp")).rejects.toThrow("Protocol XML is malformed");
+    await expect(loadProtocolSnapshot("hrp")).rejects.toThrow(
+      "Protocol XML is malformed"
+    );
   });
 
   it("fails closed when the canonical file cannot be read", async () => {
@@ -494,6 +535,54 @@ describe("canonical protocol loader", () => {
   it("fails closed when the canonical file is not valid UTF-8", async () => {
     readFileMock.mockResolvedValueOnce(Buffer.from([0xc3, 0x28]));
 
-    await expect(loadProtocol("hrp")).rejects.toThrow("Protocol file is not valid UTF-8");
+    await expect(loadProtocolSnapshot("hrp")).rejects.toThrow(
+      "Protocol file is not valid UTF-8"
+    );
+  });
+});
+
+
+describe("comparison-integrity protocol regressions", () => {
+  it("requires Universal 20.5.21 comparison-set, estimand, and ranking-resolution controls", async () => {
+    const text = await loadProtocol("universal");
+    for (const required of [
+      '<revision version="20.5.21" priority="Critical">',
+      '<comparison_integrity_gate priority="Critical">',
+      'name="ReferenceSetPreservation"',
+      'subset introduced by the assistant',
+      'name="EstimandPreservation"',
+      'response at one chosen dose as potency',
+      'name="ComparabilityBeforeOrdering"',
+      'name="RankingResolution"',
+      'Never manufacture precision by sorting noise',
+      'name="EvidenceDepthSeparation"',
+      'A single screen, one dose, one surrogate, or one model'
+    ]) expect(text).toContain(required);
+  });
+
+  it("requires HRP 20.5.25 fixed-dose, exposure, endpoint, mixture, and ranking controls", async () => {
+    const text = await loadProtocol("hrp");
+    for (const required of [
+      '<Revision version="20.5.25" priority="Critical">',
+      '<ComparisonEstimandAndDoseExposureIntegrityGate priority="Critical">',
+      'name="CrossAgentEstimandLock"',
+      'cannot establish potency order without dose-response or exposure-response evidence',
+      'name="DoseExposureComparability"',
+      'same mg/kg',
+      'name="PotencyVersusMaximalEfficacyDiscriminator"',
+      'failure of dose escalation to rescue a partial effect',
+      'name="EndpointHierarchyAndTriangulation"',
+      'name="CompositeInterventionAttribution"',
+      'name="CrossAgentRankingResolution"'
+    ]) expect(text).toContain(required);
+  });
+
+  it("locks the Nichols-style regression against salient-subset and saturating-dose misranking", async () => {
+    const universal = await loadProtocol("universal");
+    const hrp = await loadProtocol("hrp");
+    expect(universal).toContain('Do not silently substitute a salient example set');
+    expect(universal).toContain('A sortable table of point estimates does not imply a resolvable strict rank order');
+    expect(hrp).toContain('A common-dose or deliberately saturating screen can classify efficacy or response at that dose but cannot establish potency order');
+    expect(hrp).toContain('Treat mixtures, botanicals, combination products, polypharmacy, and their individual components as distinct interventions');
   });
 });

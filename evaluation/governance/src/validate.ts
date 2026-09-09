@@ -22,8 +22,39 @@ export interface GovernanceValidationResult {
   noDefectClaimMade: false;
   policyMutantsRejected: number;
   crossArtifactBindingsVerified: number;
+  benchmarkTargetIntegrityReviewCount: number;
+  benchmarkTargetConflictCount: number;
+  benchmarkTargetTuningAllowedCount: number;
   paidInferencePerformed: false;
   latentAnswersPublished: false;
+}
+
+export type BenchmarkConformity = "CONFORMS" | "DOES_NOT_CONFORM" | "MIXED";
+export type BenchmarkTargetClinicalValidity =
+  | "CONSISTENT_WITH_CURRENT_HIGH_AUTHORITY_EVIDENCE"
+  | "MATERIALLY_INCONSISTENT"
+  | "CONTESTABLE";
+export type BenchmarkProtocolChangeBasis = "GENERALIZED_CLINICAL_DEFECT" | "BENCHMARK_SCORE_ONLY";
+
+export interface BenchmarkTargetIntegrityReview {
+  itemId: string;
+  exactPopulation: string;
+  timing: string;
+  decisionContext: string;
+  highAuthorityEvidence: readonly string[];
+  evidenceCurrentnessChecked: boolean;
+  benchmarkConformity: BenchmarkConformity;
+  clinicalValidity: BenchmarkTargetClinicalValidity;
+  protocolChangeBasis: BenchmarkProtocolChangeBasis;
+}
+
+export interface BenchmarkTargetIntegrityDecision {
+  itemId: string;
+  classification: "BENCHMARK_TARGET_ALIGNED" | "BENCHMARK_TARGET_CONFLICT";
+  benchmarkConformity: BenchmarkConformity;
+  clinicalValidity: BenchmarkTargetClinicalValidity;
+  protocolTuningAllowed: boolean;
+  frozenOfficialResultDisposition: "PRESERVE_UNCHANGED";
 }
 
 const INSTANCE_PAIRS: GovernanceInstancePair[] = [
@@ -37,7 +68,57 @@ const INSTANCE_PAIRS: GovernanceInstancePair[] = [
   },
 ];
 
+const BENCHMARK_TARGET_INTEGRITY_REVIEWS_PATH =
+  "evaluation/governance/development/benchmark-target-integrity-reviews.json";
+const BENCHMARK_CONFORMITY_VALUES: readonly BenchmarkConformity[] = [
+  "CONFORMS",
+  "DOES_NOT_CONFORM",
+  "MIXED",
+];
+const BENCHMARK_TARGET_CLINICAL_VALIDITY_VALUES: readonly BenchmarkTargetClinicalValidity[] = [
+  "CONSISTENT_WITH_CURRENT_HIGH_AUTHORITY_EVIDENCE",
+  "MATERIALLY_INCONSISTENT",
+  "CONTESTABLE",
+];
+const BENCHMARK_PROTOCOL_CHANGE_BASIS_VALUES: readonly BenchmarkProtocolChangeBasis[] = [
+  "GENERALIZED_CLINICAL_DEFECT",
+  "BENCHMARK_SCORE_ONLY",
+];
+
 const addFormats = (formatsModule as unknown as { default: FormatsPlugin }).default;
+
+export function assessBenchmarkTargetIntegrity(
+  review: BenchmarkTargetIntegrityReview,
+): BenchmarkTargetIntegrityDecision {
+  const requiredText = [review.itemId, review.exactPopulation, review.timing, review.decisionContext];
+  const evidenceComplete = Array.isArray(review.highAuthorityEvidence)
+    && review.highAuthorityEvidence.length > 0
+    && review.highAuthorityEvidence.every(
+      (source) => typeof source === "string" && source.trim().length > 0,
+    );
+  if (requiredText.some((value) => typeof value !== "string" || value.trim().length === 0)
+    || !evidenceComplete
+    || review.evidenceCurrentnessChecked !== true
+    || !BENCHMARK_CONFORMITY_VALUES.includes(review.benchmarkConformity)
+    || !BENCHMARK_TARGET_CLINICAL_VALIDITY_VALUES.includes(review.clinicalValidity)
+    || !BENCHMARK_PROTOCOL_CHANGE_BASIS_VALUES.includes(review.protocolChangeBasis)) {
+    throw new Error("BENCHMARK_TARGET_INTEGRITY_REVIEW_INCOMPLETE");
+  }
+
+  const classification = review.clinicalValidity === "CONSISTENT_WITH_CURRENT_HIGH_AUTHORITY_EVIDENCE"
+    ? "BENCHMARK_TARGET_ALIGNED"
+    : "BENCHMARK_TARGET_CONFLICT";
+
+  return {
+    itemId: review.itemId,
+    classification,
+    benchmarkConformity: review.benchmarkConformity,
+    clinicalValidity: review.clinicalValidity,
+    protocolTuningAllowed: classification === "BENCHMARK_TARGET_ALIGNED"
+      && review.protocolChangeBasis === "GENERALIZED_CLINICAL_DEFECT",
+    frozenOfficialResultDisposition: "PRESERVE_UNCHANGED",
+  };
+}
 
 function asRecord(value: unknown, label: string): JsonRecord {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -78,6 +159,92 @@ async function readJson(path: string): Promise<unknown> {
 
 async function sha256(path: string): Promise<string> {
   return createHash("sha256").update(await readFile(path)).digest("hex");
+}
+
+function exactKeys(record: JsonRecord, expected: readonly string[], label: string): void {
+  const actual = Object.keys(record).sort();
+  const required = [...expected].sort();
+  if (actual.length !== required.length || actual.some((key, index) => key !== required[index])) {
+    throw new Error(`GOVERNANCE_EXACT_KEYS_MISMATCH path=${label}`);
+  }
+}
+
+async function validateBenchmarkTargetIntegrityReviews(root: string): Promise<{
+  reviewCount: number;
+  conflictCount: number;
+  tuningAllowedCount: number;
+}> {
+  const artifact = asRecord(
+    await readJson(join(root, BENCHMARK_TARGET_INTEGRITY_REVIEWS_PATH)),
+    BENCHMARK_TARGET_INTEGRITY_REVIEWS_PATH,
+  );
+  exactKeys(artifact, [
+    "schemaVersion",
+    "classification",
+    "frozenBenchmarkResultsDisposition",
+    "privateClinicalPayloadIncluded",
+    "validationClaimPermitted",
+    "reviews",
+  ], BENCHMARK_TARGET_INTEGRITY_REVIEWS_PATH);
+  equal(artifact.schemaVersion, 1, "BENCHMARK_TARGET_INTEGRITY_SCHEMA_VERSION_MISMATCH");
+  equal(
+    artifact.classification,
+    "DEVELOPMENT_REGRESSION_ONLY",
+    "BENCHMARK_TARGET_INTEGRITY_CLASSIFICATION_MISMATCH",
+  );
+  equal(
+    artifact.frozenBenchmarkResultsDisposition,
+    "PRESERVE_UNCHANGED",
+    "BENCHMARK_TARGET_INTEGRITY_FROZEN_RESULT_DISPOSITION_MISMATCH",
+  );
+  equal(artifact.privateClinicalPayloadIncluded, false, "BENCHMARK_TARGET_INTEGRITY_PRIVATE_PAYLOAD_PRESENT");
+  equal(artifact.validationClaimPermitted, false, "BENCHMARK_TARGET_INTEGRITY_VALIDATION_CLAIM_PERMITTED");
+
+  const reviews = asArray(at(artifact, "reviews", BENCHMARK_TARGET_INTEGRITY_REVIEWS_PATH), `${BENCHMARK_TARGET_INTEGRITY_REVIEWS_PATH}.reviews`);
+  if (reviews.length === 0) {
+    throw new Error("BENCHMARK_TARGET_INTEGRITY_REVIEW_REGISTRY_EMPTY");
+  }
+  let conflictCount = 0;
+  let tuningAllowedCount = 0;
+  for (const [index, value] of reviews.entries()) {
+    const label = `${BENCHMARK_TARGET_INTEGRITY_REVIEWS_PATH}.reviews[${index}]`;
+    const record = asRecord(value, label);
+    exactKeys(record, ["review", "expectedDecision"], label);
+    const reviewRecord = asRecord(at(record, "review", label), `${label}.review`);
+    exactKeys(reviewRecord, [
+      "itemId",
+      "exactPopulation",
+      "timing",
+      "decisionContext",
+      "highAuthorityEvidence",
+      "evidenceCurrentnessChecked",
+      "benchmarkConformity",
+      "clinicalValidity",
+      "protocolChangeBasis",
+    ], `${label}.review`);
+    const decision = assessBenchmarkTargetIntegrity({
+      itemId: at(reviewRecord, "itemId", `${label}.review`) as string,
+      exactPopulation: at(reviewRecord, "exactPopulation", `${label}.review`) as string,
+      timing: at(reviewRecord, "timing", `${label}.review`) as string,
+      decisionContext: at(reviewRecord, "decisionContext", `${label}.review`) as string,
+      highAuthorityEvidence: asArray(
+        at(reviewRecord, "highAuthorityEvidence", `${label}.review`),
+        `${label}.review.highAuthorityEvidence`,
+      ) as string[],
+      evidenceCurrentnessChecked: at(reviewRecord, "evidenceCurrentnessChecked", `${label}.review`) as boolean,
+      benchmarkConformity: at(reviewRecord, "benchmarkConformity", `${label}.review`) as BenchmarkConformity,
+      clinicalValidity: at(reviewRecord, "clinicalValidity", `${label}.review`) as BenchmarkTargetClinicalValidity,
+      protocolChangeBasis: at(reviewRecord, "protocolChangeBasis", `${label}.review`) as BenchmarkProtocolChangeBasis,
+    });
+    const expected = asRecord(at(record, "expectedDecision", label), `${label}.expectedDecision`);
+    exactKeys(expected, Object.keys(decision), `${label}.expectedDecision`);
+    for (const [key, actual] of Object.entries(decision)) {
+      equal(actual, expected[key], `BENCHMARK_TARGET_INTEGRITY_DECISION_MISMATCH path=${label}.${key}`);
+    }
+    if (decision.classification === "BENCHMARK_TARGET_CONFLICT") conflictCount += 1;
+    if (decision.protocolTuningAllowed) tuningAllowedCount += 1;
+  }
+  return { reviewCount: reviews.length, conflictCount, tuningAllowedCount };
 }
 
 export async function compileGovernanceSchemas(root: string): Promise<{
@@ -217,6 +384,7 @@ export async function validateBenchmarkGovernance(root: string): Promise<Governa
   const ledgers = new Map<string, JsonRecord>();
   let recordedDefectCount = 0;
   let crossArtifactBindingsVerified = 0;
+  const targetIntegrity = await validateBenchmarkTargetIntegrityReviews(root);
 
   for (const pair of INSTANCE_PAIRS) {
     const [manifestValue, ledgerValue, manifestHash] = await Promise.all([
@@ -345,6 +513,9 @@ export async function validateBenchmarkGovernance(root: string): Promise<Governa
     noDefectClaimMade: false,
     policyMutantsRejected: assertDefectLedgerPolicyMutants(validateLedger),
     crossArtifactBindingsVerified,
+    benchmarkTargetIntegrityReviewCount: targetIntegrity.reviewCount,
+    benchmarkTargetConflictCount: targetIntegrity.conflictCount,
+    benchmarkTargetTuningAllowedCount: targetIntegrity.tuningAllowedCount,
     paidInferencePerformed: false,
     latentAnswersPublished: false,
   };

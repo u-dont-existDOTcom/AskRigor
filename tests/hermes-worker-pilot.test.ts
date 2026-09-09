@@ -8,6 +8,7 @@ import {
   HERMES_AGENT_PIN,
   HERMES_RESEARCH_WORKER_POLICY,
   buildHermesChildEnvironment,
+  createHermesProcessSemanticExecutor,
   createHttpPrivateResearchOrchestrationClient,
   loadHermesDevelopmentContext,
   releaseHermesFinalResponse,
@@ -301,6 +302,29 @@ describe("Hermes bounded worker pilot", () => {
       HERMES_ASKRIGOR_API_KEY: "dedicated-hermes-model-key",
       HERMES_ASKRIGOR_BASE_URL: "https://provider.invalid/v1"
     });
+  });
+
+  it("rejects the policy-less legacy status package before any runtime check", async () => {
+    const worker = createHermesProcessSemanticExecutor({
+      hermesCheckout: "/missing/hermes-checkout",
+      pythonExecutable: "/missing/python",
+      provider: "synthetic-provider",
+      model: "synthetic-model",
+      apiKey: "synthetic-api-key"
+    });
+    await expect(worker.execute({
+      session_id: SESSION,
+      state_digest: STATE_A,
+      response_contract: {},
+      semantic_work: {
+        kind: "module_applicability",
+        package: {
+          package_version: "askrigor_module_applicability_v1",
+          state_digest: STATE_A,
+          unresolved_module_ids: ["FORUM_SIGNAL"]
+        }
+      }
+    })).rejects.toThrow(/POLICY_INPUT_REQUIRED/u);
   });
 });
 

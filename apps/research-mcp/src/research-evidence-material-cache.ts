@@ -7,6 +7,10 @@ import {
   sourceRecordSha256,
   type VideoEvidenceMaterial
 } from "./actions/research-bounded-evidence.js";
+import {
+  RESEARCH_SESSION_ABSOLUTE_TTL_MS,
+  RESEARCH_SESSION_IDLE_TTL_MS
+} from "./config.js";
 
 export interface ResearchEvidenceMaterialCache {
   captureTranscript(input: {
@@ -33,15 +37,22 @@ interface MutableMaterial {
   discussionComments: Map<string, VideoEvidenceMaterial["discussion_comments"][number]>;
   transcriptReceiptSha256?: string;
   discussionReceiptSha256?: string;
+  createdAtMs: number;
+  lastTouchedAtMs: number;
 }
 
 const DEFAULT_MAXIMUM_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAXIMUM_ENTRIES = 100;
+const DEFAULT_SWEEP_INTERVAL_MS = 60 * 60 * 1_000;
 
 /** Raw public source material is bounded, process-local, and never checkpointed. */
 export function createInMemoryResearchEvidenceMaterialCache(input: {
   maximumBytes?: number;
   maximumEntries?: number;
+  now?: () => number;
+  idleTtlMs?: number;
+  absoluteTtlMs?: number;
+  sweepIntervalMs?: number;
 } = {}): ResearchEvidenceMaterialCache {
   const maximumBytes = boundedPositiveInteger(
     input.maximumBytes ?? DEFAULT_MAXIMUM_BYTES,
@@ -51,7 +62,27 @@ export function createInMemoryResearchEvidenceMaterialCache(input: {
     input.maximumEntries ?? DEFAULT_MAXIMUM_ENTRIES,
     "evidence-material entry limit"
   );
+  const now = input.now ?? Date.now;
+  const idleTtlMs = boundedPositiveInteger(
+    input.idleTtlMs ?? RESEARCH_SESSION_IDLE_TTL_MS,
+    "evidence-material idle TTL"
+  );
+  const absoluteTtlMs = boundedPositiveInteger(
+    input.absoluteTtlMs ?? RESEARCH_SESSION_ABSOLUTE_TTL_MS,
+    "evidence-material absolute TTL"
+  );
+  const sweepIntervalMs = boundedPositiveInteger(
+    input.sweepIntervalMs ?? DEFAULT_SWEEP_INTERVAL_MS,
+    "evidence-material sweep interval"
+  );
+  if (idleTtlMs > absoluteTtlMs) {
+    throw new Error("Evidence-material idle TTL cannot exceed its absolute TTL");
+  }
   const entries = new Map<string, MutableMaterial>();
+  const sweep = setInterval(() => {
+    pruneExpired(entries, readNow(now), idleTtlMs, absoluteTtlMs);
+  }, sweepIntervalMs);
+  sweep.unref();
 
   const cache: ResearchEvidenceMaterialCache = {
     captureTranscript({ sessionId, videoId, output }: {
@@ -59,8 +90,11 @@ export function createInMemoryResearchEvidenceMaterialCache(input: {
       videoId: string;
       output: YoutubeTranscriptActionOutput;
     }) {
+      const currentTime = readNow(now);
+      pruneExpired(entries, currentTime, idleTtlMs, absoluteTtlMs);
       const key = cacheKey(sessionId, videoId);
-      const next = cloneMutable(entries.get(key) ?? emptyMaterial());
+      const next = cloneMutable(entries.get(key) ?? emptyMaterial(currentTime));
+      next.lastTouchedAtMs = currentTime;
       for (const segment of output.data) {
         const record_sha256 = sourceRecordSha256(segment);
         next.transcriptSegments.set(record_sha256, { ...segment, record_sha256 });
@@ -78,8 +112,11 @@ export function createInMemoryResearchEvidenceMaterialCache(input: {
       videoId: string;
       output: YoutubeDiscussionActionOutput;
     }) {
+      const currentTime = readNow(now);
+      pruneExpired(entries, currentTime, idleTtlMs, absoluteTtlMs);
       const key = cacheKey(sessionId, videoId);
-      const next = cloneMutable(entries.get(key) ?? emptyMaterial());
+      const next = cloneMutable(entries.get(key) ?? emptyMaterial(currentTime));
+      next.lastTouchedAtMs = currentTime;
       for (const comment of output.sample?.comments ?? []) {
         const record_sha256 = sourceRecordSha256(comment);
         next.discussionComments.set(record_sha256, {
@@ -114,15 +151,19 @@ export function createInMemoryResearchEvidenceMaterialCache(input: {
       transcriptReceiptSha256: string;
       discussionReceiptSha256: string;
     }) {
-      const entry = entries.get(cacheKey(sessionId, videoId));
+      const currentTime = readNow(now);
+      pruneExpired(entries, currentTime, idleTtlMs, absoluteTtlMs);
+      const key = cacheKey(sessionId, videoId);
+      const entry = entries.get(key);
       if (
         entry === undefined ||
         entry.transcriptReceiptSha256 !== transcriptReceiptSha256 ||
         entry.discussionReceiptSha256 !== discussionReceiptSha256 ||
         entry.transcriptSegments.size === 0
       ) return undefined;
-      entries.delete(cacheKey(sessionId, videoId));
-      entries.set(cacheKey(sessionId, videoId), entry);
+      entry.lastTouchedAtMs = currentTime;
+      entries.delete(key);
+      entries.set(key, entry);
       const transcriptSegments = [...entry.transcriptSegments.values()].sort(
         (left, right) => left.index - right.index
       );
@@ -155,10 +196,12 @@ export function createInMemoryResearchEvidenceMaterialCache(input: {
   return Object.freeze(cache);
 }
 
-function emptyMaterial(): MutableMaterial {
+function emptyMaterial(currentTime: number): MutableMaterial {
   return {
     transcriptSegments: new Map(),
-    discussionComments: new Map()
+    discussionComments: new Map(),
+    createdAtMs: currentTime,
+    lastTouchedAtMs: currentTime
   };
 }
 
@@ -171,8 +214,24 @@ function cloneMutable(value: MutableMaterial): MutableMaterial {
       : { transcriptReceiptSha256: value.transcriptReceiptSha256 }),
     ...(value.discussionReceiptSha256 === undefined
       ? {}
-      : { discussionReceiptSha256: value.discussionReceiptSha256 })
+      : { discussionReceiptSha256: value.discussionReceiptSha256 }),
+    createdAtMs: value.createdAtMs,
+    lastTouchedAtMs: value.lastTouchedAtMs
   };
+}
+
+function pruneExpired(
+  entries: Map<string, MutableMaterial>,
+  currentTime: number,
+  idleTtlMs: number,
+  absoluteTtlMs: number
+): void {
+  for (const [key, entry] of entries) {
+    if (
+      currentTime - entry.lastTouchedAtMs >= idleTtlMs ||
+      currentTime - entry.createdAtMs >= absoluteTtlMs
+    ) entries.delete(key);
+  }
 }
 
 function commitBounded(
@@ -209,7 +268,9 @@ function serializedEntryBytes(entries: Map<string, MutableMaterial>): number {
       transcriptSegments: [...entry.transcriptSegments.values()],
       discussionComments: [...entry.discussionComments.values()],
       transcriptReceiptSha256: entry.transcriptReceiptSha256,
-      discussionReceiptSha256: entry.discussionReceiptSha256
+      discussionReceiptSha256: entry.discussionReceiptSha256,
+      createdAtMs: entry.createdAtMs,
+      lastTouchedAtMs: entry.lastTouchedAtMs
     })
   )), "utf8");
 }
@@ -226,5 +287,13 @@ function cacheKey(sessionId: string, videoId: string): string {
 
 function boundedPositiveInteger(value: number, label: string): number {
   if (!Number.isSafeInteger(value) || value < 1) throw new Error(`Invalid ${label}`);
+  return value;
+}
+
+function readNow(now: () => number): number {
+  const value = now();
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error("Invalid evidence-material cache clock");
+  }
   return value;
 }

@@ -11,6 +11,14 @@ shape the model; support generalization? DEVELOPMENT=`YES/NO`;
 VALIDATION=`NO/YES`. Optimize DEVELOPMENT; cross-validation is search. Freeze
 VALIDATION; it tests without shaping the model. HRP cannot erase this distinction.
 
+### Reasoning and interview-evidence application
+
+Use Universal reasoning_selection; it cannot replace protocols/modules. Define claim, population, intervention/exposure, comparator, outcome, horizon. Separate mechanism, association, treatment effect, and personal applicability. Compare absolute benefits/harms and alternatives including nonaction; examine bias, confounding, precision, heterogeneity, and evidence dependence. Generate competing explanations; critique without averaging incompatible findings. Preserve exact populations, formulations, concentrations, contexts, and endpoints before claiming contradiction. Selected reports do not establish incidence or causality.
+
+For histories, recurrence, surveys, follow-ups, extraction, and dialogue, apply Universal/HRP interview-evidence gates. Preserve recurrence separately from other roles; probe scope, exceptions, conditions, timing, and contrasts before anecdotes. True frequency needs valid sampling; optional questions need information gain. Retrieve owner methodology, use human controls, and version pre-collection defects without altering frozen methods/data.
+
+Respect phase/provenance gates: development-fitted evidence is not independent confirmation; missing access is not negative, nor partial evidence completion. Separate operational/scientific/release adequacy. Source-bound authority/server-selected work control; no new execution, spending, publication, or release permission.
+
 ## 1. Run before HRP/research
 
 Mark `HRP`/`DIRECT_HUMAN`/`EXTENDED_GREY`/`FORUM_SIGNAL`/`BIDIRECTIONAL_ITERATION`/`FINAL_COMPLETION_AUDIT` `REQUIRED` or `NOT REQUIRED`.

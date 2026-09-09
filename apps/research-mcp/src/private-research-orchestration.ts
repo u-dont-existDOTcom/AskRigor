@@ -52,8 +52,13 @@ import {
   researchSemanticModelOutputSchema,
   researchSemanticWorkSchema,
   type ResearchSemanticExecutor,
+  type ResearchSemanticPolicyBoundWorkPackage,
   type ResearchSemanticWork
 } from "./research-semantic-worker.js";
+import {
+  createResearchSemanticPolicyInputs,
+  type ResearchSemanticPolicyDependencies
+} from "./research-semantic-policy-input.js";
 import {
   advanceResearchSessionDeterministically,
   applyResearchSemanticResult,
@@ -149,6 +154,7 @@ export interface PrivateResearchOrchestrationHandlerOptions
   store?: ResearchSessionStore;
   maximumResponseBytes?: number;
   semanticExecutor?: ResearchSemanticExecutor;
+  semanticPolicyDependencies?: ResearchSemanticPolicyDependencies;
   semanticAdvanceDependencies?: ResearchSemanticAdvanceDependencies;
   deterministicAdvanceDependencies?: ResearchDeterministicAdvanceDependencies;
 }
@@ -353,6 +359,9 @@ export function createPrivateResearchOrchestrationHandler(
               : { now: options.finalizationNow })
           }
         );
+        options.semanticAdvanceDependencies?.releaseEvidenceMaterialForSession?.(
+          decision.session_id
+        );
       }
       return {
         status: 200,
@@ -464,6 +473,13 @@ export function createPrivateResearchOrchestrationHandler(
       }
       let rawExecution: unknown;
       try {
+        const policyInputs = await createResearchSemanticPolicyInputs({
+          kind: semanticWork.kind,
+          expectedProtocols: checked.protocol_binding.expected,
+          ...(options.semanticPolicyDependencies === undefined
+            ? {}
+            : { dependencies: options.semanticPolicyDependencies })
+        });
         const evidenceContext =
           options.semanticAdvanceDependencies?.evidenceContextForWork === undefined
             ? undefined
@@ -472,7 +488,8 @@ export function createPrivateResearchOrchestrationHandler(
                 state: checked,
                 work: semanticWork
               });
-        rawExecution = await options.semanticExecutor.execute({
+        const workerInput = {
+          ...policyInputs,
           session_id: parsed.data.session_id,
           state_digest: currentDigest,
           research_context: checked.research_target,
@@ -483,7 +500,8 @@ export function createPrivateResearchOrchestrationHandler(
             semanticWork.kind
           ),
           semantic_work: semanticWork
-        });
+        } satisfies ResearchSemanticPolicyBoundWorkPackage;
+        rawExecution = await options.semanticExecutor.execute(workerInput);
       } catch {
         throw new PrivateWorkerFailedError();
       }

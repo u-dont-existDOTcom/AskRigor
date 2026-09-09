@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-empty-composer-model-independent-diagnostic-v1",
+  "directiveType": "SOURCE_BOUND_DIAGNOSTIC_PRECONDITION_CORRECTION",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "RECEIPT_ACCEPTED_WITH_LIMITS_MODEL_INDEPENDENT_UI_OBSERVATION_AUTHORIZED_PROBES_STOPPED",
+  "nextActionOwner": "CODEX_WORK_FOR_BOUNDED_UI_OBSERVATION_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "decision": {
+    "selectedAction": "Complete the previously unexecuted empty-composer menu observation without interacting with model or reasoning controls.",
+    "supervisorCorrection": "Exact model and reasoning-mode verification is not a prerequisite for an empty-composer diagnostic that submits no model request. Requiring it here unnecessarily blocked collection of the requested UI evidence.",
+    "limitedSupersession": "Remove only that diagnostic precondition. Model and mode requirements for any later synthetic execution remain unchanged.",
+    "modelSelectorClicksAuthorized": false,
+    "thirdP01SetupAttemptAuthorized": false,
+    "probeResumeAuthorized": false,
+    "priorAttemptCeilingsReset": false
+  },
+  "immutableBindings": {
+    "fixtureManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+    "browserEvidence": {
+      "bytes": 2141,
+      "sha256": "d266ab6c31cd8c7922277ee3311da29b13c5bf765591cb088b06772e1dd3b69b"
+    },
+    "existingCommandMetadata": {
+      "bytes": 5605,
+      "sha256": "0bc73566e0dd10aca74df404042692287129d4dfeaa51aaec22c1fc4a071ba72"
+    },
+    "priorSetupAndDiagnosticReceipts": "RETAIN_UNCHANGED",
+    "fixturesPromptsAndSourceArtifacts": "RETAIN_UNCHANGED",
+    "repeatHistoricalCollection": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reusePriorAdmission": false,
+    "requestedAction": "COMPLETE_ONE_EMPTY_COMPOSER_MENU_OBSERVATION_WITHOUT_MODEL_CONTROL_INTERACTION_UPLOAD_OR_INFERENCE",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256 and bind the new admission to them and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "failureAction": "Stop controlled work if the response is unavailable, malformed, denied, expired, or mismatched.",
+    "newCredentialOrPermissionAuthorized": false
+  },
+  "implementationBoundary": {
+    "choice": "REUSE_EXISTING_REVIEWED_PROJECTION_AND_DOCUMENTED_CLIENT_CALL_FORM",
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "recordActualHead": true,
+    "resetOrCheckoutChangeAuthorized": false,
+    "permittedChanges": [
+      "Remove the model-control prerequisite from this diagnostic's orchestration only.",
+      "Use a precompiled, self-contained JavaScript source string for the existing read-only projection if that is the installed client's explicitly supported invocation form.",
+      "Add focused tests and append-only operational receipts for these narrow changes."
+    ],
+    "installedContractBinding": {
+      "packageVersion": "26.901.41600",
+      "apiJsonSha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f"
+    },
+    "preparationRule": "Prepare and hash the exact plain-JavaScript projection offline using existing repository tooling. Invoke it only through a documented installed-client interface. Do not use eval, Function constructors, or another dynamic-compilation mechanism inside the restricted runtime, or weaken its restrictions.",
+    "projectionSemantics": "Preserve existing empty-context guards, current-state evidence requirements, bounded associations, withheld unclassified labels, and excluded-element filters.",
+    "groundedCounts": "Supply only counts observed in the current diagnostic sample. Never insert zero or a visibility/enabled value merely to satisfy a guard.",
+    "unknownClientOrSourceDrift": "Return the exact contract or source difference before live interaction; do not silently substitute.",
+    "verification": "Run focused tests and applicable repository verification under Node v24.18.0 for changed code. Do not rerun unchanged gates merely to restate their earlier results.",
+    "githubPersistence": "Commit only non-sensitive reusable orchestration, tests, directive, and checkpoint records under existing conventions. Keep detailed evidence private.",
+    "newBackendOrUploadBehaviorChangeAuthorized": false,
+    "productionDeploymentAuthorized": false
+  },
+  "liveObservation": {
+    "accountAndProfile": "SAME_AUTHORIZED_SIGNED_IN_ACCOUNT_AND_BRAVE_PROFILE",
+    "surface": "EMPTY_ORDINARY_CHAT_OUTSIDE_PROJECT_OR_CUSTOM_GPT",
+    "modelAndReasoningLabels": "Optional read-only metadata when already visible; otherwise null with an availability reason.",
+    "globalSettingsChangesAuthorized": false,
+    "tabRule": "Use the empty task-owned tab when safe. Otherwise open at most one dedicated empty tab without altering the Project Manager tab or an unrelated draft.",
+    "requiredPreconditions": [
+      "Fresh runtime admission and private evidence identity checks pass.",
+      "The authorized origin, profile, account continuity, and task tab are established.",
+      "Current message count, attachment count, and composer length are observed as zero.",
+      "No unresolved task chooser operation or blocking dialog is observed.",
+      "The reviewed projection has a supported invocation form without relaxing runtime restrictions."
+    ],
+    "steps": [
+      "Collect one bounded pre-interaction sample using the reviewed projection and fresh count metadata.",
+      "If the sample establishes exactly one visible, enabled composer control with in-page menu semantics, invoke that specific observed control once. Otherwise return its unavailable or ambiguous state without clicking.",
+      "Collect up to two bounded post-interaction samples. Do not reopen the menu, wait for a presumed upload-item label, fill the composer, or touch model controls.",
+      "Record actual allowed menu metadata and unavailable fields. Do not activate an item.",
+      "If necessary, close only this diagnostic's positively identified in-page menu through one supported targeted action.",
+      "Preserve the observation receipt and return it. Do not proceed to a file chooser or synthetic request."
+    ],
+    "locatorRule": "Use the control identity established by the current safe projection. No forced clicks, speculative label variants, or broad text searches.",
+    "privacyScope": "Empty composer and its explicitly associated menu only; no scripts, application state, history, account menus, document suggestions, or unrelated content.",
+    "visualCaptureAuthorized": false
+  },
+  "attemptCeiling": {
+    "newMenuOpeningCalls": 1,
+    "menuOpeningCallsAcrossParentDiagnosticAndThisCorrection": 1,
+    "boundedStateSamples": 3,
+    "taskOwnedMenuCleanupCalls": 1,
+    "newDedicatedTabs": 1,
+    "modelOrReasoningControlInteractions": 0,
+    "chooserWaitsOrTriggers": 0,
+    "fileAssignmentsOrUploads": 0,
+    "promptFills": 0,
+    "probeSubmissions": 0,
+    "retriesAfterFailedInteraction": 0,
+    "ifAnAdditionalPriorMenuOpeningIsDiscovered": "Stop because the reported unused diagnostic allowance is no longer established."
+  },
+  "stopConditions": [
+    "Admission, evidence identity, or installed-contract validation fails.",
+    "Safe empty-context verification or supported projection execution is unavailable.",
+    "The observed menu control is missing, ambiguous, disabled, or not demonstrably an in-page menu control.",
+    "A browser operation fails, times out, or becomes ambiguous.",
+    "A new permission, account change, restricted-runtime bypass, or unrelated-content access would be required.",
+    "The authorized observations and return are complete."
+  ],
+  "failureHandling": {
+    "preInteractionFailure": "Preserve the failed sample and close this corrected diagnostic as blocked. Do not add another prerequisite-recovery loop.",
+    "interactionFailure": "Do not repeat the click. Use at most one remaining permitted read-only sample if responsive, then return.",
+    "unexpectedNativePicker": "Do not assign a file. Stop and preserve the event; cancel only through supported controls positively identifying this diagnostic's own empty picker.",
+    "unknownMetadata": "Retain null and its reason rather than treating missing observations as false or zero.",
+    "successfulMenuObservation": "Return evidence only. It does not restore probe or upload authorization."
+  },
+  "completionEvidence": {
+    "required": [
+      "Actual directive source identity and fresh runtime-admission receipt.",
+      "Actual execution HEAD and narrow code/test changes, if any.",
+      "Private evidence and fixture-manifest identity checks.",
+      "Installed-client contract identity and exact projection-source hash.",
+      "Available pre-interaction and post-interaction samples with timestamps.",
+      "Exact operation order, counts, errors, and explicit unavailable fields.",
+      "Confirmation of zero model-control interaction, chooser activity, uploads, prompts, and probe submissions.",
+      "Confirmation that historical artifacts, fixtures, settings, and unrelated drafts remain unchanged.",
+      "Private receipt hash and destination persistence evidence or exact routing blocker."
+    ],
+    "returnFormat": "One syntactically valid operational JSON object generated by the existing JSON serializer; no Markdown transformations, arbitrary backslash insertion, raw content, or worker-authored diagnosis.",
+    "interpretationOwner": "PROJECT_MANAGER_REASONING_SURFACE"
+  },
+  "exactDestination": {
+    "surface": "CHATGPT_PROJECT_MANAGER",
+    "conversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "conversationUrl": "[https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66](https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66)",
+    "transport": "EXISTING_AUTHORIZED_INTERNAL_OPERATIONAL_JSON_ROUTING",
+    "maximumNewReturnSubmissionCalls": 1,
+    "submissionAmbiguity": "Check destination metadata without resending; preserve unresolved delivery rather than repeatedly clicking Send.",
+    "ownerRelayRequested": false
+  },
+  "completionClaims": {
+    "observed": "MODEL_INDEPENDENT_MENU_OBSERVATION_RETURNED_PROBES_REMAIN_STOPPED",
+    "blocked": "MODEL_INDEPENDENT_UI_OBSERVATION_BLOCKED_NO_FURTHER_BROWSER_ATTEMPT_AUTHORIZED",
+    "admissionBlocked": "MODEL_INDEPENDENT_UI_OBSERVATION_BLOCKED_RUNTIME_ADMISSION"
+  },
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "sourceReceipt": {
+    "messageId": "230d07c7-ea6e-47a4-b9a4-3f4b527a3d19",
+    "exactBodyBytes": 11691,
+    "exactBodySha256": "69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555"
+  }
+}

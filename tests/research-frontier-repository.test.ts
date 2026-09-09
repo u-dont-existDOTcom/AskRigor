@@ -427,20 +427,30 @@ describe("research-frontier persistence contracts", () => {
     contribution.run.protocolManifests = [
       {
         name: "AskRigor.com universal saved instructions",
-        version: "20.5.15",
-        revisionDate: "2026-08-24",
-        sha256: "69c5186862ade61d6a97dc842b8c027324c7e2f3fd7147064a360049e0d25172",
+        version: "20.5.22",
+        revisionDate: "2026-09-08",
+        sha256: "d9364d98aa8c9805061aa53d21e7e3ed219675d8456b975b634bf54b2910c1b6",
       },
       {
         name: "HRP",
-        version: "20.5.24",
-        revisionDate: "2026-08-31",
-        sha256: "dd494d5665331e42b91232245dbba0392ecc9918d63b2638ef35c6e7528604d1",
+        version: "20.5.27",
+        revisionDate: "2026-09-09",
+        sha256: "65b099ce808012214e78f5f7b910e6a68858746978c160e29e177c3b444bf85a",
       },
     ];
     const prepared = await prepareResearchFrontierImport(contribution);
     expect(prepared).toEqual(contribution);
     expect(() => assertNoProhibitedPersistentKeys(prepared)).not.toThrow();
+
+    const staleTuple = structuredClone(contribution);
+    staleTuple.run.protocolManifests[0] = {
+      name: "AskRigor.com universal saved instructions",
+      version: "20.5.19",
+      revisionDate: "2026-09-07",
+      sha256: "e996eb5385062c7dd445c9dae3c6950bc2da045440526e1ba67b4108e0ddd752",
+    };
+    await expect(prepareResearchFrontierImport(staleTuple))
+      .rejects.toThrow("FRONTIER_PROTOCOL_MANIFEST_MISMATCH");
 
     contribution.run.protocolManifests[0]!.sha256 = "0".repeat(64);
     await expect(prepareResearchFrontierImport(contribution))

@@ -1,0 +1,250 @@
+{
+  "schemaVersion": 1,
+  "directiveId": "askrigor-screenshot-synthetic-calibration-and-region-capture-v1",
+  "directiveType": "SOURCE_BOUND_SYNTHETIC_CAPTURE_CALIBRATION_WITH_CONDITIONAL_PRIVATE_REGION_OBSERVATION",
+  "taskId": "askrigor-external-evaluation-contribution-v1",
+  "status": "PRIOR_CAPABILITY_BLOCKER_ACCEPTED_CALIBRATION_AUTHORIZED_PRIVATE_CAPTURE_CONDITIONAL",
+  "nextActionOwner": "CODEX_WORK_FOR_FIXED_CAPTURE_SEQUENCE_THEN_PROJECT_MANAGER_REASONING",
+  "workerExecutionRequired": true,
+  "ownerDecisionRequired": false,
+  "ownerQuestion": null,
+  "decision": {
+    "action": "Test the documented tab-screenshot method on a newly created, entirely synthetic local page. If the fixed checks pass, complete the previously authorized two central-region images in the same tab. Do not resume uploads or probes.",
+    "supervisorCorrection": "The previous directive required documentation to establish implementation details that its contract excerpts do not specify. The worker correctly stopped. Missing documentation is not evidence that clipping is unavailable. This directive explicitly permits a privacy-safe empirical check instead of another documentation-only loop.",
+    "limitedSupersession": "Permit the synthetic calibration below and replace the previous documentation-only coordinate and display prerequisites with its bounded empirical checks. The original private-region exclusions, capture purpose, and no-upload boundary remain.",
+    "priorBlockerMayBeDeletedOrRelabeledSuccess": false,
+    "probeSetupAllowancesReset": false,
+    "thirdP01SetupAttemptAuthorized": false,
+    "previousPrivateScreenshotCalls": 0,
+    "privateScreenshotAllowance": "The original two private captures remain unused; this directive conditionally authorizes those two, plus two synthetic calibration captures only."
+  },
+  "existingWorkDecision": {
+    "choice": "REUSE_DOCUMENTED_TAB_SCREENSHOT_AND_INSTALLED_PILLOW_WITH_A_FIXED_GEOMETRIC_CHECK",
+    "primarySourceContext": "Playwright documents screenshot buffers, clipping, viewport versus full-page capture, and differing CSS/device-pixel output scales. These distinctions motivate checking the installed wrapper; they do not establish its behavior. \ue200cite\ue202turn360631view0\ue201",
+    "installedContractControlsMethodsAndArguments": true,
+    "newBackendServerDependencyOrGeneralCalibrationFrameworkAuthorized": false
+  },
+  "runtimeAdmissionRequired": true,
+  "runtimeAdmission": {
+    "worker": "askrigor-mast",
+    "freshAdmissionRequired": true,
+    "reusePriorAdmission": false,
+    "requestedAction": "CALIBRATE_TAB_SCREENSHOT_ON_ONE_SYNTHETIC_LOCAL_PAGE_AND_ONLY_ON_FIXED_ACCEPTANCE_CAPTURE_TWO_PREVIOUSLY_AUTHORIZED_PRIVATE_CENTRAL_UI_REGIONS_WITHOUT_UPLOAD_OR_MODEL_REQUEST",
+    "sourceBinding": "Capture this response's actual message ID and exact-body SHA-256. Bind fresh admission to them and this directiveId.",
+    "requiredResult": "mayExecute:true",
+    "failureAction": "Stop controlled work if admission is unavailable, malformed, denied, expired, or mismatched.",
+    "credentialOrPermissionChangesAuthorized": false
+  },
+  "immutableBindings": {
+    "fixtureManifestSha256": "20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4",
+    "precedingBrowserReceiptSha256": "4845a590b87c8b0352572cd4bcdc4595907b03a13ba813956f35aef7adecc0aa",
+    "clientPackageVersion": "26.901.41600",
+    "apiContractSha256": "fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f",
+    "oldFixturesPromptsSourceArtifactsAndAttemptCounts": "PRESERVE_UNCHANGED"
+  },
+  "calibrationScope": {
+    "page": "One new static synthetic HTML page containing only the geometry specified below. No preserved data, fixture markers, external resources, scripts, forms, or frames.",
+    "navigation": "Open one new task-owned tab in the same authorized profile. Use its documented general URL-navigation operation with the frozen page encoded as a data:text/html URL. A general URL parameter is sufficient unless the installed contract restricts that scheme. Stop on a contract restriction or actual rejection; no scheme workaround or local server is authorized.",
+    "beforeAnyScreenshot": "Verify that the tab contains the exact constructed synthetic data document, not the account UI or another page. Freeze the HTML, invocation code, checker, arguments, and hashes before capture.",
+    "syntheticPageStyle": "White background; zero margins; root overflow hidden; body height 200vh; no fonts, animations, transforms, or caret. Four solid 32-by-32 CSS-pixel squares at the specified positions. No scrolling is performed.",
+    "squares": [
+      {
+        "x": 32,
+        "y": 48,
+        "width": 32,
+        "height": 32,
+        "rgb": [
+          255,
+          0,
+          0
+        ]
+      },
+      {
+        "x": 224,
+        "y": 48,
+        "width": 32,
+        "height": 32,
+        "rgb": [
+          0,
+          255,
+          0
+        ]
+      },
+      {
+        "x": 32,
+        "y": 208,
+        "width": 32,
+        "height": 32,
+        "rgb": [
+          0,
+          0,
+          255
+        ]
+      },
+      {
+        "x": 224,
+        "y": 208,
+        "width": 32,
+        "height": 32,
+        "rgb": [
+          255,
+          255,
+          0
+        ]
+      }
+    ],
+    "requiredViewport": "At least 320 by 280 CSS pixels; scroll offsets and visual-viewport offsets zero; visual-viewport scale one. Observe these values rather than changing zoom, size, or scroll.",
+    "geometryFields": [
+      "innerWidth",
+      "innerHeight",
+      "devicePixelRatio",
+      "scrollX",
+      "scrollY",
+      "visualViewport.width",
+      "visualViewport.height",
+      "visualViewport.offsetLeft",
+      "visualViewport.offsetTop",
+      "visualViewport.scale"
+    ],
+    "captureMethod": "Tab.screenshot",
+    "captureSequence": [
+      {
+        "id": "CAL_VIEWPORT",
+        "options": {
+          "fullPage": false
+        }
+      },
+      {
+        "id": "CAL_CLIP",
+        "options": {
+          "fullPage": false,
+          "clip": {
+            "x": 16,
+            "y": 32,
+            "width": 272,
+            "height": 224
+          }
+        }
+      }
+    ],
+    "otherScreenshotMethodsAuthorized": false,
+    "displayHandling": "Assign returned bytes to a private variable; invoke no display helper and return no raw image through tool output. Record whether the runtime nevertheless displays it. Synthetic-only captures may be retained for pixel checking; no private account screenshot is permitted if automatic display occurs or output handling remains unknown.",
+    "syntheticPixelInspectionAuthorized": true,
+    "ocrAuthorized": false
+  },
+  "calibrationAcceptance": {
+    "candidateScales": "Test only scale 1 and the observed devicePixelRatio, collapsing identical values. Do not invent additional mappings after inspecting results.",
+    "allRequired": [
+      "Both method calls return complete decodable image bytes through the controlled byte-only path.",
+      "Geometry is unchanged across the two captures; the synthetic page identity remains established.",
+      "Exactly one distinct effective candidate scale passes all checks.",
+      "Viewport-image width and height agree with innerWidth and innerHeight multiplied by that scale, within one output pixel.",
+      "Each uniquely colored square has the predicted position and dimensions in the viewport image, with at most one output pixel of edge discrepancy.",
+      "The requested clip edges multiplied by the candidate scale are integral image coordinates.",
+      "The clipped image has exactly the predicted width and height and is pixel-identical to the corresponding crop of the viewport image.",
+      "No automatic image display occurred, and the caller's output path contains only metadata."
+    ],
+    "checker": "Use existing Pillow to decode and compare pixels; do not resize, normalize colors, shift images to improve agreement, or use model interpretation. Preserve each failed check literally.",
+    "successMeaning": "The specified method and mapping passed this fixed operational check in the recorded environment. No universal coordinate, isolation, or privacy guarantee is established.",
+    "failureAction": "Stop before navigating to the account UI. Return the calibration evidence and exact failed prerequisite. No additional calibration capture or alternative mapping is authorized."
+  },
+  "conditionalPrivateCapture": {
+    "authorizedOnlyAfterAllCalibrationChecksPass": true,
+    "destinationPage": "[https://chatgpt.com/](https://chatgpt.com/)",
+    "tab": "Reuse the calibrated tab; do not disturb existing conversations or drafts.",
+    "sameEnvironmentRequired": "Same client, browser window, profile, account, viewport geometry, devicePixelRatio, visual-viewport scale and offsets. Read current values; stop on a mismatch rather than adjusting the environment.",
+    "emptyContextRequired": "Observe zero messages, attachments, and composer-content length in an ordinary chat outside projects or custom GPTs. Do not clear an unexpected draft.",
+    "region": "Reuse the parent's unique main-landmark geometry containing the empty composer. Intersect with the viewport and exclude history sidebar and account panels. Freeze an inward-rounded integer-CSS rectangle with a two-CSS-pixel inset from excluded boundaries; require that it still contains the whole attachment control.",
+    "regionFailure": "Stop before private capture if the region or exclusions cannot be established.",
+    "captureMethod": "Use only the empirically checked Tab.screenshot with fullPage=false and the frozen clip rectangle in unscaled CSS coordinates. Do not capture an uncropped private viewport.",
+    "sequence": [
+      "Capture the collapsed baseline once.",
+      "Open the currently verified Add files and more control once using the existing supported interaction.",
+      "Record expanded state and capture the identical clipped region once, without requiring a popup role or upload-item label.",
+      "Use one supported Escape action targeted to the task-owned control and verify collapsed state."
+    ],
+    "geometryRecheck": "Check geometry before each private capture; stop and perform only safe reserved cleanup if it changed.",
+    "imageInspectionByWorker": false,
+    "incidentalUiMetadata": "Only incidental metadata within the previously authorized central region may be retained in the private crops for Project Manager review. Do not transcribe, classify, search, or act on it.",
+    "popupBeyondRegion": "Return the partial view without enlarging the region or recapturing.",
+    "noModelControlPrerequisite": true,
+    "failureCleanup": "On opening or capture failure, do not repeat it. Use only the reserved targeted cleanup and closure observation when ownership and responsiveness are established; otherwise preserve the unresolved state."
+  },
+  "attemptCeiling": {
+    "newTabs": 1,
+    "syntheticPageNavigations": 1,
+    "conditionalAccountPageNavigations": 1,
+    "syntheticScreenshotCalls": 2,
+    "privateClippedScreenshotCalls": 2,
+    "totalScreenshotCalls": 4,
+    "privateUiOpeningCalls": 1,
+    "targetedCleanupCalls": 1,
+    "structuralSamplesPerStage": 3,
+    "chooserOperations": 0,
+    "fileAssignmentsOrBrowserUploads": 0,
+    "promptFillsOrProbeSubmissions": 0,
+    "modelControlInteractions": 0,
+    "retriesAfterFailure": 0
+  },
+  "repositoryBoundary": {
+    "repository": "u-dont-existDOTcom/AskRigor",
+    "branch": "task/mast-four-arm-zero-spend-harness-20260901",
+    "recordActualHead": true,
+    "resetOrCheckoutChangeAuthorized": false,
+    "reuseRequired": "Existing browser client, private capture store, JSON routing, and installed Pillow. No new dependency or service.",
+    "permittedChanges": "Only the fixed synthetic-page builder, pixel checker, narrow orchestration, synthetic tests, directive, and redacted checkpoint. Preserve reusable non-sensitive components in GitHub.",
+    "tests": "Before live work, verify the checker accepts a generated matching pair and rejects wrong scale, offset, ignored clipping, dimension mismatch, extra display, and non-synthetic page identity. Run applicable verification under Node v24.18.0 for changed code; do not repeat unchanged full gates.",
+    "productionDeploymentAuthorized": false,
+    "privateStorage": "Use existing 0700 directories and 0600 files; no private images, identifiers, or receipts in public Git."
+  },
+  "returnContract": {
+    "destinationConversationId": "6a974f49-19b4-83ea-becf-2974dde6fc66",
+    "destinationUrl": "[https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66](https://chatgpt.com/c/6a974f49-19b4-83ea-becf-2974dde6fc66)",
+    "transport": "EXISTING_AUTHORIZED_INTERNAL_OPERATIONAL_JSON_ROUTING",
+    "include": [
+      "This directive's actual source identity and fresh admission receipt.",
+      "Actual repository HEAD, contract identity, code hashes, and applicable test receipt.",
+      "Synthetic page and capture hashes, geometry, dimensions, exact arguments, scale candidates, and each check result.",
+      "Whether byte-only output was observed, with unknowns explicitly preserved.",
+      "Private capture and cleanup states, hashes, timestamps, dimensions, and exact cropped-image base64 only if capture completed.",
+      "Actual operation counts, unavailable fields, exact blockers, and unchanged-source confirmation."
+    ],
+    "syntheticImages": "Keep locally; return hashes and numeric checker evidence, not an additional image upload.",
+    "privateImageLimits": "Unchanged parent limits: at most two crops, 524288 combined decoded bytes and 750000 total return UTF-8 bytes. No resizing, splitting, or alternate transport to fit.",
+    "maximumReturnSubmissions": 1,
+    "ambiguousSubmission": "Check persisted destination metadata without another send; preserve unresolved delivery.",
+    "workerInterpretation": "No private image interpretation or substantive findings.",
+    "ownerRelayRequested": false
+  },
+  "stopConditions": [
+    "Fresh admission, source identity, installed contract, or safe synthetic navigation fails.",
+    "A calibration operation fails, is denied, displays unexpectedly, or fails a fixed check.",
+    "Private environment or region verification fails.",
+    "Any private capture, opening, cleanup, or return becomes ambiguous or exceeds its ceiling.",
+    "Further progress requires an unapproved method, permission, broader capture, or owner-data access.",
+    "The bounded capture receipt or exact blocker has been returned."
+  ],
+  "prohibitedActions": [
+    "Capture a private full viewport or calibrate on an account page.",
+    "Use AX screenshots, direct CDP, injected private-page styles or events, undocumented endpoints, native desktop capture, or new transport.",
+    "Change accounts, permissions, zoom, viewport size, global settings, or installed dependencies.",
+    "Inspect private images, run OCR, open referenced documents, or browse unrelated conversations.",
+    "Resume the synthetic file-access probes, assign files, or alter prior attempt counts.",
+    "Replace failed evidence, infer success from test counts, or ask the owner to relay material."
+  ],
+  "maximumExternalSpendUsd": 0,
+  "paidApiInferenceAuthorized": false,
+  "ownerRelayRequested": false,
+  "completionClaims": {
+    "delivered": "CALIBRATED_PRIVATE_REGION_EVIDENCE_DELIVERED_PROBES_STOPPED_PROJECT_MANAGER_REVIEW_REQUIRED",
+    "calibrationBlocked": "SYNTHETIC_SCREENSHOT_CALIBRATION_BLOCKED_NO_PRIVATE_CAPTURE_AUTHORIZED",
+    "privateCaptureBlocked": "SYNTHETIC_CALIBRATION_PRESERVED_PRIVATE_REGION_CAPTURE_BLOCKED",
+    "returnBlocked": "PRIVATE_REGION_EVIDENCE_PRESERVED_RETURN_BLOCKED",
+    "admissionBlocked": "SCREENSHOT_CALIBRATION_BLOCKED_RUNTIME_ADMISSION"
+  },
+  "sourceReceipt": {
+    "messageId": "006fe3f4-0f58-4c70-88a9-2929f3f27c11",
+    "exactBodyBytes": 15368,
+    "exactBodySha256": "e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1"
+  }
+}

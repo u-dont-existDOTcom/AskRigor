@@ -129,6 +129,10 @@ Apply `evaluation/governance/correction-and-recheck-policy.md`.
 - Preview judge drift is evaluator drift, not automatically model-under-test drift.
 - A disagreement with mainstream practice is not automatically a rubric defect.
 - Raw model and judge outputs must remain available for re-scoring where licenses and privacy permit.
+- Before a MAST miss drives any AskRigor change, run the benchmark-target-integrity assessment against current
+  high-authority evidence for the exact population, timing, and decision context.
+- Keep benchmark conformity separate from clinical validity. A materially inconsistent or contestable target is
+  `BENCHMARK_TARGET_CONFLICT`; it cannot authorize score-only tuning, and the frozen official result remains unchanged.
 
 ## 6. Interpretation boundary
 

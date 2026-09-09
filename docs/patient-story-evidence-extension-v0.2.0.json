@@ -1,0 +1,1083 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "0.2.0"
+    },
+    "extension_id": {
+      "type": "string",
+      "pattern": "^ARIE-[A-Z0-9_-]{4,64}$"
+    },
+    "story_id": {
+      "type": "string",
+      "pattern": "^ARS-[A-Z0-9_-]{8,64}$"
+    },
+    "source_story_schema_version": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "source_story_payload_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "method_version": {
+      "type": "string",
+      "const": "patient-story-interview-method-0.2.0"
+    },
+    "collection_actor": {
+      "type": "string",
+      "enum": [
+        "HUMAN_RESPONDENT_INTERVIEW",
+        "HUMAN_REVIEWER",
+        "AUTOMATED_EXTRACTION",
+        "STRUCTURED_IMPORT"
+      ]
+    },
+    "human_interface": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "interface_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "interface_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            },
+            "ordinary_controls_confirmed": {
+              "type": "boolean",
+              "const": true
+            },
+            "raw_serialization_required": {
+              "type": "boolean",
+              "const": false
+            },
+            "blinding_preserved": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "interface_id",
+            "interface_version",
+            "ordinary_controls_confirmed",
+            "raw_serialization_required",
+            "blinding_preserved"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_items": {
+      "minItems": 1,
+      "maxItems": 1000,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "pattern": "^AREV-[A-Z0-9_-]{4,64}$"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "DIRECT_RECURRENCE_SELF_REPORT",
+              "BOUNDED_EPISODE",
+              "EXCEPTION_OR_COUNTEREXAMPLE",
+              "CONTEXT_OR_BOUNDARY_STATEMENT",
+              "SAMPLED_OPPORTUNITY_OBSERVATION",
+              "TRAIT_OR_INTERPRETIVE_LABEL",
+              "CAUSAL_EXPLANATION",
+              "ANALYST_OR_CODER_INFERENCE"
+            ]
+          },
+          "source_text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "elicitation_mode": {
+            "type": "string",
+            "enum": [
+              "SPONTANEOUS",
+              "OPEN_ENDED",
+              "EXCEPTION_FIRST_PROBE",
+              "CONFIRMING_EXAMPLE_REQUEST",
+              "INCIDENT_CLARIFICATION",
+              "VALID_SAMPLING_FRAME",
+              "PUBLIC_SOURCE_EXTRACTION",
+              "OTHER"
+            ]
+          },
+          "evidential_independence": {
+            "type": "string",
+            "enum": [
+              "DIRECT_REPORT_ONLY",
+              "CONDITIONALLY_SAMPLED_DETAIL",
+              "INDEPENDENT_WITHIN_DEFINED_FRAME",
+              "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
+              "NOT_APPLICABLE",
+              "UNKNOWN"
+            ]
+          },
+          "recurrence_claim": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "behavioral_or_symptom_proposition": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "original_quantifier": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "opportunity_scope_or_denominator": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "life_period_or_context": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "exceptions": {
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 2000
+                    }
+                  },
+                  "exception_frequency": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 500
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "quantifier_uncertainty": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "calibration_status": {
+                    "type": "string",
+                    "enum": [
+                      "NOT_YET_PROBED",
+                      "PROBED_NO_EXCEPTIONS_REPORTED",
+                      "PROBED_EXCEPTIONS_REPORTED"
+                    ]
+                  }
+                },
+                "required": [
+                  "behavioral_or_symptom_proposition",
+                  "original_quantifier",
+                  "opportunity_scope_or_denominator",
+                  "life_period_or_context",
+                  "exceptions",
+                  "exception_frequency",
+                  "quantifier_uncertainty",
+                  "calibration_status"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "calibration_status": {
+                          "const": "PROBED_EXCEPTIONS_REPORTED"
+                        }
+                      },
+                      "required": [
+                        "calibration_status"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "exceptions": {
+                          "type": "array",
+                          "minItems": 1
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "calibration_status": {
+                          "const": "PROBED_NO_EXCEPTIONS_REPORTED"
+                        }
+                      },
+                      "required": [
+                        "calibration_status"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "exceptions": {
+                          "type": "array",
+                          "maxItems": 0
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bounded_episode_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "context_or_boundary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sampling_frame": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "design": {
+                    "type": "string",
+                    "enum": [
+                      "PROSPECTIVE_DIARY_OR_EVENT",
+                      "STRUCTURED_OPPORTUNITY",
+                      "RANDOM_OPPORTUNITY",
+                      "BOUNDED_EXHAUSTIVE_ENUMERATION",
+                      "EXTERNAL_LOG_OR_OBSERVATION",
+                      "REPEATED_MEASURES"
+                    ]
+                  },
+                  "target_opportunity": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "observation_period": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  },
+                  "opportunities_with_target_event_observed": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "opportunities_without_target_event_observed": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "frame_limitations": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 2000
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "design",
+                  "target_opportunity",
+                  "observation_period",
+                  "opportunities_with_target_event_observed",
+                  "opportunities_without_target_event_observed",
+                  "frame_limitations"
+                ],
+                "additionalProperties": false,
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "opportunities_with_target_event_observed": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "opportunities_with_target_event_observed"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "opportunities_without_target_event_observed": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "opportunities_without_target_event_observed": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "opportunities_without_target_event_observed"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "opportunities_with_target_event_observed": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "trait_or_interpretive_label": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "causal_explanation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "analyst_or_coder_inference": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_turn_or_record_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "collected_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "evidence_id",
+          "role",
+          "source_text",
+          "elicitation_mode",
+          "evidential_independence",
+          "recurrence_claim",
+          "bounded_episode_ref",
+          "context_or_boundary",
+          "sampling_frame",
+          "trait_or_interpretive_label",
+          "causal_explanation",
+          "analyst_or_coder_inference",
+          "source_turn_or_record_id",
+          "collected_at",
+          "notes"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "DIRECT_RECURRENCE_SELF_REPORT"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "recurrence_claim": {
+                  "type": "object"
+                },
+                "bounded_episode_ref": {
+                  "type": "null"
+                },
+                "context_or_boundary": {
+                  "type": "null"
+                },
+                "sampling_frame": {
+                  "type": "null"
+                },
+                "trait_or_interpretive_label": {
+                  "type": "null"
+                },
+                "causal_explanation": {
+                  "type": "null"
+                },
+                "analyst_or_coder_inference": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "BOUNDED_EPISODE"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "bounded_episode_ref": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recurrence_claim": {
+                  "type": "null"
+                },
+                "context_or_boundary": {
+                  "type": "null"
+                },
+                "sampling_frame": {
+                  "type": "null"
+                },
+                "trait_or_interpretive_label": {
+                  "type": "null"
+                },
+                "causal_explanation": {
+                  "type": "null"
+                },
+                "analyst_or_coder_inference": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "EXCEPTION_OR_COUNTEREXAMPLE"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "context_or_boundary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recurrence_claim": {
+                  "type": "null"
+                },
+                "bounded_episode_ref": {
+                  "type": "null"
+                },
+                "sampling_frame": {
+                  "type": "null"
+                },
+                "trait_or_interpretive_label": {
+                  "type": "null"
+                },
+                "causal_explanation": {
+                  "type": "null"
+                },
+                "analyst_or_coder_inference": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "CONTEXT_OR_BOUNDARY_STATEMENT"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "context_or_boundary": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recurrence_claim": {
+                  "type": "null"
+                },
+                "bounded_episode_ref": {
+                  "type": "null"
+                },
+                "sampling_frame": {
+                  "type": "null"
+                },
+                "trait_or_interpretive_label": {
+                  "type": "null"
+                },
+                "causal_explanation": {
+                  "type": "null"
+                },
+                "analyst_or_coder_inference": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "SAMPLED_OPPORTUNITY_OBSERVATION"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "sampling_frame": {
+                  "type": "object"
+                },
+                "recurrence_claim": {
+                  "type": "null"
+                },
+                "bounded_episode_ref": {
+                  "type": "null"
+                },
+                "context_or_boundary": {
+                  "type": "null"
+                },
+                "trait_or_interpretive_label": {
+                  "type": "null"
+                },
+                "causal_explanation": {
+                  "type": "null"
+                },
+                "analyst_or_coder_inference": {
+                  "type": "null"
+                },
+                "evidential_independence": {
+                  "enum": [
+                    "INDEPENDENT_WITHIN_DEFINED_FRAME",
+                    "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME",
+                    "UNKNOWN"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "TRAIT_OR_INTERPRETIVE_LABEL"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "trait_or_interpretive_label": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recurrence_claim": {
+                  "type": "null"
+                },
+                "bounded_episode_ref": {
+                  "type": "null"
+                },
+                "context_or_boundary": {
+                  "type": "null"
+                },
+                "sampling_frame": {
+                  "type": "null"
+                },
+                "causal_explanation": {
+                  "type": "null"
+                },
+                "analyst_or_coder_inference": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "CAUSAL_EXPLANATION"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "causal_explanation": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recurrence_claim": {
+                  "type": "null"
+                },
+                "bounded_episode_ref": {
+                  "type": "null"
+                },
+                "context_or_boundary": {
+                  "type": "null"
+                },
+                "sampling_frame": {
+                  "type": "null"
+                },
+                "trait_or_interpretive_label": {
+                  "type": "null"
+                },
+                "analyst_or_coder_inference": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "role": {
+                  "const": "ANALYST_OR_CODER_INFERENCE"
+                }
+              },
+              "required": [
+                "role"
+              ]
+            },
+            "then": {
+              "properties": {
+                "analyst_or_coder_inference": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "recurrence_claim": {
+                  "type": "null"
+                },
+                "bounded_episode_ref": {
+                  "type": "null"
+                },
+                "context_or_boundary": {
+                  "type": "null"
+                },
+                "sampling_frame": {
+                  "type": "null"
+                },
+                "trait_or_interpretive_label": {
+                  "type": "null"
+                },
+                "causal_explanation": {
+                  "type": "null"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "elicitation_mode": {
+                  "const": "CONFIRMING_EXAMPLE_REQUEST"
+                }
+              },
+              "required": [
+                "elicitation_mode"
+              ]
+            },
+            "then": {
+              "properties": {
+                "evidential_independence": {
+                  "const": "CONDITIONALLY_SAMPLED_DETAIL"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "evidential_independence": {
+                  "enum": [
+                    "INDEPENDENT_WITHIN_DEFINED_FRAME",
+                    "DEPENDENT_OR_CLUSTERED_WITHIN_DEFINED_FRAME"
+                  ]
+                }
+              },
+              "required": [
+                "evidential_independence"
+              ]
+            },
+            "then": {
+              "properties": {
+                "role": {
+                  "const": "SAMPLED_OPPORTUNITY_OBSERVATION"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "follow_up_decisions": {
+      "maxItems": 200,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "follow_up_id": {
+            "type": "string",
+            "pattern": "^ARFU-[A-Z0-9_-]{4,64}$"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PLANNED",
+              "ASKED",
+              "SKIPPED"
+            ]
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "EXPECTED_INFORMATION_GAIN",
+              "CONSENT",
+              "SAFETY",
+              "LEGAL",
+              "PROVENANCE",
+              "OWNER_REQUESTED",
+              "PREDETERMINED_VALID_STUDY_FIELD"
+            ]
+          },
+          "uncertainty_target": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "plausible_answer_that_changes_next_step": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "could_change": {
+            "maxItems": 5,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "INFERENCE",
+                "DIFFERENTIAL",
+                "RECOMMENDATION",
+                "EVIDENCE_CODE",
+                "NEXT_QUESTION"
+              ]
+            }
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "follow_up_id",
+          "question",
+          "status",
+          "basis",
+          "uncertainty_target",
+          "plausible_answer_that_changes_next_step",
+          "could_change",
+          "skip_reason"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "basis": {
+                  "const": "EXPECTED_INFORMATION_GAIN"
+                },
+                "status": {
+                  "enum": [
+                    "PLANNED",
+                    "ASKED"
+                  ]
+                }
+              },
+              "required": [
+                "basis",
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "uncertainty_target": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "plausible_answer_that_changes_next_step": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "could_change": {
+                  "type": "array",
+                  "minItems": 1
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "SKIPPED"
+                }
+              },
+              "required": [
+                "status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "skip_reason": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "prior_data_reinterpreted": {
+      "type": "boolean",
+      "const": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "extension_id",
+    "story_id",
+    "source_story_schema_version",
+    "source_story_payload_sha256",
+    "method_version",
+    "collection_actor",
+    "human_interface",
+    "evidence_items",
+    "follow_up_decisions",
+    "prior_data_reinterpreted",
+    "created_at"
+  ],
+  "additionalProperties": false,
+  "$id": "https://askrigor.com/schemas/patient-story-evidence-extension-v0.2.0.json",
+  "title": "AskRigor patient-story interview evidence extension v0.2.0",
+  "description": "Append-only evidence-role and follow-up-decision extension for a frozen patient-story v0.1 record. It preserves reported recurrence without treating selected anecdotes as independent frequency observations.",
+  "x-method-invariants": [
+    "Specificity and vividness do not establish evidential independence.",
+    "Direct recurrence self-report, bounded episodes, exceptions, sampled opportunities, traits, causes, and analyst inference remain separate evidence roles.",
+    "Actual opportunity frequency requires a defined sampling frame.",
+    "A defined sampling frame does not establish statistical independence; preserve independent, dependent/clustered, or unknown dependence status.",
+    "Nonmandatory follow-ups require expected information gain.",
+    "Human judgment uses ordinary controls and exports this contract; humans do not hand-edit JSON.",
+    "The extension does not reinterpret frozen v0.1 records or previously collected data."
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "collection_actor": {
+            "enum": [
+              "HUMAN_RESPONDENT_INTERVIEW",
+              "HUMAN_REVIEWER"
+            ]
+          }
+        },
+        "required": [
+          "collection_actor"
+        ]
+      },
+      "then": {
+        "properties": {
+          "human_interface": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  ]
+}

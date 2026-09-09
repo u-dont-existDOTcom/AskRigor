@@ -1,6 +1,38 @@
+> Repository-integration operational precedence — 2026-09-07 23:56 UTC:
+> Project Manager directive `askrigor-pr190-pinned-main-integration-v2` is
+> source-bound at message `f6855ef9-2c7a-42c8-977b-453d35a20909`, 16,933 UTF-8
+> bytes, SHA-256
+> `aaf95bbe26ca156c7086363d9a9b34ade0ce16adf562da9b329ead42488ab850`.
+> Fresh admission is accepted once for the exact fixed pair: PR #190 head
+> `29ca309e37e6e6bc626383f64833a14e468f7596` and accepted undeployed `main`
+> `7fb852758e01df60203f102d784c95e76ff9177b`. The single deferred-commit
+> ordinary merge completed cleanly. Universal 20.5.18 and HRP match accepted
+> `main` bytes. Final validation, the integration commit, one normal branch push,
+> and hosted acceptance remain pending at this in-tree checkpoint; their
+> resulting identities belong in PR #190 and the operational return rather than
+> a self-referential status commit. The prior fixed-main integration directive is
+> superseded unexecuted. All earlier calibration, browser, scientific-evidence,
+> and attempt-count records below remain historical and unchanged. PR #190 must
+> remain draft and unmerged; no deployment, model call, diagnostic reopening,
+> Reasoning Selection, or lesson promotion is authorized.
+>
+> Current recovery checkpoint — 2026-09-07 16:24 UTC: **the single offline closeout return is delivered**, with exact persisted equality for 5,078 bytes at SHA-256 `758af2319e39b50a9220d688180136b428d1f604d087fcdd2951eacd5b9f9369`. Submission HEAD is `276f2d403c34ba378d6dc2e18dd5f805e6f3a2c2`; detailed routing identity is private. Source/admission and all seven receipt/code bindings were reverified; the four checkpoint tests pass under Node 24.18.0. Capture the Project Manager response without resending. Calibration remains closed with its policy blocker and the parent remains open. No further diagnostic or probe is authorized. See `docs/audits/2026-09-07-calibration-closeout-return-delivered.json`.
+
+> Separate hosted CI finding, included in that return: PR #190 run `34079276856` reports eight failures across six files when the merge test loads Universal 20.5.16 against retained 20.5.15 expectations. The local branch retains 20.5.15; live main was `2f551c762cf1b48b5fbf105b039c68d4f13984e1`. No unrelated code/protocol repair, merge, or deployment is authorized by the offline-closeout directive. Await its source-bound disposition while preserving the failure log identity.
+
+## Preserved prior checkpoints
+
+> Prior authoritative disposition: calibration and dependent private capture are **closed with a browser-policy blocker**; the parent objective remains open. Fresh offline-only admission is captured and every bound receipt matches. Calibration was `NOT_RUN_NAVIGATION_REJECTED`; missing measurements do not disprove screenshot capability. One closeout return remained at this checkpoint. No further diagnostic navigation, screenshot, menu operation, upload, probe, or workaround is authorized. See `docs/audits/2026-09-07-calibration-policy-block-closeout.json`.
+
+> Latest routing: the synthetic URL-policy blocker was delivered once at 2026-09-07T03:04:30.358Z, message `54855e85-12c1-47ab-aedd-a48d10efa3de`; 15,824 exact bytes, SHA-256 `16d9b6ff83a3eaa27330f7083c1a8047876d8f446299619a118a5b46e92d8f30`, persisted match verified. Project Manager response is pending. No screenshots, account diagnostic navigation, or workarounds occurred.
+
+> Current calibration outcome: the single synthetic `data:` navigation was rejected by Browser Use URL security policy. One replacement task tab; zero screenshots, account diagnostic navigation, openings, uploads, or probes. No workaround attempted. The validated exact blocker return is ready for one authorized Project Manager submission.
+
+> Calibration preflight: fresh admission captured; 17 synthetic tests and pinned Node syntax check pass. Exact source/code/arguments are frozen in the private control; live navigation and screenshots have not started. See `docs/audits/2026-09-07-synthetic-screenshot-calibration.json`.
+
 # MAST four-arm base blinded-evaluation current state
 
-**Checkpoint:** 2026-09-06 07:01 UTC
+**Checkpoint:** 2026-09-07 02:51 UTC
 
 **Task:** `askrigor-external-evaluation-contribution-v1`
 
@@ -8,7 +40,489 @@
 
 **Generation checkpoint:** `a4ee25f8332d24e5a1b2ef37788def1daf854b40`
 
-**Status:** `V2_FINAL_BLINDED_EVALUATION_ACCEPTED / PROJECT_MANAGER_ROUTING_PENDING`
+**Status:** `SYNTHETIC_CALIBRATION_PREPARING / ADMISSION_RESPONSE_PENDING / ZERO_NEW_CAPTURES / PROBES_STOPPED / PARENT_OPEN`
+
+## Current synthetic screenshot calibration
+
+Project Manager source `006fe3f4-0f58-4c70-88a9-2929f3f27c11`, 15,368 bytes,
+SHA-256 `e7c0377ddd015df78a64d3485216c33f496a8aaa6902dac0d873a5caeba636b1`,
+explicitly replaces the previous documentation-only prerequisites with a fixed
+synthetic calibration. Use `docs/directives/2026-09-07-synthetic-screenshot-calibration.json`.
+The earlier blocker remains immutable and must not be relabeled success.
+
+The source permits one new static data-URL page in the authorized profile, exactly
+two synthetic screenshot calls through documented `Tab.screenshot`, and Pillow
+checks limited to scales 1 and observed devicePixelRatio. Only after all fixed
+checks pass may the same calibrated tab take the two previously authorized
+private central-region clips. No private full viewport, image interpretation,
+OCR, upload, probe, model-control interaction, dependency or new service is allowed.
+The new calibration tab will replace the old task-owned tab after admission is
+preserved, keeping one physical task tab and leaving conversation contents and
+drafts unchanged. The exact authorized browser handle is available through the
+existing documented browser client; do not use the unrelated default handle.
+
+The fixed page builder/checker and tests are being prepared in
+`scripts/synthetic_screenshot_calibration.py` and
+`tests/test_synthetic_screenshot_calibration.py`. Review, applicable verification
+and exact source/page/argument freeze must precede the first screenshot.
+No calibration tab, navigation or screenshot has occurred.
+
+Fresh admission request was submitted once as `73bfa8d2-819a-4260-8941-e5ba223fffe2`
+at 2026-09-07 02:48:12 UTC. The persisted body matches: 17,240 bytes, SHA-256
+`236259e48015bf6d9acc92ede44b0c74e9284c635e309b117e14abb44ae5c5c2`.
+Capture its response privately before controlled work. Preserve approximately
+ten minutes between consumer sends. No owner answer or relay is pending.
+
+## Preserved visual-evidence capability blocker
+
+The Project Manager response is message `7ff47789-3352-4054-8567-9d6a67a14d44`,
+17,074 bytes, SHA-256 `6717a6659fe96536955f7a11c573d63013c4ecf999154f693d1b59c953e8304c`.
+Its complete JSON parsed successfully. Use
+`docs/directives/2026-09-07-empty-composer-visual-evidence.json`.
+It authorizes two private central-region images only after fresh admission and
+proof of the installed capture method, coordinate mapping and privacy boundary.
+The worker must not view, interpret or OCR the images. No probe, upload, model
+control, historical revisit, selector experiment or dependency installation is authorized.
+
+The installed API hash matches the required contract. It documents screenshot
+bytes, clip fields and viewport/full-page options, but does not document the
+required DOM/CSS-to-image coordinate mapping. The Tab screenshot method lacks an
+explicit no-display guarantee; the explicitly private AX screenshot method lacks
+an explicit viewport-only scope. The independent read-only audit agrees. Pillow
+is installed, but does not supply the missing contract guarantees. No screenshot,
+new opening, structural state sample, crop or image transfer has occurred.
+Preserve `supervision-routing/2026-09-07-visual-evidence-capture-capability-blocker.json`.
+Do not guess a conversion or bypass this exact source requirement.
+
+Fresh admission request was submitted once as message
+`7c6cf217-889a-4959-b0ab-1861f41cd826` at 2026-09-07 02:12:11 UTC.
+The persisted 17,600-byte compact JSON matches exactly, SHA-256
+`3efe709b221537450184cbea1c80c652c479b63d62b22a9cf333d7a34713ffd9`.
+Fresh admission is accepted: message `cbb836ed-a5de-4a61-82a3-df3ed805229b`,
+1,934 bytes, SHA-256 `d7c51882a2d60b2ef91e98b6f8e21568b47f71ea3e0eb588ddf7d61080916ea2`.
+It explicitly does not waive the missing capture prerequisite. The validated
+compact operational return is prepared in
+`supervision-routing/2026-09-07-visual-evidence-operational-return.json`.
+The exact capability blocker was delivered once as message
+`720da0ab-9cd9-4e74-bfe6-516c8586e803` at 2026-09-07 02:22:51 UTC:
+5,665 bytes, SHA-256 `2680a2c81b56836f3f1c2f0f5eb5e3b9238ac91753ea31e28eeaf99e33827ec6`.
+The persisted body matches exactly. Before staging, a 9,082-character draft had
+reappeared in the same destination; the existing owner authorization was applied
+to clear it without reading its content. Its cause and content identity were not
+inferred. The private recurrence and routing receipts preserve that sequence.
+Capture the next Project Manager response. No owner answer or relay is needed.
+Do not resend, retry a diagnostic, take an image or resume probes without a valid
+new source-bound disposition. Last consumer send is 02:22:51 UTC; preserve the
+approximately ten-minute interval. See
+`docs/audits/2026-09-07-empty-composer-visual-evidence.json`.
+
+## Completed detached-menu association diagnostic
+
+The source and runtime admission remain valid and preserved. Source message
+`3935f7f5-ec47-408a-9b4c-30176efbfa42`: 17,703 bytes, SHA-256
+`42d43e3775db60bd53d7d868d509f5554c196f5786dd8fae6a12afd851083836`.
+Admission response `f77ee30f-5cb9-4902-8c12-7c3778c56255`: 1,837 bytes,
+SHA-256 `f51a7f6afe62febcdce09a3abd113fba5b37c5401e03df1608d073d00718a911`.
+Use `docs/directives/2026-09-07-detached-menu-association-diagnostic.json`.
+
+The new extension and recorder passed 22 focused tests and the complete
+Node 24.18.0 gate: 149 test files and 1,800 tests passed, one file and six tests
+skipped, plus typecheck and build. Two checkpoint-label failures are preserved;
+the final checkpoint test passes all four tests. Implementation and tests were
+unchanged during those label corrections. Exact source, tests and operation
+sequence were frozen before live use at commit
+`2983e5b3bdcc57fa8734afcfa187494bfbd65855`.
+
+The admitted observation is complete: one opening, four bounded samples and one
+targeted Escape cleanup. The repository recorder validates the operation order
+and independently records closure. All four observations found no role-menu
+container under the fixed selector. This does not establish popup absence,
+identity, framework or the cause of a historical failure. No menu-item labels were read;
+no model controls, chooser, file assignment, upload, prompt fill, probe request,
+visual capture, retry or new tab occurred.
+
+Private browser receipt: 17,896 bytes, SHA-256
+`4845a590b87c8b0352572cd4bcdc4595907b03a13ba813956f35aef7adecc0aa`.
+Private validation: 808 bytes, SHA-256
+`1c2c3fab3cfe7c23d488b7662568a14e181c5325bf42aabd956114497e561729`.
+The operational return is prepared: 14,844 bytes, SHA-256
+`7928656a535aa5e21cedbf3b0dd83c53b58d1e730c8165ef69bed3413eeafa9f`.
+Its exact private file is
+`supervision-routing/2026-09-07-detached-menu-diagnostic-operational-return.json`.
+
+**Completed delivery:** the next Project Manager directive is preserved above.
+Joel authorized discarding the existing draft with the exact reply `sure`.
+The draft was cleared once without reading or capturing its content. The long
+pretty-printed receipt acquired different displayed line separators on restoration,
+so the same parsed JSON object was serialized compactly. Both artifacts remain
+preserved. The private serialization receipt also records one broad button-label
+equality scan that returned only a count; it was not repeated. Future transport
+checks must use the already-grounded exact control locator. The compact receipt matched the composer and persisted message exactly:
+11,254 bytes, SHA-256
+`3adda3e361b20d806c52bba0d8dfdf971182baebe1659ea601d7c32212d8878c`.
+It was sent once as message `c35479fc-7746-4bed-9eb6-781ddf369cb8` at
+2026-09-07 01:52:30 UTC. No further return submission is authorized. Keep
+approximately ten minutes between consumer sends. No owner answer is pending.
+The exact private routing receipt is
+`supervision-routing/2026-09-07-detached-menu-diagnostic-return-routing.json`.
+Follow only the next valid source-bound disposition. Do not repeat the diagnostic
+or resume stopped probes. See `docs/audits/2026-09-07-detached-menu-diagnostic.json`.
+
+## Preserved source-syntax blocker
+
+The Project Manager response to the completed observation is message
+`be2497b2-5281-4d4d-9353-69766aeb24c8`, 16,816 bytes, SHA-256
+`357dd165b50b6f923e3b94d386596d03b95cf3f843d44c77a1a0412457f8bfad`.
+Its complete directive JSON failed parsing: `Expecting ',' delimiter: line 118
+column 26 (char 6804)`. The worker preserved it unchanged, did not repair the
+source, and did not execute the independently parsed directive identifier
+`askrigor-detached-menu-association-diagnostic-v1`.
+
+The exact parser error was returned once through the standing internal route as
+message `0e5ec66d-239f-4a8e-bff4-6ebeb42f019a` at 00:25:42 UTC: 1,500 bytes,
+SHA-256 `1cf0a1827cf1896471590ddcf851212db58bd7a0a6e9cc19472498d3532d39da`.
+Its persisted body matched exactly. The complete valid replacement and fresh
+admission are recorded in the current section above.
+No owner relay is needed. See `docs/audits/2026-09-07-supervisor-directive-json-blocker.json`.
+
+## Completed model-independent diagnostic
+
+Project Manager message `230d07c7-ea6e-47a4-b9a4-3f4b527a3d19`, 11,691 bytes,
+SHA-256 `69c4213b1974d35ee6f984c00982308230c92b8adf29da162871a0d3e8289555`,
+accepted the prior diagnostic blocker with limits and removed the model-control
+prerequisite for this empty-composer observation. Use
+`docs/directives/2026-09-06-model-independent-upload-menu-diagnostic.json`.
+Fresh admission was accepted in message `8d081e3b-2239-4c73-90ce-1aa310aa497f`,
+1,677 bytes, SHA-256 `80ae4c027f2c54cfa65c1a884f33f0e8bdf6ac2d663a44dafdcb05868ca8a809`.
+The new directive prohibits model or reasoning
+control interactions, retains one menu-opening call across both diagnostics,
+and does not authorize probes, uploads, chooser operations, prompt fills,
+repairs, another precondition-recovery loop, or visual capture.
+
+Reuse the unchanged reviewed projection as an offline-prepared plain JavaScript
+string through documented read-only `evaluate`. The installed API contract
+SHA-256 must remain `fc7966ffbc9010252ad3ea745e061068bec3919efff860a87e6013a38a7e277f`.
+The module SHA-256 is `afbefbfde16b6f84897894488859f0f81d64dfcfdfe43c9199e899ff8ac2631d`;
+the compiled function SHA-256 is `1bf46f047cb49eb8e6ad1ad9ca6682f5c4795c989bec85415b40502cc82ebfe6`.
+Use fresh observed counts and supported locator visibility/enabled checks in
+each bounded sample. Do not use `eval` or `Function` constructors in CUA.
+The existing full Node 24.18 gate remains applicable because projection and tests
+are unchanged. Do not repeat the historical command collection.
+
+The completed observation used one attachment-menu opening, three bounded samples,
+and one targeted Escape cleanup. The control reported collapsed, expanded,
+expanded. Explicit associated-menu fields remained null with availability reasons.
+No extra sample verified cleanup closure. No model control interaction, chooser,
+file assignment, upload, prompt fill, probe request, or retry occurred.
+Private observation receipt: 7,927 bytes, SHA-256
+`1ffb674119f8e688fb917e5ad7074c2407e44c176a647227bc2ecdf823457cfd`.
+The 9,586-byte operational return was delivered exactly as message
+`7465a65e-5b13-4ac1-96af-0f29c3805231` at 2026-09-07 00:12:53 UTC, SHA-256
+`aeec8880f1aa9d7991b29838657f5826439d6d0711d8d192f7ee1f8d125f4ac0`.
+The next response and its syntax-only correction are preserved above. Do not
+repeat this return or diagnostic. See `docs/audits/2026-09-07-model-independent-menu-observation.json`.
+
+## Preserved empty-composer precondition diagnostic
+
+Project Manager message `4df4c392-3d55-43e4-b0be-0584861fc6ef`, 14,858 bytes,
+SHA-256 `b0fb26f02e7aeda2cc3154464f15840e41c19698447c2d8aaac36bdedddabbf6`,
+accepted the exhausted recovery and authorized a separate bounded diagnostic.
+`docs/directives/2026-09-06-upload-menu-diagnostic.json` controls. Fresh Mission
+Control admission is accepted: message `0ddfcfc0-0d5b-4b1b-9129-422226b92d38`,
+1,431 bytes, SHA-256
+`92700d42e3eb5e6ee1d6bf7a19495dbabbfc340ab932a0a9973cc969d65c6829`.
+Its request persisted exactly under `b76f1469-41de-413b-be34-7e7a463934cd` at
+22:51:41 UTC; preserve approximately ten minutes between consumer sends.
+It permits one empty-composer attachment-menu opening and at most
+three bounded metadata samples, with no chooser wait, upload-item activation,
+file assignment, prompt fill, probe submission, repair, or timeout increase.
+The stopped probes and all prior evidence remain unchanged. A single operational
+return will carry the diagnostic evidence and the completed runtime correction.
+The following recovery sections preserve the earlier sequence; their pending
+statements are superseded by this current source.
+
+The diagnostic code passed the complete gate under explicit Node 24.18.0:
+148 test files and 1,778 tests passed; one file and six tests skipped; typecheck
+and build passed. The initial run found a stale current-slice checkpoint assertion;
+its failed result is preserved and the updated contract enforces the diagnostic's
+zero-upload limits. The empty ordinary-chat precondition showed zero messages, zero attachments,
+and zero composer content. Required-model control verification then failed with
+a selector/Runtime.evaluate timeout before any attachment-menu opening or
+projection. One permitted read-only post-failure observation remained empty.
+No click retry, chooser operation, upload, prompt fill, or probe request occurred.
+The exact blocker and missing historical command details were returned once as
+message `1c4f5e4b-7d7c-4b0b-a514-b2e44c41c2f8` at 23:04:12 UTC: 10,235 bytes,
+SHA-256 `e2497d671d8c354a80ca023d45c3f1e88e6c16df1f69059f2d5d6eed4630ea9c`.
+The persisted body matched exactly. Capture the next Project Manager response;
+do not repeat this return or diagnostic. See
+`docs/audits/2026-09-06-upload-menu-diagnostic-blocked.json`.
+
+## Preserved one-time pre-submission recovery
+
+Project Manager message `b2932286-cd17-4716-b53c-167049da8fbb`, 16,580 bytes,
+SHA-256 `bc7f71b691a0adca5a22dee4b35b06768283576b7b7c0360f3abb2e36e840fc4`,
+authorizes one additional P01 setup attempt, with all six frozen prompts,
+fixture names/bytes, modes, order, and parser unchanged. The directive is
+`docs/directives/2026-09-06-synthetic-presubmission-chooser-recovery.json`.
+The stopped original P01 receipt remains immutable. No recovery setup has begun.
+
+Fresh Mission Control admission is accepted: message
+`1c2d1486-a422-4a91-87dd-0a607ba59264`, 1,489 bytes, SHA-256
+`84ac026314101e5d2611b4989ca848eaaac858b5447e38bae2bf5072f6bb2059`.
+The request persisted with exact matching 16,039-byte body under message
+`c52d05ea-4645-43ef-b1d0-0a70fa21d123`. The last consumer send was
+2026-09-06 22:10:53 UTC; preserve approximately ten minutes between sends.
+
+Recovery accounting uses a separately initialized `recovery-01` namespace under
+the same private run. Initialization binds the exact new source and every prior
+failure digest; no run ID, marker, fixture, or prompt is regenerated. The complete applicable gate passed: 147 test files and 1,759 tests, with
+one file and six tests skipped, plus typecheck and build. Setup attempt 2 is
+reserved under initialization SHA-256
+`7c438232ff851d4e627fd593043c6411357763f3b45981d0602965ccbc7badbe`.
+No recovery chooser wait, file assignment, or model request has occurred.
+The installed client documents `waitForEvent("filechooser", {timeoutMs:10000})`
+before the activating click, then one `chooser.setFiles(...)`. Use supported
+bounded timeouts, uniquely verified interactive controls, and one coordinated
+invocation. Do not search document-wide text, inspect scripts/application state,
+substitute transport, or repeat a failed operation. A new return has one submission
+call maximum. No second recovery is authorized.
+
+Setup attempt 2 stopped during bounded upload-control verification with
+`Timed out after 3000ms evaluating selector internal:text="Add photos & files"s:
+Playwright selector deadline exceeded`. Post-failure metadata showed no open
+attachment menu and zero messages. No recovery chooser wait, chooser trigger,
+file assignment, or probe submission occurred. The private setup-event SHA-256 is
+`335d48908826eef2037976881f10fca0537210d291ca824ee1fc7a3d9e99592e`;
+the separate recovery P01 metadata SHA-256 is
+`820db1d2ed8d74a38a8961e36d1776354050e5236faf91984b7edbb5e77910fa`.
+The 7,476-byte operational return, SHA-256
+`5054663c0f5c3c36ce39afa96730389871eddb5353486eadabf722980e2c09b6`,
+was submitted once as message `032833b9-29f4-4967-ba99-52a68bce5c3c`.
+The provider removed exactly one terminal LF: 7,475 submitted bytes, SHA-256
+`f24d6949a5aebcc0a734606d3f165e86381de4c52d39cae1a1e392a24bbaa205`.
+The supervisor response is pending; no further recovery or repeat return is
+authorized. See `docs/audits/2026-09-06-synthetic-recovery-exhausted.json`.
+
+A subsequent runtime check found the shell using Node `v26.8.1`, while the
+repository pins `v24.18.0`. The earlier passing test result is preserved, but
+the required runtime had not been established before the readiness attempt.
+The full gate subsequently passed with an explicit Node 24.18.0 executable path: 147 test files and 1,759 tests passed; one file and six tests skipped; typecheck and build passed.
+No chooser wait, file assignment, or probe request occurred during recovery.
+Record the version correction and its final verification; do not retroactively
+claim the pinned-runtime gate preceded the failed readiness attempt.
+
+## Active nonclinical synthetic preflight
+
+Project Manager message `2860eb48-c1b0-47f0-a592-7cf12b24baf9`, exact-body
+SHA-256 `dbb4e35fefc2e96c300db002712c983dfdc65cab1178bdfe4e2c9ff9540f2c2a`,
+verified the census receipt and authorized a separate fixed six-probe synthetic
+preflight. The committed operational directive is
+`docs/directives/2026-09-06-nonclinical-consumer-transport-preflight.json`.
+Fresh Mission Control admission, message `3694e9c1-4b64-451b-98ab-ae616f8c74da`,
+exact-body SHA-256
+`5c1d1f32d98b178a20bbff0ae19e45c7db4f645a868b640a0d0e2fb6ddefd79c`,
+returned `mayExecute:true`.
+
+The same browser/profile exposes checked **Latest**, **Pro, 5 of 5**, and an
+explicit **Unpersonalized** control in an empty Temporary Chat. No global
+account setting changed. No probe has been sent and no synthetic fixture has
+been uploaded. The fixed fixture builder/parser passed the complete deterministic
+gate: 147 test files and 1,737 tests passed, with one file and six tests skipped;
+typecheck and build passed. All 1,781 packaged file identities, 1,730 preserved
+private source identities, and 20 pinned MAST source identities matched.
+The two fixtures and six prompts are frozen under manifest SHA-256
+`20d41910c048ea0b3a39a93e0c630dc5543c26b16dc93eca1439628abc72e8d4`.
+Raw outputs, runtime markers, and detailed browser receipts remain private.
+
+P01 stopped during file-chooser setup with literal error
+`Timed out after 3000ms waiting for file chooser.` No `setFiles` call, file
+selection, or model request occurred. P02-P06 remain unexecuted. No retry or
+transport substitution was attempted. The private operational return is 8,163
+bytes, SHA-256
+`d5550d28f31ab2800aa1ee9b3b589b155a5158e173d7b88e11455520a212558f`.
+The return send hit `Timed out after 3000ms waiting for CDP command
+Runtime.evaluate.` Three metadata checks, including one same-conversation
+reload, found no new message identity; the draft remains staged. No second
+send was attempted. The external browser-control blocker must be resolved,
+then persistence established before any further send. The next Project
+Manager disposition remains unavailable. See
+`docs/audits/2026-09-06-synthetic-transport-preflight-blocked.json`.
+
+Private recovery starts from
+`supervision-routing/2026-09-06-synthetic-preflight-preparation-receipt.json`
+under the existing private artifact root. It binds the exact run manifest;
+the exclusive P01 capture is a pre-submission transport stop. Preserve it.
+The operational return, attempt, and persistence-check receipts share that
+`supervision-routing` prefix. The single reusable tab remains at Project
+Manager with the return draft staged. The owned loopback server is stopped
+at handoff; restart its existing fixed-route script only when control resumes.
+
+Recovery at 21:57 UTC confirmed the factual return as message
+`de0dc908-2a06-4687-a29e-f7341df87066`. The 9,302-byte return artifact, SHA-256
+`0c75a9bb8fb28f198fdc80ec976544a60187c2f9230f15554f0dec23456ad229`,
+preserves the prior receipt and the owner's factual file-picker report. A
+documented 15-second locator timeout reached a persisted message despite a
+mouse-event timeout; no resend followed. The Project Manager response is
+pending. The stopped synthetic run remains immutable, with zero requests
+and zero file selections. The existing loopback capture server is running
+again on its fixed routes during response capture.
+
+## Completed fixed-population metadata census
+
+Project Manager message `4a1b5d17-9628-4313-8f14-9040b28ad8a8`, exact-body
+SHA-256 `becd753e462f4cd9102e5b042b032d6a951cca7059c57feadfd99a0e7443baa5`,
+authorized the same metadata-only collection across the fixed 96-record ledger.
+Fresh admission message `99314278-e534-4a67-b2ff-5773e27161c8`, exact-body
+SHA-256 `786e274f8da8523f357c829a67964854b97314e7a7ef0f635091ac9a4cfced33`,
+returned `mayExecute:true`. All 96 identities and source hashes match the preserved
+index; the three carry-forward receipt hashes and message identities match.
+The frozen private inventory is 58,608 bytes, SHA-256
+`c42e4560da9e551dd52f528ce2935ad959f3a263616c9e37c0a6022b44030a2c`.
+
+All 96 records are accounted for: three exact carry-forward receipts, ninety
+new browser observations, and three explicit unavailable observations. One
+unavailable target exhausted its readiness checks; two observations could not
+be safely retained after a browser-command timeout. The later command timeouts
+recovered within the same visit. No consumed target was revisited. This is full
+identity coverage with partial observation, not a complete-observation claim.
+
+The final private inventory is 224,777 bytes, SHA-256
+`80e2b7cf86b59824cb259785b6c08dddcebed1b8c4934d5a7650749e6370a90c`.
+It was returned once as message `1ccc24de-7d62-4e86-bbd3-d2a7ac5b3ba4`, with
+an operational cover binding the byte count and digest. The Project Manager
+response verified the received bytes and authorized the separate synthetic
+preflight above. The non-secret receipt is
+`docs/audits/2026-09-06-mast-source-reference-census-returned.json`.
+
+The census checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+Recover exact progress and timeout evidence from private
+`supervision-routing/2026-09-06-source-reference-census-journal.json`, not from
+this public checkpoint. All 93 new visit allowances are consumed, and the three
+prior targets cannot be revisited. Each new visit used at most three readiness
+checks.
+Keep reference metadata, conversation locators, and detailed receipts private.
+No response prose, document contents, source interpretation, target messages,
+uploads, citation-target fetches, or paid inference are authorized.
+
+## Latest source-access metadata follow-up
+
+Project Manager message `21b89257-03e1-4662-ba65-0d3dedfb9cd5`, exact-body
+SHA-256 `5fa773c9a66cff9d11e2a761c9cd996ae0abc7ca32669512d440de1bb3c33542`,
+authorized metadata-only collection for three fixed targets. Fresh Mission
+Control admission, message `9353d770-e9a6-4a59-a12f-cbdc2e004777`, exact-body
+SHA-256 `99cba31c06a14521b376a44bd3baae586b867807a0b95dd0ffff9dc0bc0a8fd1`,
+returned `mayExecute:true`.
+
+All three target identities match retained capture receipts and the generation
+ledger. One browser visit per target collected permitted attributes, with
+unavailable fields explicitly unknown. All three visit allowances are consumed.
+No target messages, uploads, source-document fetches, clinical-content inspection,
+source-relationship interpretation, or paid operations occurred. Source receipt
+and ledger hashes remain unchanged. Detailed reference metadata stays private.
+
+The validated private return receipt is 10,603 bytes, SHA-256
+`580b93e1952bd1371cf34d03f3b2454072dd7e687b402a3698e60847b85d4a91`.
+It was returned once to the Project Manager as message
+`1e1e4347-e836-46b5-bf05-b2d3d1b08650`. The response accepted the receipt and
+authorized a separate fixed-population metadata census; no owner decision is
+currently required. The non-secret operational receipt is
+`docs/audits/2026-09-06-mast-source-access-provenance-collected.json`.
+
+The metadata checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+## Latest attachment delivery
+
+Joel enabled the existing extension's file-access setting. The worker verified
+`newAllowFileAccess:true` in the same authorized Brave profile and received a new
+Project Manager directive, message `abc4f35e-68cc-4d10-82c5-81963bf7782b`, exact-body
+SHA-256 `15564045950748690f658e24743d6432b769bb550d7e9171a86509bb50782266`.
+It narrowly supersedes the earlier no-retry ruling. Fresh Mission Control
+admission, message `38fb4c3e-f56b-4e41-a9c7-6d3b337f43b3`, exact-body SHA-256
+`b92173b16aa5d1e217857a73f41efc2f77a22932d984e6821b09fdd5574b357a`,
+returned `mayExecute:true`; the prior admission was not reused.
+
+One receipt file selection, one archive file selection, and one message
+submission succeeded. Both provider attachment IDs were bound to destination
+message `963b57a3-ce89-4c92-b22d-7ca66a3c63bd` and both attachment names remained
+associated with that message after navigation. Source hashes, sizes, and modes
+passed preflight, and both source-file hashes remained unchanged afterward.
+
+The source-bound receiving-side receipt, message
+`11624049-1afa-4c19-af43-eff5111c31ff`, exact-body SHA-256
+`6308ae8162d279babcdd91d4fac7845aa75ae7d91b3ce8fc3e925c23b9cc1f83`,
+reports SHA-256 computation over the received file bytes without archive
+decompression. Both file IDs, byte counts, and computed hashes match the delivery
+bindings. This receiving-side report is preserved separately from the worker's
+sender-side hash checks. No archive content or substantive analysis was exposed.
+
+The non-secret receipt is
+`docs/audits/2026-09-06-mast-preserved-archive-delivered.json`. All earlier failed
+attempts and diagnostic evidence remain preserved. The transport slice is
+complete; the parent objective remains open for Project Manager direction.
+
+The delivery checkpoint passed the complete deterministic gate: 146 test files
+and 1,711 tests passed, with 1 file and 6 tests skipped; typecheck and build passed.
+
+## Earlier post-gate closeout and attachment blocker
+
+The source-bound deterministic unblinding and one metadata-join repair are
+complete. The frozen mapping was disclosed once in private execution and remains
+unchanged. The initial structurally indeterminate artifact and the corrected
+determinate artifact are preserved outside Git with SHA-256 values
+`0f317577dc966237c69c04df852e12da84ae4a83973fa31237778b9177d89444`
+and `aafe67b3e006093f6e6b24357ffe4f49fbb3b65dfe22936f012c93582e53a561`.
+No private result or worker-authored scientific interpretation is recorded here.
+
+The Project Manager authorized a read-only export of existing evidence in
+message `97e54000-2145-466b-b3ab-3127e0912b00` with exact-body SHA-256
+`72cec6c338f031afa079a227926ece9c933fa239e367f118f6f480f3d332cc93`.
+Authenticated Mission Control response
+`42035c1c-f799-49e2-8fb3-586672f21e17` returned `mayExecute:true` and
+`ALLOW_BOUNDED_EXECUTION`; its exact-body SHA-256 is
+`9f432ea2673bef57e8347aa6b423ad683e051c9fe4a3d1f7b522744099b289a8`.
+
+The resulting private source-indexed archive covers all 96 frozen responses,
+192 primary judgments, 41 active J3 judgments, and 23 superseded audit-only J3
+judgments. It contains 1,781 indexed files, is 10,567,954 bytes, and has SHA-256
+`0c238f5f61f45164bb0b8f2e44dec324db09614f9bab611653b68330c8294124`.
+The manifest SHA-256 is
+`aba51f6fad52abb15a8b182f400cd73065e3fd27df3966161a8d167de5c263b6`;
+the packaging-receipt SHA-256 is
+`e00e4adf882f46527bc1cd9a8a63c0160309a54e3f9409419aabdcb57af50692`.
+Independent checks passed for manifest coverage, every packaged file hash,
+safe archive paths, exact source preservation, and `0700`/`0600` modes.
+
+Direct attachment failed three times at the browser file-chooser boundary with
+provider code `-32000` (`Not allowed`). No archive bytes reached the Project
+Manager. The exact blocker was routed as message
+`f09bf7f6-b6a7-4bea-bc80-3540dd7131c3`. Project Manager response
+`02fefcda-fc99-4d41-9bcb-219f82e2c8b1`, exact-body SHA-256
+`7837b51ca7c064df5624fdca43a2c049e5dc3929b1734405060983354e0bdde6`,
+accepts the blocker, requires the archive and receipts to remain unchanged,
+prohibits additional upload attempts and automatic retry, and closes this export
+slice with the parent objective open.
+
+## Read-only attachment diagnosis
+
+The 17:29 UTC diagnosis found no enabled file-access setting for the ChatGPT
+extension in the authorized Brave profile. The installed runtime maps the
+observed `Not allowed` error to the extension's **Allow access to file URLs**
+prerequisite; [OpenAI's upload documentation](https://learn.chatgpt.com/docs/chrome-extension#upload-files)
+documents the same prerequisite. This is a likely cause, not a verified
+successful transport. The live settings UI has not been checked. No new upload
+attempt, permission change, account change, or archive modification occurred.
+The error is not established as an automatic approval-review rejection.
+
+The non-secret evidence and limits are in
+`docs/audits/2026-09-06-mast-attachment-transport-diagnosis.json`.
+At that checkpoint, owner authorization for the permission change was pending.
+The later owner-performed change and bounded delivery above supersede that
+pending state. The earlier scan checked legacy setting names; the follow-up
+verified the actual `newAllowFileAccess` setting. The original diagnostic claim
+remains explicitly limited rather than treated as a proven historical cause.
 
 ## Source-bound authority
 
@@ -129,10 +643,10 @@ redundant green reruns.
 
 ## Next executable action
 
-Route the factual blinded-evaluation acceptance receipt automatically to the
-configured Project Manager chat and capture exact transport provenance. Do not
-disclose the condition map, aggregate by arm or family, apply the continuation
-gate, tune, or interpret the blinded records.
+Submit the one authorized factual recovery return, capture the Project Manager
+disposition, and continue only under its next exact directive or surface its
+owner-only question. Do not retry either preserved setup attempt.
+
 
 Operational alignment: v1 halted correctly at its attempt ceiling; v2 is
 source-bound, runtime-admitted, and preflight-accepted with the exact v1 order.
@@ -1312,11 +1826,35 @@ The condition map remains sealed and external spend remains USD 0. The complete
 deterministic gate passed on Node 24.18.0 with 143 test files and 1,700 tests
 passing, 1 file and 6 tests skipped, plus typecheck and build.
 
-Scientific adequacy: reserved for Project Manager review; no evaluator judgment
-or arm/family result has been inspected, aggregated, or interpreted.
+The exact 2,631-byte factual routing request at SHA-256
+`60446463cc3df7c19d5cd3df5ae35036bcf0f3f7e9af6b26476eb0d73b064e6d`
+was sent once from repository/GitHub HEAD
+`915ac2b5696292de4ee6b09226e7b4641a004497` as user message
+`b43c2876-a904-42fe-ad1e-e69359abda42` in the configured Project Manager chat.
+The 15,612-byte exact visible assistant body was preserved privately at SHA-256
+`41ce0dbb5b155da7b7d3828fdf95144b518dbf7d40cfd75a3e699b9e167edb3e`
+from assistant message `aef6c639-35fd-4ba1-a096-f3f16e5ed319`. The consumer UI
+had checked `Latest` and highest available reasoning label `High`; the response
+DOM exposed model attribute `gpt-5-6-thinking`, which is recorded without
+guessing beyond that observed attribute. The private transport-receipt SHA-256
+is `756a35613b6d48c5ee461701e38a83d9ee53b53ab12a535fc5768349ff5cc05c`.
+
+Attaching browser control to the completed evaluator tab before navigation
+unexpectedly caused its accessibility snapshot to expose the prior completed
+blinded evaluator output. This post-freeze transport incident is recorded in
+the exact routing request and transport receipt. It occurred after final
+acceptance; the condition map was not disclosed, and no arm/family aggregation,
+continuation-gate application, tuning, or scientific interpretation followed.
+The non-secret final receipt is
+`docs/audits/2026-09-06-mast-blinded-evaluation-v2-final-accepted.json`.
+
+Scientific adequacy: reserved for the Project Manager. The private determinate
+disposition is accepted without public outcome disclosure or worker-authored
+interpretation. The private evidence archive and packaging receipt reached the
+receiving surface, which returned a source-bound matching-byte-identity receipt.
 
 Release adequacy: unaffected; no production release, external submission,
 provider API inference, or spend is authorized or performed.
 
 Current execution claim:
-`BLINDED_EVALUATOR_V2_FINAL_ACCEPTANCE_PASSED_PROJECT_MANAGER_ROUTING_PENDING`.
+`PRESERVED_ARCHIVE_AND_RECEIPT_DELIVERED_BYTE_IDENTITY_VERIFIED_PARENT_OPEN`.
