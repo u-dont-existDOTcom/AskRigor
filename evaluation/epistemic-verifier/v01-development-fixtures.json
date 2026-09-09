@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "fixture_set": "askrigor_epistemic_verifier_v0_1_development",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "confirmation_eligible": false,
+  "fixtures": [
+    {
+      "fixture_id": "shared-q-control",
+      "source_packet": "X reacts and Y reacts. Z is explicitly tolerated and does not react. Q is present in X, Y, and Z. Test the hypothesis that Q itself explains the selective reaction.",
+      "expected": {
+        "SPECIFICITY_DISCRIMINATOR": "block",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block",
+        "definitive_synthesis": false
+      }
+    },
+    {
+      "fixture_id": "dose-modified-q",
+      "source_packet": "X and Y react while Z is tolerated. Q is present in all three, but the represented Q dose is 10 units in X, 12 in Y, and 1 in Z. Test the explicit dose-modified hypothesis Q dose > 5, with the dose distinction represented as a separate source-grounded modifier claim.",
+      "expected": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "pass",
+        "definitive_synthesis": true
+      }
+    },
+    {
+      "fixture_id": "immediate-vs-delayed",
+      "source_packet": "X produces the target effect within 2 seconds; Z is a tolerated control. The proposed material hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure.",
+      "expected": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "block",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block",
+        "definitive_synthesis": false
+      }
+    },
+    {
+      "fixture_id": "tiny-vs-threshold",
+      "source_packet": "X produces the target effect at a represented exposure of 0.1 units; Z is a tolerated control. The proposed material hypothesis requires at least 10 units for the target effect.",
+      "expected": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "block",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block",
+        "definitive_synthesis": false
+      }
+    },
+    {
+      "fixture_id": "target-substitution",
+      "source_packet": "The requested target is risk_of_harm. The available evidence establishes only mechanism_activity. A proposed conclusion about risk_of_harm depends only on mechanism_activity evidence, with no observation bound to risk_of_harm.",
+      "expected": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "block",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "block",
+        "definitive_synthesis": false
+      }
+    },
+    {
+      "fixture_id": "true-discriminator",
+      "source_packet": "X and Y react while Z is tolerated. Feature R is represented in X and Y and absent from Z. Test only whether R survives this represented specificity contrast; do not infer that passing specificity proves causality.",
+      "expected": {
+        "SPECIFICITY_DISCRIMINATOR": "pass",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "pass",
+        "definitive_synthesis": true
+      }
+    },
+    {
+      "fixture_id": "no-control",
+      "source_packet": "X and Y react and both contain Q. No tolerated or negative control case is available. Test whether Q discriminates reactive from non-reactive cases.",
+      "expected": {
+        "SPECIFICITY_DISCRIMINATOR": "insufficient",
+        "EVIDENCE_DIRECTION": "pass",
+        "TARGET_PRESERVATION": "pass",
+        "PROVENANCE_DEPENDENCY": "pass",
+        "SYNTHESIS_LOCK": "insufficient",
+        "definitive_synthesis": false
+      }
+    },
+    {
+      "fixture_id": "missing-high-information-qualifier",
+      "source_packet": "The source explicitly says the target effect begins within 2 seconds. A candidate semantic extraction preserves the target and observation but drops onset_seconds entirely and does not mark it high-information.",
+      "representation_requirements": {
+        "target_id": "cause_of_reaction",
+        "required_case_ids": ["X"],
+        "required_observations": [
+          {
+            "observation_id": "obs_x",
+            "required_qualifier_keys": ["onset_seconds"]
+          }
+        ]
+      },
+      "expected_representation_status": "block",
+      "expected_note": "This is a semantic-translation failure. The deterministic verifier is scored relative to the candidate state and must not be credited or blamed for a qualifier that never entered that state."
+    }
+  ]
+}
