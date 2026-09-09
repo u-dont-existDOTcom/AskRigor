@@ -1,6 +1,6 @@
 # AskRigor Benchmark Correction and Independent Recheck Policy
 
-**Status:** provisional v0.1 for the MAST and Terminal-Bench-Science workstreams  
+**Status:** provisional v0.2 for the MAST and Terminal-Bench-Science workstreams
 **Primary precedent:** SciCode-Verified at `ddab4a92f8d80a7113ab946628e994b52354d838`  
 **Purpose:** prevent evaluator defects, mutable judges, and frozen answers from silently becoming AskRigor truth
 
@@ -32,6 +32,23 @@ AskRigor adds only controls required by paired protocol evaluation and clinical 
 8. **Do not tune on sealed evaluation cases.** The first bare-versus-HRP epoch must be frozen before case-level repair work begins.
 9. **Preserve condition blinding during discordance review.** Reviewers should not know which response is bare or HRP until the substantive judgment is recorded.
 10. **Exposure-index clinical claims.** When available, record numerical dose/unit, route, formulation, schedule, timing, comparator/exposure, relevant dependence/tolerance context, outcome, and follow-up/onset.
+11. **Verify benchmark-target integrity before benchmark-driven change.** A rewarded or penalized clinical action is not automatically a valid AskRigor target. Check the exact population, timing, decision context, and current high-authority evidence before changing a protocol, instruction, test, or product behavior because of a benchmark miss.
+
+## 2.1 Benchmark-target integrity before protocol tuning
+
+Run the reusable benchmark-target-integrity assessment before any AskRigor change whose motivation includes a clinical benchmark miss. The assessment must record:
+
+- the exact population to which the rewarded or penalized action is supposed to apply;
+- the action's timing and the decision context in which it is rewarded or penalized;
+- current high-authority evidence that directly addresses that population, timing, and context, with evidence currentness checked;
+- benchmark conformity as a separate field from clinical validity; and
+- whether the proposed change rests on a generalized clinical defect or only on increasing the benchmark score.
+
+If the target is materially inconsistent with current high-authority evidence, or remains reasonably contestable after the exact review, classify it as `BENCHMARK_TARGET_CONFLICT`. Report what would conform to the frozen benchmark separately from what is clinically valid or contestable. Do not force the benchmark action into AskRigor, and do not allow the benchmark score alone to authorize tuning.
+
+If the target is consistent, the miss may enter DEVELOPMENT / DISCOVERY, but a protocol change still requires a generalized evidence-supported defect rather than score improvement alone. The assessment never rewrites, rescales, or reclassifies the frozen official result; official benchmark artifacts remain unchanged and the contestability layer remains separate.
+
+The executable contract is `assessBenchmarkTargetIntegrity` in `evaluation/governance/src/validate.ts`. Registered development assessments in `evaluation/governance/development/benchmark-target-integrity-reviews.json` are admitted by the normal governance validator, so an incomplete assessment or a decision mismatch fails verification. A `BENCHMARK_TARGET_CONFLICT` defect-ledger entry must carry the machine-readable target-integrity record required by `evaluation/governance/defect-ledger.schema.json`.
 
 ## 3. Artifact model
 

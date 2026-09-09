@@ -89,7 +89,7 @@ complete XML protocol.
   HRP 20.5.24, real-PostgreSQL and full-gate receipts, byte-derived package and
   catalog identities, and separate local operational/scientific versus pending
   release adequacy
-- `audits/2026-09-08-interview-evidence-information-gain.md`: current overlap,
+- `audits/2026-09-08-interview-evidence-information-gain.md`: prior overlap,
   recurrence/interview defects, Universal 20.5.22 and HRP 20.5.26 routing,
   frozen-v0.1 boundary, v0.2 evidence extension, human-interface requirement,
   supplied-method provenance, and migration/validation receipts
@@ -245,6 +245,14 @@ complete XML protocol.
   zero-spend ChatGPT consumer MAST generation state, the no-evaluation embargo,
   14-response private freeze boundary, and the scoped live Mission Control
   admission-endpoint 404 blocker before sequence 15
+- `mast-derived-clinical-management-regressions-v0.1.0.json`: sanitized
+  DEVELOPMENT-only Neuro007, Derm001, Heme010, Endo002, and Pulm005 behavior
+  checks for HRP 20.5.27 and benchmark-target integrity; frozen benchmark results
+  and private clinical payloads remain outside this artifact
+- `evaluation/governance/development/benchmark-target-integrity-reviews.json`:
+  registered, executable development-only target-integrity assessments that keep
+  benchmark conformity separate from clinical validity and fail governance
+  verification when a review is incomplete or its expected decision drifts
 - `../project/CUSTOM_GPT_CONTROLLED_INSTRUCTIONS.md`: dedicated compact source
   for the Custom GPT worker/display contract; complete research policy and
   completion authority remain server-side
