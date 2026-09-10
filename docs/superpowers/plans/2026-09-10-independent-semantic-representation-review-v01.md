@@ -23,7 +23,7 @@ The complete run produced 17/24 Arm B trials with an initial or persistent criti
 - [x] Derive fail-closed `pass`, `block`, or `indeterminate` receipts for critical representation.
 - [x] Add a canonical reviewer prompt and focused tests, including the observed value-coded-feature versus `operator: present` defect.
 - [x] Run the full repository gate and inspect the complete diff.
-- [ ] Commit, push, open one PR, and verify hosted checks.
+- [x] Commit, push, open one PR, and verify hosted checks on the substantive implementation head.
 
 ## Acceptance
 

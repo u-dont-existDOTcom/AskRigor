@@ -6,6 +6,8 @@
   "automatic_slice_number": 1,
   "automatic_slice_limit": 1,
   "phase": "DEVELOPMENT_DISCOVERY",
+  "implementation_commit": "51ea6bb47dcbc8a08b43ab130625d09d21e0e384",
+  "pull_request": "https://github.com/u-dont-existDOTcom/AskRigor/pull/212",
   "implemented": {
     "source_plus_state_work_package": "apps/research-mcp/src/epistemic-representation-review.ts",
     "reviewer_prompt": "evaluation/epistemic-verifier/independent-representation-review-prompt.txt",
@@ -35,6 +37,14 @@
       "tests_passed": 1887,
       "tests_skipped": 6,
       "build": "passed"
+    },
+    "hosted_checks_on_implementation_commit": {
+      "repository_workflow_policy": "passed",
+      "deterministic_verification": "passed",
+      "codeql_actions": "passed",
+      "codeql_javascript_typescript": "passed",
+      "codeql_python": "passed",
+      "codeql_ruby": "passed"
     },
     "environment_correction": "A preliminary pass used the shell-default Node 26.8.1. It was not accepted as the canonical result; focused and complete gates were rerun successfully with the repository-required Node 24.18.0 selected by explicit PATH precedence."
   },
