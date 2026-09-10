@@ -1,0 +1,208 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-Y8PCH6
+
+SOURCE_PACKET:
+Willow is a positive case and Drift is a tolerated control. Feature Ember is represented in Willow and absent from Drift. The source explicitly says Willow's target-effect observation begins within 2 seconds. Test the candidate hypothesis that Ember is the discriminator. A candidate semantic extraction preserves the target and Willow observation but drops onset_seconds entirely and does not mark it high-information.
+
+FINAL_EPISTEMIC_STATE:
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_effect",
+    "label": "target effect",
+    "description": "The target effect observed in Willow in the represented positive-versus-tolerated-control comparison."
+  },
+  "cases": [
+    {
+      "case_id": "willow",
+      "label": "Willow",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    },
+    {
+      "case_id": "drift",
+      "label": "Drift",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "willow_target_effect_observation",
+      "target_id": "target_effect",
+      "case_id": "willow",
+      "statement": "Willow's target-effect observation begins within 2 seconds.",
+      "material": true,
+      "qualifiers": {
+        "onset_seconds": 2
+      },
+      "high_information_qualifier_keys": [
+        "onset_seconds"
+      ],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "willow",
+      "feature_id": "ember",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    },
+    {
+      "case_id": "drift",
+      "feature_id": "ember",
+      "value": "absent",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "willow_vs_drift",
+      "target_id": "target_effect",
+      "positive_case_ids": [
+        "willow"
+      ],
+      "control_case_ids": [
+        "drift"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "ember_discriminator_hypothesis",
+      "target_id": "target_effect",
+      "statement": "Feature Ember distinguishes the represented positive case Willow from the tolerated control Drift for the target effect and predicts onset within 2 seconds in Willow.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "ember",
+        "operator": "equals",
+        "value": "present"
+      },
+      "qualifier_predictions": [
+        {
+          "observation_id": "willow_target_effect_observation",
+          "qualifier_key": "onset_seconds",
+          "operator": "lte",
+          "value": 2
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "ember_specificity_contrast",
+      "target_id": "target_effect",
+      "kind": "intermediate",
+      "statement": "Willow is the represented positive case, Drift is the represented tolerated control, and Ember is present in Willow but absent from Drift.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "ember_discriminator_conclusion",
+      "target_id": "target_effect",
+      "kind": "conclusion",
+      "statement": "Within the represented Willow-versus-Drift comparison, Ember is the discriminator for the target effect, whose Willow observation begins within 2 seconds.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-Y8PCH6"
+      },
+      "dependencies": [
+        {
+          "kind": "claim",
+          "id": "ember_specificity_contrast"
+        },
+        {
+          "kind": "observation",
+          "id": "willow_target_effect_observation"
+        }
+      ]
+    }
+  ]
+}
+
+FINAL_VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "a74b8a8cfb5cb8ce97412013cf4d51c34e2dc3c3efad01d23838bd8eaf85ff50",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "ember_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "ember_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "ember_discriminator_conclusion"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "willow_target_effect_observation",
+        "ember_specificity_contrast",
+        "ember_discriminator_conclusion"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "ember_discriminator_hypothesis",
+        "ember_discriminator_hypothesis",
+        "ember_discriminator_conclusion",
+        "willow_target_effect_observation",
+        "ember_specificity_contrast",
+        "ember_discriminator_conclusion"
+      ]
+    }
+  ],
+  "definitive_synthesis": true,
+  "synthesis_boundary": "definitive_allowed",
+  "blockers": []
+}

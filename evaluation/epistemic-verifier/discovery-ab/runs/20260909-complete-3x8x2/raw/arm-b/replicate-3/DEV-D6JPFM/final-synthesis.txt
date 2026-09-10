@@ -1,0 +1,10 @@
+
+
+Bottom line: The complete Iris hypothesis is not supported. Iris matches the represented Alder-versus-Basin feature contrast, but its required timing is contradicted: Alder’s effect begins within 2 seconds, whereas the hypothesis requires onset no earlier than 3,600 seconds.
+
+
+Minimum reasoning: Iris is present in the positive case and absent from the tolerated control, so it survives the represented specificity comparison. However, the hypothesis also makes a material onset prediction of at least 3,600 seconds. The observed onset of no more than 2 seconds is in the opposite direction, and no supported exception mechanism is represented.
+
+
+Definitive conclusion: No. The verifier’s synthesis lock is blocked, so the packet permits only the bounded conclusion that the feature contrast passes while the complete timing-dependent hypothesis fails the evidence-direction check.
+

@@ -1,0 +1,5 @@
+Bottom line: Ember survives the represented specificity contrast: it is present in positive Willow and absent from tolerated Drift. However, the candidate semantic extraction is materially incomplete because it omits Willow’s explicit within-2-seconds onset, a high-information qualifier.
+
+Minimum reasoning: Ember distinguishes the only responsive case from the tolerated control in the supplied comparison. That supports Ember as the represented discriminator, but not as a proven cause. Dropping the onset qualifier weakens evidence fidelity even though it does not reverse this presence/absence contrast.
+
+Definitive conclusion: Yes, narrowly—the packet definitively supports that Ember discriminates Willow from Drift in the represented cases. It does not establish causality, and the candidate extraction alone is insufficient for a fully faithful conclusion because it loses the onset information.

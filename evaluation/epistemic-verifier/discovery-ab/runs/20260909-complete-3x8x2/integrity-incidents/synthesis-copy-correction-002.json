@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "incident_id": "synthesis-copy-correction-002",
+  "detected_at": "2026-09-10T05:06:00Z",
+  "classification": "OPERATOR_PROMPT_BYTE_MISMATCH",
+  "scope": {
+    "affected_submitted_trial": [
+      "r3-DEV-Y8PCH6-b"
+    ]
+  },
+  "cause": "The operator manually transferred a base64 rendering of the canonical synthesis prompt into the browser controller. Two characters were altered during that transfer, changing target_effect to target_efffect and lte to lte\".",
+  "evidence": {
+    "canonical_prompt_path": "raw/arm-b/replicate-3/DEV-Y8PCH6/synthesis-prompt.txt",
+    "canonical_prompt_sha256": "1c50276a217d724fb12428830fb48dafc70abbfe3a2643a61ad033be77330632",
+    "defective_prompt_path": "raw/arm-b/replicate-3/DEV-Y8PCH6/synthesis-prompt.defective.txt",
+    "defective_prompt_sha256": "499abea0095da9e053c578513d9421ebcd6e493833a7969d5476c110b54c3b7f",
+    "defective_output_path": "raw/arm-b/replicate-3/DEV-Y8PCH6/final-synthesis.defective.txt",
+    "defective_output_sha256": "6611eea9c13122822f2927b1fa1dda8819307eabbcb33d149cef20dec88e3bde",
+    "byte_differences": [
+      "target_id target_effect became target_efffect",
+      "prediction operator lte became lte\""
+    ]
+  },
+  "fail_closed_correction": {
+    "overwrite_originals": false,
+    "corrected_prompt_source": "The exact canonical file was loaded through the local artifact receiver and its SHA-256 was verified before submission.",
+    "corrected_prompt_path": "raw/arm-b/replicate-3/DEV-Y8PCH6/synthesis-prompt.txt",
+    "corrected_output_path": "raw/arm-b/replicate-3/DEV-Y8PCH6/final-synthesis.txt",
+    "corrected_output_sha256": "f0131fc00634f90fb8685cb0a8bf3eabf9a23302a92c9511b6acb162a5083ef4",
+    "corrected_submission_started_at": "2026-09-10T05:08:53.090Z",
+    "corrected_submission_completed_at": "2026-09-10T05:10:50.875Z",
+    "defective_output_excluded_from_scoring": true
+  },
+  "blinding": {
+    "scorer_key_opened": false,
+    "gold_information_used": false,
+    "other_fixture_exposed_to_consumer": false
+  }
+}

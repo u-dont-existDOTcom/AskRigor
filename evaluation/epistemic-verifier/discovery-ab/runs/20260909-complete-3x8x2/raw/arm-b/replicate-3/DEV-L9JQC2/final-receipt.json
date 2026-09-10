@@ -1,0 +1,62 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "713c97b8bf831640c29e91cc519adacf5d5802c2f20e74a30aeab0e5d81590b9",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "tern_minimum_exposure_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "tern_minimum_exposure_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect.exposure_units and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "tern_minimum_exposure_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "material_hypothesis_contradicted"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "plover_target_effect",
+        "minimum_exposure_10_units",
+        "material_hypothesis_contradicted"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "tern_minimum_exposure_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect.exposure_units and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "tern_minimum_exposure_hypothesis",
+        "tern_minimum_exposure_hypothesis",
+        "material_hypothesis_contradicted",
+        "plover_target_effect",
+        "minimum_exposure_10_units",
+        "material_hypothesis_contradicted"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "tern_minimum_exposure_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect.exposure_units and no separately represented supported exception mechanism is linked."
+  ]
+}

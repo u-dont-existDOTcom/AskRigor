@@ -1,0 +1,63 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "a792b53cf0e3645a0f622a077a91a41e035b61714b1de733d441581eebf5febc",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "ember_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "insufficient",
+      "blockers": [
+        "ember_discriminator_hypothesis: no prediction is represented for high-information qualifier willow_target_effect_observation.onset_seconds."
+      ],
+      "checked_ids": [
+        "ember_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "willow_target_effect_observation"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "ember_discriminator_hypothesis: no prediction is represented for high-information qualifier willow_target_effect_observation.onset_seconds.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "ember_discriminator_hypothesis",
+        "ember_discriminator_hypothesis",
+        "willow_target_effect_observation"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "ember_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "ember_discriminator_hypothesis: no prediction is represented for high-information qualifier willow_target_effect_observation.onset_seconds.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}

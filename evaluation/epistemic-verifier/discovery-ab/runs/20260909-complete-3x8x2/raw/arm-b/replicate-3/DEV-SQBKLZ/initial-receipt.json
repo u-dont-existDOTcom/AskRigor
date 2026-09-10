@@ -1,0 +1,68 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "a42c581026941c78276fb1f7348b6f5ae96bce278f0444e3bac0b8f32c15c451",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "hyp_nimbus_survives_specificity_contrast: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hyp_nimbus_survives_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_nimbus_survives_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_nimbus_specificity_only"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_present_in_positive_cases",
+        "claim_nimbus_absent_from_tolerated_control",
+        "claim_nimbus_specificity_only"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "hyp_nimbus_survives_specificity_contrast: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hyp_nimbus_survives_specificity_contrast",
+        "hyp_nimbus_survives_specificity_contrast",
+        "claim_nimbus_specificity_only",
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_present_in_positive_cases",
+        "claim_nimbus_absent_from_tolerated_control",
+        "claim_nimbus_specificity_only"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "hyp_nimbus_survives_specificity_contrast: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+  ]
+}

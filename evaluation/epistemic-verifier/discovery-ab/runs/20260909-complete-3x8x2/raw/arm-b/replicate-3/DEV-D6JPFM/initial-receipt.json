@@ -1,0 +1,63 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "8bc21e3e1c46348b2e6e75caaeaeab77791afd69dbabd2a648295b590990f55c",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "alder_target_effect_observation"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis",
+        "iris_delayed_onset_hypothesis",
+        "alder_target_effect_observation"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "iris_delayed_onset_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}

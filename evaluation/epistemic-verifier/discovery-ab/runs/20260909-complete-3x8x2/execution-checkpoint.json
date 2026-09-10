@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "current_checkpoint": "checkpoints/checkpoint-032.json",
-  "frozen_consumer_sessions": 32,
+  "current_checkpoint": "checkpoints/checkpoint-040.json",
+  "frozen_consumer_sessions": 40,
   "required_consumer_sessions": 48,
-  "arm_a_completed": 16,
-  "arm_b_completed": 16,
-  "verifier_repair_chains_completed": 16,
+  "arm_a_completed": 20,
+  "arm_b_completed": 20,
+  "verifier_repair_chains_completed": 20,
   "scorer_key_opened": false,
   "current_blocker": null,
-  "next_trial_id": "r3-DEV-D6JPFM-a",
-  "next_canonical_scheduled_sequence": 33,
-  "recovery_note": "Preserve all raw artifacts. Apply both integrity incident records. Continue with scheduled sequence 33. Do not inspect the scorer key before all 48 sessions are frozen and committed."
+  "next_trial_id": "r3-DEV-QWCNK4-a",
+  "next_canonical_scheduled_sequence": 41,
+  "recovery_note": "Preserve all raw artifacts. Apply all three integrity incident records. Continue with scheduled sequence 41. Do not inspect the scorer key before all 48 sessions are frozen and committed."
 }

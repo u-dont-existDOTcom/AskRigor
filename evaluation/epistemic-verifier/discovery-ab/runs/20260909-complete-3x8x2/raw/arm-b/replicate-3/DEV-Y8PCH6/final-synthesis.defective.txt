@@ -1,0 +1,5 @@
+Bottom-line conclusion: Within the represented Willow-versus-Drift comparison, Ember is a valid discriminator for the target effect. This conclusion is limited to the supplied comparison and does not establish that Ember is generally causal.
+
+Minimum reasoning: Willow is the positive case and has Ember; Drift is the tolerated control and lacks Ember. The high-information timing qualifier was also preserved: Willow’s target effect begins within 2 seconds, and the hypothesis explicitly predicts onset at or before 2 seconds. The deterministic verifier passed specificity, evidence direction, target preservation, provenance/dependency, and the synthesis lock.
+
+Definitive conclusion supported: Yes, but only for the represented claim that Ember discriminates Willow from Drift for the target effect under the supplied facts.

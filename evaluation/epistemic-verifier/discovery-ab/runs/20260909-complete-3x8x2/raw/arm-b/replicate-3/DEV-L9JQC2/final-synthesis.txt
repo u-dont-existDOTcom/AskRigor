@@ -1,0 +1,10 @@
+
+
+Bottom-line conclusion: The material Tern-plus-dose hypothesis cannot be accepted as stated. Tern matches the represented positive-versus-control contrast, but the required minimum exposure of 10 units is contradicted by Plover producing the target effect at 0.1 units.
+
+
+Minimum reasoning: Plover is positive and has Tern; tolerated Kestrel lacks Tern, so Tern survives this limited specificity comparison. However, the hypothesis predicts that the effect requires exposure of at least 10 units, while the observed effect occurs at 0.1 units. No source-supported exception explains that opposite prediction.
+
+
+Definitive conclusion supported: No. The synthesis lock is blocked. The packet supports the bounded conclusion that the combined hypothesis fails as stated, but it does not establish that Tern itself causes or fully explains the target effect.
+

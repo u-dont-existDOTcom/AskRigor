@@ -1,0 +1,10 @@
+
+
+Bottom-line conclusion: Nimbus survives the represented specificity contrast: it is present in both response-positive cases, Oriel and Rowan, and absent from the tolerated control, Silt. This does not establish that Nimbus causes the target response.
+
+
+Minimum reasoning: The proposed discriminator separates every represented positive case from the represented control, and the final verifier receipt records all gates—including SPECIFICITY_DISCRIMINATOR and SYNTHESIS_LOCK—as passed.
+
+
+Definitiveness: Yes, the packet supports a definitive conclusion that Nimbus passes this represented specificity test. No, it does not support a definitive causal conclusion.
+
