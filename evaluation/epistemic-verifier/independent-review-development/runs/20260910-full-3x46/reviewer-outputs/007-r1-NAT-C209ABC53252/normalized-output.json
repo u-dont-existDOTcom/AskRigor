@@ -1,0 +1,212 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+"state_sha256": "e9f5fa24d074ec40143beb623b0f26fca404300ad2879318aebb41093a7cbd0b",
+"producer_session_id": "conversation-sha256:92d7735bb2fbc72cdc859f2b7016d211a332e1d026d794991ce9e8d764b42f7f",
+"reviewer": {
+"session_id": "conversation-sha256:68de8400498b7ec90484ac89e114f55f025c55bffbc29423fceaf57ff6d8a29f",
+"model": "GPT-5.6 Sol",
+"mode": "Thinking",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T15:29:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 30,
+"end": 56,
+"quote": "produces the target effect"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/observations/0/target_id",
+"/hypotheses/0/target_id"
+],
+"rationale": "The candidate consistently represents the source target as the target effect and binds the observation and material hypothesis to that target."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 25,
+"quote": "Plover is a positive case"
+},
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Plover is represented as the positive case and Kestrel as the tolerated control, with the same assignments preserved in the comparison."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+},
+{
+"start": 129,
+"end": 190,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel"
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/features/1/case_id",
+"/features/1/value",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The candidate preserves Kestrel specifically as the tolerated comparator and records Tern's source-stated absent value for Kestrel."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/exposure_units",
+"/observations/0/high_information_qualifier_keys/0"
+],
+"rationale": "The represented 0.1-unit exposure is preserved numerically and explicitly marked as a high-information qualifier."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet supplies no timing information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+},
+{
+"start": 227,
+"end": 314,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect."
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/exposure_units",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value",
+"/claims/0/statement"
+],
+"rationale": "Both source-stated quantities are preserved: the observed represented exposure is 0.1 units, while the material hypothesis separately asserts a minimum of 10 units. The source's resulting tension is represented rather than erased."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet gives no route or physical-form qualifier."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 129,
+"end": 190,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel"
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values preserve the stated contrast: Tern is represented as present for Plover and absent for Kestrel."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 129,
+"end": 190,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel"
+},
+{
+"start": 196,
+"end": 225,
+"quote": "is the proposed discriminator"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/value",
+"/features/1/value"
+],
+"rationale": "The source proposes discrimination by the contrasting Tern feature values. The candidate instead uses operator \"present\". Under the stipulated predicate semantics, \"present\" tests whether a feature record exists; it does not test whether the stored value equals \"present\". A Tern feature record exists for both Plover and Kestrel, so this predicate does not encode the source-stated Plover-represented versus Kestrel-absent distinction. This can change whether the proposed discriminator passes a material hard gate or supports the permitted conclusion."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 227,
+"end": 314,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/modifier/claim_id",
+"/hypotheses/0/qualifier_predictions/0",
+"/claims/0/claim_id",
+"/claims/0/provenance/kind",
+"/claims/0/provenance/source_id"
+],
+"rationale": "The minimum-exposure requirement is linked into the material hypothesis through the modifier claim reference and qualifier prediction, and the represented claim is marked source-grounded. The empty dependencies array on the modifier claim does not contradict any dependency stated by the source."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-representation dimension beyond those enumerated presents a separate discrepancy."
+}
+]
+}
