@@ -1,0 +1,62 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "a7cb52cc5cf5274c130a319667a4db2c53aec00e150f185988032db7b4033fc4",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_nimbus_specificity"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_nimbus_specificity"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_nimbus_survives_specificity"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_distribution",
+        "claim_specificity_scope",
+        "claim_nimbus_survives_specificity"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_nimbus_specificity",
+        "hypothesis_nimbus_specificity",
+        "claim_nimbus_survives_specificity",
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_distribution",
+        "claim_specificity_scope",
+        "claim_nimbus_survives_specificity"
+      ]
+    }
+  ],
+  "definitive_synthesis": true,
+  "synthesis_boundary": "definitive_allowed",
+  "blockers": []
+}

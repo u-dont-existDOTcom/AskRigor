@@ -1,0 +1,68 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "f84d99957cdaf702f337dca5577f1446b800e4ba34070d2e8be39acfbef1e201",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "insufficient",
+      "blockers": [
+        "No tolerated or negative control comparison is represented; discrimination cannot be established."
+      ],
+      "checked_ids": [
+        "sol_discriminator"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "sol_discriminator"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "sol_discrimination_not_established: conclusion dependencies do not reach any observation bound to requested target target_response."
+      ],
+      "checked_ids": [
+        "sol_discrimination_not_established"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "aspen_target_response",
+        "kivu_target_response",
+        "no_control_available",
+        "sol_discrimination_not_established"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "No tolerated or negative control comparison is represented; discrimination cannot be established.",
+        "sol_discrimination_not_established: conclusion dependencies do not reach any observation bound to requested target target_response."
+      ],
+      "checked_ids": [
+        "sol_discriminator",
+        "sol_discriminator",
+        "sol_discrimination_not_established",
+        "aspen_target_response",
+        "kivu_target_response",
+        "no_control_available",
+        "sol_discrimination_not_established"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "No tolerated or negative control comparison is represented; discrimination cannot be established.",
+    "sol_discrimination_not_established: conclusion dependencies do not reach any observation bound to requested target target_response."
+  ]
+}

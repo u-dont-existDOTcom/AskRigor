@@ -1,0 +1,185 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-S47VJN
+
+SOURCE_PACKET:
+The requested target is adverse_outcome_risk. Nova is a positive case and Cove is a tolerated control. Feature Quartz is represented in Nova and absent from Cove, and the material hypothesis proposes Quartz as relevant to adverse_outcome_risk. The available observation for Nova establishes only pathway_activity. A proposed conclusion about adverse_outcome_risk depends only on that pathway_activity observation, with no observation bound to adverse_outcome_risk.
+
+FINAL_EPISTEMIC_STATE:
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "adverse_outcome_risk",
+    "label": "adverse_outcome_risk",
+    "description": "The requested target concerning adverse outcome risk."
+  },
+  "cases": [
+    {
+      "case_id": "Nova",
+      "label": "Nova",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    },
+    {
+      "case_id": "Cove",
+      "label": "Cove",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "nova_pathway_activity_observation",
+      "target_id": "pathway_activity",
+      "case_id": "Nova",
+      "statement": "The available observation for Nova establishes only pathway_activity.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "Nova",
+      "feature_id": "Quartz",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    },
+    {
+      "case_id": "Cove",
+      "feature_id": "Quartz",
+      "value": "absent",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "nova_vs_cove_adverse_outcome_risk",
+      "target_id": "adverse_outcome_risk",
+      "positive_case_ids": [
+        "Nova"
+      ],
+      "control_case_ids": [
+        "Cove"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "quartz_relevance_hypothesis",
+      "target_id": "adverse_outcome_risk",
+      "statement": "Quartz is relevant to adverse_outcome_risk.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "Quartz",
+        "operator": "equals",
+        "value": "present"
+      },
+      "qualifier_predictions": []
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "proposed_quartz_adverse_outcome_risk_conclusion",
+      "target_id": "adverse_outcome_risk",
+      "kind": "conclusion",
+      "statement": "Quartz is relevant to adverse_outcome_risk.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-S47VJN"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "nova_pathway_activity_observation"
+        }
+      ]
+    }
+  ]
+}
+
+FINAL_VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "bde9b04a85f083dcf03e3d74cd2acc8b6d1ae82b50f43651a5996e380cca6ea9",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "quartz_relevance_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "quartz_relevance_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "nova_pathway_activity_observation",
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "quartz_relevance_hypothesis",
+        "quartz_relevance_hypothesis",
+        "proposed_quartz_adverse_outcome_risk_conclusion",
+        "nova_pathway_activity_observation",
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+  ]
+}

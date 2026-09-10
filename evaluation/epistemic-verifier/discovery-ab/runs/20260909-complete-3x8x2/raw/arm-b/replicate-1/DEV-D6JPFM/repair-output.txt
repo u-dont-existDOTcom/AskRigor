@@ -1,0 +1,151 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_effect",
+"label": "target effect",
+"description": "The target effect produced by the positive case Alder and evaluated in comparison with the tolerated control Basin."
+},
+"cases": [
+{
+"case_id": "alder",
+"label": "Alder",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+},
+{
+"case_id": "basin",
+"label": "Basin",
+"comparison_role": "tolerated_control",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+}
+],
+"observations": [
+{
+"observation_id": "alder_target_effect",
+"target_id": "target_effect",
+"case_id": "alder",
+"statement": "Alder produces the target effect within 2 seconds.",
+"material": true,
+"qualifiers": {
+"onset_seconds": 2
+},
+"high_information_qualifier_keys": [
+"onset_seconds"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+}
+],
+"features": [
+{
+"case_id": "alder",
+"feature_id": "iris",
+"value": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+},
+{
+"case_id": "basin",
+"feature_id": "iris",
+"value": false,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "alder_vs_basin",
+"target_id": "target_effect",
+"positive_case_ids": [
+"alder"
+],
+"control_case_ids": [
+"basin"
+]
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "iris_discriminator_hypothesis",
+"target_id": "target_effect",
+"statement": "Feature Iris is the proposed discriminator for the target effect, with the material requirement that the target effect begin no sooner than 3,600 seconds after exposure.",
+"material": true,
+"discriminator": {
+"feature_id": "iris",
+"operator": "equals",
+"value": true
+},
+"qualifier_predictions": [
+{
+"observation_id": "alder_target_effect",
+"qualifier_key": "onset_seconds",
+"operator": "gte",
+"value": 3600
+}
+]
+}
+],
+"claims": [
+{
+"claim_id": "iris_feature_contrast",
+"target_id": "target_effect",
+"kind": "intermediate",
+"statement": "Feature Iris is represented in Alder and absent from Basin.",
+"material": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+},
+"dependencies": []
+},
+{
+"claim_id": "iris_minimum_onset_requirement",
+"target_id": "target_effect",
+"kind": "intermediate",
+"statement": "The material Iris hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure.",
+"material": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+},
+"dependencies": []
+},
+{
+"claim_id": "iris_hypothesis_conclusion",
+"target_id": "target_effect",
+"kind": "conclusion",
+"statement": "Although Iris distinguishes Alder from Basin in the represented feature assignments, the complete material Iris hypothesis is contradicted by Alder producing the target effect within 2 seconds when the hypothesis requires onset no sooner than 3,600 seconds, so the packet does not support that hypothesis as a definitive explanation of the target effect.",
+"material": true,
+"provenance": {
+"kind": "inference",
+"source_id": "DEV-D6JPFM"
+},
+"dependencies": [
+{
+"kind": "claim",
+"id": "iris_feature_contrast"
+},
+{
+"kind": "claim",
+"id": "iris_minimum_onset_requirement"
+},
+{
+"kind": "observation",
+"id": "alder_target_effect"
+}
+]
+}
+]
+}

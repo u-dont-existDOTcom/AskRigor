@@ -1,0 +1,13 @@
+You are in a fresh AskRigor consumer reasoning session. Use only the ordinary canonical AskRigor instructions already installed in this consumer surface and the source packet below. Do not browse, search, inspect GitHub, load issue #208, load the epistemic-verifier files, or use external evidence.
+
+Analyze the packet directly. Return:
+1. a concise bottom-line conclusion responsive to the packet's task;
+2. the minimum reasoning needed to justify that conclusion;
+3. whether the available packet is sufficient for a definitive conclusion.
+
+Do not create EpistemicStateV1 and do not discuss verifier gates.
+
+BLIND_PACKET_ID: DEV-JRSYJV
+
+SOURCE_PACKET:
+Harbor and Lark show the target response while Juniper is tolerated. Compound Sable is present in all three, but its represented dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper. Test the explicit dose-modified hypothesis Sable dose > 5, with the dose distinction represented as a separate source-grounded modifier claim.

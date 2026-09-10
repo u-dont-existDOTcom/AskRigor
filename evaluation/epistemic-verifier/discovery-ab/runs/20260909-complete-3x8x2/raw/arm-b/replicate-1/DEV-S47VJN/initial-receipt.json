@@ -1,0 +1,64 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "e7c80e440daa679a2e27d8f10e18fbdad3d5eeb4c44c67d91e820bf3021788a9",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "quartz_relevance_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "quartz_relevance_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "quartz_relevance_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "nova_pathway_activity_observation",
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "quartz_relevance_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "quartz_relevance_hypothesis",
+        "quartz_relevance_hypothesis",
+        "proposed_quartz_adverse_outcome_risk_conclusion",
+        "nova_pathway_activity_observation",
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "quartz_relevance_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+  ]
+}

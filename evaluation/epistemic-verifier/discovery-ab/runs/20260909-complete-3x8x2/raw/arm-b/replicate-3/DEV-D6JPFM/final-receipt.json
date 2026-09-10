@@ -1,0 +1,64 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "d4d2ff398e4e9a8f4d53d36febb8a8e8c7833282a3108a4658ba1e85e3bb8903",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis_conclusion"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "alder_target_effect_observation",
+        "iris_specificity_contrast_claim",
+        "delayed_onset_requirement_claim",
+        "iris_delayed_onset_hypothesis_conclusion"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis",
+        "iris_delayed_onset_hypothesis",
+        "iris_delayed_onset_hypothesis_conclusion",
+        "alder_target_effect_observation",
+        "iris_specificity_contrast_claim",
+        "delayed_onset_requirement_claim",
+        "iris_delayed_onset_hypothesis_conclusion"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked."
+  ]
+}

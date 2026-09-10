@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "raw_sha256": "196f742913a1a60d48d96f62a32770b0c130e590037042793fb2a1fdb2d65ffe",
+  "raw_utf8_bytes": 1631,
+  "parse_mode": "invalid",
+  "schema_valid": false,
+  "deterministic_errors": [
+    "observations.0.qualifiers.onset_seconds: Invalid input"
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only"
+}

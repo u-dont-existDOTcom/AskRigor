@@ -1,0 +1,10 @@
+
+
+Bottom-line conclusion: The packet does not support concluding that Quartz is relevant to adverse_outcome_risk. It only supports a represented contrast between Nova and Cove and an observation of pathway_activity in Nova.
+
+
+Minimum reasoning: Quartz is present in Nova and absent from the tolerated control Cove, but the evidence tied to Nova concerns pathway activity, not the requested target. Because no observation establishes or measures adverse-outcome risk, inferring that risk from pathway activity would substitute a different variable for the target.
+
+
+Definitiveness: The packet is sufficient for the definitive conclusion that the proposed adverse-outcome-risk claim is unsupported by the available evidence. It is not sufficient for a definitive conclusion about Quartz’s actual relevance to adverse_outcome_risk.
+

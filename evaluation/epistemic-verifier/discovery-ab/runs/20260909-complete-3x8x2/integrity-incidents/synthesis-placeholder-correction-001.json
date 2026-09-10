@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "incident_id": "synthesis-placeholder-correction-001",
+  "detected_at": "2026-09-10T02:12:00Z",
+  "classification": "DETERMINISTIC_EXECUTION_RENDERING_DEFECT",
+  "scope": {
+    "affected_submitted_trial": [
+      "r2-DEV-SQBKLZ-b"
+    ],
+    "affected_staged_not_submitted_trial": [
+      "r2-DEV-D6JPFM-b"
+    ],
+    "confirmed_unaffected_submitted_trials": [
+      "r1-DEV-Y8PCH6-b",
+      "r1-DEV-L9JQC2-b",
+      "r1-DEV-9M34WA-b",
+      "r1-DEV-QWCNK4-b",
+      "r1-DEV-JRSYJV-b",
+      "r1-DEV-D6JPFM-b",
+      "r1-DEV-SQBKLZ-b",
+      "r1-DEV-S47VJN-b",
+      "r2-DEV-Y8PCH6-b"
+    ]
+  },
+  "cause": "The local one-off synthesis renderer substituted VERIFIED_EPISTEMIC_STATE and VERIFIER_RECEIPT while the canonical template requires FINAL_EPISTEMIC_STATE and FINAL_VERIFIER_RECEIPT.",
+  "evidence": {
+    "trial20_defective_prompt_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/synthesis-prompt.txt",
+    "trial20_defective_output_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/final-synthesis.txt",
+    "trial21_defective_prompt_path": "raw/arm-b/replicate-2/DEV-D6JPFM/synthesis-prompt.txt",
+    "trial21_defective_prompt_submitted": false,
+    "unresolved_tokens": [
+      "{{FINAL_EPISTEMIC_STATE}}",
+      "{{FINAL_VERIFIER_RECEIPT}}"
+    ],
+    "clean_prior_synthesis_prompt_count": 9
+  },
+  "fail_closed_correction": {
+    "overwrite_originals": false,
+    "corrected_artifacts": {
+      "DEV-SQBKLZ": {
+        "path": "raw/arm-b/replicate-2/DEV-SQBKLZ/synthesis-prompt.corrected.txt",
+        "sha256": "17b0989e3555b24fc306745a0d167d16b9c187b857e4ebcb82c251ebe09358db",
+        "utf8_bytes": 7727
+      },
+      "DEV-D6JPFM": {
+        "path": "raw/arm-b/replicate-2/DEV-D6JPFM/synthesis-prompt.corrected.txt",
+        "sha256": "6e10973b5fdd38a3899b80049053865f9365b0c08a5c0d928daa39ac173f6d79",
+        "utf8_bytes": 6683
+      }
+    },
+    "renderer_assertion": "reject if any {{ or }} remains",
+    "trial20_action": "submit the separately frozen corrected synthesis prompt in the same isolated conversation and preserve final-synthesis.corrected.txt",
+    "trial21_action": "discard only the unsent composer draft and submit synthesis-prompt.corrected.txt after exact DOM verification"
+  },
+  "blinding": {
+    "scorer_key_opened": false,
+    "gold_information_used": false,
+    "other_fixture_exposed_to_consumer": false
+  },
+  "resolution": {
+    "trial20_corrected_prompt_sha256": "17b0989e3555b24fc306745a0d167d16b9c187b857e4ebcb82c251ebe09358db",
+    "trial20_corrected_output_sha256": "a19269a201b029299b8ba509428c21574f35ad08690b399ed5cdec5671a441a6",
+    "trial20_corrected_submission_started_at": "2026-09-10T02:17:39.630Z",
+    "trial20_corrected_submission_completed_at": "2026-09-10T02:18:48.257Z",
+    "trial20_defective_output_excluded_from_scoring": true,
+    "trial21_corrected_prompt_sha256": "6e10973b5fdd38a3899b80049053865f9365b0c08a5c0d928daa39ac173f6d79",
+    "trial21_corrected_output_sha256": "4549a0f0a7d98d6a9095e4b46a565101618a7c633d96244e8c0b67963c0abdb7",
+    "trial21_defective_prompt_submitted": false
+  }
+}

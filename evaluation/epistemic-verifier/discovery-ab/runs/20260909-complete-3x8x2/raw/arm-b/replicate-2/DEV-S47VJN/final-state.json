@@ -1,0 +1,108 @@
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "adverse_outcome_risk",
+    "label": "adverse outcome risk",
+    "description": "The requested target: adverse_outcome_risk."
+  },
+  "cases": [
+    {
+      "case_id": "nova",
+      "label": "Nova",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    },
+    {
+      "case_id": "cove",
+      "label": "Cove",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "nova_pathway_activity",
+      "target_id": "pathway_activity",
+      "case_id": "nova",
+      "statement": "The available observation for Nova establishes only pathway_activity.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "nova",
+      "feature_id": "Quartz",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    },
+    {
+      "case_id": "cove",
+      "feature_id": "Quartz",
+      "value": "absent",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-S47VJN"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "nova_vs_cove_adverse_outcome_risk",
+      "target_id": "adverse_outcome_risk",
+      "positive_case_ids": [
+        "nova"
+      ],
+      "control_case_ids": [
+        "cove"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "quartz_adverse_outcome_risk_hypothesis",
+      "target_id": "adverse_outcome_risk",
+      "statement": "Quartz is relevant to adverse_outcome_risk.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "Quartz",
+        "operator": "equals",
+        "value": "present"
+      },
+      "qualifier_predictions": []
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "quartz_adverse_outcome_risk_conclusion",
+      "target_id": "adverse_outcome_risk",
+      "kind": "conclusion",
+      "statement": "Quartz is relevant to adverse_outcome_risk.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-S47VJN"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "nova_pathway_activity"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "phase": "DEVELOPMENT_DISCOVERY",
+  "consumer_sessions": "48/48",
+  "arm_a_hard_invariant_escapes": "0/15",
+  "arm_b_hard_invariant_escapes": "0/15",
+  "arm_b_semantic_translation_failures_initial_or_both": "17/24",
+  "arm_b_semantic_translation_failures_final_or_both": "2/24",
+  "deterministic_verifier_escapes_conditional_on_faithful_intended_attributable_hard_state": "0/12",
+  "false_blocks": {
+    "arm_a": "0/6",
+    "arm_b": "0/6",
+    "deterministic": "0/6"
+  },
+  "synthesis_boundary_failures": "0/24",
+  "repair_success": "19/22",
+  "correct_conclusion_changes": "3/3",
+  "fixture_primary_outcome_stability": "8/8 fixture families stable across 3 replicates",
+  "materially_improved_end_to_end": false,
+  "dominant_remaining_failure": "SOURCE_TO_STATE_SEMANTIC_TRANSLATION",
+  "single_next_architecture_step": "BUILD_INDEPENDENT_SEMANTIC_REPRESENTATION_VERIFIER",
+  "protocol_changed_during_run": false,
+  "confirmation_claim": false
+}

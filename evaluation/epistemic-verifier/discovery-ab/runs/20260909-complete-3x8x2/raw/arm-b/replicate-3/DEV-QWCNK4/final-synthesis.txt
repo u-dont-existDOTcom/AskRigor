@@ -1,0 +1,5 @@
+Bottom-line conclusion: The hypothesis that Vela itself explains the selective response is not established. In the represented comparison, Vela fails to distinguish Cedar and Flint from tolerated Mica. Because the verifier’s SYNTHESIS_LOCK is insufficient, this is only a bounded finding about the failed discriminator, not a definitive synthesis.
+
+Minimum reasoning: Cedar and Flint show the response; Mica does not. Yet Vela is present in all three. Therefore, Vela’s presence alone does not track the response-versus-tolerance contrast. No dose, form, context, or other source-grounded modifier is represented that could restore selectivity. Separately, the verified state contains no material hypothesis, which is the verifier’s stated blocker.
+
+Definitive conclusion supported: No. The packet clearly exposes the specificity problem, but the supplied receipt expressly withholds definitive synthesis because no material hypothesis was represented for deterministic specificity testing.

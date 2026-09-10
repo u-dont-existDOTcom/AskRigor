@@ -1,0 +1,178 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-Y8PCH6
+
+SOURCE_PACKET:
+Willow is a positive case and Drift is a tolerated control. Feature Ember is represented in Willow and absent from Drift. The source explicitly says Willow's target-effect observation begins within 2 seconds. Test the candidate hypothesis that Ember is the discriminator. A candidate semantic extraction preserves the target and Willow observation but drops onset_seconds entirely and does not mark it high-information.
+
+FINAL_EPISTEMIC_STATE:
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_effect",
+    "label": "target-effect",
+    "description": "The target-effect observation referenced in the source packet."
+  },
+  "cases": [
+    {
+      "case_id": "Willow",
+      "label": "Willow",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    },
+    {
+      "case_id": "Drift",
+      "label": "Drift",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "willow_target_effect",
+      "target_id": "target_effect",
+      "case_id": "Willow",
+      "statement": "Willow's target-effect observation begins within 2 seconds.",
+      "material": true,
+      "qualifiers": {
+        "onset_seconds": 2
+      },
+      "high_information_qualifier_keys": [
+        "onset_seconds"
+      ],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "Willow",
+      "feature_id": "Ember",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    },
+    {
+      "case_id": "Drift",
+      "feature_id": "Ember",
+      "value": false,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-Y8PCH6"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "willow_vs_drift",
+      "target_id": "target_effect",
+      "positive_case_ids": [
+        "Willow"
+      ],
+      "control_case_ids": [
+        "Drift"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "ember_discriminator",
+      "target_id": "target_effect",
+      "statement": "Ember is the discriminator.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "Ember",
+        "operator": "present"
+      },
+      "qualifier_predictions": [
+        {
+          "observation_id": "willow_target_effect",
+          "qualifier_key": "onset_seconds",
+          "operator": "lte",
+          "value": 2
+        }
+      ]
+    }
+  ],
+  "claims": []
+}
+
+
+FINAL_VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "6703ffdccb992c4d14a6df9a27df3cfc515953837f807d9e55cf9b7f41c74f4d",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "ember_discriminator"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "ember_discriminator"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "willow_target_effect"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "ember_discriminator",
+        "ember_discriminator",
+        "willow_target_effect"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "ember_discriminator: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}
+

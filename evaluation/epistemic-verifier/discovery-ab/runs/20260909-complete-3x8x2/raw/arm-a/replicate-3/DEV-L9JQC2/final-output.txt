@@ -1,0 +1,10 @@
+
+
+Bottom-line conclusion: The proposed material hypothesis is contradicted by the packet. Although Tern distinguishes Plover from the tolerated Kestrel in this comparison, the effect occurs at 0.1 exposure units—far below the hypothesis’s required minimum of 10 units.
+
+
+Minimum reasoning: A hypothesis that requires at least 10 exposure units predicts no target effect at 0.1 units. Plover nevertheless produces the effect at 0.1 units. Tern’s presence in Plover and absence from Kestrel supports only the represented specificity contrast; it does not rescue the failed exposure requirement or establish causality.
+
+
+Definitive conclusion: Yes, the packet is sufficient to definitively reject the stated material hypothesis as an explanation of Plover’s observed effect. It is not sufficient to conclude definitively that Tern itself causes the effect.
+

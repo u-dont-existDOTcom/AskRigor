@@ -1,0 +1,214 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-D6JPFM
+
+SOURCE_PACKET:
+Alder is a positive case and produces the target effect within 2 seconds; Basin is a tolerated control. Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator. The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure.
+
+FINAL_EPISTEMIC_STATE:
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_effect",
+    "label": "target effect",
+    "description": "The target effect produced by Alder."
+  },
+  "cases": [
+    {
+      "case_id": "alder",
+      "label": "Alder",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    },
+    {
+      "case_id": "basin",
+      "label": "Basin",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "alder_target_effect_onset",
+      "target_id": "target_effect",
+      "case_id": "alder",
+      "statement": "Alder produces the target effect within 2 seconds.",
+      "material": true,
+      "qualifiers": {
+        "onset_seconds": 2
+      },
+      "high_information_qualifier_keys": [
+        "onset_seconds"
+      ],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "alder",
+      "feature_id": "iris",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    },
+    {
+      "case_id": "basin",
+      "feature_id": "iris",
+      "value": "absent",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "alder_basin_target_effect_contrast",
+      "target_id": "target_effect",
+      "positive_case_ids": [
+        "alder"
+      ],
+      "control_case_ids": [
+        "basin"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "iris_discriminator_delayed_onset_hypothesis",
+      "target_id": "target_effect",
+      "statement": "Feature Iris is the proposed discriminator, and the material hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "iris",
+        "operator": "equals",
+        "value": "present"
+      },
+      "qualifier_predictions": [
+        {
+          "observation_id": "alder_target_effect_onset",
+          "qualifier_key": "onset_seconds",
+          "operator": "gte",
+          "value": 3600
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "minimum_onset_requirement",
+      "target_id": "target_effect",
+      "kind": "intermediate",
+      "statement": "The material hypothesis requires onset of the target effect at or after 3,600 seconds following exposure.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "material_hypothesis_timing_conflict",
+      "target_id": "target_effect",
+      "kind": "conclusion",
+      "statement": "Alder's target-effect onset within 2 seconds conflicts with the material hypothesis's requirement that onset occur no sooner than 3,600 seconds after exposure.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-D6JPFM"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "alder_target_effect_onset"
+        },
+        {
+          "kind": "claim",
+          "id": "minimum_onset_requirement"
+        }
+      ]
+    }
+  ]
+}
+
+FINAL_VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "e52d602d17aaded045766014cfd616a2c3f766f2f2b8dc5b02473dd454d38c70",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "iris_discriminator_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "iris_discriminator_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_onset.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_discriminator_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "material_hypothesis_timing_conflict"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "alder_target_effect_onset",
+        "minimum_onset_requirement",
+        "material_hypothesis_timing_conflict"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "iris_discriminator_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_onset.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_discriminator_delayed_onset_hypothesis",
+        "iris_discriminator_delayed_onset_hypothesis",
+        "material_hypothesis_timing_conflict",
+        "alder_target_effect_onset",
+        "minimum_onset_requirement",
+        "material_hypothesis_timing_conflict"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "iris_discriminator_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_onset.onset_seconds and no separately represented supported exception mechanism is linked."
+  ]
+}

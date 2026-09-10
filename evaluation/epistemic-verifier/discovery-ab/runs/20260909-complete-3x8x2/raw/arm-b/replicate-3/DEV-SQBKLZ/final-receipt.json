@@ -1,0 +1,62 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "0bb95afcabdf67154042b12a829f9ff6278e141c522335fced623525d2c0e4dc",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_nimbus_survives_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_nimbus_survives_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_nimbus_specificity_only"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_present_in_positive_cases",
+        "claim_nimbus_absent_from_tolerated_control",
+        "claim_nimbus_specificity_only"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hyp_nimbus_survives_specificity_contrast",
+        "hyp_nimbus_survives_specificity_contrast",
+        "claim_nimbus_specificity_only",
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_present_in_positive_cases",
+        "claim_nimbus_absent_from_tolerated_control",
+        "claim_nimbus_specificity_only"
+      ]
+    }
+  ],
+  "definitive_synthesis": true,
+  "synthesis_boundary": "definitive_allowed",
+  "blockers": []
+}

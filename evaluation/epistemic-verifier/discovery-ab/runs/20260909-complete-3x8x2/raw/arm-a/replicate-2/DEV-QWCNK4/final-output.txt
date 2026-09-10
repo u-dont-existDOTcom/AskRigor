@@ -1,0 +1,10 @@
+
+
+Bottom line: Vela itself does not explain the selective response.
+
+
+Minimum reasoning: Vela is present in both responsive cases, Cedar and Flint, but also in tolerated, non-responsive Mica. Its presence therefore does not discriminate responsive from non-responsive cases. No dose, form, or other Vela-specific difference is provided to rescue the hypothesis.
+
+
+Definitive conclusion: Yes. The packet is sufficient to reject the narrow hypothesis that Vela’s presence by itself explains the selective response.
+

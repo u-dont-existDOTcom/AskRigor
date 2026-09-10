@@ -1,0 +1,81 @@
+The deterministic verifier has evaluated your prior EpistemicStateV1. You may revise the represented state or hypothesis in response to the receipt below.
+
+Rules:
+- Do not change source facts.
+- Do not add a control, qualifier, modifier, mechanism, provenance source, or dependency that is absent from the source packet.
+- Repair must change the represented state/hypothesis/dependencies when warranted; merely rewriting explanatory prose is not a repair.
+- If the packet does not support a valid definitive hypothesis, preserve that limitation rather than forcing a pass.
+- Return exactly one complete revised EpistemicStateV1 JSON object. Do not synthesize a final answer yet.
+
+BLIND_PACKET_ID: DEV-QWCNK4
+
+SOURCE_PACKET:
+Cedar and Flint show the target response. Mica is explicitly tolerated and does not show the response. Marker Vela is present in Cedar, Flint, and Mica. Test the hypothesis that Vela itself explains the selective response.
+
+VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "4bcf39e319f5d057cfd130173e644536fcc818508eede4eb75bdca1427492d1d",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "hypothesis_vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hypothesis_vela_explains_selective_response"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_vela_explains_selective_response"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_vela_fails_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_cedar_target_response",
+        "obs_flint_target_response",
+        "obs_mica_no_target_response",
+        "claim_vela_shared_across_cases",
+        "claim_vela_fails_specificity_contrast"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "hypothesis_vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hypothesis_vela_explains_selective_response",
+        "hypothesis_vela_explains_selective_response",
+        "claim_vela_fails_specificity_contrast",
+        "obs_cedar_target_response",
+        "obs_flint_target_response",
+        "obs_mica_no_target_response",
+        "claim_vela_shared_across_cases",
+        "claim_vela_fails_specificity_contrast"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "hypothesis_vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+  ]
+}

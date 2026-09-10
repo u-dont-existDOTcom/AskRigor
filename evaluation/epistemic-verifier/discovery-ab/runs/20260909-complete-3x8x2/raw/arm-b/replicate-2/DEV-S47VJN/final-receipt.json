@@ -1,0 +1,60 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "43e0d5749a26fbfef49f86a67d8aa010f25787ae1c72b551f79b114dddd277c3",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "quartz_adverse_outcome_risk_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "quartz_adverse_outcome_risk_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "nova_pathway_activity",
+        "quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "quartz_adverse_outcome_risk_hypothesis",
+        "quartz_adverse_outcome_risk_hypothesis",
+        "quartz_adverse_outcome_risk_conclusion",
+        "nova_pathway_activity",
+        "quartz_adverse_outcome_risk_conclusion"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+  ]
+}

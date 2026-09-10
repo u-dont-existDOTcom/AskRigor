@@ -1,0 +1,93 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_effect",
+"label": "target effect",
+"description": "The target effect observed in Willow in the represented Willow–Drift comparison."
+},
+"cases": [
+{
+"case_id": "willow",
+"label": "Willow",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+},
+{
+"case_id": "drift",
+"label": "Drift",
+"comparison_role": "tolerated_control",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+}
+],
+"observations": [
+{
+"observation_id": "willow_target_effect_observation",
+"target_id": "target_effect",
+"case_id": "willow",
+"statement": "Willow's target-effect observation begins within 2 seconds.",
+"material": true,
+"qualifiers": {
+"onset_seconds": 2
+},
+"high_information_qualifier_keys": [
+"onset_seconds"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+}
+],
+"features": [
+{
+"case_id": "willow",
+"feature_id": "ember",
+"value": "present",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+},
+{
+"case_id": "drift",
+"feature_id": "ember",
+"value": "absent",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "willow_drift_target_effect_comparison",
+"target_id": "target_effect",
+"positive_case_ids": [
+"willow"
+],
+"control_case_ids": [
+"drift"
+]
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "ember_discriminator_hypothesis",
+"target_id": "target_effect",
+"statement": "The presence of Ember discriminates the positive target-effect case from the tolerated control.",
+"material": true,
+"discriminator": {
+"feature_id": "ember",
+"operator": "present"
+},
+"qualifier_predictions": []
+}
+],
+"claims": []
+}

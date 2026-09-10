@@ -1,0 +1,5 @@
+Bottom-line conclusion: The full Tern discriminator hypothesis is not established. Tern distinguishes Plover from Kestrel in the represented cases, but the hypothesis’s required exposure threshold conflicts with Plover’s observed effect at 0.1 units.
+
+Minimum reasoning: Tern is represented in the positive case and absent from the tolerated control, so the feature-level contrast passes the specificity check. However, the material hypothesis predicts that the target effect requires at least 10 exposure units, while Plover produces it at 0.1 units. No supported exception explains that opposite-direction result. The synthesis lock therefore remains blocked.
+
+Definitive conclusion supported: No. The packet supports only the bounded conclusion that the complete stated hypothesis is unsupported because of the unresolved exposure-threshold contradiction.

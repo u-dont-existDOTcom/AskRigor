@@ -1,0 +1,5 @@
+Bottom line: The packet does not establish that Sol discriminates responsive from non-responsive cases.
+
+Minimum reasoning: Sol is present in both responsive cases, but there is no tolerated or negative case showing whether Sol is absent—or also present—among non-responsive cases. Positive-case co-occurrence alone cannot demonstrate discrimination.
+
+Sufficiency: No. The packet is insufficient for a definitive conclusion that Sol is a discriminator; at least one represented non-responsive comparison case is needed.

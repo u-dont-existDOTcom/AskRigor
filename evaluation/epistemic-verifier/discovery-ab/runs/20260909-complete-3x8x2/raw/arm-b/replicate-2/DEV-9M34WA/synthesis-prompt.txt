@@ -1,0 +1,220 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-9M34WA
+
+SOURCE_PACKET:
+Aspen and Kivu show the target response and both contain marker Sol. No tolerated or negative control case is available. Test whether Sol discriminates responsive from non-responsive cases.
+
+FINAL_EPISTEMIC_STATE:
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_response",
+    "label": "target response",
+    "description": "The response shown by Aspen and Kivu."
+  },
+  "cases": [
+    {
+      "case_id": "aspen",
+      "label": "Aspen",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-9M34WA"
+      }
+    },
+    {
+      "case_id": "kivu",
+      "label": "Kivu",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-9M34WA"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "obs_aspen_target_response",
+      "target_id": "target_response",
+      "case_id": "aspen",
+      "statement": "Aspen shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-9M34WA"
+      }
+    },
+    {
+      "observation_id": "obs_kivu_target_response",
+      "target_id": "target_response",
+      "case_id": "kivu",
+      "statement": "Kivu shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-9M34WA"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "aspen",
+      "feature_id": "sol",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-9M34WA"
+      }
+    },
+    {
+      "case_id": "kivu",
+      "feature_id": "sol",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-9M34WA"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "comparison_sol_discrimination",
+      "target_id": "target_response",
+      "positive_case_ids": [
+        "aspen",
+        "kivu"
+      ],
+      "control_case_ids": []
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "hypothesis_sol_discriminator",
+      "target_id": "target_response",
+      "statement": "Presence of marker Sol is the candidate discriminator between cases that show the target response and cases that do not.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "sol",
+        "operator": "present"
+      },
+      "qualifier_predictions": []
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim_no_control_available",
+      "target_id": "target_response",
+      "kind": "intermediate",
+      "statement": "No tolerated or negative control case is available.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-9M34WA"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "claim_sol_discrimination_not_established",
+      "target_id": "target_response",
+      "kind": "conclusion",
+      "statement": "The represented evidence does not establish that Sol discriminates cases showing the target response from non-responsive cases because no tolerated or negative control case is available.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-9M34WA"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "obs_aspen_target_response"
+        },
+        {
+          "kind": "observation",
+          "id": "obs_kivu_target_response"
+        },
+        {
+          "kind": "claim",
+          "id": "claim_no_control_available"
+        }
+      ]
+    }
+  ]
+}
+
+FINAL_VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "0a5529f38187985101216bd1acdf12cd878d24fb5430985d7c957c272865c58e",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "insufficient",
+      "blockers": [
+        "No tolerated or negative control comparison is represented; discrimination cannot be established."
+      ],
+      "checked_ids": [
+        "hypothesis_sol_discriminator"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sol_discriminator"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_sol_discrimination_not_established"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_aspen_target_response",
+        "obs_kivu_target_response",
+        "claim_no_control_available",
+        "claim_sol_discrimination_not_established"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "insufficient",
+      "blockers": [
+        "No tolerated or negative control comparison is represented; discrimination cannot be established."
+      ],
+      "checked_ids": [
+        "hypothesis_sol_discriminator",
+        "hypothesis_sol_discriminator",
+        "claim_sol_discrimination_not_established",
+        "obs_aspen_target_response",
+        "obs_kivu_target_response",
+        "claim_no_control_available",
+        "claim_sol_discrimination_not_established"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "No tolerated or negative control comparison is represented; discrimination cannot be established."
+  ]
+}

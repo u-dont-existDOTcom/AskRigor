@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "trial_id": "r1-DEV-SQBKLZ-b",
+  "sequence": 11,
+  "replicate": 1,
+  "blind_id": "DEV-SQBKLZ",
+  "arm": "B",
+  "consumer": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "displayed_control": "5.6Pro",
+    "model_selection_verified": true
+  },
+  "timestamps": {
+    "started_at": "2026-09-09T23:56:44.690Z",
+    "initial_state_completed_at": "2026-09-10T00:00:42.086Z",
+    "repair_started_at": "2026-09-10T00:01:31.957Z",
+    "repair_completed_at": "2026-09-10T00:03:47.410Z",
+    "synthesis_started_at": "2026-09-10T00:04:20.194Z",
+    "synthesis_completed_at": "2026-09-10T00:06:03.961Z",
+    "conversation_left_at": "2026-09-10T00:06:08.377Z"
+  },
+  "initial_prompt": {
+    "path": "dispatch-bundle/initial-prompts/arm-b-state/DEV-SQBKLZ.txt",
+    "utf8_bytes": 2514,
+    "sha256": "b0d06325bfa8e12aff5a2c66a3e24483b913f21f3ab7f0d108a0c0a7a7a7a8c0",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": null
+  },
+  "initial_output": {
+    "path": "raw/arm-b/replicate-1/DEV-SQBKLZ/initial-output.txt",
+    "utf8_bytes": 3953,
+    "sha256": "5d09cb246fb99badf375c6b5b979e9d1a624203034e79ea881b622eae693378c",
+    "assistant_message_id": "fe5af8f5-8e89-46b1-be74-be97f2bbf9ea",
+    "complete": true
+  },
+  "initial_verification": {
+    "receipt_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/initial-receipt.json",
+    "receipt_sha256": "555de6fcff5273999f6ff1d79e49180b69a838cf6f6fdbe997f7abae879fc2fc",
+    "meta_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/initial-verifier-meta.json",
+    "meta_sha256": "be8fb1cdf02c4c7c951de34f64719907975acf41472e2b01035cba609f80bd77",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "repair": {
+    "attempted": true,
+    "maximum": 1,
+    "prompt_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/repair-prompt.txt",
+    "prompt_sha256": "188a50ddba88dc1cb1943a75e01d5df7888f40cabcfb7924e2dd6463a43a763a",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": "62ae31a8-93bb-45e3-af1b-3a3231ac1d4c",
+    "output_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/repair-output.txt",
+    "output_sha256": "514ccaf070ab724f876132e0697fae496ebcbd4df5deabc703738747d9b169c4",
+    "assistant_message_id": "ed2411c1-ab8c-4ce7-b462-612caf83dc6e"
+  },
+  "final_verification": {
+    "state_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/final-state.json",
+    "state_sha256": "ef4bd725c601e4085465228f962118577871b3ea1807ccd2b840b432881c7602",
+    "receipt_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/final-receipt.json",
+    "receipt_sha256": "9158989b51cbc34641498b819be17965e6d10476e3b59866154e9563e3394931",
+    "meta_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/final-verifier-meta.json",
+    "meta_sha256": "a164f7ed86c4f6d3f2ceb3a264696259235923c9af3ae3eddac63413d6235d6f",
+    "schema_valid": true,
+    "definitive_synthesis": true,
+    "synthesis_boundary": "definitive_allowed"
+  },
+  "synthesis": {
+    "prompt_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/synthesis-prompt.txt",
+    "prompt_sha256": "d020260e45044986c2e3b2124541825d94d635c8502ca70021ff492662551ac2",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": "b54d4965-15ef-46d7-bdcf-46fd95985b21",
+    "output_path": "raw/arm-b/replicate-1/DEV-SQBKLZ/final-synthesis.txt",
+    "output_sha256": "c40782aeb321f6998b592a68d266ac5a4a9fe579317fd7ba8c7835a68d60e092",
+    "assistant_message_id": "a9d17c7a-9741-45bc-ab0b-a33de439fc47",
+    "complete": true
+  },
+  "conversation": {
+    "identity_sha256": "53e8504a2a8e166944d5feb3bac959feb6b9b50d200c89326f3b9f87e59c3b22",
+    "exact_locator_committed": false,
+    "fresh": true,
+    "left_before_next_trial": true
+  },
+  "tools": {
+    "message_role_count": 0,
+    "talked_to_app_count": 0,
+    "sources_button_count": 0,
+    "invocation_detected": false
+  },
+  "integrity": {
+    "other_fixture_exposed": false,
+    "other_arm_exposed": false,
+    "scorer_key_exposed": false,
+    "external_evidence_exposed": false,
+    "replacement": false,
+    "answer_quality_retry": false
+  },
+  "tab_closed": false,
+  "conversation_closed": true
+}

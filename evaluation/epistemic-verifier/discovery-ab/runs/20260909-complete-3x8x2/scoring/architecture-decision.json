@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "selected_strategy": "BUILD_INDEPENDENT_SEMANTIC_REPRESENTATION_VERIFIER",
+  "priority_branch": 3,
+  "automatic_slice_authority": "One development-only independent source-plus-state checker; no producer prose, no runtime scorer key, no new gates, no production integration.",
+  "rule_trace": {
+    "verifier_escapes": 0,
+    "deterministic_false_blocks": 0,
+    "synthesis_boundary_escapes": 0,
+    "translation_bottleneck_events": 17,
+    "non_translation_failure_events": 5,
+    "translation_dominant": true,
+    "material_improvement": false
+  },
+  "reason": "Translation failures dominate and higher-priority verifier/synthesis failure branches do not apply. The later challenge-verifier-premise branch is not reached under the frozen priority order."
+}

@@ -1,0 +1,64 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "6dcee93d2f5d2e00985512fd08f98ef42d5d8d140f6dfd02c079d94bcd3787b0",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "insufficient",
+      "blockers": [
+        "No tolerated or negative control comparison is represented; discrimination cannot be established."
+      ],
+      "checked_ids": [
+        "sol_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "sol_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "sol_discrimination_not_determinable"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "aspen_target_response",
+        "kivu_target_response",
+        "no_nonresponsive_control_available",
+        "sol_discrimination_not_determinable"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "insufficient",
+      "blockers": [
+        "No tolerated or negative control comparison is represented; discrimination cannot be established."
+      ],
+      "checked_ids": [
+        "sol_discriminator_hypothesis",
+        "sol_discriminator_hypothesis",
+        "sol_discrimination_not_determinable",
+        "aspen_target_response",
+        "kivu_target_response",
+        "no_nonresponsive_control_available",
+        "sol_discrimination_not_determinable"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "No tolerated or negative control comparison is represented; discrimination cannot be established."
+  ]
+}

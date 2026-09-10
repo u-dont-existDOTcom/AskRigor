@@ -1,0 +1,10 @@
+
+
+Bottom line: Nimbus survives the represented specificity contrast: it is present in both responsive cases, Oriel and Rowan, and absent from the tolerated case, Silt. This supports Nimbus as a discriminator within this comparison, not as a proven cause.
+
+
+Minimum reasoning: The proposed feature tracks the observed outcome across all represented cases: Nimbus is present in both positives and absent from the tolerated control. The control therefore does not undermine the specificity hypothesis.
+
+
+Sufficiency: Yes, the packet is sufficient for a definitive conclusion about this represented specificity contrast. It is not sufficient to establish causality or broader discrimination beyond these cases.
+

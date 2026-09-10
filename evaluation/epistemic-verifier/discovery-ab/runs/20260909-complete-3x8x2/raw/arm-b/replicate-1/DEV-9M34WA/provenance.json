@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "trial_id": "r1-DEV-9M34WA-b",
+  "sequence": 14,
+  "replicate": 1,
+  "blind_id": "DEV-9M34WA",
+  "arm": "B",
+  "consumer": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "displayed_control": "5.6Pro",
+    "model_selection_verified": true
+  },
+  "timestamps": {
+    "started_at": "2026-09-10T00:15:45.585Z",
+    "initial_state_completed_at": "2026-09-10T00:18:15.032Z",
+    "repair_started_at": "2026-09-10T00:23:54.945Z",
+    "repair_completed_at": "2026-09-10T00:26:57.614Z",
+    "synthesis_started_at": "2026-09-10T00:27:38.741Z",
+    "synthesis_completed_at": "2026-09-10T00:28:38.671Z",
+    "conversation_left_at": "2026-09-10T00:28:43.087Z",
+    "rate_limit_observed_at": "2026-09-10T00:19:00Z",
+    "browser_restart_recovery_at": "2026-09-10T00:22:50Z"
+  },
+  "initial_prompt": {
+    "path": "dispatch-bundle/initial-prompts/arm-b-state/DEV-9M34WA.txt",
+    "utf8_bytes": 2438,
+    "sha256": "ae1107670781a9d0e9bf6b06ff50dd0bd876960e3970f39ed01ad001523d0f7a",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": null
+  },
+  "initial_output": {
+    "path": "raw/arm-b/replicate-1/DEV-9M34WA/initial-output.txt",
+    "utf8_bytes": 2681,
+    "sha256": "1ef17d7747e0b7ec62e1ab9287b520c02ce324c20d842794847758c04c8f6417",
+    "assistant_message_id": "92875000-55b8-43f0-b180-50ea44162668",
+    "complete": true
+  },
+  "initial_verification": {
+    "receipt_path": "raw/arm-b/replicate-1/DEV-9M34WA/initial-receipt.json",
+    "receipt_sha256": "b289692563a4a27ed4d844bd16c9efbe8c491f28d26d79e35732a819aec9b5a6",
+    "meta_path": "raw/arm-b/replicate-1/DEV-9M34WA/initial-verifier-meta.json",
+    "meta_sha256": "d14a6d9e2b5ce599197c3e7a69d0ddbc48e3ae2b768ca1c60145bacc4d1aeb0a",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "repair": {
+    "attempted": true,
+    "maximum": 1,
+    "prompt_path": "raw/arm-b/replicate-1/DEV-9M34WA/repair-prompt.txt",
+    "prompt_sha256": "9603ae4dc1973e775b85a037dfead5e49f0941cfc41adf4e5c29c8e2af44a2a5",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": "3194384e-e185-42f5-a411-b5bd526dafd4",
+    "output_path": "raw/arm-b/replicate-1/DEV-9M34WA/repair-output.txt",
+    "output_sha256": "6f45e53d57b047538421eb44eff6264b4fda632429046b85f51ee5db477ca560",
+    "assistant_message_id": "4f72f300-8baf-469a-9ed9-74177534dd7b"
+  },
+  "final_verification": {
+    "state_path": "raw/arm-b/replicate-1/DEV-9M34WA/final-state.json",
+    "state_sha256": "a4ca70e316c708e823ee54867dab1c019626db907b206ccf5643692bf45c1c49",
+    "receipt_path": "raw/arm-b/replicate-1/DEV-9M34WA/final-receipt.json",
+    "receipt_sha256": "47606a9249c0ce8bb26811614e1228a865ee8090d18fc23e956102888e2dff77",
+    "meta_path": "raw/arm-b/replicate-1/DEV-9M34WA/final-verifier-meta.json",
+    "meta_sha256": "26449c103ef1662d53dbe6ad008b6d0af2954eaada2f0625c1389c8473c72cfd",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "synthesis": {
+    "prompt_path": "raw/arm-b/replicate-1/DEV-9M34WA/synthesis-prompt.txt",
+    "prompt_sha256": "02c0bfc007dd5f4544c5174309b538f630ca57c143d1a919722c58625f5be166",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": "c7fe28a0-d67f-4625-8bdf-e16bbfb7232e",
+    "output_path": "raw/arm-b/replicate-1/DEV-9M34WA/final-synthesis.txt",
+    "output_sha256": "25da5de6313ec57700a9b7d671629ad3507facafc3fb307f8cc8c11f94606a5f",
+    "assistant_message_id": "ac43f715-0933-419a-b5e5-f459aa61f883",
+    "complete": true
+  },
+  "conversation": {
+    "identity_sha256": "b0d085d4ad8fdf294bb280d954c8f3bdb9a0420d495546f9be53cd30506235ec",
+    "exact_locator_committed": false,
+    "fresh": true,
+    "left_before_next_trial": true
+  },
+  "tools": {
+    "message_role_count": 0,
+    "talked_to_app_count": 0,
+    "sources_button_count": 0,
+    "invocation_detected": false
+  },
+  "integrity": {
+    "other_fixture_exposed": false,
+    "other_arm_exposed": false,
+    "scorer_key_exposed": false,
+    "external_evidence_exposed": false,
+    "replacement": false,
+    "answer_quality_retry": false,
+    "accepted_repair_attempts": 1
+  },
+  "tab_closed": false,
+  "conversation_closed": true
+}

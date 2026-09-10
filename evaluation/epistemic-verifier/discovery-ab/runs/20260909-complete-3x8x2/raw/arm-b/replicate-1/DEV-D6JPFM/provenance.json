@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "trial_id": "r1-DEV-D6JPFM-b",
+  "sequence": 10,
+  "replicate": 1,
+  "blind_id": "DEV-D6JPFM",
+  "arm": "B",
+  "consumer": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "displayed_control": "5.6Pro",
+    "model_selection_verified": true
+  },
+  "timestamps": {
+    "started_at": "2026-09-09T23:46:35.211Z",
+    "initial_state_completed_at": "2026-09-09T23:48:40.706Z",
+    "repair_started_at": "2026-09-09T23:49:33.405Z",
+    "repair_completed_at": "2026-09-09T23:52:14.956Z",
+    "synthesis_started_at": "2026-09-09T23:52:52.216Z",
+    "synthesis_completed_at": "2026-09-09T23:54:11.559Z",
+    "conversation_left_at": "2026-09-09T23:54:17.195Z"
+  },
+  "initial_prompt": {
+    "path": "dispatch-bundle/initial-prompts/arm-b-state/DEV-D6JPFM.txt",
+    "utf8_bytes": 2557,
+    "sha256": "56cdb5eb4ebe6dca8cd7569e5d2e81bad793bb63e66b39409adab7459cac096f",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": null
+  },
+  "initial_output": {
+    "path": "raw/arm-b/replicate-1/DEV-D6JPFM/initial-output.txt",
+    "utf8_bytes": 1828,
+    "sha256": "d2583173249515e31e8612c51ee4d2327b8acd5cafb5b75eb1962a517649b3f6",
+    "assistant_message_id": "3271de0c-f98b-4512-9199-58730c000371",
+    "complete": true
+  },
+  "initial_verification": {
+    "receipt_path": "raw/arm-b/replicate-1/DEV-D6JPFM/initial-receipt.json",
+    "receipt_sha256": "125f8bdb5086474083279257a65b55d0d3a0eb844a963e85788da6419394c9a6",
+    "meta_path": "raw/arm-b/replicate-1/DEV-D6JPFM/initial-verifier-meta.json",
+    "meta_sha256": "24e23d7c415c138083e0fc877ea866e6bf23d117bc18c8f63b1d821ec7aee0e8",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "repair": {
+    "attempted": true,
+    "maximum": 1,
+    "prompt_path": "raw/arm-b/replicate-1/DEV-D6JPFM/repair-prompt.txt",
+    "prompt_sha256": "9b963139ad249886db7e2f1086a5b8dd9142929cf0c04643e0f9ef552b532c49",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": "ed6f54a0-4492-4552-ac97-282ef74ccd34",
+    "output_path": "raw/arm-b/replicate-1/DEV-D6JPFM/repair-output.txt",
+    "output_sha256": "dd5c3666b1ef0c73a3dd01f9b83a4c4420ea004bb752e4fc71800a4adaef04fa",
+    "assistant_message_id": "9e736b68-3f19-4a45-af1b-66ebcaf49e8a"
+  },
+  "final_verification": {
+    "state_path": "raw/arm-b/replicate-1/DEV-D6JPFM/final-state.json",
+    "state_sha256": "109f229dc3bbe7ce969334f837930510e75b9bce726b774c05e9941b46726e15",
+    "receipt_path": "raw/arm-b/replicate-1/DEV-D6JPFM/final-receipt.json",
+    "receipt_sha256": "dec631d8db14c84113644a5c406dad07fa878c2696241c9c6fd6cce70828ad83",
+    "meta_path": "raw/arm-b/replicate-1/DEV-D6JPFM/final-verifier-meta.json",
+    "meta_sha256": "c9ea166c8b15b2d8141de4aac7b39827ded346d4ab07963cbd41d588446aa2db",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "synthesis": {
+    "prompt_path": "raw/arm-b/replicate-1/DEV-D6JPFM/synthesis-prompt.txt",
+    "prompt_sha256": "a355f5058c1a2b0e8b7272145c28e4786176c84ee04f9d16d73d4dd2dcfbde26",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id": "8cd38477-ca7c-430c-b060-9252442343cc",
+    "output_path": "raw/arm-b/replicate-1/DEV-D6JPFM/final-synthesis.txt",
+    "output_sha256": "2799e1aa095e591c5978c422d61b6c90f0c7125f92b9930c2874f7501098456b",
+    "assistant_message_id": "4e6b3c51-17ac-498a-9ad5-26d703ce494b",
+    "complete": true
+  },
+  "conversation": {
+    "identity_sha256": "2f6c6ef858d098b478840d5101609f590b78d7b4590116abbccd399e7e45862b",
+    "exact_locator_committed": false,
+    "fresh": true,
+    "left_before_next_trial": true
+  },
+  "tools": {
+    "message_role_count": 0,
+    "talked_to_app_count": 0,
+    "sources_button_count": 0,
+    "invocation_detected": false
+  },
+  "integrity": {
+    "other_fixture_exposed": false,
+    "other_arm_exposed": false,
+    "scorer_key_exposed": false,
+    "external_evidence_exposed": false,
+    "replacement": false,
+    "answer_quality_retry": false
+  },
+  "tab_closed": false,
+  "conversation_closed": true
+}

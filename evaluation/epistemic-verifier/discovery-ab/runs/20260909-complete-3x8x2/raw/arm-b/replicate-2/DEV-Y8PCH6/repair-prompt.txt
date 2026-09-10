@@ -1,0 +1,78 @@
+The deterministic verifier has evaluated your prior EpistemicStateV1. You may revise the represented state or hypothesis in response to the receipt below.
+
+Rules:
+- Do not change source facts.
+- Do not add a control, qualifier, modifier, mechanism, provenance source, or dependency that is absent from the source packet.
+- Repair must change the represented state/hypothesis/dependencies when warranted; merely rewriting explanatory prose is not a repair.
+- If the packet does not support a valid definitive hypothesis, preserve that limitation rather than forcing a pass.
+- Return exactly one complete revised EpistemicStateV1 JSON object. Do not synthesize a final answer yet.
+
+BLIND_PACKET_ID: DEV-Y8PCH6
+
+SOURCE_PACKET:
+Willow is a positive case and Drift is a tolerated control. Feature Ember is represented in Willow and absent from Drift. The source explicitly says Willow's target-effect observation begins within 2 seconds. Test the candidate hypothesis that Ember is the discriminator. A candidate semantic extraction preserves the target and Willow observation but drops onset_seconds entirely and does not mark it high-information.
+
+VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "ccc8e27267c2306977b7f7a807eaa17749ee680d3bc35087daf731edee8aba3d",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "ember_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "insufficient",
+      "blockers": [
+        "ember_discriminator_hypothesis: no prediction is represented for high-information qualifier willow_target_effect_observation.onset_seconds."
+      ],
+      "checked_ids": [
+        "ember_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "willow_target_effect_observation"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "ember_discriminator_hypothesis: no prediction is represented for high-information qualifier willow_target_effect_observation.onset_seconds.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "ember_discriminator_hypothesis",
+        "ember_discriminator_hypothesis",
+        "willow_target_effect_observation"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "ember_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "ember_discriminator_hypothesis: no prediction is represented for high-information qualifier willow_target_effect_observation.onset_seconds.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}

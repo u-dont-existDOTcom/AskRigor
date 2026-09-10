@@ -1,0 +1,5 @@
+Bottom line: The explicit hypothesis Sable dose > 5 units survives the represented specificity contrast: it is true in both responsive cases and false in the tolerated control.
+
+Minimum reasoning: Harbor and Lark show the target response at Sable doses of 10 and 12 units, respectively; Juniper is tolerated at 1 unit. Although Sable itself is present in all three, the separately represented dose modifier distinguishes the responsive cases from Juniper.
+
+Definitive conclusion: Yes, for the stated represented comparison: the packet definitively supports Sable dose > 5 as a discriminator here. It does not by itself establish that this threshold is causal, sufficient in other cases, or generally valid.

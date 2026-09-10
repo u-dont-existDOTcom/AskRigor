@@ -1,0 +1,19 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-SQBKLZ
+
+SOURCE_PACKET:
+Oriel and Rowan show the target response while Silt is tolerated. Feature Nimbus is represented in Oriel and Rowan and absent from Silt. Test only whether Nimbus survives this represented specificity contrast; do not infer that passing specificity proves causality.
+
+FINAL_EPISTEMIC_STATE:
+{{FINAL_EPISTEMIC_STATE}}
+
+FINAL_VERIFIER_RECEIPT:
+{{FINAL_VERIFIER_RECEIPT}}

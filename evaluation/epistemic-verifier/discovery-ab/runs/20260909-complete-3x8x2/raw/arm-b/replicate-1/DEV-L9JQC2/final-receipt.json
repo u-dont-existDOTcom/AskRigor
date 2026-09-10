@@ -1,0 +1,64 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "3316bd82e5b7525cb21a6a45acb9d907388acfb269ad4436aa28429da83bd813",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "tern_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "tern_discriminator_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect_observation.represented_exposure_units and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "tern_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "material_hypothesis_not_definitively_supported"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "plover_target_effect_observation",
+        "tern_case_contrast",
+        "minimum_exposure_requirement",
+        "material_hypothesis_not_definitively_supported"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "tern_discriminator_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect_observation.represented_exposure_units and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "tern_discriminator_hypothesis",
+        "tern_discriminator_hypothesis",
+        "material_hypothesis_not_definitively_supported",
+        "plover_target_effect_observation",
+        "tern_case_contrast",
+        "minimum_exposure_requirement",
+        "material_hypothesis_not_definitively_supported"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "tern_discriminator_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect_observation.represented_exposure_units and no separately represented supported exception mechanism is linked."
+  ]
+}

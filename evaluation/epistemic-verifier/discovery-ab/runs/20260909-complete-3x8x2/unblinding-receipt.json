@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "receipt_id": "askrigor-epistemic-verifier-v01-unblinding-after-48-freeze",
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "phase": "DEVELOPMENT_DISCOVERY_SCORER_UNBLINDING",
+  "freeze_commit_sha": "32735f87b80e5fadbf222be7051b74a01b6244e6",
+  "verified_remote_branch_head_sha": "32735f87b80e5fadbf222be7051b74a01b6244e6",
+  "freeze_manifest_path": "blind-output-freeze-manifest.json",
+  "freeze_manifest_sha256": "60b2442107df5485fe77bcfaf28f1a6745ce72c037dbf97582f2c3ae51ce720e",
+  "frozen_consumer_sessions_before_access": 48,
+  "first_scorer_key_content_access_at": "2026-09-10T06:22:56.255634Z",
+  "scorer_key": {
+    "path": "evaluation/epistemic-verifier/discovery-ab/v01-blinded-development-key.json",
+    "git_blob_sha1": "f52f9c3420d0ed1683e8cebf8f24f270ec682f23",
+    "sha256": "64f0c48df7dd115a0f1600fb23b651eb0a2ecbe67f471cf8436a889777f0edba",
+    "content_access_count": 1
+  },
+  "ordering_assertion": "The freeze commit and manifest were pushed to the verified remote branch before this first scorer-key content access.",
+  "scoring_started": false
+}

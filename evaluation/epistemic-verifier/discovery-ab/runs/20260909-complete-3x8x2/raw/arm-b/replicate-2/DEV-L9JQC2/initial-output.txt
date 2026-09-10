@@ -1,0 +1,117 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_effect",
+"label": "target effect",
+"description": "The target effect produced by Plover."
+},
+"cases": [
+{
+"case_id": "plover",
+"label": "Plover",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+},
+{
+"case_id": "kestrel",
+"label": "Kestrel",
+"comparison_role": "tolerated_control",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+}
+],
+"observations": [
+{
+"observation_id": "plover_target_effect_observation",
+"target_id": "target_effect",
+"case_id": "plover",
+"statement": "Plover produces the target effect at a represented exposure of 0.1 units.",
+"material": true,
+"qualifiers": {
+"exposure_units": 0.1
+},
+"high_information_qualifier_keys": [
+"exposure_units"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+}
+],
+"features": [
+{
+"case_id": "plover",
+"feature_id": "tern",
+"value": "present",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+},
+{
+"case_id": "kestrel",
+"feature_id": "tern",
+"value": "absent",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "plover_kestrel_specificity_comparison",
+"target_id": "target_effect",
+"positive_case_ids": [
+"plover"
+],
+"control_case_ids": [
+"kestrel"
+]
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "tern_discriminator_hypothesis",
+"target_id": "target_effect",
+"statement": "Tern is the proposed discriminator for the target effect, with the material hypothesis requiring at least 10 exposure units for the effect.",
+"material": true,
+"discriminator": {
+"feature_id": "tern",
+"operator": "present",
+"modifier": {
+"kind": "dose",
+"claim_id": "minimum_exposure_requirement"
+}
+},
+"qualifier_predictions": [
+{
+"observation_id": "plover_target_effect_observation",
+"qualifier_key": "exposure_units",
+"operator": "gte",
+"value": 10
+}
+]
+}
+],
+"claims": [
+{
+"claim_id": "minimum_exposure_requirement",
+"target_id": "target_effect",
+"kind": "modifier",
+"statement": "The material hypothesis requires at least 10 exposure units for the target effect.",
+"material": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+},
+"dependencies": []
+}
+]
+}

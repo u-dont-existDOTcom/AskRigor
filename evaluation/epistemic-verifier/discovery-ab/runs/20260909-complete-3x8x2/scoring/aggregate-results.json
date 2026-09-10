@@ -1,0 +1,452 @@
+{
+  "schema_version": 1,
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "phase": "DEVELOPMENT_DISCOVERY_POST_UNBLINDING",
+  "metrics": {
+    "arm_a_hard_escapes": {
+      "numerator": 0,
+      "denominator": 15
+    },
+    "arm_b_hard_escapes": {
+      "numerator": 0,
+      "denominator": 15
+    },
+    "arm_b_semantic_initial_or_both": {
+      "numerator": 17,
+      "denominator": 24
+    },
+    "arm_b_semantic_final_or_both": {
+      "numerator": 2,
+      "denominator": 24
+    },
+    "arm_a_false_blocks": {
+      "numerator": 0,
+      "denominator": 6
+    },
+    "arm_b_false_blocks": {
+      "numerator": 0,
+      "denominator": 6
+    },
+    "arm_b_synthesis_boundary_failures": {
+      "numerator": 0,
+      "denominator": 24
+    },
+    "repairs": {
+      "attempted": 24,
+      "eligible": 22,
+      "successful": 19
+    },
+    "conclusion_changes": {
+      "eligible": 3,
+      "correct": 3
+    },
+    "deterministic_verifier_escapes_conditional_on_faithful_intended_attributable_hard_states": {
+      "numerator": 0,
+      "denominator": 12
+    },
+    "deterministic_false_blocks_conditional_on_faithful_final_controls": {
+      "numerator": 0,
+      "denominator": 6
+    },
+    "absolute_hard_escape_difference_b_minus_a": 0,
+    "relative_hard_escape_difference": "NOT_MEANINGFUL_ARM_A_RATE_ZERO",
+    "material_end_to_end_improvement": false,
+    "translation_bottleneck_events": {
+      "numerator": 17,
+      "denominator": 24
+    },
+    "non_translation_failure_events": 5,
+    "translation_dominant": true,
+    "semantic_field_loss_counts": {
+      "initial_or_both": {
+        "other": 15,
+        "amount_or_dose": 2,
+        "timing": 1
+      },
+      "final_or_both": {
+        "other": 1,
+        "dependency_or_provenance": 1
+      }
+    }
+  },
+  "fixture_stability": {
+    "dose-modified-q": {
+      "blind_id": "DEV-JRSYJV",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO",
+          "semantic_error": "NO",
+          "semantic_error_stage": "NA",
+          "repair_success": "YES"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    },
+    "immediate-vs-delayed": {
+      "blind_id": "DEV-D6JPFM",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    },
+    "missing-high-information-qualifier": {
+      "blind_id": "DEV-Y8PCH6",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NOT_APPLICABLE"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "BOTH",
+          "repair_success": "NO"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    },
+    "no-control": {
+      "blind_id": "DEV-9M34WA",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "NO",
+          "semantic_error_stage": "NA",
+          "repair_success": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "NO",
+          "semantic_error_stage": "NA",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "NO",
+          "semantic_error_stage": "NA",
+          "repair_success": "NO"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    },
+    "shared-q-control": {
+      "blind_id": "DEV-QWCNK4",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "NO",
+          "semantic_error_stage": "NA",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "NO",
+          "semantic_error_stage": "NA",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "NO",
+          "semantic_error_stage": "NA",
+          "repair_success": "NOT_APPLICABLE"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    },
+    "target-substitution": {
+      "blind_id": "DEV-S47VJN",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "BOTH",
+          "repair_success": "NO"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    },
+    "tiny-vs-threshold": {
+      "blind_id": "DEV-L9JQC2",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NO",
+          "false_block": "NOT_APPLICABLE",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    },
+    "true-discriminator": {
+      "blind_id": "DEV-SQBKLZ",
+      "arm_a": [
+        {
+          "replicate": 1,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO"
+        }
+      ],
+      "arm_b": [
+        {
+          "replicate": 1,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 2,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        },
+        {
+          "replicate": 3,
+          "hard_escape": "NOT_APPLICABLE",
+          "false_block": "NO",
+          "semantic_error": "YES",
+          "semantic_error_stage": "INITIAL",
+          "repair_success": "YES"
+        }
+      ],
+      "primary_outcome_stable_across_three_replicates": true
+    }
+  },
+  "interpretation": "Arm B did not materially reduce end-to-end hard-invariant escapes because both arms were 0/15. Arm B failures were dominated by source-to-state semantic translation, usually repaired before final synthesis.",
+  "selected_strategy": "BUILD_INDEPENDENT_SEMANTIC_REPRESENTATION_VERIFIER"
+}

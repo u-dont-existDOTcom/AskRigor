@@ -1,0 +1,10 @@
+
+
+Bottom-line conclusion: The packet does not support the hypothesis that Vela itself explains the selective response. Vela fails the represented specificity contrast.
+
+
+Minimum reasoning: Cedar and Flint show the response, while tolerated Mica does not. Yet Vela is present in all three cases. Vela therefore does not distinguish the responsive cases from the tolerated control.
+
+
+Definitive conclusion supported? No. The verifier’s synthesis lock is blocked. The strongest supported conclusion is bounded: the represented evidence does not support Vela alone as the discriminator or explanation for the selective response.
+

@@ -1,0 +1,5 @@
+Bottom-line conclusion: Within this packet, Compound Sable dose greater than 5 units is a valid discriminator for the target response. Harbor and Lark exceed the threshold and show the response; tolerated Juniper does not exceed it. Sable’s mere presence does not discriminate because all three contain it.
+
+Minimum reasoning: Harbor has 10 units and Lark has 12 units, while Juniper has 1 unit. The proposed threshold therefore separates every represented positive case from the tolerated control, and all deterministic verification gates—including SYNTHESIS_LOCK—passed.
+
+Definitive conclusion supported: Yes, within the represented comparison. The packet definitively supports the descriptive conclusion that Sable dose > 5 distinguishes these three cases. It does not, by itself, establish that this threshold is universally causal or generalizes beyond Harbor, Lark, and Juniper.

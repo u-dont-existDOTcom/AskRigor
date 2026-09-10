@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "raw_sha256": "b6a21a04fd58d16aef895da1475a9bce42fa64a9030ef71ed847c189cdf84e30",
+  "raw_utf8_bytes": 2692,
+  "parse_mode": "plain_json",
+  "schema_valid": true,
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only"
+}

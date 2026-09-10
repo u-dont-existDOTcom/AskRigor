@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "trial_id": "r3-DEV-L9JQC2-b",
+  "sequence": 35,
+  "execution_ordinal": 35,
+  "replicate": 3,
+  "blind_id": "DEV-L9JQC2",
+  "arm": "B",
+  "consumer": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "displayed_control": "5.6Pro",
+    "model_selection_verified": true
+  },
+  "timestamps": {
+    "started_at": "2026-09-10T04:23:01.860Z",
+    "initial_state_completed_at": "2026-09-10T04:24:54.273Z",
+    "repair_started_at": "2026-09-10T04:25:57.564Z",
+    "repair_completed_at": "2026-09-10T04:28:43.310Z",
+    "synthesis_started_at": "2026-09-10T04:29:48.200Z",
+    "synthesis_completed_at": "2026-09-10T04:31:23.103Z",
+    "conversation_left_at": "2026-09-10T04:31:26.641Z"
+  },
+  "initial_prompt": {
+    "path": "dispatch-bundle/initial-prompts/arm-b-state/DEV-L9JQC2.txt",
+    "utf8_bytes": 2563,
+    "sha256": "a4e0c2a5912934220b7fc6437f5ab07887e67f97dcbec39d5152bb579cbb10e8",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id_at_acceptance": "4311af08-cc96-4b31-a841-4d00b6c36c39"
+  },
+  "initial_output": {
+    "path": "raw/arm-b/replicate-3/DEV-L9JQC2/initial-output.txt",
+    "utf8_bytes": 2228,
+    "sha256": "b7ae3d595ced1268b9a2defbd718491f4f958b185307bc56782649d6fca8a9e9",
+    "assistant_message_id": "a585cee1-825e-497e-97d3-9efa920ba6f8",
+    "complete": true
+  },
+  "initial_verification": {
+    "state_path": "raw/arm-b/replicate-3/DEV-L9JQC2/initial-state.json",
+    "state_sha256": "c98f85888f465abd8cf7aad01ac4b6d2affa89be45ef4a8ebfb5fa4d739a913a",
+    "receipt_path": "raw/arm-b/replicate-3/DEV-L9JQC2/initial-receipt.json",
+    "receipt_sha256": "8ccebdd08b434084803108f1035ee8f659edb1177c96e9b0753e58a62d55e22a",
+    "meta_path": "raw/arm-b/replicate-3/DEV-L9JQC2/initial-verifier-meta.json",
+    "meta_sha256": "f586baf3a34fbe1954e9cddcf63d6456c0722caa74cd5230e03b51e465f0b45e",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "repair": {
+    "attempted": true,
+    "maximum": 1,
+    "prompt_path": "raw/arm-b/replicate-3/DEV-L9JQC2/repair-prompt.txt",
+    "prompt_sha256": "14dc73a86c6d5cecfb666831f8cedfd8d81f7ec1718de9dfeff8030f7fb2cdee",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id_at_rehydration": "0d86a0db-c35a-4301-baf8-bc028a16fabf",
+    "output_path": "raw/arm-b/replicate-3/DEV-L9JQC2/repair-output.txt",
+    "output_sha256": "cf0601cdfaceb7ccb6b28c238fd857d4dfded2bfa2dfd0854a62647ae809c7c8",
+    "assistant_message_id": "b19fa2ba-d3dd-4e79-803a-19b335401443"
+  },
+  "final_verification": {
+    "state_path": "raw/arm-b/replicate-3/DEV-L9JQC2/final-state.json",
+    "state_sha256": "66d4c7cec753da8c17745b28e1d6fd0285a58c9357865707faebd4dceefdfe89",
+    "receipt_path": "raw/arm-b/replicate-3/DEV-L9JQC2/final-receipt.json",
+    "receipt_sha256": "6b53c5fb1767ce80339daf6d5bbaf15f930c8a02e80ff7e2786a61447208b747",
+    "meta_path": "raw/arm-b/replicate-3/DEV-L9JQC2/final-verifier-meta.json",
+    "meta_sha256": "d9236a811eeed3994228daa2421db18baeecbe0718585f7ac63a711db6ff0a75",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "synthesis": {
+    "prompt_path": "raw/arm-b/replicate-3/DEV-L9JQC2/synthesis-prompt.txt",
+    "prompt_sha256": "05f671bd85d95a080da85d43a74beab397b51ff3c409eab47cfb25233b75dde3",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id_at_rehydration": "7503d99d-444b-4829-b992-67dc643bc452",
+    "output_path": "raw/arm-b/replicate-3/DEV-L9JQC2/final-synthesis.txt",
+    "output_sha256": "5d4cafcdd5f5cc3728d0a0ba990cdbc93c9d9bb2bd48e1b63ee3dd5d408ad5c8",
+    "assistant_message_id": "78347a6c-5285-4bff-96b7-530041fe2b31",
+    "complete": true
+  },
+  "conversation": {
+    "identity_sha256": "92d7735bb2fbc72cdc859f2b7016d211a332e1d026d794991ce9e8d764b42f7f",
+    "exact_locator_committed": false,
+    "fresh": true,
+    "left_before_next_trial": true
+  },
+  "tools": {
+    "message_role_count": 0,
+    "talked_to_app_count": 0,
+    "sources_button_count": 0,
+    "invocation_detected": false
+  },
+  "provider_conditions": {
+    "request_rate_dialogs_dismissed": 3,
+    "identical_submission_retries": 0,
+    "response_regenerated": false
+  },
+  "integrity": {
+    "other_fixture_exposed": false,
+    "other_arm_exposed": false,
+    "scorer_key_exposed": false,
+    "external_evidence_exposed": false,
+    "replacement": false,
+    "answer_quality_retry": false,
+    "renderer_asserted_no_unresolved_placeholders": true
+  }
+}

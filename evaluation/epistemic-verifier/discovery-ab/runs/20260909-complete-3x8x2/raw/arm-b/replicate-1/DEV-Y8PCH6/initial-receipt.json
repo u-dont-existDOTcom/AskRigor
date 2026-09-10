@@ -1,0 +1,51 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "196f742913a1a60d48d96f62a32770b0c130e590037042793fb2a1fdb2d65ffe",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "STATE_SCHEMA_INVALID: observations.0.qualifiers.onset_seconds: Invalid input"
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "STATE_SCHEMA_INVALID: observations.0.qualifiers.onset_seconds: Invalid input"
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "STATE_SCHEMA_INVALID: observations.0.qualifiers.onset_seconds: Invalid input"
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "block",
+      "blockers": [
+        "STATE_SCHEMA_INVALID: observations.0.qualifiers.onset_seconds: Invalid input"
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "STATE_SCHEMA_INVALID: observations.0.qualifiers.onset_seconds: Invalid input"
+      ],
+      "checked_ids": []
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "STATE_SCHEMA_INVALID: observations.0.qualifiers.onset_seconds: Invalid input"
+  ]
+}

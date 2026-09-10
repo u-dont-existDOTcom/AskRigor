@@ -1,0 +1,78 @@
+The deterministic verifier has evaluated your prior EpistemicStateV1. You may revise the represented state or hypothesis in response to the receipt below.
+
+Rules:
+- Do not change source facts.
+- Do not add a control, qualifier, modifier, mechanism, provenance source, or dependency that is absent from the source packet.
+- Repair must change the represented state/hypothesis/dependencies when warranted; merely rewriting explanatory prose is not a repair.
+- If the packet does not support a valid definitive hypothesis, preserve that limitation rather than forcing a pass.
+- Return exactly one complete revised EpistemicStateV1 JSON object. Do not synthesize a final answer yet.
+
+BLIND_PACKET_ID: DEV-D6JPFM
+
+SOURCE_PACKET:
+Alder is a positive case and produces the target effect within 2 seconds; Basin is a tolerated control. Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator. The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure.
+
+VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "8bc21e3e1c46348b2e6e75caaeaeab77791afd69dbabd2a648295b590990f55c",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "alder_target_effect_observation"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "iris_delayed_onset_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "iris_delayed_onset_hypothesis",
+        "iris_delayed_onset_hypothesis",
+        "alder_target_effect_observation"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "iris_delayed_onset_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "iris_delayed_onset_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect_observation.onset_seconds and no separately represented supported exception mechanism is linked.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}

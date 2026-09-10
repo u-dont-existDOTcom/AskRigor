@@ -1,0 +1,10 @@
+
+
+Bottom-line conclusion: The explicit dose-modified hypothesis Sable dose > 5 units survives the represented specificity contrast: both responsive cases exceed the threshold, while the tolerated case does not.
+
+
+Minimum reasoning: Sable itself is present in Harbor, Lark, and Juniper, so mere presence does not discriminate them. The separately represented dose modifier does: Harbor has 10 units and Lark 12 units, both above 5; Juniper has 1 unit, below 5.
+
+
+Definitive conclusion: Yes, for this represented comparison. The packet definitively supports the threshold as a discriminator among these three cases, but it does not by itself establish that the threshold is causal or universally predictive.
+

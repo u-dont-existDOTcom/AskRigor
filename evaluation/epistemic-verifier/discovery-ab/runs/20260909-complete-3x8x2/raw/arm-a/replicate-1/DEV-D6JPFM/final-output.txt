@@ -1,0 +1,5 @@
+Bottom line: The material hypothesis is ruled out as stated. Although Iris distinguishes Alder from the tolerated Basin control, the required onset timing is incompatible with Alder’s observed response.
+
+Minimum reasoning: The hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure. Alder’s effect begins within 2 seconds, which is the opposite temporal pattern. Iris’s presence in Alder and absence from Basin therefore cannot rescue the full hypothesis.
+
+Sufficiency: Yes. The packet is sufficient to definitively reject the material hypothesis as stated. It is not sufficient to establish that Iris alone causes the effect.

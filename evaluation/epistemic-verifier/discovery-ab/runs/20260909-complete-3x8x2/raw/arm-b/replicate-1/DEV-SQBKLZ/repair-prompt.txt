@@ -1,0 +1,83 @@
+The deterministic verifier has evaluated your prior EpistemicStateV1. You may revise the represented state or hypothesis in response to the receipt below.
+
+Rules:
+- Do not change source facts.
+- Do not add a control, qualifier, modifier, mechanism, provenance source, or dependency that is absent from the source packet.
+- Repair must change the represented state/hypothesis/dependencies when warranted; merely rewriting explanatory prose is not a repair.
+- If the packet does not support a valid definitive hypothesis, preserve that limitation rather than forcing a pass.
+- Return exactly one complete revised EpistemicStateV1 JSON object. Do not synthesize a final answer yet.
+
+BLIND_PACKET_ID: DEV-SQBKLZ
+
+SOURCE_PACKET:
+Oriel and Rowan show the target response while Silt is tolerated. Feature Nimbus is represented in Oriel and Rowan and absent from Silt. Test only whether Nimbus survives this represented specificity contrast; do not infer that passing specificity proves causality.
+
+VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "2702431a0c483150af98329c4f18af64d7708258b3b89c24fc2cb2ff02c5cbf5",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "hypothesis_nimbus_specificity: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hypothesis_nimbus_specificity"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_nimbus_specificity"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_nimbus_survives_specificity"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_distribution",
+        "claim_specificity_scope",
+        "claim_nimbus_survives_specificity"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "hypothesis_nimbus_specificity: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hypothesis_nimbus_specificity",
+        "hypothesis_nimbus_specificity",
+        "claim_nimbus_survives_specificity",
+        "obs_oriel_target_response",
+        "obs_rowan_target_response",
+        "obs_silt_tolerated",
+        "claim_nimbus_distribution",
+        "claim_specificity_scope",
+        "claim_nimbus_survives_specificity"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "hypothesis_nimbus_specificity: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+  ]
+}

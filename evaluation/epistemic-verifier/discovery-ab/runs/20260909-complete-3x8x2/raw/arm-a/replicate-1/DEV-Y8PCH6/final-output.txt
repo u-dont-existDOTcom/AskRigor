@@ -1,0 +1,13 @@
+Bottom line: Ember is supported as the observed discriminator between Willow and Drift: it is present in the positive case and absent from the tolerated control. However, the candidate semantic extraction is inadequate because it omits the explicitly stated ≤2-second onset, a high-information qualifier that must be preserved when evaluating whether Ember plausibly explains the target effect.
+
+Minimum reasoning:
+
+Willow shows the target effect; Drift is tolerated.
+
+Ember is present in Willow and absent from Drift, so it distinguishes the two cases rather than merely being shared by both.
+
+The effect begins within 2 seconds. Any mechanistic interpretation of Ember must be compatible with that timing.
+
+An extraction that drops onset_seconds cannot faithfully support the hypothesis test, even though it preserves the target and the existence of Willow’s observation.
+
+Sufficiency: The packet is sufficient to conclude that Ember is a candidate observational discriminator and that the extraction is materially incomplete. It is not sufficient for a definitive causal conclusion that Ember produces the target effect; there is only one positive case and one tolerated control, with no intervention, replication, or exclusion of correlated differences.

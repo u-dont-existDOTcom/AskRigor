@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "incident_id": "scoring-response-serialization-correction-001",
+  "phase": "DEVELOPMENT_DISCOVERY_POST_UNBLINDING_SCORING",
+  "original_response_path": "scoring/project-manager-score-response.txt.gz",
+  "defect": "The supervisor completed all scoring judgments but its requested JSON block was syntactically invalid: explicit eligibility boolean values were omitted and JSON excerpts inside evidence quotes were not escaped.",
+  "preservation": "The original response was saved unchanged before correction.",
+  "correction": "The same supervisor serialized the same judgments as a compact 48-row whitespace-delimited ledger; no trial was rescored.",
+  "correction_response_path": "scoring/project-manager-score-ledger-response.txt",
+  "correction_response_sha256": "b2946ba6c0d655e43665add918122b781aad5b193fb1bac032f03fab64f8b42e",
+  "validation": {
+    "trial_rows": 48,
+    "unique_trial_ids": 48,
+    "exact_trial_set_matches_frozen_provenance": true,
+    "aggregate_counts_recomputed_from_rows": true
+  },
+  "storage_encoding": "gzip",
+  "original_response_uncompressed_sha256": "9f5eb43146a889ce2c71c0ddd2dbd365b72b4e9f504b006176de27731c0a3b1d",
+  "original_response_compressed_sha256": "b5053b9028e79f930704800b858530cb3ca533dfe1f9f2d8724cb3e0b376f00f",
+  "original_response_uncompressed_bytes": 72488,
+  "original_response_compressed_bytes": 8512
+}

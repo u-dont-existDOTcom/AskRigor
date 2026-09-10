@@ -1,0 +1,60 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "42c4a9143018c21bdc9bf1198c68949da565385f28a55335814e713c5a3eecb0",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_sable_dose_representation_matches_contrast"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_gt_5_modifier",
+        "claim_sable_dose_representation_matches_contrast"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5",
+        "hypothesis_sable_dose_gt_5",
+        "claim_sable_dose_representation_matches_contrast",
+        "obs_harbor_target_response",
+        "obs_lark_target_response",
+        "obs_juniper_tolerated",
+        "claim_sable_dose_gt_5_modifier",
+        "claim_sable_dose_representation_matches_contrast"
+      ]
+    }
+  ],
+  "definitive_synthesis": true,
+  "synthesis_boundary": "definitive_allowed",
+  "blockers": []
+}

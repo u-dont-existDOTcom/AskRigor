@@ -1,0 +1,19 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-D6JPFM
+
+SOURCE_PACKET:
+Alder is a positive case and produces the target effect within 2 seconds; Basin is a tolerated control. Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator. The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure.
+
+FINAL_EPISTEMIC_STATE:
+{{FINAL_EPISTEMIC_STATE}}
+
+FINAL_VERIFIER_RECEIPT:
+{{FINAL_VERIFIER_RECEIPT}}

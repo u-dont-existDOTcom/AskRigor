@@ -1,0 +1,135 @@
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_effect",
+    "label": "target effect",
+    "description": "The target effect produced by Alder."
+  },
+  "cases": [
+    {
+      "case_id": "alder",
+      "label": "Alder",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    },
+    {
+      "case_id": "basin",
+      "label": "Basin",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "alder_target_effect_onset",
+      "target_id": "target_effect",
+      "case_id": "alder",
+      "statement": "Alder produces the target effect within 2 seconds.",
+      "material": true,
+      "qualifiers": {
+        "onset_seconds": 2
+      },
+      "high_information_qualifier_keys": [
+        "onset_seconds"
+      ],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "alder",
+      "feature_id": "iris",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    },
+    {
+      "case_id": "basin",
+      "feature_id": "iris",
+      "value": "absent",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "alder_basin_target_effect_contrast",
+      "target_id": "target_effect",
+      "positive_case_ids": [
+        "alder"
+      ],
+      "control_case_ids": [
+        "basin"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "iris_discriminator_delayed_onset_hypothesis",
+      "target_id": "target_effect",
+      "statement": "Feature Iris is the proposed discriminator, and the material hypothesis requires the target effect to begin no sooner than 3,600 seconds after exposure.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "iris",
+        "operator": "equals",
+        "value": "present"
+      },
+      "qualifier_predictions": [
+        {
+          "observation_id": "alder_target_effect_onset",
+          "qualifier_key": "onset_seconds",
+          "operator": "gte",
+          "value": 3600
+        }
+      ]
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "minimum_onset_requirement",
+      "target_id": "target_effect",
+      "kind": "intermediate",
+      "statement": "The material hypothesis requires onset of the target effect at or after 3,600 seconds following exposure.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-D6JPFM"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "material_hypothesis_timing_conflict",
+      "target_id": "target_effect",
+      "kind": "conclusion",
+      "statement": "Alder's target-effect onset within 2 seconds conflicts with the material hypothesis's requirement that onset occur no sooner than 3,600 seconds after exposure.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-D6JPFM"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "alder_target_effect_onset"
+        },
+        {
+          "kind": "claim",
+          "id": "minimum_onset_requirement"
+        }
+      ]
+    }
+  ]
+}

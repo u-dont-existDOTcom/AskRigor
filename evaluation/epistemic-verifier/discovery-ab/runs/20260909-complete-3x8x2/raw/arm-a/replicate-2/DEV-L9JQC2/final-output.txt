@@ -1,0 +1,10 @@
+
+
+Bottom line: The material hypothesis is contradicted as stated. Although Tern distinguishes the represented positive case from the tolerated control, its required minimum exposure of 10 units is incompatible with Plover producing the effect at 0.1 units.
+
+
+Minimum reasoning: Tern is present in Plover and absent from Kestrel, so it survives this limited specificity contrast. But the observed effect occurs at one-hundredth of the hypothesis’s required exposure threshold. Therefore, the full hypothesis cannot explain the represented observation.
+
+
+Sufficiency: Yes. The packet is sufficient to definitively reject the material hypothesis as stated. It is not sufficient to establish that Tern causes the effect.
+

@@ -1,0 +1,223 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_response",
+"label": "target response",
+"description": "The target response shown by Harbor and Lark, with Juniper serving as the tolerated control."
+},
+"cases": [
+{
+"case_id": "harbor",
+"label": "Harbor",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"case_id": "lark",
+"label": "Lark",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"case_id": "juniper",
+"label": "Juniper",
+"comparison_role": "tolerated_control",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+}
+],
+"observations": [
+{
+"observation_id": "obs_harbor_target_response",
+"target_id": "target_response",
+"case_id": "harbor",
+"statement": "Harbor shows the target response.",
+"material": true,
+"qualifiers": {
+"sable_dose_units": 10
+},
+"high_information_qualifier_keys": [
+"sable_dose_units"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"observation_id": "obs_lark_target_response",
+"target_id": "target_response",
+"case_id": "lark",
+"statement": "Lark shows the target response.",
+"material": true,
+"qualifiers": {
+"sable_dose_units": 12
+},
+"high_information_qualifier_keys": [
+"sable_dose_units"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"observation_id": "obs_juniper_tolerated",
+"target_id": "target_response",
+"case_id": "juniper",
+"statement": "Juniper is tolerated.",
+"material": true,
+"qualifiers": {
+"sable_dose_units": 1
+},
+"high_information_qualifier_keys": [
+"sable_dose_units"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+}
+],
+"features": [
+{
+"case_id": "harbor",
+"feature_id": "sable",
+"value": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"case_id": "harbor",
+"feature_id": "sable_dose_units",
+"value": 10,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"case_id": "lark",
+"feature_id": "sable",
+"value": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"case_id": "lark",
+"feature_id": "sable_dose_units",
+"value": 12,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"case_id": "juniper",
+"feature_id": "sable",
+"value": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+},
+{
+"case_id": "juniper",
+"feature_id": "sable_dose_units",
+"value": 1,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "cmp_harbor_lark_vs_juniper",
+"target_id": "target_response",
+"positive_case_ids": [
+"harbor",
+"lark"
+],
+"control_case_ids": [
+"juniper"
+]
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "hyp_sable_dose_gt_5",
+"target_id": "target_response",
+"statement": "Sable at a represented dose greater than 5 units discriminates the cases showing the target response from the tolerated control.",
+"material": true,
+"discriminator": {
+"feature_id": "sable_dose_units",
+"operator": "gt",
+"value": 5,
+"modifier": {
+"kind": "dose",
+"claim_id": "claim_sable_dose_distinction"
+}
+},
+"qualifier_predictions": [
+{
+"observation_id": "obs_harbor_target_response",
+"qualifier_key": "sable_dose_units",
+"operator": "gt",
+"value": 5
+},
+{
+"observation_id": "obs_lark_target_response",
+"qualifier_key": "sable_dose_units",
+"operator": "gt",
+"value": 5
+},
+{
+"observation_id": "obs_juniper_tolerated",
+"qualifier_key": "sable_dose_units",
+"operator": "lte",
+"value": 5
+}
+]
+}
+],
+"claims": [
+{
+"claim_id": "claim_sable_dose_distinction",
+"target_id": "target_response",
+"kind": "modifier",
+"statement": "The represented Sable dose is 10 units in Harbor, 12 units in Lark, and 1 unit in Juniper, with greater than 5 units specified as the tested dose distinction.",
+"material": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-JRSYJV"
+},
+"dependencies": [
+{
+"kind": "observation",
+"id": "obs_harbor_target_response"
+},
+{
+"kind": "observation",
+"id": "obs_lark_target_response"
+},
+{
+"kind": "observation",
+"id": "obs_juniper_tolerated"
+}
+]
+}
+]
+}

@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "trial_id": "r2-DEV-SQBKLZ-b",
+  "sequence": 20,
+  "execution_ordinal": 20,
+  "replicate": 2,
+  "blind_id": "DEV-SQBKLZ",
+  "arm": "B",
+  "consumer": {
+    "surface": "CHATGPT_CONSUMER_UI",
+    "model": "GPT-5.6 Sol",
+    "mode": "Pro",
+    "displayed_control": "5.6Pro",
+    "model_selection_verified": true
+  },
+  "timestamps": {
+    "started_at": "2026-09-10T01:41:01.000Z",
+    "started_at_basis": "conversation_identifier_unix_prefix_after_CUA_timestamp_binding_was_lost_on_kernel_reset",
+    "initial_state_completed_at": "2026-09-10T01:44:46.204Z",
+    "repair_started_at": "2026-09-10T01:50:52.612Z",
+    "repair_completed_at": "2026-09-10T01:52:12.616Z",
+    "synthesis_started_at": "2026-09-10T01:54:27.317Z",
+    "synthesis_completed_at": "2026-09-10T01:56:44.182Z",
+    "conversation_left_at": "2026-09-10T01:58:10.503Z"
+  },
+  "initial_prompt": {
+    "path": "dispatch-bundle/initial-prompts/arm-b-state/DEV-SQBKLZ.txt",
+    "utf8_bytes": 2514,
+    "sha256": "b0d06325bfa8e12aff5a2c66a3e24483b913f21f3ab7f0d108a0c0a7a7a7a8c0",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id_at_acceptance": "2b629d67-68a2-4953-aaf7-77dfbf05e821"
+  },
+  "initial_output": {
+    "path": "raw/arm-b/replicate-2/DEV-SQBKLZ/initial-output.txt",
+    "utf8_bytes": 3876,
+    "sha256": "4aeee0bcd5baff277a58857d6c30d04884fa9870197fd4b958cc5bcf83b92d45",
+    "assistant_message_id": "699d22ef-b72a-425e-ae24-a54517508117",
+    "complete": true
+  },
+  "initial_verification": {
+    "state_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/initial-state.json",
+    "state_sha256": "31be11042ff4df1fa8f79e04e0069029ce29880d48dccd65f3e5c3b9b1162bb4",
+    "receipt_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/initial-receipt.json",
+    "receipt_sha256": "2a62c5971d07f885741fdb55212e33d9e250eaac82bc761d8851dc54977b4a14",
+    "meta_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/initial-verifier-meta.json",
+    "meta_sha256": "3832db548c26e803a6b84c815f865a664278749c4a4e05d5968ccbf8f93a874c",
+    "schema_valid": true,
+    "definitive_synthesis": false,
+    "synthesis_boundary": "bounded_or_uncertain_only"
+  },
+  "repair": {
+    "attempted": true,
+    "maximum": 1,
+    "prompt_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/repair-prompt.txt",
+    "prompt_sha256": "ffccbab617113d176ea027739bc6cca4fde6576868a1a82d1a2cbf06679230e1",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id_at_rehydration": "a52d8a94-e2b6-4c60-bf90-bf366d60c253",
+    "output_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/repair-output.txt",
+    "output_sha256": "8ff13cfe2cd19701bb039a74462174c45d7a7134a13847814bad7e693b963bc1",
+    "assistant_message_id": "b41a8f25-8cb6-4d26-8e90-623f1b36a9d2"
+  },
+  "final_verification": {
+    "state_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/final-state.json",
+    "state_sha256": "d1dfa7e09f90b3c15673d388af845b95d335a2efd7cfd4763f56eebfd75d7b04",
+    "receipt_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/final-receipt.json",
+    "receipt_sha256": "0d5d24f98ceddc1ad327706c04314e635475404682c59207c6850b41024f3dc0",
+    "meta_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/final-verifier-meta.json",
+    "meta_sha256": "d077976203375896a1718140f78540a6151a65a53b81e16d23bf93c154ba8d32",
+    "schema_valid": true,
+    "definitive_synthesis": true,
+    "synthesis_boundary": "definitive_allowed"
+  },
+  "synthesis": {
+    "prompt_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/synthesis-prompt.txt",
+    "prompt_sha256": "3e33bf2a9cfb250bf182d9abb1239e5b3e2da619866a4357f00fe86d19716ca4",
+    "accepted_dom_matches_frozen": true,
+    "user_message_id_at_rehydration": "9d56f401-0194-441d-8e6b-31e618618492",
+    "output_path": "raw/arm-b/replicate-2/DEV-SQBKLZ/final-synthesis.txt",
+    "output_sha256": "5f69229239fd9aac7822e51592c671b1052c1425f6f6369d0fb22e10679c9dcc",
+    "assistant_message_id": "519a0c89-1994-40b0-9142-07b03e3ffce1",
+    "complete": true
+  },
+  "conversation": {
+    "identity_sha256": "874c1c8aaf8f6ad48abb170c0fa881b46ffbba1d42dc4d79d9d986a0e82f4b90",
+    "exact_locator_committed": false,
+    "fresh": true,
+    "left_before_next_trial": true
+  },
+  "tools": {
+    "message_role_count": 0,
+    "talked_to_app_count": 0,
+    "sources_button_count": 0,
+    "invocation_detected": false
+  },
+  "provider_conditions": {
+    "request_rate_dialogs_dismissed": 2,
+    "identical_submission_retries": 0,
+    "response_regenerated": false
+  },
+  "integrity": {
+    "other_fixture_exposed": false,
+    "other_arm_exposed": false,
+    "scorer_key_exposed": false,
+    "external_evidence_exposed": false,
+    "replacement": false,
+    "answer_quality_retry": false,
+    "started_at_exact_ui_capture_available": false
+  },
+  "tab_closed": false,
+  "conversation_closed": true
+}

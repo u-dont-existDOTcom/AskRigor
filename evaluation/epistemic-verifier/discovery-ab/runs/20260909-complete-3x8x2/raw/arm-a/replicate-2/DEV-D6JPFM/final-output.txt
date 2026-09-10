@@ -1,0 +1,5 @@
+Bottom-line conclusion: The material Iris hypothesis is contradicted as stated. Iris matches the represented Alder–Basin specificity contrast, but the observed onset is incompatible with the hypothesis’s required timing.
+
+Minimum reasoning: Iris is present in the positive case and absent from the tolerated control, so it survives this limited specificity comparison. However, Alder’s target effect begins within 2 seconds, whereas the material hypothesis requires onset no sooner than 3,600 seconds. This is the opposite of the hypothesis’s prediction.
+
+Definitive conclusion: Yes. The packet is sufficient to definitively reject the material hypothesis as stated. It is not sufficient to establish Iris as causal or as a generally valid discriminator beyond this represented comparison.

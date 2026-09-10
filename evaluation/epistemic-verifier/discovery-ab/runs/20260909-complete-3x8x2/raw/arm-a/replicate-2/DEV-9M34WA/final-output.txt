@@ -1,0 +1,5 @@
+Bottom line: The packet does not establish that Sol discriminates responsive from non-responsive cases.
+
+Minimum reasoning: Sol is present in both responsive cases, Aspen and Kivu, so it is consistent with the response. But without any tolerated or non-responsive control, there is no evidence that Sol is absent from non-responsive cases—the contrast required to test discrimination.
+
+Definitive conclusion: No. The packet is insufficient for a definitive discrimination finding.

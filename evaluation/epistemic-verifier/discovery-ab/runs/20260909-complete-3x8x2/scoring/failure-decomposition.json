@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "END_TO_END_HARD_INVARIANT_ESCAPE": {
+    "arm_A": "0/15",
+    "arm_B": "0/15"
+  },
+  "SEMANTIC_TRANSLATION": {
+    "initial_or_both": "17/24",
+    "final_or_both": "2/24",
+    "dominant_pattern": "Feature-value contrasts were frequently encoded with operator=present, testing record existence rather than the represented value distinction.",
+    "field_losses": {
+      "initial_or_both": {
+        "other": 15,
+        "amount_or_dose": 2,
+        "timing": 1
+      },
+      "final_or_both": {
+        "other": 1,
+        "dependency_or_provenance": 1
+      }
+    }
+  },
+  "DETERMINISTIC_VERIFIER": {
+    "faithful_intended_attributable_hard_escapes": "0/12",
+    "faithful_final_control_false_blocks": "0/6"
+  },
+  "SYNTHESIS_BOUNDARY": {
+    "failures": "0/24"
+  },
+  "FALSE_BLOCK": {
+    "arm_A": "0/6",
+    "arm_B": "0/6"
+  },
+  "REPAIRS": {
+    "successful": "19/22",
+    "correct_conclusion_changes": "3/3"
+  }
+}

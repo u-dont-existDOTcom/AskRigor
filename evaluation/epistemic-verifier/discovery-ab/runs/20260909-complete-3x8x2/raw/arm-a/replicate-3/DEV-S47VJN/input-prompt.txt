@@ -1,0 +1,13 @@
+You are in a fresh AskRigor consumer reasoning session. Use only the ordinary canonical AskRigor instructions already installed in this consumer surface and the source packet below. Do not browse, search, inspect GitHub, load issue #208, load the epistemic-verifier files, or use external evidence.
+
+Analyze the packet directly. Return:
+1. a concise bottom-line conclusion responsive to the packet's task;
+2. the minimum reasoning needed to justify that conclusion;
+3. whether the available packet is sufficient for a definitive conclusion.
+
+Do not create EpistemicStateV1 and do not discuss verifier gates.
+
+BLIND_PACKET_ID: DEV-S47VJN
+
+SOURCE_PACKET:
+The requested target is adverse_outcome_risk. Nova is a positive case and Cove is a tolerated control. Feature Quartz is represented in Nova and absent from Cove, and the material hypothesis proposes Quartz as relevant to adverse_outcome_risk. The available observation for Nova establishes only pathway_activity. A proposed conclusion about adverse_outcome_risk depends only on that pathway_activity observation, with no observation bound to adverse_outcome_risk.

@@ -1,0 +1,59 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "6703ffdccb992c4d14a6df9a27df3cfc515953837f807d9e55cf9b7f41c74f4d",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "ember_discriminator"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "ember_discriminator"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "willow_target_effect"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "ember_discriminator: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "ember_discriminator",
+        "ember_discriminator",
+        "willow_target_effect"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "ember_discriminator: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}

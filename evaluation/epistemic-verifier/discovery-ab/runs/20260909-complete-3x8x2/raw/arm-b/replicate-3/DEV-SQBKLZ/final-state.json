@@ -1,0 +1,193 @@
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_response",
+    "label": "target response",
+    "description": "The target response shown by Oriel and Rowan in the represented comparison."
+  },
+  "cases": [
+    {
+      "case_id": "oriel",
+      "label": "Oriel",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    },
+    {
+      "case_id": "rowan",
+      "label": "Rowan",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    },
+    {
+      "case_id": "silt",
+      "label": "Silt",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "obs_oriel_target_response",
+      "target_id": "target_response",
+      "case_id": "oriel",
+      "statement": "Oriel shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    },
+    {
+      "observation_id": "obs_rowan_target_response",
+      "target_id": "target_response",
+      "case_id": "rowan",
+      "statement": "Rowan shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    },
+    {
+      "observation_id": "obs_silt_tolerated",
+      "target_id": "target_response",
+      "case_id": "silt",
+      "statement": "Silt is tolerated in the represented comparison.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "oriel",
+      "feature_id": "nimbus",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    },
+    {
+      "case_id": "rowan",
+      "feature_id": "nimbus",
+      "value": "present",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    },
+    {
+      "case_id": "silt",
+      "feature_id": "nimbus",
+      "value": "absent",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "nimbus_represented_specificity_contrast",
+      "target_id": "target_response",
+      "positive_case_ids": [
+        "oriel",
+        "rowan"
+      ],
+      "control_case_ids": [
+        "silt"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "hyp_nimbus_survives_specificity_contrast",
+      "target_id": "target_response",
+      "statement": "Nimbus is present in every represented positive case and not present in the represented tolerated control.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "nimbus",
+        "operator": "equals",
+        "value": "present"
+      },
+      "qualifier_predictions": []
+    }
+  ],
+  "claims": [
+    {
+      "claim_id": "claim_nimbus_present_in_positive_cases",
+      "target_id": "target_response",
+      "kind": "intermediate",
+      "statement": "Nimbus is represented in both positive cases, Oriel and Rowan.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "claim_nimbus_absent_from_tolerated_control",
+      "target_id": "target_response",
+      "kind": "intermediate",
+      "statement": "Nimbus is absent from the tolerated control, Silt.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-SQBKLZ"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "claim_nimbus_specificity_only",
+      "target_id": "target_response",
+      "kind": "conclusion",
+      "statement": "Nimbus survives the represented specificity contrast; this represented contrast does not establish that Nimbus causes the target response.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-SQBKLZ"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "obs_oriel_target_response"
+        },
+        {
+          "kind": "observation",
+          "id": "obs_rowan_target_response"
+        },
+        {
+          "kind": "observation",
+          "id": "obs_silt_tolerated"
+        },
+        {
+          "kind": "claim",
+          "id": "claim_nimbus_present_in_positive_cases"
+        },
+        {
+          "kind": "claim",
+          "id": "claim_nimbus_absent_from_tolerated_control"
+        }
+      ]
+    }
+  ]
+}
