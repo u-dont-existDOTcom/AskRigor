@@ -1,0 +1,64 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "71fe2b052411c85d6f20d22c53047f72b8647c9d5486f575211ba6dcb2731666",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "iris_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "iris_discriminator_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "iris_hypothesis_conclusion"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "alder_target_effect",
+        "iris_feature_contrast",
+        "iris_minimum_onset_requirement",
+        "iris_hypothesis_conclusion"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "iris_discriminator_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect.onset_seconds and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "iris_discriminator_hypothesis",
+        "iris_discriminator_hypothesis",
+        "iris_hypothesis_conclusion",
+        "alder_target_effect",
+        "iris_feature_contrast",
+        "iris_minimum_onset_requirement",
+        "iris_hypothesis_conclusion"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "iris_discriminator_hypothesis: prediction is opposite to observed high-information qualifier alder_target_effect.onset_seconds and no separately represented supported exception mechanism is linked."
+  ]
+}

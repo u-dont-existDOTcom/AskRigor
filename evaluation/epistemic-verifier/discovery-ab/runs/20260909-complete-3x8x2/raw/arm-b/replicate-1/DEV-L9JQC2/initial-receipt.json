@@ -1,0 +1,65 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "72459b36f53d7d98044b3e77ebc43d521a5e7f282ae442d1cc3463b77bcb6e71",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "tern_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "tern_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "block",
+      "blockers": [
+        "tern_discriminator_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect_observation.represented_exposure_units and no separately represented supported exception mechanism is linked."
+      ],
+      "checked_ids": [
+        "tern_discriminator_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "plover_target_effect_observation",
+        "minimum_exposure_requirement"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "tern_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "tern_discriminator_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect_observation.represented_exposure_units and no separately represented supported exception mechanism is linked.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "tern_discriminator_hypothesis",
+        "tern_discriminator_hypothesis",
+        "plover_target_effect_observation",
+        "minimum_exposure_requirement"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "tern_discriminator_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "tern_discriminator_hypothesis: prediction is opposite to observed high-information qualifier plover_target_effect_observation.represented_exposure_units and no separately represented supported exception mechanism is linked.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}

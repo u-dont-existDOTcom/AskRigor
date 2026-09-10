@@ -1,0 +1,241 @@
+Produce the final AskRigor synthesis from the source packet and the final verified state/receipt below, using the same ordinary canonical AskRigor instructions as Arm A.
+
+Do not override or reinterpret the deterministic receipt. If SYNTHESIS_LOCK is pass, a definitive conclusion is permitted only to the extent supported by the source packet. If SYNTHESIS_LOCK is block or insufficient, do not state the blocked proposition as established; a bounded/uncertain conclusion may state what failed or is missing.
+
+Return:
+1. concise bottom-line conclusion;
+2. minimum reasoning;
+3. whether the packet supports a definitive conclusion.
+
+BLIND_PACKET_ID: DEV-QWCNK4
+
+SOURCE_PACKET:
+Cedar and Flint show the target response. Mica is explicitly tolerated and does not show the response. Marker Vela is present in Cedar, Flint, and Mica. Test the hypothesis that Vela itself explains the selective response.
+
+FINAL_EPISTEMIC_STATE:
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_response",
+    "label": "target response",
+    "description": "The response shown by Cedar and Flint and not shown by explicitly tolerated Mica."
+  },
+  "cases": [
+    {
+      "case_id": "cedar",
+      "label": "Cedar",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "flint",
+      "label": "Flint",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "mica",
+      "label": "Mica",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "cedar_target_response_present",
+      "target_id": "target_response",
+      "case_id": "cedar",
+      "statement": "Cedar shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "observation_id": "flint_target_response_present",
+      "target_id": "target_response",
+      "case_id": "flint",
+      "statement": "Flint shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "observation_id": "mica_target_response_absent",
+      "target_id": "target_response",
+      "case_id": "mica",
+      "statement": "Mica is explicitly tolerated and does not show the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "cedar",
+      "feature_id": "vela",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "flint",
+      "feature_id": "vela",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "mica",
+      "feature_id": "vela",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "cedar_flint_vs_mica",
+      "target_id": "target_response",
+      "positive_case_ids": [
+        "cedar",
+        "flint"
+      ],
+      "control_case_ids": [
+        "mica"
+      ]
+    }
+  ],
+  "hypotheses": [],
+  "claims": [
+    {
+      "claim_id": "vela_shared_across_positive_and_control_cases",
+      "target_id": "target_response",
+      "kind": "intermediate",
+      "statement": "Marker Vela is present in Cedar, Flint, and Mica.",
+      "material": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      },
+      "dependencies": []
+    },
+    {
+      "claim_id": "vela_not_supported_as_selective_explanation",
+      "target_id": "target_response",
+      "kind": "conclusion",
+      "statement": "Marker Vela by itself does not explain the selective target response in the represented comparison because Vela is present in both responding cases and in tolerated nonresponding Mica.",
+      "material": true,
+      "provenance": {
+        "kind": "inference",
+        "source_id": "DEV-QWCNK4"
+      },
+      "dependencies": [
+        {
+          "kind": "observation",
+          "id": "cedar_target_response_present"
+        },
+        {
+          "kind": "observation",
+          "id": "flint_target_response_present"
+        },
+        {
+          "kind": "observation",
+          "id": "mica_target_response_absent"
+        },
+        {
+          "kind": "claim",
+          "id": "vela_shared_across_positive_and_control_cases"
+        }
+      ]
+    }
+  ]
+}
+
+FINAL_VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "6aa04d6583946d559ad612f1ea4caec3078f559781b7c6d1b9876003e485e013",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "insufficient",
+      "blockers": [
+        "No material hypothesis is represented for specificity testing."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": []
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "vela_not_supported_as_selective_explanation"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "cedar_target_response_present",
+        "flint_target_response_present",
+        "mica_target_response_absent",
+        "vela_shared_across_positive_and_control_cases",
+        "vela_not_supported_as_selective_explanation"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "insufficient",
+      "blockers": [
+        "No material hypothesis is represented for specificity testing."
+      ],
+      "checked_ids": [
+        "vela_not_supported_as_selective_explanation",
+        "cedar_target_response_present",
+        "flint_target_response_present",
+        "mica_target_response_absent",
+        "vela_shared_across_positive_and_control_cases",
+        "vela_not_supported_as_selective_explanation"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "No material hypothesis is represented for specificity testing."
+  ]
+}

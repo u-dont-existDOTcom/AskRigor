@@ -1,0 +1,5 @@
+Bottom line: The packet does not support the complete Iris hypothesis as an explanation of the target effect.
+
+Minimum reasoning: Iris does distinguish Alder from the tolerated control Basin, so the feature contrast itself passes. But the material hypothesis predicts that the effect cannot begin before 3,600 seconds, while Alder’s effect begins within 2 seconds. That high-information timing observation is opposite to the hypothesis, and no supported exception mechanism is provided.
+
+Definitive conclusion: No. Because the synthesis lock is blocked, Iris cannot be stated as the established explanation. The supported bounded conclusion is that the hypothesis fails on its required timing prediction.

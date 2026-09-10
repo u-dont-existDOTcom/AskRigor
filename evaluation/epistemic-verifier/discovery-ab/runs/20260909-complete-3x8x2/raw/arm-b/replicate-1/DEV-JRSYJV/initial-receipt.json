@@ -1,0 +1,66 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "3febdbd622aea762f76ec9661aefa12fb4c5a3d09c82fb0c81c96a6997cef8ca",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "hypothesis_sable_dose_gt_5: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "claim_sable_dose_hypothesis_supported_in_packet"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "observation_harbor_target_response",
+        "observation_lark_target_response",
+        "observation_juniper_tolerated",
+        "claim_sable_dose_distinction",
+        "claim_sable_dose_hypothesis_supported_in_packet"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "hypothesis_sable_dose_gt_5: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "hypothesis_sable_dose_gt_5",
+        "hypothesis_sable_dose_gt_5",
+        "claim_sable_dose_hypothesis_supported_in_packet",
+        "observation_harbor_target_response",
+        "observation_lark_target_response",
+        "observation_juniper_tolerated",
+        "claim_sable_dose_distinction",
+        "claim_sable_dose_hypothesis_supported_in_packet"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "hypothesis_sable_dose_gt_5: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+  ]
+}

@@ -1,0 +1,100 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_effect",
+"label": "target-effect",
+"description": "The target-effect observation referenced in the source packet."
+},
+"cases": [
+{
+"case_id": "Willow",
+"label": "Willow",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+},
+{
+"case_id": "Drift",
+"label": "Drift",
+"comparison_role": "tolerated_control",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+}
+],
+"observations": [
+{
+"observation_id": "willow_target_effect",
+"target_id": "target_effect",
+"case_id": "Willow",
+"statement": "Willow's target-effect observation begins within 2 seconds.",
+"material": true,
+"qualifiers": {
+"onset_seconds": 2
+},
+"high_information_qualifier_keys": [
+"onset_seconds"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+}
+],
+"features": [
+{
+"case_id": "Willow",
+"feature_id": "Ember",
+"value": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+},
+{
+"case_id": "Drift",
+"feature_id": "Ember",
+"value": false,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-Y8PCH6"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "willow_vs_drift",
+"target_id": "target_effect",
+"positive_case_ids": [
+"Willow"
+],
+"control_case_ids": [
+"Drift"
+]
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "ember_discriminator",
+"target_id": "target_effect",
+"statement": "Ember is the discriminator.",
+"material": true,
+"discriminator": {
+"feature_id": "Ember",
+"operator": "present"
+},
+"qualifier_predictions": [
+{
+"observation_id": "willow_target_effect",
+"qualifier_key": "onset_seconds",
+"operator": "lte",
+"value": 2
+}
+]
+}
+],
+"claims": []
+}

@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "checkpoint_id": "checkpoint-017",
+  "run_id": "askrigor-epistemic-verifier-v01-complete-blinded-dev-ab-3x8x2-20260909",
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_EXECUTION",
+  "recorded_at": "2026-09-10T01:08:00Z",
+  "completed": {
+    "arm_a_fresh_trials": 9,
+    "arm_a_required": 24,
+    "arm_b_fresh_trials": 8,
+    "arm_b_required": 24,
+    "frozen_consumer_sessions": 17,
+    "required_consumer_sessions": 48,
+    "verifier_repair_chains_completed": 8,
+    "verifier_repair_chains_required": 24
+  },
+  "completed_trial_ids": [
+    "r1-DEV-Y8PCH6-a",
+    "r1-DEV-Y8PCH6-b",
+    "r1-DEV-L9JQC2-b",
+    "r1-DEV-L9JQC2-a",
+    "r1-DEV-QWCNK4-a",
+    "r1-DEV-QWCNK4-b",
+    "r1-DEV-JRSYJV-b",
+    "r1-DEV-JRSYJV-a",
+    "r1-DEV-D6JPFM-a",
+    "r1-DEV-D6JPFM-b",
+    "r1-DEV-SQBKLZ-b",
+    "r1-DEV-SQBKLZ-a",
+    "r1-DEV-9M34WA-a",
+    "r1-DEV-9M34WA-b",
+    "r1-DEV-S47VJN-b",
+    "r1-DEV-S47VJN-a",
+    "r2-DEV-Y8PCH6-a"
+  ],
+  "canonical_scheduled_sequences_completed": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    18
+  ],
+  "integrity": {
+    "unique_conversation_identity_hashes": 17,
+    "exact_prompt_acceptance_verified": 17,
+    "complete_outputs": 17,
+    "consumer_tool_invocations_detected": 0,
+    "replacement_trials": 0,
+    "scorer_key_opened": false,
+    "scorer_key_content_access_count": 0,
+    "unblinding_started": false,
+    "execution_order_correction": "integrity-incidents/execution-order-correction-001.json"
+  },
+  "blocker": null,
+  "operational_condition": {
+    "condition": "Intermittent ChatGPT request-rate dialog",
+    "classification": "TRANSIENT_RETRYABLE",
+    "handling": "Bounded cooldown and one exact-system-dialog dismissal; no response regeneration"
+  },
+  "next": {
+    "canonical_scheduled_sequence": 17,
+    "trial_id": "r2-DEV-Y8PCH6-b",
+    "checkpoint_after_frozen_session_count": 24
+  }
+}

@@ -1,0 +1,79 @@
+The deterministic verifier has evaluated your prior EpistemicStateV1. You may revise the represented state or hypothesis in response to the receipt below.
+
+Rules:
+- Do not change source facts.
+- Do not add a control, qualifier, modifier, mechanism, provenance source, or dependency that is absent from the source packet.
+- Repair must change the represented state/hypothesis/dependencies when warranted; merely rewriting explanatory prose is not a repair.
+- If the packet does not support a valid definitive hypothesis, preserve that limitation rather than forcing a pass.
+- Return exactly one complete revised EpistemicStateV1 JSON object. Do not synthesize a final answer yet.
+
+BLIND_PACKET_ID: DEV-S47VJN
+
+SOURCE_PACKET:
+The requested target is adverse_outcome_risk. Nova is a positive case and Cove is a tolerated control. Feature Quartz is represented in Nova and absent from Cove, and the material hypothesis proposes Quartz as relevant to adverse_outcome_risk. The available observation for Nova establishes only pathway_activity. A proposed conclusion about adverse_outcome_risk depends only on that pathway_activity observation, with no observation bound to adverse_outcome_risk.
+
+VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "e7c80e440daa679a2e27d8f10e18fbdad3d5eeb4c44c67d91e820bf3021788a9",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "quartz_relevance_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "quartz_relevance_hypothesis"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "quartz_relevance_hypothesis"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "nova_pathway_activity_observation",
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "quartz_relevance_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+      ],
+      "checked_ids": [
+        "quartz_relevance_hypothesis",
+        "quartz_relevance_hypothesis",
+        "proposed_quartz_adverse_outcome_risk_conclusion",
+        "nova_pathway_activity_observation",
+        "proposed_quartz_adverse_outcome_risk_conclusion"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "quartz_relevance_hypothesis: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "proposed_quartz_adverse_outcome_risk_conclusion: conclusion dependencies do not reach any observation bound to requested target adverse_outcome_risk."
+  ]
+}

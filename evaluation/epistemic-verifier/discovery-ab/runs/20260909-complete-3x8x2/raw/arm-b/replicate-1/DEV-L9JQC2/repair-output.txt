@@ -1,0 +1,155 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_effect",
+"label": "target effect",
+"description": "The target effect specified in the source packet."
+},
+"cases": [
+{
+"case_id": "plover",
+"label": "Plover",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+},
+{
+"case_id": "kestrel",
+"label": "Kestrel",
+"comparison_role": "tolerated_control",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+}
+],
+"observations": [
+{
+"observation_id": "plover_target_effect_observation",
+"target_id": "target_effect",
+"case_id": "plover",
+"statement": "Plover produces the target effect at a represented exposure of 0.1 units.",
+"material": true,
+"qualifiers": {
+"represented_exposure_units": 0.1
+},
+"high_information_qualifier_keys": [
+"represented_exposure_units"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+}
+],
+"features": [
+{
+"case_id": "plover",
+"feature_id": "tern",
+"value": "represented",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+},
+{
+"case_id": "kestrel",
+"feature_id": "tern",
+"value": "absent",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "plover_vs_kestrel",
+"target_id": "target_effect",
+"positive_case_ids": [
+"plover"
+],
+"control_case_ids": [
+"kestrel"
+]
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "tern_discriminator_hypothesis",
+"target_id": "target_effect",
+"statement": "Feature Tern is the proposed discriminator for the target effect, and the material hypothesis requires at least 10 exposure units for the target effect.",
+"material": true,
+"discriminator": {
+"feature_id": "tern",
+"operator": "equals",
+"value": "represented",
+"modifier": {
+"kind": "dose",
+"claim_id": "minimum_exposure_requirement"
+}
+},
+"qualifier_predictions": [
+{
+"observation_id": "plover_target_effect_observation",
+"qualifier_key": "represented_exposure_units",
+"operator": "gte",
+"value": 10
+}
+]
+}
+],
+"claims": [
+{
+"claim_id": "tern_case_contrast",
+"target_id": "target_effect",
+"kind": "intermediate",
+"statement": "Feature Tern is represented in Plover and absent from Kestrel.",
+"material": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+},
+"dependencies": []
+},
+{
+"claim_id": "minimum_exposure_requirement",
+"target_id": "target_effect",
+"kind": "modifier",
+"statement": "The material hypothesis requires at least 10 exposure units for the target effect.",
+"material": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-L9JQC2"
+},
+"dependencies": []
+},
+{
+"claim_id": "material_hypothesis_not_definitively_supported",
+"target_id": "target_effect",
+"kind": "conclusion",
+"statement": "The packet does not support a definitive conclusion that the full material Tern discriminator hypothesis is valid, because Plover produces the target effect at 0.1 exposure units while the hypothesis requires at least 10 exposure units.",
+"material": true,
+"provenance": {
+"kind": "inference",
+"source_id": "DEV-L9JQC2"
+},
+"dependencies": [
+{
+"kind": "claim",
+"id": "tern_case_contrast"
+},
+{
+"kind": "observation",
+"id": "plover_target_effect_observation"
+},
+{
+"kind": "claim",
+"id": "minimum_exposure_requirement"
+}
+]
+}
+]
+}

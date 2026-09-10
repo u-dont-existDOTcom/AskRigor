@@ -1,0 +1,5 @@
+Bottom-line conclusion: Quartz distinguishes Nova from the tolerated control Cove in the represented comparison, but the packet does not establish that Quartz is relevant to adverse_outcome_risk.
+
+Minimum reasoning: Quartz is present in Nova and absent from Cove, so the represented specificity contrast passes. However, the only supporting observation concerns pathway_activity, not the requested target adverse_outcome_risk. No target-matched observation or source-grounded bridge connects pathway activity to adverse-outcome risk, so the proposed conclusion fails target preservation.
+
+Definitive conclusion supported: No. The synthesis lock is blocked; only the bounded conclusion above is supported.

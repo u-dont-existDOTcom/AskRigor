@@ -1,0 +1,5 @@
+Bottom line: The stated Tern material hypothesis is not supported. Plover shows the target effect at 0.1 exposure units, while the hypothesis requires at least 10 units—100 times more exposure.
+
+Minimum reasoning: Tern’s presence in Plover and absence from tolerated Kestrel is directionally consistent with discrimination. However, the observed positive case occurs far below the hypothesis’s required exposure threshold, which is opposite to its prediction. The stated mechanism therefore cannot explain Plover’s effect as given.
+
+Definitive conclusion: The packet is sufficient to reject the stated material hypothesis as an explanation of this observation. It is not sufficient to rule out Tern as a discriminator through some different mechanism that does not require the 10-unit threshold.

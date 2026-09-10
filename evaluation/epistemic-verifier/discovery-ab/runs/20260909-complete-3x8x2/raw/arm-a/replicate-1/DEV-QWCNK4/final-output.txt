@@ -1,0 +1,5 @@
+Bottom line: Vela itself does not explain the selective response.
+
+Minimum reasoning: Vela is present in both responding cases, Cedar and Flint, but also in tolerated, non-responding Mica. Its presence therefore does not discriminate responders from the control.
+
+Sufficiency: Yes—the packet is sufficient to reject Vela’s mere presence as the selective explanation. It is not sufficient to identify the actual cause or rule out an unreported difference in Vela’s amount, form, or context.

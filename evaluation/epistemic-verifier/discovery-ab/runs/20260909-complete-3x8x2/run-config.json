@@ -174,11 +174,12 @@
     "model_api_spend_usd": 0
   },
   "mechanical_capture": {
-    "receiver_sha256": "2e618f5b544c0a66731023bb7d039c9898afe883f08b794e3ac7b3d7b4316ed3",
+    "receiver_sha256": "4576b1faf3d291c87eb82fadf1d6c0dac8a30f003e5fe7787b2808452e96a142",
     "transport": "LOCAL_LOOPBACK_HASH_VERIFIED",
     "line_endings": "LF",
-    "read_scope": "dispatch-bundle/** only",
-    "write_behavior": "hash-required, no-overwrite"
+    "read_scope": "dispatch-bundle/** and raw/**",
+    "write_behavior": "hash-required, no-overwrite",
+    "browser_tab_policy": "One reusable physical execution tab; every trial has a distinct ChatGPT conversation identity and the tab leaves that conversation before the next trial."
   },
   "preflight": {
     "authority_gate": "PASS",

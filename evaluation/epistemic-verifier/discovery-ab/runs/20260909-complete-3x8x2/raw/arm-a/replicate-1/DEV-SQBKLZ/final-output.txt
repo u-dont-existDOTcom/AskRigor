@@ -1,0 +1,5 @@
+Bottom-line conclusion: Nimbus survives the represented specificity contrast: it is represented in both responding cases and absent from the tolerated case.
+
+Minimum reasoning: Oriel and Rowan show the target response and contain Nimbus; Silt is tolerated and lacks Nimbus. Nimbus therefore discriminates the represented positive cases from the tolerated comparison.
+
+Definitive conclusion: Yes, but only for the stated specificity test. The packet definitively supports that Nimbus survives this contrast; it does not establish that Nimbus causes the response.

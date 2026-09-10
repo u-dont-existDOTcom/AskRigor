@@ -1,0 +1,79 @@
+The deterministic verifier has evaluated your prior EpistemicStateV1. You may revise the represented state or hypothesis in response to the receipt below.
+
+Rules:
+- Do not change source facts.
+- Do not add a control, qualifier, modifier, mechanism, provenance source, or dependency that is absent from the source packet.
+- Repair must change the represented state/hypothesis/dependencies when warranted; merely rewriting explanatory prose is not a repair.
+- If the packet does not support a valid definitive hypothesis, preserve that limitation rather than forcing a pass.
+- Return exactly one complete revised EpistemicStateV1 JSON object. Do not synthesize a final answer yet.
+
+BLIND_PACKET_ID: DEV-QWCNK4
+
+SOURCE_PACKET:
+Cedar and Flint show the target response. Mica is explicitly tolerated and does not show the response. Marker Vela is present in Cedar, Flint, and Mica. Test the hypothesis that Vela itself explains the selective response.
+
+VERIFIER_RECEIPT:
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "a297796fe388a487969268565261afd4b692190a577fa91d147c029b34a8c961",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "block",
+      "blockers": [
+        "vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control."
+      ],
+      "checked_ids": [
+        "vela_explains_selective_response"
+      ]
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "vela_explains_selective_response"
+      ]
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "block",
+      "blockers": [
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "cedar_target_response_present",
+        "flint_target_response_present",
+        "mica_target_response_absent"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "block",
+      "blockers": [
+        "vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+        "No material conclusion claim is represented for the requested target."
+      ],
+      "checked_ids": [
+        "vela_explains_selective_response",
+        "vela_explains_selective_response",
+        "cedar_target_response_present",
+        "flint_target_response_present",
+        "mica_target_response_absent"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "vela_explains_selective_response: the proposed discriminator does not distinguish every represented positive case from every tolerated/negative control.",
+    "No material conclusion claim is represented for the requested target."
+  ]
+}
+

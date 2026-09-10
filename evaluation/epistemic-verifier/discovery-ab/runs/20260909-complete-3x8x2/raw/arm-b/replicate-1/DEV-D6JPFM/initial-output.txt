@@ -1,0 +1,100 @@
+{
+"state_version": "askrigor_epistemic_state_v1",
+"target": {
+"target_id": "target_effect",
+"label": "target effect",
+"description": "The target effect produced by the positive case Alder."
+},
+"cases": [
+{
+"case_id": "alder",
+"label": "Alder",
+"comparison_role": "positive",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+},
+{
+"case_id": "basin",
+"label": "Basin",
+"comparison_role": "tolerated_control",
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+}
+],
+"observations": [
+{
+"observation_id": "alder_target_effect",
+"target_id": "target_effect",
+"case_id": "alder",
+"statement": "Alder produces the target effect within 2 seconds.",
+"material": true,
+"qualifiers": {
+"onset_seconds": 2
+},
+"high_information_qualifier_keys": [
+"onset_seconds"
+],
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+}
+],
+"features": [
+{
+"case_id": "alder",
+"feature_id": "iris",
+"value": true,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+},
+{
+"case_id": "basin",
+"feature_id": "iris",
+"value": false,
+"provenance": {
+"kind": "source_grounded",
+"source_id": "DEV-D6JPFM"
+}
+}
+],
+"comparisons": [
+{
+"comparison_id": "alder_vs_basin",
+"target_id": "target_effect",
+"positive_case_ids": [
+"alder"
+],
+"control_case_ids": [
+"basin"
+]
+}
+],
+"hypotheses": [
+{
+"hypothesis_id": "iris_discriminator_hypothesis",
+"target_id": "target_effect",
+"statement": "Feature Iris is the discriminator for the target effect, with the material requirement that the target effect begin no sooner than 3,600 seconds after exposure.",
+"material": true,
+"discriminator": {
+"feature_id": "iris",
+"operator": "present"
+},
+"qualifier_predictions": [
+{
+"observation_id": "alder_target_effect",
+"qualifier_key": "onset_seconds",
+"operator": "gte",
+"value": 3600
+}
+]
+}
+],
+"claims": []
+}

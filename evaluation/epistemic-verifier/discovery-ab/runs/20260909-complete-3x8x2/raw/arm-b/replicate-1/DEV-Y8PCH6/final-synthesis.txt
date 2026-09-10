@@ -1,0 +1,9 @@
+Bottom line: Ember is not established as the discriminator. It remains only a candidate under the verified state.
+
+Minimum reasoning: The packet reports Ember in positive case Willow and absent from tolerated control Drift, with Willow’s target effect beginning within 2 seconds. The verifier passed evidence direction and provenance, but blocked specificity and target preservation. Because the resulting SYNTHESIS_LOCK is blocked, the discriminator proposition cannot be stated as established.
+
+Definitive conclusion supported? No—not for the requested hypothesis. The packet definitively supports only its descriptive facts about Willow, Drift, Ember, and the 2-second onset; it does not support a definitive conclusion that Ember is the discriminator.
+
+Applied AskRigor Universal v20.5.10, revised August 7, 2026; check AskRigor.com for current releases.
+
+Next step: none — this task is complete.

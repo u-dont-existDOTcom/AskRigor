@@ -1,0 +1,134 @@
+{
+  "state_version": "askrigor_epistemic_state_v1",
+  "target": {
+    "target_id": "target_response",
+    "label": "target response",
+    "description": "The response shown by Cedar and Flint and not shown by explicitly tolerated Mica."
+  },
+  "cases": [
+    {
+      "case_id": "cedar",
+      "label": "Cedar",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "flint",
+      "label": "Flint",
+      "comparison_role": "positive",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "mica",
+      "label": "Mica",
+      "comparison_role": "tolerated_control",
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "cedar_target_response_present",
+      "target_id": "target_response",
+      "case_id": "cedar",
+      "statement": "Cedar shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "observation_id": "flint_target_response_present",
+      "target_id": "target_response",
+      "case_id": "flint",
+      "statement": "Flint shows the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "observation_id": "mica_target_response_absent",
+      "target_id": "target_response",
+      "case_id": "mica",
+      "statement": "Mica is explicitly tolerated and does not show the target response.",
+      "material": true,
+      "qualifiers": {},
+      "high_information_qualifier_keys": [],
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    }
+  ],
+  "features": [
+    {
+      "case_id": "cedar",
+      "feature_id": "vela",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "flint",
+      "feature_id": "vela",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    },
+    {
+      "case_id": "mica",
+      "feature_id": "vela",
+      "value": true,
+      "provenance": {
+        "kind": "source_grounded",
+        "source_id": "DEV-QWCNK4"
+      }
+    }
+  ],
+  "comparisons": [
+    {
+      "comparison_id": "cedar_flint_vs_mica",
+      "target_id": "target_response",
+      "positive_case_ids": [
+        "cedar",
+        "flint"
+      ],
+      "control_case_ids": [
+        "mica"
+      ]
+    }
+  ],
+  "hypotheses": [
+    {
+      "hypothesis_id": "vela_explains_selective_response",
+      "target_id": "target_response",
+      "statement": "Marker Vela itself explains the selective target response.",
+      "material": true,
+      "discriminator": {
+        "feature_id": "vela",
+        "operator": "present"
+      },
+      "qualifier_predictions": []
+    }
+  ],
+  "claims": []
+}

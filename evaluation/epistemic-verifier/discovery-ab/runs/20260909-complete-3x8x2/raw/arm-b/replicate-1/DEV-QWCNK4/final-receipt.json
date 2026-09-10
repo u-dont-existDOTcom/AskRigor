@@ -1,0 +1,60 @@
+{
+  "verifier_version": "askrigor_epistemic_verifier_v0_1",
+  "state_sha256": "6aa04d6583946d559ad612f1ea4caec3078f559781b7c6d1b9876003e485e013",
+  "gates": [
+    {
+      "gate": "SPECIFICITY_DISCRIMINATOR",
+      "status": "insufficient",
+      "blockers": [
+        "No material hypothesis is represented for specificity testing."
+      ],
+      "checked_ids": []
+    },
+    {
+      "gate": "EVIDENCE_DIRECTION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": []
+    },
+    {
+      "gate": "TARGET_PRESERVATION",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "vela_not_supported_as_selective_explanation"
+      ]
+    },
+    {
+      "gate": "PROVENANCE_DEPENDENCY",
+      "status": "pass",
+      "blockers": [],
+      "checked_ids": [
+        "cedar_target_response_present",
+        "flint_target_response_present",
+        "mica_target_response_absent",
+        "vela_shared_across_positive_and_control_cases",
+        "vela_not_supported_as_selective_explanation"
+      ]
+    },
+    {
+      "gate": "SYNTHESIS_LOCK",
+      "status": "insufficient",
+      "blockers": [
+        "No material hypothesis is represented for specificity testing."
+      ],
+      "checked_ids": [
+        "vela_not_supported_as_selective_explanation",
+        "cedar_target_response_present",
+        "flint_target_response_present",
+        "mica_target_response_absent",
+        "vela_shared_across_positive_and_control_cases",
+        "vela_not_supported_as_selective_explanation"
+      ]
+    }
+  ],
+  "definitive_synthesis": false,
+  "synthesis_boundary": "bounded_or_uncertain_only",
+  "blockers": [
+    "No material hypothesis is represented for specificity testing."
+  ]
+}

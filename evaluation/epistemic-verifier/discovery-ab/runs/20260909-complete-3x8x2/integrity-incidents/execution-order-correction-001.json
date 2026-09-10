@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "incident_id": "execution-order-correction-001",
+  "detected_at": "2026-09-10T01:08:00Z",
+  "phase": "DEVELOPMENT_DISCOVERY_BLINDED_EXECUTION",
+  "scorer_key_opened": false,
+  "affected_trial_id": "r2-DEV-Y8PCH6-a",
+  "raw_provenance_path": "raw/arm-a/replicate-2/DEV-Y8PCH6/provenance.json",
+  "recorded_sequence": 17,
+  "canonical_scheduled_sequence": 18,
+  "cause": "The interruption recovery summary inverted the two arm positions for replicate 2 position 1. The consumer output was frozen before the canonical dispatch-order.json was reconciled.",
+  "effect": "The trial was executed one physical position early. Its fixture, arm, replicate, prompt, model, mode, conversation independence, output bytes, and blinding remain valid. Scheduled sequence 17 had not been executed when this defect was detected.",
+  "preservation": {
+    "raw_output_regenerated": false,
+    "raw_provenance_overwritten": false,
+    "trial_excluded": false
+  },
+  "deterministic_correction": {
+    "interpret_trial_as_scheduled_sequence": 18,
+    "interpret_trial_as_execution_ordinal": 17,
+    "next_missing_scheduled_sequence": 17,
+    "next_trial_id": "r2-DEV-Y8PCH6-b"
+  }
+}

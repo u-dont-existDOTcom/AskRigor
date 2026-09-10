@@ -1,0 +1,5 @@
+Bottom line: Ember survives the represented specificity contrast: it is present in positive Willow and absent from tolerated Drift. This supports Ember as a candidate discriminator, but does not establish that Ember causes the target effect.
+
+Minimum reasoning: The Ember contrast separates the only positive case from the tolerated control. However, Willow’s onset within 2 seconds is a high-information qualifier. The candidate semantic extraction is materially incomplete because it omits onset_seconds and fails to preserve its importance; conclusions based on that extraction could therefore miss timing-based support or contradiction.
+
+Sufficiency: The packet is sufficient for the narrow conclusion that Ember discriminates Willow from Drift in the represented comparison, and that the candidate extraction is inadequate. It is not sufficient for a definitive causal or general discriminator conclusion.

@@ -1,0 +1,5 @@
+Bottom-line conclusion: The packet does not support the hypothesis that Vela by itself explains the selective response. This is a bounded conclusion, not a definitive synthesis.
+
+Minimum reasoning: Cedar and Flint show the response, while tolerated Mica does not. Because Vela is present in all three, Vela presence does not distinguish the responding cases from the tolerated nonresponding control. The packet supplies no dose, form, context, interaction, or other modifier that could explain that selectivity.
+
+Definitive conclusion: No. The final verifier receipt marks SYNTHESIS_LOCK as insufficient because no material hypothesis remained represented for specificity testing. The packet supports saying that Vela alone is not supported as the discriminator in this comparison, but not a broader definitive conclusion about every possible role Vela might have.

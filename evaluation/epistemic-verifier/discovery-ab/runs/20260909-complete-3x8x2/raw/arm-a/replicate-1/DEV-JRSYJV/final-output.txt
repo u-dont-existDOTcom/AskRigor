@@ -1,0 +1,5 @@
+Bottom line: The explicit dose-modified hypothesis Sable dose > 5 units is supported as the discriminator in this packet.
+
+Minimum reasoning: Sable’s mere presence cannot explain the selectivity because it is present in Harbor, Lark, and tolerated Juniper. The separate dose modifier does discriminate them: Harbor and Lark show the response at 10 and 12 units, both above 5, while Juniper is tolerated at 1 unit, below the threshold.
+
+Definitive conclusion: Yes, for the bounded conclusion that Sable dose > 5 distinguishes all represented cases. The packet alone does not establish that this threshold is universally causal beyond these cases.
