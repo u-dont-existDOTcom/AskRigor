@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "phase": "MAIN_BLINDED_REVIEW_CHECKPOINT",
+  "status": "IN_PROGRESS",
+  "eligible_review_trials_frozen": 32,
+  "planned_eligible_review_trials": 138,
+  "accepted_consumer_sessions_frozen": 33,
+  "excluded_consumer_sessions": 1,
+  "controller_integrity_defects": 1,
+  "corrective_trials_completed": 1,
+  "valid_ingest_receipts": 32,
+  "invalid_eligible_ingest_receipts": 0,
+  "distinct_eligible_controller_conversation_identities": 32,
+  "distinct_total_controller_conversation_identities": 33,
+  "verified_model_mode_trials": 32,
+  "external_tool_or_browsing_detected_trials": 0,
+  "original_raw_outputs_preserved": true,
+  "scorer_gold_comparison_performed": false,
+  "excluded_session_receipt": "evaluation/epistemic-verifier/independent-review-development/runs/20260910-full-3x46/reviewer-outputs/excluded-023-controller-misdispatch-MUT-A10B6BF93A85/controller-integrity-defect.json",
+  "note": "Pre-unblind completeness and provenance checkpoint. One accepted controller-misdispatch session is preserved and excluded; the intended candidate was then reviewed once in a separate fresh conversation. No performance labels or gold comparison included."
+}
