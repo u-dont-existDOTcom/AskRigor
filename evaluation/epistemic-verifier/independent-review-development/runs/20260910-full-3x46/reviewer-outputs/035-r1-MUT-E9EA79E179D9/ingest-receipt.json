@@ -1,0 +1,247 @@
+{
+  "review_version": "askrigor_epistemic_representation_review_v0_1",
+  "source_sha256": "42fb5a55438adfc6e22511f864c0e2998b993ed8f3e5845be7a0017050ab4c4a",
+  "state_sha256": "28125cac0242d000dbf7d510767afa014aeae67b7c5c5a779822ff325be68c72",
+  "producer_session_id": "synthetic-producer-PAIR-A438AFE6DAE1",
+  "reviewer": {
+    "session_id": "reviewer-7b2cc1e6-83a4-4e1a-91bb-9af3138d2b6e",
+    "model": "GPT-5.6 Sol",
+    "mode": "reasoning",
+    "fresh_independent_session": true
+  },
+  "reviewed_at": "2026-09-10T17:52:00+00:00",
+  "reviewer_independent": true,
+  "status": "block",
+  "critical_representation": "defective",
+  "findings": [
+    {
+      "dimension": "exact_target",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 33,
+          "quote": "The requested target is risk_m06."
+        }
+      ],
+      "state_paths": [
+        "/target/target_id"
+      ],
+      "rationale": "The requested target identifier is exactly risk_m06, and the candidate state's target.target_id is risk_m06."
+    },
+    {
+      "dimension": "case_and_comparison_roles",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 34,
+          "end": 64,
+          "quote": "Rowan m06 is the positive case"
+        },
+        {
+          "start": 172,
+          "end": 205,
+          "quote": "Mica m06 is the tolerated control"
+        }
+      ],
+      "state_paths": [
+        "/cases/0/comparison_role",
+        "/cases/1/comparison_role",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Rowan m06 is represented as the positive case and Mica m06 as the tolerated control, and the comparison assigns those same case IDs to the corresponding positive and control sets."
+    },
+    {
+      "dimension": "negative_or_tolerated_comparator",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 172,
+          "end": 303,
+          "quote": "Mica m06 is the tolerated control: Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/cases/1/comparison_role",
+        "/observations/1/statement",
+        "/observations/1/qualifiers/dose_units",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "The candidate preserves Mica's tolerated-control role, the absence of the target outcome, and the represented matching dose, intravenous route, and liquid form."
+    },
+    {
+      "dimension": "high_information_qualifier",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 66,
+          "end": 171,
+          "quote": "the target outcome begins within 2 seconds after 10 units of compound Sol by intravenous liquid infusion."
+        },
+        {
+          "start": 207,
+          "end": 303,
+          "quote": "Mica receives the same 10-unit intravenous liquid exposure and does not show the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/high_information_qualifier_keys",
+        "/observations/1/high_information_qualifier_keys"
+      ],
+      "rationale": "The state explicitly marks onset, dose, route, and form as high-information qualifiers for the positive observation and marks the applicable matched dose, route, and form for the tolerated control. The timing-value fidelity issue is assessed separately under timing."
+    },
+    {
+      "dimension": "timing",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 92,
+          "end": 108,
+          "quote": "within 2 seconds"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/onset_seconds",
+        "/hypotheses/0/qualifier_predictions/0/operator",
+        "/hypotheses/0/qualifier_predictions/0/value"
+      ],
+      "rationale": "The source supplies an upper bound, onset within 2 seconds, whereas observations[0].qualifiers.onset_seconds stores the bare numeric value 2 and therefore does not itself preserve the distinction between exactly 2 seconds and no more than 2 seconds. The hypothesis qualifier prediction correctly uses lte 2, but that does not repair the observation-level semantic narrowing."
+    },
+    {
+      "dimension": "amount_or_dose",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 115,
+          "end": 123,
+          "quote": "10 units"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/dose_units",
+        "/observations/1/qualifiers/dose_units",
+        "/claims/0/statement"
+      ],
+      "rationale": "Both observations carry dose_units 10, and the modifier claim explicitly states that the represented 10-unit dose is held constant across the comparison."
+    },
+    {
+      "dimension": "route_or_form",
+      "status": "distorted",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 143,
+          "end": 170,
+          "quote": "intravenous liquid infusion"
+        },
+        {
+          "start": 225,
+          "end": 265,
+          "quote": "same 10-unit intravenous liquid exposure"
+        }
+      ],
+      "state_paths": [
+        "/observations/0/qualifiers/route",
+        "/observations/0/qualifiers/form",
+        "/observations/1/qualifiers/route",
+        "/observations/1/qualifiers/form"
+      ],
+      "rationale": "The candidate faithfully records intravenous route and liquid form, but it collapses the source's more specific positive-case administration description, intravenous liquid infusion, to generic intravenous plus liquid and does not represent the infusion modality. That omission can matter to whether the represented exposure is materially the same."
+    },
+    {
+      "dimension": "feature_value",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 304,
+          "end": 360,
+          "quote": "Feature Quartz is high in Rowan m06 and low in Mica m06."
+        }
+      ],
+      "state_paths": [
+        "/features/0/case_id",
+        "/features/0/feature_id",
+        "/features/0/value",
+        "/features/1/case_id",
+        "/features/1/feature_id",
+        "/features/1/value"
+      ],
+      "rationale": "Quartz is represented as high for Rowan m06 and low for Mica m06, exactly preserving the source's discriminating feature values."
+    },
+    {
+      "dimension": "predicate_semantics",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 395,
+          "end": 453,
+          "quote": "Quartz value equals high distinguishes the target outcome."
+        }
+      ],
+      "state_paths": [
+        "/hypotheses/0/discriminator/feature_id",
+        "/hypotheses/0/discriminator/operator",
+        "/hypotheses/0/discriminator/value"
+      ],
+      "rationale": "The discriminator uses feature_id quartz_m06 with operator equals and value high, matching the source predicate that the Quartz value equals high. The operator concerns the stored feature value, not merely existence of a feature record."
+    },
+    {
+      "dimension": "dependency_or_provenance",
+      "status": "faithful",
+      "affects_hard_invariant": false,
+      "source_spans": [
+        {
+          "start": 454,
+          "end": 577,
+          "quote": "The conclusion about risk_m06 must depend on Rowan's source-grounded target observation and the tolerated-control contrast."
+        }
+      ],
+      "state_paths": [
+        "/observations/0/provenance/kind",
+        "/observations/1/provenance/kind",
+        "/claims/1/provenance/kind",
+        "/claims/1/dependencies/0",
+        "/claims/1/dependencies/1",
+        "/comparisons/0/positive_case_ids/0",
+        "/comparisons/0/control_case_ids/0"
+      ],
+      "rationale": "Rowan's target observation and Mica's tolerated-control observation are both source_grounded. The conclusion is explicitly an inference and depends on both observation IDs; together with the represented comparison pairing Rowan against Mica, those dependencies preserve the required positive-observation and tolerated-control contrast basis."
+    },
+    {
+      "dimension": "other",
+      "status": "missing",
+      "affects_hard_invariant": true,
+      "source_spans": [
+        {
+          "start": 127,
+          "end": 139,
+          "quote": "compound Sol"
+        }
+      ],
+      "state_paths": [],
+      "rationale": "The identity of the administered material as compound Sol is not represented anywhere in the candidate state. Because the source defines the positive exposure as 10 units of compound Sol and describes the control as receiving the same exposure, omission of compound identity leaves the state unable to establish that this material component of the comparison was held fixed."
+    }
+  ],
+  "blockers": [
+    "timing: The source supplies an upper bound, onset within 2 seconds, whereas observations[0].qualifiers.onset_seconds stores the bare numeric value 2 and therefore does not itself preserve the distinction between exactly 2 seconds and no more than 2 seconds. The hypothesis qualifier prediction correctly uses lte 2, but that does not repair the observation-level semantic narrowing.",
+    "route_or_form: The candidate faithfully records intravenous route and liquid form, but it collapses the source's more specific positive-case administration description, intravenous liquid infusion, to generic intravenous plus liquid and does not represent the infusion modality. That omission can matter to whether the represented exposure is materially the same.",
+    "other: The identity of the administered material as compound Sol is not represented anywhere in the candidate state. Because the source defines the positive exposure as 10 units of compound Sol and describes the control as receiving the same exposure, omission of compound identity leaves the state unable to establish that this material component of the comparison was held fixed."
+  ],
+  "warnings": []
+}

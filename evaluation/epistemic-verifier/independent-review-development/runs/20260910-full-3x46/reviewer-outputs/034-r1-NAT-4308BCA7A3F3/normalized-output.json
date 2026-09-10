@@ -1,0 +1,209 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "aba59ac987f267b926f6e9366bd6d2449704b1c8aa28c755a36afe8a7f5843f7",
+"state_sha256": "72459b36f53d7d98044b3e77ebc43d521a5e7f282ae442d1cc3463b77bcb6e71",
+"producer_session_id": "conversation-sha256:a7235c85af35e179a782acae931f75285021a2b6dcdbe9aa063f19e167d026f9",
+"reviewer": {
+"session_id": "fresh-review-session-2026-09-10T17:49:00+00:00",
+"model": "GPT-5.6 Sol",
+"mode": "Thinking",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T17:49:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 30,
+"end": 56,
+"quote": "produces the target effect"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label"
+],
+"rationale": "The source target is exactly the target effect, and the state consistently identifies and labels that target as target_effect / target effect."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 25,
+"quote": "Plover is a positive case"
+},
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/comparison_role",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids",
+"/comparisons/0/control_case_ids"
+],
+"rationale": "Plover is represented as the positive case and Kestrel as the tolerated control, and the comparison assigns them to the corresponding positive and control sets."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 97,
+"end": 127,
+"quote": "Kestrel is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The tolerated comparator is preserved specifically as Kestrel rather than being omitted or converted into a positive case."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+},
+{
+"start": 227,
+"end": 314,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect."
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/represented_exposure_units",
+"/observations/0/high_information_qualifier_keys/0",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value"
+],
+"rationale": "The highly informative 0.1-unit observed exposure is explicitly retained and marked high-information. The hypothesis's conflicting requirement of at least 10 units is also retained as a gte 10 prediction rather than smoothing away the contradiction."
+},
+{
+"dimension": "timing",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source packet states no timing or latency information."
+},
+{
+"dimension": "amount_or_dose",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 57,
+"end": 95,
+"quote": "at a represented exposure of 0.1 units"
+},
+{
+"start": 265,
+"end": 291,
+"quote": "at least 10 exposure units"
+}
+],
+"state_paths": [
+"/observations/0/qualifiers/represented_exposure_units",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value",
+"/claims/0/statement"
+],
+"rationale": "Both quantities are preserved: the positive observation occurs at represented exposure 0.1, while the material hypothesis requires a minimum exposure of 10, encoded as gte 10."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies exposure amount but no route or material/form distinction."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 129,
+"end": 166,
+"quote": "Feature Tern is represented in Plover"
+},
+{
+"start": 171,
+"end": 190,
+"quote": "absent from Kestrel"
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values faithfully distinguish Tern as represented for Plover and absent for Kestrel."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 129,
+"end": 225,
+"quote": "Feature Tern is represented in Plover and absent from Kestrel, and is the proposed discriminator"
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/operator",
+"/features/0/value",
+"/features/1/value"
+],
+"rationale": "The discriminator uses operator \"present\", which tests whether a feature record exists rather than whether the record's stored value denotes representation/presence. A Tern feature record exists for both Plover and Kestrel; Kestrel's record merely stores value \"absent\". Therefore operator \"present\" does not implement the source's represented-versus-absent discriminator and can change whether the proposed discriminator passes a hard comparison gate."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 227,
+"end": 314,
+"quote": "The material hypothesis also requires at least 10 exposure units for the target effect."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/modifier/claim_id",
+"/claims/0/claim_id",
+"/claims/0/target_id",
+"/claims/0/provenance/kind"
+],
+"rationale": "The minimum-exposure requirement is represented as a material claim about the same target and is explicitly referenced by the hypothesis through minimum_exposure_requirement. The claim is marked source_grounded; the source asserts no additional dependency that must be represented."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-to-state representation issue is identified outside the required dimensions above."
+}
+]
+}
