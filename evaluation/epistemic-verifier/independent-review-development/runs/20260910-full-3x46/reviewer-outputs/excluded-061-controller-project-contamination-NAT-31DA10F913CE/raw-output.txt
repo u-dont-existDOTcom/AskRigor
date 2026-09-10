@@ -1,0 +1,219 @@
+{
+"review_version": "askrigor_epistemic_representation_review_v0_1",
+"source_sha256": "a9d647186a9572eee84d7a2eb76ad8f1728b0f3482cb9bf6eb1e7f0fe028051c",
+"state_sha256": "a770892f846087efc2f2f958d28ebe4ab7e46f20eb4139e32b70fdaa360f9b11",
+"producer_session_id": "conversation-sha256:2f6c6ef858d098b478840d5101609f590b78d7b4590116abbccd399e7e45862b",
+"reviewer": {
+"session_id": "review-session:6d5832f3-83b8-4f4e-8b7a-6134cdd1d39f",
+"model": "GPT-5.6 Sol",
+"mode": "Pro",
+"fresh_independent_session": true
+},
+"reviewed_at": "2026-09-10T19:30:00+00:00",
+"findings": [
+{
+"dimension": "exact_target",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 72,
+"quote": "Alder is a positive case and produces the target effect within 2 seconds"
+}
+],
+"state_paths": [
+"/target/target_id",
+"/target/label",
+"/target/description",
+"/observations/0/target_id",
+"/hypotheses/0/target_id"
+],
+"rationale": "The state consistently represents the exact target as the target effect produced by Alder and does not substitute an adjacent property or outcome."
+},
+{
+"dimension": "case_and_comparison_roles",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 24,
+"quote": "Alder is a positive case"
+},
+{
+"start": 74,
+"end": 102,
+"quote": "Basin is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/0/case_id",
+"/cases/0/comparison_role",
+"/cases/1/case_id",
+"/cases/1/comparison_role",
+"/comparisons/0/positive_case_ids/0",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "Alder is represented as the positive case and Basin as the tolerated control, and the comparison links those same cases in the correct directions."
+},
+{
+"dimension": "negative_or_tolerated_comparator",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 74,
+"end": 102,
+"quote": "Basin is a tolerated control"
+}
+],
+"state_paths": [
+"/cases/1/comparison_role",
+"/comparisons/0/control_case_ids/0"
+],
+"rationale": "The tolerated comparator is explicitly preserved as Basin rather than omitted or recast as another positive case."
+},
+{
+"dimension": "high_information_qualifier",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 56,
+"end": 72,
+"quote": "within 2 seconds"
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/onset_seconds",
+"/observations/0/high_information_qualifier_keys/0"
+],
+"rationale": "The rapid-onset observation is retained and onset_seconds is explicitly designated as the high-information qualifier."
+},
+{
+"dimension": "timing",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 56,
+"end": 72,
+"quote": "within 2 seconds"
+},
+{
+"start": 264,
+"end": 307,
+"quote": "no sooner than 3,600 seconds after exposure"
+}
+],
+"state_paths": [
+"/observations/0/statement",
+"/observations/0/qualifiers/onset_seconds",
+"/hypotheses/0/statement",
+"/hypotheses/0/qualifier_predictions/0/qualifier_key",
+"/hypotheses/0/qualifier_predictions/0/operator",
+"/hypotheses/0/qualifier_predictions/0/value"
+],
+"rationale": "The state preserves both timing facts: Alder's target effect occurs within 2 seconds, while the material hypothesis predicts onset at or after 3,600 seconds. Their incompatibility is present in the source and should not be repaired away."
+},
+{
+"dimension": "amount_or_dose",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "The source specifies timing quantities but no amount, concentration, or dose."
+},
+{
+"dimension": "route_or_form",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No route of exposure or material formulation is specified in the source."
+},
+{
+"dimension": "feature_value",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 104,
+"end": 162,
+"quote": "Feature Iris is represented in Alder and absent from Basin"
+}
+],
+"state_paths": [
+"/features/0/case_id",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/case_id",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The stored feature values correctly encode Iris as true for Alder and false for Basin."
+},
+{
+"dimension": "predicate_semantics",
+"status": "distorted",
+"affects_hard_invariant": true,
+"source_spans": [
+{
+"start": 104,
+"end": 198,
+"quote": "Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator."
+}
+],
+"state_paths": [
+"/hypotheses/0/discriminator/feature_id",
+"/hypotheses/0/discriminator/operator",
+"/features/0/feature_id",
+"/features/0/value",
+"/features/1/feature_id",
+"/features/1/value"
+],
+"rationale": "The source proposes Iris's differing feature value as the discriminator: represented in Alder and absent from Basin. The discriminator instead uses operator "present", which asks whether an Iris feature record exists. Iris records exist for both Alder and Basin; Basin's record merely stores value false. Therefore the predicate does not discriminate Alder from the tolerated control despite the feature values doing so, and this can change a hard-gate result or permitted conclusion."
+},
+{
+"dimension": "dependency_or_provenance",
+"status": "faithful",
+"affects_hard_invariant": false,
+"source_spans": [
+{
+"start": 0,
+"end": 72,
+"quote": "Alder is a positive case and produces the target effect within 2 seconds"
+},
+{
+"start": 104,
+"end": 198,
+"quote": "Feature Iris is represented in Alder and absent from Basin, and is the proposed discriminator."
+},
+{
+"start": 199,
+"end": 308,
+"quote": "The material hypothesis also requires the target effect to begin no sooner than 3,600 seconds after exposure."
+}
+],
+"state_paths": [
+"/cases/0/provenance",
+"/cases/1/provenance",
+"/observations/0/provenance",
+"/features/0/provenance",
+"/features/1/provenance",
+"/hypotheses/0/qualifier_predictions/0/observation_id"
+],
+"rationale": "The factual case, observation, and feature records are marked source-grounded, and the hypothesis timing prediction is linked to the correct Alder target-effect observation and qualifier. No contrary dependency is introduced."
+},
+{
+"dimension": "other",
+"status": "not_applicable",
+"affects_hard_invariant": false,
+"source_spans": [],
+"state_paths": [],
+"rationale": "No additional source-semantic dimension outside the specified categories requires a separate finding."
+}
+]
+}
